@@ -1,0 +1,38 @@
+name: Python Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11.1
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - id: get_version
+      name: Extract version number from tag
+      uses: battila7/get-version-action@v2
+    - name: Set version environment variable
+      run: |
+        echo "xregistry_VERSION=${{steps.get_version.outputs.version-without-v}}" > $GITHUB_ENV
+    - name: Build Python package
+      run: |
+        python -m pip install --upgrade pip build wheel
+        python -m build --sdist --wheel --outdir dist
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*.tar.gz
+          dist/*.whl
+    

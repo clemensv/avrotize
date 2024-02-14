@@ -1,0 +1,117 @@
+[
+  {
+    "type": "record",
+    "name": "StringValue",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "value",
+        "type": "string",
+        "doc": "The string value."
+      }
+    ],
+    "doc": "The JSON representation for `StringValue` is JSON string."
+  },
+  {
+    "type": "record",
+    "name": "UInt64Value",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "value",
+        "type": "long",
+        "doc": "The uint64 value."
+      }
+    ],
+    "doc": "The JSON representation for `UInt64Value` is JSON string."
+  },
+  {
+    "type": "record",
+    "name": "UInt32Value",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "value",
+        "type": "int",
+        "doc": "The uint32 value."
+      }
+    ],
+    "doc": "Wrapper message for `uint32`. The JSON representation for `UInt32Value` is JSON number."
+  },
+  {
+    "type": "record",
+    "name": "FloatValue",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "value",
+        "type": "float",
+        "doc": "The float value."
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "BytesValue",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "value",
+        "type": "bytes",
+        "doc": "The bytes value."
+      }
+    ],
+    "doc": "Wrapper message for `bytes`. The JSON representation for `BytesValue` is JSON string."
+  },
+  {
+    "type": "record",
+    "name": "BoolValue",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "value",
+        "type": "boolean",
+        "doc": "The bool value."
+      }
+    ],
+    "doc": "The JSON representation for `BoolValue` is JSON `true` and `false`."
+  },
+  {
+    "type": "record",
+    "name": "Int32Value",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "value",
+        "type": "int",
+        "doc": "The int32 value."
+      }
+    ],
+    "doc": "Wrapper message for `int32`. The JSON representation for `Int32Value` is JSON number."
+  },
+  {
+    "type": "record",
+    "name": "Int64Value",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "value",
+        "type": "long",
+        "doc": "The int64 value."
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "DoubleValue",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "value",
+        "type": "double",
+        "doc": "The double value."
+      }
+    ],
+    "doc": "Wrapper message for `double`. The JSON representation for `DoubleValue` is JSON number."
+  }
+]

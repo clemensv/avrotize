@@ -1,0 +1,30 @@
+[build-system]
+build-backend = "flit_scm:buildapi"
+requires = ["flit_core>=3.2", "flit_scm", "wheel"]
+
+[project]
+name = "avrotize"
+dynamic = ["version"]
+authors = [
+    { name = "Clemens Vasters", email = "clemensv@microsoft.com"}
+]
+description = "Tools to convert from and to Avro Schema from various other schema languages."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "jsonpointer>=2.0",
+    "pytest>=7.2.1",
+    "jsonschema>=4.17.3",
+    "lark>=1.1.9"
+]
+
+[project.scripts]
+avrotize = "avrotize.cli:main"
+
+[tool.setuptools_scm]
+write_to = "avrotize/_version.py"

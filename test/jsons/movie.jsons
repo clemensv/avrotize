@@ -1,0 +1,33 @@
+{
+    "$id": "https://example.com/movie.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "A representation of a movie",
+    "type": "object",
+    "required": ["title", "director", "releaseDate"],
+    "properties": {
+        "title": {
+            "type": "string"
+        },
+        "director": {
+            "type": "string"
+        },
+        "releaseDate": {
+            "type": "string",
+            "format": "date"
+        },
+        "genre": {
+            "type": "string",
+            "enum": ["Action", "Comedy", "Drama", "Science Fiction"]
+        },
+        "duration": {
+            "type": "string"
+        },
+        "cast": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "additionalItems": false
+        }
+    }
+}

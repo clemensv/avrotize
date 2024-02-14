@@ -1,0 +1,14 @@
+tmp/
+avrotize/_version.py
+*.egg-info/
+build/
+**/.vscode/**
+!**/.vscode/launch.json
+__pycache__/
+.pytest_cache/
+dist/
+node_modules/
+out/
+**.vsix
+myenv1/
+.vscode/

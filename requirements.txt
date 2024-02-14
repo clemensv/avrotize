@@ -1,0 +1,15 @@
+certifi==2024.2.2
+charset-normalizer==3.3.2
+colorama==0.4.6
+docutils==0.20.1
+flit==3.9.0
+flit_core==3.9.0
+idna==3.6
+iniconfig==2.0.0
+lark==1.1.9
+packaging==23.2
+pluggy==1.4.0
+pytest==8.0.0
+requests==2.31.0
+tomli_w==1.0.0
+urllib3==2.2.0

@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "Struct",
+  "fields": [
+    {
+      "name": "value",
+      "type": {
+        "type": "map",
+        "values": [
+          "null",
+          "boolean",
+          { "type": "map", "values": "Struct" },
+          { "type": "array", "items": "Struct" },
+          "double",
+          "string"
+        ]
+      }
+    }
+  ]
+}

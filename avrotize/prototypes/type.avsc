@@ -1,0 +1,253 @@
+[
+  {
+    "name": "Syntax",
+    "type": "enum",
+    "namespace": "google.protobuf",
+    "symbols": [
+      "SYNTAX_PROTO2",
+      "SYNTAX_PROTO3",
+      "SYNTAX_EDITIONS"
+    ],
+    "doc": "The syntax in which a protocol buffer element is defined."
+  },
+  {
+    "name": "Cardinality",
+    "type": "enum",
+    "namespace": "google.protobuf",
+    "symbols": [
+      "CARDINALITY_UNKNOWN",
+      "CARDINALITY_OPTIONAL",
+      "CARDINALITY_REQUIRED",
+      "CARDINALITY_REPEATED"
+    ],
+    "doc": "Whether a field is optional, required, or repeated."
+  },
+  {
+    "type": "record",
+    "name": "EnumValue",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "name",
+        "type": "string",
+        "doc": "Enum value name."
+      },
+      {
+        "name": "number",
+        "type": "int",
+        "doc": "Enum value number."
+      },
+      {
+        "name": "options",
+        "type": {
+          "type": "array",
+          "items": "Option"
+        },
+        "doc": "Protocol buffer options."
+      }
+    ],
+    "doc": "Enum value definition."
+  },
+  {
+    "type": "record",
+    "name": "Field",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "kind",
+        "type": "Kind",
+        "doc": "The field type."
+      },
+      {
+        "name": "cardinality",
+        "type": "Cardinality",
+        "doc": "The field cardinality."
+      },
+      {
+        "name": "number",
+        "type": "int",
+        "doc": "The field number."
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "doc": "The field name."
+      },
+      {
+        "name": "type_url",
+        "type": "string",
+        "doc": "The field type URL, without the scheme, for message or enumeration types. Example: `\"type.googleapis.com/google.protobuf.Timestamp\"`."
+      },
+      {
+        "name": "oneof_index",
+        "type": "int",
+        "doc": "The index of the field type in `Type.oneofs`, for message or enumeration types. The first type has index 1; zero means the type is not in the list."
+      },
+      {
+        "name": "packed",
+        "type": "boolean",
+        "doc": "Whether to use alternative packed wire representation."
+      },
+      {
+        "name": "options",
+        "type": {
+          "type": "array",
+          "items": "Option"
+        },
+        "doc": "The protocol buffer options."
+      },
+      {
+        "name": "json_name",
+        "type": "string",
+        "doc": "The field JSON name."
+      },
+      {
+        "name": "default_value",
+        "type": "string",
+        "doc": "The string value of the default value of this field. Proto2 syntax only."
+      }
+    ],
+    "doc": "A single field of a message type."
+  },
+  {
+    "type": "record",
+    "name": "Option",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "name",
+        "type": "string",
+        "doc": "The option's name. For protobuf built-in options (options defined in descriptor.proto), this is the short name. For example, `\"map_entry\"`. For custom options, it should be the fully-qualified name. For example, `\"google.api.http\"`."
+      },
+      {
+        "name": "value",
+        "type": "Any",
+        "doc": "The option's value packed in an Any message. If the value is a primitive, the corresponding wrapper type defined in google/protobuf/wrappers.proto should be used. If the value is an enum, it should be stored as an int32 value using the google.protobuf.Int32Value type."
+      }
+    ],
+    "doc": "A protocol buffer option, which can be attached to a message, field, enumeration, etc."
+  },
+  {
+    "type": "record",
+    "name": "Enum",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "name",
+        "type": "string",
+        "doc": "Enum type name."
+      },
+      {
+        "name": "enumvalue",
+        "type": {
+          "type": "array",
+          "items": "EnumValue"
+        },
+        "doc": "Enum value definitions."
+      },
+      {
+        "name": "options",
+        "type": {
+          "type": "array",
+          "items": "Option"
+        },
+        "doc": "Protocol buffer options."
+      },
+      {
+        "name": "source_context",
+        "type": "SourceContext",
+        "doc": "The source context."
+      },
+      {
+        "name": "syntax",
+        "type": "Syntax",
+        "doc": "The source syntax."
+      },
+      {
+        "name": "edition",
+        "type": "string",
+        "doc": "The source edition string, only valid when syntax is SYNTAX_EDITIONS."
+      }
+    ],
+    "doc": "Enum type definition."
+  },
+  {
+    "name": "Kind",
+    "type": "enum",
+    "namespace": "google.protobuf",
+    "symbols": [
+      "TYPE_UNKNOWN",
+      "TYPE_DOUBLE",
+      "TYPE_FLOAT",
+      "TYPE_INT64",
+      "TYPE_UINT64",
+      "TYPE_INT32",
+      "TYPE_FIXED64",
+      "TYPE_FIXED32",
+      "TYPE_BOOL",
+      "TYPE_STRING",
+      "TYPE_GROUP",
+      "TYPE_MESSAGE",
+      "TYPE_BYTES",
+      "TYPE_UINT32",
+      "TYPE_ENUM",
+      "TYPE_SFIXED32",
+      "TYPE_SFIXED64",
+      "TYPE_SINT32",
+      "TYPE_SINT64"
+    ],
+    "doc": "Basic field types."
+  },
+  {
+    "type": "record",
+    "name": "Type",
+    "namespace": "google.protobuf",
+    "fields": [
+      {
+        "name": "name",
+        "type": "string",
+        "doc": "The fully qualified message name."
+      },
+      {
+        "name": "fields",
+        "type": {
+          "type": "array",
+          "items": "Field"
+        },
+        "doc": "The list of fields."
+      },
+      {
+        "name": "oneofs",
+        "type": {
+          "type": "array",
+          "items": "string"
+        },
+        "doc": "The list of types appearing in `oneof` definitions in this type."
+      },
+      {
+        "name": "options",
+        "type": {
+          "type": "array",
+          "items": "Option"
+        },
+        "doc": "The protocol buffer options."
+      },
+      {
+        "name": "source_context",
+        "type": "SourceContext",
+        "doc": "The source context."
+      },
+      {
+        "name": "syntax",
+        "type": "Syntax",
+        "doc": "The source syntax."
+      },
+      {
+        "name": "edition",
+        "type": "string",
+        "doc": "The source edition string, only valid when syntax is SYNTAX_EDITIONS."
+      }
+    ],
+    "doc": "A protocol buffer message type."
+  }
+]

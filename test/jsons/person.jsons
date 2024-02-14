@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Person",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "age": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "contact": {
+      "type": "object",
+      "oneOf": [
+        {
+          "title": "EmailContact",
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email"
+            }
+          },
+          "required": ["email"],
+          "additionalProperties": false
+        },
+        {
+          "title": "PhoneContact",
+          "properties": {
+            "phoneNumber": {
+              "type": "string"
+            }
+          },
+          "required": ["phoneNumber"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": ["name", "contact"],
+  "additionalProperties": false
+}

@@ -1,0 +1,30 @@
+name: Python Test
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.11.1
+    # we need to build the package for generating the _version.py file that isn't checked in
+    - name: Install dependencies and build package
+      run: |
+        python -m pip install --upgrade pip build wheel
+        python -m pip install -r requirements.txt
+        python -m build --sdist --wheel --outdir dist
+    - name: Run tests
+      run: |
+        pytest
+
