@@ -1,7 +1,6 @@
 import re
 import xml.etree.ElementTree as ET
 import json
-import xmlschema
 import re
 from urllib.parse import urlparse
 
