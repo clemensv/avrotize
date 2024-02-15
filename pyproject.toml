@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.scripts]
-avrotize = "avrotize.cli:main"
+avrotize = "avrotize.avrotize:main"
 
 [tool.setuptools_scm]
 write_to = "avrotize/_version.py"
