@@ -15,6 +15,9 @@ class TestProtoToAvro(unittest.TestCase):
         cwd = getcwd()        
         proto_path = path.join(cwd, "test", "gtfsrt", "gtfsrt.proto")
         avro_path = path.join(cwd, "test", "tmp", "gtfsrt.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         
         convert_proto_to_avro(proto_path, avro_path)           
 

@@ -15,5 +15,8 @@ class TestXsdToAvro(unittest.TestCase):
         cwd = os.getcwd()        
         xsd_path = os.path.join(cwd, "test", "xsd", "crmdata.xsd")
         avro_path = os.path.join(cwd, "test", "tmp", "crmdata.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         
         convert_xsd_to_avro(xsd_path, avro_path)           

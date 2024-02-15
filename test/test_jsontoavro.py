@@ -15,6 +15,9 @@ class TestJsonsToAvro(unittest.TestCase):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "address.jsons")
         avro_path = path.join(cwd, "test", "tmp", "address.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         
         convert_jsons_to_avro(jsons_path, avro_path, "example.com")           
 
@@ -22,6 +25,9 @@ class TestJsonsToAvro(unittest.TestCase):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "movie.jsons")
         avro_path = path.join(cwd, "test", "tmp", "movie.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         
         convert_jsons_to_avro(jsons_path, avro_path, "example.com")
 
@@ -29,6 +35,9 @@ class TestJsonsToAvro(unittest.TestCase):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "person.jsons")
         avro_path = path.join(cwd, "test", "tmp", "person.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         
         convert_jsons_to_avro(jsons_path, avro_path, "example.com")
 
@@ -36,6 +45,9 @@ class TestJsonsToAvro(unittest.TestCase):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "employee.jsons")
         avro_path = path.join(cwd, "test", "tmp", "employee.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         
         convert_jsons_to_avro(jsons_path, avro_path, "example.com")
 
@@ -43,6 +55,9 @@ class TestJsonsToAvro(unittest.TestCase):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "azurestorage.jsons")
         avro_path = path.join(cwd, "test", "tmp", "azurestorage.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         
         convert_jsons_to_avro(jsons_path, avro_path, "microsoft.azure.storage")
 
