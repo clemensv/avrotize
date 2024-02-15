@@ -29,8 +29,9 @@ def main():
     x2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
 
     args = parser.parse_args()
-
-    if args.command == 'p2a':
+    if args.command is None:
+        parser.print_help()
+    elif args.command == 'p2a':
         avro_schema_path = args.avsc
         proto_file_path = args.proto
         convert_proto_to_avro(proto_file_path, avro_schema_path)
