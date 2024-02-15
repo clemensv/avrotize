@@ -52,6 +52,11 @@ avrotize a2k --avsc <path_to_avro_schema_file> --kusto <path_to_kusto_kql_file> 
 avrotize a2tsql --avsc <path_to_avro_schema_file> --tsql <path_to_sql_file> [--record-type <record_type>]
 ```
 
+## Convert Avro schema to empty Parquet file
+
+```bash
+avrotize a2pq --avsc <path_to_avro_schema_file> --parquet <path_to_parquet_schema_file>
+```
 
 ## Contributing
 

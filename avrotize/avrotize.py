@@ -1,5 +1,6 @@
 import argparse
 from avrotize.avrotokusto import convert_avro_to_kusto
+from avrotize.avrotoparquet import convert_avro_to_parquet
 
 from avrotize.avrotoproto import convert_avro_to_proto
 from avrotize.avrototsql import convert_avro_to_tsql
@@ -42,6 +43,13 @@ def main():
     a2tsql_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
     a2tsql_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the T-SQL table')
 
+    a2pq_parser = subparsers.add_parser('a2pq', help='Convert Avro schema to Parquet schema')
+    a2pq_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2pq_parser.add_argument('--parquet', type=str, help='Path to the Parquet file', required=True)
+    a2pq_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
+    a2pq_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the Parquet file')
+
+
     args = parser.parse_args()
     if args.command is None:
         parser.print_help()
@@ -75,6 +83,12 @@ def main():
         tsql_file_path = args.tsql
         emit_cloud_events_columns = args.emit_cloud_events_columns
         convert_avro_to_tsql(avro_schema_path, avro_record_type, tsql_file_path, emit_cloud_events_columns)
+    elif args.command == 'a2pq':
+        avro_schema_path = args.avsc
+        avro_record_type = args.record_type
+        parquet_file_path = args.parquet
+        emit_cloud_events_columns = args.emit_cloud_events_columns
+        convert_avro_to_parquet(avro_schema_path, avro_record_type, parquet_file_path, emit_cloud_events_columns)  
     
 
 if __name__ == "__main__":
