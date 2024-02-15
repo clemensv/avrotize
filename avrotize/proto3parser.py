@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# adapted from https://github.com/khadgarmage/protoparser/blob/master/protoparser/parser.py
+# adapted from https://github.com/khadgarmage/protoparser
 
 from lark import Lark, Transformer, Tree, Token
 from collections import namedtuple

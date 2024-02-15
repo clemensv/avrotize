@@ -15,6 +15,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+# adapted from: https://github.com/xophiix/proto2parser/
+
 from lark import Lark, Transformer, Tree, Token
 from collections import namedtuple
 import typing
