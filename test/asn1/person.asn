@@ -1,0 +1,15 @@
+PersonModule DEFINITIONS ::= BEGIN
+
+Address ::= SEQUENCE {
+    street    IA5String,
+    city      IA5String,
+    postalCode INTEGER
+}
+
+Person ::= SEQUENCE {
+    name        IA5String,
+    age         INTEGER,
+    address     Address
+}
+
+END
