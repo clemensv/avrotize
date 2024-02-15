@@ -1,0 +1,81 @@
+{
+  "name": "TelemetryRecord",
+  "type": "record",
+  "namespace": "racing.fabrikam.com",
+  "doc": "Represents a telemetry record for a race car.",
+  "fields": [
+    {
+      "name": "id",
+      "type": ["null", "string"],
+      "doc": "The unique identifier of the telemetry record."
+    },
+    {
+      "name": "version",
+      "type": "int",
+      "doc": "The version of the telemetry record."
+    },
+    {
+      "name": "channel",
+      "type": "string",
+      "doc": "The channel of the telemetry record."
+    },
+    {
+      "name": "carId",
+      "type": ["null", "string"],
+      "doc": "The identifier of the race car."
+    },
+    {
+      "name": "intervalId",
+      "type": ["null", "string"],
+      "doc": "The interval identifier of the telemetry record."
+    },
+    {
+      "name": "sampleCount",
+      "type": "long",
+      "doc": "The sample count of the telemetry record."
+    },
+    {
+      "name": "frequency",
+      "type": "long",
+      "doc": "The frequency of the telemetry record."
+    },
+    {
+      "name": "created",
+      "type": ["null", "long"],
+      "doc": "The creation timestamp of the telemetry record."
+    },
+    {
+      "name": "timespan",
+      "type": {
+        "name": "RecordRange",
+        "type": "record",
+        "fields": [
+          {
+            "name": "started",
+            "type": "long",
+            "doc": "The start timestamp of the telemetry record."
+          },
+          {
+            "name": "ended",
+            "type": "long",
+            "doc": "The end timestamp of the telemetry record."
+          }
+        ]
+      },
+      "doc": "The timespan of the telemetry record."
+    },
+    {
+      "name": "data",
+      "type": {
+        "type": "array",
+        "items": "double"
+      },
+      "doc": "The telemetry data."
+    },
+    {
+      "name": "lapId",
+      "type": ["null", "string"],
+      "doc": "The identifier of the lap."
+    }
+  ]
+}

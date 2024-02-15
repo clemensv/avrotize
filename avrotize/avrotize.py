@@ -1,6 +1,8 @@
 import argparse
+from avrotize.avrotokusto import convert_avro_to_kusto
 
 from avrotize.avrotoproto import convert_avro_to_proto
+from avrotize.avrototsql import convert_avro_to_tsql
 from avrotize.jsonstoavro import convert_jsons_to_avro
 from avrotize.prototoavro import convert_proto_to_avro
 from avrotize.xsdtoavro import convert_xsd_to_avro
@@ -28,6 +30,18 @@ def main():
     x2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     x2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
 
+    a2k_parser = subparsers.add_parser('a2k', help='Convert Avro schema to Kusto schema')
+    a2k_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2k_parser.add_argument('--kusto', type=str, help='Path to the Kusto table', required=True)
+    a2k_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
+    a2k_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the Kusto table')
+
+    a2tsql_parser = subparsers.add_parser('a2tsql', help='Convert Avro schema to T-SQL schema')
+    a2tsql_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2tsql_parser.add_argument('--tsql', type=str, help='Path to the T-SQL table', required=True)
+    a2tsql_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
+    a2tsql_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the T-SQL table')
+
     args = parser.parse_args()
     if args.command is None:
         parser.print_help()
@@ -49,6 +63,19 @@ def main():
         avro_schema_path = args.avsc
         namespace = args.namespace
         convert_xsd_to_avro(xsd_schema_file_path, avro_schema_path, namespace=namespace)
+    elif args.command == 'a2k':
+        avro_schema_path = args.avsc
+        avro_record_type = args.record_type
+        kusto_file_path = args.kusto
+        emit_cloud_events_columns = args.emit_cloud_events_columns
+        convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, emit_cloud_events_columns)
+    elif args.command == 'a2tsql':
+        avro_schema_path = args.avsc
+        avro_record_type = args.record_type
+        tsql_file_path = args.tsql
+        emit_cloud_events_columns = args.emit_cloud_events_columns
+        convert_avro_to_tsql(avro_schema_path, avro_record_type, tsql_file_path, emit_cloud_events_columns)
+    
 
 if __name__ == "__main__":
     main()
