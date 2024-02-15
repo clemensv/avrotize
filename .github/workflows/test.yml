@@ -2,11 +2,9 @@ name: Python Test
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
   push:
-    branches: [ main ]
-    tags:
-      - 'v*'
+    branches: [ master ]
 
 jobs:
   test:
