@@ -1,4 +1,11 @@
-from os import getcwd, path
+import os
+import sys
+from os import path, getcwd
+
+current_script_path = os.path.abspath(__file__)
+project_root = os.path.dirname(os.path.dirname(current_script_path))
+sys.path.append(project_root)
+
 import unittest
 from unittest.mock import patch
 from avrotize.jsonstoavro import convert_jsons_to_avro
