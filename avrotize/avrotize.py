@@ -3,6 +3,7 @@ import argparse
 from avrotize.avrotoproto import convert_avro_to_proto
 from avrotize.jsonstoavro import convert_jsons_to_avro
 from avrotize.prototoavro import convert_proto_to_avro
+from avrotize.xsdtoavro import convert_xsd_to_avro
 
 
 def main():
@@ -22,6 +23,11 @@ def main():
     j2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     j2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
 
+    x2a_parser = subparsers.add_parser('x2a', help='Convert XSD schema to Avro schema')
+    x2a_parser.add_argument('--xsd', type=str, help='Path to the XSD schema file', required=True)
+    x2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    x2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
+
     args = parser.parse_args()
 
     if args.command == 'p2a':
@@ -37,6 +43,11 @@ def main():
         avro_schema_path = args.avsc
         namespace = args.namespace
         convert_jsons_to_avro(json_schema_file_path, avro_schema_path, namespace=namespace)
+    elif args.command == 'x2a':
+        xsd_schema_file_path = args.xsd
+        avro_schema_path = args.avsc
+        namespace = args.namespace
+        convert_xsd_to_avro(xsd_schema_file_path, avro_schema_path, namespace=namespace)
 
 if __name__ == "__main__":
     main()

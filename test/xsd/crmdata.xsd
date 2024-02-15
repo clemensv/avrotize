@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/vocabulary">
+
+  <!-- Address Type Definition -->
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="Street" type="xs:string"/>
+      <xs:element name="City" type="xs:string"/>
+      <xs:element name="State" type="xs:string"/>
+      <xs:element name="PostalCode" type="xs:string"/>
+      <xs:element name="Country" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Contact Type Definition -->
+  <xs:complexType name="ContactType">
+    <xs:sequence>
+      <xs:element name="FirstName" type="xs:string"/>
+      <xs:element name="LastName" type="xs:string"/>
+      <xs:element name="Email" type="xs:string"/>
+      <xs:element name="Phone" type="xs:string"/>
+      <xs:element name="Position" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Interaction Type Definition -->
+  <xs:complexType name="InteractionType">
+    <xs:sequence>
+      <xs:element name="Date" type="xs:date"/>
+      <xs:element name="Type" type="xs:string"/>
+      <xs:element name="Notes" type="xs:string"/>
+      <xs:element name="Contact" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Customer Type Definition -->
+  <xs:complexType name="CustomerType">
+    <xs:sequence>
+      <xs:element name="CustomerID" type="xs:string"/>
+      <xs:element name="CompanyName" type="xs:string"/>
+      <xs:element name="Website" type="xs:string" minOccurs="0"/>
+      <xs:element name="Address" type="AddressType" maxOccurs="unbounded"/>
+      <xs:element name="Contact" type="ContactType" maxOccurs="unbounded"/>
+      <xs:element name="Interaction" type="InteractionType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Root Element -->
+  <xs:element name="CRMData">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Customer" type="CustomerType" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

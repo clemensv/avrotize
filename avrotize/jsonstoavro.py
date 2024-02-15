@@ -1,8 +1,8 @@
 import json
+from avrotize.dependency_resolver import sort_messages_by_dependencies
 
 
-
-def json_schema_primitive_to_avro_type(json_primitive: str, format: str, enum: list, field_name: str) -> str:
+def json_schema_primitive_to_avro_type(json_primitive: str, format: str, enum: list, field_name: str, dependencies: list) -> str:
     """Convert a JSON-schema primitive type to Avro primitive type."""
     avro_primitive_map = {
         'string': 'string',
@@ -13,6 +13,7 @@ def json_schema_primitive_to_avro_type(json_primitive: str, format: str, enum: l
     if json_primitive in avro_primitive_map:
         avro_primitive = avro_primitive_map[json_primitive]
     else:
+        dependencies.append(json_primitive)
         avro_primitive = json_primitive
 
     if format:
@@ -48,37 +49,40 @@ def merge_schemas(schemas):
     return merged_schema
 
 
-def json_type_to_avro_type(json_type: str | dict, field_name: str, namespace : str) -> dict:
+def json_type_to_avro_type(json_type: str | dict, field_name: str, namespace : str, dependencies: list) -> dict:
     """Convert a JSON type to Avro type."""
     if isinstance(json_type, dict):
         t = json_type.get('type', 'object')
         if t == 'array':
-            avro_type = {"type": "array", "items": json_type_to_avro_type(json_type['items'], field_name, namespace)}
+            avro_type = {"type": "array", "items": json_type_to_avro_type(json_type['items'], field_name, namespace, dependencies)}
         elif 'oneOf' in json_type:
-            avro_type = [json_type_to_avro_type(one_type, field_name, namespace) for one_type in json_type['oneOf']]
+            avro_type = [json_type_to_avro_type(one_type, field_name, namespace, dependencies) for one_type in json_type['oneOf']]
         elif 'allOf' in json_type:
-            avro_type = merge_schemas([json_type_to_avro_type(schema, field_name, namespace) for schema in json_type['allOf']])
+            avro_type = merge_schemas([json_type_to_avro_type(schema, field_name, namespace, dependencies) for schema in json_type['allOf']])
         elif t == 'object':
-            avro_type = json_schema_object_to_avro_record(json_type, namespace)
+            avro_type = json_schema_object_to_avro_record(field_name, json_type, namespace)
         else:
-            avro_type = json_schema_primitive_to_avro_type(t, None, None, field_name)
+            avro_type = json_schema_primitive_to_avro_type(t, None, None, field_name, dependencies)
     else:
-        avro_type = json_schema_primitive_to_avro_type(json_type, None, None, field_name)
+        avro_type = json_schema_primitive_to_avro_type(json_type, None, None, field_name, dependencies)
     return avro_type
 
-def json_schema_object_to_avro_record(json_object: dict, namespace) -> dict:
+def json_schema_object_to_avro_record(name: str, json_object: dict, namespace) -> dict:
     """Convert a JSON schema object declaration to an Avro record."""
+
+    dependencies = []
     title = json_object.get('title')
-    avro_record = {'type': 'record', 'fields': [], 'namespace': namespace}
-    if title is not None:
-        avro_record['name'] = title
-    else:
-        avro_record['name'] = "record"
+    avro_record = {
+        'type': 'record', 
+        'name': title if title else name if name else 'record',
+        'namespace': namespace,
+        'fields': []
+    }
 
     required_fields = json_object.get('required', [])
     if 'properties' in json_object:
         for field_name, field in json_object['properties'].items():
-            avro_field_type = json_type_to_avro_type(field, field_name, namespace)
+            avro_field_type = json_type_to_avro_type(field, field_name, namespace, dependencies)
                 
             if avro_field_type is None:
                 raise ValueError(f"avro_field_type is None for field {field_name}")
@@ -87,7 +91,13 @@ def json_schema_object_to_avro_record(json_object: dict, namespace) -> dict:
                 avro_field = {"name": field_name, "type": ["null", avro_field_type]}
             else:
                 avro_field = {"name": field_name, "type": avro_field_type}
+            
+            if field.get('description'):
+                avro_field['doc'] = field['description']
+
             avro_record["fields"].append(avro_field)
+        if len(dependencies) > 0:
+            avro_record['dependencies'] = dependencies        
     else:
         avro_record = {
             "type": "map",
@@ -99,6 +109,8 @@ def json_schema_object_to_avro_record(json_object: dict, namespace) -> dict:
                 ]
             }       
 
+    if 'description' in json_object:
+        avro_record['doc'] = json_object['description']
     return avro_record
     
 
@@ -112,18 +124,18 @@ def jsons_to_avro(json_schema: dict | list, namespace: str) -> list:
         if not json_schema:
             raise ValueError('No definitions found in swagger file')
         for schema_name, schema in json_schema.items():
-            avro_schema_item = json_schema_object_to_avro_record(schema, namespace)
+            avro_schema_item = json_schema_object_to_avro_record(schema_name, schema, namespace)
             avro_schema_item['name'] = schema_name
             avro_schema.append(avro_schema_item)
-        return avro_schema
+        return sort_messages_by_dependencies(avro_schema)
     else:
         if not isinstance(json_schema, list):
             json_schema = [json_schema]
 
         for schema in json_schema:
             if schema['type'] == 'object':
-                avro_schema.append(json_schema_object_to_avro_record(schema, namespace))
-        return avro_schema
+                avro_schema.append(json_schema_object_to_avro_record(None, schema, namespace))
+        return sort_messages_by_dependencies(avro_schema)
     
 def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, namespace: str = None) -> list:
     """Convert JSON schema file to Avro schema file."""
@@ -131,5 +143,5 @@ def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, nam
         json_schema = json.load(schema_file)
     avro_schema = jsons_to_avro(json_schema, namespace)
     with open(avro_schema_path, 'w') as avro_file:
-        json.dump(avro_schema, avro_file, indent=4, sort_keys=True)
+        json.dump(avro_schema, avro_file, indent=4)
     return avro_schema

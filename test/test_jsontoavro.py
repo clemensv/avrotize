@@ -9,28 +9,28 @@ class TestJsonsToAvro(unittest.TestCase):
         jsons_path = path.join(cwd, "test", "jsons", "address.jsons")
         avro_path = path.join(cwd, "test", "tmp", "address.avsc")
         
-        convert_jsons_to_avro(jsons_path, avro_path)           
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")           
 
     def test_convert_movie_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "movie.jsons")
         avro_path = path.join(cwd, "test", "tmp", "movie.avsc")
         
-        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")
 
     def test_convert_person_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "person.jsons")
         avro_path = path.join(cwd, "test", "tmp", "person.avsc")
         
-        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")
 
     def test_convert_employee_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "employee.jsons")
         avro_path = path.join(cwd, "test", "tmp", "employee.avsc")
         
-        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")
 
     def test_convert_azurestorage_jsons_to_avro(self):
         cwd = getcwd()        
