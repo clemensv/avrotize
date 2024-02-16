@@ -21,5 +21,15 @@ class TestProtoToAvro(unittest.TestCase):
         
         convert_proto_to_avro(proto_path, avro_path)           
 
+    def test_convert_proto_with_import_to_avro(self):
+        cwd = getcwd()        
+        proto_path = path.join(cwd, "test", "proto", "user.proto")
+        avro_path = path.join(cwd, "test", "tmp", "user.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_proto_to_avro(proto_path, avro_path)
+
 if __name__ == '__main__':
     unittest.main()

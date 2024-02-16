@@ -61,6 +61,68 @@ class TestJsonsToAvro(unittest.TestCase):
         
         convert_jsons_to_avro(jsons_path, avro_path, "microsoft.azure.storage")
 
+    def test_convert_azurestorage_remote_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = "https://raw.githubusercontent.com:443/Azure/azure-rest-api-specs/master/specification/eventgrid/data-plane/Microsoft.Storage/stable/2018-01-01/Storage.json"
+        avro_path = path.join(cwd, "test", "tmp", "azurestorage.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_jsons_to_avro(jsons_path, avro_path, "microsoft.azure.storage")
+
+    def test_convert_azurestorage_remote_deeplink_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = "https://raw.githubusercontent.com:443/Azure/azure-rest-api-specs/master/specification/eventgrid/data-plane/Microsoft.Storage/stable/2018-01-01/Storage.json#/definitions/StorageLifecyclePolicyCompletedEventData"
+        avro_path = path.join(cwd, "test", "tmp", "azurestoragedeep.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_jsons_to_avro(jsons_path, avro_path, "microsoft.azure.storage")
+
+    def test_convert_addlprops1_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "addlprops1.json")
+        avro_path = path.join(cwd, "test", "tmp", "addlprops1.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")           
+
+    def test_convert_addlprops2_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "addlprops2.json")
+        avro_path = path.join(cwd, "test", "tmp", "addlprops2.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")
+
+    def test_convert_patternprops1_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "patternprops1.json")
+        avro_path = path.join(cwd, "test", "tmp", "patternprops1.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")
+
+    def test_convert_patternprops2_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "patternprops2.json")
+        avro_path = path.join(cwd, "test", "tmp", "patternprops2.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")
+
+
+
 
 if __name__ == '__main__':
     unittest.main()

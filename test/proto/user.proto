@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package user;
+
+import "address.proto";
+
+message User {
+  string name = 1;
+  int32 age = 2;
+  address.Address address = 3;
+}

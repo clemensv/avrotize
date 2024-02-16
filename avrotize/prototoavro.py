@@ -70,7 +70,7 @@ def convert_proto_to_avro(proto_file_path: str, avro_schema_path: str):
                         imported_types[t["namespace"]+"."+t["name"]] = t                
             else:
                 # find the path relative to the current directory
-                cwd = os.getcwd()
+                cwd = os.path.join(os.getcwd(),os.path.dirname(proto_file_path))
                 import_path = os.path.join(cwd, import_)
                 # raise an exception if the imported file does not exist
                 if not os.path.exists(import_path):

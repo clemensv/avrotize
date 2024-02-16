@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Only Pattern Properties",
+    "type": "object",
+    "patternProperties": {
+      "^data_[0-9]+": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "integer"
+          }
+        },
+        "required": ["value", "timestamp"],
+        "additionalProperties": false
+      }
+    },
+    "additionalProperties": false
+  }
+  

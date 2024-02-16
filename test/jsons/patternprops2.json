@@ -1,0 +1,29 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Properties with Pattern Properties",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "integer"
+      },
+      "name": {
+        "type": "string"
+      }
+    },
+    "patternProperties": {
+      "^feature_[a-zA-Z]+": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": ["description", "active"],
+        "additionalProperties": false
+      }
+    }
+  }
+  
