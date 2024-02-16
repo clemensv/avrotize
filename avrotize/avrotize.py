@@ -36,19 +36,19 @@ def main():
     a2k_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2k_parser.add_argument('--kusto', type=str, help='Path to the Kusto table', required=True)
     a2k_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
-    a2k_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the Kusto table')
+    a2k_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the Kusto table', default=False)
 
     a2tsql_parser = subparsers.add_parser('a2tsql', help='Convert Avro schema to T-SQL schema')
     a2tsql_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2tsql_parser.add_argument('--tsql', type=str, help='Path to the T-SQL table', required=True)
     a2tsql_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
-    a2tsql_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the T-SQL table')
+    a2tsql_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the T-SQL table', default=False)
 
     a2pq_parser = subparsers.add_parser('a2pq', help='Convert Avro schema to Parquet schema')
     a2pq_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2pq_parser.add_argument('--parquet', type=str, help='Path to the Parquet file', required=True)
     a2pq_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
-    a2pq_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the Parquet file')
+    a2pq_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the Parquet file', default=False)
 
     asn2a_parser = subparsers.add_parser('asn2a', help='Convert ASN.1 schema to Avro schema')
     asn2a_parser.add_argument('--asn', type=str, help='Path to the ASN.1 schema file', required=True)

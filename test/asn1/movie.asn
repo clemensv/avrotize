@@ -1,0 +1,53 @@
+MovieSchema DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+-- Defines the structure for a movie within the schema
+Movie ::= SEQUENCE {
+    title UTF8String (SIZE (1..100)), -- Movie title with a length restriction for brevity and clarity
+    director Person, -- Reference to the Person structure, specifying the movie's director
+    releaseDate DATE, -- The official release date of the movie
+    genre Genre OPTIONAL, -- Genre of the movie, chosen from a predefined list
+    duration Duration, -- Duration of the movie, including hours and minutes
+    rating MovieRating OPTIONAL, -- The movie's rating, indicating suitability for different audiences
+    cast SEQUENCE SIZE (0..50) OF Person OPTIONAL, -- A list of cast members, limited to 50 to avoid excessive length
+    productionDetails ProductionDetails OPTIONAL -- Additional details about the movie's production
+}
+
+-- Represents an individual involved in the movie, either in cast or crew
+Person ::= SEQUENCE {
+    name UTF8String (SIZE (1..100)), -- The person's name, with length restrictions
+    role UTF8String OPTIONAL, -- The person's role in the movie, e.g., actor, producer (optional)
+    birthDate DATE OPTIONAL, -- The person's birth date (optional)
+    nationality UTF8String OPTIONAL -- The person's nationality (optional)
+}
+
+-- Enumerated list of possible movie genres
+Genre ::= ENUMERATED {
+    action (0), -- Action genre
+    comedy (1), -- Comedy genre
+    drama (2), -- Drama genre
+    scienceFiction (3), -- Science Fiction genre
+    documentary (4), -- Documentary genre
+    thriller (5), -- Thriller genre
+    horror (6) -- Horror genre
+}
+
+-- Structure defining the duration of the movie
+Duration ::= SEQUENCE {
+    hours INTEGER (0..99), -- Number of hours, with a maximum for practicality
+    minutes INTEGER (0..59) -- Number of minutes, constrained to valid time representation
+}
+
+-- Structure for the movie's rating, including category and age restrictions
+MovieRating ::= SEQUENCE {
+    category UTF8String, -- The rating category (e.g., PG, PG-13, R)
+    minimumAge INTEGER OPTIONAL -- The minimum age recommended to watch the movie (optional)
+}
+
+-- Details about the production of the movie
+ProductionDetails ::= SEQUENCE {
+    productionCompany UTF8String, -- The name of the company that produced the movie
+    budget INTEGER OPTIONAL, -- The total budget of the movie in USD (optional)
+    filmingLocations SEQUENCE OF UTF8String OPTIONAL -- List of locations where the movie was filmed (optional)
+}
+
+END
