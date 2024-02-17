@@ -1,0 +1,26 @@
+{
+    "type": "record",
+    "name": "Properties_with_Additional_Properties",
+    "namespace": "C:\\git\\avrotize\\test\\jsons\\addlprops2",
+    "fields": [
+        {
+            "name": "id",
+            "type": [
+                "null",
+                "int"
+            ]
+        },
+        {
+            "name": "name",
+            "type": [
+                "null",
+                "string"
+            ]
+        },
+        {
+            "name": "additionalProperties",
+            "type": "map",
+            "values": "string"
+        }
+    ]
+}

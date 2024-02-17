@@ -5,6 +5,7 @@
   "properties": {
     "personDetails": {
       "type": "object",
+      "title": "PersonDetails",
       "allOf": [
         {
           "title": "BasicInformation",
@@ -17,7 +18,10 @@
               "minimum": 18
             }
           },
-          "required": ["name", "age"]
+          "required": [
+            "name",
+            "age"
+          ]
         },
         {
           "title": "ContactInformation",
@@ -30,23 +34,53 @@
               "type": "string"
             }
           },
-          "required": ["email", "phoneNumber"]
+          "required": [
+            "email",
+            "phoneNumber"
+          ]
         }
       ]
     },
     "employmentDetails": {
       "type": "object",
+      "description": "The employment details",
       "properties": {
-        "employeeId": {
-          "type": "string"
-        },
-        "department": {
+        "badgeId": {
           "type": "string"
         }
       },
-      "required": ["employeeId", "department"]
+      "oneOf": [
+        {
+          "properties": {
+            "employeeId": {
+              "type": "string"
+            },
+            "department": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "employeeId",
+            "department"
+          ]
+        },
+        {
+          "properties": {
+            "probationPeriodEndDate": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "required": [
+            "probationPeriodEndDate"
+          ]
+        }
+      ]
     }
   },
-  "required": ["personDetails", "employmentDetails"],
+  "required": [
+    "personDetails",
+    "employmentDetails"
+  ],
   "additionalProperties": false
 }
