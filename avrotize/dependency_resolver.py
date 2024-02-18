@@ -16,22 +16,38 @@ def inline_dependencies_of(avro_schema, record):
 
 def sort_messages_by_dependencies(avro_schema):
     
+    if all(isinstance(record, str) for record in avro_schema):
+        return avro_schema
+
     sorted_messages = []
     while avro_schema:
         found = False
         for record in avro_schema:
+            if not isinstance(record, dict):
+                sorted_messages.append(record)
+                avro_schema.remove(record)
+                found = True
+                continue
+            for field in record.get('fields', []):
+                if isinstance(field['type'], dict):
+                    field['type'] = sort_messages_by_dependencies([field['type']])[0]
+                elif isinstance(field['type'], list):
+                    field['type'] = sort_messages_by_dependencies(field['type'])            
+            
             if not any(record.get('name') in other_record.get('dependencies', []) 
-                       or (record.get('namespace','')+'.'+record.get('name')) in other_record.get('dependencies', []) for other_record in avro_schema):
+                       or (record.get('namespace','')+'.'+record.get('name')) in other_record.get('dependencies', []) for other_record in [x for x in avro_schema if isinstance(x, dict) and 'name' in x]):
                 if 'dependencies' in record:
                     del record['dependencies']
                 sorted_messages.append(record)
                 avro_schema.remove(record)
                 found = True
+                
         # If there are no records without dependencies, so we just take one record and move on
         if not found:
             record = avro_schema[0]
-            swap_record_dependencies(avro_schema, record)
-
+            if 'dependencies' in record:
+                swap_record_dependencies(avro_schema, record)
+        
     sorted_messages.reverse()
     return sorted_messages
 

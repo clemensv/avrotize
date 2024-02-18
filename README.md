@@ -1,5 +1,7 @@
 # Avrotize
 
+> This tool is under very active development. Don't use it.
+
 Avrotize is a command-line tool that allows you to convert between different
 schema formats. It is designed to be easy to use and flexible, supporting a
 variety of use cases.
@@ -15,6 +17,14 @@ Supported conversions from Avro Schema:
 - T-SQL Table Definition (SQL)
 - Apache Parquet files
 - Protocol Buffers
+
+Mind that many conversions are lossy and will not transfer all information to
+the target schema. This is very much by design. The key point of this tool is to
+use a "sane" schema format (Avro Schema) as the pivot point to and from which
+other schema formats are converted. The tool tries to preserve the most
+important information of the source schema format, but not all.
+
+The conversion issues are documented below.
 
 ## Installation
 
@@ -34,6 +44,14 @@ Avrotize provides several commands for converting between different schema forma
 avrotize p2a --proto <path_to_proto_file> --avsc <path_to_avro_schema_file>
 ```
 
+Conversion issues:
+* Protobuf allows any scalar type as key in a map, Avro does not. When converting
+  from Proto to Avro, the type information for the map keys is ignored.
+* The tool embeds all 'well-known' Protobuf 3.0 types in Avro format and injects
+  them as needed when the respective types are included. Only the Timestamp type is 
+  mapped to the Avro logical type 'timestamp-millis'. The rest of the well-known
+  Protobuf types are kept as Avro record types with the same field names and types.
+
 ### Convert Avro schema to Proto schema
 
 ```bash
@@ -45,6 +63,26 @@ avrotize a2p --proto <path_to_proto_file> --avsc <path_to_avro_schema_file>
 ```bash
 avrotize j2a --jsons <path_to_json_schema_file> --avsc <path_to_avro_schema_file> [--namespace <avro_schema_namespace>]
 ```
+
+Conversion issues:
+* JSON Schema is a very flexible schema format and extremely permissive. That 
+  results in many valid JSON schema documents for which it is difficult to 
+  translate all definitions into Avro Schema. Very large schemas with many 
+  cross references ($ref) throughout the schema may have circular references
+  that cannot be resolved in Avro schema. 
+* Untyped properties are mapped to an Avro union that allows scalar values or
+  two levels of array and/or map nesting.
+* JSON Schema allows for arbitrary property names, Avro does not. When converting
+  from JSON to Avro, the property names in objects are sanitized by replacing 
+  any non-alphanumeric characters with underscores and prefixing the result with an 
+  underscore. This may lead to name conflicts and the tool will simply append a 
+  unique index to the name to avoid naming conflicts.
+* All external references are resolved and embedded in the Avro schema. The tool 
+  does not support maintaining external references to other schemas. To perform
+  a conversion, all external $ref references have to be resolvable by the tool.
+* When a JSON schema file does not define a top-level type, the tool will look for 
+  a 'definitions' section and emit all definitions as a union of the types defined.
+  This also works with Swagger and OpenAPI files.
 
 ### Convert XML Schema (XSD) to Avro schema
 
