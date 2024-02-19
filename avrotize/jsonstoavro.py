@@ -578,7 +578,10 @@ def jsons_to_avro(json_schema: dict | list, namespace: str, base_uri: str) -> li
     record_stack = []
 
     parsed_url = urlparse(base_uri)
-    if 'swagger' in json_schema or ('definitions' in json_schema and not 'type' in json_schema):
+    schema_name = 'record'
+    if 'type' in json_schema or 'allOf' in json_schema or 'oneOf' in json_schema or 'anyOf' in json_schema or 'properties' in json_schema:
+        process_definition(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, json_schema)
+    elif 'swagger' in json_schema or ('definitions' in json_schema and not 'type' in json_schema):
         json_schema_defs = json_schema.get('definitions', {})
         if not json_schema_defs:
             raise ValueError('No definitions found in swagger file')
@@ -587,12 +590,10 @@ def jsons_to_avro(json_schema: dict | list, namespace: str, base_uri: str) -> li
                 process_definition(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, schema)
             else:
                 process_definition_list(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, schema.copy())
+    elif isinstance(json_schema, list):
+        process_definition_list(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, json_schema)
     else:
-        schema_name = 'record'
-        if 'type' in json_schema or 'allOf' in json_schema or 'oneOf' in json_schema or 'anyOf' in json_schema or 'properties' in json_schema:
-            process_definition(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, json_schema)
-        else:
-            process_definition_list(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, json_schema)
+        raise ValueError('No schema found in input file')
     
     avro_schema = sort_messages_by_dependencies(avro_schema)
     

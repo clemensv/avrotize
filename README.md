@@ -74,6 +74,7 @@ Conversion issues:
   validation as JSON Schema.
 * Very large schemas with many cross references (`$ref`) throughout the schema may
   have circular references that cannot be fully resolved in Avro Schema.
+* Schemas with top-level 'allOf', 'anyOf', 'oneOf' keywords are not supported.
 * JSON type unions as well as `allOf`, `anyOf`, and `oneOf` expressions that are
   shared and referenced by a `$ref` expression are mapped to a record type in
   Avro with a field `value` of the type union.  
