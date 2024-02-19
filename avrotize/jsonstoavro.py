@@ -661,7 +661,9 @@ def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, nam
         avro_schema = avro_schema[0]
 
     # create the directory for the Avro schema file if it doesn't exist
-    os.makedirs(os.path.dirname(avro_schema_path), exist_ok=True)
+    dir = os.path.dirname(avro_schema_path)
+    if dir != '' and not os.path.exists(dir):
+        os.makedirs(dir, exist_ok=True)
     with open(avro_schema_path, 'w') as avro_file:
         json.dump(avro_schema, avro_file, indent=4)
     return avro_schema
