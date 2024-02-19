@@ -26,7 +26,6 @@ def sort_messages_by_dependencies(avro_schema):
             if not isinstance(record, dict):
                 sorted_messages.append(record)
                 avro_schema.remove(record)
-                found = True
                 continue
             for field in record.get('fields', []):
                 if isinstance(field['type'], dict):
@@ -43,7 +42,7 @@ def sort_messages_by_dependencies(avro_schema):
                 found = True
                 
         # If there are no records without dependencies, so we just take one record and move on
-        if not found:
+        if len(avro_schema) > 0 and not found:
             record = avro_schema[0]
             if 'dependencies' in record:
                 swap_record_dependencies(avro_schema, record)

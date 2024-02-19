@@ -170,7 +170,7 @@ class TestJsonsToAvro(unittest.TestCase):
         if not os.path.exists(dir):
             os.makedirs(dir)
         convert_jsons_to_avro(jsons_path, avro_path)
-        #self.validate_avro_schema(avro_path)
+        self.validate_avro_schema(avro_path)
     
     def test_convert_jfrog_pipelines_to_avro(self):
         cwd = getcwd()        

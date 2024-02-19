@@ -64,24 +64,40 @@ avrotize a2p --proto <path_to_proto_file> --avsc <path_to_avro_schema_file>
 avrotize j2a --jsons <path_to_json_schema_file> --avsc <path_to_avro_schema_file> [--namespace <avro_schema_namespace>]
 ```
 
+JSON Schema is a very flexible schema format and extremely permissive. That
+results in many valid JSON schema documents for which it is difficult to
+translate all definitions into Avro Schema.
+
 Conversion issues:
-* JSON Schema is a very flexible schema format and extremely permissive. That 
-  results in many valid JSON schema documents for which it is difficult to 
-  translate all definitions into Avro Schema. Very large schemas with many 
-  cross references ($ref) throughout the schema may have circular references
-  that cannot be resolved in Avro schema. 
-* Untyped properties are mapped to an Avro union that allows scalar values or
-  two levels of array and/or map nesting.
+* All field constraints and validations associated with the JSON Schema are
+  ignored in the translation to Avro. Avro does not support the same level of
+  validation as JSON Schema.
+* Very large schemas with many cross references (`$ref`) throughout the schema may
+  have circular references that cannot be fully resolved in Avro Schema.
+* JSON type unions as well as `allOf`, `anyOf`, and `oneOf` expressions that are
+  shared and referenced by a `$ref` expression are mapped to a record type in
+  Avro with a field `value` of the type union.  
+* JSON enums are converted to the Avro `enum` type. Numeric values are not
+  supported by Avro and the tool will ignore them. Numeric string values are
+  prefixed with an underscore and the result is sanitized to be a valid Avro
+  enum name.
+* Untyped object properties (without `type` attribute) are mapped to an Avro
+  union that allows scalar values or two levels of array and/or map nesting.
+* Conditional schema validation is not translated to Avro. The tool will ignore
+  all `if`/`then`/`else`, `dependentRequired`, and `dependentSchemas` keywords
+  and the resulting Avro schema will not enforce the conditional validation.
 * JSON Schema allows for arbitrary property names, Avro does not. When converting
   from JSON to Avro, the property names in objects are sanitized by replacing 
   any non-alphanumeric characters with underscores and prefixing the result with an 
   underscore. This may lead to name conflicts and the tool will simply append a 
   unique index to the name to avoid naming conflicts.
-* All external references are resolved and embedded in the Avro schema. The tool 
-  does not support maintaining external references to other schemas. To perform
-  a conversion, all external $ref references have to be resolvable by the tool.
+* All `patternProperties` are converted into a fields holding arrays of records.
+* All external references (`$ref`) are resolved and embedded in the Avro schema.
+  The tool does not support maintaining external references to other schemas. To
+  perform a conversion, all external $ref references have to be resolvable by
+  the tool.
 * When a JSON schema file does not define a top-level type, the tool will look for 
-  a 'definitions' section and emit all definitions as a union of the types defined.
+  a `definitions` section and emit all definitions as a union of the types defined.
   This also works with Swagger and OpenAPI files.
 
 ### Convert XML Schema (XSD) to Avro schema
@@ -90,11 +106,29 @@ Conversion issues:
 avrotize x2a --xsd <path_to_xsd_file> --avsc <path_to_avro_schema_file> [--namespace <avro_schema_namespace>]
 ```
 
+Conversion issues:
+* All XML Schema elements are mapped to Avro record types with fields, whereby
+  both elements and attributes become fields in the record.
+* `simpleType` declarations and all type constraints are ignored. Avro does not
+  support the same level of validation as XML Schema.
+
+
 ### Convert Avro schema to Kusto table declaration
 
 ```bash
 avrotize a2k --avsc <path_to_avro_schema_file> --kusto <path_to_kusto_kql_file> [--record-type <record_type>]
 ```
+
+Conversion issues:
+* Only the Avro `record` type can be mapped to a Kusto table. If the Avro schema
+  contains other types (like `enum` or `array`), the tool will ignore them.
+* Only the first `record` type in the Avro schema is converted to a Kusto table.
+  If the Avro schema contains other `record` types, they will be ignored. The
+  `--record-type` option can be used to specify which `record` type to convert.
+* The fields of the record are mapped to columns in the Kusto table. Fields that
+  are records or arrays or maps are mapped to columns of type `dynamic` in the
+  Kusto table.
+
 
 ### Convert Avro schema to T-SQL table definition
 
@@ -102,11 +136,27 @@ avrotize a2k --avsc <path_to_avro_schema_file> --kusto <path_to_kusto_kql_file> 
 avrotize a2tsql --avsc <path_to_avro_schema_file> --tsql <path_to_sql_file> [--record-type <record_type>]
 ```
 
+Conversion issues:
+* Only the Avro `record` type can be mapped to a T-SQL table. If the Avro schema
+  contains other types (like `enum` or `array`), the tool will ignore them.
+* Only the first `record` type in the Avro schema is converted to a T-SQL table.
+  If the Avro schema contains other `record` types, they will be ignored. The
+  `--record-type` option can be used to specify which `record` type to convert.
+* The fields of the record are mapped to columns in the T-SQL table. Fields that
+  are records or arrays or maps are mapped to columns of type `varchar(max)` in
+  the T-SQL table and it's assumed for them to hold JSON data.
+* The emitted script sets extended properties to the columns with the Avro schema
+  definition of the field in a JSON format. This allows for easy introspection of
+  the serialized Avro schema in the field definition.
+
 ## Convert Avro schema to empty Parquet file
 
 ```bash
 avrotize a2pq --avsc <path_to_avro_schema_file> --parquet <path_to_parquet_schema_file>
 ```
+
+Conversion issues:
+* The emitted Parquet file contains only the schema, no data rows.
 
 ## Convert ASN.1 schema to Avro schema
 
