@@ -387,7 +387,6 @@ def json_type_to_avro_type(json_type: str | dict, record_name: str, field_name: 
         if json_object_type:
             if json_object_type == 'array':
                 if 'items' in json_type:
-                    print(f'info: {record_name}.{field_name} has items type specified')
                     avro_type = merge_schemas([avro_type, {"type": "array", "items": json_type_to_avro_type(json_type['items'], record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)}], avro_schema, avro_type.get('name', qualified_name))
                 else:
                     avro_type = merge_schemas([avro_type, {"type": "array", "items": generic_type()}], avro_schema, avro_type.get('name', qualified_name))
