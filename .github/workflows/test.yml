@@ -22,8 +22,14 @@ jobs:
         python -m pip install --upgrade pip build wheel
         python -m pip install -r requirements.txt
         python -m build --sdist --wheel --outdir dist
-    - name: Run tests
-      working-directory: /
-      run: |
-        pytest
+    - name: Install dependencies
+      run: pip install pytest pytest-md pytest-emoji
+    - name: Run pytest
+      uses: pavelzw/pytest-action@v2
+      with:
+        verbose: true
+        emoji: true
+        job-summary: false
+        click-to-expand: true
+        report-title: 'Test Report'
 

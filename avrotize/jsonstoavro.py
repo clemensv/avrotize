@@ -191,6 +191,8 @@ def fetch_content(url: str | ParseResult):
     elif scheme == 'file':
         # Remove the leading 'file://' from the path for compatibility
         file_path = parsed_url.netloc
+        if not file_path:
+            file_path = parsed_url.path
         # On Windows, a file URL might start with a '/' but it's not part of the actual path
         if os.name == 'nt' and file_path.startswith('/'):
             file_path = file_path[1:]
@@ -346,7 +348,7 @@ def json_type_to_avro_type(json_type: str | dict, record_name: str, field_name: 
                     # registering in imported_types ahead of resolving to prevent circular references
                     imported_types[ref] = type_name
                     # resolve type
-                    avro_type = json_type_to_avro_type(resolved_json_type, type_name, None, namespace, dependencies, json_schema, new_base_uri, avro_schema, record_stack)
+                    avro_type = json_type_to_avro_type(resolved_json_type, type_name, field_name, namespace, dependencies, json_schema, new_base_uri, avro_schema, record_stack)
                     if isinstance(avro_type, list):
                         avro_type = {
                             "type": "record",
@@ -461,7 +463,7 @@ def json_schema_object_to_avro_record(name: str, json_object: dict, namespace: s
             if avro_field_type is None:
                 raise ValueError(f"avro_field_type is None for field {field_name}")
             
-            if 'type' in avro_field_type and not avro_field_type['type'] in ["array", "map", "record", "enum", "fixed"]:
+            if isinstance(avro_field_type,dict) and 'type' in avro_field_type and not avro_field_type['type'] in ["array", "map", "record", "enum", "fixed"]:
                 avro_field_type = avro_field_type['type']               
             
             if not field_name in required_fields and not 'null' in avro_field_type:
