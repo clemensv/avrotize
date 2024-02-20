@@ -24,7 +24,7 @@ dependencies = [
     "pyarrow>=15.0.0",
     "asn1tools>=0.166.0",
     "jsonpointer>=2.4",
-    "avro>=1.11.3",
+    "fastavro>=1.9.4"
 ]
 
 [project.scripts]
