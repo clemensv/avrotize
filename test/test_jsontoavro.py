@@ -1,7 +1,7 @@
 import os
 import sys
 from os import path, getcwd
-import avro.schema
+from fastavro.schema import load_schema
 import pytest
 from avrotize.jsonstoavro import convert_jsons_to_avro
 
@@ -16,7 +16,7 @@ from unittest.mock import patch
 class TestJsonsToAvro(unittest.TestCase):
 
     def validate_avro_schema(self, avro_file_path):
-        avro.schema.parse(open(avro_file_path, "rb").read())
+        load_schema(avro_file_path)
                 
 
     def test_convert_address_jsons_to_avro(self):
@@ -143,16 +143,16 @@ class TestJsonsToAvro(unittest.TestCase):
         self.validate_avro_schema(avro_path)
 
     # TODO: is causing a recursion error
-    # def test_convert_avro_avsc_jsons_to_avro(self):
-    #     cwd = getcwd()        
-    #     jsons_path = path.join(cwd, "test", "jsons", "avro-avsc.json")
-    #     avro_path = path.join(cwd, "test", "tmp", "avro-avsc.json.avsc")
-    #     dir = os.path.dirname(avro_path)
-    #     if not os.path.exists(dir):
-    #         os.makedirs(dir)
+    def test_convert_avro_avsc_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "avro-avsc.json")
+        avro_path = path.join(cwd, "test", "tmp", "avro-avsc.json.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         
-    #     convert_jsons_to_avro(jsons_path, avro_path)
-        #self.validate_avro_schema(avro_path)
+        convert_jsons_to_avro(jsons_path, avro_path)
+        self.validate_avro_schema(avro_path)
 
     def test_convert_clouidify_jsons_to_avro(self):
         cwd = getcwd()        
@@ -183,7 +183,7 @@ class TestJsonsToAvro(unittest.TestCase):
         if not os.path.exists(dir):
             os.makedirs(dir)
         convert_jsons_to_avro(jsons_path, avro_path)
-        #self.validate_avro_schema(avro_path)
+        self.validate_avro_schema(avro_path)
 
     def test_convert_kubernetes_definitions_jsons_to_avro(self):
         cwd = getcwd()        
@@ -194,6 +194,16 @@ class TestJsonsToAvro(unittest.TestCase):
             os.makedirs(dir)
         convert_jsons_to_avro(jsons_path, avro_path)
         #self.validate_avro_schema(avro_path)
+
+    def test_convert_travis_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "travis.json")
+        avro_path = path.join(cwd, "test", "tmp", "travis.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        convert_jsons_to_avro(jsons_path, avro_path)
+        self.validate_avro_schema(avro_path)
 
 
         
