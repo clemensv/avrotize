@@ -30,3 +30,5 @@ class TestAvroToTSQL(unittest.TestCase):
             os.makedirs(dir)
         
         convert_avro_to_tsql(avro_path, None, kql_path, True)
+
+    

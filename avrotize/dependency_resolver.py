@@ -1,5 +1,8 @@
 # sort the dependencies
 
+import copy
+
+
 def inline_dependencies_of(avro_schema, record):
     for dependency in record.get('dependencies', []):
         dependency_type = next((x for x in avro_schema if x['name'] == dependency or x.get('namespace','')+'.'+x['name'] == dependency), None)
@@ -7,11 +10,10 @@ def inline_dependencies_of(avro_schema, record):
             continue
         deps = record.get('dependencies', [])
         for field in record['fields']:                        
-            if record['name'] != dependency:
+            if record['namespace']+'.'+record['name'] != dependency:
                 swap_dependency_type(avro_schema, field, dependency, dependency_type, deps)
-        record['dependencies'] = [dep for dep in deps if dep != record['name'] and record.get('namespace','')+'.'+record['name'] != dep]
-    if 'dependencies' in record:
-        del record['dependencies']
+        #record['dependencies'] = [dep for dep in deps if dep != record['name'] and record.get('namespace','')+'.'+record['name'] != dep]
+
     
 
 def sort_messages_by_dependencies(avro_schema):
@@ -43,8 +45,9 @@ def sort_messages_by_dependencies(avro_schema):
                 continue
             
             # if this record is not a dependency of any other record, it can be safely emitted now
-            if not any(record.get('name') in other_record.get('dependencies', []) 
-                       or (record.get('namespace','')+'.'+record.get('name')) in other_record.get('dependencies', []) for other_record in [x for x in avro_schema if isinstance(x, dict) and 'name' in x]):
+            #if not any(record.get('namespace','')+'.'+record.get('name') in other_record.get('dependencies', []) for other_record in [x for x in avro_schema if isinstance(x, dict) and 'name' in x]):
+            remaining_deps = [dep for dep in record['dependencies'] if not dep in [x.get('namespace')+'.'+x.get('name') for x in sorted_messages]] if 'dependencies' in record else []
+            if len(remaining_deps) == 0:
                 if 'dependencies' in record:
                     del record['dependencies']
                 sorted_messages.append(record)
@@ -54,14 +57,38 @@ def sort_messages_by_dependencies(avro_schema):
         # If there are no records without dependencies, we will grab the first 
         # record with dependencies and start resolving circular dependencies
         if len(avro_schema) > 0 and not found:
-            record = next((x for x in avro_schema if isinstance(x, dict) and 'dependencies' in x), None)
-            if record:
-                avro_schema_len = len(avro_schema)
-                swap_record_dependencies(avro_schema, record)
-                if len(avro_schema) == avro_schema_len:
-                    inline_dependencies_of(avro_schema, record)
+            found = False
+            for record in avro_schema:
+                if isinstance(record, dict) and 'dependencies' in record:
+                    remaining_deps = [dep for dep in record['dependencies'] if not dep in [x.get('namespace')+'.'+x.get('name') for x in sorted_messages]]
+                    if len(remaining_deps) > 0:
+                        swap_record_dependencies(avro_schema, record)
+                        remaining_remaining_deps = [dep for dep in record['dependencies'] if not dep in [x.get('namespace')+'.'+x.get('name') for x in sorted_messages]]
+                        found = len(remaining_deps) != len(remaining_remaining_deps)
+                        if found:
+                            break
+
+            if not found:
+                found = False
+                for record in avro_schema:
+                    if isinstance(record, dict) and 'dependencies' in record:            
+                        found = True
+                        record_deps = copy.deepcopy(record.get('dependencies', []))
+                        inline_dependencies_of(avro_schema, record)
+                        # fix the dependencies of all records that have this record as a dependency
+                        for remaining_schema in avro_schema:
+                            if isinstance(remaining_schema, dict) and 'dependencies' in remaining_schema and any(dep in record_deps for dep in remaining_schema['dependencies']):
+                                remaining_schema['dependencies'] = [dep for dep in remaining_schema['dependencies'] if not dep in record_deps]
+                                qname = record['namespace']+'.'+record['name']
+                                if not qname in remaining_schema['dependencies']:
+                                    remaining_schema['dependencies'].append(qname)
+                        break
+
+                if not found:
+                    print('WARNING: There are circular dependencies in the schema, unable to resolve them: {}'.format([x['name'] for x in avro_schema if isinstance(x, dict) and 'dependencies' in x]))
+                            
         
-    sorted_messages.reverse()
+    #sorted_messages.reverse()
     return sorted_messages
 
 def swap_record_dependencies(avro_schema, record):
@@ -75,10 +102,6 @@ def swap_record_dependencies(avro_schema, record):
                 swap_dependency_type(avro_schema, field, dependency, dependency_type, deps)
         record['dependencies'] = [dep for dep in deps if dep != record['name'] and record.get('namespace','')+'.'+record['name'] != dep]
 
-def strip_namespace(name):
-    if isinstance(name, str):
-        return name.split('.')[-1]
-    return name
 
 def swap_dependency_type(avro_schema, field, dependency, dependency_type, dependencies):
     """ to break circular dependencies, we will inline the dependent record and remove the dependency """
@@ -88,7 +111,7 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
         return
     
     # Replace the dependency type with the dependency_type in avro_schema.
-    if strip_namespace(field['type']) == dependency:
+    if field['type'] == dependency:
         field['type'] = dependency_type
         if dependency_type in avro_schema:
             avro_schema.remove(dependency_type)
@@ -98,9 +121,9 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
             swap_record_dependencies(avro_schema, dependency_type)
             del dependency_type['dependencies']
     # type is a Union?
-    elif type(field['type']) is list:
+    elif isinstance(field['type'], list):
         for field_type in field['type']:
-            if strip_namespace(field_type) == dependency:
+            if field_type == dependency:
                 field['type'].remove(field_type)
                 field['type'].append(dependency_type)
                 if dependency_type in avro_schema:
@@ -115,22 +138,50 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
                 'items' in field_type and field_type.get('items') == dependency or \
                 'values' in field_type and field_type.get('values') == dependency:
                 swap_dependency_type(avro_schema, field_type, dependency, dependency_type, dependencies)
-    elif 'type' in field['type']:
+    elif isinstance(field['type'], dict) and 'type' in field['type']:
         swap_dependency_type(avro_schema, field['type'], dependency, dependency_type, dependencies)
     elif field['type'] == 'array':
-            if strip_namespace(field['items']) == dependency:
-                field['items'] = dependency_type
-                if dependency_type in avro_schema:
-                    avro_schema.remove(dependency_type)
-                dependencies.remove(dependency)
-                dependencies.extend(dependency_type.get('dependencies', []))
-                if 'dependencies' in dependency_type:
-                    swap_record_dependencies(avro_schema, dependency_type)
-                    del dependency_type['dependencies']
-            elif 'type' in field['items']:
-                swap_dependency_type(avro_schema, field['items'], dependency, dependency_type, dependencies)
+        if isinstance(field['items'], list):
+            for item in field['items']:
+                if item == dependency:
+                    field['items'].remove(item)
+                    field['items'].append(dependency_type)
+                    if dependency_type in avro_schema:
+                        avro_schema.remove(dependency_type)
+                    dependencies.remove(dependency)
+                    dependencies.extend(dependency_type.get('dependencies', []))
+                    if 'dependencies' in dependency_type:
+                        swap_record_dependencies(avro_schema, dependency_type)
+                        del dependency_type['dependencies']
+                elif isinstance(item, dict) and 'type' in item and item.get('type') == dependency:
+                    swap_dependency_type(avro_schema, item, dependency, dependency_type, dependencies)                
+        elif field['items'] == dependency:
+            field['items'] = dependency_type
+            if dependency_type in avro_schema:
+                avro_schema.remove(dependency_type)
+            dependencies.remove(dependency)
+            dependencies.extend(dependency_type.get('dependencies', []))
+            if 'dependencies' in dependency_type:
+                swap_record_dependencies(avro_schema, dependency_type)
+                del dependency_type['dependencies']
+        elif 'type' in field['items']:
+            swap_dependency_type(avro_schema, field['items'], dependency, dependency_type, dependencies)
     elif field['type'] == 'map':
-        if strip_namespace(field['values']) == dependency:
+        if isinstance(field['values'], list):
+            for item in field['values']:
+                if item == dependency:
+                    field['values'].remove(item)
+                    field['values'].append(dependency_type)
+                    if dependency_type in avro_schema:
+                        avro_schema.remove(dependency_type)
+                    dependencies.remove(dependency)
+                    dependencies.extend(dependency_type.get('dependencies', []))
+                    if 'dependencies' in dependency_type:
+                        swap_record_dependencies(avro_schema, dependency_type)
+                        del dependency_type['dependencies']
+                elif isinstance(item, dict) and 'type' in item and item.get('type') == dependency:
+                    swap_dependency_type(avro_schema, item, dependency, dependency_type, dependencies)
+        if field['values'] == dependency:
             field['values'] = dependency_type
             if dependency_type in avro_schema:
                 avro_schema.remove(dependency_type)                    

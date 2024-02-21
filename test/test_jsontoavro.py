@@ -142,11 +142,10 @@ class TestJsonsToAvro(unittest.TestCase):
         convert_jsons_to_avro(jsons_path, avro_path, "example.com")
         self.validate_avro_schema(avro_path)
 
-    # TODO: is causing a recursion error
     def test_convert_avro_avsc_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "avro-avsc.json")
-        avro_path = path.join(cwd, "test", "tmp", "avro-avsc.json.avsc")
+        avro_path = path.join(cwd, "test", "tmp", "avro-avsc.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
             os.makedirs(dir)
