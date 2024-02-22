@@ -44,19 +44,38 @@ Avrotize provides several commands for converting between different schema forma
 avrotize p2a --proto <path_to_proto_file> --avsc <path_to_avro_schema_file>
 ```
 
-Conversion issues:
+Conversion notes:
 * Protobuf allows any scalar type as key in a map, Avro does not. When converting
   from Proto to Avro, the type information for the map keys is ignored.
 * The tool embeds all 'well-known' Protobuf 3.0 types in Avro format and injects
   them as needed when the respective types are included. Only the Timestamp type is 
   mapped to the Avro logical type 'timestamp-millis'. The rest of the well-known
   Protobuf types are kept as Avro record types with the same field names and types.
+* The field numbers in message types are not yet mapped to the positions of the
+  fields in Avro records. The fields in Avro are ordered as they appear in the
+  Proto schema.
 
 ### Convert Avro schema to Proto schema
 
 ```bash
-avrotize a2p --proto <path_to_proto_file> --avsc <path_to_avro_schema_file>
+avrotize a2p --avsc <path_to_avro_schema_file> --proto <path_to_proto_directory>
 ```
+
+Conversion notes:
+
+- Avro namespaces are resolved into distinct proto package definitions. The tool will
+  create a new `.proto` file with the package definition and an `import` statement for
+  each namespace found in the Avro schema.
+- Avro type unions `[]` are converted to `oneof` expressions in Proto. Avro allows for 
+  maps and arrays in the type union, whereas Proto only supports scalar types and 
+  message type references. The tool will therefore emit message types containing
+  a single array or map field for any such case and add it to the containing type,
+  and will also recursively resolve further unions in the array and map values.
+- The sequence of fields in a message follows the sequence of fields in the Avro
+  record. When type unions need to be resolved into `oneof` expressions, the alternative
+  fields need to be assigned field numbers, which will shift the field numbers for any
+  subsequent fields.
+
 
 ### Convert JSON schema to Avro schema
 
@@ -68,7 +87,7 @@ JSON Schema is a very flexible schema format and extremely permissive. That
 results in many valid JSON schema documents for which it is difficult to
 translate all definitions into Avro Schema.
 
-Conversion issues:
+Conversion notes:
 * All field constraints and validations associated with the JSON Schema are
   ignored in the translation to Avro. Avro does not support the same level of
   validation as JSON Schema.
@@ -106,7 +125,7 @@ Conversion issues:
 avrotize x2a --xsd <path_to_xsd_file> --avsc <path_to_avro_schema_file> [--namespace <avro_schema_namespace>]
 ```
 
-Conversion issues:
+Conversion notes:
 * All XML Schema elements are mapped to Avro record types with fields, whereby
   both elements and attributes become fields in the record.
 * `simpleType` declarations and all type constraints are ignored. Avro does not
@@ -119,7 +138,7 @@ Conversion issues:
 avrotize a2k --avsc <path_to_avro_schema_file> --kusto <path_to_kusto_kql_file> [--record-type <record_type>]
 ```
 
-Conversion issues:
+Conversion notes:
 * Only the Avro `record` type can be mapped to a Kusto table. If the Avro schema
   contains other types (like `enum` or `array`), the tool will ignore them.
 * Only the first `record` type in the Avro schema is converted to a Kusto table.
@@ -136,7 +155,7 @@ Conversion issues:
 avrotize a2tsql --avsc <path_to_avro_schema_file> --tsql <path_to_sql_file> [--record-type <record_type>]
 ```
 
-Conversion issues:
+Conversion notes:
 * Only the Avro `record` type can be mapped to a T-SQL table. If the Avro schema
   contains other types (like `enum` or `array`), the tool will ignore them.
 * Only the first `record` type in the Avro schema is converted to a T-SQL table.
@@ -155,7 +174,7 @@ Conversion issues:
 avrotize a2pq --avsc <path_to_avro_schema_file> --parquet <path_to_parquet_schema_file>
 ```
 
-Conversion issues:
+Conversion notes:
 * The emitted Parquet file contains only the schema, no data rows.
 
 ## Convert ASN.1 schema to Avro schema
