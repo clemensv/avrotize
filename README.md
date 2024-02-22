@@ -128,8 +128,19 @@ avrotize x2a --xsd <path_to_xsd_file> --avsc <path_to_avro_schema_file> [--names
 Conversion notes:
 * All XML Schema elements are mapped to Avro record types with fields, whereby
   both elements and attributes become fields in the record.
-* `simpleType` declarations and all type constraints are ignored. Avro does not
-  support the same level of validation as XML Schema.
+* Avro does not support `xsd:any` as Avro does not support arbitrary typing and
+  must always use a named type. The tool will map `xsd:any` to a field `any`
+  typed as a union that allows scalar values or two levels of array and/or map
+  nesting.
+* Simple type declarations that define enums are mapped to `enum` types in Avro.
+  All other facets are ignored and simple types are mapped to the corresponding 
+  Avro type.
+* Complex type declarations that have simple content where a base type is augmented
+  with attributes is mapped to a record type in Avro. Any other facets defined on
+  the complex type are ignored.
+* If the schema defines a single root element, the tool will emit a single Avro
+  record type. If the schema defines multiple root elements, the tool will emit a
+  union of record types, each corresponding to a root element.
 
 
 ### Convert Avro schema to Kusto table declaration
