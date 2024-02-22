@@ -21,6 +21,8 @@ def main():
     p2a_parser = subparsers.add_parser('a2p', help='Convert Proto schema to Avro schema')
     p2a_parser.add_argument('--proto', type=str, help='Path to the Proto file', required=True)
     p2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    p2a_parser.add_argument('--naming', type=str, help='Type naming convention', choices=['snake', 'camel', 'pascal'], required=False, default='pascal')
+    p2a_parser.add_argument('--allow-optional', action='store_true', help='Enable support for "optional" fields', default=False)
 
     j2a_parser = subparsers.add_parser('j2a', help='Convert JSON schema to Avro schema')
     j2a_parser.add_argument('--jsons', type=str, help='Path to the JSON schema file', required=True)
@@ -66,7 +68,9 @@ def main():
     elif args.command == 'a2p':
         proto_schema_path = args.proto
         avro_file_path = args.avsc
-        convert_avro_to_proto(avro_file_path, proto_schema_path)
+        naming = args.naming
+        allow_optional = args.allow_optional
+        convert_avro_to_proto(avro_file_path, proto_schema_path, naming_mode=naming, allow_optional=allow_optional)
     elif args.command == 'j2a':
         json_schema_file_path = args.jsons
         avro_schema_path = args.avsc
