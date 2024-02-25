@@ -46,7 +46,7 @@ def sort_messages_by_dependencies(avro_schema):
             
             # if this record is not a dependency of any other record, it can be safely emitted now
             #if not any(record.get('namespace','')+'.'+record.get('name') in other_record.get('dependencies', []) for other_record in [x for x in avro_schema if isinstance(x, dict) and 'name' in x]):
-            remaining_deps = [dep for dep in record['dependencies'] if not dep in [x.get('namespace')+'.'+x.get('name') for x in sorted_messages]] if 'dependencies' in record else []
+            remaining_deps = [dep for dep in record['dependencies'] if not dep in [x.get('namespace','')+'.'+x.get('name','') for x in sorted_messages]] if 'dependencies' in record else []
             if len(remaining_deps) == 0:
                 if 'dependencies' in record:
                     del record['dependencies']
@@ -60,7 +60,7 @@ def sort_messages_by_dependencies(avro_schema):
             found = False
             for record in avro_schema:
                 if isinstance(record, dict) and 'dependencies' in record:
-                    remaining_deps = [dep for dep in record['dependencies'] if not dep in [x.get('namespace')+'.'+x.get('name') for x in sorted_messages]]
+                    remaining_deps = [dep for dep in record['dependencies'] if not dep in [x.get('namespace','')+'.'+x.get('name','') for x in sorted_messages]]
                     if len(remaining_deps) > 0:
                         swap_record_dependencies(avro_schema, record)
                         if isinstance(record, dict) and not 'dependencies' in record:
