@@ -2,11 +2,12 @@ import json
 from typing import List
 import asn1tools
 from asn1tools.codecs.ber import Sequence, SequenceOf, Integer, Boolean, Enumerated, OctetString, IA5String, UTF8String, Date, Real, Choice, Null, SetOf, Recursive, ExplicitTag
+from asn1tools.codecs.ber import BitString, VisibleString, BMPString, GeneralString, GraphicString, NumericString, PrintableString, TeletexString, UniversalString, ObjectIdentifier
 
 from avrotize.common import avro_name
 from avrotize.dependency_resolver import sort_messages_by_dependencies
 
-def asn1_type_to_avro_type(asn1_type: dict, avro_schema: list, namespace: str, parent_type_name: str | None, parent_member_name: str | None, dependencies: list)-> str | dict | list | None:
+def asn1_type_to_avro_type(asn1_type: dict, avro_schema: list, namespace: str, parent_type_name: str | None, parent_member_name: str | None, dependencies: list)-> str | dict | None:
     """Convert an ASN.1 type to an Avro type."""
     avro_type: str | dict | list | None = None
     deps: List[str] = []
@@ -16,10 +17,10 @@ def asn1_type_to_avro_type(asn1_type: dict, avro_schema: list, namespace: str, p
     elif isinstance(asn1_type, Boolean):
         avro_type = 'boolean'
     elif isinstance(asn1_type, Enumerated):
-        symbols = [member for member in asn1_type.data_to_value.keys()]
+        symbols = [avro_name(member) for member in asn1_type.data_to_value.keys()]
         avro_type = { 
             'type': 'enum', 
-            'name': parent_member_name if parent_member_name else asn1_type.name,
+            'name': avro_name(parent_member_name if parent_member_name else asn1_type.name),
             'namespace': namespace, 
             'symbols': symbols
             }
@@ -49,16 +50,23 @@ def asn1_type_to_avro_type(asn1_type: dict, avro_schema: list, namespace: str, p
                 if isinstance(asn1_type, Choice):
                     field_type = [field_type, 'null']
                 fields.append({
-                    'name': member.name,
+                    'name': avro_name(member.name),
                     'type': field_type
                 })
             
             avro_type = {
                 'type': 'record', 
-                'name': record_name,
+                'name': avro_name(record_name),
                 'namespace': namespace,
                 'fields': fields
                 }
+    elif isinstance(asn1_type, BitString):
+        avro_type = {
+            'type': 'bytes',
+            'logicalType': 'bitstring'
+        }
+    elif isinstance(asn1_type, ObjectIdentifier):
+        avro_type = 'string'
     elif isinstance(asn1_type, SequenceOf):
         record_name = asn1_type.name if asn1_type.name else parent_member_name
         if record_name == 'SEQUENCE OF':
@@ -71,7 +79,7 @@ def asn1_type_to_avro_type(asn1_type: dict, avro_schema: list, namespace: str, p
         avro_type = {
             'type': 'array',
             'namespace': namespace, 
-            'name': record_name, 
+            'name': avro_name(record_name), 
             'items': item_type
             }
     elif isinstance(asn1_type, SetOf):
@@ -86,12 +94,12 @@ def asn1_type_to_avro_type(asn1_type: dict, avro_schema: list, namespace: str, p
         avro_type = {
             'type': 'array',
             'namespace': namespace, 
-            'name': record_name,
+            'name': avro_name(record_name),
             'items': item_type
             }
     elif isinstance(asn1_type, OctetString):
         avro_type = 'bytes'
-    elif isinstance(asn1_type, IA5String) or isinstance(asn1_type, UTF8String):
+    elif isinstance(asn1_type, IA5String) or isinstance(asn1_type, UTF8String) or isinstance(asn1_type, VisibleString) or isinstance(asn1_type, BMPString) or isinstance(asn1_type, GeneralString) or isinstance(asn1_type, GraphicString) or isinstance(asn1_type, NumericString) or isinstance(asn1_type, PrintableString) or isinstance(asn1_type, TeletexString) or isinstance(asn1_type, UniversalString):
         avro_type = 'string'
     elif isinstance(asn1_type, Date):
         avro_type = {'type': 'int', 'logicalType': 'date'}
@@ -117,15 +125,19 @@ def asn1_type_to_avro_type(asn1_type: dict, avro_schema: list, namespace: str, p
             
     return avro_type
 
-def convert_asn1_to_avro_schema(asn1_spec_path):
+def convert_asn1_to_avro_schema(asn1_spec_list: List[str]):
     """Convert ASN.1 specification to Avro schema."""
     
-    spec = asn1tools.compile_files(asn1_spec_path)
+    try:
+        spec = asn1tools.compile_files(asn1_spec_list)
+    except asn1tools.ParseError as e:
+        print(f"Error parsing ASN.1 files: {e.args[0]}")
+        return None
     
-    avro_schema = []
+    avro_schema: List[dict] = []
     for module_name, module in spec.modules.items():
         for type_name, asn1_type in module.items():
-            dependencies = []
+            dependencies: List [str] = []
             avro_type = asn1_type_to_avro_type(asn1_type.type, avro_schema, avro_name(module_name), type_name, None, dependencies)
             if avro_type and not isinstance(avro_type, str):
                 avro_type['dependencies'] = [dep for dep in dependencies if dep != avro_type['namespace'] + '.' + avro_type['name']]
@@ -137,8 +149,10 @@ def convert_asn1_to_avro_schema(asn1_spec_path):
         return avro_schema[0]
     return avro_schema
 
-def convert_asn1_to_avro(asn1_spec_path, avro_file_path):
+def convert_asn1_to_avro(asn1_spec_list: List[str], avro_file_path: str):
     """Convert ASN.1 specification to Avro schema and save it to a file."""
-    avro_schema = convert_asn1_to_avro_schema(asn1_spec_path)
+    avro_schema = convert_asn1_to_avro_schema(asn1_spec_list)
+    if avro_schema is None:
+        return
     with open(avro_file_path, 'w') as file:
         json.dump(avro_schema, file, indent=4)

@@ -53,7 +53,7 @@ def main():
     a2pq_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the Parquet file', default=False)
 
     asn2a_parser = subparsers.add_parser('asn2a', help='Convert ASN.1 schema to Avro schema')
-    asn2a_parser.add_argument('--asn', type=str, help='Path to the ASN.1 schema file', required=True)
+    asn2a_parser.add_argument('--asn', type=str, nargs='+', help='Path to the ASN.1 schema file', required=True)
     asn2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
 
 
@@ -100,9 +100,11 @@ def main():
         emit_cloud_events_columns = args.emit_cloud_events_columns
         convert_avro_to_parquet(avro_schema_path, avro_record_type, parquet_file_path, emit_cloud_events_columns)  
     elif args.command == 'asn2a':
-        asn_schema_file_path = args.asn
+        asn_schema_file_list = args.asn
+        if len(asn_schema_file_list) == 1:
+            asn_schema_file_list = asn_schema_file_list[0].split(',')
         avro_schema_path = args.avsc
-        convert_asn1_to_avro(asn_schema_file_path, avro_schema_path)
+        convert_asn1_to_avro(asn_schema_file_list, avro_schema_path)
     
 
 if __name__ == "__main__":
