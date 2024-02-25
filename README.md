@@ -142,6 +142,38 @@ Conversion notes:
   record type. If the schema defines multiple root elements, the tool will emit a
   union of record types, each corresponding to a root element.
 
+## Convert ASN.1 schema to Avro schema
+
+```bash
+avrotize asn2a --asn <path_to_asn1_schema_file>[,<path_to_asn1_schema_file>,...]  --avsc <path_to_avro_schema_file>
+```
+
+Conversion notes:
+* All ASN.1 types are mapped to Avro record types, enums, and unions. Avro does
+  not support the same level of nesting of types as ASN.1, the tool will map
+  the types to the best fit.
+* The tool will map the following ASN.1 types to Avro types:
+  * `SEQUENCE` and `SET` are mapped to Avro record types.
+  * `CHOICE` is mapped to an Avro record types with all fields being optional. While
+     the `CHOICE` type technically corresponds to an Avro union, the ASN.1 type 
+     has different named fields for each option, which is not a feature of Avro unions.
+  * `OBJECT IDENTIFIER` is mapped to an Avro string type.
+  * `ENUMERATED` is mapped to an Avro enum type.
+  * `SEQUENCE OF` and `SET OF` are mapped to Avro array type.
+  * `BIT STRING` is mapped to Avro bytes type.
+  * `OCTET STRING` is mapped to Avro bytes type.
+  * `INTEGER` is mapped to Avro long type.
+  * `REAL` is mapped to Avro double type.
+  * `BOOLEAN` is mapped to Avro boolean type.
+  * `NULL` is mapped to Avro null type.
+  * `UTF8String`, `PrintableString`, `IA5String`, `BMPString`, `NumericString`, `TeletexString`,
+    `VideotexString`, `GraphicString`, `VisibleString`, `GeneralString`, `UniversalString`,
+    `CharacterString`, `T61String` are all mapped to Avro string type.
+  * All other ASN.1 types are mapped to Avro string type.
+* The ability to parse ASN.1 schema files is limited and the tool may not be able
+  to parse all ASN.1 files. The tool is based on the Python asn1tools package and 
+  is limited to that package's capabilities.
+
 
 ### Convert Avro schema to Kusto table declaration
 
@@ -188,11 +220,6 @@ avrotize a2pq --avsc <path_to_avro_schema_file> --parquet <path_to_parquet_schem
 Conversion notes:
 * The emitted Parquet file contains only the schema, no data rows.
 
-## Convert ASN.1 schema to Avro schema
-
-```bash
-avrotize asn2a --asn <path_to_asn1_schema_file>  --avsc <path_to_avro_schema_file>
-```
 
 ## Contributing
 

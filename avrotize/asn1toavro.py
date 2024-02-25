@@ -132,6 +132,8 @@ def convert_asn1_to_avro_schema(asn1_spec_list: List[str]):
         spec = asn1tools.compile_files(asn1_spec_list)
     except asn1tools.ParseError as e:
         print(f"Error parsing ASN.1 files: {e.args[0]}")
+        for file in asn1_spec_list:
+            print(f"  {file}")
         return None
     
     avro_schema: List[dict] = []
