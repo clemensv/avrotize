@@ -12,7 +12,7 @@ def inline_dependencies_of(avro_schema, record):
         for field in record['fields']:                        
             if record['namespace']+'.'+record['name'] != dependency:
                 swap_dependency_type(avro_schema, field, dependency, dependency_type, deps)
-        #record['dependencies'] = [dep for dep in deps if dep != record['name'] and record.get('namespace','')+'.'+record['name'] != dep]
+    del record['dependencies']
 
     
 

@@ -29,3 +29,13 @@ class TestAsn1ToAvro(unittest.TestCase):
         if not os.path.exists(dir):
             os.makedirs(dir)
         convert_asn1_to_avro(asn1_path, avro_path)
+
+    def test_convert_ldap3_asn_to_avro(self):
+        cwd = os.getcwd()        
+        asn1_path = os.path.join(cwd, "test", "asn1", "ldap3.asn")
+        avro_path = os.path.join(cwd, "test", "tmp", "ldapasn.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        convert_asn1_to_avro(asn1_path, avro_path)
+

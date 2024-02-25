@@ -3,11 +3,13 @@ import os
 import re
 from typing import Any, Dict, List
 import jsonpointer
+from jsonpointer import JsonPointerException
 import requests
 import copy
 from avrotize.common import avro_name, generic_type
 from avrotize.dependency_resolver import inline_dependencies_of, sort_messages_by_dependencies
 from urllib.parse import ParseResult, urljoin, urlparse
+
 
 class JsonToAvroConverter:
 
@@ -112,14 +114,14 @@ class JsonToAvroConverter:
                     union.append(avro_primitive)
                 return union
 
-        avro_primitive_map = {
-            'string': 'string',
-            'integer': 'int',
-            'number': 'float',
-            'boolean': 'boolean',
-        }
-        if json_primitive in avro_primitive_map:
-            avro_primitive = avro_primitive_map[json_primitive]
+        if json_primitive == 'string':
+            avro_primitive = 'string'
+        elif json_primitive == 'integer':
+            avro_primitive = 'int'
+        elif json_primitive == 'number':
+            avro_primitive = 'float'
+        elif json_primitive == 'boolean':
+            avro_primitive = 'boolean'
         else:
             dependencies.append(json_primitive)
             avro_primitive = json_primitive
@@ -144,8 +146,6 @@ class JsonToAvroConverter:
             else:
                 avro_primitive = "string"
         return avro_primitive
-        
-
 
 
     def fetch_content(self, url: str | ParseResult):
@@ -185,29 +185,32 @@ class JsonToAvroConverter:
 
     def resolve_reference(self, json_type: dict, base_uri: str, json_doc: dict):
         """Resolve a JSON Pointer reference or a JSON $ref reference."""
-        ref = json_type['$ref']
-        content = None
-        url = urlparse(ref)
-        if url.scheme:
-            content = self.fetch_content(ref)
-        elif url.path:
-            file_uri = urljoin(base_uri, url.path)
-            content = self.fetch_content(file_uri)
-        if content:
-            try:
-                json_schema = json.loads(content)
-                # resolve the JSON Pointer reference, if any
-                if url.fragment:
-                    json_schema = jsonpointer.resolve_pointer(json_schema, url.fragment)
-                return json_schema
-            except json.JSONDecodeError:
-                raise Exception(f'Error decoding JSON from {ref}')
-        
-        if url.fragment:
-            json_pointer = url.fragment
-            ref_schema = jsonpointer.resolve_pointer(json_doc, json_pointer)
-            if ref_schema:
-                return ref_schema
+        try:
+            ref = json_type['$ref']
+            content = None
+            url = urlparse(ref)
+            if url.scheme:
+                content = self.fetch_content(ref)
+            elif url.path:
+                file_uri = urljoin(base_uri, url.path)
+                content = self.fetch_content(file_uri)
+            if content:
+                try:
+                    json_schema = json.loads(content)
+                    # resolve the JSON Pointer reference, if any
+                    if url.fragment:
+                        json_schema = jsonpointer.resolve_pointer(json_schema, url.fragment)
+                    return json_schema
+                except json.JSONDecodeError:
+                    raise Exception(f'Error decoding JSON from {ref}')
+            
+            if url.fragment:
+                json_pointer = url.fragment
+                ref_schema = jsonpointer.resolve_pointer(json_doc, json_pointer)
+                if ref_schema:
+                    return ref_schema
+        except JsonPointerException as e:
+            raise Exception(f'Error resolving JSON Pointer reference for {base_uri}')
         return json_type
             
             
@@ -391,7 +394,7 @@ class JsonToAvroConverter:
                         avro_type = self.merge_schemas([avro_type, {"type": "array", "items": generic_type()}], avro_schema, avro_type.get('name', local_name))
                 elif json_object_type == 'object' or 'object' in json_object_type:
                     record_stack.append(record_name)
-                    avro_type = self.merge_schemas([avro_type, self.json_schema_object_to_avro_record(local_name, json_type, namespace, json_schema, base_uri, avro_schema, record_stack)], avro_schema, avro_type.get('name', local_name))
+                    avro_type = self.merge_schemas([avro_type, self.json_schema_object_to_avro_record(local_name, json_type, namespace, json_schema, base_uri, avro_schema, record_stack)], avro_schema, avro_type.get('name', local_name)  if isinstance(avro_type,dict) else local_name)
                     if isinstance(avro_type, dict) and 'dependencies' in avro_type:
                         dependencies.extend(avro_type['dependencies'])
                         del avro_type['dependencies']
@@ -402,11 +405,14 @@ class JsonToAvroConverter:
             elif 'enum' in json_type:
                 local_name = field_name = field_name if field_name else local_name
                 enum_namespace = namespace + '.' + record_stack[-1] + field_name 
-                avro_type = self.merge_schemas([avro_type,self.json_schema_primitive_to_avro_type("string", json_type.get('format'), json_type.get('enum'), field_name, dependencies)], avro_schema, avro_type.get('name', local_name))
+                avro_type = self.merge_schemas([avro_type,self.json_schema_primitive_to_avro_type("string", json_type.get('format'), json_type.get('enum'), field_name, dependencies)], avro_schema, avro_type.get('name', local_name)  if isinstance(avro_type,dict) else local_name)
                 if isinstance(avro_type, dict):
                     avro_type['namespace'] = enum_namespace
         else:
-            avro_type = self.merge_schemas([avro_type,self.json_schema_primitive_to_avro_type(json_type, json_type.get('format'), json_type.get('enum'), field_name, dependencies)], avro_schema, avro_type.get('name', local_name))
+            if isinstance(json_type, dict):
+                avro_type = self.merge_schemas([avro_type,self.json_schema_primitive_to_avro_type(json_type, json_type.get('format'), json_type.get('enum'), field_name, dependencies)], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
+            else:
+                avro_type = self.merge_schemas([avro_type,self.json_schema_primitive_to_avro_type(json_type, None, None, field_name, dependencies)], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
         
         if isinstance(avro_type, dict) and 'name' in avro_type:
             if not 'namespace' in avro_type:
