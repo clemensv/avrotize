@@ -38,22 +38,22 @@ def main():
     a2k_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2k_parser.add_argument('--kusto', type=str, help='Path to the Kusto table', required=True)
     a2k_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
-    a2k_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the Kusto table', default=False)
+    a2k_parser.add_argument('--emit_cloudevents_columns', action='store_true', help='Add CloudEvents columns to the Kusto table', default=False)
 
     a2tsql_parser = subparsers.add_parser('a2tsql', help='Convert Avro schema to T-SQL schema')
     a2tsql_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2tsql_parser.add_argument('--tsql', type=str, help='Path to the T-SQL table', required=True)
     a2tsql_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
-    a2tsql_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the T-SQL table', default=False)
+    a2tsql_parser.add_argument('--emit_cloudevents_columns', action='store_true', help='Add CloudEvents columns to the T-SQL table', default=False)
 
     a2pq_parser = subparsers.add_parser('a2pq', help='Convert Avro schema to Parquet schema')
     a2pq_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2pq_parser.add_argument('--parquet', type=str, help='Path to the Parquet file', required=True)
     a2pq_parser.add_argument('--record_type', type=str, help='Record type in the Avro schema', required=False)
-    a2pq_parser.add_argument('--emit_cloud_events_columns', action='store_true', help='Add CloudEvents columns to the Parquet file', default=False)
+    a2pq_parser.add_argument('--emit_cloudevents_columns', action='store_true', help='Add CloudEvents columns to the Parquet file', default=False)
 
     asn2a_parser = subparsers.add_parser('asn2a', help='Convert ASN.1 schema to Avro schema')
-    asn2a_parser.add_argument('--asn', type=str, nargs='+', help='Path to the ASN.1 schema file', required=True)
+    asn2a_parser.add_argument('--asn', type=str, nargs='+', help='Path(s) to the ASN.1 schema file(s)', required=True)
     asn2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
 
 
@@ -85,19 +85,19 @@ def main():
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
         kusto_file_path = args.kusto
-        emit_cloud_events_columns = args.emit_cloud_events_columns
+        emit_cloud_events_columns = args.emit_cloudevents_columns
         convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, emit_cloud_events_columns)
     elif args.command == 'a2tsql':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
         tsql_file_path = args.tsql
-        emit_cloud_events_columns = args.emit_cloud_events_columns
+        emit_cloud_events_columns = args.emit_cloudevents_columns
         convert_avro_to_tsql(avro_schema_path, avro_record_type, tsql_file_path, emit_cloud_events_columns)
     elif args.command == 'a2pq':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
         parquet_file_path = args.parquet
-        emit_cloud_events_columns = args.emit_cloud_events_columns
+        emit_cloud_events_columns = args.emit_cloudevents_columns
         convert_avro_to_parquet(avro_schema_path, avro_record_type, parquet_file_path, emit_cloud_events_columns)  
     elif args.command == 'asn2a':
         asn_schema_file_list = args.asn

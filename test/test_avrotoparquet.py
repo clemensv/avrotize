@@ -2,6 +2,8 @@ import os
 import sys
 from os import path, getcwd
 
+from avrotize.jsonstoavro import convert_jsons_to_avro
+
 current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
 sys.path.append(project_root)
@@ -30,3 +32,15 @@ class TestAvroToParquet(unittest.TestCase):
             os.makedirs(dir)
         
         convert_avro_to_parquet(avro_path, None, parquet_path, True)
+
+    def test_convert_jfrog_pipelines_jsons_to_avro_to_parquet(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
+        avro_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.avsc")
+        parquet_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.parquet")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_avro_to_parquet(avro_path, "HelmBlueGreenDeploy", parquet_path, True)

@@ -15,9 +15,9 @@ def convert_avro_to_parquet(avro_schema_path, avro_record_type, parquet_file_pat
     schema = json.loads(schema_json)
 
     if isinstance(schema, list) and avro_record_type:
-        schema = next((x for x in schema if x["name"] == avro_record_type), None)
+        schema = next((x for x in schema if x["name"] == avro_record_type or x["namespace"]+"."+x["name"] == avro_record_type), None)
         if schema is None:
-            print(f"No record type {avro_record_type} found in the Avro schema")
+            print(f"No top-level record type {avro_record_type} found in the Avro schema")
             sys.exit(1)
     elif not isinstance(schema, dict):
         print("Expected a single Avro schema as a JSON object, or a list of schema records")
@@ -53,11 +53,9 @@ def convert_avro_type_to_parquet_type(avroType):
     if isinstance(avroType, list):
         # If the type is an array, then it is a union type. Look whether it's a pair of a scalar type and null:
         itemCount = len(avroType)
-        if itemCount > 2:
-            return pa.string()
         if itemCount == 1:
             return convert_avro_type_to_parquet_type(avroType[0])
-        else:
+        elif itemCount == 2:
             first = avroType[0]
             second = avroType[1]
             if isinstance(first, str) and first == "null":
@@ -65,9 +63,20 @@ def convert_avro_type_to_parquet_type(avroType):
             elif isinstance(second, str) and second == "null":
                 return convert_avro_type_to_parquet_type(first)
             else:
-                return pa.string()
+                return pa.struct( [pa.field(f'{x}Value' if isinstance(x,str) else f'{x.get("name")}Value' if isinstance(x,dict) else f'_{i}', 
+                                    convert_avro_type_to_parquet_type(x)) for i, x in enumerate(avroType)])
+        else:
+            return pa.struct( [pa.field(f'{x}Value' if isinstance(x,str) else f'{x.get("name")}Value' if isinstance(x,dict) else f'_{i}', 
+                                    convert_avro_type_to_parquet_type(x)) for i, x in enumerate(avroType)])
     elif isinstance(avroType, dict):
         type = avroType.get("type")
+        if type == "array":
+            return pa.list_(convert_avro_type_to_parquet_type(avroType.get("items")))
+        elif type == "map":
+            return pa.map_(pa.string(), convert_avro_type_to_parquet_type(avroType.get("values")))
+        elif type == "record":
+            fields = avroType.get("fields")
+            return pa.struct({field.get("name"): convert_avro_type_to_parquet_type(field.get("type")) for field in fields})
         if type == "enum":
             return pa.string()
         elif type == "fixed":
@@ -98,6 +107,7 @@ def convert_avro_type_to_parquet_type(avroType):
             return map_scalar_type(type)
     elif isinstance(avroType, str):
         return map_scalar_type(avroType)
+    
     return pa.string()
 
 def map_scalar_type(type):

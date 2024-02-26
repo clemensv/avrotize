@@ -74,7 +74,7 @@ class TestJsonsToAvro(unittest.TestCase):
         convert_jsons_to_avro(jsons_path, avro_path, "microsoft.azure.storage")
         self.validate_avro_schema(avro_path)
 
-    @pytest.mark.skip(reason="flaky due to remote resolution")
+    #@pytest.mark.skip(reason="flaky due to remote resolution")
     def test_convert_azurestorage_remote_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = "https://raw.githubusercontent.com:443/Azure/azure-rest-api-specs/master/specification/eventgrid/data-plane/Microsoft.Storage/stable/2018-01-01/Storage.json"
@@ -86,7 +86,7 @@ class TestJsonsToAvro(unittest.TestCase):
         convert_jsons_to_avro(jsons_path, avro_path, "microsoft.azure.storage")
         self.validate_avro_schema(avro_path)
 
-    @pytest.mark.skip(reason="flaky due to remote resolution")
+    #@pytest.mark.skip(reason="flaky due to remote resolution")
     def test_convert_azurestorage_remote_deeplink_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = "https://raw.githubusercontent.com:443/Azure/azure-rest-api-specs/master/specification/eventgrid/data-plane/Microsoft.Storage/stable/2018-01-01/Storage.json#/definitions/StorageLifecyclePolicyCompletedEventData"
