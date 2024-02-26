@@ -64,7 +64,7 @@ def convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, e
             "  [__subject]: 'Context subject of the event',"
         ])
     if doc_string_statement:
-        kusto.append(".alter table [{table_name}] column-docstrings (")
+        kusto.append(f".alter table [{table_name}] column-docstrings (")
         kusto.extend(doc_string_statement)
         kusto.append(");")
         kusto.append("")
