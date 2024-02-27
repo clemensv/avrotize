@@ -96,17 +96,17 @@ def sort_messages_by_dependencies(avro_schema):
 
 def swap_record_dependencies(avro_schema, record):
     while 'dependencies' in record and len(record['dependencies']) > 0:
-        for dependency in record.get('dependencies', []):
-            dependency_type = next((x for x in avro_schema if x['name'] == dependency or x.get('namespace','')+'.'+x['name'] == dependency), None)
-            if not dependency_type and dependency in record['dependencies']:
-                record['dependencies'].remove(dependency)
-            deps = record.get('dependencies', [])
-            for field in record['fields']:                        
+        for field in record['fields']:                        
+            for dependency in record.get('dependencies', []):
+                dependency_type = next((x for x in avro_schema if x['name'] == dependency or x.get('namespace','')+'.'+x['name'] == dependency), None)
+                if not dependency_type and dependency in record['dependencies']:
+                    record['dependencies'].remove(dependency)
+                deps = record.get('dependencies', [])
                 if record['name'] != dependency and (record.get('namespace','')+'.'+record['name']) != dependency:
                     swap_dependency_type(avro_schema, field, dependency, dependency_type, deps)
-            record['dependencies'] = [dep for dep in deps if dep != record['name'] and record.get('namespace','')+'.'+record['name'] != dep]
-            if len(record['dependencies']) == 0:
-                del record['dependencies']
+                record['dependencies'] = [dep for dep in deps if dep != record['name'] and record.get('namespace','')+'.'+record['name'] != dep]
+                if len(record['dependencies']) == 0:
+                    del record['dependencies']
 
 
 def swap_dependency_type(avro_schema, field, dependency, dependency_type, dependencies):

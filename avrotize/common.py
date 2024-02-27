@@ -7,6 +7,13 @@ def avro_name(name):
         val = '_' + val
     return val
 
+def avro_namespace(name):
+    """Convert a name into an Avro name."""
+    val = re.sub(r'[^a-zA-Z0-9_\.]', '_', name)
+    if re.match(r'^[0-9]', val):
+        val = '_' + val
+    return val
+
 def generic_type() -> list[str | dict]:
     simple_type_union: list[str | dict] = ["null", "boolean", "int", "long", "float", "double", "bytes", "string"]
     l2 = simple_type_union.copy()

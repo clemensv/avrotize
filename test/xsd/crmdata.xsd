@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/vocabulary">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/vocabulary" xmlns:this="http://example.com/vocabulary">
 
   <!-- Address Type Definition -->
   <xs:complexType name="AddressType">
@@ -39,9 +39,9 @@
       <xs:element name="CustomerID" type="xs:string"/>
       <xs:element name="CompanyName" type="xs:string"/>
       <xs:element name="Website" type="xs:string" minOccurs="0"/>
-      <xs:element name="Address" type="AddressType" maxOccurs="unbounded"/>
-      <xs:element name="Contact" type="ContactType" maxOccurs="unbounded"/>
-      <xs:element name="Interaction" type="InteractionType" maxOccurs="unbounded"/>
+      <xs:element name="Address" type="this:AddressType" maxOccurs="unbounded"/>
+      <xs:element name="Contact" type="this:ContactType" maxOccurs="unbounded"/>
+      <xs:element name="Interaction" type="this:InteractionType" maxOccurs="unbounded"/>
     </xs:sequence>
   </xs:complexType>
 
@@ -49,7 +49,7 @@
   <xs:element name="CRMData">
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="Customer" type="CustomerType" maxOccurs="unbounded"/>
+        <xs:element name="Customer" type="this:CustomerType" maxOccurs="unbounded"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>
