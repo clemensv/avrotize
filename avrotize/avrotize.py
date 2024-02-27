@@ -64,46 +64,54 @@ def main():
     elif args.command == 'p2a':
         avro_schema_path = args.avsc
         proto_file_path = args.proto
+        print(f'Converting Protobuf {proto_file_path} to Avro {avro_schema_path}')
         convert_proto_to_avro(proto_file_path, avro_schema_path)
     elif args.command == 'a2p':
         proto_schema_path = args.proto
         avro_file_path = args.avsc
         naming = args.naming
         allow_optional = args.allow_optional
+        print(f'Converting Avro {avro_file_path} to Proto {proto_schema_path}')
         convert_avro_to_proto(avro_file_path, proto_schema_path, naming_mode=naming, allow_optional=allow_optional)
     elif args.command == 'j2a':
         json_schema_file_path = args.jsons
         avro_schema_path = args.avsc
         namespace = args.namespace
+        print(f'Converting JSON {json_schema_file_path} to Avro {avro_schema_path}')
         convert_jsons_to_avro(json_schema_file_path, avro_schema_path, namespace=namespace)
     elif args.command == 'x2a':
         xsd_schema_file_path = args.xsd
         avro_schema_path = args.avsc
         namespace = args.namespace
+        print(f'Converting XSD {xsd_schema_file_path} to Avro {avro_schema_path}')
         convert_xsd_to_avro(xsd_schema_file_path, avro_schema_path, namespace=namespace)
     elif args.command == 'a2k':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
         kusto_file_path = args.kusto
         emit_cloud_events_columns = args.emit_cloudevents_columns
+        print(f'Converting Avro {avro_schema_path} to Kusto {kusto_file_path}')
         convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, emit_cloud_events_columns)
     elif args.command == 'a2tsql':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
         tsql_file_path = args.tsql
         emit_cloud_events_columns = args.emit_cloudevents_columns
+        print(f'Converting Avro {avro_schema_path} to T-SQL {tsql_file_path}')
         convert_avro_to_tsql(avro_schema_path, avro_record_type, tsql_file_path, emit_cloud_events_columns)
     elif args.command == 'a2pq':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
         parquet_file_path = args.parquet
         emit_cloud_events_columns = args.emit_cloudevents_columns
+        print(f'Converting Avro {avro_schema_path} to Parquet {parquet_file_path}')
         convert_avro_to_parquet(avro_schema_path, avro_record_type, parquet_file_path, emit_cloud_events_columns)  
     elif args.command == 'asn2a':
         asn_schema_file_list = args.asn
         if len(asn_schema_file_list) == 1:
             asn_schema_file_list = asn_schema_file_list[0].split(',')
         avro_schema_path = args.avsc
+        print(f'Converting ASN.1 {asn_schema_file_list} to Avro {avro_schema_path}')
         convert_asn1_to_avro(asn_schema_file_list, avro_schema_path)
     
 

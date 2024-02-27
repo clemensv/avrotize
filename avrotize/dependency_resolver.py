@@ -95,21 +95,30 @@ def sort_messages_by_dependencies(avro_schema):
     return sorted_messages
 
 def swap_record_dependencies(avro_schema, record):
-    while 'dependencies' in record and len(record['dependencies']) > 0:
-        for field in record['fields']:
-            if isinstance(field['type'], list):
-                for item in field['type'].copy():
-                    sub_field = {
-                        'type': item,
-                        'name': field['name']   
-                    }
-                    resolve_field_dependencies(avro_schema, record, sub_field)
-                    if sub_field['type'] != item:
-                        idx = field['type'].index(item)
-                        field['type'].remove(item)
-                        field['type'].insert(idx, sub_field['type'])
-            else:
-                resolve_field_dependencies(avro_schema, record, field)
+    if 'dependencies' in record:
+        prior_dependencies = copy.deepcopy(record['dependencies'])
+        while 'dependencies' in record and len(record['dependencies']) > 0:
+            for field in record['fields']:
+                if isinstance(field['type'], list):
+                    for item in field['type'].copy():
+                        sub_field = {
+                            'type': item,
+                            'name': field['name']   
+                        }
+                        resolve_field_dependencies(avro_schema, record, sub_field)
+                        if sub_field['type'] != item:
+                            idx = field['type'].index(item)
+                            field['type'].remove(item)
+                            field['type'].insert(idx, sub_field['type'])
+                else:
+                    resolve_field_dependencies(avro_schema, record, field)
+            if 'dependencies' in record:
+                # compare the prior dependencies to the current dependencies one-by-one. If they are the same,
+                # then we have a circular dependency.
+                if prior_dependencies == record['dependencies']:
+                    print('WARNING: Unable to resolve circular dependency in {}::{} with dependencies: {}'.format(record.get('namespace',''), record['name'], record['dependencies']))
+                    break
+                prior_dependencies = record['dependencies']
 
 def resolve_field_dependencies(avro_schema, record, field):
     for dependency in record.get('dependencies', []):
@@ -167,6 +176,8 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
     elif isinstance(field['type'], dict) and 'type' in field['type']:
         swap_dependency_type(avro_schema, field['type'], dependency, dependency_type, dependencies)
     elif field['type'] == 'array':
+        if not 'items' in field:
+            return
         if isinstance(field['items'], list):
             for item in field['items']:
                 if item == dependency:
@@ -188,7 +199,7 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
             dependencies.extend(dependency_type.get('dependencies', []))
             if 'dependencies' in dependency_type:
                 swap_record_dependencies(avro_schema, dependency_type)
-        elif 'type' in field['items']:
+        elif isinstance(field['items'], dict) and 'type' in field['items']:
             swap_dependency_type(avro_schema, field['items'], dependency, dependency_type, dependencies)
     elif field['type'] == 'map':
         if isinstance(field['values'], list):
