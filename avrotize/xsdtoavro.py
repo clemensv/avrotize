@@ -122,6 +122,7 @@ class XSDToAvro:
         avro_type = self.xsd_to_avro_type(type, namespaces)  
         if not type.startswith(f'{namespaces[xsd_namespace]}:') and type not in self.simple_type_map.keys():           
             dependencies.append(avro_type if isinstance(avro_type, str) else avro_type.get('namespace')+'.'+avro_type.get('name'))
+            dependencies = list(set(dependencies))
         
         maxOccurs = element.get('maxOccurs')
         if maxOccurs is not None and maxOccurs != '1':
@@ -162,6 +163,7 @@ class XSDToAvro:
                 }
                 choices.append(choice_record)
                 dependencies.extend(deps)
+                dependencies = list(set(dependencies))
             choices_field = {
                 'name': f'{complex_type.attrib.get("name")}',
                 'type': choices

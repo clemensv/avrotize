@@ -27,10 +27,21 @@ class TestXsdToAvro(unittest.TestCase):
         convert_xsd_to_avro(xsd_path, avro_path)           
         self.validate_avro_schema(avro_path)
 
-    def test_convert_iso20022_xsd_to_avro(self):
+    def test_convert_iso20022_xsd_to_avro1(self):
         cwd = os.getcwd()        
         xsd_path = os.path.join(cwd, "test", "xsd", "acmt.003.001.08.xsd")
         avro_path = os.path.join(cwd, "test", "tmp", "acmt.003.001.08.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_xsd_to_avro(xsd_path, avro_path)
+        self.validate_avro_schema(avro_path)
+
+    def test_convert_iso20022_xsd_to_avro2(self):
+        cwd = os.getcwd()        
+        xsd_path = os.path.join(cwd, "test", "xsd", "admi.017.001.01.xsd")
+        avro_path = os.path.join(cwd, "test", "tmp", "admi.017.001.01.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
             os.makedirs(dir)
