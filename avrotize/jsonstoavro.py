@@ -28,27 +28,27 @@ class JsonToAvroConverter:
                 return True
         return False
 
-    def merge_schemas(self, schemas_arg: list, avro_schemas: list, type_name: str | None = None) -> str | list | dict:
+    def merge_avro_schemas(self, schemas: list, avro_schemas: list, type_name: str | None = None) -> str | list | dict:
         """Merge multiple Avro type schemas into one."""
-        merged_schema: Dict[str, list, dict] = {}
-        schemas = []
-        for schema_entry in schemas_arg:
-            if isinstance(schema_entry, list):
-                if len(schema_entry) == 0:
-                    continue
-                remaining_list = copy.deepcopy(schemas_arg)
-                remaining_list.remove(schema_entry)
-                for schema in schema_entry:
-                    current_list = copy.deepcopy(remaining_list)
-                    current_list.append(copy.deepcopy(schema) if isinstance(schema, dict) or isinstance(schema,list) else schema)
-                    schemas.append(self.merge_schemas(current_list, avro_schemas, type_name))
-                break
-            elif isinstance(schema_entry, dict):
-                if len(schema_entry) == 0:
-                    continue
-                schemas.append(copy.deepcopy(schema_entry))
-            else:
-                schemas.append(copy.deepcopy(schema_entry) if isinstance(schema_entry,list) else schema_entry)
+        merged_schema: dict = {}
+        # schemas = []
+        # for schema_entry in schemas_arg:
+        #     if isinstance(schema_entry, list):
+        #         if len(schema_entry) == 0:
+        #             continue
+        #         remaining_list = copy.deepcopy(schemas_arg)
+        #         remaining_list.remove(schema_entry)
+        #         for schema in schema_entry:
+        #             current_list = copy.deepcopy(remaining_list)
+        #             current_list.append(copy.deepcopy(schema) if isinstance(schema, dict) or isinstance(schema,list) else schema)
+        #             schemas.append(self.merge_avro_schemas(current_list, avro_schemas, type_name))
+        #         break
+        #     elif isinstance(schema_entry, dict):
+        #         if len(schema_entry) == 0:
+        #             continue
+        #         schemas.append(copy.deepcopy(schema_entry))
+        #     else:
+        #         schemas.append(copy.deepcopy(schema_entry) if isinstance(schema_entry,list) else schema_entry)
 
         if len(schemas) == 1 and isinstance(schemas[0], str):
             return schemas[0]
@@ -57,7 +57,7 @@ class JsonToAvroConverter:
             merged_schema["name"] = type_name
         
         for schema in schemas:
-            if 'dependencies' in schema:
+            if isinstance(schema, dict) and 'dependencies' in schema:
                 deps: List[str] = merged_schema.get('dependencies', [])
                 deps.extend(schema['dependencies'])
                 merged_schema['dependencies'] = deps
@@ -69,6 +69,13 @@ class JsonToAvroConverter:
                     merged_schema.update(sch)
                 else:
                     merged_schema['type'] = schema
+            elif isinstance(schema, list):
+                if not 'type' in merged_schema:
+                    merged_schema['type'] = schema
+                else:
+                    if isinstance(merged_schema['type'], str):
+                        merged_schema['type'] = [merged_schema['type']]
+                    merged_schema['type'].extend(schema)
             elif 'type' not in schema or 'type' not in merged_schema:
                 merged_schema.update(schema)
             else:
@@ -91,6 +98,58 @@ class JsonToAvroConverter:
                         merged_schema['fields'] = schema['fields']
                                 
         return merged_schema
+
+    def merge_json_schemas(self, json_schemas: list[dict], intersect: bool = False) -> dict:
+        """Merge multiple JSON schemas into one."""
+        merged_type:dict = {}
+
+        for json_schema in json_schemas:
+            if 'type' not in json_schema or 'type' not in merged_type:
+                for key in json_schema:
+                    if not key in merged_type:
+                        merged_type[key] = copy.deepcopy(json_schema[key])
+                    else:
+                        if key == 'required':
+                            merged_type[key] = list(set(merged_type[key]).union(set(json_schema[key])))
+                        if key == 'name':
+                            merged_type[key] = merged_type[key] + json_schema[key]
+                        elif isinstance(merged_type[key], dict):
+                            merged_type[key] =  merged_type[key].update(copy.deepcopy(json_schema[key]))
+                        elif isinstance(merged_type[key], list) and isinstance(json_schema[key], list):
+                            for item in json_schema[key]:
+                                if item not in merged_type[key]:
+                                    merged_type[key].append(item)
+                        else:
+                            if merged_type[key] == None:
+                                merged_type[key] = json_schema[key]
+                            else:
+                                merged_type[key] = [merged_type[key], copy.deepcopy(json_schema[key])]
+            else:
+                if 'type' in merged_type and json_schema['type'] != merged_type['type']:
+                    if isinstance(merged_type['type'], str):
+                        merged_type['type'] = [merged_type['type']]
+                    merged_type['type'].append(json_schema['type'])                    
+                if 'required' in json_schema and 'required' in merged_type:
+                    merged_type['required'] = list(set(merged_type['required']).union(set(json_schema['required'])))
+                merged_type['name'] = merged_type.get('name','') + json_schema.get('name','')
+                if 'properties' in json_schema and 'properties' in merged_type:
+                    merged_type['properties'].update(json_schema['properties'])
+                if 'enum' in json_schema and 'enum' in merged_type:
+                    merged_type['enum'] = list(set(merged_type['enum']).union(set(json_schema['enum'])))
+                if 'format' in json_schema and 'format' in merged_type:
+                    merged_type['format'] = merged_type['format'] + json_schema['format']
+
+        if intersect:
+            # only keep the intersection of the required fields
+            if 'required' in merged_type:
+                new_required = merged_type['required']
+                for json_schema in json_schemas:
+                    new_required = list(set(new_required).intersection(set(json_schema.get('required',[]))))
+                merged_type['required'] = new_required
+
+        return merged_type
+        
+
 
 
     def ensure_type(self, type: dict | str | list) -> dict | str | list:
@@ -265,10 +324,9 @@ class JsonToAvroConverter:
             json_types = []            
 
             if 'allOf' in json_type:
-                merged_type = copy.deepcopy(base_type)
-                allof = json_type['allOf']
-                for allof_option in allof:
-                    merged_type = {**allof_option, **merged_type}
+                type_list = [copy.deepcopy(base_type)]
+                type_list.extend(json_type['allOf'])
+                merged_type = self.merge_json_schemas(type_list, intersect=False)
                 json_types.append(merged_type)
 
             if 'oneOf' in json_type:
@@ -285,17 +343,10 @@ class JsonToAvroConverter:
                     json_types = new_json_types
             
             if 'anyOf' in json_type:
-                anyof = json_type['anyOf']
-                if len(json_types) == 0:
-                    for anyof_option in anyof:
-                        json_types.append({**base_type, **anyof_option})
-                else:
-                    new_json_types = []
-                    for anyof_option in anyof:
-                        for json_type_option in json_types:
-                            json_type_option = {**json_type_option, **anyof_option}
-                            new_json_types.append(json_type_option)
-                    json_types = new_json_types
+                type_list = [copy.deepcopy(base_type)]
+                type_list.extend(json_type['anyOf'])
+                merged_type = self.merge_json_schemas(type_list, intersect=True)
+                json_types.append(merged_type)
 
             if len(json_types) > 0:
                 if len(json_types) == 1:
@@ -337,6 +388,7 @@ class JsonToAvroConverter:
             if '$ref' in json_type:
                 ref = json_type['$ref']
                 if ref in self.imported_types:
+                    # reference was already resolved, so we can resolve the reference simply by returning the type
                     type_ref = self.imported_types[ref]
                     if isinstance(type_ref, str):
                         dependencies.append(type_ref)
@@ -356,43 +408,58 @@ class JsonToAvroConverter:
                             type_namespace = self.root_namespace + '.' + sub_namespace if len(sub_namespace) > 0 else self.root_namespace
                         
                         # registering in imported_types ahead of resolving to prevent circular references
-                        self.imported_types[ref] = type_name
+                        # we only cache the type if it's forseeable that it is usable as a standalone type
+                        # which means that it must be either a record or an enum or a fixed type when converted
+                        # to Avro. That means we look for the presence of 'type', 'properties', 'allOf', 'anyOf',
+                        # and 'enum' in the resolved type.
+                        if resolved_json_type and (('type' in resolved_json_type and resolved_json_type['type'] == 'object') or 'properties' in resolved_json_type or 'enum' in resolved_json_type or \
+                                                   'allOf' in resolved_json_type or 'anyOf' in resolved_json_type or ('oneOf' in resolved_json_type and len(resolved_json_type['oneOf']) <= 1)):
+                            self.imported_types[ref] = type_namespace + '.' + type_name
                         # resolve type
                         deps: List[str] = []
                         resolved_avro_type: dict | list | str | None = self.json_type_to_avro_type(resolved_json_type, type_name, field_name, type_namespace, deps, resolved_schema, new_base_uri, avro_schema, record_stack)
-                        if isinstance(resolved_avro_type, list) or (not isinstance(resolved_avro_type, dict) or not resolved_avro_type.get('type') == "record"):
+                        if isinstance(resolved_avro_type, list) or (not isinstance(resolved_avro_type, dict) or (not resolved_avro_type.get('type') == "record" and not resolved_avro_type.get('type') == "enum")):
                             if isinstance(resolved_avro_type, dict) and not 'type' in resolved_avro_type:
                                 if isinstance(avro_type, dict):
-                                    # the resolved type didn't have a type and this is a dict, so we assume it's a mixin into the type we found
+                                    # the resolved type didn't have a type and avro_type is a dict, 
+                                    # so we assume it's a mixin into the type we found
                                     avro_type.update(resolved_avro_type)
                                     resolved_avro_type = None
                                 else:
+                                    # no 'type' definition for this field and we can't mix into the avro type, 
+                                    # so we fallback to a generic type
                                     print(f"WARNING: no 'type' definition for {ref} in record {record_name}: {json.dumps(resolved_avro_type)}")
                                     resolved_avro_type = generic_type()
+                            elif isinstance(avro_type,str) and resolved_avro_type:
+                                # this is a plain type reference
+                                avro_type = resolved_avro_type
+                                self.imported_types[ref] = avro_type
+                                resolved_avro_type = None                        
                             if resolved_avro_type:
-                                avro_type = {
-                                    "type": "record",
-                                    "name": type_name,
-                                    "namespace": type_namespace,
-                                    "fields": [
-                                        {
-                                            "name": "value",
-                                            "type": resolved_avro_type
-                                        }
-                                    ]
-                                }
+                                # this is not a record type that can stand on its own,
+                                # so we remove the cached type entry 
+                                # and pass it on as an inline type
+                                if ref in self.imported_types:
+                                    del self.imported_types[ref]
+                                avro_type = self.merge_avro_schemas([avro_type, resolved_avro_type], avro_schema, local_name)
                         else:
                             avro_type = resolved_avro_type
+                            self.imported_types[ref] = copy.deepcopy(avro_type)
 
-                        if isinstance(avro_type, dict) and len(deps) > 0:
-                            avro_type['dependencies'] = deps
-                        self.imported_types[ref] = copy.deepcopy(avro_type)
-                        if isinstance(avro_type, dict) and 'name' in avro_type:
+                        if len(deps) > 0:
+                            if isinstance(avro_type, dict):
+                                avro_type['dependencies'] = deps
+                            else:
+                                dependencies.extend(deps)
+                        
+                        if isinstance(avro_type, dict) and 'name' in avro_type and 'type' in avro_type and (avro_type['type'] == "record" or avro_type['type'] == "enum"):
                             existing_type = next((t for t in avro_schema if t.get('name') == avro_type['name'] and t.get('namespace') == avro_type.get('namespace') ), None)
                             if not existing_type:
                                 avro_schema.append(avro_type)
                             full_name = avro_type.get('namespace','')+'.'+avro_type['name'] if 'namespace' in avro_type else avro_type['name']
-                            self.imported_types[ref] = full_name
+                            if ref in self.imported_types:
+                                # update the import reference to the resolved type if it's cached
+                                self.imported_types[ref] = full_name
                             dependencies.append(full_name)
                             avro_type = full_name                    
                     else:
@@ -400,27 +467,29 @@ class JsonToAvroConverter:
                         json_type.update(resolved_json_type)
                         del json_type['$ref']
                         avro_type = self.json_type_to_avro_type(json_type, record_name, field_name, namespace, dependencies, resolved_schema, new_base_uri, avro_schema, record_stack)
-                        if isinstance(avro_type, dict) and 'name' in avro_type:
-                            self.imported_types[ref] = avro_type['name']
-                        else:
-                            self.imported_types[ref] = avro_type
-                    
+                        if ref in self.imported_types:
+                            # update the import reference to the resolved type if it's cached
+                            if isinstance(avro_type, dict) and 'name' in avro_type:
+                                self.imported_types[ref] = avro_type['name']
+                            else:
+                                self.imported_types[ref] = avro_type
+                        
             # if 'const' is present, make this an enum
             if 'const' in json_type:
                 const = json_type['const']
-                avro_type = self.merge_schemas([avro_type, {"type": "enum", "symbols": [const], "name": avro_name(local_name)}], avro_schema, local_name)
+                avro_type = self.merge_avro_schemas([avro_type, {"type": "enum", "symbols": [const], "name": avro_name(local_name)}], avro_schema, local_name)
 
             json_object_type = json_type.get('type')
             if isinstance(json_object_type, list) and len(json_object_type) == 1:
                 json_object_type = json_object_type[0]
             if json_object_type:
                 if json_object_type == 'array':
-                    if 'items' in json_type:
-                        avro_type = self.merge_schemas([avro_type, {"type": "array", "items": self.json_type_to_avro_type(json_type['items'], record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)}], avro_schema, avro_type.get('name', local_name))
+                    if isinstance(json_type, dict) and 'items' in json_type:
+                        avro_type = self.merge_avro_schemas([avro_type, {"type": "array", "items": self.json_type_to_avro_type(json_type['items'], record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)}], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
                     else:
-                        avro_type = self.merge_schemas([avro_type, {"type": "array", "items": generic_type()}], avro_schema, avro_type.get('name', local_name))
+                        avro_type = self.merge_avro_schemas([avro_type, {"type": "array", "items": generic_type()}], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
                 elif json_object_type == 'object' or 'object' in json_object_type:
-                    avro_type = self.merge_schemas([avro_type, self.json_schema_object_to_avro_record(local_name, json_type, namespace, json_schema, base_uri, avro_schema, record_stack)], avro_schema, avro_type.get('name', local_name)  if isinstance(avro_type,dict) else local_name)
+                    avro_type = self.merge_avro_schemas([avro_type, self.json_schema_object_to_avro_record(local_name, json_type, namespace, json_schema, base_uri, avro_schema, record_stack)], avro_schema, avro_type.get('name', local_name)  if isinstance(avro_type,dict) else local_name)
                     if isinstance(avro_type, dict) and 'dependencies' in avro_type:
                         dependencies.extend(avro_type['dependencies'])
                         del avro_type['dependencies']
@@ -430,14 +499,14 @@ class JsonToAvroConverter:
             elif 'enum' in json_type:
                 local_name = field_name = field_name if field_name else local_name
                 enum_namespace = namespace + '.' + record_stack[-1] if len(record_stack)>0 else '' + field_name 
-                avro_type = self.merge_schemas([avro_type,self.json_schema_primitive_to_avro_type("string", json_type.get('format'), json_type.get('enum'), field_name, dependencies)], avro_schema, avro_type.get('name', local_name)  if isinstance(avro_type,dict) else local_name)
+                avro_type = self.merge_avro_schemas([avro_type,self.json_schema_primitive_to_avro_type("string", json_type.get('format'), json_type.get('enum'), field_name, dependencies)], avro_schema, avro_type.get('name', local_name)  if isinstance(avro_type,dict) else local_name)
                 if isinstance(avro_type, dict):
                     avro_type['namespace'] = enum_namespace
         else:
             if isinstance(json_type, dict):
-                avro_type = self.merge_schemas([avro_type,self.json_schema_primitive_to_avro_type(json_type, json_type.get('format'), json_type.get('enum'), field_name, dependencies)], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
+                avro_type = self.merge_avro_schemas([avro_type,self.json_schema_primitive_to_avro_type(json_type, json_type.get('format'), json_type.get('enum'), field_name, dependencies)], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
             else:
-                avro_type = self.merge_schemas([avro_type,self.json_schema_primitive_to_avro_type(json_type, None, None, field_name, dependencies)], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
+                avro_type = self.merge_avro_schemas([avro_type,self.json_schema_primitive_to_avro_type(json_type, None, None, field_name, dependencies)], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
         
         if isinstance(avro_type, dict) and 'name' in avro_type:
             if not 'namespace' in avro_type:
@@ -457,15 +526,15 @@ class JsonToAvroConverter:
     def json_schema_object_to_avro_record(self, name: str, json_object: dict, namespace: str, json_schema: dict, base_uri: str, avro_schema: list, record_stack: list) -> dict:
         """Convert a JSON schema object declaration to an Avro record."""
 
-        dependencies = []
+        dependencies: List[str] = []
 
         # handle top-level allOf, anyOf, oneOf
         if isinstance(json_object, dict) and ('allOf' in json_object or 'oneOf' in json_object or 'anyOf' in json_object):
             type = self.json_type_to_avro_type(json_object, name, "value", namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)
-            if isinstance(type, list):
+            if isinstance(type, list) or isinstance(type, str):
                 type = {
                             "type": "record",
-                            "name": name,
+                            "name": name + "_union",
                             "namespace": namespace,
                             "fields": [
                                 {
@@ -474,8 +543,26 @@ class JsonToAvroConverter:
                                 }
                             ]
                         }
+            elif isinstance(type, dict) and 'type' in type and type['type'] != "record":
+                new_type = {
+                            "type": "record",
+                            "name": type.get('name', name + "_type"),
+                            "namespace": type.get('namespace',namespace),
+                            "fields": [
+                                {
+                                    "name": "value",
+                                    "type": type
+                                }
+                            ],
+                            "dependencies": type.get('dependencies', [])
+                        }
+                if 'dependencies' in type:
+                    del type['dependencies']
+                type = new_type
+
             if dependencies and isinstance(type, dict):
                 type['dependencies'] = dependencies
+
             return type    
         
         title = json_object.get('title')
@@ -516,7 +603,7 @@ class JsonToAvroConverter:
                 if not isinstance(field, dict):
                     continue
                 avro_field_type = self.ensure_type(self.json_type_to_avro_type(field, record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack))
-                if 'dependencies' in avro_field_type:
+                if isinstance(avro_field_type, dict) and 'dependencies' in avro_field_type:
                     dependencies.extend(avro_field_type['dependencies'])
                     del avro_field_type['dependencies']
                     
@@ -643,10 +730,10 @@ class JsonToAvroConverter:
         return avro_record
         
 
-    def jsons_to_avro(self, json_schema: dict | list, namespace: str, base_uri: str) -> list:
+    def jsons_to_avro(self, json_schema: dict | list, namespace: str, base_uri: str) -> list | dict:
         """Convert a JSON-schema to an Avro-schema."""
-        avro_schema = []
-        record_stack = []
+        avro_schema: List[dict] = []
+        record_stack: List[str] = []
 
         parsed_url = urlparse(base_uri)
         schema_name = 'record'
@@ -658,9 +745,9 @@ class JsonToAvroConverter:
         #         ref_schema, json_doc = self.resolve_reference(json_schema, base_uri, json_schema)
         #         json_schema.update(ref_schema)
 
-        if 'type' in json_schema or 'allOf' in json_schema or 'oneOf' in json_schema or 'anyOf' in json_schema or 'properties' in json_schema:
+        if isinstance(json_schema, dict) and 'type' in json_schema or 'allOf' in json_schema or 'oneOf' in json_schema or 'anyOf' in json_schema or 'properties' in json_schema:
             self.process_definition(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, json_schema)
-        elif 'swagger' in json_schema or ('definitions' in json_schema and not 'type' in json_schema):
+        elif isinstance(json_schema, dict) and ('swagger' in json_schema or ('definitions' in json_schema and not 'type' in json_schema)):
             json_schema_defs = json_schema.get('definitions', {})
             if not json_schema_defs:
                 raise ValueError('No definitions found in swagger file')
@@ -677,9 +764,9 @@ class JsonToAvroConverter:
         
         avro_schema = sort_messages_by_dependencies(avro_schema)
         
-        if parsed_url.fragment:
+        if parsed_url.fragment and isinstance(json_schema, dict):
             self.imported_types.clear()
-            fragment_schema = []
+            fragment_schema: List[dict] = []
             json_pointer = parsed_url.fragment
             schema_name = parsed_url.fragment.split('/')[-1]
             schema = jsonpointer.resolve_pointer(json_schema, json_pointer)
@@ -721,11 +808,12 @@ class JsonToAvroConverter:
         path_segments = path.strip('/').replace('-', '_').split('/')
         reversed_path_segments = reversed(path_segments)
         namespace_suffix = '.'.join(reversed_path_segments)
-        namespace_prefix = '.'.join(reversed(parsed_url.hostname.split('.')))
+        if parsed_url.hostname:
+            namespace_prefix = '.'.join(reversed(parsed_url.hostname.split('.')))
         namespace = f"{namespace_prefix}.{namespace_suffix}"
         return namespace
 
-    def convert_jsons_to_avro(self, json_schema_file_path: str, avro_schema_path: str, namespace: str = None) -> list:
+    def convert_jsons_to_avro(self, json_schema_file_path: str, avro_schema_path: str, namespace: str | None = None) -> list | dict:
         """Convert JSON schema file to Avro schema file."""
         # turn the file path into a file URI if it's not a URI already
         parsed_url = urlparse(json_schema_file_path)
@@ -756,7 +844,7 @@ class JsonToAvroConverter:
         return avro_schema
     
 
-def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, namespace: str = '') -> list:
+def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, namespace: str = '') -> list | dict:
     """Convert JSON schema file to Avro schema file."""
     try:
         converter = JsonToAvroConverter()
