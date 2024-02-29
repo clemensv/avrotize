@@ -13,6 +13,12 @@ going via Avro Schema.
 The tool does not convert data (instances of schemas), only the data structure
 definitions.
 
+Mind that the primary objective of the tool is the conversion of schemas that
+describe data structures used in applications, databases, and message systems.
+While the project's internal tests do cover a lot of ground, it is nevertheless
+not a primary goal of the tool to convert every complex document schema like
+those used for devops pipeline or system configuration files.
+
 ## Why?
 
 Data structure definitions are an essential part of data exchange,
@@ -185,8 +191,12 @@ Conversion notes:
 * All field constraints and validations associated with the JSON Schema are
   ignored in the translation to Avro. Avro does not support the same level of
   validation as JSON Schema.
-* Very large schemas with many cross references (`$ref`) throughout the schema may
-  have circular references that cannot be fully resolved in Avro Schema.
+* Very large schemas with many cross references (`$ref`) throughout the schema
+  may have circular references that cannot be fully resolved in Avro Schema. The
+  tool will warn about circular reference issues that cannot be resolved; if a
+  circular reference is found that creates an infinitely nested structure, the
+  Avro schema will reflect this to the best of its ability with a limited depth
+  of nesting.
 * JSON type unions as well as `allOf`, `anyOf`, and `oneOf` expressions that are
   shared and referenced by a `$ref` expression are mapped to a record type in
   Avro with a field `value` of the type union.  
@@ -203,15 +213,15 @@ Conversion notes:
   from JSON to Avro, the property names in objects are sanitized by replacing 
   any non-alphanumeric characters with underscores and prefixing the result with an 
   underscore. This may lead to name conflicts and the tool will simply append a 
-  unique index to the name to avoid naming conflicts.
+  unique index to the name to avoid naming conflicts. This is also true for
+  enum values that are numeric. The tool will prefix those with an underscore.
 * All `patternProperties` are converted into a fields holding arrays of records.
 * All external references (`$ref`) are resolved and embedded in the Avro schema.
-  The tool does not support maintaining external references to other schemas. To
-  perform a conversion, all external $ref references have to be resolvable by
+  To perform a conversion, all external $ref references have to be resolvable by
   the tool.
-* When a JSON schema file does not define a top-level type, the tool will look for 
-  a `definitions` section and emit all definitions as a union of the types defined.
-  This also works with Swagger and OpenAPI files.
+* When a JSON schema file does not define a top-level type, the tool will look
+  for a `definitions`/`$defs` section and emit all definitions as a union of the
+  types defined. This also works with Swagger and OpenAPI files.
 
 ### Convert XML Schema (XSD) to Avro schema
 
