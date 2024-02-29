@@ -17,7 +17,6 @@ class TestJsonsToAvro(unittest.TestCase):
 
     def validate_avro_schema(self, avro_file_path):
         load_schema(avro_file_path)
-                
 
     def test_convert_address_jsons_to_avro(self):
         cwd = getcwd()        

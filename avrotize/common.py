@@ -2,6 +2,8 @@ import re
 
 def avro_name(name):
     """Convert a name into an Avro name."""
+    if isinstance(name, int):
+        name = '_'+str(name)
     val = re.sub(r'[^a-zA-Z0-9_]', '_', name)
     if re.match(r'^[0-9]', val):
         val = '_' + val

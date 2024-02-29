@@ -63,7 +63,7 @@ def sort_messages_by_dependencies(avro_schema):
                 if isinstance(record, dict) and 'dependencies' in record:
                     remaining_deps = [dep for dep in record['dependencies'] if not dep in [x.get('namespace','')+'.'+x.get('name','') for x in sorted_messages]]
                     if len(remaining_deps) > 0:
-                        swap_record_dependencies(avro_schema, record, [record.get('namespace','')+'.'+record['name']])
+                        swap_record_dependencies(avro_schema, record, [record.get('namespace','')+'.'+record['name']], 0)
                         if 'dependencies' in record and len(record['dependencies']) == 0:
                             del record['dependencies']
                         if isinstance(record, dict) and not 'dependencies' in record:
@@ -98,7 +98,7 @@ def sort_messages_by_dependencies(avro_schema):
                     print('WARNING: There are circular dependencies in the schema, unable to resolve them: {}'.format([x['name'] for x in avro_schema if isinstance(x, dict) and 'dependencies' in x]))
     return sorted_messages
 
-def swap_record_dependencies(avro_schema, record, record_stack: List[str]):
+def swap_record_dependencies(avro_schema, record, record_stack: List[str], recursion_depth: int = 0):
     record_stack.append(record.get('namespace', '')+'.'+record['name'])
     if 'dependencies' in record:
         prior_dependencies = copy.deepcopy(record['dependencies'])
@@ -110,23 +110,25 @@ def swap_record_dependencies(avro_schema, record, record_stack: List[str]):
                             'type': item,
                             'name': field['name']   
                         }
-                        resolve_field_dependencies(avro_schema, record, sub_field, record_stack)
+                        resolve_field_dependencies(avro_schema, record, sub_field, record_stack, recursion_depth + 1)
                         if sub_field['type'] != item:
                             idx = field['type'].index(item)
                             field['type'].remove(item)
                             field['type'].insert(idx, sub_field['type'])
                 else:
-                    resolve_field_dependencies(avro_schema, record, field, record_stack)
-            if 'dependencies' in record:
+                    resolve_field_dependencies(avro_schema, record, field, record_stack, recursion_depth + 1)
+            if 'dependencies' in record and len(record['dependencies']) > 0:
                 # compare the prior dependencies to the current dependencies one-by-one. If they are the same,
                 # then we have a circular dependency.
                 if prior_dependencies == record['dependencies']:
                     print('WARNING: Unable to resolve circular dependency in {}::{} with dependencies: {}'.format(record.get('namespace',''), record['name'], record['dependencies']))
                     break
                 prior_dependencies = record['dependencies']
+        if 'dependencies' in record:
+            del record['dependencies']
     record_stack.pop()
 
-def resolve_field_dependencies(avro_schema, record, field, record_stack):
+def resolve_field_dependencies(avro_schema, record, field, record_stack, recursion_depth: int = 0):
     for dependency in record.get('dependencies', []):
         dependency_type = next((x for x in avro_schema if x['name'] == dependency or x.get('namespace','')+'.'+x['name'] == dependency), None)
         if not dependency_type and dependency in record['dependencies']:
@@ -135,13 +137,13 @@ def resolve_field_dependencies(avro_schema, record, field, record_stack):
         deps = record.get('dependencies', [])
         if dependency_type:
             if record['name'] != dependency and (record.get('namespace','')+'.'+record['name']) != dependency:
-                swap_dependency_type(avro_schema, field, dependency, dependency_type, deps, record_stack)
+                swap_dependency_type(avro_schema, field, dependency, dependency_type, deps, record_stack, recursion_depth + 1)
         record['dependencies'] = [dep for dep in deps if dep != record['name'] and record.get('namespace','')+'.'+record['name'] != dep]
         if len(record['dependencies']) == 0:
             del record['dependencies']
 
 
-def swap_dependency_type(avro_schema, field, dependency, dependency_type, dependencies, record_stack: List[str]):
+def swap_dependency_type(avro_schema, field, dependency, dependency_type, dependencies, record_stack: List[str], recursion_depth: int = 0):
     """ to break circular dependencies, we will inline the dependent record and remove the dependency """
     if not dependency in dependencies:
         return
@@ -159,7 +161,7 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
         dependencies.remove(dependency)
         dependencies.extend(dependency_type.get('dependencies', []))
         if 'dependencies' in dependency_type:
-            swap_record_dependencies(avro_schema, dependency_type, record_stack)
+            swap_record_dependencies(avro_schema, dependency_type, record_stack, recursion_depth + 1)
            
     # type is a Union?
     elif isinstance(field['type'], list):
@@ -173,9 +175,9 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
                 dependencies.extend(dependency_type.get('dependencies', []))
         for field_type in field['type']:
             if isinstance(field_type, dict):
-                swap_dependency_type(avro_schema, field_type, dependency, dependency_type, dependencies, record_stack)
+                swap_dependency_type(avro_schema, field_type, dependency, dependency_type, dependencies, record_stack, recursion_depth + 1)
     elif isinstance(field['type'], dict) and 'type' in field['type']:
-        swap_dependency_type(avro_schema, field['type'], dependency, dependency_type, dependencies, record_stack)
+        swap_dependency_type(avro_schema, field['type'], dependency, dependency_type, dependencies, record_stack, recursion_depth + 1)
     elif field['type'] == 'array':
         if not 'items' in field:
             return
@@ -190,7 +192,7 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
                     dependencies.extend(dependency_type.get('dependencies', []))
             for item in field['items']:
                 if isinstance(item, dict):
-                    swap_dependency_type(avro_schema, item, dependency, dependency_type, dependencies, record_stack)               
+                    swap_dependency_type(avro_schema, item, dependency, dependency_type, dependencies, record_stack, recursion_depth + 1)               
         elif field['items'] == dependency:
             if dependency_type in avro_schema:
                 field['items'] = dependency_type
@@ -200,7 +202,7 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
             if 'dependencies' in dependency_type:
                 swap_record_dependencies(avro_schema, dependency_type, record_stack)
         elif isinstance(field['items'], dict) and 'type' in field['items']:
-            swap_dependency_type(avro_schema, field['items'], dependency, dependency_type, dependencies, record_stack)
+            swap_dependency_type(avro_schema, field['items'], dependency, dependency_type, dependencies, record_stack, recursion_depth + 1)
     elif field['type'] == 'map':
         if isinstance(field['values'], list):
             for item in field['values']:
@@ -213,7 +215,7 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
                     dependencies.extend(dependency_type.get('dependencies', []))
             for item in field['values']:
                 if isinstance(item, dict):
-                    swap_dependency_type(avro_schema, item, dependency, dependency_type, dependencies, record_stack)
+                    swap_dependency_type(avro_schema, item, dependency, dependency_type, dependencies, record_stack, recursion_depth + 1)
         if field['values'] == dependency:
             if dependency_type in avro_schema:
                 field['values'] = dependency_type
@@ -223,10 +225,10 @@ def swap_dependency_type(avro_schema, field, dependency, dependency_type, depend
             if 'dependencies' in dependency_type:
                 swap_record_dependencies(avro_schema, dependency_type, record_stack)
         elif 'type' in field['values']:
-            swap_dependency_type(avro_schema, field['values'], dependency, dependency_type, dependencies, record_stack)
+            swap_dependency_type(avro_schema, field['values'], dependency, dependency_type, dependencies, record_stack, recursion_depth + 1)
     elif field['type'] == 'record':
         record_stack.append(field.get('namespace', '')+'.'+field['name'])
         for dep_field in field['fields']:
             if isinstance(dep_field, dict):
-                swap_dependency_type(avro_schema, dep_field, dependency, dependency_type, dependencies, record_stack)
+                swap_dependency_type(avro_schema, dep_field, dependency, dependency_type, dependencies, record_stack, recursion_depth + 1)  
         record_stack.pop()
