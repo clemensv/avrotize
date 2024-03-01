@@ -18,6 +18,17 @@ class TestJsonsToAvro(unittest.TestCase):
     def validate_avro_schema(self, avro_file_path):
         load_schema(avro_file_path)
 
+    def test_convert_rootarray_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "rootarray.jsons")
+        avro_path = path.join(cwd, "test", "tmp", "rootarray.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")
+        self.validate_avro_schema(avro_path)
+    
     def test_convert_address_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "address.jsons")
@@ -118,7 +129,18 @@ class TestJsonsToAvro(unittest.TestCase):
         
         convert_jsons_to_avro(jsons_path, avro_path, "example.com")
         self.validate_avro_schema(avro_path)
-
+    
+    def test_convert_addlprops3_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "addlprops3.json")
+        avro_path = path.join(cwd, "test", "tmp", "addlprops3.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")
+        self.validate_avro_schema(avro_path)
+    
     def test_convert_patternprops1_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "patternprops1.json")
@@ -174,7 +196,6 @@ class TestJsonsToAvro(unittest.TestCase):
         self.validate_avro_schema(avro_path)
     
     # skip because of stack limitatons in GH Action
-    @pytest.mark.skip(reason="flaky due to stack limits")
     def test_convert_jfrog_pipelines_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
@@ -196,7 +217,6 @@ class TestJsonsToAvro(unittest.TestCase):
         #self.validate_avro_schema(avro_path)
 
     # skip because of stack limitatons in GH Action
-    @pytest.mark.skip(reason="flaky due to stack limits")
     def test_convert_travis_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "travis.json")

@@ -24,7 +24,8 @@ dependencies = [
     "pyarrow>=15.0.0",
     "asn1tools>=0.166.0",
     "jsonpointer>=2.4",
-    "fastavro>=1.9.4"
+    "fastavro>=1.9.4",
+    "jsonpath-ng>=1.6.1",
 ]
 
 [project.scripts]

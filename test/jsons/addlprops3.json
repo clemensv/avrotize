@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Properties with Additional Properties",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "name": {
+      "type": "string"
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "prop1": {
+          "type": "string"
+        },
+        "prop2": {
+          "type": "integer"
+        },
+        "prop3": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prop4": {
+          "type": "object",
+          "properties": {
+            "prop5": {
+              "type": "integer"
+            }
+         }},
+         "prop6": {
+            "type": ["boolean", "integer"]
+         }         
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "other": {
+      "type": "object",
+      "properties": {
+        "prop1": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "foo*": {
+          "type": "integer"
+        },
+        "bar*": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "yetAnother": {
+      "type": "object",
+      "patternProperties": {
+        "foo*": {
+          "type": "integer"
+        },
+        "bar*": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {
+        "type": "boolean"
+      }      
+    },
+    "more": {
+      "type": "object",
+      "patternProperties": {
+        "foo*": {
+          "type": "integer"
+        },
+        "bar*": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false      
+    }
+  }
+
+}
