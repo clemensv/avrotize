@@ -65,9 +65,12 @@ def convert_avro_type_to_parquet_type(avroType):
             else:
                 return pa.struct( [pa.field(f'{x}Value' if isinstance(x,str) else f'{x.get("name")}Value' if isinstance(x,dict) else f'_{i}', 
                                     convert_avro_type_to_parquet_type(x)) for i, x in enumerate(avroType)])
-        else:
+        elif itemCount > 0:
             return pa.struct( [pa.field(f'{x}Value' if isinstance(x,str) else f'{x.get("name")}Value' if isinstance(x,dict) else f'_{i}', 
                                     convert_avro_type_to_parquet_type(x)) for i, x in enumerate(avroType)])
+        else:
+            print(f"WARNING: Empty union type {avroType}")
+            return pa.string()
     elif isinstance(avroType, dict):
         type = avroType.get("type")
         if type == "array":
@@ -76,6 +79,9 @@ def convert_avro_type_to_parquet_type(avroType):
             return pa.map_(pa.string(), convert_avro_type_to_parquet_type(avroType.get("values")))
         elif type == "record":
             fields = avroType.get("fields")
+            if len(fields) == 0:
+                print(f"WARNING: No fields in record type {avroType.get('name')}")
+                return pa.string()
             return pa.struct({field.get("name"): convert_avro_type_to_parquet_type(field.get("type")) for field in fields})
         if type == "enum":
             return pa.string()

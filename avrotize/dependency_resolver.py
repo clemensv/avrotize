@@ -103,20 +103,21 @@ def swap_record_dependencies(avro_schema, record, record_stack: List[str], recur
     if 'dependencies' in record:
         prior_dependencies = copy.deepcopy(record['dependencies'])
         while 'dependencies' in record and len(record['dependencies']) > 0:
-            for field in record['fields']:
-                if isinstance(field['type'], list):
-                    for item in field['type'].copy():
-                        sub_field = {
-                            'type': item,
-                            'name': field['name']   
-                        }
-                        resolve_field_dependencies(avro_schema, record, sub_field, record_stack, recursion_depth + 1)
-                        if sub_field['type'] != item:
-                            idx = field['type'].index(item)
-                            field['type'].remove(item)
-                            field['type'].insert(idx, sub_field['type'])
-                else:
-                    resolve_field_dependencies(avro_schema, record, field, record_stack, recursion_depth + 1)
+            if 'fields' in record:
+                for field in record['fields']:
+                    if isinstance(field['type'], list):
+                        for item in field['type'].copy():
+                            sub_field = {
+                                'type': item,
+                                'name': field['name']   
+                            }
+                            resolve_field_dependencies(avro_schema, record, sub_field, record_stack, recursion_depth + 1)
+                            if sub_field['type'] != item:
+                                idx = field['type'].index(item)
+                                field['type'].remove(item)
+                                field['type'].insert(idx, sub_field['type'])
+                    else:
+                        resolve_field_dependencies(avro_schema, record, field, record_stack, recursion_depth + 1)
             if 'dependencies' in record and len(record['dependencies']) > 0:
                 # compare the prior dependencies to the current dependencies one-by-one. If they are the same,
                 # then we have a circular dependency.

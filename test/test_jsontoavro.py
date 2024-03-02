@@ -195,8 +195,6 @@ class TestJsonsToAvro(unittest.TestCase):
         convert_jsons_to_avro(jsons_path, avro_path)
         self.validate_avro_schema(avro_path)
     
-    # skip because of stack limitatons in GH Action
-    @pytest.mark.skip(reason="too complex at the moment")
     def test_convert_jfrog_pipelines_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
@@ -217,7 +215,6 @@ class TestJsonsToAvro(unittest.TestCase):
         convert_jsons_to_avro(jsons_path, avro_path)
         #self.validate_avro_schema(avro_path)
 
-    # skip because of stack limitatons in GH Action
     def test_convert_travis_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "travis.json")
