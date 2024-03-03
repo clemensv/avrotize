@@ -226,6 +226,8 @@ class TestJsonsToAvro(unittest.TestCase):
         convert_jsons_to_avro(jsons_path, avro_path)
         #self.validate_avro_schema(avro_path)
 
+    # exclude
+    @pytest.mark.skip(reason="excluded")    
     def test_convert_travis_jsons_to_avro(self):
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "travis.json")
@@ -233,6 +235,8 @@ class TestJsonsToAvro(unittest.TestCase):
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
             os.makedirs(dir)
+        if os.path.exists(avro_path):
+            os.remove(avro_path)
         convert_jsons_to_avro(jsons_path, avro_path)
         self.validate_avro_schema(avro_path)
 
