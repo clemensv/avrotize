@@ -28,6 +28,17 @@ class TestJsonsToAvro(unittest.TestCase):
         
         convert_jsons_to_avro(jsons_path, avro_path, "example.com")
         self.validate_avro_schema(avro_path)
+
+    def test_convert_circularrefs_jsons_to_avro(self):
+        cwd = getcwd()        
+        jsons_path = path.join(cwd, "test", "jsons", "circularrefs.json")
+        avro_path = path.join(cwd, "test", "tmp", "circularrefs.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+
+        convert_jsons_to_avro(jsons_path, avro_path, "example.com")
+        self.validate_avro_schema(avro_path)
     
     def test_convert_address_jsons_to_avro(self):
         cwd = getcwd()        

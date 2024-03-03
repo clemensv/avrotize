@@ -1,0 +1,55 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "def1": {
+            "$ref": "#/definitions/Definition1",
+            "title": "Definition1"
+        },
+        "def2": {
+            "$ref": "#/definitions/Definition2"
+        },
+        "def3": {
+            "title": "Definition3",
+            "$ref": "#/definitions/Definition3"
+        }
+    },
+    "definitions": {
+        "Definition1": {
+            "type": "object",
+            "properties": {
+                "prop1": {
+                    "$ref": "#/definitions/Definition1"
+                }
+            }
+        },
+        "Definition2": {
+            "type": "object",
+            "properties": {
+                "nested": {
+                    "type": "object",
+                    "properties": {
+                        "prop2": {
+                            "$ref": "#/definitions/Definition2"
+                        }
+                    }
+                }
+            }
+        },
+        "Definition3": {
+            "type": "object",
+            "properties": {
+                "anyOfProp": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/definitions/Definition3"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}
