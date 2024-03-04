@@ -1,0 +1,16 @@
+{
+    "type": "record",
+    "name": "document",
+    "namespace": "com.test.example",
+    "fields": [
+        {
+            "name": "document",
+            "type": {
+                "type": "map",
+                "name": "document",
+                "values": "string",
+                "doc": "Extra properties: [string]. "
+            }
+        }
+    ]
+}

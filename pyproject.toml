@@ -26,6 +26,7 @@ dependencies = [
     "jsonpointer>=2.4",
     "fastavro>=1.9.4",
     "jsonpath-ng>=1.6.1",
+    "jsoncomparison>=1.1.0",
 ]
 
 [project.scripts]
@@ -33,3 +34,5 @@ avrotize = "avrotize.avrotize:main"
 
 [tool.setuptools_scm]
 write_to = "avrotize/_version.py"
+[tool.poetry.dev-dependencies]
+pytest-cov = "^3.0"

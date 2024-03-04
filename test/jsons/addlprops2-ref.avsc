@@ -1,0 +1,21 @@
+{
+    "type": "record",
+    "name": "document",
+    "namespace": "com.test.example",
+    "fields": [
+        {
+            "name": "id",
+            "type": [
+                "null",
+                "int"
+            ]
+        },
+        {
+            "name": "name",
+            "type": [
+                "null",
+                "string"
+            ]
+        }
+    ]
+}

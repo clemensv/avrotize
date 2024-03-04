@@ -1,0 +1,169 @@
+{
+    "type": "record",
+    "name": "document",
+    "namespace": "com.test.example",
+    "fields": [
+        {
+            "name": "id",
+            "type": [
+                "null",
+                "int"
+            ]
+        },
+        {
+            "name": "name",
+            "type": [
+                "null",
+                "string"
+            ]
+        },
+        {
+            "name": "settings",
+            "type": [
+                {
+                    "type": "record",
+                    "name": "settings",
+                    "namespace": "com.test.example.document",
+                    "fields": [
+                        {
+                            "name": "prop1",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        },
+                        {
+                            "name": "prop2",
+                            "type": [
+                                "null",
+                                "int"
+                            ]
+                        },
+                        {
+                            "name": "prop3",
+                            "type": [
+                                "null",
+                                {
+                                    "name": "prop3",
+                                    "type": "array",
+                                    "items": "string",
+                                    "namespace": "com.test.example.document"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "prop4",
+                            "type": [
+                                "null",
+                                {
+                                    "name": "prop4",
+                                    "type": "record",
+                                    "namespace": "com.test.example.document.settings",
+                                    "fields": [
+                                        {
+                                            "name": "prop5",
+                                            "type": [
+                                                "null",
+                                                "int"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "name": "prop6",
+                            "type": [
+                                "boolean",
+                                "int",
+                                "null"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "map",
+                    "name": "settings",
+                    "values": [
+                        "null",
+                        "string",
+                        "int",
+                        {
+                            "name": "prop3",
+                            "type": "array",
+                            "items": "string",
+                            "namespace": "com.test.example.document"
+                        },
+                        "com.test.example.document.settings.prop4",
+                        "boolean"
+                    ],
+                    "doc": "Mixed dynamic: 'prop1': [null, string], 'prop2': [null, int], 'prop3': [null, array], 'prop4': [null, com.test.example.document.settings.prop4], 'prop6': [boolean, int, null]. Extra properties: [string]. "
+                },
+                "null"
+            ]
+        },
+        {
+            "name": "other",
+            "type": [
+                {
+                    "type": "record",
+                    "name": "other",
+                    "namespace": "com.test.example.document",
+                    "fields": [
+                        {
+                            "name": "prop1",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "map",
+                    "name": "other",
+                    "values": [
+                        "null",
+                        "string",
+                        "int"
+                    ],
+                    "doc": "Mixed dynamic: 'prop1': [null, string]. Name pattern 'foo*': [int]. Name pattern 'bar*': [string]. "
+                },
+                "null"
+            ]
+        },
+        {
+            "name": "yetAnother",
+            "type": [
+                "null",
+                {
+                    "name": "yetAnother",
+                    "type": "map",
+                    "values": [
+                        "int",
+                        "string",
+                        "boolean"
+                    ],
+                    "doc": "Name pattern 'foo*': [int]. Name pattern 'bar*': [string]. Extra properties: [boolean]. ",
+                    "namespace": "com.test.example"
+                }
+            ]
+        },
+        {
+            "name": "more",
+            "type": [
+                "null",
+                {
+                    "name": "more",
+                    "type": "map",
+                    "values": [
+                        "int",
+                        "string"
+                    ],
+                    "doc": "Name pattern 'foo*': [int]. Name pattern 'bar*': [string]. ",
+                    "namespace": "com.test.example"
+                }
+            ]
+        }
+    ]
+}

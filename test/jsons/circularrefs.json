@@ -12,6 +12,10 @@
         "def3": {
             "title": "Definition3",
             "$ref": "#/definitions/Definition3"
+        },
+        "def4": {
+            "title": "Defînition4",
+            "$ref": "#/definitions/Definition4"
         }
     },
     "definitions": {
@@ -48,6 +52,27 @@
                             "type": "string"
                         }
                     ]
+                }
+            }
+        },
+        "Definition4": {
+            "type": "object",
+            "properties": {
+                "prop4": {
+                    "$ref": "#/definitions/Definition4a"
+                }
+            }
+        },
+        "Definition4a": {
+            "type": "object",
+            "properties": {
+                "nested": {
+                    "type": "object",
+                    "properties": {
+                        "prop5": {
+                            "$ref": "#/definitions/Definition4"
+                        }
+                    }
                 }
             }
         }

@@ -39,3 +39,45 @@ def generic_type() -> list[str | dict]:
             "values": l2
         }])
     return l1
+
+def find_schema_node(test, avro_schema, recursion_stack = []):    
+    """Find the first schema node in the avro_schema matching the test"""
+    for recursion_item in recursion_stack:
+        if avro_schema is recursion_item:
+            raise ValueError('Cyclical reference detected in schema')
+        if len(recursion_stack) > 30:
+            raise ValueError('Maximum recursion depth 30 exceeded in schema')
+    try:
+        recursion_stack.append(avro_schema)
+        if isinstance(avro_schema, dict):
+            test_node = test(avro_schema)
+            if test_node:
+                return avro_schema
+            for k, v in avro_schema.items():
+                if isinstance(v, (dict,list)):
+                    node = find_schema_node(test, v, recursion_stack)
+                    if node:
+                        return node
+        elif isinstance(avro_schema, list):
+            for item in avro_schema:
+                node = find_schema_node(test, item, recursion_stack)
+                if node:
+                    return node
+        return None
+    finally:
+        recursion_stack.pop()
+
+def set_schema_node(test, replacement, avro_schema):
+    """Set the first schema node in the avro_schema matching the test to the replacement"""
+    if isinstance(avro_schema, dict):
+        test_node = test(avro_schema)
+        if test_node:
+            avro_schema.clear()
+            avro_schema.update(replacement)
+            return
+        for k, v in avro_schema.items():
+            if isinstance(v, (dict,list)):
+                set_schema_node(test, replacement, v)
+    elif isinstance(avro_schema, list):
+        for item in avro_schema:
+            set_schema_node(test, replacement, item)

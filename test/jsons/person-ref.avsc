@@ -1,0 +1,51 @@
+{
+    "type": "record",
+    "name": "document",
+    "namespace": "com.test.example",
+    "fields": [
+        {
+            "name": "name",
+            "type": "string"
+        },
+        {
+            "name": "age",
+            "type": [
+                "null",
+                "int"
+            ]
+        },
+        {
+            "name": "contact",
+            "type": [
+                {
+                    "name": "contact_2",
+                    "type": "record",
+                    "namespace": "com.test.example.contact",
+                    "fields": [
+                        {
+                            "name": "phoneNumber",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "contact_1",
+                    "type": "record",
+                    "namespace": "com.test.example.contact",
+                    "fields": [
+                        {
+                            "name": "email",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

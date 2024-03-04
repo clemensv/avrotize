@@ -18,3 +18,4 @@ asn1tools==0.166.0
 jsonpointer==2.4
 fastavro==1.9.4
 jsonpath-ng==1.6.1
+jsoncomparison==1.1.0
