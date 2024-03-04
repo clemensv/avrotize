@@ -45,8 +45,8 @@ def find_schema_node(test, avro_schema, recursion_stack = []):
     for recursion_item in recursion_stack:
         if avro_schema is recursion_item:
             raise ValueError('Cyclical reference detected in schema')
-        if len(recursion_stack) > 30:
-            raise ValueError('Maximum recursion depth 30 exceeded in schema')
+        if len(recursion_stack) > 50:
+            raise ValueError('Maximum recursion depth 50 exceeded in schema')
     try:
         recursion_stack.append(avro_schema)
         if isinstance(avro_schema, dict):
@@ -60,9 +60,10 @@ def find_schema_node(test, avro_schema, recursion_stack = []):
                         return node
         elif isinstance(avro_schema, list):
             for item in avro_schema:
-                node = find_schema_node(test, item, recursion_stack)
-                if node:
-                    return node
+                if isinstance(item, (dict,list)):
+                    node = find_schema_node(test, item, recursion_stack)
+                    if node:
+                        return node
         return None
     finally:
         recursion_stack.pop()

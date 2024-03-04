@@ -102,7 +102,6 @@ class TestJsonsToAvro(unittest.TestCase):
     def test_convert_clouidify_jsons_to_avro(self):
         self.create_avro_from_jsons("cloudify.json", "cloudify.avsc")
 
-    @pytest.mark.skip(reason="Recursion issue")
     def test_convert_databricks_asset_bundles_to_avro(self):
         self.create_avro_from_jsons("databricks-asset-bundles.json", "databricks-asset-bundles.avsc")
         
