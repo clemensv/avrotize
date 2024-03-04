@@ -23,7 +23,7 @@
                 {
                     "type": "record",
                     "name": "settings",
-                    "namespace": "com.test.example.document",
+                    "namespace": "com.test.example.document_types",
                     "fields": [
                         {
                             "name": "prop1",
@@ -47,7 +47,7 @@
                                     "name": "prop3",
                                     "type": "array",
                                     "items": "string",
-                                    "namespace": "com.test.example.document"
+                                    "namespace": "com.test.example.document_types"
                                 }
                             ]
                         },
@@ -58,7 +58,7 @@
                                 {
                                     "name": "prop4",
                                     "type": "record",
-                                    "namespace": "com.test.example.document.settings",
+                                    "namespace": "com.test.example.document_types.settings_types",
                                     "fields": [
                                         {
                                             "name": "prop5",
@@ -92,12 +92,12 @@
                             "name": "prop3",
                             "type": "array",
                             "items": "string",
-                            "namespace": "com.test.example.document"
+                            "namespace": "com.test.example.document_types"
                         },
-                        "com.test.example.document.settings.prop4",
+                        "com.test.example.document_types.settings_types.prop4",
                         "boolean"
                     ],
-                    "doc": "Mixed dynamic: 'prop1': [null, string], 'prop2': [null, int], 'prop3': [null, array], 'prop4': [null, com.test.example.document.settings.prop4], 'prop6': [boolean, int, null]. Extra properties: [string]. "
+                    "doc": "Mixed dynamic: 'prop1': [null, string], 'prop2': [null, int], 'prop3': [null, array], 'prop4': [null, com.test.example.document_types.settings_types.prop4], 'prop6': [boolean, int, null]. Extra properties: [string]. "
                 },
                 "null"
             ]
@@ -108,7 +108,7 @@
                 {
                     "type": "record",
                     "name": "other",
-                    "namespace": "com.test.example.document",
+                    "namespace": "com.test.example.document_types",
                     "fields": [
                         {
                             "name": "prop1",

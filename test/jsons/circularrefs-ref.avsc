@@ -1,127 +1,133 @@
-{
-    "type": "record",
-    "name": "document",
-    "namespace": "com.test.example",
-    "fields": [
-        {
-            "name": "def1",
-            "type": [
-                "null",
-                {
-                    "name": "Definition1",
-                    "type": "record",
-                    "namespace": "com.test.example",
-                    "fields": [
-                        {
-                            "name": "prop1",
-                            "type": [
-                                "null",
-                                "com.test.example.Definition1"
-                            ]
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "def2",
-            "type": [
-                "null",
-                {
-                    "name": "Definition2",
-                    "type": "record",
-                    "namespace": "com.test.example",
-                    "fields": [
-                        {
-                            "name": "nested",
-                            "type": [
-                                "null",
-                                {
-                                    "name": "nested",
-                                    "type": "record",
-                                    "namespace": "com.test.example.Definition2",
-                                    "fields": [
-                                        {
-                                            "name": "prop2",
-                                            "type": [
-                                                "null",
-                                                "com.test.example.Definition2"
-                                            ]
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "def3",
-            "type": [
-                "null",
-                {
-                    "name": "Definition3",
-                    "type": "record",
-                    "namespace": "com.test.example",
-                    "fields": [
-                        {
-                            "name": "anyOfProp",
-                            "type": [
-                                "com.test.example.Definition3",
-                                "string",
-                                "null"
-                            ]
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "name": "def4",
-            "type": [
-                "null",
-                {
-                    "name": "Definition4",
-                    "type": "record",
-                    "namespace": "com.test.example",
-                    "fields": [
-                        {
-                            "name": "prop4",
-                            "type": [
-                                "null",
-                                {
-                                    "name": "Definition4a",
-                                    "type": "record",
-                                    "namespace": "com.test.example",
-                                    "fields": [
-                                        {
-                                            "name": "nested",
-                                            "type": [
-                                                "null",
-                                                {
-                                                    "name": "nested",
-                                                    "type": "record",
-                                                    "namespace": "com.test.example.Definition4a",
-                                                    "fields": [
-                                                        {
-                                                            "name": "prop5",
-                                                            "type": [
-                                                                "null",
-                                                                "com.test.example.Definition4"
-                                                            ]
-                                                        }
-                                                    ]
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        }
-    ]
-}
+[
+    {
+        "name": "Definition1",
+        "type": "record",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "prop1",
+                "type": [
+                    "null",
+                    "com.test.example.Definition1"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Definition2",
+        "type": "record",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "nested",
+                "type": [
+                    "null",
+                    {
+                        "name": "nested",
+                        "type": "record",
+                        "namespace": "com.test.example.Definition2_types",
+                        "fields": [
+                            {
+                                "name": "prop2",
+                                "type": [
+                                    "null",
+                                    "com.test.example.Definition2"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Definition3",
+        "type": "record",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "anyOfProp",
+                "type": [
+                    "com.test.example.Definition3",
+                    "string",
+                    "null"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Definition4",
+        "type": "record",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "prop4",
+                "type": [
+                    "null",
+                    {
+                        "name": "Definition4a",
+                        "type": "record",
+                        "namespace": "com.test.example",
+                        "fields": [
+                            {
+                                "name": "nested",
+                                "type": [
+                                    "null",
+                                    {
+                                        "name": "nested",
+                                        "type": "record",
+                                        "namespace": "com.test.example.Definition4a_types",
+                                        "fields": [
+                                            {
+                                                "name": "prop5",
+                                                "type": [
+                                                    "null",
+                                                    "com.test.example.Definition4"
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "document",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "def1",
+                "type": [
+                    "null",
+                    "com.test.example.Definition1"
+                ]
+            },
+            {
+                "name": "def2",
+                "type": [
+                    "null",
+                    "com.test.example.Definition2"
+                ]
+            },
+            {
+                "name": "def3",
+                "type": [
+                    "null",
+                    "com.test.example.Definition3"
+                ]
+            },
+            {
+                "name": "def4",
+                "type": [
+                    "null",
+                    "com.test.example.Definition4"
+                ]
+            }
+        ]
+    }
+]
