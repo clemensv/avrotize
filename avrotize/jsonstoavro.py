@@ -1258,13 +1258,13 @@ class JsonToAvroConverter:
             # it's a schema definition list
             self.process_definition_list(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, schema)
 
-    def process_definition(self, json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, schema, is_root: bool = False):
+    def process_definition(self, json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, schema, is_root: bool = False) -> Tuple[str, str] | None:
         """ Process a schema definition. """
         avro_schema_item = None
         avro_schema_item_list = self.json_schema_object_to_avro_record(schema_name, schema, namespace, json_schema, base_uri, avro_schema, record_stack)
         if not isinstance(avro_schema_item_list, list) and not isinstance(avro_schema_item_list, dict):
             # skip if the record couldn't be resolved
-            return
+            return None
         # the call above usually returns a single record, but we pretend it's normally a list to handle allOf/anyOf/oneOf cases
         if not isinstance(avro_schema_item_list, list):
             # is not a list, so we'll wrap it in a list
@@ -1281,6 +1281,7 @@ class JsonToAvroConverter:
                     (avro_schema_item.get('type') == 'record' or avro_schema_item.get('type') == 'enum' or avro_schema_item.get('type') == 'fixed'):
                     # we only register record/enum as type. the other defs are mix-ins
                     self.register_type(avro_schema, avro_schema_item)              
+                    return avro_schema_item['namespace'], avro_schema_item['name']
                 elif is_root:
                     # at the root, we will wrap the type in a record to make it top-level
                     deps = avro_schema_item.get('dependencies',[])
@@ -1301,6 +1302,8 @@ class JsonToAvroConverter:
                         avro_schema_wrapper['dependencies'] = deps
                     avro_schema_item = avro_schema_wrapper
                     self.register_type(avro_schema, avro_schema_item)
+                    return avro_schema_item['namespace'], avro_schema_item['name']
+        return None
         
 
     def id_to_avro_namespace(self, id: str) -> str:
@@ -1339,6 +1342,8 @@ class JsonToAvroConverter:
             # this is a schema definition list
             self.process_definition_list(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, json_schema)
 
+        root_namespace = None
+        root_name = None
         if isinstance(json_schema, dict) and 'type' in json_schema or 'allOf' in json_schema or 'oneOf' in json_schema or 'anyOf' in json_schema or 'properties' in json_schema:
             # this is a schema definition
             if isinstance(json_schema, dict) and '$ref' in json_schema:
@@ -1347,12 +1352,20 @@ class JsonToAvroConverter:
                 if ref:
                     ref_schema, json_doc = self.resolve_reference(json_schema, base_uri, json_schema)
                     json_schema = self.merge_json_schemas([json_schema, ref_schema], intersect=False)
-            self.process_definition(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, json_schema, is_root=True)
+            root_info = self.process_definition(json_schema, namespace, base_uri, avro_schema, record_stack, schema_name, json_schema, is_root=True)
+            if root_info:
+                root_namespace, root_name = root_info
         
         # postprocessing pass
         self.postprocess_schema(avro_schema)
         # sort the records by their dependencies
-        avro_schema = sort_messages_by_dependencies(avro_schema)       
+        if root_name and root_namespace and not ('definitions' in json_schema or '$defs' in json_schema):
+            # inline all dependencies if this is a doc with only a root level definition
+            root = find_schema_node(lambda t: 'name' in t and t['name'] == root_name and 'namespace' in t and t['namespace'] == root_namespace, avro_schema)
+            inline_dependencies_of(avro_schema, root)
+            return root
+        else:
+            avro_schema = sort_messages_by_dependencies(avro_schema)       
         
         if parsed_url.fragment and isinstance(json_schema, dict):
             # if the fragment is present in the URL, it's a reference to a schema definition

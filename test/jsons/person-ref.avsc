@@ -1,55 +1,51 @@
-[
-    {
-        "name": "contact_1",
-        "type": "record",
-        "namespace": "com.test.example.contact_types",
-        "fields": [
-            {
-                "name": "email",
-                "type": [
-                    "null",
-                    "string"
-                ]
-            }
-        ]
-    },
-    {
-        "name": "contact_2",
-        "type": "record",
-        "namespace": "com.test.example.contact_types",
-        "fields": [
-            {
-                "name": "phoneNumber",
-                "type": [
-                    "null",
-                    "string"
-                ]
-            }
-        ]
-    },
-    {
-        "type": "record",
-        "name": "document",
-        "namespace": "com.test.example",
-        "fields": [
-            {
-                "name": "name",
-                "type": "string"
-            },
-            {
-                "name": "age",
-                "type": [
-                    "null",
-                    "int"
-                ]
-            },
-            {
-                "name": "contact",
-                "type": [
-                    "com.test.example.contact_types.contact_1",
-                    "com.test.example.contact_types.contact_2"
-                ]
-            }
-        ]
-    }
-]
+{
+    "type": "record",
+    "name": "document",
+    "namespace": "com.test.example",
+    "fields": [
+        {
+            "name": "name",
+            "type": "string"
+        },
+        {
+            "name": "age",
+            "type": [
+                "null",
+                "int"
+            ]
+        },
+        {
+            "name": "contact",
+            "type": [
+                {
+                    "name": "contact_1",
+                    "type": "record",
+                    "namespace": "com.test.example.contact_types",
+                    "fields": [
+                        {
+                            "name": "email",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "contact_2",
+                    "type": "record",
+                    "namespace": "com.test.example.contact_types",
+                    "fields": [
+                        {
+                            "name": "phoneNumber",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
