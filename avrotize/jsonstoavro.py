@@ -1,13 +1,12 @@
 import json
 import os
-import re
-import sys
-import traceback
 from typing import Any, Dict, List, Tuple
 import jsonpointer
 from jsonpointer import JsonPointerException
 import requests
 import copy
+
+import urllib
 from avrotize.common import avro_name, avro_namespace, find_schema_node, generic_type, set_schema_node
 from avrotize.dependency_resolver import inline_dependencies_of, sort_messages_by_dependencies
 from urllib.parse import ParseResult, urlparse, unquote
@@ -496,7 +495,8 @@ class JsonToAvroConverter:
             filename = os.path.join(dir, url.path)
             file_uri = f'file://{filename}'
         else:
-            file_uri = os.path.join(os.path.dirname(url), url.path)
+            # combine the base URI with the URL
+            file_uri = urllib.parse.urljoin(base_uri, url.geturl())
         return file_uri           
     
     def get_field_type_name(self, field: dict) -> str:
