@@ -106,9 +106,7 @@ class XSDToAvro:
                 'NMTOKEN': 'string',
                 'NMTOKENS': 'string',
                 'QName': 'string',
-                'NOTATION': 'string',
-                
-                
+                'NOTATION': 'string'
             }
             return base_type_map.get(type, self.avro_namespace+'.'+type)
         else:

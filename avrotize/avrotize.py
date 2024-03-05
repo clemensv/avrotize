@@ -1,5 +1,6 @@
 import argparse
 from avrotize.asn1toavro import convert_asn1_to_avro
+from avrotize.avrotojsons import convert_avro_to_json_schema
 from avrotize.avrotokusto import convert_avro_to_kusto
 from avrotize.avrotoparquet import convert_avro_to_parquet
 
@@ -28,6 +29,10 @@ def main():
     j2a_parser.add_argument('--jsons', type=str, help='Path to the JSON schema file', required=True)
     j2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     j2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
+
+    a2j_parser = subparsers.add_parser('a2j', help='Convert Avro schema to JSON schema')
+    a2j_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2j_parser.add_argument('--json', type=str, help='Path to the JSON schema file', required=True)
 
     x2a_parser = subparsers.add_parser('x2a', help='Convert XSD schema to Avro schema')
     x2a_parser.add_argument('--xsd', type=str, help='Path to the XSD schema file', required=True)
@@ -79,6 +84,11 @@ def main():
         namespace = args.namespace
         print(f'Converting JSON {json_schema_file_path} to Avro {avro_schema_path}')
         convert_jsons_to_avro(json_schema_file_path, avro_schema_path, namespace=namespace)
+    elif args.command == 'a2j':
+        avro_schema_path = args.avsc
+        json_schema_file_path = args.json
+        print(f'Converting Avro {avro_schema_path} to JSON {json_schema_file_path}')
+        convert_avro_to_json_schema(avro_schema_path, json_schema_file_path) 
     elif args.command == 'x2a':
         xsd_schema_file_path = args.xsd
         avro_schema_path = args.avsc

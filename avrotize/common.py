@@ -1,4 +1,5 @@
 import re
+from jsoncomparison import NO_DIFF, Compare
 
 def avro_name(name):
     """Convert a name into an Avro name."""
@@ -39,6 +40,108 @@ def generic_type() -> list[str | dict]:
             "values": l2
         }])
     return l1
+
+def is_generic_type(json_type: dict) -> bool:
+    compare_type = generic_type_json()
+    return Compare().check(json_type, compare_type) == NO_DIFF
+
+def generic_type_json() -> dict:
+    return {
+        "oneOf": [
+            {"type": "boolean"},
+            {"type": "integer", "format": "int32"},
+            {"type": "integer", "format": "int64"},
+            {"type": "number", "format": "float"},
+            {"type": "number", "format": "double"},
+            {"type": "string", "format": "byte"},
+            {"type": "string"},
+            {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                {"type": "boolean"},
+                {"type": "integer", "format": "int32"},
+                {"type": "integer", "format": "int64"},
+                {"type": "number", "format": "float"},
+                {"type": "number", "format": "double"},
+                {"type": "string", "format": "byte"},
+                {"type": "string"},
+                {
+                    "type": "array",
+                    "items": {
+                    "oneOf": [
+                        {"type": "boolean"},
+                        {"type": "integer", "format": "int32"},
+                        {"type": "integer", "format": "int64"},
+                        {"type": "number", "format": "float"},
+                        {"type": "number", "format": "double"},
+                        {"type": "string", "format": "byte"},
+                        {"type": "string"}
+                    ]
+                    }
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": {
+                    "oneOf": [
+                        {"type": "boolean"},
+                        {"type": "integer", "format": "int32"},
+                        {"type": "integer", "format": "int64"},
+                        {"type": "number", "format": "float"},
+                        {"type": "number", "format": "double"},
+                        {"type": "string", "format": "byte"},
+                        {"type": "string"}
+                    ]
+                    }
+                }
+                ]
+            }
+            },
+            {
+            "type": "object",
+            "additionalProperties": {
+                "oneOf": [
+                {"type": "boolean"},
+                {"type": "integer", "format": "int32"},
+                {"type": "integer", "format": "int64"},
+                {"type": "number", "format": "float"},
+                {"type": "number", "format": "double"},
+                {"type": "string", "format": "byte"},
+                {"type": "string"},
+                {
+                    "type": "array",
+                    "items": {
+                    "oneOf": [
+                        {"type": "boolean"},
+                        {"type": "integer", "format": "int32"},
+                        {"type": "integer", "format": "int64"},
+                        {"type": "number", "format": "float"},
+                        {"type": "number", "format": "double"},
+                        {"type": "string", "format": "byte"},
+                        {"type": "string"}
+                    ]
+                    }
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": {
+                    "oneOf": [
+                        {"type": "boolean"},
+                        {"type": "integer", "format": "int32"},
+                        {"type": "integer", "format": "int64"},
+                        {"type": "number", "format": "float"},
+                        {"type": "number", "format": "double"},
+                        {"type": "string", "format": "byte"},
+                        {"type": "string"}
+                    ]
+                    }
+                }
+                ]
+            }
+            }
+        ]
+    }
+
 
 def find_schema_node(test, avro_schema, recursion_stack = []):    
     """Find the first schema node in the avro_schema matching the test"""
