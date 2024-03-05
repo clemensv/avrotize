@@ -20,6 +20,7 @@
         {
             "name": "settings",
             "type": [
+                "null",
                 {
                     "type": "record",
                     "name": "settings",
@@ -74,16 +75,16 @@
                         {
                             "name": "prop6",
                             "type": [
+                                "null",
                                 "boolean",
-                                "int",
-                                "null"
+                                "int"
                             ]
                         }
-                    ]
+                    ],
+                    "doc": "Alternate map: 'prop1': [null, string], 'prop2': [null, int], 'prop3': [null, array], 'prop4': [null, com.test.example.document_types.settings_types.prop4], 'prop6': [null, boolean, int]. Extra properties: [string]. "
                 },
                 {
                     "type": "map",
-                    "name": "settings",
                     "values": [
                         "null",
                         "string",
@@ -96,15 +97,14 @@
                         },
                         "com.test.example.document_types.settings_types.prop4",
                         "boolean"
-                    ],
-                    "doc": "Mixed dynamic: 'prop1': [null, string], 'prop2': [null, int], 'prop3': [null, array], 'prop4': [null, com.test.example.document_types.settings_types.prop4], 'prop6': [boolean, int, null]. Extra properties: [string]. "
-                },
-                "null"
+                    ]
+                }
             ]
         },
         {
             "name": "other",
             "type": [
+                "null",
                 {
                     "type": "record",
                     "name": "other",
@@ -117,19 +117,17 @@
                                 "string"
                             ]
                         }
-                    ]
+                    ],
+                    "doc": "Alternate map: 'prop1': [null, string]. Name pattern 'foo*': [int]. Name pattern 'bar*': [string]. "
                 },
                 {
                     "type": "map",
-                    "name": "other",
                     "values": [
                         "null",
                         "string",
                         "int"
-                    ],
-                    "doc": "Mixed dynamic: 'prop1': [null, string]. Name pattern 'foo*': [int]. Name pattern 'bar*': [string]. "
-                },
-                "null"
+                    ]
+                }
             ]
         },
         {
@@ -144,7 +142,6 @@
                         "string",
                         "boolean"
                     ],
-                    "doc": "Name pattern 'foo*': [int]. Name pattern 'bar*': [string]. Extra properties: [boolean]. ",
                     "namespace": "com.test.example"
                 }
             ]
@@ -160,7 +157,6 @@
                         "int",
                         "string"
                     ],
-                    "doc": "Name pattern 'foo*': [int]. Name pattern 'bar*': [string]. ",
                     "namespace": "com.test.example"
                 }
             ]

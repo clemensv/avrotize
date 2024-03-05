@@ -1,20 +1,41 @@
 {
     "type": "record",
-    "name": "document",
+    "name": "document_wrapper",
     "namespace": "com.test.example",
     "fields": [
         {
-            "name": "id",
+            "name": "root",
             "type": [
-                "null",
-                "int"
-            ]
-        },
-        {
-            "name": "name",
-            "type": [
-                "null",
-                "string"
+                {
+                    "type": "record",
+                    "name": "document",
+                    "namespace": "com.test.example",
+                    "fields": [
+                        {
+                            "name": "id",
+                            "type": [
+                                "null",
+                                "int"
+                            ]
+                        },
+                        {
+                            "name": "name",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        }
+                    ],
+                    "doc": "Alternate map: 'id': [null, int], 'name': [null, string]. Extra properties: [string]. "
+                },
+                {
+                    "type": "map",
+                    "values": [
+                        "null",
+                        "int",
+                        "string"
+                    ]
+                }
             ]
         }
     ]

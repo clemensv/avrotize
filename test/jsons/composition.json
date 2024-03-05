@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "property1": {
+      "type": "string"
+    },
+    "property2": {
+      "type": "number"
+    },
+    "property3": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "property1": {
+          "maxLength": 10
+        }
+      }
+    },
+    {
+      "properties": {
+        "property2": {
+          "minimum": 0
+        }
+      }
+    }
+  ],
+  "anyOf": [
+    {
+      "properties": {
+        "property1": {
+          "pattern": "^[A-Za-z]+$"
+        }
+      }
+    },
+    {
+      "properties": {
+        "property2": {
+          "maximum": 100
+        }
+      }
+    }
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "property1": {
+          "enum": ["value1"]
+        }
+      }
+    },
+    {
+      "properties": {
+        "property2": {
+          "enum": [42]
+        }
+      }
+    }
+  ]
+}

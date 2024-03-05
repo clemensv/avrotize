@@ -95,6 +95,9 @@ class TestJsonsToAvro(unittest.TestCase):
 
     def test_convert_patternprops2_jsons_to_avro(self):
         self.create_avro_from_jsons("patternprops2.json", "patternprops2.avsc")
+    
+    def test_convert_composition_jsons_to_avro(self):
+        self.create_avro_from_jsons("composition.json", "composition.avsc")
 
     def test_convert_avro_avsc_jsons_to_avro(self):
         self.create_avro_from_jsons("avro-avsc.json", "avro-avsc.avsc")
@@ -105,7 +108,6 @@ class TestJsonsToAvro(unittest.TestCase):
     def test_convert_databricks_asset_bundles_to_avro(self):
         self.create_avro_from_jsons("databricks-asset-bundles.json", "databricks-asset-bundles.avsc")
         
-    @pytest.mark.skip(reason="com.test.example.value_types.include not found") 
     def test_convert_jfrog_pipelines_to_avro(self):
         self.create_avro_from_jsons("jfrog-pipelines.json", "jfrog-pipelines.avsc")
 
