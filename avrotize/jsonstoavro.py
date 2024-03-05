@@ -219,8 +219,10 @@ class JsonToAvroConverter:
                 dict: The merged JSON schema.
             """
 
-            def merge_structures(schema1: dict, schema2: dict) -> dict:
+            def merge_structures(schema1: dict, schema2: dict) -> dict|list:
                 """ merge two JSON dicts recursively """
+                if 'type' in schema1 and 'type' in schema2 and schema1['type'] != schema2['type']:
+                    return [schema1, schema2]
                 schema1 = copy.deepcopy(schema1)
                 for key in schema2:
                     if key not in schema1:
@@ -232,7 +234,11 @@ class JsonToAvroConverter:
                     elif schema1[key] == schema2[key]:
                         continue
                     else:                    
-                        schema1[key] = [schema1[key], schema2[key]]
+                        if isinstance(schema1[key], list):
+                            if schema2[key] not in schema1[key]:
+                                schema1[key].append(schema2[key])
+                        else:
+                            schema1[key] = [schema1[key], schema2[key]]
                 return schema1
 
             merged_type:dict = {}
@@ -275,7 +281,11 @@ class JsonToAvroConverter:
                             merged_type['name'] = json_schema['name']
                     if 'properties' in json_schema:
                         if 'properties' in merged_type:
-                            merged_type['properties'] = merge_structures(merged_type['properties'],copy.deepcopy(json_schema['properties']))
+                            for prop in json_schema['properties']:
+                                if prop in merged_type['properties']:
+                                    merged_type['properties'][prop] = merge_structures(merged_type['properties'][prop],copy.deepcopy(json_schema['properties'][prop]))
+                                else:
+                                    merged_type['properties'][prop] = json_schema['properties'][prop]
                         else:
                             merged_type['properties'] = json_schema['properties']
                     if 'enum' in json_schema:
