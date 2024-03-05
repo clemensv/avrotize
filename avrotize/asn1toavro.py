@@ -2,7 +2,7 @@ import json
 from typing import List
 import asn1tools
 from asn1tools.codecs.ber import Sequence, SequenceOf, Integer, Boolean, Enumerated, OctetString, IA5String, UTF8String, Date, Real, Choice, Null, SetOf, Recursive, ExplicitTag
-from asn1tools.codecs.ber import BitString, VisibleString, BMPString, GeneralString, GraphicString, NumericString, PrintableString, TeletexString, UniversalString, ObjectIdentifier
+from asn1tools.codecs.ber import BitString, VisibleString, BMPString, GeneralString, GraphicString, NumericString, PrintableString, TeletexString, UniversalString, ObjectIdentifier, Set
 
 from avrotize.common import avro_name
 from avrotize.dependency_resolver import sort_messages_by_dependencies
@@ -24,12 +24,12 @@ def asn1_type_to_avro_type(asn1_type: dict, avro_schema: list, namespace: str, p
             'namespace': namespace, 
             'symbols': symbols
             }
-    elif isinstance(asn1_type, Sequence) or isinstance(asn1_type, Choice):
+    elif isinstance(asn1_type, Sequence) or isinstance(asn1_type, Choice) or isinstance(asn1_type, Set):
         if avro_schema and next((s for s in avro_schema if s.get('name') == asn1_type.type_name), []):
             return namespace + '.' + asn1_type.type_name
         else:
             record_name = asn1_type.type_name if asn1_type.type_name else asn1_type.name
-            if record_name == 'CHOICE' or record_name == 'SEQUENCE':
+            if record_name == 'CHOICE' or record_name == 'SEQUENCE' or record_name == 'SET':
                 if parent_member_name and parent_type_name:
                     record_name = parent_type_name + parent_member_name         
                 elif parent_type_name:
