@@ -119,6 +119,7 @@ Converting to Avro Schema:
 
 Converting from Avro Schema:
 - [`avrotize a2p`](#convert-avro-schema-to-proto-schema) - Convert Avro schema to Protobuf 3 schema.
+- [`avrotize a2j`](#convert-avro-schema-to-json-schema) - Convert Avro schema to JSON schema.
 - [`avrotize a2k`](#convert-avro-schema-to-kusto-table-declaration) - Convert Avro schema to Kusto table definition.
 - [`avrotize a2tsql`](#convert-avro-schema-to-t-sql-table-definition) - Convert Avro schema to T-SQL table definition.
 - [`avrotize a2pq`](#convert-avro-schema-to-empty-parquet-file) - Convert Avro schema to empty Parquet file.
@@ -243,6 +244,25 @@ Conversion notes:
 * All external references (`$ref`) are resolved and embedded in the Avro schema.
   To perform a conversion, all external $ref references have to be resolvable by
   the tool.
+
+### Convert Avro schema to JSON schema
+
+```bash
+avrotize a2j --avsc <path_to_avro_schema_file> --json <path_to_json_schema_file>
+```
+
+Parameters:
+* `--avsc`: The path to the Avro schema file to be converted.
+* `--json`: The path to the JSON schema file to write the conversion result to.
+
+Conversion notes:
+* The conversion to JSON schema captures all Avro schema constructs, but makes 
+  a few adjustments to yield a more "normal" JSON. Standalone enum types are
+  generally inlined, for instance. 
+* The tool will emit all Avro type unions as JSON Schema `oneOf` clauses. 
+* In post-processing, the tool will attempt to consolidate "duplicate" schema
+  sections that may stem from Avro Schema's structural limitations, for instance
+  not allowing for `array` or `map` fields to be shareable as types.
 
 ### Convert XML Schema (XSD) to Avro schema
 
