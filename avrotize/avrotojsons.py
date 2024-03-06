@@ -364,7 +364,7 @@ def compact_tree(json_schema):
                 json_item.clear()
                 json_item.update(copy.deepcopy(top_item_entry.value))
                 ghl_top_item_entries.remove(top_item_entry)    
-            elif top_item_path_segments[-2] == 'properties':
+            elif top_item_path_segments[-2] == 'properties' or top_item_path_segments[-1] == 'properties':
                 # the top item is a property of an object, which means that we would create direct
                 # links into that object and therefore we will drop that hash
                 ignored_hashes.append(first_group_key)
