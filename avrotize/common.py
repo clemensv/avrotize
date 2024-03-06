@@ -1,5 +1,9 @@
+from collections import defaultdict
 import re
+from typing import Dict, Tuple, Union, Any, List
 from jsoncomparison import NO_DIFF, Compare
+import hashlib
+import json    
 
 def avro_name(name):
     """Convert a name into an Avro name."""
@@ -41,11 +45,31 @@ def generic_type() -> list[str | dict]:
         }])
     return l1
 
-def is_generic_type(json_type: dict) -> bool:
+def is_generic_type(json_type: Dict[str, Any] | List[Dict[str, Any]| str] | str)  -> bool:
+    """
+    Check if the given JSON type is a generic type.
+
+    Args:
+        json_type (Union[Dict[str, Any], str, List[Union[str, Dict[str, Any]]]]): The JSON type to check.
+
+    Returns:
+        bool: True if the JSON type is a generic type, False otherwise.
+    """
+    if isinstance(json_type, str) or isinstance(json_type, list):
+        return False
     compare_type = generic_type_json()
     return Compare().check(json_type, compare_type) == NO_DIFF
 
 def generic_type_json() -> dict:
+    """
+    Returns a dictionary representing a generic JSON schema for various types.
+
+    The schema includes support for boolean, integer, number, string, array, and object types.
+    Each type can have different formats such as int32, int64, float, double, and byte.
+
+    Returns:
+        dict: A dictionary representing the generic JSON schema.
+    """
     return {
         "oneOf": [
             {"type": "boolean"},
@@ -56,19 +80,8 @@ def generic_type_json() -> dict:
             {"type": "string", "format": "byte"},
             {"type": "string"},
             {
-            "type": "array",
-            "items": {
-                "oneOf": [
-                {"type": "boolean"},
-                {"type": "integer", "format": "int32"},
-                {"type": "integer", "format": "int64"},
-                {"type": "number", "format": "float"},
-                {"type": "number", "format": "double"},
-                {"type": "string", "format": "byte"},
-                {"type": "string"},
-                {
-                    "type": "array",
-                    "items": {
+                "type": "array",
+                "items": {
                     "oneOf": [
                         {"type": "boolean"},
                         {"type": "integer", "format": "int32"},
@@ -76,41 +89,41 @@ def generic_type_json() -> dict:
                         {"type": "number", "format": "float"},
                         {"type": "number", "format": "double"},
                         {"type": "string", "format": "byte"},
-                        {"type": "string"}
+                        {"type": "string"},
+                        {
+                            "type": "array",
+                            "items": {
+                                "oneOf": [
+                                    {"type": "boolean"},
+                                    {"type": "integer", "format": "int32"},
+                                    {"type": "integer", "format": "int64"},
+                                    {"type": "number", "format": "float"},
+                                    {"type": "number", "format": "double"},
+                                    {"type": "string", "format": "byte"},
+                                    {"type": "string"}
+                                ]
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": {
+                                "oneOf": [
+                                    {"type": "boolean"},
+                                    {"type": "integer", "format": "int32"},
+                                    {"type": "integer", "format": "int64"},
+                                    {"type": "number", "format": "float"},
+                                    {"type": "number", "format": "double"},
+                                    {"type": "string", "format": "byte"},
+                                    {"type": "string"}
+                                ]
+                            }
+                        }
                     ]
-                    }
-                },
-                {
-                    "type": "object",
-                    "additionalProperties": {
-                    "oneOf": [
-                        {"type": "boolean"},
-                        {"type": "integer", "format": "int32"},
-                        {"type": "integer", "format": "int64"},
-                        {"type": "number", "format": "float"},
-                        {"type": "number", "format": "double"},
-                        {"type": "string", "format": "byte"},
-                        {"type": "string"}
-                    ]
-                    }
                 }
-                ]
-            }
             },
             {
-            "type": "object",
-            "additionalProperties": {
-                "oneOf": [
-                {"type": "boolean"},
-                {"type": "integer", "format": "int32"},
-                {"type": "integer", "format": "int64"},
-                {"type": "number", "format": "float"},
-                {"type": "number", "format": "double"},
-                {"type": "string", "format": "byte"},
-                {"type": "string"},
-                {
-                    "type": "array",
-                    "items": {
+                "type": "object",
+                "additionalProperties": {
                     "oneOf": [
                         {"type": "boolean"},
                         {"type": "integer", "format": "int32"},
@@ -118,30 +131,40 @@ def generic_type_json() -> dict:
                         {"type": "number", "format": "float"},
                         {"type": "number", "format": "double"},
                         {"type": "string", "format": "byte"},
-                        {"type": "string"}
+                        {"type": "string"},
+                        {
+                            "type": "array",
+                            "items": {
+                                "oneOf": [
+                                    {"type": "boolean"},
+                                    {"type": "integer", "format": "int32"},
+                                    {"type": "integer", "format": "int64"},
+                                    {"type": "number", "format": "float"},
+                                    {"type": "number", "format": "double"},
+                                    {"type": "string", "format": "byte"},
+                                    {"type": "string"}
+                                ]
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": {
+                                "oneOf": [
+                                    {"type": "boolean"},
+                                    {"type": "integer", "format": "int32"},
+                                    {"type": "integer", "format": "int64"},
+                                    {"type": "number", "format": "float"},
+                                    {"type": "number", "format": "double"},
+                                    {"type": "string", "format": "byte"},
+                                    {"type": "string"}
+                                ]
+                            }
+                        }
                     ]
-                    }
-                },
-                {
-                    "type": "object",
-                    "additionalProperties": {
-                    "oneOf": [
-                        {"type": "boolean"},
-                        {"type": "integer", "format": "int32"},
-                        {"type": "integer", "format": "int64"},
-                        {"type": "number", "format": "float"},
-                        {"type": "number", "format": "double"},
-                        {"type": "string", "format": "byte"},
-                        {"type": "string"}
-                    ]
-                    }
                 }
-                ]
-            }
             }
         ]
     }
-
 
 def find_schema_node(test, avro_schema, recursion_stack = []):    
     """Find the first schema node in the avro_schema matching the test"""
@@ -185,3 +208,72 @@ def set_schema_node(test, replacement, avro_schema):
     elif isinstance(avro_schema, list):
         for item in avro_schema:
             set_schema_node(test, replacement, item)
+
+class NodeHash:
+    def __init__(self: 'NodeHash', hash: bytes, count: int):
+        self.hash: bytes = hash
+        self.count: int = count
+        
+class NodeHashReference:
+    def __init__(self, hash_and_count: NodeHash, value, path):
+        self.hash: bytes = hash_and_count.hash
+        self.count: int = hash_and_count.count
+        self.value: Any = value            
+        self.path: str = path
+    
+            
+def get_tree_hash(json_obj: Union[dict, list]) -> NodeHash:
+    """
+    Generate a hash from a JSON object (dict or list).
+    """
+    if isinstance(json_obj, dict) or isinstance(json_obj, list):
+        s = json.dumps(json_obj, sort_keys=True).encode('utf-8')
+        return NodeHash(hashlib.sha256(s).digest(), len(s))
+    else:
+        s = json.dumps(json_obj).encode('utf-8')
+        return NodeHash(hashlib.sha256(s).digest(), len(s))
+
+def build_tree_hash_list(json_obj: Union[dict, list], path: str = '') -> Dict[str, NodeHashReference]:
+    """
+    Build a flat dictionary of hashes for a JSON object.
+    The keys are JSON Path expressions, and the values are the hashes.
+    """
+    
+    def has_nested_structure(obj: Union[dict, list]) -> bool:
+        """
+        Check if the object (list or dict) contains any nested lists or dicts.
+        """
+        if isinstance(obj, dict):
+            return any(isinstance(value, (dict, list)) for value in obj.values())
+        elif isinstance(obj, list):
+            return any(isinstance(item, (dict, list)) for item in obj)
+        return False
+    
+    tree_hash = {}
+    if isinstance(json_obj, dict):
+        for key, value in json_obj.items():
+            new_path = f'{path}.{key}' if path else f'$.{key}'
+            if isinstance(value, dict) and has_nested_structure(value):
+                tree_hash.update(build_tree_hash_list(value, new_path))
+                tree_hash[new_path] = NodeHashReference(get_tree_hash(value), value, new_path)
+    elif isinstance(json_obj, list):
+        for index, item in enumerate(json_obj):
+            new_path = f"{path}[{index}]"
+            if isinstance(item, (dict, list)) and has_nested_structure(item):
+                tree_hash.update(build_tree_hash_list(item, new_path))
+    return tree_hash
+
+def group_by_hash(tree_hash_list: Dict[str, NodeHashReference]) -> Dict[bytes, list]:
+    """
+    Group JSON Path expressions by their hash values.
+    
+    :param tree_hash_list: A dictionary with JSON Path expressions as keys and hashes as values.
+    :return: A dictionary where each key is a hash and each value is a list of JSON Path expressions that share that hash.
+    """
+    hash_groups = defaultdict(list)
+    for _, hash_reference in tree_hash_list.items():
+        hash_groups[hash_reference.hash].append(hash_reference)
+
+    # Filter out unique hashes to only return groups with more than one path
+    return {k: v for k, v in hash_groups.items() if len(v) > 1}
+
