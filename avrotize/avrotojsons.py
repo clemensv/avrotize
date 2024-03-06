@@ -154,7 +154,7 @@ class AvroToJsonSchemaConverter:
             return self.parse_avro_schema(non_null_types[0])
         else:
             # Multiple non-null types
-            union_types = [{ '$ref' : self.get_definition_ref(t) } if isinstance(t,str) and t in self.defined_types else self.avro_primitive_to_json_type(t)
+            union_types = [self.convert_reference(t) if isinstance(t,str) and t in self.defined_types else self.avro_primitive_to_json_type(t)
                             if isinstance(t, str) else self.parse_avro_schema(t)
                                 for t in non_null_types]
             return {
@@ -191,19 +191,30 @@ class AvroToJsonSchemaConverter:
                 return self.convert_map(avro_schema)
             elif avro_schema['type'] in self.defined_types:
                 # Type reference
-                return {"$ref": self.get_definition_ref(avro_schema['type'])}
+                return self.convert_reference(avro_schema)
             else:
                 # Nested type or a direct type definition
                 return self.parse_avro_schema(avro_schema['type'])
         elif isinstance(avro_schema, str):
             # Primitive type or a reference to a defined type
             if avro_schema in self.defined_types:
-                return {"$ref": self.get_definition_ref(avro_schema)}
+                return self.convert_reference(avro_schema)
             elif '.' in avro_schema:
                 raise ValueError(f"Unknown type reference {avro_schema}")
             else:
                 return self.avro_primitive_to_json_type(avro_schema)
 
+    def convert_reference(self, avro_schema: Dict[str, Any] | str) -> Dict[str, Any]:
+        """
+        Convert a reference to a defined type to a JSON schema object with a reference to the definition.
+        """
+        key = avro_schema['type'] if isinstance(avro_schema, dict) else avro_schema
+        json_type = self.defined_types[key]
+        if 'enum' in json_type:
+            return copy.deepcopy(json_type)
+        else:
+            return {"$ref": self.get_definition_ref(key)}
+    
     def convert_record(self, avro_schema: Dict[str, Any], is_root=False) -> Dict[str, Any]:
         """
         Convert an Avro record type to a JSON schema object, handling nested types and type definitions.
@@ -292,6 +303,9 @@ class AvroToJsonSchemaConverter:
         
         if self.defined_types and isinstance(json_schema, dict):
             for name, definition in self.defined_types.items():
+                if isinstance(definition, dict) and 'enum' in definition:
+                    # enums are inlined
+                    continue
                 current_level = json_schema.setdefault('definitions', {})
                 if '.' in name:
                     definition_namespace, definition_name = name.rsplit('.',1)
@@ -311,63 +325,68 @@ class AvroToJsonSchemaConverter:
                             current_level = current_level[segment]
                 else:
                     definition_name = name
-                current_level[definition_name] = definition
+                current_level[definition_name] = copy.deepcopy(definition)
                 
         return json_schema
 
 def compact_tree(json_schema):
     shared_def_counter = 1
+    ignored_hashes = []
     while True:
         thl = build_tree_hash_list(json_schema)
         ghl = group_by_hash(thl)
         if len(ghl) == 0:
-            break
+            return
         # sort ghl by the count in of the first item in each group
         ghl = dict(sorted(ghl.items(), key=lambda item: -item[1][0].count))
-        first_group_key = next(iter(ghl.keys()))
-        ghl_top_item_entries = ghl[first_group_key]
-        # sort the items by the shortest .path value
-        ghl_top_item_entries = sorted(ghl_top_item_entries, key=lambda item: len(item.path.split('.')))
-        top_item_entry: NodeHashReference = ghl_top_item_entries[0]
-        top_item_path_segments = top_item_entry.path.split('.')
-        if top_item_path_segments[1] == 'definitions' and len(top_item_path_segments) == 3:
-            # the top item sits right under definitions, we will merge into that one
-            def_key = top_item_path_segments[2]
-            ghl_top_item_entries.remove(top_item_entry)
-        elif ((top_item_path_segments[-1] == 'options' and top_item_path_segments[-2] == 'properties' and len(top_item_path_segments) > 4) and 'oneOf' in top_item_entry.value):
-            # the first case is likely a union we created in j2a that we had to create a top-level item for. We will undo that here.
-            json_item = json_schema
-            def_key = ''
-            for seg in top_item_path_segments[1:-2]:
-                def_key += '/' + seg if def_key else seg
-                json_item = json_item[seg]
-            json_item.clear()
-            json_item.update(top_item_entry.value)
-            ghl_top_item_entries.remove(top_item_entry)    
-        else:
-            # the second is indeed a proper type declaration, so we will use the first as the one all other occurrences refer to
-            json_item = json_schema
-            def_key = ''
-            for seg in top_item_path_segments[1:-1]:
-                def_key += '/' + seg if def_key else seg
-                json_item = json_item[seg]
-            ghl_top_item_entries.remove(top_item_entry)        
+        repeat = True
+        while repeat:
+            repeat = False
+            first_group_key = next((key for key in ghl.keys() if key not in ignored_hashes), None)
+            if first_group_key is None:
+                return
+            ghl_top_item_entries = ghl[first_group_key]
+            # sort the items by the shortest .path value
+            ghl_top_item_entries = sorted(ghl_top_item_entries, key=lambda item: len(item.path.split('.')))
+            top_item_entry: NodeHashReference = ghl_top_item_entries[0]
+            top_item_path_segments = top_item_entry.path.split('.')
+            if top_item_path_segments[1] == 'definitions' and len(top_item_path_segments) == 3:
+                # the top item sits right under definitions, we will merge into that one
+                def_key = top_item_path_segments[2]
+                ghl_top_item_entries.remove(top_item_entry)
+            elif ((top_item_path_segments[-1] == 'options' and top_item_path_segments[-2] == 'properties' and len(top_item_path_segments) > 4) and 'oneOf' in top_item_entry.value):
+                # the first case is likely a union we created in j2a that we had to create a top-level item for. We will undo that here.
+                json_item = json_schema
+                def_key = ''
+                for seg in top_item_path_segments[1:-2]:
+                    def_key += '/' + seg if def_key else seg
+                    json_item = json_item[seg]
+                json_item.clear()
+                json_item.update(copy.deepcopy(top_item_entry.value))
+                ghl_top_item_entries.remove(top_item_entry)    
+            elif top_item_path_segments[-2] == 'properties':
+                # the top item is a property of an object, which means that we would create direct
+                # links into that object and therefore we will drop that hash
+                ignored_hashes.append(first_group_key)
+                repeat = True
+                continue
+            else:
+                # the second is indeed a proper type declaration, so we will use the first as the one all other occurrences refer to
+                json_item = json_schema
+                def_key = ''
+                for seg in top_item_path_segments[1:]:
+                    def_key += '/' + seg if def_key else seg
+                ghl_top_item_entries.remove(top_item_entry)        
         
         
-        for ghl_item in ghl_top_item_entries:
-            node = ghl_item.value
-            expr = jsonpath_ng.parse(ghl_item.path)
-            def_key_segments = def_key.split('/')
-            def_node = json_schema
-            for seg in def_key_segments[:-1]:
-                def_node = def_node[seg]                
-            if not def_key_segments[-1] in def_node:
-                def_node[def_key_segments[-1]] = copy.deepcopy(node)
-            if isinstance(node,dict):
-                node.clear()
-                node.update({
-                    '$ref': f"#/{def_key}"
-                })
+            for ghl_item in ghl_top_item_entries:
+                node = ghl_item.value
+                if isinstance(node,dict):
+                    node.clear()
+                    node.update({
+                        '$ref': f"#/{def_key}"
+                    })
+            break
 
 
 

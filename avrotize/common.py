@@ -254,13 +254,18 @@ def build_tree_hash_list(json_obj: Union[dict, list], path: str = '') -> Dict[st
         for key, value in json_obj.items():
             new_path = f'{path}.{key}' if path else f'$.{key}'
             if isinstance(value, dict) and has_nested_structure(value):
-                tree_hash.update(build_tree_hash_list(value, new_path))
-                tree_hash[new_path] = NodeHashReference(get_tree_hash(value), value, new_path)
+                inner_hashes = build_tree_hash_list(value, new_path)
+                for inner_path, hash_reference in inner_hashes.items():
+                    tree_hash[inner_path] = hash_reference
+                hash = get_tree_hash(value)
+                tree_hash[new_path] = NodeHashReference(hash, value, new_path)
     elif isinstance(json_obj, list):
         for index, item in enumerate(json_obj):
             new_path = f"{path}[{index}]"
             if isinstance(item, (dict, list)) and has_nested_structure(item):
-                tree_hash.update(build_tree_hash_list(item, new_path))
+                inner_hashes = build_tree_hash_list(item, new_path)
+                for inner_path, hash_reference in inner_hashes.items():
+                    tree_hash[inner_path] = hash_reference
     return tree_hash
 
 def group_by_hash(tree_hash_list: Dict[str, NodeHashReference]) -> Dict[bytes, list]:
@@ -275,5 +280,8 @@ def group_by_hash(tree_hash_list: Dict[str, NodeHashReference]) -> Dict[bytes, l
         hash_groups[hash_reference.hash].append(hash_reference)
 
     # Filter out unique hashes to only return groups with more than one path
-    return {k: v for k, v in hash_groups.items() if len(v) > 1}
+    for k in list(hash_groups.keys()):
+        if len(hash_groups[k]) == 1:
+            del hash_groups[k]
+    return hash_groups
 
