@@ -1066,7 +1066,7 @@ class JsonToAvroConverter:
         if self.has_enum_keyword(json_object):
             # this is an enum
             avro_enum = self.create_enum_type(avro_name(name), namespace, json_object['enum'])
-            avro_enum = self.merge_description_into_doc(json_object, avro_enum)
+            self.merge_description_into_doc(json_object, avro_enum)
             return avro_enum
         
         if self.is_array_object(json_object):
@@ -1076,7 +1076,7 @@ class JsonToAvroConverter:
             deps: List[str] =[]
             array_type = self.json_type_to_avro_type(json_object, name, avro_name(name), namespace, deps, json_schema, base_uri, avro_schema, record_stack)
             avro_array = self.create_wrapper_record(avro_name(name+'_wrapper'), self.utility_namespace, 'items', [], array_type)
-            avro_array = self.merge_description_into_doc(json_object, avro_array)
+            self.merge_description_into_doc(json_object, avro_array)
             self.merge_dependencies_into_parent(deps, array_type, avro_array)
             return avro_array       
         
