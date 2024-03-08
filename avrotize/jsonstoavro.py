@@ -630,7 +630,7 @@ class JsonToAvroConverter:
                                 json_types.append(copy.deepcopy(anyof_option))
                             else:
                                 type_list.append(copy.deepcopy(anyof_option))
-                        merged_type = self.merge_json_schemas(type_list, intersect=True)
+                        merged_type = self.merge_json_schemas(type_list, intersect=False)
                         json_types.append(merged_type)
 
                 if len(json_types) > 0:
@@ -638,6 +638,7 @@ class JsonToAvroConverter:
                         avro_type = self.json_type_to_avro_type(json_types[0], record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                         if isinstance(avro_type, dict) and self.is_empty_type(avro_type) and not 'allOf' in json_type:
                             avro_type['type'] = generic_type()
+                        avro_type = self.post_check_avro_type(dependencies, avro_type)
                         return avro_type
                     else:
                         try:    
@@ -691,7 +692,7 @@ class JsonToAvroConverter:
                             if len(type_deps) > 0:
                                 dependencies.extend(type_deps)
                             if len(subtypes) == 1:
-                                return subtypes[0]
+                                return self.post_check_avro_type(dependencies, subtypes[0])
                         finally:
                             record_stack.pop()
 
@@ -699,7 +700,7 @@ class JsonToAvroConverter:
                             # if all subtypes are strings, they are either primitive types or type references
                             # which means there's nothing to merge, so we'll return the list of types
                             if all([isinstance(st, str) for st in subtypes]):
-                                return subtypes
+                                return self.post_check_avro_type(dependencies, subtypes)
 
                             # we now has a list of types that may match the data, but this would be
                             # an Avro union which is mutually exclusive. We will merge this list 
@@ -715,7 +716,7 @@ class JsonToAvroConverter:
                                 avro_type['doc'] = json_type['description']
                             json_type = {}
                         else:
-                            return subtypes
+                            return self.post_check_avro_type(dependencies, subtypes)
 
                 if 'properties' in json_type and not 'type' in json_type:
                     json_type['type'] = 'object'
@@ -737,7 +738,7 @@ class JsonToAvroConverter:
                             json_type_copy = copy.deepcopy(json_type)
                             json_type_copy['$ref'] = ref
                             types.append(self.json_type_to_avro_type(json_type_copy, record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1))
-                        return types
+                        return self.post_check_avro_type(dependencies, types)
 
                     ref = json_type['$ref']
                     if ref in self.imported_types:
@@ -745,7 +746,7 @@ class JsonToAvroConverter:
                         type_ref = copy.deepcopy(self.imported_types[ref])
                         if isinstance(type_ref, str):
                             dependencies.append(type_ref)
-                        return type_ref
+                        return self.post_check_avro_type(dependencies, type_ref)
                     else:
                         new_base_uri = self.compose_uri(base_uri, json_type['$ref'])
                         resolved_json_type, resolved_schema = self.resolve_reference(json_type, base_uri, json_schema)
@@ -773,7 +774,7 @@ class JsonToAvroConverter:
                             resolved_avro_type: dict | list | str | None = self.json_type_to_avro_type(resolved_json_type, type_name, '', type_namespace, deps, resolved_schema, new_base_uri, avro_schema, [], recursion_depth + 1)
                             if isinstance(resolved_avro_type, str):
                                 dependencies.extend(deps)
-                                return resolved_avro_type
+                                return self.post_check_avro_type(dependencies, resolved_avro_type)
                             if isinstance(resolved_avro_type, list) or (not isinstance(resolved_avro_type, dict) or (not resolved_avro_type.get('type') == 'record' and not resolved_avro_type.get('type') == 'enum')):
                                 if isinstance(resolved_avro_type, dict) and not 'type' in resolved_avro_type:
                                     if isinstance(avro_type, dict):
@@ -795,9 +796,13 @@ class JsonToAvroConverter:
                                     # this is not a record type that can stand on its own,
                                     # so we remove the cached type entry 
                                     # and pass it on as an inline type
+                                    dependencies.extend(deps)
                                     if ref in self.imported_types:
                                         del self.imported_types[ref]
                                     avro_type = self.merge_avro_schemas([avro_type, resolved_avro_type], avro_schema, local_name)
+                                    if isinstance(avro_type, dict) and 'name' in avro_type and not self.is_standalone_avro_type(avro_type):
+                                        del avro_type['name']                                        
+                                        return self.post_check_avro_type(dependencies, avro_type)
                             else:
                                 avro_type = resolved_avro_type
                                 self.imported_types[ref] = copy.deepcopy(avro_type)
@@ -829,11 +834,11 @@ class JsonToAvroConverter:
                                 if not self.is_empty_type(type1):
                                     avro_type = type1
                                     if isinstance(avro_type, list):
-                                        return avro_type
+                                        return self.post_check_avro_type(dependencies, avro_type)
                                 if not self.is_empty_type(type2):
                                     avro_type = type2   
                                     if isinstance(avro_type, list):
-                                        return avro_type                             
+                                        return self.post_check_avro_type(dependencies, avro_type)
                                 json_type = {}
                             else:
                                 json_type = self.merge_json_schemas([json_type, resolved_json_type])
@@ -855,18 +860,21 @@ class JsonToAvroConverter:
                             deps = []
                             item_type = self.json_type_to_avro_type(json_type['items'], record_name, field_name, namespace, deps, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                             if self.is_standalone_avro_type(item_type):
-                                item_type['dependencies'] = deps
+                                if isinstance(item_type, dict) and len(deps) > 0:
+                                    item_type['dependencies'] = deps
                                 self.register_type(avro_schema, item_type)
                                 dependencies.append(self.get_qualified_name(item_type))
                             else:
                                 dependencies.extend(deps)
                                 if isinstance(item_type, dict) and not 'type' in item_type:
                                     item_type = generic_type()
-                                if isinstance(item_type, str) and not item_type in primitive_types:
+                                elif isinstance(item_type, str) and not item_type in primitive_types:
                                     dependencies.append(item_type)
-                            avro_type = self.merge_avro_schemas([avro_type, {'type': 'array', 'items': item_type}], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
+                                else:  # not a standalone type, but has a type definition, so we unwind that here
+                                    item_type = self.post_check_avro_type(dependencies, item_type)
+                            avro_type = self.merge_avro_schemas([avro_type, self.create_array_type(item_type)], avro_schema, '')
                         else:
-                            avro_type = self.merge_avro_schemas([avro_type, {'type': 'array', 'items': generic_type()}], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
+                            avro_type = self.merge_avro_schemas([avro_type, self.create_array_type(generic_type())], avro_schema, '')
                     elif json_object_type and (json_object_type == 'object' or 'object' in json_object_type):
                         avro_record_type = self.json_schema_object_to_avro_record(local_name, json_type, namespace, json_schema, base_uri, avro_schema, record_stack)
                         if isinstance(avro_record_type, list):
@@ -890,7 +898,7 @@ class JsonToAvroConverter:
                 else:
                     avro_type = self.merge_avro_schemas([avro_type,self.json_schema_primitive_to_avro_type(json_type, None, None, record_name, field_name, namespace, dependencies)], avro_schema, avro_type.get('name', local_name) if isinstance(avro_type,dict) else local_name)
             
-            if isinstance(avro_type, dict) and 'name' in avro_type:
+            if isinstance(avro_type, dict) and 'name' in avro_type and 'type' in avro_type and not (avro_type['type'] in ['array', 'map']):
                 if not 'namespace' in avro_type:
                     avro_type['namespace'] = namespace
                 existing_type = next((t for t in avro_schema if t.get('name') == avro_type['name'] and t.get('namespace') == avro_type.get('namespace') ), None)
@@ -904,10 +912,7 @@ class JsonToAvroConverter:
             # post-check on the avro type: if the type is a dict, and the 'type' is not
             # a record, enum, fixed, array, or map, we will just return the basic type
             # and push its dependencies up the stack
-            if isinstance(avro_type, dict) and 'type' in avro_type and not avro_type['type'] in ['array', 'map', 'record', 'enum', 'fixed']:
-                if 'dependencies' in avro_type:
-                    dependencies.extend(avro_type['dependencies'])
-                avro_type = avro_type['type']
+            avro_type = self.post_check_avro_type(dependencies, avro_type)
                         
             if isinstance(avro_type, dict) and 'unmerged_types' in avro_type:
                 self.types_with_unmerged_types.append(avro_type)
@@ -916,6 +921,13 @@ class JsonToAvroConverter:
         except RecursionError as e:
             print(f"Recursion error while processing {namespace}:{record_name}:{field_name} with recursion depth {recursion_depth}")
             raise e
+
+    def post_check_avro_type(self, dependencies, avro_type):
+        if isinstance(avro_type, dict) and 'type' in avro_type and (isinstance(avro_type, list) or not avro_type['type'] in ['array', 'map', 'record', 'enum', 'fixed']):
+            if 'dependencies' in avro_type:
+                dependencies.extend(avro_type['dependencies'])
+            avro_type = avro_type['type']
+        return avro_type
 
     def register_type(self, avro_schema, avro_type) -> bool:
         existing_type = next((t for t in avro_schema if t.get('name') == avro_type['name'] and t.get('namespace') == avro_type.get('namespace') ), None)
@@ -1110,37 +1122,52 @@ class JsonToAvroConverter:
             field_refs = []
             if 'properties' in json_object and isinstance(json_object['properties'], dict):
                 # add the properties as fields
-                for field_name, field in json_object['properties'].items():
-                    # skip fields with an bad or empty type
-                    if not isinstance(field, dict):
+                for field_name, json_field_types in json_object['properties'].items():
+                    if isinstance(json_field_types, bool):
+                        # for "propertyname": true, we skip. schema bug.
                         continue
-                    field_name = avro_name(field_name)
-                    # convert the JSON-type field to an Avro-type field
-                    avro_field_ref_type = avro_field_type = self.ensure_type(self.json_type_to_avro_type(field, record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack))
-                    if isinstance(avro_field_type, list):
-                        avro_field_type = self.flatten_union(avro_field_type)
-                        avro_field_ref_type = avro_field_type
-                    elif isinstance(avro_field_type, dict):
-                        self.lift_dependencies_from_type(avro_field_type, dependencies)
-                        # if the first call gave us a global type that got added to the schema, this call will give us a reference
-                        if self.is_standalone_avro_type(avro_field_type):
-                            avro_field_ref_type = self.get_qualified_name(avro_field_type)                        
-                    if avro_field_type is None:
-                        # None type is a problem
-                        raise ValueError(f"avro_field_type is None for field {field_name}")                    
-                    if isinstance(avro_field_type,dict) and 'type' in avro_field_type and not self.is_avro_complex_type(avro_field_type):
-                        # if the field type is a basic type, inline it
-                        avro_field_type = avro_field_type['type']                                                   
+                    if not isinstance(json_field_types, list):
+                        json_field_types = [json_field_types]
+                    field_type_list = []
+                    field_ref_type_list = []
+                    for json_field_type in json_field_types:
+                        # skip fields with an bad or empty type
+                        if not isinstance(json_field_type, dict):
+                            continue
+                        field_name = avro_name(field_name)
+                        # convert the JSON-type field to an Avro-type field
+                        avro_field_ref_type = avro_field_type = self.ensure_type(self.json_type_to_avro_type(json_field_type, record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack))
+                        if isinstance(avro_field_type, list):
+                            avro_field_type = self.flatten_union(avro_field_type)
+                            avro_field_ref_type = avro_field_type
+                        elif isinstance(avro_field_type, dict):
+                            self.lift_dependencies_from_type(avro_field_type, dependencies)
+                            # if the first call gave us a global type that got added to the schema, this call will give us a reference
+                            if self.is_standalone_avro_type(avro_field_type):
+                                avro_field_ref_type = self.get_qualified_name(avro_field_type)                        
+                        if avro_field_type is None:
+                            # None type is a problem
+                            raise ValueError(f"avro_field_type is None for field {field_name}")                    
+                        if isinstance(avro_field_type,dict) and 'type' in avro_field_type and not self.is_avro_complex_type(avro_field_type):
+                            # if the field type is a basic type, inline it
+                            avro_field_type = avro_field_type['type']                                       
+                        field_type_list.append(avro_field_type)
+                        field_ref_type_list.append(avro_field_ref_type)            
+                    
+                    effective_field_type = field_type_list[0] if len(field_type_list) == 1 else field_type_list
+                    effective_field_ref_type = field_ref_type_list[0] if len(field_ref_type_list) == 1 else field_ref_type_list                        
                     avro_field = {
                         'name': avro_name(field_name), 
-                        'type': self.nullable(avro_field_type) if not field_name in required_fields and not 'null' in avro_field_type else avro_field_type
+                        'type': self.nullable(effective_field_type) if not field_name in required_fields and not 'null' in effective_field_type else effective_field_type
                     }
-                    self.merge_description_into_doc(field, avro_field)
+                    self.merge_description_into_doc(json_field_type, avro_field)
+                    field_type_list.append(avro_field_type)
                     avro_field_ref = {
                         'name': avro_name(field_name), 
-                        'type': self.nullable(avro_field_ref_type) if not field_name in required_fields and not 'null' in avro_field_ref_type else avro_field_ref_type
+                        'type': self.nullable(effective_field_ref_type) if not field_name in required_fields and not 'null' in effective_field_ref_type else effective_field_ref_type
                     }
-                    self.merge_description_into_doc(field, avro_field_ref)
+                    self.merge_description_into_doc(json_field_type, avro_field_ref)
+                    field_ref_type_list.append(avro_field_ref)
                     # add the field to the record
                     avro_record['fields'].append(avro_field)
                     field_refs.append(avro_field_ref)
@@ -1212,16 +1239,16 @@ class JsonToAvroConverter:
                 # Since Avro Schema does not allow fields with dynamic names
                 # to appear alongside regular fields, we will union the types of all properties with the 
                 # type of the additionalProperties and document this in the record's description
-                field_types = [field['type'] for field in field_refs]
+                json_field_types = [field['type'] for field in field_refs]
                 field_type_names = [[field['name'], self.get_field_type_name(field)] for field in field_refs]
                 field_type_name_list: str = ', '.join([f"'{field[0]}': [{field[1]}]" for field in field_type_names])
-                field_types.extend(extension_types)
-                field_types = self.flatten_union(field_types)
-                if len(field_types) == 1:
-                    field_types = field_types[0]
+                json_field_types.extend(extension_types)
+                json_field_types = self.flatten_union(json_field_types)
+                if len(json_field_types) == 1:
+                    json_field_types = json_field_types[0]
                 doc = f"Alternate map: {field_type_name_list}. " if field_type_names else ''
                 doc += prop_docs
-                avro_alternate_record = self.create_map_type(field_types)
+                avro_alternate_record = self.create_map_type(json_field_types)
                 dependencies.append(self.compose_namespace(namespace,record_name))
                 avro_record['doc'] = doc if not 'doc' in avro_record else avro_record['doc'] + ', ' + doc
             

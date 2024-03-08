@@ -1,0 +1,60 @@
+[
+    {
+        "type": "record",
+        "name": "propertiesObject",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "property1",
+                "type": "string"
+            },
+            {
+                "name": "property2",
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "document",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "objectWithProperties",
+                "type": "com.test.example.propertiesObject"
+            },
+            {
+                "name": "arrayObject",
+                "type": {
+                    "type": "array",
+                    "items": "string"
+                }
+            },
+            {
+                "name": "objectWithAdditionalProperties",
+                "type": {
+                    "type": "map",
+                    "values": "string"
+                }
+            },
+            {
+                "name": "stringProperty",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "arrayObject_wrapper",
+        "namespace": "com.test.example.utility",
+        "fields": [
+            {
+                "name": "items",
+                "type": {
+                    "type": "array",
+                    "items": "string"
+                }
+            }
+        ]
+    }
+]

@@ -54,10 +54,19 @@ class TestJsonsToAvro(unittest.TestCase):
 
     def test_convert_rootarray_jsons_to_avro(self):
         self.create_avro_from_jsons("rootarray.jsons", "rootarray.avsc")
+        
+    def test_convert_arraydef_jsons_to_avro(self):
+        self.create_avro_from_jsons("arraydef.json", "arraydef.avsc")
+        
+    def test_convert_usingrefs_jsons_to_avro(self):
+        self.create_avro_from_jsons("usingrefs.json", "usingrefs.avsc")
+        
+    def test_convert_anyof_jsons_to_avro(self):
+        self.create_avro_from_jsons("anyof.json", "anyof.avsc")
 
     def test_convert_circularrefs_jsons_to_avro(self):
         self.create_avro_from_jsons("circularrefs.json", "circularrefs.avsc")        
-       
+
     def test_convert_address_jsons_to_avro(self):
         self.create_avro_from_jsons("address.jsons", "address.avsc")
 
@@ -89,7 +98,7 @@ class TestJsonsToAvro(unittest.TestCase):
 
     def test_convert_addlprops3_jsons_to_avro(self):
         self.create_avro_from_jsons("addlprops3.json", "addlprops3.avsc")
-
+        
     def test_convert_patternprops1_jsons_to_avro(self):
         self.create_avro_from_jsons("patternprops1.json", "patternprops1.avsc")
 

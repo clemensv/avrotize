@@ -102,7 +102,7 @@ class AvroToJsonSchemaConverter:
             'long': {'type': 'integer', 'format': 'int64'},
             'float': {'type': 'number', 'format': 'float'},
             'double': {'type': 'number', 'format': 'double'},
-            'bytes': {'type': 'string', 'format': 'byte'},
+            'bytes': {'type': 'string', 'contentEncoding': 'base64'},
             'string': {'type': 'string'},
             'fixed': {'type': 'string'}  # Could specify length in a format or a separate attribute
         }

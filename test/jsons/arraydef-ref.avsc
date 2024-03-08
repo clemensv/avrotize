@@ -1,0 +1,33 @@
+[
+    {
+        "type": "record",
+        "name": "StringArray_wrapper",
+        "namespace": "com.test.example.utility",
+        "fields": [
+            {
+                "name": "items",
+                "type": {
+                    "type": "array",
+                    "items": "string"
+                }
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "document",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "testArray",
+                "type": [
+                    "null",
+                    {
+                        "type": "array",
+                        "items": "string"
+                    }
+                ]
+            }
+        ]
+    }
+]

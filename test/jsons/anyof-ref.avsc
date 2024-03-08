@@ -1,0 +1,109 @@
+{
+    "type": "record",
+    "name": "document",
+    "namespace": "com.test.example",
+    "fields": [
+        {
+            "name": "example1",
+            "type": [
+                "string",
+                "float"
+            ]
+        },
+        {
+            "name": "example2",
+            "type": [
+                "boolean",
+                {
+                    "name": "example2_2",
+                    "type": "record",
+                    "namespace": "com.test.example.example2_types",
+                    "fields": [
+                        {
+                            "name": "foo",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        },
+                        {
+                            "name": "bar",
+                            "type": [
+                                "null",
+                                "float"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "example3",
+            "type": [
+                {
+                    "type": "array",
+                    "items": "string"
+                },
+                {
+                    "name": "example3_2",
+                    "type": "record",
+                    "namespace": "com.test.example.example3_types",
+                    "fields": [
+                        {
+                            "name": "name",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "example4",
+            "type": {
+                "name": "example4",
+                "type": "record",
+                "namespace": "com.test.example.document_types",
+                "fields": [
+                    {
+                        "name": "foo",
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    {
+                        "name": "bar",
+                        "type": [
+                            "null",
+                            "float"
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "name": "example5",
+            "type": {
+                "name": "example5",
+                "type": "record",
+                "namespace": "com.test.example.document_types",
+                "fields": [
+                    {
+                        "name": "foo",
+                        "type": [
+                            "string",
+                            "float"
+                        ]
+                    },
+                    {
+                        "name": "bar",
+                        "type": "boolean"
+                    }
+                ]
+            }
+        }
+    ]
+}

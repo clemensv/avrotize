@@ -1,0 +1,109 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "example1": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "number"
+                }
+            ]
+        },
+        "example2": {
+            "anyOf": [
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "foo": {
+                            "type": "string"
+                        },
+                        "bar": {
+                            "type": "number"
+                        }
+                    }
+                }
+            ]
+        },
+        "example3": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        }
+                    }
+                }
+            ]
+        },
+        "example4": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "foo": {
+                            "type": "string"
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "bar": {
+                            "type": "number"
+                        }
+                    }
+                }
+            ]
+        },
+        "example5": {
+            "anyOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "foo": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "foo"
+                    ]
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "foo": {
+                            "type": "number"
+                        },
+                        "bar": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "foo", "bar"
+                    ]
+            
+                }
+            ]
+        }
+    },
+    "required": [
+        "example1",
+        "example2",
+        "example3",
+        "example4",
+        "example5"
+    ]
+}

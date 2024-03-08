@@ -1,0 +1,28 @@
+{
+    "type": "record",
+    "name": "document_wrapper",
+    "namespace": "com.test.example.utility",
+    "fields": [
+        {
+            "name": "items",
+            "type": {
+                "type": "array",
+                "items": {
+                    "name": "document",
+                    "type": "record",
+                    "namespace": "com.test.example",
+                    "fields": [
+                        {
+                            "name": "property1",
+                            "type": "string"
+                        },
+                        {
+                            "name": "property2",
+                            "type": "float"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

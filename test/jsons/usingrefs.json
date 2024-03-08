@@ -1,0 +1,56 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "objectWithProperties": {
+            "$ref": "#/definitions/propertiesObject"
+        },
+        "arrayObject": {
+            "$ref": "#/definitions/arrayObject"
+        },
+        "objectWithAdditionalProperties": {
+            "$ref": "#/definitions/additionalPropertiesObject"
+        },
+        "stringProperty": {
+            "$ref": "#/definitions/stringType"
+        }
+    },
+    "required": [
+        "objectWithProperties",
+        "arrayObject",
+        "objectWithAdditionalProperties",
+        "stringProperty"
+    ],
+    "definitions": {
+        "propertiesObject": {
+            "type": "object",
+            "properties": {
+                "property1": {
+                    "type": "string"
+                },
+                "property2": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "property1",
+                "property2"
+            ]
+        },
+        "arrayObject": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "additionalPropertiesObject": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "stringType": {
+            "type": "string"
+        }
+    }
+}

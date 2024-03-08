@@ -184,66 +184,8 @@ Parameters:
 * `--namespace`: (optional) The namespace to use in the Avro schema if the JSON
   schema does not define a namespace.
 
-JSON Schema is a very flexible schema format and extremely permissive. That
-results in many valid JSON schema documents for which it is difficult to
-translate all definitions into Avro Schema.
-
 Conversion notes:
-* All field constraints and validations associated with the JSON Schema are
-  ignored in the translation to Avro. Avro does not support the same level of
-  validation as JSON Schema.
-* Very large schemas with many cross references (`$ref`) throughout the schema
-  may have circular references that cannot be fully resolved. The tool will warn
-  about circular reference issues that cannot be resolved; if a circular
-  reference is found that creates an infinitely nested structure, the Avro
-  schema will reflect this to the best of its ability with a limited depth of
-  nesting.
-* The `additionalProperties` construct in JSON Schema effectively allows for
-  defining a map-like structure with arbitrary property names. The keyword can
-  appear inside of an `object` that has predefined `properties`. This mixture is
-  not permitted. When the tool finds this combination, it will yield a union of
-  a record type with the predefined properties with a `map` whose `values` union
-  includes all the types of the predefined properties and those for the
-  additional properties. Concrete object instances that have additional
-  properties can be serialized using the map-type; those without additional
-  properties can be serialized using the record type. The `patternProperties`
-  keyword is treated in the same way, with the patterns noted into the emitted
-  `doc` attribute.
-* JSON Schema simple `type` unions (like `type: [ "string", "number" ]`) are
-  resolved as if they were a `oneOf` clause inside the type, e.g. 
-  `oneOf: [ { type: "string" }, { type: "number" } ]`.
-* JSON Schema `allOf`, `anyOf`, and `oneOf` clauses are resolved before the
-  schema expression is translated to Avro. 
-  * All `allOf` contents are resolved and merged onto the containing type,
-    resulting in a single type.
-  * All `oneOf` contents are individually merged onto the containing type,
-    resulting in a union of types. That means that if the containing type has,
-    for instance, a property `description`, the resulting types emitted into the
-    Avro union will each contain the description field.
-  * All `anyOf` contents are merged onto the containing type if the schemas are
-    compatible for merging with teh base type. This is like `allOf`, but all
-    record fields are merged as being optional. If the schemas of the `anyOf`
-    options are not compatible, the tool will emit a union of types that
-    contains the merged type plus all `anyOf` options that cannot be merged.     
-* JSON enums are converted to the Avro `enum` type. Numeric values are not
-  supported by Avro and the tool will ignore them. Numeric string values are
-  prefixed with an underscore and the result is sanitized to be a valid Avro
-  enum name.
-* Untyped object properties (without `type` attribute) are mapped to an inline
-  type union that allows any primitive type or an array or map of primitive types
-  with two levels of nesting.
-* Conditional schema validation is not translated to Avro. The tool will ignore
-  all `if`/`then`/`else`, `dependentRequired`, and `dependentSchemas` keywords
-  and the resulting Avro schema will not enforce the conditional validation.
-* JSON Schema allows for arbitrary property names, Avro does not. When converting
-  from JSON to Avro, the property names in objects are sanitized by replacing 
-  any non-alphanumeric characters with underscores and prefixing the result with an 
-  underscore. This may lead to name conflicts and the tool will simply append a 
-  unique index to the name to avoid naming conflicts. This is also true for
-  enum values that are numeric. The tool will prefix those with an underscore.
-* All external references (`$ref`) are resolved and embedded in the Avro schema.
-  To perform a conversion, all external $ref references have to be resolvable by
-  the tool.
+- [JSON Schema Handling in Avrotize](jsonschema.md)
 
 ### Convert Avro schema to JSON schema
 
@@ -256,13 +198,7 @@ Parameters:
 * `--json`: The path to the JSON schema file to write the conversion result to.
 
 Conversion notes:
-* The conversion to JSON schema captures all Avro schema constructs, but makes 
-  a few adjustments to yield a more "normal" JSON. Standalone enum types are
-  generally inlined, for instance. 
-* The tool will emit all Avro type unions as JSON Schema `oneOf` clauses. 
-* In post-processing, the tool will attempt to consolidate "duplicate" schema
-  sections that may stem from Avro Schema's structural limitations, for instance
-  not allowing for `array` or `map` fields to be shareable as types.
+- [JSON Schema Handling in Avrotize](jsonschema.md)
 
 ### Convert XML Schema (XSD) to Avro schema
 
