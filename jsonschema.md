@@ -18,15 +18,13 @@ This article explains the handling of JSON Schema in Avrotize in more detail.
     - [Assertions](#assertions)
     - [Subschema Definitions](#subschema-definitions)
 - [Conversion of Avro Schema into JSON Schema](#conversion-of-avro-schema-into-json-schema)
-  - [Supported Avro Schema elements](#supported-avro-schema-elements)
-    - [Primitive Types](#primitive-types-1)
-    - [Logical Types](#logical-types-1)
-    - [Arrays](#arrays-1)
-    - [Objects](#objects-1)
-    - [Unions](#unions)
-  - [Unsupported or partially supported Avro Schema elements](#unsupported-or-partially-supported-avro-schema-elements)
+    - [Primitive Types](#primitive-types)
+    - [Logical Types](#logical-types)
+    - [Arrays](#arrays)
+    - [Objects](#objects)
     - [Maps](#maps)
-    - [Fixed](#fixed)
+    - [Unions](#unions)
+    - [Compaction](#compaction)
 
 
 ## Conversion from JSON Schema into Avro Schema
