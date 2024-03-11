@@ -5,7 +5,6 @@ import xmlschema
 import xmlunittest
 import lxml.etree as ET
 
-from test.test_jsontoavro import TestJsonsToAvro
 
 current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
@@ -13,6 +12,7 @@ sys.path.append(project_root)
 
 from unittest.mock import patch
 from avrotize.avrotoxsd import convert_avro_to_xsd
+from avrotize.jsonstoavro import convert_jsons_to_avro
 
 
 class TestAvroToXsd(xmlunittest.XmlTestCase):
@@ -50,9 +50,9 @@ class TestAvroToXsd(xmlunittest.XmlTestCase):
     
     def create_xsd_from_jsons(self, jsons_path, xsd_path = '', xsd_ref_path = '', namespace = "com.test.example"):
         cwd = getcwd()
-        j2a = TestJsonsToAvro()        
         avro_path = path.join(cwd, "test", "tmp", jsons_path.replace(".jsons", ".avsc").replace(".json", ".avsc"))
-        j2a.create_avro_from_jsons(jsons_path, avro_path)            
+        jsons_path = path.join(cwd, "test", "jsons", jsons_path)
+        convert_jsons_to_avro(jsons_path, avro_path)            
         self.create_xsd_from_avro(avro_path, xsd_path, xsd_ref_path, namespace)
         
     
