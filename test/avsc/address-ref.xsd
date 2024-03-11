@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:example:com" targetNamespace="urn:example:com">
+  <xs:complexType name="record">
+    <xs:sequence>
+      <xs:element name="postOfficeBox" type="xs:string"/>
+      <xs:element name="extendedAddress" type="xs:string"/>
+      <xs:element name="streetAddress" type="xs:string"/>
+      <xs:element name="locality" type="xs:string"/>
+      <xs:element name="region" type="xs:string"/>
+      <xs:element name="postalCode" type="xs:string"/>
+      <xs:element name="countryName" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

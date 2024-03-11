@@ -1,0 +1,30 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:racing:fabrikam:com" targetNamespace="urn:racing:fabrikam:com">
+  <xs:complexType name="TelemetryRecord">
+    <xs:sequence>
+      <xs:element name="id" type="xs:string"/>
+      <xs:element name="version" type="xs:integer"/>
+      <xs:element name="channel" type="xs:string"/>
+      <xs:element name="carId" type="xs:string"/>
+      <xs:element name="intervalId" type="xs:string"/>
+      <xs:element name="sampleCount" type="xs:long"/>
+      <xs:element name="frequency" type="xs:long"/>
+      <xs:element name="created" type="xs:long"/>
+      <xs:element name="timespan" type="RecordRange"/>
+      <xs:element name="data">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="item" minOccurs="0" maxOccurs="unbounded" type="xs:double"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="lapId" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="RecordRange">
+    <xs:sequence>
+      <xs:element name="started" type="xs:long"/>
+      <xs:element name="ended" type="xs:long"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

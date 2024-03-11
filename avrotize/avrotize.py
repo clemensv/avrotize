@@ -39,6 +39,10 @@ def main():
     x2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     x2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
 
+    a2x_parser = subparsers.add_parser('a2x', help='Convert Avro schema to XSD schema')
+    a2x_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2x_parser.add_argument('--xsd', type=str, help='Path to the XSD schema file', required=True)
+
     a2k_parser = subparsers.add_parser('a2k', help='Convert Avro schema to Kusto schema')
     a2k_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2k_parser.add_argument('--kusto', type=str, help='Path to the Kusto table', required=True)
@@ -95,6 +99,11 @@ def main():
         namespace = args.namespace
         print(f'Converting XSD {xsd_schema_file_path} to Avro {avro_schema_path}')
         convert_xsd_to_avro(xsd_schema_file_path, avro_schema_path, namespace=namespace)
+    elif args.command == 'a2x':
+        avro_schema_path = args.avsc
+        xsd_schema_file_path = args.xsd
+        print(f'Converting Avro {avro_schema_path} to XSD {xsd_schema_file_path}')
+        convert_xsd_to_avro(avro_schema_path, xsd_schema_file_path)
     elif args.command == 'a2k':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type

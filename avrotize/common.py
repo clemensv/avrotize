@@ -45,7 +45,22 @@ def generic_type() -> list[str | dict]:
         }])
     return l1
 
-def is_generic_type(json_type: Dict[str, Any] | List[Dict[str, Any]| str] | str)  -> bool:
+def is_generic_avro_type(avro_type: list) -> bool:
+    """
+    Check if the given Avro type is a generic type.
+
+    Args:
+        avro_type (Union[str, Dict[str, Any]]): The Avro type to check.
+
+    Returns:
+        bool: True if the Avro type is a generic type, False otherwise.
+    """
+    if isinstance(avro_type, str) or isinstance(avro_type, dict):	    
+        return False
+    compare_type = generic_type()
+    return Compare().check(avro_type, compare_type) == NO_DIFF
+
+def is_generic_json_type(json_type: Dict[str, Any] | List[Dict[str, Any]| str] | str)  -> bool:
     """
     Check if the given JSON type is a generic type.
 

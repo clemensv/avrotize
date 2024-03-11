@@ -1,7 +1,7 @@
 import copy
 import json
 from typing import Dict, Any, Union, List
-from avrotize.common import build_tree_hash_list, group_by_hash, is_generic_type, NodeHashReference
+from avrotize.common import build_tree_hash_list, group_by_hash, is_generic_json_type, NodeHashReference
 from functools import reduce
 import jsonpath_ng 
 
@@ -173,7 +173,7 @@ class AvroToJsonSchemaConverter:
                 return {
                     "$schema": "http://json-schema.org/draft-07/schema#"
                 }
-            if is_generic_type(union):
+            if is_generic_json_type(union):
                 return { "type": "object" }
             else:
                 return union
