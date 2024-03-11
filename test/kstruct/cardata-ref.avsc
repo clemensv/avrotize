@@ -1,0 +1,27 @@
+{
+    "type": "record",
+    "name": "car.record",
+    "fields": [
+        {
+            "name": "manufacturer",
+            "type": "string"
+        },
+        {
+            "name": "car",
+            "type": {
+                "type": "record",
+                "name": "carDetails",
+                "fields": [
+                    {
+                        "name": "model",
+                        "type": "string"
+                    },
+                    {
+                        "name": "year",
+                        "type": "int"
+                    }
+                ]
+            }
+        }
+    ]
+}

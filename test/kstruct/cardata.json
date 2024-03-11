@@ -1,0 +1,39 @@
+{
+  "schema": {
+    "type": "struct",
+    "fields": [
+      {
+        "type": "string",
+        "optional": false,
+        "field": "manufacturer"
+      },
+      {
+        "type": "struct",
+        "fields": [
+          {
+            "type": "string",
+            "optional": false,
+            "field": "model"
+          },
+          {
+            "type": "int32",
+            "optional": false,
+            "field": "year"
+          }
+        ],
+        "optional": false,
+        "field": "car",
+        "name": "carDetails"
+      }
+    ],
+    "optional": false,
+    "name": "car.record"
+  },
+  "payload": {
+    "manufacturer": "Tesla",
+    "car": {
+      "model": "Model S",
+      "year": 2020
+    }
+  }
+}

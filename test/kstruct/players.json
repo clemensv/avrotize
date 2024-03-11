@@ -1,0 +1,33 @@
+{
+    "schema": {
+      "type": "struct",
+      "fields": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "optional": true,
+          "field": "aliases"
+        },
+        {
+          "type": "map",
+          "keys": {
+            "type": "string"
+          },
+          "values": {
+            "type": "int32"
+          },
+          "optional": true,
+          "field": "scores"
+        }
+      ],
+      "optional": false,
+      "name": "player.record"
+    },
+    "payload": {
+      "aliases": ["Maverick", "Goose"],
+      "scores": {"game1": 5000, "game2": 3000}
+    }
+  }
+  

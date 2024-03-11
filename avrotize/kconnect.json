@@ -1,0 +1,88 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Kafka Connect Schema Document",
+    "definitions": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["struct"]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/field"
+            }
+          },
+          "optional": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["type", "fields", "optional", "name"]
+      },
+      "field": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["int32", "int64", "string", "boolean", "bytes", "array", "map", "struct"]
+              },
+              {
+                "$ref": "#/definitions/schema"
+              }
+            ]
+          },
+          "optional": {
+            "type": "boolean"
+          },
+          "field": {
+            "type": "string"
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "version": {
+            "type": ["integer", "null"]
+          },
+          "parameters": {
+            "type": ["object", "null"],
+            "additionalProperties": true
+          },
+          "items": {
+            "$ref": "#/definitions/schema"
+          },
+          "keys": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": ["type"]
+          },
+          "values": {
+            "$ref": "#/definitions/schema"
+          }
+        },
+        "required": ["type", "optional", "field"]
+      }
+    },
+    "type": "object",
+    "properties": {
+      "schema": {
+        "$ref": "#/definitions/schema"
+      },
+      "payload": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "required": ["schema", "payload"]
+  }
+  

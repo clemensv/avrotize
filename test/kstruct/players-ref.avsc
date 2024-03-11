@@ -1,0 +1,26 @@
+{
+    "type": "record",
+    "name": "player.record",
+    "fields": [
+        {
+            "name": "aliases",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": "string"
+                }
+            ]
+        },
+        {
+            "name": "scores",
+            "type": [
+                "null",
+                {
+                    "type": "map",
+                    "values": "int"
+                }
+            ]
+        }
+    ]
+}
