@@ -1,30 +1,84 @@
 <?xml version="1.0" ?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:racing:fabrikam:com" targetNamespace="urn:racing:fabrikam:com">
   <xs:complexType name="TelemetryRecord">
+    <xs:annotation>
+      <xs:documentation>Represents a telemetry record for a race car.</xs:documentation>
+    </xs:annotation>
     <xs:sequence>
-      <xs:element name="id" type="xs:string"/>
-      <xs:element name="version" type="xs:integer"/>
-      <xs:element name="channel" type="xs:string"/>
-      <xs:element name="carId" type="xs:string"/>
-      <xs:element name="intervalId" type="xs:string"/>
-      <xs:element name="sampleCount" type="xs:long"/>
-      <xs:element name="frequency" type="xs:long"/>
-      <xs:element name="created" type="xs:long"/>
-      <xs:element name="timespan" type="RecordRange"/>
+      <xs:element name="id" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The unique identifier of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="version" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The version of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="channel" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The channel of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="carId" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The identifier of the race car.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="intervalId" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The interval identifier of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="sampleCount" type="xs:long">
+        <xs:annotation>
+          <xs:documentation>The sample count of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="frequency" type="xs:long">
+        <xs:annotation>
+          <xs:documentation>The frequency of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="created" type="xs:long">
+        <xs:annotation>
+          <xs:documentation>The creation timestamp of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="timespan" type="RecordRange">
+        <xs:annotation>
+          <xs:documentation>The timespan of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
       <xs:element name="data">
+        <xs:annotation>
+          <xs:documentation>The telemetry data.</xs:documentation>
+        </xs:annotation>
         <xs:complexType>
           <xs:sequence>
             <xs:element name="item" minOccurs="0" maxOccurs="unbounded" type="xs:double"/>
           </xs:sequence>
         </xs:complexType>
       </xs:element>
-      <xs:element name="lapId" type="xs:string"/>
+      <xs:element name="lapId" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The identifier of the lap.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
     </xs:sequence>
   </xs:complexType>
   <xs:complexType name="RecordRange">
     <xs:sequence>
-      <xs:element name="started" type="xs:long"/>
-      <xs:element name="ended" type="xs:long"/>
+      <xs:element name="started" type="xs:long">
+        <xs:annotation>
+          <xs:documentation>The start timestamp of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ended" type="xs:long">
+        <xs:annotation>
+          <xs:documentation>The end timestamp of the telemetry record.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
     </xs:sequence>
   </xs:complexType>
 </xs:schema>
