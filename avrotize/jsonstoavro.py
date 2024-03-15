@@ -36,7 +36,7 @@ class JsonToAvroConverter:
         self.types_with_unmerged_types: List[dict] = []
         self.content_cache: Dict[str,str] = {}
         self.utility_namespace = 'utility.vasters.com'
-        self.maximize_compatibility = False
+        self.split_top_level_records = False
 
     def is_empty_type(self, avro_type):
         """
@@ -1428,28 +1428,43 @@ class JsonToAvroConverter:
         
         # postprocessing pass
         self.postprocess_schema(avro_schema)
-        # sort the records by their dependencies
-        if root_name and root_namespace and not ('definitions' in json_schema or '$defs' in json_schema):
-            # inline all dependencies if this is a doc with only a root level definition
-            root = find_schema_node(lambda t: 'name' in t and t['name'] == root_name and 'namespace' in t and t['namespace'] == root_namespace, avro_schema)
-            inline_dependencies_of(avro_schema, root)
-            return root
+
+        if isinstance(avro_schema,list) and len(avro_schema) > 1 and self.split_top_level_records:
+            new_avro_schema = []
+            for item in avro_schema:
+                if isinstance(item, dict) and 'type' in item and item['type'] == 'record':
+                    # we need to make a copy since the inlining operation shuffles types
+                    schema_copy = copy.deepcopy(avro_schema)
+                    # find the item with the same name and namespace in the copy
+                    found_item = next((t for t in schema_copy if t.get('name') == item['name'] and t.get('namespace') == item.get('namespace') ), None)
+                    if found_item:
+                        # inline all dependencies of the item
+                        inline_dependencies_of(schema_copy, found_item)
+                        new_avro_schema.append(found_item)
+            avro_schema = new_avro_schema
         else:
-            avro_schema = sort_messages_by_dependencies(avro_schema)       
+            # sort the records by their dependencies
+            if root_name and root_namespace and not ('definitions' in json_schema or '$defs' in json_schema):
+                # inline all dependencies if this is a doc with only a root level definition
+                root = find_schema_node(lambda t: 'name' in t and t['name'] == root_name and 'namespace' in t and t['namespace'] == root_namespace, avro_schema)
+                inline_dependencies_of(avro_schema, root)
+                return root
+            else:
+                avro_schema = sort_messages_by_dependencies(avro_schema)       
         
-        if parsed_url.fragment and isinstance(json_schema, dict):
-            # if the fragment is present in the URL, it's a reference to a schema definition
-            # so we will resolve that reference and return a type
-            self.imported_types.clear()
-            fragment_schema: List[dict] = []
-            json_pointer = parsed_url.fragment
-            schema_name = parsed_url.fragment.split('/')[-1]
-            schema = jsonpointer.resolve_pointer(json_schema, json_pointer)
-            avro_schema_item = self.json_schema_object_to_avro_record(schema_name, schema, namespace, json_schema, base_uri, fragment_schema, record_stack)
-            if avro_schema_item:
-                # we roll all the types into this record as the top level type
-                inline_dependencies_of(avro_schema, avro_schema_item)
-                return avro_schema_item
+            if parsed_url.fragment and isinstance(json_schema, dict):
+                # if the fragment is present in the URL, it's a reference to a schema definition
+                # so we will resolve that reference and return a type
+                self.imported_types.clear()
+                fragment_schema: List[dict] = []
+                json_pointer = parsed_url.fragment
+                schema_name = parsed_url.fragment.split('/')[-1]
+                schema = jsonpointer.resolve_pointer(json_schema, json_pointer)
+                avro_schema_item = self.json_schema_object_to_avro_record(schema_name, schema, namespace, json_schema, base_uri, fragment_schema, record_stack)
+                if avro_schema_item:
+                    # we roll all the types into this record as the top level type
+                    inline_dependencies_of(avro_schema, avro_schema_item)
+                    return avro_schema_item
         
         return avro_schema
 
@@ -1481,20 +1496,28 @@ class JsonToAvroConverter:
             avro_schema = avro_schema[0]
 
         # create the directory for the Avro schema file if it doesn't exist
-        dir = os.path.dirname(avro_schema_path)
+        dir = os.path.dirname(avro_schema_path) if not self.split_top_level_records else avro_schema_path
         if dir != '' and not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
-        with open(avro_schema_path, 'w') as avro_file:
-            json.dump(avro_schema, avro_file, indent=4)
+        if self.split_top_level_records:
+            # if we are splitting top level records, we will create a file for each record
+            for item in avro_schema:
+                if isinstance(item, dict) and 'type' in item and item['type'] == 'record':
+                    schema_file_path = os.path.join(dir, item['name'] + '.avsc')
+                    with open(schema_file_path, 'w') as avro_file:
+                        json.dump(item, avro_file, indent=4)
+        else:
+            with open(avro_schema_path, 'w') as avro_file:
+                json.dump(avro_schema, avro_file, indent=4)
         return avro_schema
     
 
-def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, namespace: str = '', utility_namespace = '', maximize_compatibility = False) -> list | dict | str:
+def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, namespace: str = '', utility_namespace = '', split_top_level_records = False) -> list | dict | str:
     """Convert JSON schema file to Avro schema file."""
-    #try:
-    converter = JsonToAvroConverter()
-    converter.maximize_compatibility = maximize_compatibility
-    return converter.convert_jsons_to_avro(json_schema_file_path, avro_schema_path, namespace, utility_namespace)
-    #except Exception as e:
-    #    print(f'Error converting JSON {json_schema_file_path} to Avro: {e.args[0]}')
-    #    return []
+    try:
+        converter = JsonToAvroConverter()
+        converter.split_top_level_records = split_top_level_records
+        return converter.convert_jsons_to_avro(json_schema_file_path, avro_schema_path, namespace, utility_namespace)
+    except Exception as e:
+        print(f'Error converting JSON {json_schema_file_path} to Avro: {e.args[0]}')
+        return []
