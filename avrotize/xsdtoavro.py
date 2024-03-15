@@ -139,6 +139,13 @@ class XSDToAvro:
             'namespace': self.avro_namespace,
             'fields': []
             }
+        avro_doc = ''
+        annotation = complex_type.find(f'{{{xsd_namespace}}}annotation', namespaces)
+        if annotation is not None:
+            documentation = annotation.find(f'{{{xsd_namespace}}}documentation', namespaces)
+            if documentation is not None and documentation.text is not None:
+                avro_doc = documentation.text.strip()
+                avro_type['doc'] = avro_doc
         fields = []
         for sequence in complex_type.findall(f'{{{xsd_namespace}}}sequence', namespaces):
             for el in sequence.findall(f'{{{xsd_namespace}}}element', namespaces):
@@ -159,6 +166,8 @@ class XSDToAvro:
                     'fields': [choice_field],
                     'namespace': self.avro_namespace
                 }
+                if avro_doc:
+                    choice_record['doc'] = avro_doc
                 choices.append(choice_record)
                 dependencies.extend(deps)
                 dependencies = list(set(dependencies))
@@ -189,6 +198,12 @@ class XSDToAvro:
         type_name = simple_type.attrib.get('name')
         if not type_name:
             raise ValueError("SimpleType must have a name")
+        avro_doc = ''
+        annotation = simple_type.find(f'{{{xsd_namespace}}}annotation', namespaces)
+        if annotation is not None:
+            documentation = annotation.find(f'{{{xsd_namespace}}}documentation', namespaces)
+            if documentation is not None and documentation.text is not None:
+                avro_doc = documentation.text.strip()
         
         for restriction in simple_type.findall(f'{{{xsd_namespace}}}restriction', namespaces):
             baseType = restriction.get('base')
@@ -198,12 +213,15 @@ class XSDToAvro:
                 for i,enum in enumerate(enums):
                     if enums[i][0].isdigit():
                         enums[i] = '_'+enum
-                return True, {
+                enum_type = {
                     'type': 'enum', 
                     'name': simple_type.attrib.get('name'), 
                     'namespace': self.avro_namespace,
                     'symbols': enums
                     }
+                if avro_doc:
+                    enum_type['doc'] = avro_doc
+                return True, enum_type
             elif baseType:
                 # if the baseType is a decimal, get the precision and scale sub-element value attributes to set the logicalType
                 if baseType == namespaces [xsd_namespace]+':'+'decimal':
@@ -215,6 +233,8 @@ class XSDToAvro:
                         'precision': int(precision.attrib.get('value', 32)) if isinstance(precision, ET.Element) else 32, 
                         'scale': int(scale.attrib.get('value', 6)) if isinstance(scale, ET.Element) else 6,
                         }
+                    if avro_doc:
+                        logicalType['doc'] = avro_doc
                     self.simple_type_map[type_name] = logicalType
                     return False, logicalType                    
                 else:
@@ -230,6 +250,11 @@ class XSDToAvro:
             'namespace': self.avro_namespace,
             'fields': []
             }
+        annotation = element.find(f'{{{xsd_namespace}}}annotation', namespaces)
+        if annotation is not None:
+            documentation = annotation.find(f'{{{xsd_namespace}}}documentation', namespaces)
+            if documentation is not None and documentation.text is not None:
+                avro_type['doc'] = documentation.text.strip()
         
         if 'type' in element.attrib:
             avro_type['fields'].append(self.process_element(element, namespaces, avro_schema, dependencies))

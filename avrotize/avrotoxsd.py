@@ -189,9 +189,14 @@ class AvroToXSD:
 
     def create_enum(self, schema_root: ET.Element, enum_schema: dict) -> str:
         name = enum_schema['name']
+        doc = enum_schema.get('doc', '')
         if name in self.known_types:
             return name
         simple_type = self.create_element(schema_root, "simpleType")
+        if doc:
+            annotation = self.create_element(simple_type, "annotation")
+            documentation = self.create_element(annotation, "documentation")
+            documentation.text = doc
         simple_type.set('name', name)
         restriction = self.create_element(simple_type, "restriction", base="xs:string")
         for enum_symbol in enum_schema['symbols']:
@@ -230,19 +235,34 @@ class AvroToXSD:
         """Convert an Avro field to an XML element."""
         field_name = field['name']
         field_type = field['type']
+        field_doc = field.get('doc', '')
         if isinstance(field_type,list):
             element = self.create_union(schema_root, record_name, parent, field_name, field_type)
+            if field_doc:
+                annotation = self.create_element(element, "annotation")
+                documentation = self.create_element(annotation, "documentation")
+                documentation.text = field_doc
         else:
             element = self.create_element(parent, "element", name=field_name)
+            if field_doc:
+                annotation = self.create_element(element, "annotation")
+                documentation = self.create_element(annotation, "documentation")
+                documentation.text = field_doc
             self.set_field_type(schema_root, record_name, element, field_type)
+        
         return element
     
     def create_record(self, schema_root: Element, record: dict) -> str:
         """Convert an Avro record to an XML complex type."""
         name = record['name']
+        doc = record.get('doc', '')
         if name in self.known_types:
             return name
         complex_type = self.create_complex_type(schema_root, name=name)
+        if doc:
+            annotation = self.create_element(complex_type, "annotation")
+            documentation = self.create_element(annotation, "documentation")
+            documentation.text = doc
         sequence = self.create_element(complex_type, "sequence")
         for field in record['fields']:
             self.create_field(schema_root, name, sequence, field)
