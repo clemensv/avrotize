@@ -853,7 +853,8 @@ class JsonToAvroConverter:
                             
                 # if 'const' is present, make this an enum
                 if 'const' in json_type:
-                    avro_type = self.merge_avro_schemas([avro_type, self.create_enum_type(local_name, namespace, json_type['const'])], avro_schema, local_name)
+                    const_list = json_type['const'] if isinstance(json_type['const'], list) else [json_type['const']]
+                    avro_type = self.merge_avro_schemas([avro_type, self.create_enum_type(local_name, namespace, const_list)], avro_schema, local_name)
                 if json_object_type or 'enum' in json_type:
                     if json_object_type == 'array':
                         if isinstance(json_type, dict) and 'items' in json_type:
