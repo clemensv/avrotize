@@ -15,7 +15,7 @@ from unittest.mock import patch
 from avrotize.avrotoparquet import convert_avro_to_parquet
 
 class TestAvroToParquet(unittest.TestCase):
-    def test_convert_address_avsc_to_kusto(self):
+    def test_convert_address_avsc_to_parquet(self):
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
         parquet_path = os.path.join(cwd, "test", "tmp", "address.parquet")
@@ -25,7 +25,7 @@ class TestAvroToParquet(unittest.TestCase):
         
         convert_avro_to_parquet(avro_path, None, parquet_path, False)           
 
-    def test_convert_telemetry_avsc_to_kusto(self):
+    def test_convert_telemetry_avsc_to_parquet(self):
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
         parquet_path = os.path.join(cwd, "test", "tmp", "telemetry.parquet")
@@ -34,7 +34,16 @@ class TestAvroToParquet(unittest.TestCase):
             os.makedirs(dir)
         
         convert_avro_to_parquet(avro_path, None, parquet_path, True)
-
+        
+    def test_convert_fileblob_to_parquet(arg):
+        cwd = getcwd()        
+        avro_path = path.join(cwd, "test", "avsc", "fileblob.avsc")
+        parquet_path = path.join(cwd, "test", "tmp", "fileblob.parquet")
+        dir = os.path.dirname(parquet_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_avro_to_parquet(avro_path, None, parquet_path, False)
     
     def test_convert_jfrog_pipelines_jsons_to_avro_to_parquet(self):
         cwd = getcwd()        

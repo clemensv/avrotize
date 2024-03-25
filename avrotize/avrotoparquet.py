@@ -96,7 +96,7 @@ def convert_avro_type_to_parquet_type(avroType):
             logicalType = avroType.get("logicalType")
             if logicalType == "decimal":
                 return pa.decimal128(38, 18)
-            return pa.string()
+            return pa.binary()
         elif type == "long":
             logicalType = avroType.get("logicalType")
             if logicalType in ["timestamp-millis", "timestamp-micros"]:
@@ -130,7 +130,7 @@ def map_scalar_type(type):
     elif type == "boolean":
         return pa.bool_()
     elif type == "bytes":
-        return pa.string()
+        return pa.binary()
     elif type == "string":
         return pa.string()
     else:

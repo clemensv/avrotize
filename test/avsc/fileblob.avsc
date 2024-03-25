@@ -1,0 +1,21 @@
+{
+    "type": "record",
+    "name": "FileMetadata",
+    "fields": [
+        {
+            "name": "filename",
+            "type": "string"
+        },
+        {
+            "name": "blob",
+            "type": "bytes"
+        },
+        {
+            "name": "metadata",
+            "type": {
+                "type": "map",
+                "values": "string"
+            }
+        }
+    ]
+}
