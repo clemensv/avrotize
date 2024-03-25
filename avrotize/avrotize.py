@@ -13,7 +13,7 @@ from avrotize.xsdtoavro import convert_xsd_to_avro
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Convert Proto schema to Avro Schema')
+    parser = argparse.ArgumentParser(description='Convert a variety of schema formats to Avro Schema and vice versa.')
 
     subparsers = parser.add_subparsers(dest='command')
     a2p_parser = subparsers.add_parser('p2a', help='Convert Avro schema to Proto schema')
