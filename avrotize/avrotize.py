@@ -30,6 +30,7 @@ def main():
     j2a_parser.add_argument('--jsons', type=str, help='Path to the JSON schema file', required=True)
     j2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     j2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
+    j2a_parser.add_argument('--split-top-level-records', action='store_true', help='Split top-level records into separate files', default=False)
 
     a2j_parser = subparsers.add_parser('a2j', help='Convert Avro schema to JSON schema')
     a2j_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
@@ -89,8 +90,9 @@ def main():
         json_schema_file_path = args.jsons
         avro_schema_path = args.avsc
         namespace = args.namespace
+        split_top_level_records = args.split_top_level_records
         print(f'Converting JSON {json_schema_file_path} to Avro {avro_schema_path}')
-        convert_jsons_to_avro(json_schema_file_path, avro_schema_path, namespace=namespace)
+        convert_jsons_to_avro(json_schema_file_path, avro_schema_path, namespace=namespace, split_top_level_records=split_top_level_records)
     elif args.command == 'a2j':
         avro_schema_path = args.avsc
         json_schema_file_path = args.json
@@ -141,7 +143,6 @@ def main():
         print(f'Converting Kafka Struct {kstruct_file_path} to Avro {avro_schema_path}')
         convert_kafka_struct_to_avro_schema(kstruct_file_path, avro_schema_path)
     
-
 if __name__ == "__main__":
     try:
         main()

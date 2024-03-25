@@ -20,7 +20,7 @@ class TestJsonsToAvro(unittest.TestCase):
     def validate_avro_schema(self, avro_file_path):
         load_schema(avro_file_path)
 
-    def create_avro_from_jsons(self, jsons_path, avro_path = '', avro_ref_path = '', namespace = "com.test.example"):
+    def create_avro_from_jsons(self, jsons_path, avro_path = '', avro_ref_path = '', namespace = "com.test.example", split_top_level_records = False):
         cwd = getcwd()
         if jsons_path.startswith("http"):
             jsons_full_path = jsons_path
@@ -34,20 +34,21 @@ class TestJsonsToAvro(unittest.TestCase):
         else:
             avro_ref_full_path = path.join(cwd, "test", "jsons", "addlprops1-ref.avsc")
         avro_full_path = path.join(cwd, "test", "tmp", avro_path)
-        dir = os.path.dirname(avro_full_path)
+        dir = os.path.dirname(avro_full_path) if not split_top_level_records else avro_full_path
         if not os.path.exists(dir):
             os.makedirs(dir)
 
-        convert_jsons_to_avro(jsons_full_path, avro_full_path, namespace)
-        self.validate_avro_schema(avro_full_path)
+        convert_jsons_to_avro(jsons_full_path, avro_full_path, namespace, split_top_level_records=split_top_level_records)
+        if not split_top_level_records:
+            self.validate_avro_schema(avro_full_path)
 
-        if os.path.exists(avro_ref_full_path):
-            with open(avro_ref_full_path, "r") as ref:
-                expected = json.loads(ref.read())
-            with open(avro_full_path, "r") as ref:
-                actual = json.loads(ref.read())
-            diff = Compare().check(actual, expected)
-            assert diff == NO_DIFF
+            if os.path.exists(avro_ref_full_path):
+                with open(avro_ref_full_path, "r") as ref:
+                    expected = json.loads(ref.read())
+                with open(avro_full_path, "r") as ref:
+                    actual = json.loads(ref.read())
+                diff = Compare().check(actual, expected)
+                assert diff == NO_DIFF
 
         
 
@@ -80,15 +81,18 @@ class TestJsonsToAvro(unittest.TestCase):
         self.create_avro_from_jsons("employee.jsons", "employee.avsc")
 
     def test_convert_azurestorage_jsons_to_avro(self):
-        self.create_avro_from_jsons("azurestorage.jsons", "azurestorage.avsc", namespace="microsoft.azure.storage")
+        self.create_avro_from_jsons("azurestorage.jsons", "azurestorage.avsc", namespace="Microsoft.Azure.Storage")
+
+    def test_convert_azurestorage_jsons_to_avro_split(self):
+        self.create_avro_from_jsons("azurestorage.jsons", "azurestorage-schemas", namespace="Microsoft.Azure.Storage", split_top_level_records=True)
 
     def test_convert_azurestorage_remote_jsons_to_avro(self):
         jsons_path = "https://raw.githubusercontent.com:443/Azure/azure-rest-api-specs/master/specification/eventgrid/data-plane/Microsoft.Storage/stable/2018-01-01/Storage.json"
-        self.create_avro_from_jsons(jsons_path, "azurestorage.avsc", namespace="microsoft.azure.storage")
+        self.create_avro_from_jsons(jsons_path, "azurestorage.avsc", namespace="Microsoft.Azure.Storage")
 
     def test_convert_azurestorage_remote_deeplink_jsons_to_avro(self):
         jsons_path = "https://raw.githubusercontent.com:443/Azure/azure-rest-api-specs/master/specification/eventgrid/data-plane/Microsoft.Storage/stable/2018-01-01/Storage.json#/definitions/StorageLifecyclePolicyCompletedEventData"
-        self.create_avro_from_jsons(jsons_path, "azurestoragedeep.avsc", namespace="microsoft.azure.storage")
+        self.create_avro_from_jsons(jsons_path, "azurestoragedeep.avsc", namespace="Microsoft.Azure.Storage")
 
     def test_convert_addlprops1_jsons_to_avro(self):
         self.create_avro_from_jsons("addlprops1.json", "addlprops1.avsc")
