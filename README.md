@@ -139,15 +139,26 @@ Parameters:
 
 Conversion notes:
 
-- Protobuf allows any scalar type as key in a map, Avro does not. When converting
-  from Proto to Avro, the type information for the map keys is ignored.
+- Proto 2 and Proto 3 syntax are supported.
+- Proto package names are mapped to Avro namespaces. The tool does resolve imports
+  and consolidates all imported types into a single Avro schema file.
 - The tool embeds all 'well-known' Protobuf 3.0 types in Avro format and injects
-  them as needed when the respective types are included. Only the Timestamp type is
+  them as needed when the respective types are imported. Only the `Timestamp` type is
   mapped to the Avro logical type 'timestamp-millis'. The rest of the well-known
   Protobuf types are kept as Avro record types with the same field names and types.
-- The field numbers in message types are not yet mapped to the positions of the
+- Protobuf allows any scalar type as key in a `map`, Avro does not. When converting
+  from Proto to Avro, the type information for the map keys is ignored.
+- The field numbers in message types are not mapped to the positions of the
   fields in Avro records. The fields in Avro are ordered as they appear in the
-  Proto schema.
+  Proto schema. Consequently, the Avro schema also ignores the `extensions` and
+  `reserved` keywords in the Proto schema.
+- The `optional` keyword results in an Avro field being nullable (union with the
+  `null` type), while the `required` keyword results in a non-nullable field.
+  The `repeated` keyword results in an Avro field being an array of the field
+  type.
+- The `oneof` keyword in Proto is mapped to an Avro union type. 
+- All `options` in the Proto schema are ignored.
+
 
 ### Convert Avro schema to Proto schema
 

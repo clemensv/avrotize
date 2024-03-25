@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+message MyMessage {
+    oneof my_field {
+        int32 my_int = 1;
+        string my_string = 2;
+        bool my_bool = 3;
+    }
+}

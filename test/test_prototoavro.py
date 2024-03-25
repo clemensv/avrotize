@@ -30,6 +30,16 @@ class TestProtoToAvro(unittest.TestCase):
             os.makedirs(dir)
         
         convert_proto_to_avro(proto_path, avro_path)
+        
+    def test_convert_proto_within_oneof_to_avro(self):
+        cwd = getcwd()        
+        proto_path = path.join(cwd, "test", "proto", "oneoftest.proto")
+        avro_path = path.join(cwd, "test", "tmp", "oneoftest.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        
+        convert_proto_to_avro(proto_path, avro_path)
 
 if __name__ == '__main__':
     unittest.main()

@@ -52,7 +52,10 @@ def convert_proto_to_avro(proto_file_path: str, avro_schema_path: str):
             data = proto2parser.parse(proto_schema)
 
         # get the namespace
-        namespace = data.package.value
+        if data.package:
+            namespace = data.package.value
+        else:
+            namespace = ''
         # Avro schema header
         avro_schema = []
         
