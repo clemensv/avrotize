@@ -233,16 +233,17 @@ Parameters:
 
 Conversion notes:
 
-- All XML Schema elements are mapped to Avro record types with fields, whereby
-  both elements and attributes become fields in the record.
+- All XML Schema constructs are mapped to Avro record types with fields, whereby
+  **both**, elements and attributes, become fields in the record. XML is therefore
+  flattened into fields and this aspect of the structure is not preserved.
 - Avro does not support `xsd:any` as Avro does not support arbitrary typing and
   must always use a named type. The tool will map `xsd:any` to a field `any`
   typed as a union that allows scalar values or two levels of array and/or map
   nesting.
-- Simple type declarations that define enums are mapped to `enum` types in Avro.
+- `simpleType` declarations that define enums are mapped to `enum` types in Avro.
   All other facets are ignored and simple types are mapped to the corresponding
   Avro type.
-- Complex type declarations that have simple content where a base type is augmented
+- `complexType` declarations that have simple content where a base type is augmented
   with attributes is mapped to a record type in Avro. Any other facets defined on
   the complex type are ignored.
 - If the schema defines a single root element, the tool will emit a single Avro
