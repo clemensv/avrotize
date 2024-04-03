@@ -39,7 +39,7 @@ def convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, e
         kusto.append("    [__source]: string,")
         kusto.append("    [__id]: string,")
         kusto.append("    [__time]: datetime,")
-        kusto.append("    [__subject]: string,")
+        kusto.append("    [__subject]: string")
     kusto.append(");")
     kusto.append("")
 

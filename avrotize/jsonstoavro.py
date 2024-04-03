@@ -359,6 +359,8 @@ class JsonToAvroConverter:
             avro_primitive = 'string'
         elif json_primitive == 'integer':
             avro_primitive = 'int'
+            if format == 'int64':
+                avro_primitive = 'long'
         elif json_primitive == 'number':
             avro_primitive = 'float'
         elif json_primitive == 'boolean':

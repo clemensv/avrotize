@@ -39,7 +39,7 @@ def convert_avro_to_tsql(avro_schema_path, avro_record_type, tsql_file_path, emi
         tsql.append("    [__source] VARCHAR(MAX) NOT NULL,")
         tsql.append("    [__id] VARCHAR(MAX) NOT NULL,")
         tsql.append("    [__time] DATETIME NULL,")
-        tsql.append("    [__subject] VARCHAR(MAX) NULL,")
+        tsql.append("    [__subject] VARCHAR(MAX) NULL")
     tsql.append(");")
     tsql.append("")
 
@@ -61,7 +61,7 @@ def convert_avro_to_tsql(avro_schema_path, avro_record_type, tsql_file_path, emi
         if isinstance(column_type, list) and len(column_type) == 2 and "null" in column_type:
             column_type = [x for x in column_type if x != "null"][0]        
         if "type" in column_type and column_type["type"] in ["array", "map", "record", "enum", "fixed"]:
-            doc_string_statement.append(f"EXEC sys.sp_addextendedproperty @name = N'MS_Avro_Schema', @value = N'{json.dumps(field)}', @level0type = N'SCHEMA', @level0name = N'dbo', @level1type = N'TABLE', @level1name = N'{table_name}', @level2type = N'COLUMN', @level2name = N'{column_name}';")
+            doc_string_statement.append(f"EXEC sys.sp_addextendedproperty @name = N'MS_Avro_Schema', @value = N'{json.dumps(column_type)}', @level0type = N'SCHEMA', @level0name = N'dbo', @level1type = N'TABLE', @level1name = N'{table_name}', @level2type = N'COLUMN', @level2name = N'{column_name}';")
         elif isinstance(schema_list, list):
             # if the column type refers to a complex type, it may in the schema list
             column_schema = next((x for x in schema_list if x["name"] == column_type), None)
