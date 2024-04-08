@@ -15,7 +15,7 @@ import unittest
 from unittest.mock import patch
 
 class TestAvroToProto(unittest.TestCase):
-    def test_convert_address_avsc_to_tsql(self):
+    def test_convert_address_avsc_to_proto(self):
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
         proto_path = os.path.join(cwd, "test", "tmp", "address.proto")
@@ -25,7 +25,7 @@ class TestAvroToProto(unittest.TestCase):
         
         convert_avro_to_proto(avro_path, proto_path)           
 
-    def test_convert_telemetry_avsc_to_tsql(self):
+    def test_convert_telemetry_avsc_to_proto(self):
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
         proto_path = os.path.join(cwd, "test", "tmp", "telemetry.proto")

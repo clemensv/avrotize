@@ -8,7 +8,12 @@ You can use the tool to convert between Avro Schema and other schema formats
 like JSON Schema, XML Schema (XSD), Protocol Buffers (Protobuf), ASN.1, and
 database schema formats like Kusto Data Table Definition (KQL) and T-SQL Table
 Definition (SQL). That means you can also convert from JSON Schema to Protobuf
-going via Avro Schema.
+going via Avro Schema. 
+
+You can also generate C# and Java code from the Avro Schema documents with
+Avrotize. The difference to the native Avto tools is that Avrotize can emit
+data classes without Avro library dependencies and, optionally, with annotations
+for JSON serialization libraries like Jackson or System.Text.Json.
 
 The tool does not convert data (instances of schemas), only the data structure
 definitions.
@@ -125,6 +130,11 @@ Converting from Avro Schema:
 - [`avrotize a2k`](#convert-avro-schema-to-kusto-table-declaration) - Convert Avro schema to Kusto table definition.
 - [`avrotize a2tsql`](#convert-avro-schema-to-t-sql-table-definition) - Convert Avro schema to T-SQL table definition.
 - [`avrotize a2pq`](#convert-avro-schema-to-empty-parquet-file) - Convert Avro schema to empty Parquet file.
+
+Generate code from Avro Schema:
+
+- [`avrotize a2csharp`](#generate-c-code-from-avro-schema) - Generate C# code from Avro schema.
+- [`avrotize a2java`](#generate-java-code-from-avro-schema) - Generate Java code from Avro schema.
 
 ### Convert Proto schema to Avro schema
 
@@ -391,6 +401,60 @@ Conversion notes:
   record fields are mapped to Parquet nested types. Avro type unions are mapped
   to structures, not to Parquet unions since those are not supported by the
   PyArrow library used here.
+
+### Generate C# code from Avro schema
+
+```bash
+avrotize a2csharp --avsc <path_to_avro_schema_file> --csharp <path_to_csharp_directory> [--avro-annotation] [--system-text-json-annotation] [--newtonsoft-json-annotation] [--pascal-properties]
+```
+
+Parameters:
+- `--avsc`: The path to the Avro schema file to be converted.
+- `--csharp`: The path to the C# directory to write the conversion result to.
+- `--avro-annotation`: (optional) If set, the tool will add Avro annotations to the C# classes.
+- `--system-text-json-annotation`: (optional) If set, the tool will add System.Text.Json annotations to the C# classes.
+- `--newtonsoft-json-annotation`: (optional) If set, the tool will add Newtonsoft.Json annotations to the C# classes.
+- `--pascal-properties`: (optional) If set, the tool will use PascalCase properties in the C# classes.
+
+Conversion notes:
+- The tool generates C# classes that represent the Avro schema as data classes.
+- Using the `--system-text-json-annotation` or `--newtonsoft-json-annotation` option
+  will add annotations for the respective JSON serialization library to the generated
+  C# classes. Because the [`JSON Schema to Avro`](#convert-json-schema-to-avro-schema) conversion generally
+  preserves the JSON Schema structure in the Avro schema, the generated C# classes
+  can be used to serialize and deserialize data that is valid per the input JSON schema.
+- The classes are generated into a directory structure that reflects the Avro namespace
+  structure. The tool drops a minimal, default `.csproj` project file into the given
+  directory if none exists.
+
+
+### Generate Java code from Avro schema
+
+```bash
+avrotize a2java --avsc <path_to_avro_schema_file> --java <path_to_java_directory> [--package <java_package_name>] [--avro-annotation] [--jackson-annotation] [--pascal-properties]
+```
+
+Parameters:
+- `--avsc`: The path to the Avro schema file to be converted.
+- `--java`: The path to the Java directory to write the conversion result to.
+- `--package`: (optional) The Java package name to use in the generated Java classes.
+- `--avro-annotation`: (optional) If set, the tool will add Avro annotations to the Java classes.
+- `--jackson-annotation`: (optional) If set, the tool will add Jackson annotations to the Java classes.
+- `--pascal-properties`: (optional) If set, the tool will use PascalCase properties in the Java classes.
+
+Conversion notes:
+
+- The tool generates Java classes that represent the Avro schema as data classes. 
+- Using the `--jackson-annotation` option will add annotations for the Jackson 
+  JSON serialization library to the generated Java classes. Because the 
+  [`JSON Schema to Avro`](#convert-json-schema-to-avro-schema) conversion generally
+  preserves the JSON Schema structure in the Avro schema, the generated Java classes
+  can be used to serialize and deserialize data that is valid per the input JSON schema.
+- The directory `/src/main/java` is created in the specified directory and the
+  generated Java classes are written to this directory. The tool drops a
+  minimal, default `pom.xml` Maven project file into the given directory if none
+  exists.
+
 
 ## Contributing
 

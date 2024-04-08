@@ -1,9 +1,10 @@
 import argparse
 from avrotize.asn1toavro import convert_asn1_to_avro
+from avrotize.avrotocsharp import convert_avro_to_csharp
+from avrotize.avrotojava import convert_avro_to_java
 from avrotize.avrotojsons import convert_avro_to_json_schema
 from avrotize.avrotokusto import convert_avro_to_kusto
 from avrotize.avrotoparquet import convert_avro_to_parquet
-
 from avrotize.avrotoproto import convert_avro_to_proto
 from avrotize.avrototsql import convert_avro_to_tsql
 from avrotize.jsonstoavro import convert_jsons_to_avro
@@ -70,6 +71,23 @@ def main():
     kstruct2a_parser = subparsers.add_parser('kstruct2a', help='Convert Kafka Struct to Avro schema')
     kstruct2a_parser.add_argument('--kstruct', type=str, help='Path to the Kafka Struct file', required=True)
     kstruct2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    
+    a2csharp_parser = subparsers.add_parser('a2csharp', help='Convert Avro schema to C# classes')
+    a2csharp_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2csharp_parser.add_argument('--csharp', type=str, help='Output path for the C# classes', required=True)
+    a2csharp_parser.add_argument('--avro-annotation', action='store_true', help='Use Avro annotations', default=False)
+    a2csharp_parser.add_argument('--system-text-json-annotation', action='store_true', help='Use System.Text.Json annotations', default=False)
+    a2csharp_parser.add_argument('--newtonsoft-json-annotation', action='store_true', help='Use Newtonsoft.Json annotations', default=False)
+    a2csharp_parser.add_argument('--pascal-properties', action='store_true', help='Use PascalCase properties', default=False)
+    
+    a2java_parser = subparsers.add_parser('a2java', help='Convert Avro schema to Java classes')
+    a2java_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2java_parser.add_argument('--java', type=str, help='Output path for the Java classes', required=True)
+    a2java_parser.add_argument('--package', type=str, help='Java package name', required=False)
+    a2java_parser.add_argument('--avro-annotation', action='store_true', help='Use Avro annotations', default=False)
+    a2java_parser.add_argument('--jackson-annotation', action='store_true', help='Use Jackson annotations', default=False)
+    a2java_parser.add_argument('--pascal-properties', action='store_true', help='Use PascalCase properties', default=False)
+    
 
     args = parser.parse_args()
     if args.command is None:
@@ -142,6 +160,24 @@ def main():
         avro_schema_path = args.avsc
         print(f'Converting Kafka Struct {kstruct_file_path} to Avro {avro_schema_path}')
         convert_kafka_struct_to_avro_schema(kstruct_file_path, avro_schema_path)
+    elif args.command == 'a2csharp':
+        avro_schema_path = args.avsc
+        csharp_path = args.csharp
+        avro_annotation = args.avro_annotation
+        system_text_json_annotation = args.system_text_json_annotation
+        newtonsoft_json_annotation = args.newtonsoft_json_annotation
+        pascal_properties = args.pascal_properties
+        print(f'Converting Avro {avro_schema_path} to C# {csharp_path}')
+        convert_avro_to_csharp(avro_schema_path, csharp_path, avro_annotation=avro_annotation, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, pascal_properties=pascal_properties)
+    elif args.command == 'a2java':
+        avro_schema_path = args.avsc
+        java_path = args.java
+        package = args.package
+        avro_annotation = args.avro_annotation
+        jackson_annotation = args.jackson_annotation
+        pascal_properties = args.pascal_properties
+        print(f'Converting Avro {avro_schema_path} to Java {java_path}')
+        convert_avro_to_java(avro_schema_path, java_path, package_name=package, avro_annotation=avro_annotation, jackson_annotation=jackson_annotation, pascal_properties=pascal_properties)
     
 if __name__ == "__main__":
     try:
