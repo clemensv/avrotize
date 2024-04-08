@@ -194,13 +194,13 @@ class AvroToCSharp:
         if isinstance(schema, dict):
             schema = [schema]
 
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
         csproj_file = os.path.join(output_dir, f"{os.path.basename(output_dir)}.csproj")
         if not os.path.exists(csproj_file):
             with open(csproj_file, 'w', encoding='utf-8') as file:
                 file.write(CSPROJ_CONTENT)
                             
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
         self.output_dir = output_dir
         for avro_schema in schema:
             self.generate_class_or_enum(avro_schema, self.base_namespace)
