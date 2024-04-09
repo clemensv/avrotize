@@ -22,8 +22,10 @@ def is_python_reserved_word(word: str) -> bool:
 class AvroToPython:
     """Converts Avro schema to Python data classes"""
     
-    def __init__(self, base_package: str = '') -> None:
+    def __init__(self, base_package: str = '', dataclasses_json_annotation=False, avro_annotation=False) -> None:
         self.base_package = base_package
+        self.dataclasses_json_annotation = dataclasses_json_annotation
+        self.avro_annotation = avro_annotation
         self.output_dir = os.getcwd()
 
     def is_python_primitive(self, type: str) -> bool:
@@ -122,6 +124,17 @@ class AvroToPython:
         class_definition += ''.join(fields) if fields else INDENT + "pass\n"
         
         imports = "from dataclasses import dataclass\n"
+        if self.avro_annotation:
+            imports += 'import avro.schema\n'            
+            avro_schema_json = json.dumps(avro_schema)
+            avro_schema_json = avro_schema_json.replace('"', '§')           
+            avro_schema_json = f"\"+\n{' '*8}\"".join([avro_schema_json[i:i+70] for i in range(0, len(avro_schema_json), 70)])
+            avro_schema_json = avro_schema_json.replace('§', '\\"')
+            class_definition += f'\n{INDENT}AvroType: ClassVar[avro.schema.Schema] = avro.schema.parse(\n{INDENT*2}"{avro_schema_json}");\n'        
+        
+        if self.dataclasses_json_annotation:
+            imports += "from dataclasses_json import dataclass_json\n"
+            class_definition = class_definition.replace('@dataclass', '@dataclass_json\n@dataclass')
         for import_type in import_types:
             import_type_package = import_type.rsplit('.',1)[0]
             import_type_type = pascal(import_type.split('.')[-1])
@@ -202,7 +215,7 @@ class AvroToPython:
             file.write(f'""" {name} """\n\n')
             file.write("# pylint: disable-msg=C0103\n\n")
             
-            pattern = r"(?<!\w)(Dict|List|Union|Optional|Any)"
+            pattern = r"(?<!\w)(Dict|List|Union|Optional|Any|ClassVar)"
             references = set(re.findall(pattern, definition))
             if references:
                 file.write(f'from typing import {",".join(references)}\n')
@@ -220,7 +233,7 @@ class AvroToPython:
         for avro_schema in schema:
             self.generate_class(avro_schema, self.base_package, write_file=True)
 
-def convert_avro_to_python(avro_schema_path, py_file_path, package_name = ''):
+def convert_avro_to_python(avro_schema_path, py_file_path, package_name = '', dataclasses_json_annotation = False, avro_annotation = False):
     """Converts Avro schema to Python data classes"""
-    avro_to_python = AvroToPython(package_name)
+    avro_to_python = AvroToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
     avro_to_python.convert(avro_schema_path, py_file_path)

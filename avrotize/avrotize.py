@@ -95,6 +95,7 @@ def main():
     a2py_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2py_parser.add_argument('--python', type=str, help='Output path for the Python classes', required=True)
     a2py_parser.add_argument('--package', type=str, help='Python package name', required=False)    
+    a2py_parser.add_argument('--dataclasses-json-annotation', action='store_true', help='Use dataclasses-json annotations', default=False)
     
     a2ts_parser = subparsers.add_parser('a2ts', help='Convert Avro schema to TypeScript classes')
     a2ts_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
@@ -202,8 +203,9 @@ def main():
         avro_schema_path = args.avsc
         python_path = args.python
         package = args.package
+        dataclasses_json_annotation = args.dataclasses_json_annotation
         print(f'Converting Avro {avro_schema_path} to Python {python_path}')
-        convert_avro_to_python(avro_schema_path, python_path, package_name=package)
+        convert_avro_to_python(avro_schema_path, python_path, package_name=package, dataclasses_json_annotation=dataclasses_json_annotation)
     elif args.command == 'a2ts':
         avro_schema_path = args.avsc
         ts_path = args.ts
