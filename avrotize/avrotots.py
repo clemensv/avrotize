@@ -190,7 +190,7 @@ class AvroToTypeScript:
             elif avro_schema['type'] == 'enum':
                 self.generate_enum(avro_schema, self.base_package)
 
-def convert_avro_to_typescript(avro_schema_path, js_dir_path, base_package='', typed_json_annotation=False, avro_annotation=False):
+def convert_avro_to_typescript(avro_schema_path, js_dir_path, package_name='', typedjson_annotation=False, avro_annotation=False):
     """ Convert Avro schema to TypeScript classes """
-    converter = AvroToTypeScript(base_package, typed_json_annotation=typed_json_annotation, avro_annotation=avro_annotation)
+    converter = AvroToTypeScript(package_name, typed_json_annotation=typedjson_annotation, avro_annotation=avro_annotation)
     converter.convert(avro_schema_path, js_dir_path)

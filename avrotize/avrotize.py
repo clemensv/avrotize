@@ -2,11 +2,13 @@ import argparse
 from avrotize.asn1toavro import convert_asn1_to_avro
 from avrotize.avrotocsharp import convert_avro_to_csharp
 from avrotize.avrotojava import convert_avro_to_java
+from avrotize.avrotojs import convert_avro_to_javascript
 from avrotize.avrotojsons import convert_avro_to_json_schema
 from avrotize.avrotokusto import convert_avro_to_kusto
 from avrotize.avrotoparquet import convert_avro_to_parquet
 from avrotize.avrotoproto import convert_avro_to_proto
 from avrotize.avrotopython import convert_avro_to_python
+from avrotize.avrotots import convert_avro_to_typescript
 from avrotize.avrototsql import convert_avro_to_tsql
 from avrotize.jsonstoavro import convert_jsons_to_avro
 from avrotize.kstructtoavro import convert_kafka_struct_to_avro_schema
@@ -93,6 +95,19 @@ def main():
     a2py_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2py_parser.add_argument('--python', type=str, help='Output path for the Python classes', required=True)
     a2py_parser.add_argument('--package', type=str, help='Python package name', required=False)    
+    
+    a2ts_parser = subparsers.add_parser('a2ts', help='Convert Avro schema to TypeScript classes')
+    a2ts_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2ts_parser.add_argument('--ts', type=str, help='Output path for the TypeScript classes', required=True)
+    a2ts_parser.add_argument('--package', type=str, help='TypeScript package name', required=False)
+    a2ts_parser.add_argument('--avro-annotation', action='store_true', help='Use Avro annotations', default=False)
+    a2ts_parser.add_argument('--typedjson-annotation', action='store_true', help='Use TypedJSON annotations', default=False)
+    
+    a2js_parser = subparsers.add_parser('a2js', help='Convert Avro schema to JavaScript classes')
+    a2js_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2js_parser.add_argument('--js', type=str, help='Output path for the JavaScript classes', required=True)
+    a2js_parser.add_argument('--package', type=str, help='JavaScript package name', required=False)
+    a2js_parser.add_argument('--avro-annotation', action='store_true', help='Use Avro annotations', default=False)
 
     args = parser.parse_args()
     if args.command is None:
@@ -188,7 +203,22 @@ def main():
         python_path = args.python
         package = args.package
         print(f'Converting Avro {avro_schema_path} to Python {python_path}')
-        convert_avro_to_python(avro_schema_path, python_path, base_package=package)
+        convert_avro_to_python(avro_schema_path, python_path, package_name=package)
+    elif args.command == 'a2ts':
+        avro_schema_path = args.avsc
+        ts_path = args.ts
+        package = args.package
+        avro_annotation = args.avro_annotation
+        typedjson_annotation = args.typedjson_annotation
+        print(f'Converting Avro {avro_schema_path} to TypeScript {ts_path}')
+        convert_avro_to_typescript(avro_schema_path, ts_path, package_name=package, avro_annotation=avro_annotation, typedjson_annotation=typedjson_annotation)
+    elif args.command == 'a2js':
+        avro_schema_path = args.avsc
+        js_path = args.js
+        package = args.package
+        avro_annotation = args.avro_annotation
+        print(f'Converting Avro {avro_schema_path} to JavaScript {js_path}')
+        convert_avro_to_javascript(avro_schema_path, js_path, package_name=package, avro_annotation=avro_annotation)
     
 if __name__ == "__main__":
     try:

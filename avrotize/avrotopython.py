@@ -220,7 +220,7 @@ class AvroToPython:
         for avro_schema in schema:
             self.generate_class(avro_schema, self.base_package, write_file=True)
 
-def convert_avro_to_python(avro_schema_path, py_file_path, base_package = ''):
+def convert_avro_to_python(avro_schema_path, py_file_path, package_name = ''):
     """Converts Avro schema to Python data classes"""
-    avro_to_python = AvroToPython(base_package)
+    avro_to_python = AvroToPython(package_name)
     avro_to_python.convert(avro_schema_path, py_file_path)

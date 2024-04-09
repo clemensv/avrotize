@@ -10,10 +10,11 @@ database schema formats like Kusto Data Table Definition (KQL) and T-SQL Table
 Definition (SQL). That means you can also convert from JSON Schema to Protobuf
 going via Avro Schema. 
 
-You can also generate C#, Java, and Python code from the Avro Schema documents
-with Avrotize. The difference to the native Avro tools is that Avrotize can emit
-data classes without Avro library dependencies and, optionally, with annotations
-for JSON serialization libraries like Jackson or System.Text.Json.
+You can also generate C#, Java, TypeScript, JavaScript, and Python code from the
+Avro Schema documents with Avrotize. The difference to the native Avro tools is
+that Avrotize can emit data classes without Avro library dependencies and,
+optionally, with annotations for JSON serialization libraries like Jackson or
+System.Text.Json.
 
 The tool does not convert data (instances of schemas), only the data structure
 definitions.
@@ -136,6 +137,8 @@ Generate code from Avro Schema:
 - [`avrotize a2csharp`](#generate-c-code-from-avro-schema) - Generate C# code from Avro schema.
 - [`avrotize a2java`](#generate-java-code-from-avro-schema) - Generate Java code from Avro schema.
 - [`avrotize a2py`](#generate-python-code-from-avro-schema) - Generate Python code from Avro schema.
+- [`avrotize a2ts`](#generate-typescript-code-from-avro-schema) - Generate TypeScript code from Avro schema.
+- [`avrotize a2js`](#generate-javascript-code-from-avro-schema) - Generate JavaScript code from Avro schema.
 
 ### Convert Proto schema to Avro schema
 
@@ -474,6 +477,44 @@ Conversion notes:
 - The classes are generated into a directory structure that reflects the Avro namespace
   structure. The tool drops a minimal, default `__init__.py` file into any created
   package directories if none exists.
+
+### Generate TypeScript code from Avro schema
+
+```bash
+avrotize a2ts --avsc <path_to_avro_schema_file> --ts <path_to_typescript_directory> [--package <typescript_namespace>] [--avro-annotation] [--typedjson-annotation]
+``` 
+
+Parameters:
+- `--avsc`: The path to the Avro schema file to be converted.
+- `--ts`: The path to the TypeScript directory to write the conversion result to.
+- `--package`: (optional) The TypeScript namespace to use in the generated TypeScript classes.
+- `--avro-annotation`: (optional) If set, the tool will add Avro annotations to the TypeScript classes.
+- `--typedjson-annotation`: (optional) If set, the tool will add TypedJSON annotations to the TypeScript classes.
+
+Conversion notes:
+- The tool generates TypeScript interfaces that represent the Avro schema as data classes.
+- Using the `--typedjson-annotation` option will add annotations for the TypedJSON
+  JSON serialization library to the generated TypeScript classes. Because the
+  [`JSON Schema to Avro`](#convert-json-schema-to-avro-schema) conversion generally
+  preserves the JSON Schema structure in the Avro schema, the generated TypeScript
+  classes can be used to serialize and deserialize data that is valid per the input JSON schema.
+- The classes are generated into a directory structure that reflects the Avro namespace
+
+### Generate JavaScript code from Avro schema
+
+```bash
+avrotize a2js --avsc <path_to_avro_schema_file> --js <path_to_javascript_directory> [--package <javascript_namespace>] [--avro-annotation]
+```
+
+Parameters:
+- `--avsc`: The path to the Avro schema file to be converted.
+- `--js`: The path to the JavaScript directory to write the conversion result to.
+- `--package`: (optional) The JavaScript namespace to use in the generated JavaScript classes.
+- `--avro-annotation`: (optional) If set, the tool will add Avro annotations to the JavaScript classes.
+
+Conversion notes:
+- The tool generates JavaScript classes that represent the Avro schema as data classes.
+- The classes are generated into a directory structure that reflects the Avro namespace
 
 
 ## Contributing

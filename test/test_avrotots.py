@@ -64,7 +64,7 @@ class TestAvroToTypeScript(unittest.TestCase):
             
         
         convert_jsons_to_avro(jsons_path, avro_path)
-        convert_avro_to_typescript(avro_path, ts_path, typed_json_annotation=True)
+        convert_avro_to_typescript(avro_path, ts_path, typedjson_annotation=True)
         
     def test_convert_jfrog_pipelines_jsons_to_avro_to_typescript_avro_annotations(self):
         """ Test converting a jfrog-pipelines.json file to C# """
