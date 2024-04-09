@@ -13,6 +13,7 @@ from .avrototsql import convert_avro_to_tsql
 from .avrotoxsd import convert_avro_to_xsd
 from .avrotojava import convert_avro_to_java
 from .avrotocsharp import convert_avro_to_csharp
+from .avrotopython import convert_avro_to_python
 
 __all__ = [
     "convert_proto_to_avro",
@@ -28,5 +29,6 @@ __all__ = [
     "convert_avro_to_tsql",
     "convert_avro_to_xsd",
     "convert_avro_to_java",
-    "convert_avro_to_csharp"
+    "convert_avro_to_csharp",
+    "convert_avro_to_python",
 ]

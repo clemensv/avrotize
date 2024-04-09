@@ -10,8 +10,8 @@ database schema formats like Kusto Data Table Definition (KQL) and T-SQL Table
 Definition (SQL). That means you can also convert from JSON Schema to Protobuf
 going via Avro Schema. 
 
-You can also generate C# and Java code from the Avro Schema documents with
-Avrotize. The difference to the native Avto tools is that Avrotize can emit
+You can also generate C#, Java, and Python code from the Avro Schema documents
+with Avrotize. The difference to the native Avro tools is that Avrotize can emit
 data classes without Avro library dependencies and, optionally, with annotations
 for JSON serialization libraries like Jackson or System.Text.Json.
 
@@ -135,6 +135,7 @@ Generate code from Avro Schema:
 
 - [`avrotize a2csharp`](#generate-c-code-from-avro-schema) - Generate C# code from Avro schema.
 - [`avrotize a2java`](#generate-java-code-from-avro-schema) - Generate Java code from Avro schema.
+- [`avrotize a2py`](#generate-python-code-from-avro-schema) - Generate Python code from Avro schema.
 
 ### Convert Proto schema to Avro schema
 
@@ -454,6 +455,25 @@ Conversion notes:
   generated Java classes are written to this directory. The tool drops a
   minimal, default `pom.xml` Maven project file into the given directory if none
   exists.
+
+### Generate Python code from Avro schema
+
+This command generates Python dataclasses from an Avro schema.
+
+```bash
+avrotize a2py --avsc <path_to_avro_schema_file> --python <path_to_python_directory> [--package <python_package_name>]
+```
+
+Parameters:
+- `--avsc`: The path to the Avro schema file to be converted.
+- `--python`: The path to the Python directory to write the conversion result to.
+- `--package`: (optional) The Python package name to use in the generated Python classes.
+
+Conversion notes:
+- The tool generates Python dataclasses (Python 3.7 or later)
+- The classes are generated into a directory structure that reflects the Avro namespace
+  structure. The tool drops a minimal, default `__init__.py` file into any created
+  package directories if none exists.
 
 
 ## Contributing

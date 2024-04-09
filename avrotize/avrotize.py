@@ -6,6 +6,7 @@ from avrotize.avrotojsons import convert_avro_to_json_schema
 from avrotize.avrotokusto import convert_avro_to_kusto
 from avrotize.avrotoparquet import convert_avro_to_parquet
 from avrotize.avrotoproto import convert_avro_to_proto
+from avrotize.avrotopython import convert_avro_to_python
 from avrotize.avrototsql import convert_avro_to_tsql
 from avrotize.jsonstoavro import convert_jsons_to_avro
 from avrotize.kstructtoavro import convert_kafka_struct_to_avro_schema
@@ -88,6 +89,10 @@ def main():
     a2java_parser.add_argument('--jackson-annotation', action='store_true', help='Use Jackson annotations', default=False)
     a2java_parser.add_argument('--pascal-properties', action='store_true', help='Use PascalCase properties', default=False)
     
+    a2py_parser = subparsers.add_parser('a2py', help='Convert Avro schema to Python classes')
+    a2py_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2py_parser.add_argument('--python', type=str, help='Output path for the Python classes', required=True)
+    a2py_parser.add_argument('--package', type=str, help='Python package name', required=False)    
 
     args = parser.parse_args()
     if args.command is None:
@@ -178,6 +183,12 @@ def main():
         pascal_properties = args.pascal_properties
         print(f'Converting Avro {avro_schema_path} to Java {java_path}')
         convert_avro_to_java(avro_schema_path, java_path, package_name=package, avro_annotation=avro_annotation, jackson_annotation=jackson_annotation, pascal_properties=pascal_properties)
+    elif args.command == 'a2py':
+        avro_schema_path = args.avsc
+        python_path = args.python
+        package = args.package
+        print(f'Converting Avro {avro_schema_path} to Python {python_path}')
+        convert_avro_to_python(avro_schema_path, python_path, base_package=package)
     
 if __name__ == "__main__":
     try:
