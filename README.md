@@ -471,6 +471,8 @@ Parameters:
 - `--avsc`: The path to the Avro schema file to be converted.
 - `--python`: The path to the Python directory to write the conversion result to.
 - `--package`: (optional) The Python package name to use in the generated Python classes.
+- `--avro-annotation`: (optional) If set, the tool will add Avro annotations to the Python classes.
+- `--dataclasses-json-annotation`: (optional) If set, the tool will add dataclasses-json annotations to the Python classes
 
 Conversion notes:
 - The tool generates Python dataclasses (Python 3.7 or later)
