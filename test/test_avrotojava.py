@@ -28,7 +28,7 @@ class TestAvroToJava(unittest.TestCase):
 
         convert_avro_to_java(avro_path, java_path)
         assert subprocess.check_call(
-            ['mvn', 'package'], cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_address_avsc_to_java_avro_annotation(self):
         """ Test converting an address.avsc file to C# """
@@ -41,7 +41,7 @@ class TestAvroToJava(unittest.TestCase):
 
         convert_avro_to_java(avro_path, java_path, avro_annotation=True)
         assert subprocess.check_call(
-            ['mvn', 'package'], cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_address_avsc_to_java_jackson_annotation(self):
         """ Test converting an address.avsc file to C# """
@@ -55,7 +55,7 @@ class TestAvroToJava(unittest.TestCase):
         convert_avro_to_java(avro_path, java_path,
                              jackson_annotation=True, pascal_properties=True)
         assert subprocess.check_call(
-            ['mvn', 'package'], cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_telemetry_avsc_to_java(self):
         """ Test converting a telemetry.avsc file to C# """
@@ -68,7 +68,7 @@ class TestAvroToJava(unittest.TestCase):
 
         convert_avro_to_java(avro_path, java_path)
         assert subprocess.check_call(
-            ['mvn', 'package'], cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_java(self):
         """ Test converting a jfrog-pipelines.json file to C# """
@@ -83,7 +83,7 @@ class TestAvroToJava(unittest.TestCase):
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_java(avro_path, java_path)
         assert subprocess.check_call(
-            ['mvn', 'package'], cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_java_annotated(self):
         """ Test converting a jfrog-pipelines.json file to C# """
@@ -99,4 +99,4 @@ class TestAvroToJava(unittest.TestCase):
         convert_avro_to_java(avro_path, java_path, pascal_properties=True,
                              avro_annotation=True, jackson_annotation=True)
         assert subprocess.check_call(
-            ['mvn', 'package'], cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0

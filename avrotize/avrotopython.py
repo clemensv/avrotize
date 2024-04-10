@@ -121,9 +121,10 @@ class AvroToPython:
         class_definition += INDENT + f'"""\n{INDENT}{docstring}\n\n{INDENT}Attributes:\n'
         class_definition += ''.join([self.generate_field_docstring(field, parent_package) for field in avro_schema.get('fields', [])])
         class_definition += INDENT + '"""\n'            
-        class_definition += ''.join(fields) if fields else INDENT + "pass\n"
+        class_definition += ''.join(fields) if fields else INDENT + "\n"
         
         imports = "from dataclasses import dataclass\n"
+        local_imports = ''
         if self.avro_annotation:
             imports += 'import avro.schema\n'            
             avro_schema_json = json.dumps(avro_schema)
@@ -141,10 +142,14 @@ class AvroToPython:
             if import_type_package.startswith(package_name):
                 import_type_package = import_type_package[len(package_name):]
             if import_type_package:
-                imports += f"from {import_type_package.lower()}.{import_type_type.lower()} import {import_type_type}\n"
+                imp = f"from {import_type_package.lower()} import {import_type_type}\n"
+                if import_type_package.startswith('.'):
+                    local_imports += imp
+                else:
+                    imports += imp
             else:
-                imports += f"from {import_type_type.lower()} import {import_type_type}\n"
-        class_definition = imports + '\n' + class_definition
+                local_imports += f"from .{import_type_type.lower()} import {import_type_type}\n"
+        class_definition = imports + '\n' + local_imports + '\n' + class_definition
 
         if write_file:
             self.write_to_file(package_name, class_name, class_definition)
@@ -212,7 +217,7 @@ class AvroToPython:
 
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(f'""" {name} """\n\n')
-            file.write("# pylint: disable-msg=C0103\n\n")
+            file.write("# pylint: disable=invalid-name,line-too-long,too-many-instance-attributes\n\n")
             
             pattern = r"(?<!\w)(Dict|List|Union|Optional|Any|ClassVar)"
             references = set(re.findall(pattern, definition))
@@ -224,7 +229,10 @@ class AvroToPython:
         """ Converts Avro schema to Python data classes"""
         self.output_dir = output_dir
         for avro_schema in avro_schemas:
-            self.generate_class(avro_schema, self.base_package, write_file=True)
+            if avro_schema['type'] == 'enum':
+                self.generate_enum(avro_schema, self.base_package, write_file=True)
+            elif avro_schema['type'] == 'record':
+                self.generate_class(avro_schema, self.base_package, write_file=True)
     
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Python data classes"""

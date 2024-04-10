@@ -1066,7 +1066,7 @@ class JsonToAvroConverter:
                 return None
             if isinstance(type, list):
                 # we should have a union type
-                avro_type = self.create_wrapper_record(name, self.utility_namespace, 'options', [], type)
+                avro_type = self.create_wrapper_record(name+"_union", self.utility_namespace, 'options', [], type)
             elif isinstance(type, dict) and 'type' in type and type['type'] != 'record':
                 # merge the type into a record type if it's not a record type
                 print(f'INFO: Standalone type {name} is being wrapped in a record')
