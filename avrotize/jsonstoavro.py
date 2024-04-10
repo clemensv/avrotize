@@ -37,6 +37,7 @@ class JsonToAvroConverter:
         self.content_cache: Dict[str,str] = {}
         self.utility_namespace = 'utility.vasters.com'
         self.split_top_level_records = False
+        self.root_class_name = 'document'
 
     def is_empty_type(self, avro_type):
         """
@@ -1399,7 +1400,7 @@ class JsonToAvroConverter:
         record_stack: List[str] = []
 
         parsed_url = urlparse(base_uri)
-        schema_name = 'document'
+        schema_name = self.root_class_name
 
         if isinstance(json_schema, dict) and ('definitions' in json_schema or '$defs' in json_schema):
             # this is a swagger file or has a 'definitions' block
@@ -1515,11 +1516,13 @@ class JsonToAvroConverter:
         return avro_schema
     
 
-def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, namespace: str = '', utility_namespace = '', split_top_level_records = False) -> list | dict | str:
+def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, namespace: str = '', utility_namespace = '', root_class_name = '', split_top_level_records = False) -> list | dict | str:
     """Convert JSON schema file to Avro schema file."""
     try:
         converter = JsonToAvroConverter()
         converter.split_top_level_records = split_top_level_records
+        if root_class_name:
+            converter.root_class_name = root_class_name
         return converter.convert_jsons_to_avro(json_schema_file_path, avro_schema_path, namespace, utility_namespace)
     except Exception as e:
         print(f'Error converting JSON {json_schema_file_path} to Avro: {e.args[0]}')

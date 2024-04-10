@@ -1,3 +1,5 @@
+# pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, line-too-long
+
 """ Generates Java classes from Avro schema """
 import json
 import os
@@ -34,11 +36,60 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
 </project>
 """
 
+JSON_FROMDATA_THROWS = \
+    ",JsonProcessingException"
+JSON_FROMDATA = \
+    """
+if ( contentType == "application/json") {
+    if (data instanceof JsonNode) {
+        return (new ObjectMapper()).readValue(((JsonNode)data).toString(), {typeName}.class);
+    }
+    else if ( data instanceof String) {
+        return (new ObjectMapper()).readValue(((String)data), {typeName}.class);
+    }
+    throw new UnsupportedOperationException("Data is not of a supported type for JSON conversion to {typeName}");
+}
+"""
+JSON_TOBYTEARRAY_THROWS = ",JsonProcessingException"
+JSON_TOBYTEARRAY = \
+    """
+if ( contentType == "application/json") {    
+    return new ObjectMapper().writeValueAsBytes(this);
+}
+"""
+
+AVRO_FROMDATA_THROWS = ",IOException"
+AVRO_FROMDATA = \
+    """
+if ( contentType == "application/avro") {
+    DatumReader<{typeName}> reader = new SpecificDatumReader<>({typeName}.class);
+    Decoder decoder = DecoderFactory.get().binaryDecoder((byte[])data, null);
+    return reader.read(null, decoder);
+}
+"""
+AVRO_TOBYTEARRAY_THROWS = ",IOException"
+AVRO_TOBYTEARRAY = \
+    """
+if ( contentType == "application/avro") {
+    DatumWriter<{typeName}> writer = new SpecificDatumWriter<>({typeName}.class);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    Encoder encoder = EncoderFactory.get().binaryEncoder(out, null);
+    writer.write(this, encoder);
+    encoder.flush();
+    return out.toByteArray();
+}
+"""
+
+
+JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
+
 
 def flatten_type_name(name: str) -> str:
     """Strips the namespace from a name"""
-    base_name = pascal(name.replace(' ', '')).split('.')[-1].replace('>', '').replace('<', '').replace(',', '')
+    base_name = pascal(name.replace(' ', '')).split(
+        '.')[-1].replace('>', '').replace('<', '').replace(',', '')
     return base_name
+
 
 def is_java_reserved_word(word: str) -> bool:
     """Checks if a word is a Java reserved word"""
@@ -52,8 +103,10 @@ def is_java_reserved_word(word: str) -> bool:
     ]
     return word in reserved_words
 
+
 class AvroToJava:
     """Converts Avro schema to Java classes, including Jackson annotations and Avro SpecificRecord methods"""
+
     def __init__(self, base_package: str = '') -> None:
         self.base_package = base_package.replace('.', '/')
         self.output_dir = os.getcwd()
@@ -67,10 +120,11 @@ class AvroToJava:
 
     class JavaType:
         """Java type definition"""
+
         def __init__(self, type_name: str, union_types: List['AvroToJava.JavaType'] | None = None):
             self.type_name = type_name
             self.union_types = union_types
-            
+
     def map_primitive_to_java(self, avro_type: str) -> JavaType:
         """Maps Avro primitive types to Java types"""
         mapping = {
@@ -84,7 +138,6 @@ class AvroToJava:
             'string': 'String',
         }
         return AvroToJava.JavaType(mapping.get(avro_type, 'Object'))
-    
 
     def convert_avro_type_to_java(self, avro_type: Union[str, Dict, List], parent_package: str) -> JavaType:
         """Converts Avro type to Java type"""
@@ -95,7 +148,8 @@ class AvroToJava:
             if len(non_null_types) == 1:
                 return self.convert_avro_type_to_java(non_null_types[0], parent_package)
             else:
-                types : List[AvroToJava.JavaType]  = [self.convert_avro_type_to_java(t, parent_package) for t in non_null_types]
+                types: List[AvroToJava.JavaType] = [self.convert_avro_type_to_java(
+                    t, parent_package) for t in non_null_types]
                 return AvroToJava.JavaType('Object', types)
         elif isinstance(avro_type, dict):
             if avro_type['type'] in ['record', 'enum']:
@@ -120,9 +174,11 @@ class AvroToJava:
         class_definition = ''
         if 'doc' in avro_schema:
             class_definition += f"/** {avro_schema['doc']} */\n"
-        package = self.concat_package(self.base_package, avro_schema.get('namespace', '').replace('.', '/')).lower()
+        package = self.concat_package(self.base_package, avro_schema.get(
+            'namespace', parent_package).replace('.', '/')).lower()
         class_name = pascal(avro_schema['name'])
-        fields_str = [self.generate_property(field, parent_package) for field in avro_schema.get('fields', [])]
+        fields_str = [self.generate_property(
+            field, package) for field in avro_schema.get('fields', [])]
         class_body = "\n".join(fields_str)
         class_definition += f"public class {class_name}"
         if self.avro_annotation:
@@ -131,13 +187,42 @@ class AvroToJava:
         class_definition += class_body
         if self.avro_annotation:
             avro_schema_json = json.dumps(avro_schema)
-            avro_schema_json = avro_schema_json.replace('"', '§')           
-            avro_schema_json = f"\"+\n{INDENT}\"".join([avro_schema_json[i:i+80] for i in range(0, len(avro_schema_json), 80)])
+            avro_schema_json = avro_schema_json.replace('"', '§')
+            avro_schema_json = f"\"+\n{INDENT}\"".join(
+                [avro_schema_json[i:i+80] for i in range(0, len(avro_schema_json), 80)])
             avro_schema_json = avro_schema_json.replace('§', '\\"')
             class_definition += f"\n\n{INDENT}public static Schema AvroSchema = new Schema.Parser().parse(\n{INDENT}\"{avro_schema_json}\");\n"
-            class_definition += f"\n{INDENT}@Override\n{INDENT}public Schema getSchema(){{ return AvroSchema; }}\n"            
-            class_definition += self.generate_get_method(avro_schema.get('fields', []), parent_package)
-            class_definition += self.generate_put_method(avro_schema.get('fields', []), parent_package)
+            class_definition += f"\n{INDENT}@Override\n{INDENT}public Schema getSchema(){{ return AvroSchema; }}\n"
+            class_definition += self.generate_get_method(
+                avro_schema.get('fields', []), package)
+            class_definition += self.generate_put_method(
+                avro_schema.get('fields', []), package)
+
+        # emit toByteArray method
+        class_definition += f"\n\n{INDENT}public byte[] toByteArray(String contentType) throws UnsupportedOperationException" + \
+            f"{ JSON_TOBYTEARRAY_THROWS if self.jackson_annotations else '' }" + \
+            f"{ AVRO_TOBYTEARRAY_THROWS if self.avro_annotation else '' }  {{"
+        if self.avro_annotation:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                AVRO_TOBYTEARRAY.strip().replace("{typeName}", class_name).split("\n"))
+        if self.jackson_annotations:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                JSON_TOBYTEARRAY.strip().replace("{typeName}", class_name).split("\n"))
+        class_definition += f"\n{INDENT*2}throw new UnsupportedOperationException(\"Unsupported content type \"+ contentType);\n{INDENT}}}"
+
+        # emit fromData factory method
+        class_definition += f"\n\n{INDENT}public static {class_name} fromData(Object data, String contentType) throws UnsupportedOperationException" + \
+            f"{ JSON_FROMDATA_THROWS if self.jackson_annotations else '' }" + \
+            f"{ AVRO_FROMDATA_THROWS if self.avro_annotation else '' }  {{"
+        class_definition += f'\n{INDENT*2}if ( data instanceof {class_name}) return ({class_name})data;'
+        if self.avro_annotation:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                AVRO_FROMDATA.strip().replace("{typeName}", class_name).split("\n"))
+        if self.jackson_annotations:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                JSON_FROMDATA.strip().replace("{typeName}", class_name).split("\n"))
+        class_definition += f"\n{INDENT*2}throw new UnsupportedOperationException(\"Unsupported content type \"+ contentType);\n{INDENT}}}"
+
         class_definition += "\n}"
 
         if write_file:
@@ -149,7 +234,8 @@ class AvroToJava:
         get_method = f"\n{INDENT}@Override\n{INDENT}public Object get(int field$) {{\n"
         get_method += f"{INDENT * 2}switch (field$) {{\n"
         for index, field in enumerate(fields):
-            field_name = pascal(field['name']) if self.pascal_properties else field['name']
+            field_name = pascal(
+                field['name']) if self.pascal_properties else field['name']
             get_method += f"{INDENT * 3}case {index}: return this.{field_name};\n"
         get_method += f"{INDENT * 3}default: throw new AvroRuntimeException(\"Bad index: \" + field$);\n"
         get_method += f"{INDENT * 2}}}\n{INDENT}}}\n"
@@ -160,8 +246,10 @@ class AvroToJava:
         put_method = f"\n{INDENT}@Override\n{INDENT}public void put(int field$, Object value$) {{\n"
         put_method += f"{INDENT * 2}switch (field$) {{\n"
         for index, field in enumerate(fields):
-            field_name = pascal(field['name']) if self.pascal_properties else field['name']
-            java_type = self.convert_avro_type_to_java(field['type'], parent_package)
+            field_name = pascal(
+                field['name']) if self.pascal_properties else field['name']
+            java_type = self.convert_avro_type_to_java(
+                field['type'], parent_package)
             put_method += f"{INDENT * 3}case {index}: this.{field_name} = ({java_type.type_name})value$; break;\n"
         put_method += f"{INDENT * 3}default: throw new AvroRuntimeException(\"Bad index: \" + field$);\n"
         put_method += f"{INDENT * 2}}}\n{INDENT}}}\n"
@@ -172,7 +260,8 @@ class AvroToJava:
         enum_definition = ''
         if 'doc' in avro_schema:
             enum_definition += f"/** {avro_schema['doc']} */\n"
-        package = self.concat_package(self.base_package, avro_schema.get('namespace', '').replace('.', '/')).lower()
+        package = self.concat_package(self.base_package, avro_schema.get(
+            'namespace', parent_package).replace('.', '/')).lower()
         enum_name = pascal(avro_schema['name'])
         symbols = avro_schema.get('symbols', [])
         symbols_str = ', '.join(symbols)
@@ -181,13 +270,14 @@ class AvroToJava:
         enum_definition += "}\n"
         if write_file:
             self.write_to_file(package, enum_name, enum_definition)
-        return AvroToJava.JavaType(self.concat_package(package.replace('/', '.'), enum_name))       
-        
+        return AvroToJava.JavaType(self.concat_package(package.replace('/', '.'), enum_name))
 
     def generate_property(self, field: Dict, parent_package: str) -> str:
         """ Generates a Java property definition """
-        field_type = self.convert_avro_type_to_java(field['type'], parent_package)
-        field_name = pascal(field['name']) if self.pascal_properties else field['name']
+        field_type = self.convert_avro_type_to_java(
+            field['type'], parent_package)
+        field_name = pascal(
+            field['name']) if self.pascal_properties else field['name']
         if is_java_reserved_word(field_name):
             field_name += "_"
         property_def = ''
@@ -206,7 +296,7 @@ class AvroToJava:
 
     def write_to_file(self, package: str, name: str, definition: str):
         """ Writes a Java class or enum to a file """
-        directory_path = os.path.join(self.output_dir, package)
+        directory_path = os.path.join(self.output_dir, package.replace('.', os.sep))
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
         file_path = os.path.join(directory_path, f"{name}.java")
@@ -214,44 +304,52 @@ class AvroToJava:
         with open(file_path, 'w', encoding='utf-8') as file:
             if package:
                 file.write(f"package {package.replace('/', '.')};\n\n")
-                file.write("import java.util.List;\n")
-                file.write("import java.util.Map;\n")
+                if "List<" in definition:
+                    file.write("import java.util.List;\n")
+                if "Map<" in definition:
+                    file.write("import java.util.Map;\n")
             if self.avro_annotation:
-                file.write("import org.apache.avro.specific.SpecificRecord;\n")
-                file.write("import org.apache.avro.AvroRuntimeException;\n")
-                file.write("import org.apache.avro.Schema;\n")
+                file.write("import org.apache.avro.io.*;\n")
+                file.write("import org.apache.avro.specific.*;\n")
+                file.write("import org.apache.avro.*;\n")
+                file.write("import java.io.IOException;\n")
+                file.write("import java.io.ByteArrayOutputStream;\n")
             if self.jackson_annotations:
+                file.write("import com.fasterxml.jackson.databind.JsonNode;\n")
+                file.write("import com.fasterxml.jackson.databind.ObjectMapper;\n")
                 file.write("import com.fasterxml.jackson.annotation.JsonProperty;\n")
+                file.write("import com.fasterxml.jackson.core.JsonProcessingException;\n")
             file.write("\n")
             file.write(definition)
 
-    def convert(self, avro_schema_path: str, output_dir: str):
+    def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to Java"""
-        with open(avro_schema_path, 'r', encoding='utf-8') as file:
-            schema = json.load(file)
-
-        if isinstance(schema, dict):
+        if not isinstance(schema, list):
             schema = [schema]
-
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         pom_path = os.path.join(output_dir, "pom.xml")
         if not os.path.exists(pom_path):
             with open(pom_path, 'w', encoding='utf-8') as file:
                 file.write(POM_CONTENT)
-        
-        output_dir = os.path.join(output_dir, "src/main/java".replace('/', os.sep))
+        output_dir = os.path.join(
+            output_dir, "src/main/java".replace('/', os.sep))
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         self.output_dir = output_dir
-        for avro_schema in schema:
+        for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema, self.base_package)
-                    
+
+    def convert(self, avro_schema_path: str, output_dir: str):
+        """Converts Avro schema to Java"""
+        with open(avro_schema_path, 'r', encoding='utf-8') as file:
+            schema = json.load(file)
+        self.convert_schema(schema, output_dir)
 
 
-def convert_avro_to_java(avro_schema_path, java_file_path, package_name = '', pascal_properties=False, jackson_annotation=False, avro_annotation=False):
+def convert_avro_to_java(avro_schema_path, java_file_path, package_name='', pascal_properties=False, jackson_annotation=False, avro_annotation=False):
     """_summary_
-    
+
     Converts Avro schema to C# classes
 
     Args:
@@ -264,3 +362,20 @@ def convert_avro_to_java(avro_schema_path, java_file_path, package_name = '', pa
     avrotojava.avro_annotation = avro_annotation
     avrotojava.jackson_annotations = jackson_annotation
     avrotojava.convert(avro_schema_path, java_file_path)
+
+
+def convert_avro_schema_to_java(avro_schema: JsonNode, output_dir: str, package_name='', pascal_properties=False, jackson_annotation=False, avro_annotation=False):
+    """_summary_
+
+    Converts Avro schema to C# classes
+
+    Args:
+        avro_schema (_type_): Avro schema as a dictionary or list of dictionaries
+        output_dir (_type_): Output directory path 
+    """
+    avrotojava = AvroToJava()
+    avrotojava.base_package = package_name
+    avrotojava.pascal_properties = pascal_properties
+    avrotojava.avro_annotation = avro_annotation
+    avrotojava.jackson_annotations = jackson_annotation
+    avrotojava.convert_schema(avro_schema, output_dir)

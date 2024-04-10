@@ -30,7 +30,7 @@ class AvroToPython:
 
     def is_python_primitive(self, type: str) -> bool:
         """ Checks if a type is a Python primitive type """
-        return type in ['None', 'bool', 'int', 'float', 'str', 'bytes']        
+        return type in ['None', 'bool', 'int', 'float', 'str', 'bytes']
         
     def map_primitive_to_python(self, avro_type: str) -> str:
         """Maps Avro primitive types to Python types"""
@@ -141,12 +141,11 @@ class AvroToPython:
             if import_type_package.startswith(package_name):
                 import_type_package = import_type_package[len(package_name):]
             if import_type_package:
-                imports += f"from {import_type_package}.{import_type_type} import {import_type_type}\n"
+                imports += f"from {import_type_package.lower()}.{import_type_type.lower()} import {import_type_type}\n"
             else:
-                imports += f"from {import_type_type} import {import_type_type}\n"        
+                imports += f"from {import_type_type.lower()} import {import_type_type}\n"
         class_definition = imports + '\n' + class_definition
 
-        
         if write_file:
             self.write_to_file(package_name, class_name, class_definition)
         return f'{package_name}.{class_name}' if package_name else class_name
@@ -193,14 +192,14 @@ class AvroToPython:
     
     def write_to_file(self, package:str, name: str, definition: str):
         """Writes a Python class to a file"""
-        directory_path = os.path.join(self.output_dir, package.replace('.', '/').replace('/', os.sep))
+        directory_path = os.path.join(self.output_dir, package.replace('.', '/').replace('/', os.sep).lower())
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
         
         # drop an __init.py__ file in all directories along the path above output_dir
         package_name = package
         while package_name:
-            init_file_path = os.path.join(self.output_dir, package_name.replace('.', '/').replace('/', os.sep), '__init__.py')
+            init_file_path = os.path.join(directory_path, '__init__.py')
             if not os.path.exists(init_file_path):
                 with open(init_file_path, 'w', encoding='utf-8') as file:
                     file.write('')
@@ -209,7 +208,7 @@ class AvroToPython:
             else:
                 package_name = ''
             
-        file_path = os.path.join(directory_path, f"{name}.py")
+        file_path = os.path.join(directory_path, f"{name.lower()}.py")
 
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(f'""" {name} """\n\n')
@@ -221,19 +220,28 @@ class AvroToPython:
                 file.write(f'from typing import {",".join(references)}\n')
             file.write('\n'+definition)
 
+    def convert_schemas(self, avro_schemas: List, output_dir: str):
+        """ Converts Avro schema to Python data classes"""
+        self.output_dir = output_dir
+        for avro_schema in avro_schemas:
+            self.generate_class(avro_schema, self.base_package, write_file=True)
+    
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Python data classes"""
         with open(avro_schema_path, 'r', encoding='utf-8') as file:
             schema = json.load(file)
-
         if isinstance(schema, dict):
             schema = [schema]
-
-        self.output_dir = output_dir
-        for avro_schema in schema:
-            self.generate_class(avro_schema, self.base_package, write_file=True)
+        return self.convert_schemas(schema, output_dir)
 
 def convert_avro_to_python(avro_schema_path, py_file_path, package_name = '', dataclasses_json_annotation = False, avro_annotation = False):
     """Converts Avro schema to Python data classes"""
     avro_to_python = AvroToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
     avro_to_python.convert(avro_schema_path, py_file_path)
+
+def convert_avro_schema_to_python(avro_schema, py_file_path, package_name = '', dataclasses_json_annotation = False, avro_annotation = False):
+    """Converts Avro schema to Python data classes"""
+    avro_to_python = AvroToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
+    if isinstance(avro_schema, dict):
+        avro_schema = [avro_schema]
+    avro_to_python.convert_schemas(avro_schema, py_file_path)

@@ -217,11 +217,8 @@ class AvroToJavaScript:
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(content)
 
-    def convert(self, avro_schema_path: str, output_dir: str):
+    def convert_schema(self, schema: List|Dict, output_dir: str):
         """ Convert Avro schema to TypeScript classes """
-        with open(avro_schema_path, 'r', encoding='utf-8') as file:
-            schema = json.load(file)
-
         self.output_dir = output_dir
         if isinstance(schema, dict):
             schema = [schema]
@@ -231,8 +228,19 @@ class AvroToJavaScript:
                 self.generate_class(avro_schema, self.base_package)
             elif avro_schema['type'] == 'enum':
                 self.generate_enum(avro_schema, self.base_package)
+                
+    def convert(self, avro_schema_path: str, output_dir: str):
+        """ Convert Avro schema to TypeScript classes """
+        with open(avro_schema_path, 'r', encoding='utf-8') as file:
+            schema = json.load(file)
+        self.convert_schema(schema, output_dir)
 
 def convert_avro_to_javascript(avro_schema_path, js_dir_path, package_name='', avro_annotation=False):
     """ Convert Avro schema to TypeScript classes """
     converter = AvroToJavaScript(package_name, avro_annotation=avro_annotation)
     converter.convert(avro_schema_path, js_dir_path)
+    
+def convert_avro_schema_to_javascript(avro_schema, js_dir_path, package_name='', avro_annotation=False):
+    """ Convert Avro schema to TypeScript classes """
+    converter = AvroToJavaScript(package_name, avro_annotation=avro_annotation)
+    converter.convert_schema(avro_schema, js_dir_path)

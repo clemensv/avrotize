@@ -1,3 +1,5 @@
+# pylint: disable=line-too-long
+
 """ AvroToCSharp class for converting Avro schema to C# classes """
 
 import json
@@ -5,6 +7,9 @@ import os
 from typing import Dict, List, Union
 
 from avrotize.common import pascal
+import glob
+
+JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
 INDENT = '    '
 CSPROJ_CONTENT = """
@@ -17,9 +22,101 @@ CSPROJ_CONTENT = """
         <PackageReference Include="Apache.Avro" Version="1.11.3" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
         <PackageReference Include="System.Text.Json" Version="8.0.3" />
+        <PackageReference Include="System.Memory.Data" Version="8.0.0" />
     </ItemGroup>
 </Project>     
 """
+
+AVRO_TOBYTEARRAY = \
+"""
+if (contentType == "avro/binary")
+{
+    var stream = new System.IO.MemoryStream();
+    var encoder = new Avro.IO.BinaryEncoder(stream);
+    var writer = new Avro.Specific.SpecificDatumWriter<{type_name}>({type_name}.AvroSchema);
+    writer.Write(this, encoder);
+    return stream.ToArray();
+}
+"""
+
+SYSTEM_TEXT_JSON_TOBYTEARRAY = \
+"""
+if (contentType == System.Net.Mime.MediaTypeNames.Application.Json)
+{
+    return System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(this);
+}"""
+
+NEWTONSOFT_JSON_TOBYTEARRAY = \
+"""
+if (contentType == System.Net.Mime.MediaTypeNames.Application.Json)
+{
+    return System.Text.Encoding.UTF8.GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(this));
+}
+"""
+
+SYSTEM_TEXT_JSON_FROMDATA = \
+"""
+if ( contentType == System.Net.Mime.MediaTypeNames.Application.Json)
+{
+    if (data is System.Text.Json.JsonElement) 
+    {
+        return System.Text.Json.JsonSerializer.Deserialize<{type_name}>((System.Text.Json.JsonElement)data);
+    }
+    else if ( data is string)
+    {
+        return System.Text.Json.JsonSerializer.Deserialize<{type_name}>((string)data);
+    }
+    else if (data is System.BinaryData)
+    {
+        return ((System.BinaryData)data).ToObjectFromJson<{type_name}>();
+    }
+    throw new NotSupportedException("Data is not of a supported type for JSON conversion to {type_name}");
+}
+"""
+
+NEWTONSOFT_JSON_FROMDATA = \
+"""
+if ( contentType == System.Net.Mime.MediaTypeNames.Application.Json)
+{
+    if (data is string)
+    {
+        return Newtonsoft.Json.JsonConvert.DeserializeObject<{type_name}>((string)data);
+    }
+    else if (data is System.BinaryData)
+    {
+        return ((System.BinaryData)data).ToObjectFromJson<{type_name}>();
+    }
+    throw new NotSupportedException("Data is not of a supported type for JSON conversion to {type_name}");
+}
+"""
+
+AVRO_FROMDATA = \
+"""
+if ( contentType.StartsWith("avro/") || contentType.StartsWith("application/avro") )
+{
+    var stream = data switch
+    {
+        System.IO.Stream s => s,
+        System.BinaryData bd => bd.ToStream(),
+        byte[] bytes => new System.IO.MemoryStream(bytes),
+        _ => throw new NotSupportedException("Data is not of a supported type for conversion to Stream")
+    };
+    if ( contentType == "avro/binary" || contentType == "application/avro+binary")
+    {
+        var decoder = new Avro.IO.BinaryDecoder(stream);
+        var reader = new Avro.Specific.SpecificDatumReader<{type_name}>({type_name}.AvroSchema, {type_name}.AvroSchema);
+        return reader.Read(new {type_name}(), decoder);
+    }
+    if ( contentType == "avro/json" || contentType == "application/avro+json")
+    {
+        var decoder = new Avro.IO.JsonDecoder({type_name}.AvroSchema, stream);
+        var reader = new Avro.Specific.SpecificDatumReader<{type_name}>({type_name}.AvroSchema, {type_name}.AvroSchema);
+        return reader.Read(new {type_name}(), decoder);
+    }
+    throw new NotSupportedException("Unsupported Avro content type: " + contentType);
+}    
+"""
+
 
 class AvroToCSharp:
     """ Converts Avro schema to C# classes """
@@ -48,6 +145,19 @@ class AvroToCSharp:
             'string': 'string',
         }
         return mapping.get(avro_type, 'object')
+    
+    def is_csharp_reserved_word(self, word: str) -> bool:
+        """ Checks if a word is a reserved C# keyword """
+        reserved_words = [
+            'abstract', 'as', 'base', 'bool', 'break', 'byte', 'case', 'catch', 'char', 'checked', 'class', 'const',
+            'continue', 'decimal', 'default', 'delegate', 'do', 'double', 'else', 'enum', 'event', 'explicit', 'extern',
+            'false', 'finally', 'fixed', 'float', 'for', 'foreach', 'goto', 'if', 'implicit', 'in', 'int', 'interface',
+            'internal', 'is', 'lock', 'long', 'namespace', 'new', 'null', 'object', 'operator', 'out', 'override',
+            'params', 'private', 'protected', 'public', 'readonly', 'ref', 'return', 'sbyte', 'sealed', 'short', 'sizeof',
+            'stackalloc', 'static', 'string', 'struct', 'switch', 'this', 'throw', 'true', 'try', 'typeof', 'uint', 'ulong',
+            'unchecked', 'unsafe', 'ushort', 'using', 'virtual', 'void', 'volatile', 'while'
+        ]
+        return word in reserved_words
 
     def convert_avro_type_to_csharp(self, avro_type: Union[str, Dict, List], parent_namespace: str) -> str:
         """ Converts Avro type to C# type """
@@ -87,11 +197,11 @@ class AvroToCSharp:
     def generate_class(self, avro_schema: Dict, parent_namespace: str, write_file: bool) -> str:
         """ Generates a Class """
         class_definition = ''
-        namespace = pascal(f"{self.concat_namespace(parent_namespace, avro_schema.get('namespace', ''))}")
+        namespace = pascal(self.concat_namespace(self.base_namespace,avro_schema.get('namespace', parent_namespace)))
         if 'doc' in avro_schema:
             class_definition += f"/// <summary>\n/// {avro_schema['doc']}\n/// </summary>\n"
         class_name = pascal(avro_schema['name'])
-        fields_str = [self.generate_property(field, class_name, parent_namespace) for field in avro_schema.get('fields', [])]
+        fields_str = [self.generate_property(field, class_name, namespace) for field in avro_schema.get('fields', [])]
         class_body = "\n".join(fields_str)
         class_definition += f"public class {class_name}"
         if self.avro_annotation:
@@ -109,18 +219,41 @@ class AvroToCSharp:
             put_method = f"{INDENT}void global::Avro.Specific.ISpecificRecord.Put(int fieldPos, object fieldValue)\n"+INDENT+"{"+f"\n{INDENT}{INDENT}switch (fieldPos)\n{INDENT}{INDENT}"+"{"
             for pos, field in enumerate(avro_schema.get('fields', [])):
                 field_name = field['name']
+                if self.is_csharp_reserved_word(field_name):
+                    field_name = f"@{field_name}"
                 if self.pascal_properties:
                     field_name = pascal(field_name)
                 if field_name == class_name:
                     field_name += "_"
-                field_type = self.convert_avro_type_to_csharp(field['type'], parent_namespace)
+                field_type = self.convert_avro_type_to_csharp(field['type'], namespace)
                 get_method += f"\n{INDENT}{INDENT}{INDENT}case {pos}: return this.{field_name};"
                 put_method += f"\n{INDENT}{INDENT}{INDENT}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
             get_method += f"\n{INDENT}{INDENT}{INDENT}default: throw new global::Avro.AvroRuntimeException($\"Bad index {{fieldPos}} in Get()\");"
             put_method += f"\n{INDENT}{INDENT}{INDENT}default: throw new global::Avro.AvroRuntimeException($\"Bad index {{fieldPos}} in Put()\");"
             get_method += "\n"+INDENT+INDENT+"}\n"+INDENT+"}"
             put_method += "\n"+INDENT+INDENT+"}\n"+INDENT+"}"
-            class_definition += f"\n{get_method}\n{put_method}"
+            class_definition += f"\n{get_method}\n{put_method}\n"
+        
+        # emit ToByteArray method
+        class_definition += f"\n\n{INDENT}public byte[] ToByteArray(string contentType)\n{INDENT}{{"    
+        if self.avro_annotation:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(AVRO_TOBYTEARRAY.strip().replace("{type_name}", class_name).split("\n"))
+        if self.system_text_json_annotation:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(SYSTEM_TEXT_JSON_TOBYTEARRAY.strip().replace("{type_name}", class_name).split("\n"))
+        if self.newtonsoft_json_annotation:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(NEWTONSOFT_JSON_TOBYTEARRAY.strip().replace("{type_name}", class_name).split("\n"))
+        class_definition += f"\n{INDENT*2}throw new System.NotImplementedException($\"Unsupported content type {{contentType}}\");\n{INDENT}}}"
+        
+        # emit FromData factory method
+        class_definition += f"\n\n{INDENT}public static {class_name} FromData(object data, string contentType)\n{INDENT}{{"
+        class_definition += f'\n{INDENT*2}if ( data is {class_name}) return ({class_name})data;'
+        if self.avro_annotation:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(AVRO_FROMDATA.strip().replace("{type_name}", class_name).split("\n"))
+        if self.system_text_json_annotation:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(SYSTEM_TEXT_JSON_FROMDATA.strip().replace("{type_name}", class_name).split("\n"))
+        if self.newtonsoft_json_annotation:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(NEWTONSOFT_JSON_FROMDATA.strip().replace("{type_name}", class_name).split("\n"))
+        class_definition += f"\n{INDENT*2}throw new System.NotImplementedException($\"Unsupported content type {{contentType}}\");\n{INDENT}}}"
         
         class_definition += "\n"+"}"
 
@@ -131,7 +264,7 @@ class AvroToCSharp:
     def generate_enum(self, avro_schema: Dict, parent_namespace: str, write_file: bool) -> str:
         """ Generates an Enum """
         enum_definition = ''
-        namespace = pascal(f"{self.concat_namespace(parent_namespace, avro_schema.get('namespace', ''))}")
+        namespace = pascal(self.concat_namespace(self.base_namespace, avro_schema.get('namespace', parent_namespace)))
         if 'doc' in avro_schema:
             enum_definition += f"/// <summary>\n/// {avro_schema['doc']}\n/// </summary>\n"
         enum_name = pascal(avro_schema['name'])
@@ -147,6 +280,8 @@ class AvroToCSharp:
         """ Generates a property """
         field_type = self.convert_avro_type_to_csharp(field['type'], parent_namespace)
         annotation_name = field_name = field['name']
+        if self.is_csharp_reserved_word(field_name):
+            field_name = f"@{field_name}"
         if self.pascal_properties:
             field_name = pascal(field_name)           
         if field_name == class_name:
@@ -159,9 +294,7 @@ class AvroToCSharp:
         if self.newtonsoft_json_annotation:
             prop += f"{INDENT}[JsonProperty(\"{annotation_name}\")]\n"
         prop += f"{INDENT}public {field_type} {field_name} {{ get; set; }}"
-        
         return prop
-        
 
     def write_to_file(self, namespace: str, name: str, definition: str):
         """ Writes the class or enum to a file """
@@ -183,29 +316,31 @@ class AvroToCSharp:
             file_content += f"\nnamespace {namespace}\n{{\n"
             indented_definition = '\n'.join([f"{INDENT}{line}" for line in definition.split('\n')])
             file_content += f"{indented_definition}\n}}"
-
             file.write(file_content)
+
+
+    def convert_schema(self, schema: JsonNode, output_dir: str):
+        """ Converts Avro schema to C# """
+        if not isinstance(schema, list):
+            schema = [schema]
+        
+        if not glob.glob(os.path.join(output_dir, '*.csproj')):
+            csproj_file = os.path.join(output_dir, f"{os.path.basename(output_dir)}.csproj")
+            if not os.path.exists(csproj_file):
+                with open(csproj_file, 'w', encoding='utf-8') as file:
+                    file.write(CSPROJ_CONTENT)
+        self.output_dir = output_dir
+        for avro_schema in (avs for avs in schema if isinstance(avs, dict)):
+            self.generate_class_or_enum(avro_schema,'')
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """ Converts Avro schema to C# """
         with open(avro_schema_path, 'r', encoding='utf-8') as file:
             schema = json.load(file)
+        self.convert_schema(schema, output_dir)
 
-        if isinstance(schema, dict):
-            schema = [schema]
 
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        csproj_file = os.path.join(output_dir, f"{os.path.basename(output_dir)}.csproj")
-        if not os.path.exists(csproj_file):
-            with open(csproj_file, 'w', encoding='utf-8') as file:
-                file.write(CSPROJ_CONTENT)
-                            
-        self.output_dir = output_dir
-        for avro_schema in schema:
-            self.generate_class_or_enum(avro_schema, self.base_namespace)
-
-def convert_avro_to_csharp(avro_schema_path, cs_file_path, pascal_properties=False, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False):
+def convert_avro_to_csharp(avro_schema_path, cs_file_path, base_namespace='', pascal_properties=False, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False):
     """_summary_
     
     Converts Avro schema to C# classes
@@ -214,9 +349,30 @@ def convert_avro_to_csharp(avro_schema_path, cs_file_path, pascal_properties=Fal
         avro_schema_path (_type_): Avro input schema path  
         cs_file_path (_type_): Output C# file path 
     """
-    avrotocs = AvroToCSharp()
+    avrotocs = AvroToCSharp(base_namespace)
     avrotocs.pascal_properties = pascal_properties
     avrotocs.system_text_json_annotation = system_text_json_annotation
     avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     avrotocs.avro_annotation = avro_annotation
     avrotocs.convert(avro_schema_path, cs_file_path)
+    
+def convert_avro_schema_to_csharp(avro_schema: JsonNode, output_dir: str, base_namespace: str = '', pascal_properties: bool = False, system_text_json_annotation: bool = False, newtonsoft_json_annotation: bool = False, avro_annotation: bool = False):
+    """_summary_
+    
+    Converts Avro schema to C# classes
+
+    Args:
+        avro_schema (_type_): Avro schema to convert  
+        output_dir (_type_): Output directory 
+        base_namespace (_type_): Base namespace for the generated classes 
+        pascal_properties (_type_): Pascal case properties 
+        system_text_json_annotation (_type_): Use System.Text.Json annotations 
+        newtonsoft_json_annotation (_type_): Use Newtonsoft.Json annotations 
+        avro_annotation (_type_): Use Avro annotations 
+    """
+    avrotocs = AvroToCSharp(base_namespace)
+    avrotocs.pascal_properties = pascal_properties
+    avrotocs.system_text_json_annotation = system_text_json_annotation
+    avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
+    avrotocs.avro_annotation = avro_annotation
+    avrotocs.convert_schema(avro_schema, output_dir)

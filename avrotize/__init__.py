@@ -11,11 +11,11 @@ from .avrotoparquet import convert_avro_to_parquet
 from .avrotoproto import convert_avro_to_proto
 from .avrototsql import convert_avro_to_tsql
 from .avrotoxsd import convert_avro_to_xsd
-from .avrotojava import convert_avro_to_java
-from .avrotocsharp import convert_avro_to_csharp
-from .avrotopython import convert_avro_to_python
-from .avrotots import convert_avro_to_typescript
-from .avrotojs import convert_avro_to_javascript
+from .avrotojava import convert_avro_to_java, convert_avro_schema_to_java
+from .avrotocsharp import convert_avro_to_csharp, convert_avro_schema_to_csharp
+from .avrotopython import convert_avro_to_python, convert_avro_schema_to_python
+from .avrotots import convert_avro_to_typescript, convert_avro_schema_to_typescript
+from .avrotojs import convert_avro_to_javascript, convert_avro_schema_to_javascript
 
 __all__ = [
     "convert_proto_to_avro",
@@ -31,8 +31,13 @@ __all__ = [
     "convert_avro_to_tsql",
     "convert_avro_to_xsd",
     "convert_avro_to_java",
+    "convert_avro_schema_to_java",
     "convert_avro_to_csharp",
+    "convert_avro_schema_to_csharp",
     "convert_avro_to_python",
+    "convert_avro_schema_to_python",
     "convert_avro_to_typescript",
-    "convert_avro_to_javascript"
+    "convert_avro_schema_to_typescript",
+    "convert_avro_to_javascript",
+    "convert_avro_schema_to_javascript"
 ]
