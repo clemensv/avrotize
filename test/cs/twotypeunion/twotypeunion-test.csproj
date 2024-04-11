@@ -1,0 +1,17 @@
+
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Apache.Avro" Version="1.11.3" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="System.Text.Json" Version="8.0.3" />
+        <PackageReference Include="System.Memory.Data" Version="8.0.0" />
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\tmp\twotypeunion-cs\twotypeunion-cs.csproj" />
+    </ItemGroup>
+</Project>     

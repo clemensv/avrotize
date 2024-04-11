@@ -12,3 +12,7 @@ out/
 **.vsix
 myenv1/
 .vscode/
+bin/
+obj/
+.vs/
+*.sln

@@ -1,0 +1,46 @@
+{
+    "type": "record",
+    "name": "TopLevelType",
+    "namespace": "com.example.avro",
+    "fields": [
+        {
+            "name": "document",
+            "type": [
+                {
+                    "type": "record",
+                    "name": "RecordType1",
+                    "fields": [
+                        {
+                            "name": "field1",
+                            "type": "string"
+                        },
+                        {
+                            "name": "field2",
+                            "type": "int"
+                        },
+                        {
+                            "name": "field3",
+                            "type": "string"
+                        },
+                        {
+                            "name": "field4",
+                            "type": "double"
+                        },
+                        {
+                            "name": "field5",
+                            "type": "long"
+                        },
+                        {
+                            "name": "fieldB",
+                            "type": ["string", "null"]
+                        }
+                    ]
+                },
+                {
+                    "type": "map",
+                    "values": "string"
+                }
+            ]
+        }
+    ]
+}
