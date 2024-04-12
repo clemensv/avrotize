@@ -1,0 +1,79 @@
+{
+    "type": "object",
+    "title": "TopLevelType",
+    "properties": {
+        "document": {
+            "oneOf": [
+                {
+                    "$ref": "#/definitions/RecordType1"
+                },
+                {
+                    "$ref": "#/definitions/RecordType2"
+                }
+            ]
+        }
+    },
+    "definitions": {
+        "RecordType1": {
+            "type": "object",
+            "title": "RecordType1",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "field3": {
+                    "type": "string"
+                },
+                "field4": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "field5": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "fieldB": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "fieldB"
+            ]
+        },
+        "RecordType2": {
+            "type": "object",
+            "title": "RecordType2",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "field3": {
+                    "type": "boolean"
+                },
+                "field4": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "field5": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "fieldA": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "field4",
+                "field5"
+            ]
+        }
+    }
+}

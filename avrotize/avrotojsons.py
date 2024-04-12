@@ -243,7 +243,7 @@ class AvroToJsonSchemaConverter:
                             {'description': field['doc']}
                         ]}
             properties[field_name] = prop
-            if self.is_nullable(field['type']):
+            if not self.is_nullable(field['type']):
                 required.append(field_name)
 
         if 'doc' in avro_schema:

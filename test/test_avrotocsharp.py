@@ -92,7 +92,7 @@ class TestAvroToCSharp(unittest.TestCase):
         test_csproj = os.path.join(cwd, "test", "cs", "twotypeunion")
         if os.path.exists(cs_path):
             shutil.rmtree(cs_path, ignore_errors=True)
-        os.makedirs(cs_path)
+        os.makedirs(cs_path, exist_ok=True)
 
         convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, pascal_properties=True)
         assert subprocess.check_call(
