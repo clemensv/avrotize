@@ -227,13 +227,12 @@ class AvroToCSharp:
     def generate_class(self, avro_schema: Dict, parent_namespace: str, write_file: bool) -> str:
         """ Generates a Class """
         class_definition = ''
-        namespace = pascal(self.concat_namespace(
-            self.base_namespace, avro_schema.get('namespace', parent_namespace)))
+        avro_namespace = avro_schema.get('namespace', parent_namespace)
+        namespace = pascal(self.concat_namespace(self.base_namespace, avro_namespace))
         if 'doc' in avro_schema:
             class_definition += f"/// <summary>\n/// {avro_schema['doc']}\n/// </summary>\n"
         class_name = pascal(avro_schema['name'])
-        fields_str = [self.generate_property(
-            field, class_name, namespace) for field in avro_schema.get('fields', [])]
+        fields_str = [self.generate_property(field, class_name, avro_namespace) for field in avro_schema.get('fields', [])]
         class_body = "\n".join(fields_str)
         class_definition += f"public partial class {class_name}"
         if self.avro_annotation:
@@ -256,7 +255,7 @@ class AvroToCSharp:
                 field_name = field['name']
                 if self.is_csharp_reserved_word(field_name):
                     field_name = f"@{field_name}"
-                field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], namespace)
+                field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], avro_namespace)
                 if self.pascal_properties:
                     field_name = pascal(field_name)
                 if field_name == class_name:
@@ -298,7 +297,7 @@ class AvroToCSharp:
 
         # emit IsJsonMatch method for System.Text.Json
         if self.system_text_json_annotation:
-            class_definition += self.create_is_json_match_method(avro_schema, namespace, class_name)
+            class_definition += self.create_is_json_match_method(avro_schema, avro_namespace, class_name)
         class_definition += "\n"+"}"
 
         if write_file:
@@ -307,7 +306,7 @@ class AvroToCSharp:
         self.generated_types[ref] = "class"
         return ref
 
-    def create_is_json_match_method(self, avro_schema, namespace, class_name) -> str:
+    def create_is_json_match_method(self, avro_schema, parent_namespace, class_name) -> str:
         """ Generates the IsJsonMatch method for System.Text.Json """
         class_definition = ''
         class_definition += f"\n\n{INDENT}public static bool IsJsonMatch(System.Text.Json.JsonElement element)\n{INDENT}{{"
@@ -323,7 +322,7 @@ class AvroToCSharp:
             if field_name == class_name:
                 field_name += "_"
             field_type = self.convert_avro_type_to_csharp(
-                    class_name, field_name, field['type'], namespace)
+                    class_name, field_name, field['type'], parent_namespace)
             class_definition += self.get_is_json_match_clause(class_name, field_name, field_type)
         class_definition += f";\n{INDENT}}}"
         return class_definition
