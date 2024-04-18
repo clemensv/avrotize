@@ -345,8 +345,10 @@ class AvroToCSharp:
         class_definition += f"\n{INDENT}/// <param name=\"data\">The input data to convert</param>"
         class_definition += f"\n{INDENT}/// <param name=\"contentTypeString\">The content type string of the derired encoding</param>"
         class_definition += f"\n{INDENT}/// <returns>The converted object</returns>"
-        class_definition += f"\n{INDENT}public static {class_name} FromData(object data, string contentTypeString)\n{INDENT}{{"
+        class_definition += f"\n{INDENT}public static {class_name}? FromData(object? data, string? contentTypeString )\n{INDENT}{{"
+        class_definition += f'\n{INDENT*2}if ( data == null ) return null;'
         class_definition += f'\n{INDENT*2}if ( data is {class_name}) return ({class_name})data;'
+        class_definition += f'\n{INDENT*2}if ( contentTypeString == null ) contentTypeString = System.Net.Mime.MediaTypeNames.Application.Octet;'
         class_definition += f'\n{INDENT*2}'.join(((PREAMBLE_FROMDATA)).split("\n"))
         if self.avro_annotation or self.system_text_json_annotation or self.newtonsoft_json_annotation:
             class_definition += f'\n{INDENT*2}'.join(((PREAMBLE_FROMDATA_COMPRESSION)).split("\n"))
