@@ -199,7 +199,7 @@ class AvroToPython:
         """Writes a Python class to a file"""
         directory_path = os.path.join(self.output_dir, package.replace('.', '/').replace('/', os.sep).lower())
         if not os.path.exists(directory_path):
-            os.makedirs(directory_path)
+            os.makedirs(directory_path, exist_ok=True)
         
         # drop an __init.py__ file in all directories along the path above output_dir
         package_name = package

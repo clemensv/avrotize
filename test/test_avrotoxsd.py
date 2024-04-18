@@ -33,7 +33,7 @@ class TestAvroToXsd(xmlunittest.XmlTestCase):
         xsd_full_path = path.join(cwd, "test", "tmp", xsd_path)
         dir = os.path.dirname(avro_full_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
 
         convert_avro_to_xsd(avro_full_path, xsd_full_path)
         # validate the xsd being correct

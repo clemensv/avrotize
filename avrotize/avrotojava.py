@@ -298,7 +298,7 @@ class AvroToJava:
         """ Writes a Java class or enum to a file """
         directory_path = os.path.join(self.output_dir, package.replace('.', os.sep))
         if not os.path.exists(directory_path):
-            os.makedirs(directory_path)
+            os.makedirs(directory_path, exist_ok=True)
         file_path = os.path.join(directory_path, f"{name}.java")
 
         with open(file_path, 'w', encoding='utf-8') as file:
@@ -327,7 +327,7 @@ class AvroToJava:
         if not isinstance(schema, list):
             schema = [schema]
         if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+            os.makedirs(output_dir, exist_ok=True)
         pom_path = os.path.join(output_dir, "pom.xml")
         if not os.path.exists(pom_path):
             with open(pom_path, 'w', encoding='utf-8') as file:
@@ -335,7 +335,7 @@ class AvroToJava:
         output_dir = os.path.join(
             output_dir, "src/main/java".replace('/', os.sep))
         if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+            os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema, self.base_package)

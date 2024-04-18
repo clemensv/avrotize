@@ -280,7 +280,7 @@ class AvroToProto:
             # create the directory for the proto file if it doesn't exist
             proto_dir = os.path.dirname(proto_file_path)
             if not os.path.exists(proto_dir):
-                os.makedirs(proto_dir)
+                os.makedirs(proto_dir, exist_ok=True)
             with open(proto_file_path, 'w') as proto_file:
                 # dump the ProtoFile structure in proto syntax
                 proto_str = f'syntax = "proto3";\n\n'

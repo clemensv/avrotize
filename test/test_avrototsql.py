@@ -17,7 +17,7 @@ class TestAvroToTSQL(unittest.TestCase):
         kql_path = os.path.join(cwd, "test", "tmp", "address.sql")
         dir = os.path.dirname(kql_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_tsql(avro_path, None, kql_path, False)           
 
@@ -27,7 +27,7 @@ class TestAvroToTSQL(unittest.TestCase):
         kql_path = os.path.join(cwd, "test", "tmp", "telemetry.sql")
         dir = os.path.dirname(kql_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_tsql(avro_path, None, kql_path, True)
 

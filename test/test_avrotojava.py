@@ -24,7 +24,7 @@ class TestAvroToJava(unittest.TestCase):
         java_path = os.path.join(cwd, "test", "tmp", "address-java")
         if os.path.exists(java_path):
             shutil.rmtree(java_path)
-        os.makedirs(java_path)
+        os.makedirs(java_path, exist_ok=True)
 
         convert_avro_to_java(avro_path, java_path)
         assert subprocess.check_call(
@@ -37,7 +37,7 @@ class TestAvroToJava(unittest.TestCase):
         java_path = os.path.join(cwd, "test", "tmp", "address-java-avro")
         if os.path.exists(java_path):
             shutil.rmtree(java_path)
-        os.makedirs(java_path)
+        os.makedirs(java_path, exist_ok=True)
 
         convert_avro_to_java(avro_path, java_path, avro_annotation=True)
         assert subprocess.check_call(
@@ -50,7 +50,7 @@ class TestAvroToJava(unittest.TestCase):
         java_path = os.path.join(cwd, "test", "tmp", "address-java-jackson")
         if os.path.exists(java_path):
             shutil.rmtree(java_path)
-        os.makedirs(java_path)
+        os.makedirs(java_path, exist_ok=True)
 
         convert_avro_to_java(avro_path, java_path,
                              jackson_annotation=True, pascal_properties=True)
@@ -64,7 +64,7 @@ class TestAvroToJava(unittest.TestCase):
         java_path = os.path.join(cwd, "test", "tmp", "telemetry-java")
         if os.path.exists(java_path):
             shutil.rmtree(java_path)
-        os.makedirs(java_path)
+        os.makedirs(java_path, exist_ok=True)
 
         convert_avro_to_java(avro_path, java_path)
         assert subprocess.check_call(
@@ -78,7 +78,7 @@ class TestAvroToJava(unittest.TestCase):
         java_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-java")
         if os.path.exists(java_path):
             shutil.rmtree(java_path)
-        os.makedirs(java_path)
+        os.makedirs(java_path, exist_ok=True)
 
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_java(avro_path, java_path)
@@ -93,7 +93,7 @@ class TestAvroToJava(unittest.TestCase):
         java_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-java-ann")
         if os.path.exists(java_path):
             shutil.rmtree(java_path)
-        os.makedirs(java_path)
+        os.makedirs(java_path, exist_ok=True)
 
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_java(avro_path, java_path, pascal_properties=True,

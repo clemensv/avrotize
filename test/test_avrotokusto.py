@@ -17,7 +17,7 @@ class TestAvroToKusto(unittest.TestCase):
         kql_path = os.path.join(cwd, "test", "tmp", "address.kql")
         dir = os.path.dirname(kql_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_kusto(avro_path, None, kql_path, False)           
 
@@ -27,6 +27,6 @@ class TestAvroToKusto(unittest.TestCase):
         kql_path = os.path.join(cwd, "test", "tmp", "telemetry.kql")
         dir = os.path.dirname(kql_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_kusto(avro_path, None, kql_path, True)

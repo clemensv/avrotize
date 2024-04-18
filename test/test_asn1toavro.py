@@ -23,7 +23,7 @@ class TestAsn1ToAvro(unittest.TestCase):
         avro_path = os.path.join(cwd, "test", "tmp", "personasn.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_asn1_to_avro(asn1_path, avro_path)           
         self.validate_avro_schema(avro_path)    
@@ -34,7 +34,7 @@ class TestAsn1ToAvro(unittest.TestCase):
         avro_path = os.path.join(cwd, "test", "tmp", "movieasn.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         convert_asn1_to_avro(asn1_path, avro_path)
         self.validate_avro_schema(avro_path)    
 
@@ -44,7 +44,7 @@ class TestAsn1ToAvro(unittest.TestCase):
         avro_path = os.path.join(cwd, "test", "tmp", "ldapasn.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         convert_asn1_to_avro(asn1_path, avro_path)
         self.validate_avro_schema(avro_path)    
 

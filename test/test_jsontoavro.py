@@ -36,7 +36,7 @@ class TestJsonsToAvro(unittest.TestCase):
         avro_full_path = path.join(cwd, "test", "tmp", avro_path)
         dir = os.path.dirname(avro_full_path) if not split_top_level_records else avro_full_path
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
 
         convert_jsons_to_avro(jsons_full_path, avro_full_path, namespace, split_top_level_records=split_top_level_records)
         if not split_top_level_records:

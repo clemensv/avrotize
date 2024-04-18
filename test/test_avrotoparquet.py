@@ -21,7 +21,7 @@ class TestAvroToParquet(unittest.TestCase):
         parquet_path = os.path.join(cwd, "test", "tmp", "address.parquet")
         dir = os.path.dirname(parquet_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_parquet(avro_path, None, parquet_path, False)           
 
@@ -31,7 +31,7 @@ class TestAvroToParquet(unittest.TestCase):
         parquet_path = os.path.join(cwd, "test", "tmp", "telemetry.parquet")
         dir = os.path.dirname(parquet_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_parquet(avro_path, None, parquet_path, True)
         
@@ -41,7 +41,7 @@ class TestAvroToParquet(unittest.TestCase):
         parquet_path = path.join(cwd, "test", "tmp", "fileblob.parquet")
         dir = os.path.dirname(parquet_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_parquet(avro_path, None, parquet_path, False)
     
@@ -52,7 +52,7 @@ class TestAvroToParquet(unittest.TestCase):
         parquet_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.parquet")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_parquet(avro_path, "HelmBlueGreenDeploy", parquet_path, True)

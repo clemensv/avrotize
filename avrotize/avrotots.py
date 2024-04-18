@@ -169,7 +169,7 @@ class AvroToTypeScript:
         """ Write TypeScript class to file """
         directory_path = os.path.join(self.output_dir, namespace.replace('.', os.sep))
         if not os.path.exists(directory_path):
-            os.makedirs(directory_path)
+            os.makedirs(directory_path, exist_ok=True)
         
         file_path = os.path.join(directory_path, f"{name}.ts")
         with open(file_path, 'w', encoding='utf-8') as file:

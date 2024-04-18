@@ -36,7 +36,7 @@ class TestKStructToAvro(unittest.TestCase):
         avro_full_path = path.join(cwd, "test", "tmp", avro_path)
         dir = os.path.dirname(avro_full_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
 
         convert_kafka_struct_to_avro_schema(jsons_full_path, avro_full_path)
         self.validate_avro_schema(avro_full_path)

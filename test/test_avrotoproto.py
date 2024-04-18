@@ -21,7 +21,7 @@ class TestAvroToProto(unittest.TestCase):
         proto_path = os.path.join(cwd, "test", "tmp", "address.proto")
         dir = os.path.dirname(proto_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_proto(avro_path, proto_path)           
 
@@ -31,7 +31,7 @@ class TestAvroToProto(unittest.TestCase):
         proto_path = os.path.join(cwd, "test", "tmp", "telemetry.proto")
         dir = os.path.dirname(proto_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_proto(avro_path, proto_path)
 
@@ -42,7 +42,7 @@ class TestAvroToProto(unittest.TestCase):
         proto_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-proto")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
-            os.makedirs(dir)
+            os.makedirs(dir, exist_ok=True)
         
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_proto(avro_path, proto_path)
