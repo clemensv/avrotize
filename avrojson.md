@@ -24,7 +24,7 @@ encoding format for structured data, JSON, is very desirable.
 
 With Avro's strength and focus being its binary encoding, supporting JSON is
 specifically desireable in interoperability scenarios where either the producer
-or the consumer of the serialized data is using a different JSON serialization
+or the consumer of the encoded data is using a different JSON encoding
 framework, or where JSON is crafted or evaluated directly by the application.
 
 As most JSON document instances can be structurally described by Avro Schema,
@@ -65,7 +65,7 @@ specification (RFC8259), but rather stem from the JSON specification's inherent
 limitations. JSON does not define binary data, date or time types. JSON also has
 no concept of a type-hint for data structures (i.e. objects), which would allow
 serialization frameworks to establish an unambiguous mapping between a data type
-in a programming language or schema and the serialized type in JSON.
+in a programming language or schema and the encoded type in JSON.
 
 There are, however, commonly used conventions to address these shortcomings of
 the core JSON specification:
@@ -79,8 +79,8 @@ the core JSON specification:
   are identifiable through the syntax. While JSON has no further data type
   concepts, several serialization frameworks and even some standards leaning on
   JSON (e.g. OpenAPI) introduce the notion of a "discriminator" property, which
-  is inside the serialized object and unambiguously identifies the type such
-  that the deserialization stage can instantiate and populate the correct type
+  is inside the encoded object and unambiguously identifies the type such
+  that the decoding stage can instantiate and populate the correct type
   in cases where multiple candidate types exist.
 
 On each of these items, the Avro JSON encoding's choices are in direct conflict
@@ -92,7 +92,7 @@ with predominant practice:
 - Date and time data: Avro handles date and time as logical types, extending
   either long or int, using the UNIX epoch as the baseline. Durations are
   expressed using a bespoke data structure. As there are no handling rules for
-  logical types in the JSON encoding, the serialized results are therefore epoch
+  logical types in the JSON encoding, the encoded results are therefore epoch
   numbers without annotations like time zone offsets.
 - Type-hints: Whenever types can be ambiguous in Avro, which is the case with
   type unions, the Avro JSON encoding prescribes encoding the value wrapped
@@ -127,7 +127,7 @@ The Plain JSON encoding mode of Apache Avro consists of a combination of 7
 distinct features that are defined in this section. The design is grounded in
 the relevant IETF RFCs and provides the broadest interoperability with common
 usage of JSON, while yet preserving type integrity and precision in all cases
-where the Avro Schema is known to the deserializing party.  
+where the Avro Schema is known to the decoding party.  
 
 The features are designed to be orthogonal and can be implemented separately.
 
@@ -143,7 +143,7 @@ Features 2, 3, 4, and 5 are trivial on all platforms and frameworks that handle
 JSON. Features 1 and 7 are hints for the JSON encoder and decoder to be able to
 handle JSON data that is not conforming to Avro's naming and structure
 constraints. Feature 6 provides a mechanism to handle unions of record types
-that is aligned with common JSON serialization frameworks and JSON Schema's "oneOf"
+that is aligned with common JSON encodation frameworks and JSON Schema's "oneOf"
 type composition.
 
 ### Feature 1: Alternate names
@@ -233,7 +233,7 @@ alternate names feature, the schema can be defined as follows:
 }
 ```
 
-When the JSON decoder (de-)serializes a named item, the encoder MUST use the
+When the JSON decoder (de-)encodes a named item, the encoder MUST use the
 value from the `altnames` entry with the `json` key as the name for the
 corresponding JSON element, when present.
 
@@ -271,19 +271,19 @@ field. Symbols in the `symbols` field MAY be omitted from the `altsymbols` map.
 }
 ```
 
-When the JSON decoder (de-)serializes an enum symbol, the encoder MUST use the
+When the JSON decoder (de-)encodes an enum symbol, the encoder MUST use the
 value from the `altsymbols` entry with the `json` key as the string representing
 the enum value, when present.
 
 ### Feature 2: Avro `binary` and `fixed` type data encoding
 
-When serializing data typed with the Avro `binary` or `fixed` types, the byte
+When encoding data typed with the Avro `binary` or `fixed` types, the byte
 sequence is encoded into and from Base64 encoded string values, conforming with
 IETF RFC4648, Section 4.
 
 ### Feature 3: Avro `decimal` logical type data encoding
 
-When serializing data typed with the Avro logical `decimal` type, the numeric
+When encoding data typed with the Avro logical `decimal` type, the numeric
 value is encoded into a from a JSON `number` value. JSON numbers are represented
 as text and do not lose precision as IEEE754 floating points do.
 
@@ -293,7 +293,7 @@ programming languages) but must use the native decimal data type.
 
 ### Feature 4: Avro time, date, and duration logical types
 
-When serializing data typed with one of Avro's logical data types for dates and
+When encoding data typed with one of Avro's logical data types for dates and
 times, the data is encoded into and from a JSON `string` value, which is an
 expression as defined in IETF RFC3339.
 
@@ -316,18 +316,18 @@ in RFC3339 as defined in the following table:
 Unions of primitive types and of enum values are handled through JSON values'
 (RFC8259, Section 3) ability to reflect variable types.
 
-Given a type union of `[string, null]` and a string value "test", a serialized
+Given a type union of `[string, null]` and a string value "test", a encoded
 field named "example" is encoded as `"example": null` or `"example": "test"`.
 For null-valued fields, the JSON encoder MAY omit the field entirely. During
 decoding, missing fields are set to null. If a default value is defined for the
 field, decoding MUST set the field value to the default value.
 
 For a type union of `[string,int]` and string values "2" and the int value 2, a
-serialized field named "example" is encoded as `"example": "2"`
+encoded field named "example" is encoded as `"example": "2"`
 or `"example":2`.
 
 For a type union of `[null, myEnum]` with myEnum being an enum type having
-symbols "test1" and "test2", a serialized field named "example" is encoded as
+symbols "test1" and "test2", a encoded field named "example" is encoded as
 `"example": null` or `"example": "test1"` or `"example": "test2"`.
 
 Instances of unions of primitive types with arrays and records or maps can also
@@ -371,7 +371,7 @@ function. Out of a choice of multiple type options, exactly one option MUST
 match the JSON element that is being validated, otherwise the validation fails.
 Any implementation of a JSON Schema validator must therefore be able to test the
 given JSON element against all available options and then determine the matching
-type option. Any implementation of a schema driven deserializer can use the
+type option. Any implementation of a schema driven decoder can use the
 same strategy to select which type to instantiate and populate.
 
 JSON Schema does not define a type-hint for this purpose, but makes it the
