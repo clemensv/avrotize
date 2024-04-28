@@ -24,13 +24,18 @@ dependencies = [
     "jsonpointer>=2.4",
     "jsonpath-ng>=1.6.1",
     "jsoncomparison>=1.1.0",
-    "requests>=2.31.0"
+    "requests>=2.31.0",
 ]
 dev-dependencies = [
     "pytest>=7.2.1",
     "fastavro>=1.9.4",
     "xmlschema>=3.0.2",
     "xmlunittest>=0.5.0",
+    "pylint>=3.1.0",
+    "dataclasses_json>0.6.4",
+    "dataclasses>=0.6",
+    "pydantic>=2.7.1",
+    "avro>=1.11.3",
 ]
 
 [project.scripts]

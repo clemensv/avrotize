@@ -21,3 +21,8 @@ jsonpath-ng==1.6.1
 jsoncomparison==1.1.0
 xmlschema==3.0.2
 xmlunittest==0.5.0
+pylint==3.1.0
+dataclasses==0.6
+dataclasses_json==0.6.4
+pydantic==2.7.1
+avro==1.11.3
