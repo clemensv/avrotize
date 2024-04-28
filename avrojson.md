@@ -97,8 +97,8 @@ with predominant practice:
 - Type-hints: Whenever types can be ambiguous in Avro, which is the case with
   type unions, the Avro JSON encoding prescribes encoding the value wrapped
   inside an object with a single property where the property's name is the type
-  name, e.g. ´"myprop": {"string": "value"}´. 'null' values are encoded as
-  'null', e.g. ´"myprop": null´. For primitive types, this is in conflict with
+  name, e.g. `"myprop": {"string": "value"}`. 'null' values are encoded as
+  'null', e.g. `"myprop": null`. For primitive types, this is in conflict with
   JSON's native type model that already makes the distinction syntactically. For
   object types (Avro records), the wrapper is in conflict with standing practice
   where the discriminator is inlined.
@@ -167,7 +167,7 @@ that are JSON-specific and will want to use new schema constructs for additional
 needs as they arise, the alternate names feature introduces a map of alternate
 names of which the plain JSON feature reserves a key:
 
-#### `altname` map
+#### `altnames` map
 
 Wherever Avro Schema requires a `name` field, an `altnames` map MAY be defined
 alongside the `name` field, which provides a map of alternate names. Those names
@@ -467,7 +467,7 @@ and will fail decoding:
 To resolve this ambiguity, we can introduce a discriminator property that
 clearly identifies the type of the record. 
 
-Instead of introducing schema attributes that is specific to JSON, we instead
+Instead of introducing a schema attribute that is specific to JSON, we instead
 introduce a new Avro schema attribute `const` that defines a constant value for
 the field it is defined on.
 

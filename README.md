@@ -73,9 +73,18 @@ Avro Schema ...
 - can describe the popular JSON data encoding very well and in a way that always
   maps cleanly to a wide range of programming languages and systems. In
   contrast, it's quite easy to inadvertently define a JSON Schema that is very
-  difficult to map to a programming language structure.
+  difficult to map to a programming language structure. 
 - is itself expressed as JSON. That makes it easy to parse and generate, which
   is not the case for Protobuf or ASN.1, which require bespoke parsers.
+
+> It needs to be noted here that while Avro Schema is great for defining data
+> structures, and data classes generated from Avro Schema using this tool or
+> other tools can be used to with the most popular JSON serialization libraries,
+> the Apache Avro project's own JSON encoding has fairly grave interoperability
+> issues with common usage of JSON. A alternate Avro JSON encoding that is more
+> interoperable is proposed in [`avrojson.md`](avrojson.md) for submission to
+> the Apache Avro project; the document also enumerates the specific
+> interoperability issues.
 
 Avro Schema does not support all the bells and whistles of XML Schema or JSON
 Schema, but that is a feature, not a bug, as it ensures the portability of the
