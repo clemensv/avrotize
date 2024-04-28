@@ -272,6 +272,9 @@ Conversion notes:
 - If the schema defines a single root element, the tool will emit a single Avro
   record type. If the schema defines multiple root elements, the tool will emit a
   union of record types, each corresponding to a root element.
+- All fields in the resulting Avro Schema are annotated with an `xmlkind`
+  extension attribute that indicates whether the field was an `element` or an
+  `attribute` in the XML schema.
 
 ## Convert Avro schema to XML schema
 
