@@ -11,6 +11,8 @@ system utilized by Apache Avro. It details the structure and syntax of Avro
 schemas. The serialization rules of the Avro binary and JSON encodings are
 not defined in this document.
 
+> Note that some features marked PROPOSED are not defined by the Avro project
+
 <!-- omit from toc -->
 
 ## Contents
