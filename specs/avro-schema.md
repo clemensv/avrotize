@@ -58,10 +58,10 @@ not defined in this document.
       - [3.8.10. duration](#3810-duration)
     - [3.9. `record` Type](#39-record-type)
       - [3.9.1. `record` field Declarations](#391-record-field-declarations)
-      - [3.10. `enum` Type](#310-enum-type)
-      - [3.11. array](#311-array)
-      - [3.9.4. map](#394-map)
-    - [3.10. Type Unions](#310-type-unions)
+    - [3.10. `enum` Type](#310-enum-type)
+    - [3.11. array](#311-array)
+    - [3.12. map](#394-map)
+    - [3.13. Type Unions](#310-type-unions)
   - [4. The "Parsing Canonical Form" for Avro Schemas](#4-the-parsing-canonical-form-for-avro-schemas)
       - [4.1. Transforming into Parsing Canonical Form](#41-transforming-into-parsing-canonical-form)
   - [5. Schema Fingerprints](#5-schema-fingerprints)
@@ -756,7 +756,7 @@ Example:
 }
 ```
 
-#### 3.11. array
+### 3.11. array
 
 The `array` type represents a list of values, all of the same type specified by
 the `items` attribute.
@@ -777,7 +777,7 @@ Example:
 }
 ```
 
-#### 3.9.4. map
+### 3.12. map
 
 The `map` type represents a set of key-value pairs, where the keys are strings
 and the values are of the specified type.
@@ -798,7 +798,7 @@ Example:
 }
 ```
 
-### 3.10. Type Unions
+### 3.13. Type Unions
 
 A type union is an array of Avro schema expressions. A value of a type union
 MUST be a valid value of exactly one of the types in the union.
