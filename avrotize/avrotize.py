@@ -86,7 +86,7 @@ def main():
     a2java_parser = subparsers.add_parser('a2java', help='Convert Avro schema to Java classes')
     a2java_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2java_parser.add_argument('--java', type=str, help='Output path for the Java classes', required=True)
-    a2java_parser.add_argument('--package', type=str, help='Java package name', required=False)
+    a2java_parser.add_argument('--package', type=str, help='Java package name', required=True)
     a2java_parser.add_argument('--avro-annotation', action='store_true', help='Use Avro annotations', default=False)
     a2java_parser.add_argument('--jackson-annotation', action='store_true', help='Use Jackson annotations', default=False)
     a2java_parser.add_argument('--pascal-properties', action='store_true', help='Use PascalCase properties', default=False)

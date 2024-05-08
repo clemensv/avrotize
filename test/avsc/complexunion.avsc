@@ -1,0 +1,234 @@
+{
+    "type": "record",
+    "name": "TopLevelType",
+    "namespace": "com.example.avro",
+    "fields": [
+        {
+            "name": "version",
+            "type": "string"
+        },
+        {
+            "name": "document",
+            "type": [
+                {
+                    "type": "record",
+                    "name": "RecordType1",
+                    "fields": [
+                        {
+                            "name": "field1",
+                            "type": "string"
+                        },
+                        {
+                            "name": "field2",
+                            "type": "int"
+                        },
+                        {
+                            "name": "field3",
+                            "type": "string"
+                        },
+                        {
+                            "name": "field4",
+                            "type": "double"
+                        },
+                        {
+                            "name": "field5",
+                            "type": "long"
+                        },
+                        {
+                            "name": "fieldB",
+                            "type": ["string", "null"]
+                        }
+                    ]
+                },
+                {
+                    "type": "record",
+                    "name": "RecordType2",
+                    "fields": [
+                        {
+                            "name": "field1",
+                            "type": "string"
+                        },
+                        {
+                            "name": "field2",
+                            "type": "int"
+                        },
+                        {
+                            "name": "field3",
+                            "type": "boolean"
+                        },
+                        {
+                            "name": "field4",
+                            "type": ["double", "null"]
+                        },
+                        {
+                            "name": "field5",
+                            "type": ["long", "null"]
+                        },
+                        {
+                            "name": "fieldA",
+                            "type": "string"
+                        }
+                    ]
+                },
+                {
+                    "type": "record",
+                    "name": "RecordType3a",
+                    "fields": [
+                        {
+                            "name": "field1",
+                            "type": "string"
+                        },
+                        {
+                            "name": "field2",
+                            "type": "int"
+                        },
+                        {
+                            "name": "field3",
+                            "type": "boolean"
+                        },
+                        {
+                            "name": "field4",
+                            "type": ["double", "null"]
+                        },
+                        {
+                            "name": "field5",
+                            "type": ["long", "null"]
+                        },
+                        {
+                            "name": "fieldA",
+                            "type": {
+                                "type": "map",
+                                "values": "string"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "record",
+                    "name": "RecordType3b",
+                    "fields": [
+                        {
+                            "name": "field1",
+                            "type": "string"
+                        },
+                        {
+                            "name": "field2",
+                            "type": "int"
+                        },
+                        {
+                            "name": "field3",
+                            "type": "boolean"
+                        },
+                        {
+                            "name": "field4",
+                            "type": ["double", "null"]
+                        },
+                        {
+                            "name": "field5",
+                            "type": ["long", "null"]
+                        },
+                        {
+                            "name": "fieldA",
+                            "type": {
+                                "type": "map",
+                                "values": "int"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "record",
+                    "name": "RecordType4a",
+                    "fields": [
+                        {
+                            "name": "field1",
+                            "type": "string"
+                        },
+                        {
+                            "name": "field2",
+                            "type": "int"
+                        },
+                        {
+                            "name": "field3",
+                            "type": "boolean"
+                        },
+                        {
+                            "name": "field4",
+                            "type": ["double", "null"]
+                        },
+                        {
+                            "name": "field5",
+                            "type": ["long", "null"]
+                        },
+                        {
+                            "name": "fieldA",
+                            "type": {
+                                "type": "map",
+                                "values": {
+                                    "type" : "record",
+                                    "name" : "RecordType4aMapValue",
+                                    "fields" : [
+                                        {
+                                            "name": "field1",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "field2",
+                                            "type": "int"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "record",
+                    "name": "RecordType4b",
+                    "fields": [
+                        {
+                            "name": "field1",
+                            "type": "string"
+                        },
+                        {
+                            "name": "field2",
+                            "type": "int"
+                        },
+                        {
+                            "name": "field3",
+                            "type": "boolean"
+                        },
+                        {
+                            "name": "field4",
+                            "type": ["double", "null"]
+                        },
+                        {
+                            "name": "field5",
+                            "type": ["long", "null"]
+                        },
+                        {
+                            "name": "fieldA",
+                            "type": {
+                                "type": "map",
+                                "values": {
+                                    "type" : "record",
+                                    "name" : "RecordType4bMapValue",
+                                    "fields" : [
+                                        {
+                                            "name": "field1",
+                                            "type": "int"
+                                        },
+                                        {
+                                            "name": "field2",
+                                            "type": "string"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

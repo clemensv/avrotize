@@ -322,3 +322,26 @@ def pascal(string):
         words = re.findall(r'[a-z0-9]+\.?|[A-Z][a-z0-9_]*\.?', string)
     result = ''.join(word.capitalize() for word in words)
     return result
+
+def camel(string):
+    """ Convert a string to camelCase """
+    if '::' in string:
+        strings = string.split('::')
+        return strings[0] + '::' + '::'.join(camel(s) for s in strings[1:])
+    if '.' in string:
+        strings = string.split('.')
+        return '.'.join(camel(s) for s in strings)
+    if not string or len(string) == 0:
+        return string
+    words = []
+    if '_' in string:
+        # snake_case
+        words = re.split(r'_', string)
+    elif string[0].isupper():
+        # PascalCase
+        words = re.findall(r'[A-Z][a-z0-9_]*\.?', string)
+    else:
+        # camelCase
+        words = re.findall(r'[a-z0-9]+\.?|[A-Z][a-z0-9_]*\.?', string)
+    result = words[0].lower() + ''.join(word.capitalize() for word in words[1:])
+    return result

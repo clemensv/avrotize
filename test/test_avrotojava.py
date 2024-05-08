@@ -23,7 +23,7 @@ class TestAvroToJava(unittest.TestCase):
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
         java_path = os.path.join(cwd, "test", "tmp", "address-java")
         if os.path.exists(java_path):
-            shutil.rmtree(java_path)
+            shutil.rmtree(java_path, ignore_errors=True)
         os.makedirs(java_path, exist_ok=True)
 
         convert_avro_to_java(avro_path, java_path)
@@ -69,6 +69,34 @@ class TestAvroToJava(unittest.TestCase):
         convert_avro_to_java(avro_path, java_path)
         assert subprocess.check_call(
             "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+        
+    def test_convert_twotypeunion_avsc_to_java(self):
+        """ Test converting an address.avsc file to C# """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "twotypeunion.avsc")
+        java_path = os.path.join(cwd, "test", "tmp", "twotypeunion-java")
+        test_path = os.path.join(cwd, "test", "java", "twotypeunion")
+        if os.path.exists(java_path):
+            shutil.rmtree(java_path)
+        os.makedirs(java_path, exist_ok=True)
+
+        convert_avro_to_java(avro_path, java_path, jackson_annotation=True, avro_annotation=True)
+        assert subprocess.check_call(
+            "mvn clean test -B", cwd=test_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+        
+    def test_convert_complexunion_avsc_to_java(self):
+        """ Test converting an address.avsc file to C# """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "complexunion.avsc")
+        java_path = os.path.join(cwd, "test", "tmp", "complexunion-java")
+        test_path = os.path.join(cwd, "test", "java", "complexunion")
+        if os.path.exists(java_path):
+            shutil.rmtree(java_path)
+        os.makedirs(java_path, exist_ok=True)
+
+        convert_avro_to_java(avro_path, java_path, jackson_annotation=True, avro_annotation=True)
+        assert subprocess.check_call(
+            "mvn clean test -B", cwd=test_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_java(self):
         """ Test converting a jfrog-pipelines.json file to C# """
@@ -77,7 +105,7 @@ class TestAvroToJava(unittest.TestCase):
         avro_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.avsc")
         java_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-java")
         if os.path.exists(java_path):
-            shutil.rmtree(java_path)
+            shutil.rmtree(java_path, ignore_errors=True)
         os.makedirs(java_path, exist_ok=True)
 
         convert_jsons_to_avro(jsons_path, avro_path)
@@ -92,7 +120,7 @@ class TestAvroToJava(unittest.TestCase):
         avro_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.avsc")
         java_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-java-ann")
         if os.path.exists(java_path):
-            shutil.rmtree(java_path)
+            shutil.rmtree(java_path, ignore_errors=True)
         os.makedirs(java_path, exist_ok=True)
 
         convert_jsons_to_avro(jsons_path, avro_path)
