@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 from os import path, getcwd
 from fastavro.schema import load_schema
 
@@ -19,7 +20,7 @@ class TestXsdToAvro(unittest.TestCase):
     def test_convert_crmdata_xsd_to_avro(self):
         cwd = os.getcwd()        
         xsd_path = os.path.join(cwd, "test", "xsd", "crmdata.xsd")
-        avro_path = os.path.join(cwd, "test", "tmp", "crmdata.avsc")
+        avro_path = os.path.join(tempfile.gettempdir(), "avrotize", "crmdata.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
@@ -30,7 +31,7 @@ class TestXsdToAvro(unittest.TestCase):
     def test_convert_iso20022_xsd_to_avro1(self):
         cwd = os.getcwd()        
         xsd_path = os.path.join(cwd, "test", "xsd", "acmt.003.001.08.xsd")
-        avro_path = os.path.join(cwd, "test", "tmp", "acmt.003.001.08.avsc")
+        avro_path = os.path.join(tempfile.gettempdir(), "avrotize", "acmt.003.001.08.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
@@ -41,7 +42,7 @@ class TestXsdToAvro(unittest.TestCase):
     def test_convert_iso20022_xsd_to_avro2(self):
         cwd = os.getcwd()        
         xsd_path = os.path.join(cwd, "test", "xsd", "admi.017.001.01.xsd")
-        avro_path = os.path.join(cwd, "test", "tmp", "admi.017.001.01.avsc")
+        avro_path = os.path.join(tempfile.gettempdir(), "avrotize", "admi.017.001.01.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)

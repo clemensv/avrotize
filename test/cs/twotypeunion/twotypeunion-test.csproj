@@ -12,6 +12,6 @@
         <PackageReference Include="System.Memory.Data" Version="8.0.0" />
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="..\..\tmp\twotypeunion-cs\twotypeunion-cs.csproj" />
+        <ProjectReference Include="twotypeunion-cs\twotypeunion.csproj" />
     </ItemGroup>
 </Project>     

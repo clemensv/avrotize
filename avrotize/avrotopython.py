@@ -204,7 +204,8 @@ class AvroToPython:
         # drop an __init.py__ file in all directories along the path above output_dir
         package_name = package
         while package_name:
-            init_file_path = os.path.join(directory_path, '__init__.py')
+            package_directory_path = os.path.join(self.output_dir, package_name.replace('.', '/').replace('/', os.sep).lower())
+            init_file_path = os.path.join(package_directory_path, '__init__.py')
             if not os.path.exists(init_file_path):
                 with open(init_file_path, 'w', encoding='utf-8') as file:
                     file.write('')
@@ -228,6 +229,8 @@ class AvroToPython:
     def convert_schemas(self, avro_schemas: List, output_dir: str):
         """ Converts Avro schema to Python data classes"""
         self.output_dir = output_dir
+        with open(os.path.join(self.output_dir, "__init__.py"), 'w', encoding='utf-8') as file:
+            file.write('')
         for avro_schema in avro_schemas:
             if avro_schema['type'] == 'enum':
                 self.generate_enum(avro_schema, self.base_package, write_file=True)

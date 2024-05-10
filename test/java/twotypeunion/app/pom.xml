@@ -31,8 +31,8 @@
       <type>pom</type>
     </dependency>
     <dependency>
-        <groupId>com.example</groupId>
-        <artifactId>demo</artifactId>
+        <groupId>twotypeunion</groupId>
+        <artifactId>twotypeunion</artifactId>
         <version>1.0-SNAPSHOT</version>
     </dependency>
   </dependencies>

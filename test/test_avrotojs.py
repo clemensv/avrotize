@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+import tempfile
 from os import path, getcwd
 
 import pytest
@@ -20,7 +21,7 @@ class TestAvroToJavaScript(unittest.TestCase):
         """ Test converting an address.avsc file to C# """
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        js_path = os.path.join(cwd, "test", "tmp", "address-js")
+        js_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-js")
         if os.path.exists(js_path):
             shutil.rmtree(js_path, ignore_errors=True)
         os.makedirs(js_path, exist_ok=True)
@@ -31,7 +32,7 @@ class TestAvroToJavaScript(unittest.TestCase):
         """ Test converting a telemetry.avsc file to C# """
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
-        js_path = os.path.join(cwd, "test", "tmp", "telemetry-js")
+        js_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-js")
         if os.path.exists(js_path):
             shutil.rmtree(js_path, ignore_errors=True)
         os.makedirs(js_path, exist_ok=True)
@@ -42,8 +43,8 @@ class TestAvroToJavaScript(unittest.TestCase):
         """ Test converting a jfrog-pipelines.json file to C# """
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
-        avro_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.avsc")
-        js_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-js")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines.avsc")
+        js_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines-js")
         if os.path.exists(js_path):
             shutil.rmtree(js_path, ignore_errors=True)
         os.makedirs(js_path, exist_ok=True)
@@ -56,8 +57,8 @@ class TestAvroToJavaScript(unittest.TestCase):
         """ Test converting a jfrog-pipelines.json file to C# """
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
-        avro_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.avsc")
-        js_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-js-avro")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines.avsc")
+        js_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines-js-avro")
         if os.path.exists(js_path):
             shutil.rmtree(js_path, ignore_errors=True)
         os.makedirs(js_path, exist_ok=True)

@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 from os import path, getcwd
 import xmlschema
 import xmlunittest
@@ -30,7 +31,7 @@ class TestAvroToXsd(xmlunittest.XmlTestCase):
             xsd_ref_full_path = path.join(cwd, "test", "avsc", xsd_path.replace(".xsd", "-ref.xsd"))
         else:
             xsd_ref_full_path = path.join(cwd, "test", "avsc", xsd_ref_path)
-        xsd_full_path = path.join(cwd, "test", "tmp", xsd_path)
+        xsd_full_path = path.join(tempfile.gettempdir(), "avrotize", xsd_path)
         dir = os.path.dirname(avro_full_path)
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
@@ -50,7 +51,7 @@ class TestAvroToXsd(xmlunittest.XmlTestCase):
     
     def create_xsd_from_jsons(self, jsons_path, xsd_path = '', xsd_ref_path = '', namespace = "com.test.example"):
         cwd = getcwd()
-        avro_path = path.join(cwd, "test", "tmp", jsons_path.replace(".jsons", ".avsc").replace(".json", ".avsc"))
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", jsons_path.replace(".jsons", ".avsc").replace(".json", ".avsc"))
         jsons_path = path.join(cwd, "test", "jsons", jsons_path)
         convert_jsons_to_avro(jsons_path, avro_path)            
         self.create_xsd_from_avro(avro_path, xsd_path, xsd_ref_path, namespace)

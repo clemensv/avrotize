@@ -9,7 +9,7 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>../../tmp/complexunion-java</module>
+        <module>complexunion-java</module>
         <module>app</module>
     </modules>
 </project>

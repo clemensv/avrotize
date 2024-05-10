@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+import tempfile
 from os import path, getcwd
 
 import pytest
@@ -20,7 +21,7 @@ class TestAvroToTypeScript(unittest.TestCase):
         """ Test converting an address.avsc file to C# """
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        ts_path = os.path.join(cwd, "test", "tmp", "address-ts")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-ts")
         if os.path.exists(ts_path):
             shutil.rmtree(ts_path, ignore_errors=True)
         os.makedirs(ts_path, exist_ok=True)
@@ -31,7 +32,7 @@ class TestAvroToTypeScript(unittest.TestCase):
         """ Test converting a telemetry.avsc file to C# """
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
-        ts_path = os.path.join(cwd, "test", "tmp", "telemetry-ts")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-ts")
         if os.path.exists(ts_path):
             shutil.rmtree(ts_path, ignore_errors=True)
         os.makedirs(ts_path, exist_ok=True)
@@ -42,8 +43,8 @@ class TestAvroToTypeScript(unittest.TestCase):
         """ Test converting a jfrog-pipelines.json file to C# """
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
-        avro_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.avsc")
-        ts_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-ts")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines.avsc")
+        ts_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines-ts")
         if os.path.exists(ts_path):
             shutil.rmtree(ts_path, ignore_errors=True)
         os.makedirs(ts_path, exist_ok=True)
@@ -56,8 +57,8 @@ class TestAvroToTypeScript(unittest.TestCase):
         """ Test converting a jfrog-pipelines.json file to C# """
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
-        avro_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.avsc")
-        ts_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-ts-typed-json")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines.avsc")
+        ts_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines-ts-typed-json")
         if os.path.exists(ts_path):
             shutil.rmtree(ts_path, ignore_errors=True)
         os.makedirs(ts_path, exist_ok=True)
@@ -70,8 +71,8 @@ class TestAvroToTypeScript(unittest.TestCase):
         """ Test converting a jfrog-pipelines.json file to C# """
         cwd = getcwd()        
         jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
-        avro_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.avsc")
-        ts_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-ts-avro")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines.avsc")
+        ts_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines-ts-avro")
         if os.path.exists(ts_path):
             shutil.rmtree(ts_path, ignore_errors=True)
         os.makedirs(ts_path, exist_ok=True)

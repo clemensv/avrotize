@@ -9,7 +9,7 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>../../tmp/twotypeunion-java</module>
+        <module>twotypeunion-java</module>
         <module>app</module>
     </modules>
 </project>

@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from os import path, getcwd
 
 import pytest
@@ -21,7 +22,7 @@ class TestAvroToPython(unittest.TestCase):
         """ Test converting an address.avsc file to C# """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        py_path = os.path.join(cwd, "test", "tmp", "address-py")
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-py")
         if os.path.exists(py_path):
             shutil.rmtree(py_path, ignore_errors=True)
         os.makedirs(py_path, exist_ok=True)
@@ -36,7 +37,7 @@ class TestAvroToPython(unittest.TestCase):
         """ Test converting an address.avsc file to C# """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        py_path = os.path.join(cwd, "test", "tmp", "address-py-json")
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-py-json")
         if os.path.exists(py_path):
             shutil.rmtree(py_path, ignore_errors=True)
         os.makedirs(py_path, exist_ok=True)
@@ -52,7 +53,7 @@ class TestAvroToPython(unittest.TestCase):
         """ Test converting an address.avsc file to Python with avro annotation """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        py_path = os.path.join(cwd, "test", "tmp", "address-py-avro")
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-py-avro")
         if os.path.exists(py_path):
             shutil.rmtree(py_path, ignore_errors=True)
         os.makedirs(py_path, exist_ok=True)
@@ -67,7 +68,7 @@ class TestAvroToPython(unittest.TestCase):
         """ Test converting a telemetry.avsc file to C# """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
-        py_path = os.path.join(cwd, "test", "tmp", "telemetry-py")
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-py")
         if os.path.exists(py_path):
             shutil.rmtree(py_path, ignore_errors=True)
         os.makedirs(py_path, exist_ok=True)
@@ -82,8 +83,8 @@ class TestAvroToPython(unittest.TestCase):
         """ Test converting a jfrog-pipelines.json file to C# """
         cwd = getcwd()
         jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
-        avro_path = path.join(cwd, "test", "tmp", "jfrog-pipelines.avsc")
-        py_path = path.join(cwd, "test", "tmp", "jfrog-pipelines-py")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines.avsc")
+        py_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines-py")
         if os.path.exists(py_path):
             shutil.rmtree(py_path, ignore_errors=True)
         os.makedirs(py_path, exist_ok=True)

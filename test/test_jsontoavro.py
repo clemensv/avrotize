@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import tempfile
 from os import path, getcwd
 from fastavro.schema import load_schema
 from jsoncomparison import NO_DIFF, Compare
@@ -33,7 +34,7 @@ class TestJsonsToAvro(unittest.TestCase):
             avro_ref_full_path = path.join(cwd, "test", "jsons", avro_path.replace(".avsc", "-ref.avsc"))
         else:
             avro_ref_full_path = path.join(cwd, "test", "jsons", "addlprops1-ref.avsc")
-        avro_full_path = path.join(cwd, "test", "tmp", avro_path)
+        avro_full_path = path.join(tempfile.gettempdir(), "avrotize", avro_path)
         dir = os.path.dirname(avro_full_path) if not split_top_level_records else avro_full_path
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)

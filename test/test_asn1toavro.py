@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 from os import path, getcwd
 from fastavro.schema import load_schema
 
@@ -20,7 +21,7 @@ class TestAsn1ToAvro(unittest.TestCase):
     def test_convert_address_asn_to_avro(self):
         cwd = os.getcwd()        
         asn1_path = os.path.join(cwd, "test", "asn1", "person.asn")
-        avro_path = os.path.join(cwd, "test", "tmp", "personasn.avsc")
+        avro_path = os.path.join(tempfile.gettempdir(), "avrotize", "personasn.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
@@ -31,7 +32,7 @@ class TestAsn1ToAvro(unittest.TestCase):
     def test_convert_movie_asn_to_avro(self):
         cwd = os.getcwd()        
         asn1_path = os.path.join(cwd, "test", "asn1", "movie.asn")
-        avro_path = os.path.join(cwd, "test", "tmp", "movieasn.avsc")
+        avro_path = os.path.join(tempfile.gettempdir(), "avrotize", "movieasn.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
@@ -41,7 +42,7 @@ class TestAsn1ToAvro(unittest.TestCase):
     def test_convert_ldap3_asn_to_avro(self):
         cwd = os.getcwd()        
         asn1_path = os.path.join(cwd, "test", "asn1", "ldap3.asn")
-        avro_path = os.path.join(cwd, "test", "tmp", "ldapasn.avsc")
+        avro_path = os.path.join(tempfile.gettempdir(), "avrotize", "ldapasn.avsc")
         dir = os.path.dirname(avro_path)
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)

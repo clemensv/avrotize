@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 from os import path, getcwd
 
 current_script_path = os.path.abspath(__file__)
@@ -14,7 +15,7 @@ class TestAvroToKusto(unittest.TestCase):
     def test_convert_address_avsc_to_kusto(self):
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        kql_path = os.path.join(cwd, "test", "tmp", "address.kql")
+        kql_path = os.path.join(tempfile.gettempdir(), "avrotize", "address.kql")
         dir = os.path.dirname(kql_path)
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
@@ -24,7 +25,7 @@ class TestAvroToKusto(unittest.TestCase):
     def test_convert_telemetry_avsc_to_kusto(self):
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
-        kql_path = os.path.join(cwd, "test", "tmp", "telemetry.kql")
+        kql_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry.kql")
         dir = os.path.dirname(kql_path)
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
