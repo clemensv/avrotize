@@ -353,7 +353,7 @@ class AvroToCSharp:
                     field_name += "_"
                 if class_name + '.' + field_type in self.generated_types and self.generated_types[class_name + '.' + field_type] == "union":
                     get_method += f"\n{INDENT*3}case {pos}: return this.{field_name}?.ToObject();"
-                    put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = new {field_type}((global::Avro.Generic.GenericRecord)fieldValue); break;"
+                    put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = {field_type}.FromObject(fieldValue); break;"
                 else:    
                     get_method += f"\n{INDENT*3}case {pos}: return this.{field_name};"
                     put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
@@ -550,8 +550,9 @@ class AvroToCSharp:
                 union_type_name = union_type.rsplit('.', 1)[-1]
             if self.is_csharp_reserved_word(union_type_name):
                 union_type_name = f"@{union_type_name}"
-            class_definition_objctr += f"{INDENT*3}if (obj is {union_type})\n{INDENT*3}{{\n{INDENT*4}this.{union_type_name} = ({union_type})obj;\n{INDENT*4}return;\n{INDENT*3}}}\n"
-            class_definition_genericrecordctor += f"{INDENT*3}if (obj.Schema.Fullname == {union_type}.AvroSchema.Fullname)\n{INDENT*3}{{\n{INDENT*4}this.{union_type_name} = new {union_type}(obj);\n{INDENT*4}return;\n{INDENT*3}}}\n"     
+            class_definition_objctr += f"{INDENT*3}if (obj is {union_type})\n{INDENT*3}{{\n{INDENT*4}self.{union_type_name} = ({union_type})obj;\n{INDENT*4}return self;\n{INDENT*3}}}\n"
+            if class_name + '.' + union_type in self.generated_types and self.generated_types[class_name + '.' + union_type] == "union":
+                class_definition_genericrecordctor += f"{INDENT*3}if (obj.Schema.Fullname == {union_type}.AvroSchema.Fullname)\n{INDENT*3}{{\n{INDENT*4}this.{union_type_name} = new {union_type}(obj);\n{INDENT*4}return;\n{INDENT*3}}}\n"     
             class_definition_ctors += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Constructor for {union_type_name} values\n{INDENT*2}/// </summary>\n" + \
                 f"{INDENT*2}public {union_class_name}({union_type}? {union_type_name})\n{INDENT*2}{{\n{INDENT*3}this.{union_type_name} = {union_type_name};\n{INDENT*2}}}\n"
@@ -592,22 +593,27 @@ class AvroToCSharp:
 
         class_definition = \
             f"/// <summary>\n/// {class_name}. Type union resolver. \n/// </summary>\n" + \
-            f"public partial class {class_name}\n{{\n{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({union_class_name}))]\n{INDENT}public sealed class {union_class_name} : System.Text.Json.Serialization.JsonConverter<{union_class_name}>\n{INDENT}{{\n" + \
+            f"public partial class {class_name}\n{{\n" + \
+            f"{INDENT}/// <summary>\n{INDENT}/// Union class for {field_name}\n{INDENT}/// </summary>\n" + \
+            f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({union_class_name}))]\n"+ \
+            f"{INDENT}public sealed class {union_class_name} : System.Text.Json.Serialization.JsonConverter<{union_class_name}>\n{INDENT}{{\n" + \
             f"{INDENT*2}/// <summary>\n{INDENT*2}/// Default constructor\n{INDENT*2}/// </summary>\n" + \
             f"{INDENT*2}public {union_class_name}() {{ }}\n"
         class_definition += class_definition_ctors
         if self.avro_annotation:
             class_definition += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Constructor for Avro decoder\n{INDENT*2}/// </summary>\n" + \
-                f"{INDENT*2}internal {union_class_name}(object obj)\n{INDENT*2}{{\n" + \
+                f"{INDENT*2}internal static {union_class_name} FromObject(object obj)\n{INDENT*2}{{\n" + \
+                f"{INDENT*3}var self = new {union_class_name}();\n" + \
                 class_definition_objctr + \
                 f"{INDENT*3}throw new NotSupportedException(\"No record type matched the type\");\n" + \
                 f"{INDENT*2}}}\n"
-            class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Constructor from Avro GenericRecord\n{INDENT}/// </summary>\n" + \
-                f"{INDENT*2}public {union_class_name}(global::Avro.Generic.GenericRecord obj)\n{INDENT*2}{{\n" + \
-                class_definition_genericrecordctor + \
-                f"{INDENT*3}throw new NotSupportedException(\"No record type matched the type\");\n" + \
-                f"{INDENT*2}}}\n"
+            if class_definition_genericrecordctor:
+                class_definition += f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Constructor from Avro GenericRecord\n{INDENT*2}/// </summary>\n" + \
+                    f"{INDENT*2}public {union_class_name}(global::Avro.Generic.GenericRecord obj)\n{INDENT*2}{{\n" + \
+                    class_definition_genericrecordctor + \
+                    f"{INDENT*3}throw new NotSupportedException(\"No record type matched the type\");\n" + \
+                    f"{INDENT*2}}}\n"
         class_definition += \
             class_definition_decls + \
             f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Yields the current value of the union\n{INDENT*2}/// </summary>\n" + \
