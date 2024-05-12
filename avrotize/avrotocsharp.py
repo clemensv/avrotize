@@ -60,15 +60,19 @@ AVRO_TOBYTEARRAY = \
 if (contentType.MediaType.StartsWith("avro/binary") || contentType.MediaType.StartsWith("application/vnd.apache.avro+avro"))
 {
     var stream = new System.IO.MemoryStream();
-    var writer = new Avro.Specific.SpecificDatumWriter<{type_name}>({type_name}.AvroSchema);
-    writer.Write(this, new Avro.IO.BinaryEncoder(stream));
+    var writer = new global::Avro.Specific.SpecificDatumWriter<{type_name}>({type_name}.AvroSchema);
+    var encoder = new global::Avro.IO.BinaryEncoder(stream);
+    writer.Write(this, encoder);
+    encoder.Flush();
     result = stream.ToArray();
 }
 else if (contentType.MediaType.StartsWith("avro/json") || contentType.MediaType.StartsWith("application/vnd.apache.avro+json"))
 {
     var stream = new System.IO.MemoryStream();
-    var writer = new Avro.Specific.SpecificDatumWriter<{type_name}>({type_name}.AvroSchema);
-    writer.Write(this, new Avro.IO.JsonEncoder({type_name}.AvroSchema, stream));
+    var writer = new global::Avro.Specific.SpecificDatumWriter<{type_name}>({type_name}.AvroSchema);
+    var encoder = new global::Avro.IO.JsonEncoder({type_name}.AvroSchema, stream);
+    writer.Write(this, encoder);
+    encoder.Flush();
     result = stream.ToArray();
 }
 """
@@ -104,8 +108,10 @@ if ( contentType.MediaType.EndsWith("+gzip"))
     };
     using (var gzip = new System.IO.Compression.GZipStream(stream, System.IO.Compression.CompressionMode.Decompress))
     {
-        data = new System.IO.MemoryStream();
-        gzip.CopyTo((System.IO.MemoryStream)data);
+        System.IO.MemoryStream memoryStream = new System.IO.MemoryStream();
+        gzip.CopyTo(memoryStream);
+        memoryStream.Position = 0;
+        data = memoryStream.ToArray();
     }
 }
 """
@@ -130,6 +136,14 @@ if ( contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application
     else if (data is System.BinaryData)
     {
         return ((System.BinaryData)data).ToObjectFromJson<{type_name}>();
+    }
+    else if (data is byte[])
+    {
+        return System.Text.Json.JsonSerializer.Deserialize<{type_name}>(new ReadOnlySpan<byte>((byte[])data));
+    }
+    else if (data is System.IO.Stream)
+    {
+        return System.Text.Json.JsonSerializer.DeserializeAsync<{type_name}>((System.IO.Stream)data).Result;
     }
 }
 """
@@ -158,19 +172,32 @@ if ( contentType.MediaType.StartsWith("avro/") || contentType.MediaType.StartsWi
         System.IO.Stream s => s, System.BinaryData bd => bd.ToStream(), byte[] bytes => new System.IO.MemoryStream(bytes),
         _ => throw new NotSupportedException("Data is not of a supported type for conversion to Stream")
     };
+    #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
     if (contentType.MediaType.StartsWith("avro/binary") || contentType.MediaType.StartsWith("application/vnd.apache.avro+avro"))
     {
-        var reader = new Avro.Specific.SpecificDatumReader<{type_name}>({type_name}.AvroSchema, {type_name}.AvroSchema);
-        return reader.Read(new {type_name}(), new Avro.IO.BinaryDecoder(stream));
+        var reader = new global::Avro.Generic.GenericDatumReader<global::Avro.Generic.GenericRecord>({type_name}.AvroSchema, {type_name}.AvroSchema);
+        return new {type_name}(reader.Read(null, new global::Avro.IO.BinaryDecoder(stream)));
     }
     if ( contentType.MediaType.StartsWith("avro/json") || contentType.MediaType.StartsWith("application/vnd.apache.avro+json"))
     {
-        var reader = new Avro.Specific.SpecificDatumReader<{type_name}>({type_name}.AvroSchema, {type_name}.AvroSchema);
-        return reader.Read(new {type_name}(), new Avro.IO.JsonDecoder({type_name}.AvroSchema, stream));
+        var reader = new global::Avro.Generic.GenericDatumReader<global::Avro.Generic.GenericRecord>({type_name}.AvroSchema, {type_name}.AvroSchema);
+        return new {type_name}(reader.Read(null, new global::Avro.IO.JsonDecoder({type_name}.AvroSchema, stream)));
     }
+    #pragma warning restore CS8625
 }    
 """
 
+AVRO_CLASS_PREAMBLE = \
+"""
+public {type_name}(global::Avro.Generic.GenericRecord obj)
+{
+    global::Avro.Specific.ISpecificRecord self = this;
+    for (int i = 0; obj.Schema.Fields.Count > i; ++i)
+    {
+        self.Put(i, obj.GetValue(i));
+    }
+}
+"""
 
 class AvroToCSharp:
     """ Converts Avro schema to C# classes """
@@ -281,8 +308,11 @@ class AvroToCSharp:
         """ Generates a Class """
         class_definition = ''
         avro_namespace = avro_schema.get('namespace', parent_namespace)
+        if not 'namespace' in avro_schema:
+            avro_schema['namespace'] = parent_namespace
         namespace = pascal(self.concat_namespace(self.base_namespace, avro_namespace))
         class_name = pascal(avro_schema['name'])
+        
         class_definition += f"/// <summary>\n/// { avro_schema.get('doc', class_name ) }\n/// </summary>\n"
         fields_str = [self.generate_property(field, class_name, avro_namespace) for field in avro_schema.get('fields', [])]
         class_body = "\n".join(fields_str)
@@ -290,6 +320,14 @@ class AvroToCSharp:
         if self.avro_annotation:
             class_definition += " : global::Avro.Specific.ISpecificRecord"
         class_definition += "\n{\n"+class_body
+        class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Default constructor\n{INDENT}///</summary>\n"
+        class_definition += f"{INDENT}public {class_name}()\n{INDENT}{{\n{INDENT}}}"
+        if self.avro_annotation:
+            class_definition += f"\n\n{INDENT}/// <summary>\n{INDENT}/// Constructor from Avro GenericRecord\n{INDENT}///</summary>\n"
+            class_definition += f"{INDENT}public {class_name}(global::Avro.Generic.GenericRecord obj)\n{INDENT}{{\n"
+            class_definition += f"{INDENT*2}global::Avro.Specific.ISpecificRecord self = this;\n"
+            class_definition += f"{INDENT*2}for (int i = 0; obj.Schema.Fields.Count > i; ++i)\n{INDENT*2}{{\n"
+            class_definition += f"{INDENT*3}self.Put(i, obj.GetValue(i));\n{INDENT*2}}}\n{INDENT}}}\n"
         if self.avro_annotation:
             avro_schema_json = json.dumps(avro_schema)
             # wrap schema at 80 characters
@@ -299,7 +337,7 @@ class AvroToCSharp:
             avro_schema_json = avro_schema_json.replace('§', '\\"')
             class_definition += f"\n\n{INDENT}/// <summary>\n{INDENT}/// Avro schema for this class\n{INDENT}/// </summary>"
             class_definition += f"\n{INDENT}public static global::Avro.Schema AvroSchema = global::Avro.Schema.Parse(\n{INDENT}\"{avro_schema_json}\");\n"
-            class_definition += f"\n{INDENT}Schema global::Avro.Specific.ISpecificRecord.Schema => AvroSchema;\n"
+            class_definition += f"\n{INDENT}global::Avro.Schema global::Avro.Specific.ISpecificRecord.Schema => AvroSchema;\n"
             get_method = f"{INDENT}object global::Avro.Specific.ISpecificRecord.Get(int fieldPos)\n" + \
                 INDENT+"{"+f"\n{INDENT*2}switch (fieldPos)\n{INDENT*2}" + "{"
             put_method = f"{INDENT}void global::Avro.Specific.ISpecificRecord.Put(int fieldPos, object fieldValue)\n" + \
@@ -313,8 +351,12 @@ class AvroToCSharp:
                     field_name = pascal(field_name)
                 if field_name == class_name:
                     field_name += "_"
-                get_method += f"\n{INDENT*3}case {pos}: return this.{field_name};"
-                put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
+                if class_name + '.' + field_type in self.generated_types and self.generated_types[class_name + '.' + field_type] == "union":
+                    get_method += f"\n{INDENT*3}case {pos}: return this.{field_name}?.ToObject();"
+                    put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = new {field_type}((global::Avro.Generic.GenericRecord)fieldValue); break;"
+                else:    
+                    get_method += f"\n{INDENT*3}case {pos}: return this.{field_name};"
+                    put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
             get_method += f"\n{INDENT*3}default: throw new global::Avro.AvroRuntimeException($\"Bad index {{fieldPos}} in Get()\");"
             put_method += f"\n{INDENT*3}default: throw new global::Avro.AvroRuntimeException($\"Bad index {{fieldPos}} in Put()\");"
             get_method += "\n"+INDENT+INDENT+"}\n"+INDENT+"}"
@@ -484,7 +526,9 @@ class AvroToCSharp:
 
     def generate_embedded_union_class_system_json_text(self, class_name: str, field_name: str, avro_type: List, parent_namespace: str, write_file: bool) -> str:
         """ Generates an embedded Union Class """
-        class_definition_ctors = class_definition_decls = class_definition_read = class_definition_write = class_definition = ''
+        class_definition_ctors = class_definition_decls = class_definition_read = ''
+        class_definition_write = class_definition = class_definition_toobject = ''
+        class_definition_objctr = class_definition_genericrecordctor = ''
         list_is_json_match: List [str] = []
         union_class_name = pascal(field_name)+'Union'
         union_types = [self.convert_avro_type_to_csharp(class_name, field_name+"Option"+str(i), t, parent_namespace) for i,t in enumerate(avro_type)]
@@ -506,12 +550,16 @@ class AvroToCSharp:
                 union_type_name = union_type.rsplit('.', 1)[-1]
             if self.is_csharp_reserved_word(union_type_name):
                 union_type_name = f"@{union_type_name}"
+            class_definition_objctr += f"{INDENT*3}if (obj is {union_type})\n{INDENT*3}{{\n{INDENT*4}this.{union_type_name} = ({union_type})obj;\n{INDENT*4}return;\n{INDENT*3}}}\n"
+            class_definition_genericrecordctor += f"{INDENT*3}if (obj.Schema.Fullname == {union_type}.AvroSchema.Fullname)\n{INDENT*3}{{\n{INDENT*4}this.{union_type_name} = new {union_type}(obj);\n{INDENT*4}return;\n{INDENT*3}}}\n"     
             class_definition_ctors += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Constructor for {union_type_name} values\n{INDENT*2}/// </summary>\n" + \
                 f"{INDENT*2}public {union_class_name}({union_type}? {union_type_name})\n{INDENT*2}{{\n{INDENT*3}this.{union_type_name} = {union_type_name};\n{INDENT*2}}}\n"
             class_definition_decls += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Gets the {union_type_name} value\n{INDENT*2}/// </summary>\n" + \
-                f"{INDENT*2}public {union_type}? {union_type_name} {{ get; private set; }} = null;\n"            
+                f"{INDENT*2}public {union_type}? {union_type_name} {{ get; private set; }} = null;\n"     
+            class_definition_toobject += f"{INDENT*3}if ({union_type_name} != null) {{\n{INDENT*4}return {union_type_name};\n{INDENT*3}}}\n"
+              
             if is_dict:
                 class_definition_read += f"{INDENT*3}if (element.ValueKind == JsonValueKind.Object)\n{INDENT*3}{{\n" + \
                         f"{INDENT*4}var map = System.Text.Json.JsonSerializer.Deserialize<{union_type}>(element, options);\n" + \
@@ -546,9 +594,27 @@ class AvroToCSharp:
             f"/// <summary>\n/// {class_name}. Type union resolver. \n/// </summary>\n" + \
             f"public partial class {class_name}\n{{\n{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({union_class_name}))]\n{INDENT}public sealed class {union_class_name} : System.Text.Json.Serialization.JsonConverter<{union_class_name}>\n{INDENT}{{\n" + \
             f"{INDENT*2}/// <summary>\n{INDENT*2}/// Default constructor\n{INDENT*2}/// </summary>\n" + \
-            f"{INDENT*2}public {union_class_name}() {{ }}\n" + \
-            class_definition_ctors + \
+            f"{INDENT*2}public {union_class_name}() {{ }}\n"
+        class_definition += class_definition_ctors
+        if self.avro_annotation:
+            class_definition += \
+                f"{INDENT*2}/// <summary>\n{INDENT*2}/// Constructor for Avro decoder\n{INDENT*2}/// </summary>\n" + \
+                f"{INDENT*2}internal {union_class_name}(object obj)\n{INDENT*2}{{\n" + \
+                class_definition_objctr + \
+                f"{INDENT*3}throw new NotSupportedException(\"No record type matched the type\");\n" + \
+                f"{INDENT*2}}}\n"
+            class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Constructor from Avro GenericRecord\n{INDENT}/// </summary>\n" + \
+                f"{INDENT*2}public {union_class_name}(global::Avro.Generic.GenericRecord obj)\n{INDENT*2}{{\n" + \
+                class_definition_genericrecordctor + \
+                f"{INDENT*3}throw new NotSupportedException(\"No record type matched the type\");\n" + \
+                f"{INDENT*2}}}\n"
+        class_definition += \
             class_definition_decls + \
+            f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Yields the current value of the union\n{INDENT*2}/// </summary>\n" + \
+            f"\n{INDENT*2}public Object ToObject()\n{INDENT*2}{{\n" + \
+            class_definition_toobject+ \
+            f"{INDENT*3}throw new NotSupportedException(\"No record type is set in the union\");\n" + \
+            f"{INDENT*2}}}\n" + \
             f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Reads the JSON representation of the object.\n{INDENT*2}/// </summary>\n" + \
             f"{INDENT*2}public override {union_class_name}? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)\n{INDENT*2}{{\n{INDENT*3}var element = JsonElement.ParseValue(ref reader);\n" + \
             class_definition_read + \
@@ -638,8 +704,7 @@ class AvroToCSharp:
                 file_content += "using System.Text.Json.Serialization;\n"
             if self.newtonsoft_json_annotation:
                 file_content += "using Newtonsoft.Json;\n"
-            if self.avro_annotation:
-                file_content += "using Avro;\nusing Avro.Specific;\n"
+            
             # Namespace declaration with correct indentation for the definition
             file_content += f"\nnamespace {namespace}\n{{\n"
             indented_definition = '\n'.join(

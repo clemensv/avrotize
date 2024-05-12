@@ -104,17 +104,19 @@ class TestAvroToCSharp(unittest.TestCase):
         """ Test converting an address.avsc file to C# """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "twotypeunion.avsc")
-        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "twotypeunion-cs-test", "twotypeunion-cs")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "twotypeunion-cs")
         cs_test_path = os.path.join(tempfile.gettempdir(), "avrotize", "twotypeunion-cs-test")
         test_csproj = os.path.join(cwd, "test", "cs", "twotypeunion")
         if os.path.exists(cs_test_path):
             shutil.rmtree(cs_test_path, ignore_errors=True)
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
         os.makedirs(cs_test_path, exist_ok=True)
         os.makedirs(cs_path, exist_ok=True)
         
         copy_tree(test_csproj, cs_test_path)
 
-        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, pascal_properties=True)
+        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, avro_annotation=True, pascal_properties=True)
         assert subprocess.check_call(
             ['dotnet', 'run', '--force'], cwd=cs_test_path, stdout=sys.stdout, stderr=sys.stderr) == 0
         
@@ -122,12 +124,14 @@ class TestAvroToCSharp(unittest.TestCase):
         """ Test converting an address.avsc file to C# """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "typemapunion.avsc")
-        cs_path = os.path.join(tempfile.gettempdir(), "avrotize",  "typemapunion-cs-test", "typemapunion-cs")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize",  "typemapunion-cs")
         cs_test_path = os.path.join(tempfile.gettempdir(), "avrotize", "typemapunion-cs-test")
         test_csproj = os.path.join(cwd, "test", "cs", "typemapunion")
         
         if os.path.exists(cs_test_path):
             shutil.rmtree(cs_test_path, ignore_errors=True)
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
         os.makedirs(cs_test_path, exist_ok=True)
         os.makedirs(cs_path, exist_ok=True)
         

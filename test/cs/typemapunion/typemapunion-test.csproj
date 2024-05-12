@@ -12,6 +12,6 @@
         <PackageReference Include="System.Memory.Data" Version="8.0.0" />
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="typemapunion-cs\typemapunion-cs.csproj" />
+        <ProjectReference Include="..\typemapunion-cs\typemapunion-cs.csproj" />
     </ItemGroup>
 </Project>     
