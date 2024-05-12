@@ -82,6 +82,7 @@ def main():
     a2csharp_parser.add_argument('--system-text-json-annotation', action='store_true', help='Use System.Text.Json annotations', default=False)
     a2csharp_parser.add_argument('--newtonsoft-json-annotation', action='store_true', help='Use Newtonsoft.Json annotations', default=False)
     a2csharp_parser.add_argument('--pascal-properties', action='store_true', help='Use PascalCase properties', default=False)
+    a2csharp_parser.add_argument('--namespace', type=str, help='C# namespace', required=False)
     
     a2java_parser = subparsers.add_parser('a2java', help='Convert Avro schema to Java classes')
     a2java_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
@@ -188,8 +189,9 @@ def main():
         system_text_json_annotation = args.system_text_json_annotation
         newtonsoft_json_annotation = args.newtonsoft_json_annotation
         pascal_properties = args.pascal_properties
+        namespace = args.namespace
         print(f'Converting Avro {avro_schema_path} to C# {csharp_path}')
-        convert_avro_to_csharp(avro_schema_path, csharp_path, avro_annotation=avro_annotation, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, pascal_properties=pascal_properties)
+        convert_avro_to_csharp(avro_schema_path, csharp_path, base_namespace=namespace, avro_annotation=avro_annotation, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, pascal_properties=pascal_properties)
     elif args.command == 'a2java':
         avro_schema_path = args.avsc
         java_path = args.java

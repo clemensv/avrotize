@@ -431,6 +431,7 @@ Parameters:
 - `--system-text-json-annotation`: (optional) If set, the tool will add System.Text.Json annotations to the C# classes.
 - `--newtonsoft-json-annotation`: (optional) If set, the tool will add Newtonsoft.Json annotations to the C# classes.
 - `--pascal-properties`: (optional) If set, the tool will use PascalCase properties in the C# classes.
+- `--namespace`: (optional) The namespace to use in the generated C# classes.
 
 Conversion notes:
 - The tool generates C# classes that represent the Avro schema as data classes.
@@ -439,9 +440,12 @@ Conversion notes:
   C# classes. Because the [`JSON Schema to Avro`](#convert-json-schema-to-avro-schema) conversion generally
   preserves the JSON Schema structure in the Avro schema, the generated C# classes
   can be used to serialize and deserialize data that is valid per the input JSON schema.
+- Only the `--system-text-json-annotation` option generates classes that support type unions.
 - The classes are generated into a directory structure that reflects the Avro namespace
   structure. The tool drops a minimal, default `.csproj` project file into the given
   directory if none exists.
+
+Read more about the C# code generation in the [C# code generation documentation](csharpcodegen.md).
 
 
 ### Generate Java code from Avro schema

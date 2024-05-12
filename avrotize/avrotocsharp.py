@@ -590,7 +590,8 @@ class AvroToCSharp:
             f"public partial class {class_name}\n{{\n" + \
             f"{INDENT}/// <summary>\n{INDENT}/// Union class for {field_name}\n{INDENT}/// </summary>\n"
         if self.system_text_json_annotation:
-            f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({union_class_name}))]\n"
+            class_definition += \
+                f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({union_class_name}))]\n"
         class_definition += \
             f"{INDENT}public sealed class {union_class_name}"
         if self.system_text_json_annotation:
