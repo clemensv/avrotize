@@ -277,14 +277,7 @@ class AvroToCSharp:
                     # Nullable type
                     return f"{self.convert_avro_type_to_csharp(class_name, field_name, non_null_types[0], parent_namespace)}?"
                 else:
-                    if self.system_text_json_annotation:
-                        return self.generate_embedded_union_class_system_json_text(class_name, field_name, non_null_types, parent_namespace, write_file=True)
-                    else:
-                        # Handle union by generating classes for complex types within
-                        for t in non_null_types:
-                            if isinstance(t, dict) and (t.get('type') == 'record' or t.get('type') == 'enum'):
-                                self.generate_class_or_enum(t, parent_namespace)
-                        return 'object'  # Placeholder for complex unions
+                    return self.generate_embedded_union(class_name, field_name, non_null_types, parent_namespace, write_file=True)
         elif isinstance(avro_type, dict):
             # Handle complex types: records, enums, arrays, and maps
             if avro_type['type'] in ['record', 'enum']:
@@ -364,50 +357,51 @@ class AvroToCSharp:
             class_definition += f"\n{get_method}\n{put_method}\n"
 
         # emit ToByteArray method
-        class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Converts the object to a byte array\n{INDENT}/// </summary>"
-        class_definition += f"\n{INDENT}/// <param name=\"contentTypeString\">The content type string of the desired encoding</param>"
-        class_definition += f"\n{INDENT}/// <returns>The encoded data</returns>"
-        class_definition += f"\n{INDENT}public byte[] ToByteArray(string contentTypeString)\n{INDENT}{{"
-        class_definition += f'\n{INDENT*2}'.join((PREAMBLE_TOBYTEARRAY).split("\n"))
-        if self.avro_annotation:
-            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
-                AVRO_TOBYTEARRAY.strip().replace("{type_name}", class_name).split("\n"))
-        if self.system_text_json_annotation:
-            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
-                SYSTEM_TEXT_JSON_TOBYTEARRAY.strip().replace("{type_name}", class_name).split("\n"))
-        if self.newtonsoft_json_annotation:
-            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
-                NEWTONSOFT_JSON_TOBYTEARRAY.strip().replace("{type_name}", class_name).split("\n"))
         if self.avro_annotation or self.system_text_json_annotation or self.newtonsoft_json_annotation:
-            class_definition += f"\n{INDENT*2}".join((EPILOGUE_TOBYTEARRAY_COMPRESSION).split("\n"))
-        class_definition += f"\n{INDENT*2}".join((EPILOGUE_TOBYTEARRAY).split("\n"))+f"\n{INDENT}}}"
+            class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Converts the object to a byte array\n{INDENT}/// </summary>"
+            class_definition += f"\n{INDENT}/// <param name=\"contentTypeString\">The content type string of the desired encoding</param>"
+            class_definition += f"\n{INDENT}/// <returns>The encoded data</returns>"
+            class_definition += f"\n{INDENT}public byte[] ToByteArray(string contentTypeString)\n{INDENT}{{"
+            class_definition += f'\n{INDENT*2}'.join((PREAMBLE_TOBYTEARRAY).split("\n"))
+            if self.avro_annotation:
+                class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                    AVRO_TOBYTEARRAY.strip().replace("{type_name}", class_name).split("\n"))
+            if self.system_text_json_annotation:
+                class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                    SYSTEM_TEXT_JSON_TOBYTEARRAY.strip().replace("{type_name}", class_name).split("\n"))
+            if self.newtonsoft_json_annotation:
+                class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                    NEWTONSOFT_JSON_TOBYTEARRAY.strip().replace("{type_name}", class_name).split("\n"))
+            if self.avro_annotation or self.system_text_json_annotation or self.newtonsoft_json_annotation:
+                class_definition += f"\n{INDENT*2}".join((EPILOGUE_TOBYTEARRAY_COMPRESSION).split("\n"))
+            class_definition += f"\n{INDENT*2}".join((EPILOGUE_TOBYTEARRAY).split("\n"))+f"\n{INDENT}}}"
 
-        # emit FromData factory method
-        class_definition += f"\n\n{INDENT}/// <summary>\n{INDENT}/// Creates an object from the data\n{INDENT}/// </summary>"
-        class_definition += f"\n{INDENT}/// <param name=\"data\">The input data to convert</param>"
-        class_definition += f"\n{INDENT}/// <param name=\"contentTypeString\">The content type string of the derired encoding</param>"
-        class_definition += f"\n{INDENT}/// <returns>The converted object</returns>"
-        class_definition += f"\n{INDENT}public static {class_name}? FromData(object? data, string? contentTypeString )\n{INDENT}{{"
-        class_definition += f'\n{INDENT*2}if ( data == null ) return null;'
-        class_definition += f'\n{INDENT*2}if ( data is {class_name}) return ({class_name})data;'
-        class_definition += f'\n{INDENT*2}if ( contentTypeString == null ) contentTypeString = System.Net.Mime.MediaTypeNames.Application.Octet;'
-        class_definition += f'\n{INDENT*2}'.join(((PREAMBLE_FROMDATA)).split("\n"))
-        if self.avro_annotation or self.system_text_json_annotation or self.newtonsoft_json_annotation:
-            class_definition += f'\n{INDENT*2}'.join(((PREAMBLE_FROMDATA_COMPRESSION)).split("\n"))
-        if self.avro_annotation:
-            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
-                AVRO_FROMDATA.strip().replace("{type_name}", class_name).split("\n"))
-        if self.system_text_json_annotation:
-            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
-                SYSTEM_TEXT_JSON_FROMDATA.strip().replace("{type_name}", class_name).split("\n"))
-        if self.newtonsoft_json_annotation:
-            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
-                NEWTONSOFT_JSON_FROMDATA.strip().replace("{type_name}", class_name).split("\n"))
-        class_definition += f"\n{INDENT*2}".join((EPILOGUE_FROMDATA).split('\n'))+f"\n{INDENT}}}"
+            # emit FromData factory method
+            class_definition += f"\n\n{INDENT}/// <summary>\n{INDENT}/// Creates an object from the data\n{INDENT}/// </summary>"
+            class_definition += f"\n{INDENT}/// <param name=\"data\">The input data to convert</param>"
+            class_definition += f"\n{INDENT}/// <param name=\"contentTypeString\">The content type string of the derired encoding</param>"
+            class_definition += f"\n{INDENT}/// <returns>The converted object</returns>"
+            class_definition += f"\n{INDENT}public static {class_name}? FromData(object? data, string? contentTypeString )\n{INDENT}{{"
+            class_definition += f'\n{INDENT*2}if ( data == null ) return null;'
+            class_definition += f'\n{INDENT*2}if ( data is {class_name}) return ({class_name})data;'
+            class_definition += f'\n{INDENT*2}if ( contentTypeString == null ) contentTypeString = System.Net.Mime.MediaTypeNames.Application.Octet;'
+            class_definition += f'\n{INDENT*2}'.join(((PREAMBLE_FROMDATA)).split("\n"))
+            if self.avro_annotation or self.system_text_json_annotation or self.newtonsoft_json_annotation:
+                class_definition += f'\n{INDENT*2}'.join(((PREAMBLE_FROMDATA_COMPRESSION)).split("\n"))
+            if self.avro_annotation:
+                class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                    AVRO_FROMDATA.strip().replace("{type_name}", class_name).split("\n"))
+            if self.system_text_json_annotation:
+                class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                    SYSTEM_TEXT_JSON_FROMDATA.strip().replace("{type_name}", class_name).split("\n"))
+            if self.newtonsoft_json_annotation:
+                class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                    NEWTONSOFT_JSON_FROMDATA.strip().replace("{type_name}", class_name).split("\n"))
+            class_definition += f"\n{INDENT*2}".join((EPILOGUE_FROMDATA).split('\n'))+f"\n{INDENT}}}"
 
-        # emit IsJsonMatch method for System.Text.Json
-        if self.system_text_json_annotation:
-            class_definition += self.create_is_json_match_method(avro_schema, avro_namespace, class_name)
+            # emit IsJsonMatch method for System.Text.Json
+            if self.system_text_json_annotation:
+                class_definition += self.create_is_json_match_method(avro_schema, avro_namespace, class_name)
         class_definition += "\n"+"}"
 
         if write_file:
@@ -524,7 +518,7 @@ class AvroToCSharp:
         self.generated_types[ref] = "enum"
         return ref
 
-    def generate_embedded_union_class_system_json_text(self, class_name: str, field_name: str, avro_type: List, parent_namespace: str, write_file: bool) -> str:
+    def generate_embedded_union(self, class_name: str, field_name: str, avro_type: List, parent_namespace: str, write_file: bool) -> str:
         """ Generates an embedded Union Class """
         class_definition_ctors = class_definition_decls = class_definition_read = ''
         class_definition_write = class_definition = class_definition_toobject = ''
@@ -551,7 +545,7 @@ class AvroToCSharp:
             if self.is_csharp_reserved_word(union_type_name):
                 union_type_name = f"@{union_type_name}"
             class_definition_objctr += f"{INDENT*3}if (obj is {union_type})\n{INDENT*3}{{\n{INDENT*4}self.{union_type_name} = ({union_type})obj;\n{INDENT*4}return self;\n{INDENT*3}}}\n"
-            if class_name + '.' + union_type in self.generated_types and self.generated_types[class_name + '.' + union_type] == "union":
+            if union_type in self.generated_types and self.generated_types[union_type] == "class":
                 class_definition_genericrecordctor += f"{INDENT*3}if (obj.Schema.Fullname == {union_type}.AvroSchema.Fullname)\n{INDENT*3}{{\n{INDENT*4}this.{union_type_name} = new {union_type}(obj);\n{INDENT*4}return;\n{INDENT*3}}}\n"     
             class_definition_ctors += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Constructor for {union_type_name} values\n{INDENT*2}/// </summary>\n" + \
@@ -594,16 +588,27 @@ class AvroToCSharp:
         class_definition = \
             f"/// <summary>\n/// {class_name}. Type union resolver. \n/// </summary>\n" + \
             f"public partial class {class_name}\n{{\n" + \
-            f"{INDENT}/// <summary>\n{INDENT}/// Union class for {field_name}\n{INDENT}/// </summary>\n" + \
-            f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({union_class_name}))]\n"+ \
-            f"{INDENT}public sealed class {union_class_name} : System.Text.Json.Serialization.JsonConverter<{union_class_name}>\n{INDENT}{{\n" + \
+            f"{INDENT}/// <summary>\n{INDENT}/// Union class for {field_name}\n{INDENT}/// </summary>\n"
+        if self.system_text_json_annotation:
+            f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({union_class_name}))]\n"
+        class_definition += \
+            f"{INDENT}public sealed class {union_class_name}"
+        if self.system_text_json_annotation:
+            class_definition += f": System.Text.Json.Serialization.JsonConverter<{union_class_name}>"
+        class_definition += f"\n{INDENT}{{\n" + \
             f"{INDENT*2}/// <summary>\n{INDENT*2}/// Default constructor\n{INDENT*2}/// </summary>\n" + \
             f"{INDENT*2}public {union_class_name}() {{ }}\n"
         class_definition += class_definition_ctors
         if self.avro_annotation:
             class_definition += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Constructor for Avro decoder\n{INDENT*2}/// </summary>\n" + \
-                f"{INDENT*2}internal static {union_class_name} FromObject(object obj)\n{INDENT*2}{{\n" + \
+                f"{INDENT*2}internal static {union_class_name} FromObject(object obj)\n{INDENT*2}{{\n"
+            if class_definition_genericrecordctor:
+                class_definition += \
+                    f"{INDENT*3}if (obj is global::Avro.Generic.GenericRecord)\n{INDENT*3}{{\n" + \
+                    f"{INDENT*4}return new {union_class_name}((global::Avro.Generic.GenericRecord)obj);\n" + \
+                    f"{INDENT*3}}}\n"                    
+            class_definition += \
                 f"{INDENT*3}var self = new {union_class_name}();\n" + \
                 class_definition_objctr + \
                 f"{INDENT*3}throw new NotSupportedException(\"No record type matched the type\");\n" + \
@@ -620,19 +625,21 @@ class AvroToCSharp:
             f"\n{INDENT*2}public Object ToObject()\n{INDENT*2}{{\n" + \
             class_definition_toobject+ \
             f"{INDENT*3}throw new NotSupportedException(\"No record type is set in the union\");\n" + \
-            f"{INDENT*2}}}\n" + \
-            f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Reads the JSON representation of the object.\n{INDENT*2}/// </summary>\n" + \
-            f"{INDENT*2}public override {union_class_name}? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)\n{INDENT*2}{{\n{INDENT*3}var element = JsonElement.ParseValue(ref reader);\n" + \
-            class_definition_read + \
-            f"{INDENT*3}throw new NotSupportedException(\"No record type matched the JSON data\");\n{INDENT*2}}}\n" + \
-            f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Writes the JSON representation of the object.\n{INDENT*2}/// </summary>\n" + \
-            f"{INDENT*2}public override void Write(Utf8JsonWriter writer, {union_class_name} value, JsonSerializerOptions options)\n{INDENT*2}{{\n" + \
-            class_definition_write + \
-            f"{INDENT*3}else\n{INDENT*3}{{\n{INDENT*4}throw new NotSupportedException(\"No record type is set in the union\");\n{INDENT*3}}}\n{INDENT*2}}}\n" + \
-            f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Checks if the JSON element matches the schema\n{INDENT*2}/// </summary>\n" + \
-            f"{INDENT*2}public static bool IsJsonMatch(System.Text.Json.JsonElement element)\n{INDENT*2}{{" + \
-            f"\n{INDENT*3}return "+f"\n{INDENT*3} || ".join(list_is_json_match)+f";\n{INDENT*2}}}\n" + \
-            f"{INDENT*1}}}\n}}\n"
+            f"{INDENT*2}}}\n"
+        if self.system_text_json_annotation:
+            class_definition += \
+                f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Reads the JSON representation of the object.\n{INDENT*2}/// </summary>\n" + \
+                f"{INDENT*2}public override {union_class_name}? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)\n{INDENT*2}{{\n{INDENT*3}var element = JsonElement.ParseValue(ref reader);\n" + \
+                class_definition_read + \
+                f"{INDENT*3}throw new NotSupportedException(\"No record type matched the JSON data\");\n{INDENT*2}}}\n" + \
+                f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Writes the JSON representation of the object.\n{INDENT*2}/// </summary>\n" + \
+                f"{INDENT*2}public override void Write(Utf8JsonWriter writer, {union_class_name} value, JsonSerializerOptions options)\n{INDENT*2}{{\n" + \
+                class_definition_write + \
+                f"{INDENT*3}else\n{INDENT*3}{{\n{INDENT*4}throw new NotSupportedException(\"No record type is set in the union\");\n{INDENT*3}}}\n{INDENT*2}}}\n" + \
+                f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Checks if the JSON element matches the schema\n{INDENT*2}/// </summary>\n" + \
+                f"{INDENT*2}public static bool IsJsonMatch(System.Text.Json.JsonElement element)\n{INDENT*2}{{" + \
+                f"\n{INDENT*3}return "+f"\n{INDENT*3} || ".join(list_is_json_match)+f";\n{INDENT*2}}}\n"
+        class_definition += f"{INDENT}}}\n}}"
 
         if write_file:
             self.write_to_file(pascal(parent_namespace), class_name +"."+union_class_name, class_definition)
