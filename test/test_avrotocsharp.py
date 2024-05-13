@@ -178,6 +178,18 @@ class TestAvroToCSharp(unittest.TestCase):
         convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, pascal_properties=True)
         assert subprocess.check_call(['dotnet', 'build', '--force'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
 
+    def test_convert_primitiveunion_avsc_to_csharp(self):
+        """ Test converting an primitiveunion.avsc file to C# """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "primitiveunion.avsc")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "primitiveunion-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+
+        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, avro_annotation=True, pascal_properties=True)
+        assert subprocess.check_call(['dotnet', 'build', '--force'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
+
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_csharp(self):
         """ Test converting a jfrog-pipelines.json file to C# """
