@@ -475,6 +475,8 @@ Conversion notes:
   minimal, default `pom.xml` Maven project file into the given directory if none
   exists.
 
+Read more about the Java code generation in the [Java code generation documentation](javacodegen.md).
+
 ### Generate Python code from Avro schema
 
 This command generates Python dataclasses from an Avro schema.
