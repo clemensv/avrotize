@@ -124,15 +124,17 @@ The generated class will have a method `getSchema()` that returns the Avro schem
 of the record. This method is required by the Avro serialization framework.
 
 ```java	
-    public static Schema AvroSchema = new Schema.Parser().parse(
+    public static final Schema AVROSCHEMA = new Schema.Parser().parse(
     "{\"type\": \"record\", \"name\": \"RecordType1\", \"fields\": [{\"name\": \"field1\", \"type\": "+
     "\"string\"}, {\"name\": \"field2\", \"type\": \"int\"}, {\"name\": \"field3\", \"type\": \"string"+
     "\"}, {\"name\": \"field4\", \"type\": \"double\"}, {\"name\": \"field5\", \"type\": \"long\"}, {\""+
     "name\": \"fieldB\", \"type\": [\"string\", \"null\"]}], \"namespace\": \"com.example.avro\"}");
+    public static final DatumWriter<RecordType1> AVROWRITER = new SpecificDatumWriter<RecordType1>(AVROSCHEMA);
+    public static final DatumReader<RecordType1> AVROREADER = new SpecificDatumReader<RecordType1>(AVROSCHEMA);
 
     @JsonIgnore
     @Override
-    public Schema getSchema(){ return AvroSchema; }
+    public Schema getSchema(){ return AVROSCHEMA; }
 ```
 
 The generated class will have methods `get()` and `put()` that are required by the
@@ -196,18 +198,16 @@ The following encodings are supported:
         String mediaType = contentType.split(";")[0].trim().toLowerCase();
         
         if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avro") {
-            DatumWriter<RecordType1> writer = new SpecificDatumWriter<RecordType1>(RecordType1.AvroSchema);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             Encoder encoder = EncoderFactory.get().binaryEncoder(out, null);
-            writer.write(this, encoder);
+            AVROWRITER.write(this, encoder);
             encoder.flush();
             result = out.toByteArray();
         }
         else if ( mediaType == "avro/json" || mediaType == "application/vnd.apache.avro+json") {
-            DatumWriter<RecordType1> writer = new SpecificDatumWriter<RecordType1>(RecordType1.AvroSchema);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             Encoder encoder = EncoderFactory.get().jsonEncoder(RecordType1.AvroSchema, out);
-            writer.write(this, encoder);
+            AVROWRITER.write(this, encoder);
             encoder.flush();
             result = out.toByteArray();
         }
@@ -271,21 +271,19 @@ The supported encodings are the same as for `toByteArray()`
         }
         
         if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avro") {
-            DatumReader<RecordType1> reader = new SpecificDatumReader<RecordType1>(RecordType1.AvroSchema);
             if (data instanceof byte[]) {
-                return reader.read(new RecordType1(), DecoderFactory.get().binaryDecoder((byte[])data, null));
+                return AVROREADER.read(new RecordType1(), DecoderFactory.get().binaryDecoder((byte[])data, null));
             } else if (data instanceof InputStream) {
-                return reader.read(new RecordType1(), DecoderFactory.get().binaryDecoder((InputStream)data, null));
+                return AVROREADER.read(new RecordType1(), DecoderFactory.get().binaryDecoder((InputStream)data, null));
             }
             throw new UnsupportedOperationException("Data is not of a supported type for Avro conversion to RecordType1");
         } else if ( mediaType == "avro/json" || mediaType == "application/vnd.apache.avro+json") {
-            DatumReader<RecordType1> reader = new SpecificDatumReader<RecordType1>(RecordType1.AvroSchema);
             if (data instanceof byte[]) {
-                return reader.read(new RecordType1(), DecoderFactory.get().jsonDecoder(RecordType1.AvroSchema, new ByteArrayInputStream((byte[])data)));
+                return AVROREADER.read(new RecordType1(), DecoderFactory.get().jsonDecoder(RecordType1.AvroSchema, new ByteArrayInputStream((byte[])data)));
             } else if (data instanceof InputStream) {
-                return reader.read(new RecordType1(), DecoderFactory.get().jsonDecoder(RecordType1.AvroSchema, (InputStream)data));
+                return AVROREADER.read(new RecordType1(), DecoderFactory.get().jsonDecoder(RecordType1.AvroSchema, (InputStream)data));
             } else if (data instanceof String) {
-                return reader.read(new RecordType1(), DecoderFactory.get().jsonDecoder(RecordType1.AvroSchema, (String)data));
+                return AVROREADER.read(new RecordType1(), DecoderFactory.get().jsonDecoder(RecordType1.AvroSchema, (String)data));
             }
             throw new UnsupportedOperationException("Data is not of a supported type for Avro conversion to RecordType1");
         }

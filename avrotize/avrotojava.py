@@ -123,21 +123,19 @@ AVRO_FROMDATA_THROWS = ",IOException"
 AVRO_FROMDATA = \
     """
 if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avro") {
-    DatumReader<{typeName}> reader = new SpecificDatumReader<{typeName}>({typeName}.AvroSchema);
     if (data instanceof byte[]) {
-        return reader.read(new {typeName}(), DecoderFactory.get().binaryDecoder((byte[])data, null));
+        return AVROREADER.read(new {typeName}(), DecoderFactory.get().binaryDecoder((byte[])data, null));
     } else if (data instanceof InputStream) {
-        return reader.read(new {typeName}(), DecoderFactory.get().binaryDecoder((InputStream)data, null));
+        return AVROREADER.read(new {typeName}(), DecoderFactory.get().binaryDecoder((InputStream)data, null));
     }
     throw new UnsupportedOperationException("Data is not of a supported type for Avro conversion to {typeName}");
 } else if ( mediaType == "avro/json" || mediaType == "application/vnd.apache.avro+json") {
-    DatumReader<{typeName}> reader = new SpecificDatumReader<{typeName}>({typeName}.AvroSchema);
     if (data instanceof byte[]) {
-        return reader.read(new {typeName}(), DecoderFactory.get().jsonDecoder({typeName}.AvroSchema, new ByteArrayInputStream((byte[])data)));
+        return AVROREADER.read(new {typeName}(), DecoderFactory.get().jsonDecoder({typeName}.AVROSCHEMA, new ByteArrayInputStream((byte[])data)));
     } else if (data instanceof InputStream) {
-        return reader.read(new {typeName}(), DecoderFactory.get().jsonDecoder({typeName}.AvroSchema, (InputStream)data));
+        return AVROREADER.read(new {typeName}(), DecoderFactory.get().jsonDecoder({typeName}.AVROSCHEMA, (InputStream)data));
     } else if (data instanceof String) {
-        return reader.read(new {typeName}(), DecoderFactory.get().jsonDecoder({typeName}.AvroSchema, (String)data));
+        return AVROREADER.read(new {typeName}(), DecoderFactory.get().jsonDecoder({typeName}.AVROSCHEMA, (String)data));
     }
     throw new UnsupportedOperationException("Data is not of a supported type for Avro conversion to {typeName}");
 }
@@ -148,18 +146,16 @@ AVRO_TOBYTEARRAY_THROWS = ",IOException"
 AVRO_TOBYTEARRAY = \
     """
 if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avro") {
-    DatumWriter<{typeName}> writer = new SpecificDatumWriter<{typeName}>({typeName}.AvroSchema);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     Encoder encoder = EncoderFactory.get().binaryEncoder(out, null);
-    writer.write(this, encoder);
+    AVROWRITER.write(this, encoder);
     encoder.flush();
     result = out.toByteArray();
 }
 else if ( mediaType == "avro/json" || mediaType == "application/vnd.apache.avro+json") {
-    DatumWriter<{typeName}> writer = new SpecificDatumWriter<{typeName}>({typeName}.AvroSchema);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    Encoder encoder = EncoderFactory.get().jsonEncoder({typeName}.AvroSchema, out);
-    writer.write(this, encoder);
+    Encoder encoder = EncoderFactory.get().jsonEncoder({typeName}.AVROSCHEMA, out);
+    AVROWRITER.write(this, encoder);
     encoder.flush();
     result = out.toByteArray();
 }
@@ -368,16 +364,19 @@ class AvroToJava:
             avro_schema_json = f"\"+\n{INDENT}\"".join(
                 [avro_schema_json[i:i+80] for i in range(0, len(avro_schema_json), 80)])
             avro_schema_json = avro_schema_json.replace('§', '\\"')
-            class_definition += f"\n\n{INDENT}public static Schema AvroSchema = new Schema.Parser().parse(\n{INDENT}\"{avro_schema_json}\");\n"
+            class_definition += f"\n\n{INDENT}public static final Schema AVROSCHEMA = new Schema.Parser().parse(\n{INDENT}\"{avro_schema_json}\");"
+            class_definition += f"\n{INDENT}public static final DatumWriter<{class_name}> AVROWRITER = new SpecificDatumWriter<{class_name}>(AVROSCHEMA);"
+            class_definition += f"\n{INDENT}public static final DatumReader<{class_name}> AVROREADER = new SpecificDatumReader<{class_name}>(AVROSCHEMA);\n"
+            
             if self.jackson_annotations:
                 class_definition += f"\n{INDENT}@JsonIgnore"
-            class_definition += f"\n{INDENT}@Override\n{INDENT}public Schema getSchema(){{ return AvroSchema; }}\n"
+            class_definition += f"\n{INDENT}@Override\n{INDENT}public Schema getSchema(){{ return AVROSCHEMA; }}\n"
             class_definition += self.generate_avro_get_method(class_name, avro_schema.get('fields', []), namespace)
             class_definition += self.generate_avro_put_method(class_name, avro_schema.get('fields', []), namespace)
 
         # emit toByteArray method
         class_definition += f"\n\n{INDENT}/**\n{INDENT} * Converts the object to a byte array\n{INDENT} * @param contentType the content type of the byte array\n{INDENT} * @return the byte array\n{INDENT} */\n"
-        class_definition += f"\n\n{INDENT}public byte[] toByteArray(String contentType) throws UnsupportedOperationException" + \
+        class_definition += f"{INDENT}public byte[] toByteArray(String contentType) throws UnsupportedOperationException" + \
             f"{ JSON_TOBYTEARRAY_THROWS if self.jackson_annotations else '' }" + \
             f"{ AVRO_TOBYTEARRAY_THROWS if self.avro_annotation else '' }  {{"
         if self.jackson_annotations or self.avro_annotation:
@@ -395,7 +394,7 @@ class AvroToJava:
 
         # emit fromData factory method
         class_definition += f"\n\n{INDENT}/**\n{INDENT} * Converts the data to an object\n{INDENT} * @param data the data to convert\n{INDENT} * @param contentType the content type of the data\n{INDENT} * @return the object\n{INDENT} */\n"
-        class_definition += f"\n\n{INDENT}public static {class_name} fromData(Object data, String contentType) throws UnsupportedOperationException" + \
+        class_definition += f"{INDENT}public static {class_name} fromData(Object data, String contentType) throws UnsupportedOperationException" + \
             f"{ JSON_FROMDATA_THROWS if self.jackson_annotations else '' }" + \
             f"{ AVRO_FROMDATA_THROWS if self.avro_annotation else '' }  {{"
         class_definition += f'\n{INDENT*2}if ( data instanceof {class_name}) return ({class_name})data;'
@@ -716,7 +715,7 @@ class AvroToJava:
             class_definition_toobject += f"{INDENT*2}if (_{camel(union_variable_name)} != null) {{\n{INDENT*3}return _{camel(union_variable_name)};\n{INDENT*2}}}\n"
             
             if self.avro_annotation and union_type.is_class:            
-                class_definition_genericrecordctor += f"{INDENT*2}if ( {union_type.type_name}.AvroSchema.getName().equals(record.getSchema().getName()) && {union_type.type_name}.AvroSchema.getNamespace().equals(record.getSchema().getNamespace()) ) {{"
+                class_definition_genericrecordctor += f"{INDENT*2}if ( {union_type.type_name}.AVROSCHEMA.getName().equals(record.getSchema().getName()) && {union_type.type_name}.AVROSCHEMA.getNamespace().equals(record.getSchema().getNamespace()) ) {{"
                 class_definition_genericrecordctor += f"\n{INDENT*3}this._{camel(union_variable_name)} = new {union_type.type_name}(record);\n{INDENT*3}return;\n{INDENT*2}}}\n"
             
             # there can only be one list and one map in the union, so we don't need to differentiate this any further
