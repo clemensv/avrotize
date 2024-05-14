@@ -311,6 +311,7 @@ def pascal(string):
     if not string or len(string) == 0:
         return string
     words = []
+    startswith_under = string[0] == '_'
     if '_' in string:
         # snake_case
         words = re.split(r'_', string)
@@ -321,6 +322,8 @@ def pascal(string):
         # camelCase
         words = re.findall(r'[a-z0-9]+\.?|[A-Z][a-z0-9_]*\.?', string)
     result = ''.join(word.capitalize() for word in words)
+    if startswith_under:
+        result = '_' + result
     return result
 
 def camel(string):

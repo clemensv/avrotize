@@ -430,6 +430,8 @@ class AvroToCSharp:
             field_type = self.convert_avro_type_to_csharp(
                     class_name, field_name, field['type'], parent_namespace)
             class_definition += self.get_is_json_match_clause(class_name, field_name, field_type)
+        if field_count == 0:
+            class_definition += "true"
         class_definition += f";\n{INDENT}}}"
         return class_definition
 
@@ -523,6 +525,7 @@ class AvroToCSharp:
         class_definition_ctors = class_definition_decls = class_definition_read = ''
         class_definition_write = class_definition = class_definition_toobject = ''
         class_definition_objctr = class_definition_genericrecordctor = ''
+        namespace = pascal(self.concat_namespace(self.base_namespace, parent_namespace))
         list_is_json_match: List [str] = []
         union_class_name = pascal(field_name)+'Union'
         union_types = [self.convert_avro_type_to_csharp(class_name, field_name+"Option"+str(i), t, parent_namespace) for i,t in enumerate(avro_type)]
@@ -643,7 +646,7 @@ class AvroToCSharp:
         class_definition += f"{INDENT}}}\n}}"
 
         if write_file:
-            self.write_to_file(pascal(parent_namespace), class_name +"."+union_class_name, class_definition)
+            self.write_to_file(namespace, class_name +"."+union_class_name, class_definition)
         self.generated_types[class_name+'.'+union_class_name] = "union" # it doesn't matter if the names clash, we just need to know whether it's a union
         return union_class_name
 

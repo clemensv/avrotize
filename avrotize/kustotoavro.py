@@ -67,7 +67,7 @@ class KustoToAvro:
         }
         if isinstance(python_value, dict):
             type_name_name = type_name.rsplit('.', 1)[-1]
-            type_name_namespace = type_name.rsplit('.', 1)[0] if '.' in type_name else ''
+            type_name_namespace = (type_name.rsplit('.', 1)[0])+"Types" if '.' in type_name else ''
             type_namespace = self.avro_namespace + ('.' if self.avro_namespace and type_name_namespace else '') + type_name_namespace
             record: Dict[str, JsonNode] = {
                 "type": "record",
@@ -254,8 +254,6 @@ class KustoToAvro:
                 for column in kusto_schema['OrderedColumns']:
                     avro_type = self.map_kusto_type_to_avro_type(
                         column['CslType'], table_name, column['Name'], type_column, type_value)
-                    if not isinstance(avro_type, dict) or "type" not in avro_type or avro_type["type"] != "record":
-                        avro_type = self.wrap_schema_in_root_record(avro_type, type_name_name, type_namespace)
                     field: Dict[str, JsonNode] = {"name": column['Name'], "type": avro_type}
                     doc: JsonNode = column.get('DocString', '')
                     if doc:
@@ -362,6 +360,8 @@ class KustoToAvro:
             xregistry_schemas = {}
             groupname = self.avro_namespace
             for schema in union_schema:
+                self.generated_types = []
+                self.make_type_names_unique([schema])
                 ce_attribs: Dict[str, JsonNode] = {}
                 if "ce_attribs" in schema:
                     ce_attribs = schema.get("ce_attribs", {})
@@ -394,7 +394,8 @@ class KustoToAvro:
                     "schemaurl": f"#/schemagroups/{groupname}/schemas/{schemaid}"
                 }
                 for key, value in ce_attribs.items():
-                    if key == "type":
+                    # skip the required attributes
+                    if key == "type" or key == "source" or key == "id" or key == "specversion":
                         continue
                     xregistry_messages[schemaid]["metadata"][key] = {
                         "type": value,
@@ -415,6 +416,7 @@ class KustoToAvro:
                 }
             }
         else:
+            self.generated_types = []
             self.make_type_names_unique(union_schema)
             output = union_schema
 
