@@ -14,16 +14,18 @@ def convert_record_to_kusto(schema: dict, emit_cloud_events_columns: bool) -> Li
 
     # Append the create table statement with the column names and types
     kusto.append(f".create table [{table_name}] (")
+    columns = []
     for field in fields:
         column_name = field["name"]
         column_type = convert_avro_type_to_kusto_type(field["type"])
-        kusto.append(f"    [{column_name}]: {column_type},")
+        columns.append(f"    [{column_name}]: {column_type}")
     if emit_cloud_events_columns:
-        kusto.append("    [__type]: string,")
-        kusto.append("    [__source]: string,")
-        kusto.append("    [__id]: string,")
-        kusto.append("    [__time]: datetime,")
-        kusto.append("    [__subject]: string")
+        columns.append("    [__type]: string")
+        columns.append("    [__source]: string")
+        columns.append("    [__id]: string")
+        columns.append("    [__time]: datetime")
+        columns.append("    [__subject]: string")
+    kusto.append(",\n".join(columns))
     kusto.append(");")
     kusto.append("")
 
@@ -38,18 +40,18 @@ def convert_record_to_kusto(schema: dict, emit_cloud_events_columns: bool) -> Li
         column_name = field["name"]
         if "doc" in field:
             doc = field["doc"]
-            doc_string_statement.append(f"   [{column_name}]: '{doc}',")
+            doc_string_statement.append(f"   [{column_name}]: '{doc}'")
     if doc_string_statement and emit_cloud_events_columns:
         doc_string_statement.extend([
-            "  [__type] : 'Event type',",
-            "  [__source]: 'Context origin/source of the event',",
-            "  [__id]: 'Event identifier',",
-            "  [__time]: 'Event generation time',",
-            "  [__subject]: 'Context subject of the event',"
+            "  [__type] : 'Event type'",
+            "  [__source]: 'Context origin/source of the event'",
+            "  [__id]: 'Event identifier'",
+            "  [__time]: 'Event generation time'",
+            "  [__subject]: 'Context subject of the event'"
         ])
     if doc_string_statement:
         kusto.append(f".alter table [{table_name}] column-docstrings (")
-        kusto.extend(doc_string_statement)
+        kusto.append(",\n".join(doc_string_statement))
         kusto.append(");")
         kusto.append("")
 
