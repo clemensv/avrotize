@@ -422,7 +422,7 @@ class KustoToAvro:
 
         # create the directory if it doesn't exist
         base_dir = os.path.dirname(self.avro_schema_path)
-        if not os.path.exists(base_dir):
+        if base_dir and not os.path.exists(base_dir):
             os.makedirs(base_dir)
         with open(self.avro_schema_path, 'w', encoding='utf-8') as avro_file:
             json.dump(output, avro_file, indent=4)
