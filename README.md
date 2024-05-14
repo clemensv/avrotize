@@ -131,7 +131,7 @@ Converting to Avro Schema:
 - [`avrotize j2a`](#convert-json-schema-to-avro-schema) - Convert JSON schema to Avro schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avro-schema) - Convert XML schema to Avro schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avro-schema) - Convert ASN.1 to Avro schema.
-- ['avrotize k2a'](#convert-kusto-table-definition-to-avro-schema) - Convert Kusto table definitions to Avro schema.
+- [`avrotize k2a`](#convert-kusto-table-definition-to-avro-schema) - Convert Kusto table definitions to Avro schema.
 
 Converting from Avro Schema:
 
@@ -377,7 +377,7 @@ Conversion notes:
   recursively map those to Avro record types. If records with conflicting 
   structures are found in the dynamic column, the tool will emit a union of record
   types for the dynamic column.
-- If the `--emit-cloudevents-xregistry' option is set, the tool will emit an
+- If the `--emit-cloudevents-xregistry` option is set, the tool will emit an
   [xRegistry](http://xregistry.io) registry manifest file with a CloudEvent
   message definition for each table in the Kusto database and a separate Avro
   Schema for each table in the embedded schema registry. If one or more tables
