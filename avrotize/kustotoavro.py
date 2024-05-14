@@ -8,7 +8,7 @@ from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from avrotize.common import get_tree_hash
 from avrotize.constants import AVRO_VERSION
 
-JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | None
+JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 
 
 class KustoToAvro:
@@ -183,11 +183,7 @@ class KustoToAvro:
             # Single type, no need for union
             return unique_types[0]
 
-    def map_kusto_type_to_avro_type(self, kusto_type, table_name, column_name, type_column: dict | None, type_value: str | None) -> JsonNode:
-        """ Maps Kusto types to Avro types."""
-        if kusto_type == "dynamic":
-            return self.infer_dynamic_schema(table_name, column_name, type_column, type_value)
-        return str({
+    type_map : Dict[str, JsonNode] = {
             "int": "int", 
             "long": "long", 
             "string": "string",
@@ -197,7 +193,13 @@ class KustoToAvro:
             "timespan": {"type": "fixed", "size": 12, "logicalType": "duration"},
             "decimal": {"type": "fixed", "size": 16, "precision": 38, "logicalType": "decimal"},
             "dynamic": "bytes"
-        }.get(kusto_type, "string"))
+        }
+    
+    def map_kusto_type_to_avro_type(self, kusto_type, table_name, column_name, type_column: dict | None, type_value: str | None) -> JsonNode:
+        """ Maps Kusto types to Avro types."""
+        if kusto_type == "dynamic":
+            return self.infer_dynamic_schema(table_name, column_name, type_column, type_value)
+        return self.type_map.get(kusto_type, "string")
 
     def kusto_to_avro_schema(self, kusto_schema: dict, table_name: str) -> JsonNode:
         """ Converts a Kusto schema to Avro schema."""
