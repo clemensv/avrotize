@@ -25,6 +25,7 @@ dependencies = [
     "jsonpath-ng>=1.6.1",
     "jsoncomparison>=1.1.0",
     "requests>=2.31.0",
+    "azure-kusto-data>=4.4.1",
 ]
 dev-dependencies = [
     "pytest>=7.2.1",

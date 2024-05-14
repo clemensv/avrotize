@@ -8,7 +8,7 @@ from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from avrotize.common import get_tree_hash
 from avrotize.constants import AVRO_VERSION
 
-JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
+JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | None
 
 
 class KustoToAvro:
@@ -188,10 +188,14 @@ class KustoToAvro:
         if kusto_type == "dynamic":
             return self.infer_dynamic_schema(table_name, column_name, type_column, type_value)
         return str({
-            "int": "int", "long": "long", "string": "string",
-            "real": "double", "bool": "boolean",
-            "datetime": "string", "timespan": "string",
-            "decimal": {"type": "bytes", "logicalType": "decimal"},
+            "int": "int", 
+            "long": "long", 
+            "string": "string",
+            "real": "double", 
+            "bool": "boolean",
+            "datetime": {"type": "long", "logicalType": "timestamp-millis"},
+            "timespan": {"type": "fixed", "size": 12, "logicalType": "duration"},
+            "decimal": {"type": "fixed", "size": 16, "precision": 38, "logicalType": "decimal"},
             "dynamic": "bytes"
         }.get(kusto_type, "string"))
 
@@ -237,6 +241,8 @@ class KustoToAvro:
                     data_schemas = [data_schemas]
                 if isinstance(data_schemas, list):
                     for schema in data_schemas:
+                        if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "record":
+                            schema = self.wrap_schema_in_root_record(schema, type_name_name, type_namespace)
                         ce_attribs: Dict[str, JsonNode] ={}
                         for col in [col for col in kusto_schema['OrderedColumns'] if col['Name'].lstrip('_') != 'data']:
                             ce_attribs[col['Name'].lstrip('_')] = "string"
@@ -248,6 +254,8 @@ class KustoToAvro:
                 for column in kusto_schema['OrderedColumns']:
                     avro_type = self.map_kusto_type_to_avro_type(
                         column['CslType'], table_name, column['Name'], type_column, type_value)
+                    if not isinstance(avro_type, dict) or "type" not in avro_type or avro_type["type"] != "record":
+                        avro_type = self.wrap_schema_in_root_record(avro_type, type_name_name, type_namespace)
                     field: Dict[str, JsonNode] = {"name": column['Name'], "type": avro_type}
                     doc: JsonNode = column.get('DocString', '')
                     if doc:
@@ -263,6 +271,24 @@ class KustoToAvro:
 
         return schemas if len(schemas) > 1 else schemas[0]
 
+
+    def wrap_schema_in_root_record(self, schema: JsonNode, type_name: str, type_namespace: str):
+        """ Wraps a schema in a root record."""
+        record: Dict[str, JsonNode] = {
+            "type": "record",
+            "name": type_name,
+            "fields": [
+                {
+                    "name": "data",
+                    "type": schema,
+                    "root": True
+                }
+            ]
+        }
+        if type_namespace:
+            record["namespace"] = type_namespace
+        return record
+    
     def apply_schema_attributes(self, schema, kusto_schema, table_name, type_value, type_namespace):
         """ Applies schema attributes to the schema."""
         if isinstance(schema, dict):
@@ -372,7 +398,7 @@ class KustoToAvro:
                         continue
                     xregistry_messages[schemaid]["metadata"][key] = {
                         "type": value,
-                        "required": "true"
+                        "required": True
                     }
             output = {
                 "messagegroups": {

@@ -131,6 +131,7 @@ Converting to Avro Schema:
 - [`avrotize j2a`](#convert-json-schema-to-avro-schema) - Convert JSON schema to Avro schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avro-schema) - Convert XML schema to Avro schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avro-schema) - Convert ASN.1 to Avro schema.
+- ['avrotize k2a'](#convert-kusto-table-definition-to-avro-schema) - Convert Kusto table definitions to Avro schema.
 
 Converting from Avro Schema:
 
@@ -336,6 +337,55 @@ Conversion notes:
 - The ability to parse ASN.1 schema files is limited and the tool may not be able
   to parse all ASN.1 files. The tool is based on the Python asn1tools package and
   is limited to that package's capabilities.
+
+### Convert Kusto table definition to Avro schema
+
+```bash
+avrotize k2a --kusto-uri <kusto_cluster_uri> --kusto-database <kusto_database> --avsc <path_to_avro_schema_file> --emit-cloudevents-xregistry
+```
+
+Parameters:
+
+- `--kusto-uri`: The URI of the Kusto cluster to connect to.
+- `--kusto-database`: The name of the Kusto database to read the table definitions from.
+- `--avsc`: The path to the Avro schema file to write the conversion result to.
+- `--emit-cloudevents-xregistry`: (optional) See discussion below.
+
+Conversion notes:
+- The tool directly connects to the Kusto cluster and reads the table
+  definitions from the specified database. The tool will convert all tables in
+  the database to Avro record types, returned in a top-level type union.
+- Connecting to the Kusto cluster leans on the same authentication mechanisms as
+  the Azure CLI. The tool will use the same authentication context as the Azure CLI
+  if it is installed and authenticated.
+- The tool will map the Kusto column types to Avro types as follows:
+  - `bool` is mapped to Avro boolean type.
+  - `datetime` is mapped to Avro long type with logical type `timestamp-millis`.
+  - `decimal` is mapped to a logical Avro type with the `logicalType` set to `decimal`
+    and the `precision` and `scale` set to the values of the `decimal` type in Kusto.
+  - `guid` is mapped to Avro string type.
+  - `int` is mapped to Avro int type.
+  - `long` is mapped to Avro long type.
+  - `real` is mapped to Avro double type.
+  - `string` is mapped to Avro string type.
+  - `timespan` is mapped to a logical Avro type with the `logicalType` set to
+    `duration`.
+- For `dynamic` columns, the tool will sample the data in the table to determine
+  the structure of the dynamic column. The tool will map the dynamic column to an
+  Avro record type with fields that correspond to the fields found in the dynamic
+  column. If the dynamic column contains nested dynamic columns, the tool will
+  recursively map those to Avro record types. If records with conflicting 
+  structures are found in the dynamic column, the tool will emit a union of record
+  types for the dynamic column.
+- If the `--emit-cloudevents-xregistry' option is set, the tool will emit an
+  [xRegistry](http://xregistry.io) registry manifest file with a CloudEvent
+  message definition for each table in the Kusto database and a separate Avro
+  Schema for each table in the embedded schema registry. If one or more tables
+  are found to contain CloudEvent data (as indicated by the presence of the
+  CloudEvents attribute columns), the tool will inspect the content of the
+  `type` (or `__type` or `__type`) columns to determine which CloudEvent types
+  have been stored in the table and will emit a CloudEvent definition and schema
+  for each unique type.
 
 ### Convert Avro schema to Kusto table declaration
 
