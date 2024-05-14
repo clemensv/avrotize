@@ -4,6 +4,7 @@
 import json
 import os
 from typing import Dict, List, Tuple, Union
+from avrotize.constants import AVRO_VERSION, JACKSON_VERSION, JDK_VERSION
 
 from avrotize.common import pascal, camel, is_generic_avro_type
 
@@ -17,19 +18,19 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <artifactId>{artifactid}</artifactId>
     <version>1.0-SNAPSHOT</version>
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.source>{JDK_VERSION}</maven.compiler.source>
+        <maven.compiler.target>{JDK_VERSION}</maven.compiler.target>
     </properties>
     <dependencies>
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
-            <version>1.11.3</version>
+            <version>{AVRO_VERSION}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson</groupId>
             <artifactId>jackson-bom</artifactId>
-            <version>2.17.0</version>
+            <version>{JACKSON_VERSION}</version>
             <type>pom</type>
         </dependency>
     </dependencies>
@@ -350,14 +351,14 @@ class AvroToJava:
         class_definition += " {\n"
         class_definition += f"{INDENT}public {class_name}() {{}}\n"
         class_definition += class_body
-        
+
         if self.avro_annotation:
             class_definition += f"\n{INDENT}public {class_name}(GenericData.Record record) {{\n"
             class_definition += f"{INDENT*2}for( int i = 0; i < record.getSchema().getFields().size(); i++ ) {{\n"
             class_definition += f"{INDENT*3}this.put(i, record.get(i));\n"
             class_definition += f"{INDENT*2}}}\n"
             class_definition += f"{INDENT}}}\n"
-        
+
         if self.avro_annotation:
             avro_schema_json = json.dumps(avro_schema)
             avro_schema_json = avro_schema_json.replace('"', '§')
@@ -367,7 +368,7 @@ class AvroToJava:
             class_definition += f"\n\n{INDENT}public static final Schema AVROSCHEMA = new Schema.Parser().parse(\n{INDENT}\"{avro_schema_json}\");"
             class_definition += f"\n{INDENT}public static final DatumWriter<{class_name}> AVROWRITER = new SpecificDatumWriter<{class_name}>(AVROSCHEMA);"
             class_definition += f"\n{INDENT}public static final DatumReader<{class_name}> AVROREADER = new SpecificDatumReader<{class_name}>(AVROSCHEMA);\n"
-            
+
             if self.jackson_annotations:
                 class_definition += f"\n{INDENT}@JsonIgnore"
             class_definition += f"\n{INDENT}@Override\n{INDENT}public Schema getSchema(){{ return AVROSCHEMA; }}\n"
@@ -942,7 +943,7 @@ class AvroToJava:
             groupid = '.'.join(package_elements[:-1]) if len(package_elements) > 1 else package_elements[0]
             artifactid = package_elements[-1]
             with open(pom_path, 'w', encoding='utf-8') as file:
-                file.write(POM_CONTENT.format(groupid=groupid, artifactid=artifactid))
+                file.write(POM_CONTENT.format(groupid=groupid, artifactid=artifactid, AVRO_VERSION=AVRO_VERSION, JACKSON_VERSION=JACKSON_VERSION, JDK_VERSION=JDK_VERSION, PACKAGE=self.base_package))
         output_dir = os.path.join(
             output_dir, "src/main/java".replace('/', os.sep))
         if not os.path.exists(output_dir):

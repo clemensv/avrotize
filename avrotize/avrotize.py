@@ -12,6 +12,7 @@ from avrotize.avrotots import convert_avro_to_typescript
 from avrotize.avrototsql import convert_avro_to_tsql
 from avrotize.jsonstoavro import convert_jsons_to_avro
 from avrotize.kstructtoavro import convert_kafka_struct_to_avro_schema
+from avrotize.kustotoavro import convert_kusto_to_avro
 from avrotize.prototoavro import convert_proto_to_avro
 from avrotize.xsdtoavro import convert_xsd_to_avro
 
@@ -54,6 +55,13 @@ def main():
     a2k_parser.add_argument('--kusto', type=str, help='Path to the Kusto table', required=True)
     a2k_parser.add_argument('--record-type', type=str, help='Record type in the Avro schema', required=False)
     a2k_parser.add_argument('--emit-cloudevents-columns', action='store_true', help='Add CloudEvents columns to the Kusto table', default=False)
+    
+    k2a_parser = subparsers.add_parser('k2a', help='Convert Kusto schema to Avro schema')
+    k2a_parser.add_argument('--kusto-uri', type=str, help='Kusto URI', required=True)
+    k2a_parser.add_argument('--kusto-database', type=str, help='Kusto database', required=True)
+    k2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    k2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
+    k2a_parser.add_argument('--emit-cloudevents-xregistry', action='store_true', help='Emit an xRegistry manifest with CloudEvents declarations for each table instead of a single Avro schema', required=False)
 
     a2tsql_parser = subparsers.add_parser('a2tsql', help='Convert Avro schema to T-SQL schema')
     a2tsql_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
@@ -156,6 +164,14 @@ def main():
         emit_cloud_events_columns = args.emit_cloudevents_columns
         print(f'Converting Avro {avro_schema_path} to Kusto {kusto_file_path}')
         convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, emit_cloud_events_columns)
+    elif args.command == 'k2a':
+        kusto_uri = args.kusto_uri
+        kusto_database = args.kusto_database
+        avro_schema_path = args.avsc
+        namespace = args.namespace
+        emit_cloudevents_xregistry = args.emit_cloudevents_xregistry
+        print(f'Converting Kusto {kusto_uri} to Avro {avro_schema_path}')
+        convert_kusto_to_avro(kusto_uri, kusto_database, namespace, avro_schema_path, emit_cloudevents_xregistry)
     elif args.command == 'a2tsql':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
