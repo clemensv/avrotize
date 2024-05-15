@@ -42,7 +42,7 @@ def kusto_container():
     container = KustoContainer()
     container.start()
     time.sleep(5)
-    kusto_client = KustoClient(KustoConnectionStringBuilder.with_az_cli_authentication(container.get_connection_string()))
+    kusto_client = KustoClient(KustoConnectionStringBuilder.with_token_provider(container.get_connection_string(), lambda *_: "token"))
     kusto_database = container.get_database_name()
     kusto_client.execute_mgmt("NetDefaultDB",
         f".create database {kusto_database} persist (" + \
@@ -71,7 +71,7 @@ def test_convert_address_avsc_to_kusto_server(kusto_container):
         "countryName": "United States"
     }"""
     
-    kusto_client = KustoClient(KustoConnectionStringBuilder.with_az_cli_authentication(kusto_uri))
+    kusto_client = KustoClient(KustoConnectionStringBuilder.with_token_provider(kusto_uri, lambda *_: "token"))
     # Insert data into the table
     my_address_data = my_address_data.replace("\n", " ").replace("  ", "")
     query = f".ingest inline into table record with (format=\"json\", ingestionMappingReference=\"record_json_flat\" ) <| \n{my_address_data}\n"
