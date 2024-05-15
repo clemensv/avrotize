@@ -7,12 +7,11 @@
 ## Abstract
 
 This document provides a comprehensive specification of the schema definition
-system used by Apache Avro. It details the structure and syntax of Avro
-schemas. 
-
-The serialization rules of the Avro binary and JSON encodings are
+system utilized by Apache Avro. It details the structure and syntax of Avro
+schemas. The serialization rules of the Avro binary and JSON encodings are
 not defined in this document.
 
+> Note that some features marked PROPOSED are not defined by the Avro project
 
 <!-- omit from toc -->
 
@@ -28,8 +27,12 @@ not defined in this document.
       - [3.1.1. Schema documents](#311-schema-documents)
       - [3.1.2. Media Type](#312-media-type)
     - [3.2. Documentation Strings](#32-documentation-strings)
+      - [3.2.1. International Documentation Strings](#321-international-documentation-strings)
     - [3.3. Named Types](#33-named-types)
       - [3.3.1. Alias Names](#331-alias-names)
+      - [3.3.2. Alternate Names](#332-alternate-names)
+        - [3.3.2.1. Alternate Names for JSON Encoding](#3321-alternate-names-for-json-encoding)
+        - [3.3.2.2. Alternate Names for Display (Internationalization)](#3322-alternate-names-for-display-internationalization)
     - [3.4. Naming conventions](#34-naming-conventions)
     - [3.5. Extensibility](#35-extensibility)
     - [3.6. Primitive Type Schemas](#36-primitive-type-schemas)
@@ -56,15 +59,16 @@ not defined in this document.
     - [3.9. `record` Type](#39-record-type)
       - [3.9.1. `record` field Declarations](#391-record-field-declarations)
     - [3.10. `enum` Type](#310-enum-type)
-    - [3.11. `array` Type](#311-array-type)
-    - [3.12. `map` Type](#312-map-type)
-    - [3.13. Type Unions](#313-type-unions)
+    - [3.11. array](#311-array)
+    - [3.12. map](#394-map)
+    - [3.13. Type Unions](#310-type-unions)
   - [4. The "Parsing Canonical Form" for Avro Schemas](#4-the-parsing-canonical-form-for-avro-schemas)
       - [4.1. Transforming into Parsing Canonical Form](#41-transforming-into-parsing-canonical-form)
   - [5. Schema Fingerprints](#5-schema-fingerprints)
   - [6. Security Considerations](#6-security-considerations)
   - [7. IANA Considerations](#7-iana-considerations)
     - [7.1. Media Type Registration](#71-media-type-registration)
+    - [7.2. Schema reference parameter for Avro Schema](#72-schema-reference-parameter-for-avro-schema)
   - [7. References](#7-references)
 
 
@@ -156,6 +160,49 @@ Example:
 }
 ```
 
+#### 3.2.1. International Documentation Strings
+
+> This 3.2.1. section is a proposal and NOT normative
+
+The OPTIONAL `docs` attribute MAY contain a map of strings keyed by language codes to
+provide internationalized documentation for the schema. The language codes are defined
+by [RFC 5646](https://tools.ietf.org/html/rfc5646). The `docs` attribute MAY exist
+side-by-side with the `doc` attribute.
+
+Example:
+
+```json
+{
+  "type": "record",
+  "name": "Employee",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "The name of the employee",
+      "docs": {
+        "de": "Der Name des Mitarbeiters",
+        "ja": "従業員の名前"
+      }
+    },
+    {
+      "name": "email",
+      "type": "string",
+      "docs": {
+        "en": "The email address",
+        "de": "Die E-Mail-Adresse",
+        "ja": "メールアドレス"
+      }
+    }
+  ],
+  "doc": "A record representing an employee",
+  "docs": {
+    "de": "Ein Datensatz, der einen Mitarbeiter repräsentiert",
+    "ja": "従業員を表すレコード"
+  }
+}
+```
+
 ### 3.3. Named Types
 
 Named types MUST be defined with a REQUIRED `name` and OPTIONAL `namespace`
@@ -232,6 +279,129 @@ The `aliases` attribute is used to maintain compatibility when the name of a
 named type changes. When a named type is renamed, the `aliases` attribute can be
 used to specify the old name of the type. This allows readers to recognize the
 old name and map it to the new name.
+
+#### 3.3.2. Alternate Names
+
+> Section 3.3.2. is a proposal and NOT normative
+
+All named types AND fields MAY have an OPTIONAL `altnames` attribute, which
+is a map of alternative names for the named type or field. Alternative names
+are different from alias names in that they are not restricted to the `name`
+grammar and can be any string.
+
+The `key` of an alternate name in the `altnames` map its purpose, while the
+`value` is the alternative name itself. The key value `"json"` and the key-prefix
+`"display"` are reserved, any other keys are user-defined.
+
+For enum symbols, the `altsymbols` attribute is used to provide alternate names
+for symbols. The `altsymbols` attribute contains a map of maps. The top-level map
+is keyed by the purpose of the alternate name as with `altnames`. The second-level
+map is keyed by the symbol name and contains the alternate name.
+
+##### 3.3.2.1. Alternate Names for JSON Encoding
+
+For the "Plain JSON" encoding, the `altnames` attribute is used to map JSON
+identifiers that are incompatible with the Avro schema `name` restrictions. The
+reserved key for this purpose is `json`.
+
+The following is an example of a record schema named `Contact` in the
+`com.example` namespace. It has a JSON field names `first-name` and `last-name`
+that are mapped to the Avro field names `firstName` and `lastName` respectively.
+
+```json
+{
+  "type": "record",
+  "name": "Contact",
+  "namespace": "com.example",
+  "fields": [
+    { "name": "firstName", "type": "string", "altnames": { "json": "first-name" } }
+    { "name": "lastName", "type": "string", "altnames": { "json": "last-name" } }
+  ]
+}
+```
+
+The following is an example of an enum schema named `Color` in the `com.example`
+namespace. It has alternate names, the respective hex-symbols of the colors, for
+the symbols `RED`, `GREEN`, and `BLUE` that are used in the JSON encoding.
+
+```json
+{
+  "type": "enum",
+  "name": "Color",
+  "namespace": "com.example",
+  "symbols": ["RED", "GREEN", "BLUE"],
+  "altsymbols": {
+    "json": {
+      "RED": "#FF0000",
+      "GREEN": "#00FF00",
+      "BLUE": "#0000FF"
+    }
+  }
+}
+```
+
+##### 3.3.2.2. Alternate Names for Display (Internationalization)
+
+For the purpose of internationalization, the `altnames` attribute is used to
+provide alternate names for display purposes. The reserved key-prefix for this
+purpose is `display`. In many cases, schematized data is displayed to and
+occasionally even defined by end-users who prefer different  
+languages. The technical `name` of a field or type may not be meaningful to
+end-users.
+
+The key value for a display alternate name is the language code of the language
+prefixed by `display:`, such as `display:en` for English. The language codes are
+defined by [RFC 5646](https://tools.ietf.org/html/rfc5646).
+
+The following is an example of a record schema named `Address` in the
+`com.example` namespace, with display alternate names for the address elements in
+German, Japanese, and French.
+
+```json
+{
+  "type": "record",
+  "name": "Address",
+  "namespace": "com.example",
+  "fields": [
+    {
+      "name": "street",
+      "type": "string",
+      "altnames": {
+        "display:de": "Straße",
+        "display:ja": "番地",
+        "display:fr": "Rue"
+      }
+    },
+    {
+      "name": "city",
+      "type": "string",
+      "altnames": {
+        "display:de": "Stadt",
+        "display:ja": "市",
+        "display:fr": "Ville"
+      }
+    },
+    {
+      "name": "state",
+      "type": "string",
+      "altnames": {
+        "display:de": "Bundesland",
+        "display:ja": "都道府県",
+        "display:fr": "État"
+      }
+    },
+    {
+      "name": "zip",
+      "type": "string",
+      "altnames": {
+        "display:de": "Postleitzahl",
+        "display:ja": "郵便番号",
+        "display:fr": "Code postal"
+      }
+    }
+  ]
+}
+```
 
 ### 3.4. Naming conventions
 
@@ -515,8 +685,8 @@ define structured data types.
 
 The following attributes are used to define a `record` type:
 
-- `name`, `namespace`, `aliases`: See [Named Types](#33-named-types).
-- `doc`: See [Documentation Strings](#32-documentation-strings).
+- `name`, `namespace`, `aliases`, `altnames`: See [Named Types](#33-named-types).
+- `doc`, `docs`: See [Documentation Strings](#32-documentation-strings).
 - `fields`: An array of field declarations
 
 #### 3.9.1. `record` field Declarations
@@ -529,9 +699,10 @@ A field declaration is an object that contains the following attributes:
   This restriction ensures that the `name` attribute is a valid identifier in
   most programming languages and databases.
 - `aliases`: See [Alias Names](#331-alias-names).
+- PROPOSED: `altnames`: See [Alternate Names](#332-alternate-names).
 - `type`: The type of the field. The `type` attribute's value MUST be an
   [Avro schema](#31-schema-declarations) expression.
-- `doc`: See [Documentation Strings](#32-documentation-strings).
+- `doc`, `docs`: See [Documentation Strings](#32-documentation-strings).
 - `default`: The default value of the field. The `default` attribute's value
   MUST be a valid value of the field's type. The `default` attribute is OPTIONAL.
 - `order`: The sort order of the field. The `order` attribute is OPTIONAL and
@@ -562,19 +733,17 @@ value MUST be encoded in JSON in accordance with the following mapping:
 | array     | array     | `[]`       |                                                      |
 | map       | object    | `{}`       |                                                      |
 
-### 3.10. `enum` Type
+#### 3.10. `enum` Type
 
 The named `enum` type defines a set of symbols. An enum typed value MUST one of those
 symbols.
 
 The following attributes are used to define an `enum` type:
 
-- `name`, `namespace`, `aliases`: See [Named Types](#33-named-types).
-- `doc`: See [Documentation Strings](#32-documentation-strings).
+- `name`, `namespace`, `aliases`, PROPOSED: `altnames`: See [Named Types](#33-named-types).
+- `doc`, PROPOSED: `docs`: See [Documentation Strings](#32-documentation-strings).
 - `symbols`: An array of strings that represent the symbols of the enum.
-
-The string values in the symbols array MUST be unique. The string values are 
-subject to the same naming conventions as [the `name` attribute of named types](#33-named-types).
+- PROPOSED: `altsymbols`: See [Alternate Names](#332-alternate-names).
 
 Example:
 
@@ -587,7 +756,7 @@ Example:
 }
 ```
 
-### 3.11. `array` Type
+### 3.11. array
 
 The `array` type represents a list of values, all of the same type specified by
 the `items` attribute.
@@ -608,7 +777,7 @@ Example:
 }
 ```
 
-### 3.12. `map` Type
+### 3.12. map
 
 The `map` type represents a set of key-value pairs, where the keys are strings
 and the values are of the specified type.
@@ -840,6 +1009,37 @@ data structures.
 
 This specification defines the `application/vnd.apache.avro.schema+json` media
 type for Avro Schema document that shall be registered with IANA.
+
+### 7.2. Schema reference parameter for Avro Schema
+
+> Section 7.2. is a proposal and NOT normative
+
+This specification defines the `schema` reference parameter for Avro Schema
+documents that shall be registered with IANA for use in conjunction the
+aforementioned media type.
+
+The parameter is a generic media type parameter that can be used with any media
+type that represents Avro data. The parameter is used to reference the Avro
+Schema document that describes the data.
+
+The parameter value is a URI-reference (RFC 3986) that identifies the Avro
+Schema. 
+
+If the URI reference is an absolute URI with the 'http' or 'https' scheme, the
+URI reference MUST be resolvable to the Avro Schema document with an HTTP GET
+request. The operation MAY require the client to supply an authorization
+context.
+
+If the URI reference is a relative reference, resolving the URI is application
+specific. The URI reference MAY be a
+[base64](https://www.rfc-editor.org/rfc/rfc4648)-encoded
+[schema fingerprint](#5-schema-fingerprints).
+
+Example:
+
+```http
+Content-Type: application/json;schema=https://example.com/schemas/Person
+```
 
 ## 7. References
 

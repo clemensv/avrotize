@@ -1,0 +1,200 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "This is a JSON schema for Avro schema files. It is based on the Avro specification at https://avro.apache.org/docs/current/spec.html",
+  "definitions": {
+    "schema" : {
+      "oneOf": [
+          { "$ref": "#/definitions/typeReference" },
+          { "$ref": "#/definitions/logicalTypes" },
+          { "$ref": "#/definitions/fixed" },
+          { "$ref": "#/definitions/record" },
+          { "$ref": "#/definitions/enum" },
+          { "$ref": "#/definitions/array" },
+          { "$ref": "#/definitions/map" },
+          { "$ref": "#/definitions/union" }
+      ]
+    },
+    "typeReference" : {
+      "type": "string",
+      "description": "A reference to a named type or one of the primitive types. The primitive type list can't be further validated",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+    },
+    "logicalTypes": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["int", "long", "bytes", "string"] },
+        "logicalType": {
+          "enum": [
+            "date",
+            "time-millis",
+            "time-micros",
+            "timestamp-millis",
+            "timestamp-micros",
+            "local-timestamp-millis",
+            "local-timestamp-micros",
+            "decimal",
+            "uuid",
+            "duration"
+          ]
+        },
+        "precision": { "type": "integer" },
+        "scale": { "type": "integer" }
+      },
+      "required": ["type", "logicalType"],
+      "additionalProperties": true
+    },
+    "fixed": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "fixed" },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        },
+        "size": { "type": "integer" }
+      },
+      "required": ["type", "name", "size"],
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*$": true
+      },
+      "additionalProperties": true
+    },
+    "recordField": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "type": { "$ref": "#/definitions/schema" },
+        "doc": { "type": "string" },
+        "default": {},
+        "order": {
+          "type": "string",
+          "enum": ["ascending", "descending", "ignore"]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        }
+      },
+      "required": ["name", "type"],
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*$": true
+      },
+      "additionalProperties": true
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "record" },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/recordField" }
+        },
+        "doc": { "type": "string" }
+      },
+      "required": ["type", "name", "fields"],
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*$": true
+      },
+      "additionalProperties": true
+    },
+    "enum": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "enum" },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "uniqueItems": true
+        },
+        "doc": { "type": "string" }
+      },
+      "required": ["type", "name", "symbols"],
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*$": true
+      },
+      "additionalProperties": true
+    },
+    "array": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "array" },
+        "items": { "$ref": "#" },
+        "default": {}
+      },
+      "required": ["type", "items"],
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*$": true
+      },
+      "additionalProperties": true
+    },
+    "map": {
+      "type": "object",
+      "properties": {
+        "type": { "const": "map" },
+        "values": {   },
+        "default": {}
+      },
+      "required": ["type", "values"],
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*$": true
+      },
+      "additionalProperties": true
+    },
+    "union": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/schema" },
+      "uniqueItems": true
+    }
+  },
+  "$ref": "#/definitions/schema"
+}
