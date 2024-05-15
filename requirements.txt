@@ -27,3 +27,4 @@ dataclasses_json==0.6.4
 pydantic==2.7.1
 avro==1.11.3
 azure-kusto-data==4.4.1
+testcontainers==4.4.1

@@ -37,6 +37,7 @@ dev-dependencies = [
     "dataclasses>=0.6",
     "pydantic>=2.7.1",
     "avro>=1.11.3",
+    "testcontainers>=4.4.1",
 ]
 
 [project.scripts]

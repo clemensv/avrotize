@@ -4,7 +4,7 @@ from avrotize.avrotocsharp import convert_avro_to_csharp
 from avrotize.avrotojava import convert_avro_to_java
 from avrotize.avrotojs import convert_avro_to_javascript
 from avrotize.avrotojsons import convert_avro_to_json_schema
-from avrotize.avrotokusto import convert_avro_to_kusto
+from avrotize.avrotokusto import convert_avro_to_kusto_db, convert_avro_to_kusto_file
 from avrotize.avrotoparquet import convert_avro_to_parquet
 from avrotize.avrotoproto import convert_avro_to_proto
 from avrotize.avrotopython import convert_avro_to_python
@@ -50,9 +50,11 @@ def main():
     a2x_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
     a2x_parser.add_argument('--xsd', type=str, help='Path to the XSD schema file', required=True)
 
-    a2k_parser = subparsers.add_parser('a2k', help='Convert Avro schema to Kusto schema')
+    a2k_parser = subparsers.add_parser('a2k', help='Convert Avro schema to Kusto table schemas')
     a2k_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
-    a2k_parser.add_argument('--kusto', type=str, help='Path to the Kusto table', required=True)
+    a2k_parser.add_argument('--kusto', type=str, help='Path to the Kusto table', required=False)
+    a2k_parser.add_argument('--kusto-uri', type=str, help='Kusto Cluster URI to apply the generated schema to.', required=False)
+    a2k_parser.add_argument('--kusto-database', type=str, help='Kusto database name to apply the generated schema to', required=False)
     a2k_parser.add_argument('--record-type', type=str, help='Record type in the Avro schema', required=False)
     a2k_parser.add_argument('--emit-cloudevents-columns', action='store_true', help='Add CloudEvents columns to the Kusto table', default=False)
     
@@ -161,9 +163,23 @@ def main():
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
         kusto_file_path = args.kusto
+        kusto_uri = args.kusto_uri
+        kusto_database = args.kusto_database
+        if kusto_file_path is None and kusto_uri is None:
+            print("Please specify either the Kusto table schema file (--kusto) or the Kusto URI (--kusto-uri and --kusto-database)")
+            exit(1)
+        if kusto_uri and not kusto_database:
+            print("Please specify the Kusto database name --kusto-database")
+            exit(1)
+        if kusto_database and not kusto_uri:
+            print("Please specify the Kusto URI --kusto-uri")
+            exit(1)
         emit_cloud_events_columns = args.emit_cloudevents_columns
         print(f'Converting Avro {avro_schema_path} to Kusto {kusto_file_path}')
-        convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, emit_cloud_events_columns)
+        if kusto_file_path:
+            convert_avro_to_kusto_file(avro_schema_path, avro_record_type, kusto_file_path, emit_cloud_events_columns)
+        if kusto_uri and kusto_database:
+             convert_avro_to_kusto_db(avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloud_events_columns)
     elif args.command == 'k2a':
         kusto_uri = args.kusto_uri
         kusto_database = args.kusto_database
