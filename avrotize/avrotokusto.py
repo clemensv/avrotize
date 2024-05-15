@@ -210,12 +210,12 @@ def convert_avro_to_kusto_file(avro_schema_path, avro_record_type, kusto_file_pa
     avro_to_kusto.convert_avro_to_kusto_file(
         avro_schema_path, avro_record_type, kusto_file_path, emit_cloud_events_columns)
 
-def convert_avro_to_kusto_db(avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloud_events_columns=False):
+def convert_avro_to_kusto_db(avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloud_events_columns=False, token_provider=None):
     """Converts an Avro schema to a Kusto table schema."""
     avro_to_kusto = AvroToKusto()
     script = avro_to_kusto.convert_avro_to_kusto_script(
         avro_schema_path, avro_record_type, emit_cloud_events_columns)
-    kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(kusto_uri)
+    kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(kusto_uri) if not token_provider else KustoConnectionStringBuilder.with_token_provider(kusto_uri, token_provider)
     client = KustoClient(kcsb)
     for statement in script.split("\n\n"):
         if statement.strip():

@@ -58,7 +58,7 @@ def test_convert_address_avsc_to_kusto_server(kusto_container):
     avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
     kusto_uri = kusto_container.get_connection_string()
     kusto_database = kusto_container.get_database_name()
-    convert_avro_to_kusto_db(avro_path, None, kusto_uri, kusto_database, True)
+    convert_avro_to_kusto_db(avro_path, None, kusto_uri, kusto_database, True, lambda *_: "token")
 
     my_address_data = """{
         "type": "address",

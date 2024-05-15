@@ -14,10 +14,9 @@ JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 class KustoToAvro:
     """ Converts Kusto table schemas to Avro schema format."""
 
-    def __init__(self, kusto_uri, kusto_database, avro_namespace: str, avro_schema_path, emit_cloudevents_xregistry: bool):
+    def __init__(self, kusto_uri, kusto_database, avro_namespace: str, avro_schema_path, emit_cloudevents_xregistry: bool, token_provider=None):
         """ Initializes the KustoToAvro class with the Kusto URI and database name. """
-        kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(
-            kusto_uri)
+        kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(kusto_uri) if not token_provider else KustoConnectionStringBuilder.with_token_provider(kusto_uri, token_provider)
         self.client = KustoClient(kcsb)
         self.kusto_database = kusto_database
         self.avro_namespace = avro_namespace
@@ -430,8 +429,8 @@ class KustoToAvro:
             json.dump(output, avro_file, indent=4)
 
 
-def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, avro_namespace: str, avro_schema_file: str, emit_cloudevents_xregistry: bool):
+def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, avro_namespace: str, avro_schema_file: str, emit_cloudevents_xregistry: bool, token_provider=None):
     """ Converts Kusto table schemas to Avro schema format."""
     kusto_to_avro = KustoToAvro(
-        kusto_uri, kusto_database, avro_namespace, avro_schema_file, emit_cloudevents_xregistry)
+        kusto_uri, kusto_database, avro_namespace, avro_schema_file, emit_cloudevents_xregistry, token_provider=token_provider)
     return kusto_to_avro.process_all_tables()
