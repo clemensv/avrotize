@@ -1,0 +1,73 @@
+.create-merge table [record] (
+   [type]: string,
+   [postOfficeBox]: string,
+   [extendedAddress]: string,
+   [streetAddress]: string,
+   [locality]: string,
+   [region]: string,
+   [postalCode]: string,
+   [countryName]: string,
+   [___type]: string,
+   [___source]: string,
+   [___id]: string,
+   [___time]: datetime,
+   [___subject]: string
+);
+
+.alter table [record] docstring "{\"description\": \"An address similar to http://microformats.org/wiki/h-card\"}";
+
+.alter table [record] column-docstrings (
+   [type]: "{\"description\": \"The type of the record\"}",
+   [postOfficeBox]: "{\"description\": \"The post office box number\", \"type\": [\"null\", \"string\"]}",
+   [extendedAddress]: "{\"description\": \"The extended address\", \"type\": [\"null\", \"string\"]}",
+   [streetAddress]: "{\"description\": \"The street address\", \"type\": [\"null\", \"string\"]}",
+   [locality]: "{\"description\": \"The locality\"}",
+   [region]: "{\"description\": \"The region\"}",
+   [postalCode]: "{\"description\": \"The postal code\", \"type\": [\"null\", \"string\"]}",
+   [countryName]: "{\"description\": \"The country name\"}",
+   [___type] : 'Event type',
+   [___source]: 'Context origin/source of the event',
+   [___id]: 'Event identifier',
+   [___time]: 'Event generation time',
+   [___subject]: 'Context subject of the event'
+);
+
+.create-or-alter table [record] ingestion json mapping "record_json_flat"
+```
+[
+  {"column": "___type", "path": "$.type"},
+  {"column": "___source", "path": "$.source"},
+  {"column": "___id", "path": "$.id"},
+  {"column": "___time", "path": "$.time"},
+  {"column": "___subject", "path": "$.subject"},
+  {"column": "type", "path": "$.type"},
+  {"column": "postOfficeBox", "path": "$.postOfficeBox"},
+  {"column": "extendedAddress", "path": "$.extendedAddress"},
+  {"column": "streetAddress", "path": "$.streetAddress"},
+  {"column": "locality", "path": "$.locality"},
+  {"column": "region", "path": "$.region"},
+  {"column": "postalCode", "path": "$.postalCode"},
+  {"column": "countryName", "path": "$.countryName"},
+]
+```
+
+
+.create-or-alter table [record] ingestion json mapping "record_json_ce_structured"
+```
+[
+  {"column": "___type", "path": "$.type"},
+  {"column": "___source", "path": "$.source"},
+  {"column": "___id", "path": "$.id"},
+  {"column": "___time", "path": "$.time"},
+  {"column": "___subject", "path": "$.subject"},
+  {"column": "type", "path": "$.data.type"},
+  {"column": "postOfficeBox", "path": "$.data.postOfficeBox"},
+  {"column": "extendedAddress", "path": "$.data.extendedAddress"},
+  {"column": "streetAddress", "path": "$.data.streetAddress"},
+  {"column": "locality", "path": "$.data.locality"},
+  {"column": "region", "path": "$.data.region"},
+  {"column": "postalCode", "path": "$.data.postalCode"},
+  {"column": "countryName", "path": "$.data.countryName"},
+]
+```
+

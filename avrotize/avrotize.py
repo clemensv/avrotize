@@ -57,6 +57,7 @@ def main():
     a2k_parser.add_argument('--kusto-database', type=str, help='Kusto database name to apply the generated schema to', required=False)
     a2k_parser.add_argument('--record-type', type=str, help='Record type in the Avro schema', required=False)
     a2k_parser.add_argument('--emit-cloudevents-columns', action='store_true', help='Add CloudEvents columns to the Kusto table', default=False)
+    a2k_parser.add_argument('--emit-cloudevents-dispatch', action='store_true', help='Emit a _cloudevents_dispatch ingestion table and update policies for each generated table', required=False)
     
     k2a_parser = subparsers.add_parser('k2a', help='Convert Kusto schema to Avro schema')
     k2a_parser.add_argument('--kusto-uri', type=str, help='Kusto URI', required=True)
@@ -175,11 +176,12 @@ def main():
             print("Please specify the Kusto URI --kusto-uri")
             exit(1)
         emit_cloud_events_columns = args.emit_cloudevents_columns
+        emit_cloudevents_dispatch = args.emit_cloudevents_dispatch
         print(f'Converting Avro {avro_schema_path} to Kusto {kusto_file_path}')
         if kusto_file_path:
-            convert_avro_to_kusto_file(avro_schema_path, avro_record_type, kusto_file_path, emit_cloud_events_columns)
+            convert_avro_to_kusto_file(avro_schema_path, avro_record_type, kusto_file_path, emit_cloud_events_columns, emit_cloudevents_dispatch)
         if kusto_uri and kusto_database:
-             convert_avro_to_kusto_db(avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloud_events_columns)
+             convert_avro_to_kusto_db(avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloud_events_columns, emit_cloudevents_dispatch)
     elif args.command == 'k2a':
         kusto_uri = args.kusto_uri
         kusto_database = args.kusto_database

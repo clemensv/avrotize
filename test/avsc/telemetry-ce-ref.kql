@@ -1,0 +1,85 @@
+.create-merge table [TelemetryRecord] (
+   [id]: string,
+   [version]: int,
+   [channel]: string,
+   [carId]: string,
+   [intervalId]: string,
+   [sampleCount]: long,
+   [frequency]: long,
+   [created]: long,
+   [timespan]: dynamic,
+   [data]: dynamic,
+   [lapId]: string,
+   [___type]: string,
+   [___source]: string,
+   [___id]: string,
+   [___time]: datetime,
+   [___subject]: string
+);
+
+.alter table [TelemetryRecord] docstring "{\"description\": \"Represents a telemetry record for a race car.\"}";
+
+.alter table [TelemetryRecord] column-docstrings (
+   [id]: "{\"description\": \"The unique identifier of the telemetry record.\", \"type\": [\"null\", \"string\"]}",
+   [version]: "{\"description\": \"The version of the telemetry record.\"}",
+   [channel]: "{\"description\": \"The channel of the telemetry record.\"}",
+   [carId]: "{\"description\": \"The identifier of the race car.\", \"type\": [\"null\", \"string\"]}",
+   [intervalId]: "{\"description\": \"The interval identifier of the telemetry record.\", \"type\": [\"null\", \"string\"]}",
+   [sampleCount]: "{\"description\": \"The sample count of the telemetry record.\"}",
+   [frequency]: "{\"description\": \"The frequency of the telemetry record.\"}",
+   [created]: "{\"description\": \"The creation timestamp of the telemetry record.\", \"type\": [\"null\", \"long\"]}",
+   [timespan]: "{\"description\": \"The timespan of the telemetry record.\", \"type\": {\"name\": \"RecordRange\", \"type\": \"record\", \"fields\": [{\"name\": \"started\", \"type\": \"long\", \"doc\": \"The start timestamp of the telemetry record.\"}, {\"name\": \"ended\", \"type\": \"long\", \"doc\": \"The end timestamp of the telemetry record.\"}]}}",
+   [data]: "{\"description\": \"The telemetry data.\", \"type\": {\"type\": \"array\", \"items\": \"double\"}}",
+   [lapId]: "{\"description\": \"The identifier of the lap.\", \"type\": [\"null\", \"string\"]}",
+   [___type] : 'Event type',
+   [___source]: 'Context origin/source of the event',
+   [___id]: 'Event identifier',
+   [___time]: 'Event generation time',
+   [___subject]: 'Context subject of the event'
+);
+
+.create-or-alter table [TelemetryRecord] ingestion json mapping "TelemetryRecord_json_flat"
+```
+[
+  {"column": "___type", "path": "$.type"},
+  {"column": "___source", "path": "$.source"},
+  {"column": "___id", "path": "$.id"},
+  {"column": "___time", "path": "$.time"},
+  {"column": "___subject", "path": "$.subject"},
+  {"column": "id", "path": "$.id"},
+  {"column": "version", "path": "$.version"},
+  {"column": "channel", "path": "$.channel"},
+  {"column": "carId", "path": "$.carId"},
+  {"column": "intervalId", "path": "$.intervalId"},
+  {"column": "sampleCount", "path": "$.sampleCount"},
+  {"column": "frequency", "path": "$.frequency"},
+  {"column": "created", "path": "$.created"},
+  {"column": "timespan", "path": "$.timespan"},
+  {"column": "data", "path": "$.data"},
+  {"column": "lapId", "path": "$.lapId"},
+]
+```
+
+
+.create-or-alter table [TelemetryRecord] ingestion json mapping "TelemetryRecord_json_ce_structured"
+```
+[
+  {"column": "___type", "path": "$.type"},
+  {"column": "___source", "path": "$.source"},
+  {"column": "___id", "path": "$.id"},
+  {"column": "___time", "path": "$.time"},
+  {"column": "___subject", "path": "$.subject"},
+  {"column": "id", "path": "$.data.id"},
+  {"column": "version", "path": "$.data.version"},
+  {"column": "channel", "path": "$.data.channel"},
+  {"column": "carId", "path": "$.data.carId"},
+  {"column": "intervalId", "path": "$.data.intervalId"},
+  {"column": "sampleCount", "path": "$.data.sampleCount"},
+  {"column": "frequency", "path": "$.data.frequency"},
+  {"column": "created", "path": "$.data.created"},
+  {"column": "timespan", "path": "$.data.timespan"},
+  {"column": "data", "path": "$.data.data"},
+  {"column": "lapId", "path": "$.data.lapId"},
+]
+```
+

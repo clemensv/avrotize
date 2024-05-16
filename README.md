@@ -390,7 +390,7 @@ Conversion notes:
 ### Convert Avro schema to Kusto table declaration
 
 ```bash
-avrotize a2k --avsc <path_to_avro_schema_file> --kusto <path_to_kusto_kql_file> [--record-type <record_type>] [--emit-cloudevents-columns]
+avrotize a2k --avsc <path_to_avro_schema_file> --kusto <path_to_kusto_kql_file> [--record-type <record_type>] [--emit-cloudevents-columns] [--emit-cloudevents-dispatch]
 ```
 
 Parameters:
@@ -399,8 +399,15 @@ Parameters:
 - `--kusto`: The path to the Kusto KQL file to write the conversion result to.
 - `--record-type`: (optional) The name of the Avro record type to convert to a Kusto table.
 - `--emit-cloudevents-columns`: (optional) If set, the tool will add
-  [CloudEvents](https://cloudevents.io) attribute columns to the table: `__id`,
-  `__source`, `__subject`, `__type`, and `__time`.
+  [CloudEvents](https://cloudevents.io) attribute columns to the table: `___id`,
+  `___source`, `___subject`, `___type`, and `___time`.
+- `--emit-cloudevents-dispatch`: (optional) If set, the tool will add a table named
+  `_cloudevents_dispatch` to the script or database, which serves as an ingestion and
+  dispatch table for CloudEvents. The table has columns for the core CloudEvents attributes
+  and a `data` column that holds the CloudEvents data. For each table in the Avro schema,
+  the tool will create an update policy that maps events whose `type` attribute matches
+  the Avro type name to the respective table.
+  
 
 Conversion notes:
 
