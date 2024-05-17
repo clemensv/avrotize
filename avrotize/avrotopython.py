@@ -4,8 +4,6 @@ import os
 import re
 from typing import Dict, List, Set, Union
 
-from avrotize.common import pascal
-
 INDENT = '    '
 
 def is_python_reserved_word(word: str) -> bool:
@@ -50,25 +48,25 @@ class AvroToPython:
         """Converts Avro logical type to Python type"""
         if avro_type['logicalType'] == 'decimal':
             import_types.add('decimal.Decimal')
-            return 'decimal.Decimal'
+            return 'Decimal'
         elif avro_type['logicalType'] == 'date':
             import_types.add('datetime.date')
-            return 'datetime.date'
+            return 'date'
         elif avro_type['logicalType'] == 'time-millis':
             import_types.add('datetime.time')
-            return 'datetime.time'
+            return 'time'
         elif avro_type['logicalType'] == 'time-micros':
             import_types.add('datetime.time')
-            return 'datetime.time'
+            return 'time'
         elif avro_type['logicalType'] == 'timestamp-millis':
             import_types.add('datetime.datetime')
-            return 'datetime.datetime'
+            return 'datetime'
         elif avro_type['logicalType'] == 'timestamp-micros':
             import_types.add('datetime.datetime')
-            return 'datetime.datetime'
+            return 'datetime'
         elif avro_type['logicalType'] == 'duration':
             import_types.add('datetime.timedelta')
-            return 'datetime.timedelta'
+            return 'timedelta'
         return 'Any'
         
 
@@ -78,7 +76,7 @@ class AvroToPython:
             mapped_type = self.map_primitive_to_python(avro_type)
             if mapped_type == avro_type and not self.is_python_primitive(mapped_type):
                 import_types.add(mapped_type)
-                return pascal(mapped_type.split('.')[-1])
+                return mapped_type.split('.')[-1]
             return mapped_type
         elif isinstance(avro_type, list):
             non_null_types = [t for t in avro_type if t != 'null']
@@ -111,7 +109,7 @@ class AvroToPython:
     def generate_class(self, avro_schema: Dict, parent_package: str, write_file: bool) -> str:
         """Generates a Python data class from an Avro record schema"""
         import_types: Set[str] = set()
-        class_name = pascal(avro_schema['name'])
+        class_name = avro_schema['name']
         package_name: str = avro_schema.get('namespace', '')
         if parent_package:
             package_name = f"{parent_package}.{package_name}"        
@@ -123,7 +121,7 @@ class AvroToPython:
         class_definition += INDENT + '"""\n'            
         class_definition += ''.join(fields) if fields else INDENT + "\n"
         
-        imports = "from dataclasses import dataclass\n"
+        imports = ''
         local_imports = ''
         if self.avro_annotation:
             imports += 'import avro.schema\n'            
@@ -132,13 +130,10 @@ class AvroToPython:
             avro_schema_json = f"\"+\n{' '*8}\"".join([avro_schema_json[i:i+70] for i in range(0, len(avro_schema_json), 70)])
             avro_schema_json = avro_schema_json.replace('§', '\\"')
             class_definition += f'\n{INDENT}AvroType: ClassVar[avro.schema.Schema] = avro.schema.parse(\n{INDENT*2}"{avro_schema_json}");\n'        
-        
-        if self.dataclasses_json_annotation:
-            imports += "from dataclasses_json import dataclass_json\n"
-            class_definition = class_definition.replace('@dataclass', '@dataclass_json\n@dataclass')
+             
         for import_type in import_types:
             import_type_package = import_type.rsplit('.',1)[0]
-            import_type_type = pascal(import_type.split('.')[-1])
+            import_type_type = import_type.split('.')[-1]
             if import_type_package.startswith(package_name):
                 import_type_package = import_type_package[len(package_name):]
             if import_type_package:
@@ -149,15 +144,21 @@ class AvroToPython:
                     imports += imp
             else:
                 local_imports += f"from .{import_type_type.lower()} import {import_type_type}\n"
+        
+        imports += 'from dataclasses import dataclass\n'
+        if self.dataclasses_json_annotation:
+            imports += "from dataclasses_json import dataclass_json\n"
+            class_definition = class_definition.replace('@dataclass', '@dataclass_json\n@dataclass')
+        
         class_definition = imports + '\n' + local_imports + '\n' + class_definition
-
+              
         if write_file:
             self.write_to_file(package_name, class_name, class_definition)
         return f'{package_name}.{class_name}' if package_name else class_name
     
     def generate_enum(self, avro_schema: Dict, parent_package: str, write_file: bool) -> str:
         """Generates a Python enum from an Avro enum schema"""
-        class_name = pascal(avro_schema['name'])
+        class_name = avro_schema['name']
         package_name: str = avro_schema.get('namespace', '')
         if parent_package:
             package_name = f"{parent_package}.{package_name}"
