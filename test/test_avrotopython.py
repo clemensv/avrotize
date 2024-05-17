@@ -48,6 +48,22 @@ class TestAvroToPython(unittest.TestCase):
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
             ['python', '-m', 'pylint', '-E', '.'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+        
+    def test_convert_address_avsc_to_python_json_avro(self):
+        """ Test converting an address.avsc file to C# """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-py-jsonavro")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        convert_avro_to_python(
+            avro_path, py_path, dataclasses_json_annotation=True, avro_annotation=True)
+        new_env = os.environ.copy()
+        new_env['PYTHONPATH'] = py_path
+        assert subprocess.check_call(
+            ['python', '-m', 'pylint', '-E', '.'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_address_avsc_to_python_avro(self):
         """ Test converting an address.avsc file to Python with avro annotation """

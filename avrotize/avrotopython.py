@@ -1,8 +1,10 @@
-""" Converts Avro schema to Python data classes """
 import json
 import os
 import re
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Set, Union, Any, Optional
+from dataclasses import dataclass
+import gzip
+import io
 
 INDENT = '    '
 
@@ -124,15 +126,14 @@ class AvroToPython:
         imports = ''
         local_imports = ''
         if self.avro_annotation:
-            imports += 'import avro.schema\n'            
             avro_schema_json = json.dumps(avro_schema)
-            avro_schema_json = avro_schema_json.replace('"', '§')           
+            avro_schema_json = avro_schema_json.replace('"', '§')
             avro_schema_json = f"\"+\n{' '*8}\"".join([avro_schema_json[i:i+70] for i in range(0, len(avro_schema_json), 70)])
             avro_schema_json = avro_schema_json.replace('§', '\\"')
-            class_definition += f'\n{INDENT}AvroType: ClassVar[avro.schema.Schema] = avro.schema.parse(\n{INDENT*2}"{avro_schema_json}");\n'        
-             
+            class_definition += f'\n{INDENT}AvroType: ClassVar[avro.schema.Schema] = avro.schema.parse(\n{INDENT*2}"{avro_schema_json}");\n'
+        
         for import_type in import_types:
-            import_type_package = import_type.rsplit('.',1)[0]
+            import_type_package = import_type.rsplit('.', 1)[0]
             import_type_type = import_type.split('.')[-1]
             if import_type_package.startswith(package_name):
                 import_type_package = import_type_package[len(package_name):]
@@ -145,11 +146,89 @@ class AvroToPython:
             else:
                 local_imports += f"from .{import_type_type.lower()} import {import_type_type}\n"
         
-        imports += 'from dataclasses import dataclass\n'
+        imports += 'from dataclasses import dataclass, asdict\n'
         if self.dataclasses_json_annotation:
             imports += "from dataclasses_json import dataclass_json\n"
             class_definition = class_definition.replace('@dataclass', '@dataclass_json\n@dataclass')
         
+        if self.dataclasses_json_annotation:
+            imports += 'import json\n'
+        if self.avro_annotation or self.dataclasses_json_annotation:
+            imports += 'import io\n'
+            imports += 'import gzip\n'
+        if self.avro_annotation:
+            imports += 'import avro.schema\nimport avro.io\n'
+        
+        if self.avro_annotation or self.dataclasses_json_annotation:
+            class_definition += f"\n{INDENT}def to_byte_array(self, content_type_string: str) -> bytes:\n"
+            class_definition += f"{INDENT*2}\"\"\"Converts the dataclass to a byte array based on the content type string.\"\"\"\n"
+            class_definition += f"{INDENT*2}content_type = content_type_string.split(';')[0].strip()\n"
+            class_definition += f"{INDENT*2}result = None\n\n"
+
+            if self.avro_annotation:
+                class_definition += f"{INDENT*2}if content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:\n"
+                class_definition += f"{INDENT*3}stream = io.BytesIO()\n"
+                class_definition += f"{INDENT*3}writer = avro.io.DatumWriter(self.AvroType)\n"
+                class_definition += f"{INDENT*3}encoder = avro.io.BinaryEncoder(stream)\n"
+                class_definition += f"{INDENT*3}writer.write(asdict(self), encoder)\n"
+                class_definition += f"{INDENT*3}result = stream.getvalue()\n"
+                
+            if self.dataclasses_json_annotation:
+                class_definition += f"{INDENT*2}if content_type == 'application/json':\n"
+                class_definition += f"{INDENT*3}result = json.dumps(asdict(self)).encode('utf-8')\n"
+            
+            class_definition += f"\n{INDENT*2}if result is not None and content_type.endswith('+gzip'):\n"
+            class_definition += f"{INDENT*3}with io.BytesIO() as stream:\n"
+            class_definition += f"{INDENT*4}with gzip.GzipFile(fileobj=stream, mode='wb') as gzip_file:\n"
+            class_definition += f"{INDENT*5}gzip_file.write(result)\n"
+            class_definition += f"{INDENT*4}result = stream.getvalue()\n"
+            
+            class_definition += f"\n{INDENT*2}if result is None:\n"
+            class_definition += f"{INDENT*3}raise NotImplementedError(f\"Unsupported media type {{content_type}}\")\n"
+            class_definition += f"\n{INDENT*2}return result\n"
+            
+            class_definition += f"\n{INDENT}@classmethod\n"
+            class_definition += f"{INDENT}def from_data(cls, data: Any, content_type_string: Optional[str] = None) -> Optional['{class_name}']:\n"
+            class_definition += f"{INDENT*2}\"\"\"Converts the data to a dataclass based on the content type string.\"\"\"\n"
+            class_definition += f"{INDENT*2}if data is None:\n"
+            class_definition += f"{INDENT*3}return None\n"
+            class_definition += f"{INDENT*2}if isinstance(data, cls):\n"
+            class_definition += f"{INDENT*3}return data\n"
+            
+            class_definition += f"{INDENT*2}content_type = (content_type_string or 'application/octet-stream').split(';')[0].strip()\n\n"
+            
+            class_definition += f"{INDENT*2}if content_type.endswith('+gzip'):\n"
+            class_definition += f"{INDENT*3}if isinstance(data, (bytes, io.BytesIO)):\n"
+            class_definition += f"{INDENT*4}stream = io.BytesIO(data) if isinstance(data, bytes) else data\n"
+            class_definition += f"{INDENT*3}else:\n"
+            class_definition += f"{INDENT*4}raise NotImplementedError('Data is not of a supported type for gzip decompression')\n"
+            class_definition += f"{INDENT*3}with gzip.GzipFile(fileobj=stream, mode='rb') as gzip_file:\n"
+            class_definition += f"{INDENT*4}data = gzip_file.read()\n\n"
+
+            if self.avro_annotation:
+                class_definition += f"{INDENT*2}if content_type in ['avro/binary', 'application/vnd.apache.avro+avro', 'avro/json', 'application/vnd.apache.avro+json']:\n"
+                class_definition += f"{INDENT*3}if isinstance(data, (bytes, io.BytesIO)):\n"
+                class_definition += f"{INDENT*4}stream = io.BytesIO(data) if isinstance(data, bytes) else data\n"
+                class_definition += f"{INDENT*3}else:\n"
+                class_definition += f"{INDENT*4}raise NotImplementedError('Data is not of a supported type for conversion to Stream')\n\n"
+                class_definition += f"{INDENT*3}reader = avro.io.DatumReader(cls.AvroType)\n"
+                class_definition += f"{INDENT*3}if content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:\n"
+                class_definition += f"{INDENT*4}decoder = avro.io.BinaryDecoder(stream)\n"
+                class_definition += f"{INDENT*3}else:\n"
+                class_definition += f"{INDENT*4}raise NotImplementedError(f'Unsupported Avro media type {{content_type}}')\n"
+                class_definition += f"{INDENT*3}_record = reader.read(decoder)\n"
+                class_definition += f"{INDENT*3}return cls(**_record)\n\n"
+
+            if self.dataclasses_json_annotation:
+                class_definition += f"{INDENT*2}if content_type == 'application/json':\n"
+                class_definition += f"{INDENT*3}if isinstance(data, (bytes, str)):\n"
+                class_definition += f"{INDENT*4}data_str = data.decode('utf-8') if isinstance(data, bytes) else data\n"
+                class_definition += f"{INDENT*4}return cls(**json.loads(data_str))\n"
+                class_definition += f"{INDENT*3}else:\n"
+                class_definition += f"{INDENT*4}raise NotImplementedError('Data is not of a supported type for JSON deserialization')\n\n"
+
+            class_definition += f"{INDENT*2}raise NotImplementedError(f'Unsupported media type {{content_type}}')\n"
+
         class_definition = imports + '\n' + local_imports + '\n' + class_definition
               
         if write_file:
