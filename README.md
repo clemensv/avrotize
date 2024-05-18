@@ -132,6 +132,7 @@ Converting to Avro Schema:
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avro-schema) - Convert XML schema to Avro schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avro-schema) - Convert ASN.1 to Avro schema.
 - [`avrotize k2a`](#convert-kusto-table-definition-to-avro-schema) - Convert Kusto table definitions to Avro schema.
+- [`avrotize pq2a`](#convert-parquet-schema-to-avro-schema) - Convert Parquet schema to Avro schema.
 
 Converting from Avro Schema:
 
@@ -474,6 +475,23 @@ Conversion notes:
   record fields are mapped to Parquet nested types. Avro type unions are mapped
   to structures, not to Parquet unions since those are not supported by the
   PyArrow library used here.
+
+## Convert Parquet schema to Avro schema
+
+```bash
+avrotize pq2a --parquet <path_to_parquet_schema_file> --avsc <path_to_avro_schema_file> --namespace <avro_schema_namespace>
+```
+
+Parameters:
+
+- `--parquet`: The path to the Parquet file whose schema is to be converted.
+- `--avsc`: The path to the Avro schema file to write the conversion result to.
+- `--namespace`: The namespace to use in the Avro schema.
+
+Conversion notes:
+
+- The tool reads the schema from the Parquet file and converts it to an Avro
+  schema. The Avro schema is written to the specified file.
 
 ### Generate C# code from Avro schema
 

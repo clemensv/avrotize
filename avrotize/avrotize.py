@@ -13,6 +13,7 @@ from avrotize.avrototsql import convert_avro_to_tsql
 from avrotize.jsonstoavro import convert_jsons_to_avro
 from avrotize.kstructtoavro import convert_kafka_struct_to_avro_schema
 from avrotize.kustotoavro import convert_kusto_to_avro
+from avrotize.parquettoavro import convert_parquet_to_avro
 from avrotize.prototoavro import convert_proto_to_avro
 from avrotize.xsdtoavro import convert_xsd_to_avro
 
@@ -77,6 +78,11 @@ def main():
     a2pq_parser.add_argument('--parquet', type=str, help='Path to the Parquet file', required=True)
     a2pq_parser.add_argument('--record-type', type=str, help='Record type in the Avro schema', required=False)
     a2pq_parser.add_argument('--emit-cloudevents-columns', action='store_true', help='Add CloudEvents columns to the Parquet file', default=False)
+    
+    pq2a_parser = subparsers.add_parser('pq2a', help='Convert Parquet schema to Avro schema')
+    pq2a_parser.add_argument('--parquet', type=str, help='Path to the Parquet file', required=True)
+    pq2a_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    pq2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
 
     asn2a_parser = subparsers.add_parser('asn2a', help='Convert ASN.1 schema to Avro schema')
     asn2a_parser.add_argument('--asn', type=str, nargs='+', help='Path(s) to the ASN.1 schema file(s)', required=True)
@@ -204,6 +210,12 @@ def main():
         emit_cloud_events_columns = args.emit_cloudevents_columns
         print(f'Converting Avro {avro_schema_path} to Parquet {parquet_file_path}')
         convert_avro_to_parquet(avro_schema_path, avro_record_type, parquet_file_path, emit_cloud_events_columns)  
+    elif args.command == 'pq2a':
+        parquet_file_path = args.parquet
+        avro_schema_path = args.avsc
+        namespace = args.namespace
+        print(f'Converting Parquet {parquet_file_path} to Avro {avro_schema_path}')
+        convert_parquet_to_avro(parquet_file_path, avro_schema_path, namespace=namespace)
     elif args.command == 'asn2a':
         asn_schema_file_list = args.asn
         if len(asn_schema_file_list) == 1:
