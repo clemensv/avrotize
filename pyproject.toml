@@ -26,6 +26,7 @@ dependencies = [
     "jsoncomparison>=1.1.0",
     "requests>=2.31.0",
     "azure-kusto-data>=4.4.1",
+    "datapackage>=1.15.4",
 ]
 dev-dependencies = [
     "pytest>=7.2.1",
