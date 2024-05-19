@@ -26,7 +26,7 @@ class TestAvroToRust(unittest.TestCase):
             shutil.rmtree(rust_path, ignore_errors=True)
         os.makedirs(rust_path, exist_ok=True)
         
-        convert_avro_to_rust(avro_path, rust_path)
+        convert_avro_to_rust(avro_path, rust_path, package_name="address")
 
     def test_convert_telemetry_avsc_to_rust(self):
         """ Test converting a telemetry.avsc file to Rust """
@@ -37,7 +37,7 @@ class TestAvroToRust(unittest.TestCase):
             shutil.rmtree(rust_path, ignore_errors=True)
         os.makedirs(rust_path, exist_ok=True)
         
-        convert_avro_to_rust(avro_path, rust_path)
+        convert_avro_to_rust(avro_path, rust_path, package_name="telemetry")
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
@@ -51,7 +51,7 @@ class TestAvroToRust(unittest.TestCase):
             
         
         convert_jsons_to_avro(jsons_path, avro_path)
-        convert_avro_to_rust(avro_path, rust_path)
+        convert_avro_to_rust(avro_path, rust_path, package_name="jfrog_pipelines")
         
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust_typed_json(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
@@ -64,7 +64,7 @@ class TestAvroToRust(unittest.TestCase):
         os.makedirs(rust_path, exist_ok=True)
         
         convert_jsons_to_avro(jsons_path, avro_path)
-        convert_avro_to_rust(avro_path, rust_path, serde_annotation=True)
+        convert_avro_to_rust(avro_path, rust_path, package_name="jfrog_pipelines", serde_annotation=True)
         
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust_avro_annotations(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
@@ -78,4 +78,4 @@ class TestAvroToRust(unittest.TestCase):
             
         
         convert_jsons_to_avro(jsons_path, avro_path)
-        convert_avro_to_rust(avro_path, rust_path, avro_annotation=True)
+        convert_avro_to_rust(avro_path, rust_path, package_name="jfrog_pipelines", avro_annotation=True)
