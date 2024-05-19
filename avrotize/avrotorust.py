@@ -150,7 +150,7 @@ class AvroToRust:
             struct_definition += f"{INDENT}{serde_rename}pub {field_name}: {field_type},\n"
         struct_definition += "}\n\n"
 
-        struct_definition += self.generate_impl_block(struct_name, avro_schema, namespace)
+        struct_definition += self.generate_impl_block(struct_name, avro_schema)
         self.write_to_file(namespace.replace('.', '::'), struct_name, struct_definition)
         return qualified_struct_name
 
@@ -173,13 +173,13 @@ class AvroToRust:
         self.write_to_file(namespace.replace('.', '::'), enum_name, enum_definition)
         return qualified_enum_name
 
-    def generate_impl_block(self, struct_name: str, avro_schema: Dict, namespace:str) -> str:
+    def generate_impl_block(self, struct_name: str, avro_schema: Dict) -> str:
         """Generates a single impl block for all methods and static fields"""
         impl_block = f"impl {struct_name} {{\n"
         impl_block += self.generate_static_schema_field(avro_schema)
         impl_block += self.generate_to_byte_array_method(struct_name)
         impl_block += self.generate_from_data_method(struct_name)
-        impl_block += self.generate_is_json_match_method(struct_name, avro_schema, namespace)
+        impl_block += self.generate_is_json_match_method(struct_name, avro_schema)
         impl_block += self.generate_to_object_method(struct_name)
         impl_block += "}\n"
         return impl_block
@@ -187,12 +187,14 @@ class AvroToRust:
     def generate_static_schema_field(self, avro_schema: Dict) -> str:
         """Generates a static field containing the Avro schema"""
         schema_json = json.dumps(avro_schema).replace('"', '\\"')
-        static_field = f"{INDENT}pub const SCHEMA: &'static str = \"{schema_json}\";\n"
+        static_field = f"{INDENT}/// The static Avro schema as a JSON string\n"
+        static_field += f"{INDENT}pub const SCHEMA: &'static str = \"{schema_json}\";\n"
         return static_field
 
     def generate_to_byte_array_method(self, struct_name: str) -> str:
         """Generates the to_byte_array method for the struct"""
-        method_definition = f"{INDENT}pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {{\n"
+        method_definition = f"{INDENT}/// Serializes the struct to a byte array based on the provided content type\n"
+        method_definition += f"{INDENT}pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {{\n"
         method_definition += f"{INDENT*2}let result: Vec<u8>;\n"
         method_definition += f"{INDENT*2}let media_type = content_type.split(';').next().unwrap_or(\"\");\n"
         method_definition += f"{INDENT*2}match media_type {{\n"
@@ -218,7 +220,8 @@ class AvroToRust:
 
     def generate_from_data_method(self, struct_name: str) -> str:
         """Generates the from_data method for the struct"""
-        method_definition = f"{INDENT}pub fn from_data(data: impl AsRef<[u8]>, content_type: &str) -> Result<Self, Box<dyn std::error::Error>> {{\n"
+        method_definition = f"{INDENT}/// Deserializes the struct from a byte array based on the provided content type\n"
+        method_definition += f"{INDENT}pub fn from_data(data: impl AsRef<[u8]>, content_type: &str) -> Result<Self, Box<dyn std::error::Error>> {{\n"
         method_definition += f"{INDENT*2}let media_type = content_type.split(';').next().unwrap_or(\"\");\n"
         method_definition += f"{INDENT*2}let data = if media_type.ends_with(\"+gzip\") {{\n"
         method_definition += f"{INDENT*3}let mut decoder = flate2::read::GzDecoder::new(data.as_ref());\n"
@@ -245,13 +248,14 @@ class AvroToRust:
         method_definition += f"{INDENT}}}\n"
         return method_definition
 
-    def generate_is_json_match_method(self, struct_name: str, avro_schema: Dict, namespace:str) -> str:
+    def generate_is_json_match_method(self, struct_name: str, avro_schema: Dict) -> str:
         """Generates the is_json_match method for the struct"""
-        method_definition = f"{INDENT}pub fn is_json_match(node: &serde_json::Value) -> bool {{\n"
+        method_definition = f"{INDENT}/// Checks if the given JSON value matches the schema of the struct\n"
+        method_definition += f"{INDENT}pub fn is_json_match(node: &serde_json::Value) -> bool {{\n"
         predicates = []
         for field in avro_schema.get('fields', []):
             field_name = camel(field['name'])
-            field_type = self.convert_avro_type_to_rust(field_name, field['type'], namespace)
+            field_type = self.convert_avro_type_to_rust(field_name, field['type'], namespace='')
             predicates.append(self.get_is_json_match_clause(field_name, field_type))
         method_definition += f"{INDENT*2}" + " && ".join(predicates) + "\n"
         method_definition += f"{INDENT}}}\n"
@@ -284,7 +288,8 @@ class AvroToRust:
 
     def generate_to_object_method(self, struct_name: str) -> str:
         """Generates the to_object method for the struct"""
-        method_definition = f"{INDENT}pub fn to_object(&self) -> serde_json::Value {{\n"
+        method_definition = f"{INDENT}/// Converts the struct to a JSON object\n"
+        method_definition += f"{INDENT}pub fn to_object(&self) -> serde_json::Value {{\n"
         method_definition += f"{INDENT*2}serde_json::to_value(self).unwrap_or(serde_json::Value::Null)\n"
         method_definition += f"{INDENT}}}\n"
         return method_definition
