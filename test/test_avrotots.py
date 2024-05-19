@@ -17,27 +17,28 @@ import unittest
 from unittest.mock import patch
 
 class TestAvroToTypeScript(unittest.TestCase):
-    def test_convert_address_avsc_to_typescript(self):
+    def run_test(self, avro_name:str, typedjson_annotation:bool=False, avro_annotation:bool=False):
         """ Test converting an address.avsc file to C# """
         cwd = os.getcwd()        
-        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-ts")
+        avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-ts{'' if not typedjson_annotation else '-typed-json'}{'' if not avro_annotation else '-avro'}")
         if os.path.exists(ts_path):
             shutil.rmtree(ts_path, ignore_errors=True)
         os.makedirs(ts_path, exist_ok=True)
-        
-        convert_avro_to_typescript(avro_path, ts_path)
+    
+        convert_avro_to_typescript(avro_path, ts_path, avro_name+"types", typedjson_annotation, avro_annotation)  
+
+    def test_convert_address_avsc_to_typescript(self):
+        """ Test converting an address.avsc file to C# """
+        self.run_test("address", typedjson_annotation=True, avro_annotation=True)
+        self.run_test("address", typedjson_annotation=True)
+        self.run_test("address", avro_annotation=True)
 
     def test_convert_telemetry_avsc_to_typescript(self):
         """ Test converting a telemetry.avsc file to C# """
-        cwd = os.getcwd()        
-        avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
-        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-ts")
-        if os.path.exists(ts_path):
-            shutil.rmtree(ts_path, ignore_errors=True)
-        os.makedirs(ts_path, exist_ok=True)
-        
-        convert_avro_to_typescript(avro_path, ts_path)
+        self.run_test("telemetry", typedjson_annotation=True, avro_annotation=True)
+        self.run_test("telemetry", typedjson_annotation=True)
+        self.run_test("telemetry", avro_annotation=True)
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_typescript(self):
         """ Test converting a jfrog-pipelines.json file to C# """
