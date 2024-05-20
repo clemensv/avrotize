@@ -1,9 +1,9 @@
- # pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, line-too-long
+# pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, line-too-long
 
-""" Generates Go structs from Avro schema """
+"""Generates Go structs from Avro schema"""
 import json
 import os
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Set
 
 from avrotize.common import is_generic_avro_type, camel, pascal
 
@@ -19,6 +19,8 @@ class AvroToGo:
         self.output_dir = os.getcwd()
         self.generated_types_avro_namespace: Dict[str, str] = {}
         self.generated_types_go_package: Dict[str, str] = {}
+        self.referenced_packages: Dict[str, Set[str]] = {}
+        self.referenced_packages_stack: List[Dict[str, Set[str]]] = []
         self.avro_annotation = False
         self.json_annotation = False
 
@@ -55,14 +57,15 @@ class AvroToGo:
             'bytes': '[]byte',
             'string': 'string',
         }
+        qualified_avro_type = avro_type
         if '.' in avro_type:
             type_name = avro_type.split('.')[-1]
             package_name = '/'.join(avro_type.split('.')[:-1]).lower()
-            avro_type = self.concat_package(package_name, type_name)
-        if avro_type in self.generated_types_avro_namespace:
-            kind = self.generated_types_avro_namespace[avro_type]
-            qualified_class_name = self.concat_package(self.base_package, avro_type)
-            return qualified_class_name
+            qualified_avro_type = package_name + '/' + type_name
+            avro_type = type_name
+            self.referenced_packages.setdefault(package_name, set()).add(type_name)
+        if qualified_avro_type in self.generated_types_avro_namespace:
+            return avro_type
         else:
             return required_mapping.get(avro_type, avro_type) if not is_optional else optional_mapping.get(avro_type, avro_type)
 
@@ -111,15 +114,26 @@ class AvroToGo:
         return 'interface{}'
 
     def generate_class_or_enum(self, avro_schema: Dict) -> str:
-        """ Generates a Go struct or enum from an Avro schema """
+        """Generates a Go struct or enum from an Avro schema"""
+        self.referenced_packages_stack.append(self.referenced_packages)
+        self.referenced_packages = {}
+        qualified_type = ''
         if avro_schema['type'] == 'record':
-            return self.generate_struct(avro_schema)
+            qualified_type = self.generate_struct(avro_schema)
         elif avro_schema['type'] == 'enum':
-            return self.generate_enum(avro_schema)
-        return 'interface{}'
+            qualified_type = self.generate_enum(avro_schema)
+        if not qualified_type:
+            return 'interface{}'
+        self.referenced_packages = self.referenced_packages_stack.pop()
+        type_name = qualified_type
+        if '/' in qualified_type:
+            package_name = qualified_type.rsplit('/', 1)[0]
+            type_name = qualified_type.rsplit('/', 1)[1]
+            self.referenced_packages.setdefault(package_name, set()).add(type_name)
+        return type_name
 
     def generate_struct(self, avro_schema: Dict) -> str:
-        """ Generates a Go struct from an Avro record schema """
+        """Generates a Go struct from an Avro record schema"""
         struct_definition = ''
         if 'doc' in avro_schema:
             struct_definition += f"// {avro_schema['doc']}\n"
@@ -146,7 +160,7 @@ class AvroToGo:
         return qualified_struct_name
 
     def generate_enum(self, avro_schema: Dict) -> str:
-        """ Generates a Go enum from an Avro enum schema """
+        """Generates a Go enum from an Avro enum schema"""
         enum_definition = ''
         if 'doc' in avro_schema:
             enum_definition += f"// {avro_schema['doc']}\n"
@@ -268,48 +282,49 @@ class AvroToGo:
 
     def generate_is_json_match_method(self, struct_name: str, avro_schema: Dict) -> str:
         """Generates the isJsonMatch method for the struct"""
-        method_definition = f"\nfunc IsJsonMatch(node map[string]interface{{}}) bool {{\n"
-        predicates = []
+        method_definition = f"\nfunc (s *{struct_name}) IsJsonMatch(node map[string]interface{{}}) bool {{\n"
+        method_definition += f"{INDENT}_, ok := node[\"{self.base_package}\"].(map[string]interface{{}})\n"
+        method_definition += f"{INDENT}if !ok {{\n"
+        method_definition += f"{INDENT*2}return false\n"
+        method_definition += f"{INDENT}}}\n"
         for field in avro_schema.get('fields', []):
             field_name = pascal(field['name'])
             field_type = self.convert_avro_type_to_go(field_name, field['type'])
-            predicates.append(self.get_is_json_match_clause(field_name, field_type))
-        method_definition += f"{INDENT}return " + " && ".join(predicates) + "\n"
+            method_definition += f"{INDENT}{self.get_is_json_match_clause(field_name, field_type)}\n"
+        method_definition += f"{INDENT}return true\n"
         method_definition += f"}}\n\n"
         return method_definition
 
     def get_is_json_match_clause(self, field_name: str, field_type: str) -> str:
         """Generates the isJsonMatch clause for a field"""
         if field_type == 'string' or field_type == '*string':
-            return f"_, ok := node[\"{field_name}\"].(string); ok"
+            return f"if _, ok := node[\"{field_name}\"].(string); !ok {{ return false }}"
         elif field_type == 'bool' or field_type == '*bool':
-            return f"_, ok := node[\"{field_name}\"].(bool); ok"
+            return f"if _, ok := node[\"{field_name}\"].(bool); !ok {{ return false }}"
         elif field_type == 'int32' or field_type == '*int32':
-            return f"_, ok := node[\"{field_name}\"].(int); ok"
+            return f"if _, ok := node[\"{field_name}\"].(int); !ok {{ return false }}"
         elif field_type == 'int64' or field_type == '*int64':
-            return f"_, ok := node[\"{field_name}\"].(int); ok"
+            return f"if _, ok := node[\"{field_name}\"].(int); !ok {{ return false }}"
         elif field_type == 'float32' or field_type == '*float32':
-            return f"_, ok := node[\"{field_name}\"].(float64); ok"
+            return f"if _, ok := node[\"{field_name}\"].(float64); !ok {{ return false }}"
         elif field_type == 'float64' or field_type == '*float64':
-            return f"_, ok := node[\"{field_name}\"].(float64); ok"
+            return f"if _, ok := node[\"{field_name}\"].(float64); !ok {{ return false }}"
         elif field_type == '[]byte':
-            return f"_, ok := node[\"{field_name}\"].([]byte); ok"
+            return f"if _, ok := node[\"{field_name}\"].([]byte); !ok {{ return false }}"
         elif field_type == 'interface{}':
-            return f"_, ok := node[\"{field_name}\"].(interface{{}}); ok"
+            return f"if _, ok := node[\"{field_name}\"].(interface{{}}); !ok {{ return false }}"
         elif field_type.startswith('map[string]'):
-            return f"_, ok := node[\"{field_name}\"].(map[string]interface{{}}); ok"
+            return f"if _, ok := node[\"{field_name}\"].(map[string]interface{{}}); !ok {{ return false }}"
         elif field_type.startswith('[]'):
-            return f"_, ok := node[\"{field_name}\"].([]interface{{}}); ok"
+            return f"if _, ok := node[\"{field_name}\"].([]interface{{}}); !ok {{ return false }}"
         else:
-            return f"_, ok := node[\"{field_name}\"].(map[string]interface{{}}); ok"
+            return f"if _, ok := node[\"{field_name}\"].(map[string]interface{{}}); !ok {{ return false }}"
+
 
     def generate_to_object_method(self, struct_name: str) -> str:
         """Generates the toObject method for the struct"""
-        method_definition = f"\nfunc (s *{struct_name}) ToObject() map[string]interface{{}} {{\n"
-        method_definition += f"{INDENT}obj := make(map[string]interface{{}})\n"
-        method_definition += f"{INDENT}jsonBytes, _ := json.Marshal(s)\n"
-        method_definition += f"{INDENT}json.Unmarshal(jsonBytes, &obj)\n"
-        method_definition += f"{INDENT}return obj\n"
+        method_definition = f"\nfunc (s *{struct_name}) ToObject() interface{{}} {{\n"
+        method_definition += f"{INDENT}return s\n"
         method_definition += f"}}\n\n"
         return method_definition
 
@@ -336,7 +351,7 @@ class AvroToGo:
         return methods
 
     def write_to_file(self, package: str, name: str, definition: str):
-        """ Writes a Go struct or enum to a file """
+        """Writes a Go struct or enum to a file"""
         directory_path = os.path.join(
             self.output_dir, package.replace('.', os.sep).replace('/', os.sep))
         if not os.path.exists(directory_path):
@@ -360,7 +375,34 @@ class AvroToGo:
                 file.write("import \"encoding/json\"\n\n")
             if "github.com/hamba/avro/v2" in definition:
                 file.write("import \"github.com/hamba/avro/v2\"\n\n")
+            # Add imports for referenced packages
+            for ref_pkg, types in self.referenced_packages.items():
+                file.write(f"import \"{ref_pkg}\"\n")
             file.write(definition)
+
+    def generate_main_file(self):
+        """Generates a main.go file for demonstrating usage of generated structs"""
+        main_content = """package main
+
+import (
+    "fmt"
+)
+
+func main() {
+    fmt.Println("Generated Go structs from Avro schema.")
+}
+"""
+        with open(os.path.join(self.output_dir, "main.go"), 'w', encoding='utf-8') as file:
+            file.write(main_content)
+
+    def generate_go_mod_file(self, module_name: str):
+        """Generates a go.mod file for the project"""
+        go_mod_content = f"""module {module_name}
+
+go 1.16
+"""
+        with open(os.path.join(self.output_dir, "go.mod"), 'w', encoding='utf-8') as file:
+            file.write(go_mod_content)
 
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to Go"""
@@ -371,6 +413,8 @@ class AvroToGo:
         self.output_dir = output_dir
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema)
+        self.generate_main_file()
+        self.generate_go_mod_file("github.com/yourusername/yourproject")
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Go"""
@@ -383,8 +427,8 @@ def convert_avro_to_go(avro_schema_path, go_file_path, package_name='', avro_ann
     """Converts Avro schema to Go structs
 
     Args:
-        avro_schema_path (str): Avro input schema path  
-        go_file_path (str): Output Go file path 
+        avro_schema_path (str): Avro input schema path
+        go_file_path (str): Output Go file path
         package_name (str): Base package name
         avro_annotation (bool): Include Avro annotations
         json_annotation (bool): Include JSON annotations
@@ -401,7 +445,7 @@ def convert_avro_schema_to_go(avro_schema: JsonNode, output_dir: str, package_na
 
     Args:
         avro_schema (JsonNode): Avro schema as a dictionary or list of dictionaries
-        output_dir (str): Output directory path 
+        output_dir (str): Output directory path
         package_name (str): Base package name
         avro_annotation (bool): Include Avro annotations
         json_annotation (bool): Include JSON annotations
