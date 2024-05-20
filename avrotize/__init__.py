@@ -10,7 +10,7 @@ from .avrotojsons import convert_avro_to_json_schema
 from .avrotokusto import convert_avro_to_kusto_file, convert_avro_to_kusto_db
 from .avrotoparquet import convert_avro_to_parquet
 from .avrotoproto import convert_avro_to_proto
-from .avrototsql import convert_avro_to_tsql
+from .avrototsql import convert_avro_to_sql
 from .avrotoxsd import convert_avro_to_xsd
 from .avrotojava import convert_avro_to_java, convert_avro_schema_to_java
 from .avrotocsharp import convert_avro_to_csharp, convert_avro_schema_to_csharp

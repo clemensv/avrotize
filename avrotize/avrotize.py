@@ -9,7 +9,7 @@ from avrotize.avrotoparquet import convert_avro_to_parquet
 from avrotize.avrotoproto import convert_avro_to_proto
 from avrotize.avrotopython import convert_avro_to_python
 from avrotize.avrotots import convert_avro_to_typescript
-from avrotize.avrototsql import convert_avro_to_tsql
+from avrotize.avrototsql import convert_avro_to_sql
 from avrotize.jsonstoavro import convert_jsons_to_avro
 from avrotize.kstructtoavro import convert_kafka_struct_to_avro_schema
 from avrotize.kustotoavro import convert_kusto_to_avro
@@ -202,7 +202,7 @@ def main():
         tsql_file_path = args.tsql
         emit_cloud_events_columns = args.emit_cloudevents_columns
         print(f'Converting Avro {avro_schema_path} to T-SQL {tsql_file_path}')
-        convert_avro_to_tsql(avro_schema_path, avro_record_type, tsql_file_path, emit_cloud_events_columns)
+        convert_avro_to_sql(avro_schema_path, tsql_file_path, "tsql", emit_cloud_events_columns)
     elif args.command == 'a2pq':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type

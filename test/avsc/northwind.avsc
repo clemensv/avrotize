@@ -1,0 +1,180 @@
+[
+  {
+    "type": "record",
+    "name": "Category",
+    "fields": [
+      { "name": "CategoryID", "type": "int" },
+      { "name": "CategoryName", "type": "string" },
+      { "name": "Description", "type": ["null", "string"], "default": null },
+      { "name": "Picture", "type": ["null", "bytes"], "default": null }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Customer",
+    "fields": [
+      { "name": "CustomerID", "type": "string" },
+      { "name": "CompanyName", "type": "string" },
+      { "name": "ContactName", "type": ["null", "string"], "default": null },
+      { "name": "ContactTitle", "type": ["null", "string"], "default": null },
+      { "name": "Address", "type": ["null", "string"], "default": null },
+      { "name": "City", "type": ["null", "string"], "default": null },
+      { "name": "Region", "type": ["null", "string"], "default": null },
+      { "name": "PostalCode", "type": ["null", "string"], "default": null },
+      { "name": "Country", "type": ["null", "string"], "default": null },
+      { "name": "Phone", "type": ["null", "string"], "default": null },
+      { "name": "Fax", "type": ["null", "string"], "default": null }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Employee",
+    "fields": [
+      { "name": "EmployeeID", "type": "int" },
+      { "name": "LastName", "type": "string" },
+      { "name": "FirstName", "type": "string" },
+      { "name": "Title", "type": ["null", "string"], "default": null },
+      {
+        "name": "TitleOfCourtesy",
+        "type": ["null", "string"],
+        "default": null
+      },
+      {
+        "name": "BirthDate",
+        "type": ["null", { "type": "int", "logicalType": "date" }],
+        "default": null
+      },
+      {
+        "name": "HireDate",
+        "type": ["null", { "type": "int", "logicalType": "date" }],
+        "default": null
+      },
+      { "name": "Address", "type": ["null", "string"], "default": null },
+      { "name": "City", "type": ["null", "string"], "default": null },
+      { "name": "Region", "type": ["null", "string"], "default": null },
+      { "name": "PostalCode", "type": ["null", "string"], "default": null },
+      { "name": "Country", "type": ["null", "string"], "default": null },
+      { "name": "HomePhone", "type": ["null", "string"], "default": null },
+      { "name": "Extension", "type": ["null", "string"], "default": null },
+      { "name": "Photo", "type": ["null", "bytes"], "default": null },
+      { "name": "Notes", "type": ["null", "string"], "default": null },
+      { "name": "ReportsTo", "type": ["null", "int"], "default": null },
+      { "name": "PhotoPath", "type": ["null", "string"], "default": null }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Order",
+    "fields": [
+      { "name": "OrderID", "type": "int" },
+      { "name": "CustomerID", "type": ["null", "string"], "default": null },
+      { "name": "EmployeeID", "type": ["null", "int"], "default": null },
+      {
+        "name": "OrderDate",
+        "type": ["null", { "type": "int", "logicalType": "date" }],
+        "default": null
+      },
+      {
+        "name": "RequiredDate",
+        "type": ["null", { "type": "int", "logicalType": "date" }],
+        "default": null
+      },
+      {
+        "name": "ShippedDate",
+        "type": ["null", { "type": "int", "logicalType": "date" }],
+        "default": null
+      },
+      { "name": "ShipVia", "type": ["null", "int"], "default": null },
+      { "name": "Freight", "type": ["null", "float"], "default": null },
+      { "name": "ShipName", "type": ["null", "string"], "default": null },
+      { "name": "ShipAddress", "type": ["null", "string"], "default": null },
+      { "name": "ShipCity", "type": ["null", "string"], "default": null },
+      { "name": "ShipRegion", "type": ["null", "string"], "default": null },
+      { "name": "ShipPostalCode", "type": ["null", "string"], "default": null },
+      { "name": "ShipCountry", "type": ["null", "string"], "default": null }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "OrderDetail",
+    "fields": [
+      { "name": "OrderID", "type": "int" },
+      { "name": "ProductID", "type": "int" },
+      { "name": "UnitPrice", "type": "float" },
+      { "name": "Quantity", "type": "int" },
+      { "name": "Discount", "type": "float" }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Product",
+    "fields": [
+      { "name": "ProductID", "type": "int" },
+      { "name": "ProductName", "type": "string" },
+      { "name": "SupplierID", "type": ["null", "int"], "default": null },
+      { "name": "CategoryID", "type": ["null", "int"], "default": null },
+      {
+        "name": "QuantityPerUnit",
+        "type": ["null", "string"],
+        "default": null
+      },
+      { "name": "UnitPrice", "type": ["null", "float"], "default": null },
+      { "name": "UnitsInStock", "type": ["null", "int"], "default": null },
+      { "name": "UnitsOnOrder", "type": ["null", "int"], "default": null },
+      { "name": "ReorderLevel", "type": ["null", "int"], "default": null },
+      { "name": "Discontinued", "type": "boolean" }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Shipper",
+    "fields": [
+      { "name": "ShipperID", "type": "int" },
+      { "name": "CompanyName", "type": "string" },
+      { "name": "Phone", "type": ["null", "string"], "default": null }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Supplier",
+    "fields": [
+      { "name": "SupplierID", "type": "int" },
+      { "name": "CompanyName", "type": "string" },
+      { "name": "ContactName", "type": ["null", "string"], "default": null },
+      { "name": "ContactTitle", "type": ["null", "string"], "default": null },
+      { "name": "Address", "type": ["null", "string"], "default": null },
+      { "name": "City", "type": ["null", "string"], "default": null },
+      { "name": "Region", "type": ["null", "string"], "default": null },
+      { "name": "PostalCode", "type": ["null", "string"], "default": null },
+      { "name": "Country", "type": ["null", "string"], "default": null },
+      { "name": "Phone", "type": ["null", "string"], "default": null },
+      { "name": "Fax", "type": ["null", "string"], "default": null },
+      { "name": "HomePage", "type": ["null", "string"], "default": null }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Region",
+    "fields": [
+      { "name": "RegionID", "type": "int" },
+      { "name": "RegionDescription", "type": "string" }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Territory",
+    "fields": [
+      { "name": "TerritoryID", "type": "string" },
+      { "name": "TerritoryDescription", "type": "string" },
+      { "name": "RegionID", "type": "int" }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "EmployeeTerritory",
+    "fields": [
+      { "name": "EmployeeID", "type": "int" },
+      { "name": "TerritoryID", "type": "string" }
+    ]
+  }
+]

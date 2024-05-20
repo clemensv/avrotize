@@ -348,3 +348,24 @@ def camel(string):
         words = re.findall(r'[a-z0-9]+\.?|[A-Z][a-z0-9_]*\.?', string)
     result = words[0].lower() + ''.join(word.capitalize() for word in words[1:])
     return result
+
+def fullname(avro_schema: dict):
+    name = avro_schema.get("name", "")
+    namespace = avro_schema.get("namespace", "")
+    return namespace + "." + name if namespace else name
+
+def altname(schema_obj: dict, purpose: str):
+    """
+    Retrieves the alternative name for a given purpose from the schema object.
+
+    Args:
+        schema_obj (dict): The schema object (record or field).
+        default_name (str): The default name.
+        purpose (str): The purpose for the alternative name (e.g., 'sql').
+
+    Returns:
+        str: The alternative name if present, otherwise the default name.
+    """
+    if "altnames" in schema_obj and purpose in schema_obj["altnames"]:
+        return schema_obj["altnames"][purpose]
+    return schema_obj["name"]

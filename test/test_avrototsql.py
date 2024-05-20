@@ -1,7 +1,23 @@
 import os
+import re
 import sys
 import tempfile
+import unittest
 from os import path, getcwd
+import json
+import pytest
+from testcontainers.mysql import MySqlContainer
+from testcontainers.postgres import PostgresContainer
+from testcontainers.mongodb import MongoDbContainer
+from testcontainers.mssql import SqlServerContainer
+from testcontainers.oracle import OracleDbContainer
+import pymysql
+import psycopg2
+import pymongo
+import pyodbc
+import cx_Oracle
+
+from avrotize.common import altname
 
 current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
@@ -9,27 +25,223 @@ sys.path.append(project_root)
 
 import unittest
 from unittest.mock import patch
-from avrotize.avrototsql import convert_avro_to_tsql
+from avrotize.avrototsql import convert_avro_to_sql, convert_avro_to_nosql
 
-class TestAvroToTSQL(unittest.TestCase):
-    def test_convert_address_avsc_to_tsql(self):
+
+class TestAvroToDB(unittest.TestCase):
+
+    def setUp(self):
+        self.avro_schema = {
+            "type": "record",
+            "name": "TestRecord",
+            "namespace": "com.example",
+            "fields": [
+                {"name": "id", "type": "int", "doc": "Primary key"},
+                {"name": "name", "type": "string", "doc": "Name of the record"},
+                {"name": "email", "type": ["null", "string"], "doc": "Email address"}
+            ],
+            "unique": ["id"]
+        }
+        self.schema_json = json.dumps(self.avro_schema)
+        with open("test_schema.avsc", "w", encoding="utf-8") as f:
+            f.write(self.schema_json)
+
+    def tearDown(self):
+        import os
+        os.remove("test_schema.avsc")
+
+    def test_mysql_schema_creation(self):
+        self.run_mysql_schema_creation("address")
+        self.run_mysql_schema_creation("northwind")
+
+    def run_mysql_schema_creation(self, avro_name: str):
         cwd = os.getcwd()        
-        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        kql_path = os.path.join(tempfile.gettempdir(), "avrotize", "address.sql")
-        dir = os.path.dirname(kql_path)
-        if not os.path.exists(dir):
-            os.makedirs(dir, exist_ok=True)
-        
-        convert_avro_to_tsql(avro_path, None, kql_path, False)           
+        avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
+        sql_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-mysql.sql")
 
-    def test_convert_telemetry_avsc_to_tsql(self):
+        with MySqlContainer() as mysql:
+            conn = pymysql.connect(host=mysql.get_container_host_ip(),
+                                   port=int(mysql.get_exposed_port(3306)),
+                                   user=mysql.username,
+                                   password=mysql.password,
+                                   database=mysql.dbname)
+            cursor = conn.cursor()
+            cloudevents_columns_count = 5
+            convert_avro_to_sql(avro_path, sql_path, "mysql", emit_cloud_events_columns=True)
+            with open(sql_path, "r", encoding="utf-8") as sql_file:
+                schema_sql = sql_file.read()
+                for statement in schema_sql.split(";"):
+                    if statement.strip():
+                        cursor.execute(statement)
+            cursor.execute("SHOW TABLES;")
+            tables = cursor.fetchall()
+            with open(avro_path, "r", encoding="utf-8") as avsc_file:
+                avro_schema = json.load(avsc_file)
+            for table_cols in tables:
+                table = table_cols[0]
+                if isinstance(avro_schema, list):
+                    self.assertTrue(any([table == altname(t, "sql") for t in avro_schema]))
+                else:
+                    self.assertTrue(table == altname(avro_schema, "sql"))
+                cursor.execute(f"DESCRIBE `{table}`;")
+                columns = cursor.fetchall()
+                if isinstance(avro_schema, list):
+                    avro_record = [t for t in avro_schema if table == altname(t, "sql")][0]
+                else:
+                    avro_record = avro_schema
+                self.assertEqual(len(columns), len(avro_record["fields"])+cloudevents_columns_count)  # id, name, email, and CloudEvents columns
+        
+            cursor.close()
+            conn.close()
+
+    def test_postgres_schema_creation(self):
+        self.run_postgres_schema_creation("address")
+        self.run_postgres_schema_creation("northwind")
+
+    def run_postgres_schema_creation(self, avro_name):
         cwd = os.getcwd()        
-        avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
-        kql_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry.sql")
-        dir = os.path.dirname(kql_path)
-        if not os.path.exists(dir):
-            os.makedirs(dir, exist_ok=True)
-        
-        convert_avro_to_tsql(avro_path, None, kql_path, True)
+        avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
+        sql_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-postgres.sql")
+        with PostgresContainer() as postgres:
+            conn = psycopg2.connect(host=postgres.get_container_host_ip(),
+                                    port=postgres.get_exposed_port(5432),
+                                    user=postgres.username,
+                                    password=postgres.password,
+                                    database=postgres.dbname)
+            cursor = conn.cursor()
+            cloudevents_columns_count = 5
+            convert_avro_to_sql(avro_path, sql_path, "postgres", emit_cloud_events_columns=True)
+            with open(sql_path, "r", encoding="utf-8") as sql_file:
+                schema_sql = sql_file.read()
+                cursor.execute(schema_sql)
+            cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
+            tables = cursor.fetchall()
+            with open(avro_path, "r", encoding="utf-8") as avsc_file:
+                avro_schema = json.load(avsc_file)
+            for table_cols in tables:
+                table = table_cols[0]
+                if isinstance(avro_schema, list):
+                    self.assertTrue(any([table == altname(t, "sql") for t in avro_schema]))
+                else:
+                    self.assertTrue(table == altname(avro_schema, "sql"))
+                cursor.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table}';")
+                columns = cursor.fetchall()
+                if isinstance(avro_schema, list):
+                    avro_record = [t for t in avro_schema if table == altname(t, "sql")][0]
+                else:
+                    avro_record = avro_schema
+                self.assertEqual(len(columns), len(avro_record["fields"])+cloudevents_columns_count)  # id, name, email, and CloudEvents columns
+            cursor.close()
+            conn.close()
 
-    
+    def test_mongodb_schema_creation(self):
+        self.run_mongodb_schema_creation("address")
+        self.run_mongodb_schema_creation("northwind")
+
+    def get_fullname(self, avro_schema: dict):
+        name = avro_schema.get("name", "")
+        namespace = avro_schema.get("namespace", "")
+        return namespace + "." + name if namespace else name
+
+    def run_mongodb_schema_creation(self, avro_name):
+        cwd = os.getcwd()        
+        avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
+        model_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-mongo")
+        with MongoDbContainer() as mongo:
+            client = pymongo.MongoClient(mongo.get_connection_url())
+            db = client.test
+            convert_avro_to_nosql(avro_path, model_path, "mongodb", emit_cloud_events_columns=True)
+            json_files = [f for f in os.listdir(model_path) if f.endswith('.json')]
+            for json_file in json_files:
+                with open(os.path.join(model_path, json_file), "r", encoding="utf-8") as json_file:
+                    schema_json = json.load(json_file)
+                    collection_name = list(schema_json.keys())[0]
+                    db.create_collection(collection_name, validator=schema_json[collection_name])
+            with open(avro_path, "r", encoding="utf-8") as avsc_file:
+                avro_schema = json.load(avsc_file)
+            collections = db.list_collection_names()
+            for collection in collections:
+                if isinstance(avro_schema, list):
+                    self.assertTrue(any([collection == self.get_fullname(t) for t in avro_schema]))
+                else:
+                    self.assertTrue(collection == self.get_fullname(avro_schema))
+            client.close()
+
+    def test_mssql_schema_creation(self):
+        self.run_mssql_schema_creation("address")
+        self.run_mssql_schema_creation("northwind")
+
+    def run_mssql_schema_creation(self, avro_name):
+        cwd = os.getcwd()        
+        avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
+        sql_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-mssql.sql")
+        with SqlServerContainer() as mssql:
+            conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={mssql.get_container_host_ip()},{mssql.get_exposed_port(1433)};UID={mssql.username};PWD={mssql.password}'
+            conn = pyodbc.connect(conn_str)
+            cursor = conn.cursor()
+            cloudevents_columns_count = 5
+            convert_avro_to_sql(avro_path, sql_path, "tsql", emit_cloud_events_columns=True)
+            with open(sql_path, "r", encoding="utf-8") as sql_file:
+                schema_sql = sql_file.read()
+                for statement in schema_sql.split(";"):
+                    if statement.strip().strip('\n'):
+                        cursor.execute(statement)
+            cursor.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES;")
+            tables = [t[0] for t in cursor.fetchall() if not t[0].startswith("spt_") and not t[0].startswith("MS")]
+            with open(avro_path, "r", encoding="utf-8") as avsc_file:
+                avro_schema = json.load(avsc_file)
+            for table in tables:
+                if isinstance(avro_schema, list):
+                    self.assertTrue(any([table == altname(t, "sql") for t in avro_schema]))
+                else:
+                    self.assertTrue(table == altname(avro_schema, "sql"))
+                cursor.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table}';")
+                columns = cursor.fetchall()
+                if isinstance(avro_schema, list):
+                    avro_record = [t for t in avro_schema if table == altname(t, "sql")][0]
+                else:
+                    avro_record = avro_schema
+                self.assertEqual(len(columns), len(avro_record["fields"])+cloudevents_columns_count)  # id, name, email, and CloudEvents columns
+            cursor.close()
+            conn.close()
+
+    @pytest.mark.skip("driver too hard to install")
+    def test_oracle_schema_creation(self):
+        self.run_oracle_schema_creation("address")
+        self.run_oracle_schema_creation("northwind")
+
+    def run_oracle_schema_creation(self, avro_name):
+        cwd = os.getcwd()        
+        avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
+        sql_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-oracle.sql")
+        with OracleDbContainer() as oracle:
+            cx_Oracle.init_oracle_client(lib_dir='c:\\tools\\instantclient_21_13')
+            conn_str = f'user="{oracle.username}" password="{oracle.password}" dsn="{oracle.get_container_host_ip()}:{oracle.get_exposed_port(1521)}/FREEPDB1"'
+            conn = cx_Oracle.connect(conn_str)
+            cursor = conn.cursor()
+            cloudevents_columns_count = 5
+            convert_avro_to_sql("test_schema.avsc", "test_schema.sql", "oracle", emit_cloud_events_columns=True)
+            with open("test_schema.sql", "r", encoding="utf-8") as sql_file:
+                schema_sql = sql_file.read()
+                for statement in schema_sql.split(";"):
+                    if statement.strip():
+                        cursor.execute(statement)
+            cursor.execute("SELECT table_name FROM user_tables")
+            tables = cursor.fetchall()
+            with open(avro_path, "r", encoding="utf-8") as avsc_file:
+                avro_schema = json.load(avsc_file)
+            for table_cols in tables:
+                table = table_cols[0]
+                if isinstance(avro_schema, list):
+                    self.assertTrue(any([table == altname(t, "sql") for t in avro_schema]))
+                else:
+                    self.assertTrue(table == altname(avro_schema, "sql"))
+                cursor.execute(f"SELECT column_name FROM user_tab_columns WHERE table_name = '{table}';")
+                columns = cursor.fetchall()
+                if isinstance(avro_schema, list):
+                    avro_record = [t for t in avro_schema if table == altname(t, "sql")][0]
+                else:
+                    avro_record = avro_schema
+                self.assertEqual(len(columns), len(avro_record["fields"])+cloudevents_columns_count)  # id, name, email, and CloudEvents columns
+            cursor.close()
+            conn.close()
