@@ -148,8 +148,6 @@ class AvroToGo:
             field_name = pascal(field['name'])
             field_type = self.convert_avro_type_to_go(field_name, field['type'])
             struct_definition += f"{INDENT}{field_name} {field_type}"
-            if self.json_annotation or self.avro_annotation:
-                struct_definition += " `"
             if self.json_annotation:
                 struct_definition += f"json:\"{field['name']}\""
             if self.avro_annotation:
