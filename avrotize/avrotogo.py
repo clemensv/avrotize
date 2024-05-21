@@ -87,7 +87,7 @@ class AvroToGo:
                 else:
                     return self.convert_avro_type_to_go(field_name, non_null_types[0])
             else:
-                return self.generate_union_class(pascal(field_name), field_name, avro_type)
+                return self.generate_union_class(field_name, avro_type)
         elif isinstance(avro_type, dict):
             if avro_type['type'] in ['record', 'enum']:
                 return self.generate_class_or_enum(avro_type)
@@ -147,7 +147,10 @@ class AvroToGo:
         for field in avro_schema.get('fields', []):
             field_name = pascal(field['name'])
             field_type = self.convert_avro_type_to_go(field_name, field['type'])
-            struct_definition += f"{INDENT}{field_name} {field_type} `json:\"{field['name']}\"`\n"
+            struct_definition += f"{INDENT}{field_name} {field_type}"
+            if self.json_annotation:
+                struct_definition += f"`json:\"{field['name']}\"`"
+            struct_definition += "\n"
         struct_definition += "}\n\n"
 
         struct_definition += self.generate_to_byte_array_method(struct_name)
@@ -177,145 +180,13 @@ class AvroToGo:
         self.write_to_file(namespace.replace('.', '/'), enum_name, enum_definition)
         return qualified_enum_name
 
-    def generate_union_class(self, class_name: str, field_name: str, avro_type: List) -> str:
-        """Generates a union class for Go"""
-        union_class_name = class_name + 'Union'
-        class_definition = f"type {union_class_name} struct {{\n"
-        union_types = [self.convert_avro_type_to_go(field_name + "Option" + str(i), t) for i, t in enumerate(avro_type)]
-        for union_type in union_types:
-            field_name = self.safe_identifier(union_type.split('/')[-1])
-            class_definition += f"{INDENT}{pascal(field_name)} {union_type}\n"
-        class_definition += "}\n\n"
-        class_definition += self.generate_union_class_methods(union_class_name, union_types)
-        self.write_to_file('', union_class_name, class_definition)
-        return union_class_name
-
-    def generate_union_class_methods(self, union_class_name: str, union_types: List[str]) -> str:
-        """Generates methods for the union class"""
-        methods = f"func (u *{union_class_name}) ToObject() interface{{}} {{\n"
-        methods += f"{INDENT}if u == nil {{\n"
-        methods += f"{INDENT*2}return nil\n"
-        methods += f"{INDENT}}}\n"
-        for union_type in union_types:
-            field_name = self.safe_identifier(union_type.split('/')[-1])
-            methods += f"{INDENT}if u.{pascal(field_name)} != nil {{\n"
-            methods += f"{INDENT*2}return u.{pascal(field_name)}\n"
-            methods += f"{INDENT}}}\n"
-        methods += f"{INDENT}return nil\n"
-        methods += f"}}\n\n"
-
-        methods += f"func (u *{union_class_name}) ToByteArray(contentType string) ([]byte, error) {{\n"
-        methods += f"{INDENT}if u == nil {{\n"
-        methods += f"{INDENT*2}return nil, nil\n"
-        methods += f"{INDENT}}}\n"
-        methods += f"{INDENT}var result []byte\n"
-        methods += f"{INDENT}var err error\n"
-        methods += f"{INDENT}mediaType := strings.Split(contentType, \";\")[0]\n"
-        methods += f"{INDENT}switch mediaType {{\n"
-        for union_type in union_types:
-            field_name = self.safe_identifier(union_type.split('/')[-1])
-            methods += f"{INDENT}case \"application/json\":\n"
-            methods += f"{INDENT*2}if u.{pascal(field_name)} != nil {{\n"
-            methods += f"{INDENT*3}result, err = json.Marshal(u.{pascal(field_name)})\n"
-            methods += f"{INDENT*3}if err != nil {{\n"
-            methods += f"{INDENT*4}return nil, err\n"
-            methods += f"{INDENT*3}}}\n"
-            methods += f"{INDENT*2}}}\n"
-        methods += f"{INDENT}default:\n"
-        methods += f"{INDENT*2}return nil, fmt.Errorf(\"unsupported media type: %s\", mediaType)\n"
-        methods += f"{INDENT}}}\n"
-        methods += f"{INDENT}if strings.HasSuffix(mediaType, \"+gzip\") {{\n"
-        methods += f"{INDENT*2}var buf bytes.Buffer\n"
-        methods += f"{INDENT*2}gzipWriter := gzip.NewWriter(&buf)\n"
-        methods += f"{INDENT*2}_, err = gzipWriter.Write(result)\n"
-        methods += f"{INDENT*2}if err != nil {{\n"
-        methods += f"{INDENT*3}return nil, err\n"
-        methods += f"{INDENT*2}}}\n"
-        methods += f"{INDENT*2}err = gzipWriter.Close()\n"
-        methods += f"{INDENT*2}if err != nil {{\n"
-        methods += f"{INDENT*3}return nil, err\n"
-        methods += f"{INDENT*2}}}\n"
-        methods += f"{INDENT*2}result = buf.Bytes()\n"
-        methods += f"{INDENT}}}\n"
-        methods += f"{INDENT}return result, nil\n"
-        methods += f"}}\n\n"
-
-        methods += f"func (u *{union_class_name}) FromData(data interface{{}}, contentType string) (*{union_class_name}, error) {{\n"
-        methods += f"{INDENT}var err error\n"
-        methods += f"{INDENT}mediaType := strings.Split(contentType, \";\")[0]\n"
-        methods += f"{INDENT}if strings.HasSuffix(mediaType, \"+gzip\") {{\n"
-        methods += f"{INDENT*2}var reader io.Reader\n"
-        methods += f"{INDENT*2}switch v := data.(type) {{\n"
-        methods += f"{INDENT*3}case []byte:\n"
-        methods += f"{INDENT*4}reader = bytes.NewReader(v)\n"
-        methods += f"{INDENT*3}case io.Reader:\n"
-        methods += f"{INDENT*4}reader = v\n"
-        methods += f"{INDENT*3}default:\n"
-        methods += f"{INDENT*4}return nil, fmt.Errorf(\"unsupported data type for gzip: %T\", data)\n"
-        methods += f"{INDENT*2}}}\n"
-        methods += f"{INDENT*2}gzipReader, err := gzip.NewReader(reader)\n"
-        methods += f"{INDENT*2}if err != nil {{\n"
-        methods += f"{INDENT*3}return nil, err\n"
-        methods += f"{INDENT*2}}}\n"
-        methods += f"{INDENT*2}defer gzipReader.Close()\n"
-        methods += f"{INDENT*2}data, err = io.ReadAll(gzipReader)\n"
-        methods += f"{INDENT*2}if err != nil {{\n"
-        methods += f"{INDENT*3}return nil, err\n"
-        methods += f"{INDENT*2}}}\n"
-        methods += f"{INDENT*2}mediaType = mediaType[:len(mediaType)-5]\n"
-        methods += f"{INDENT}}}\n"
-        methods += f"{INDENT}switch mediaType {{\n"
-        for union_type in union_types:
-            field_name = self.safe_identifier(union_type.split('/')[-1])
-            methods += f"{INDENT}case \"application/json\":\n"
-            methods += f"{INDENT*2}switch v := data.(type) {{\n"
-            methods += f"{INDENT*3}case []byte:\n"
-            methods += f"{INDENT*4}var obj {union_type}\n"
-            methods += f"{INDENT*4}err = json.Unmarshal(v, &obj)\n"
-            methods += f"{INDENT*4}if err != nil {{\n"
-            methods += f"{INDENT*5}return nil, err\n"
-            methods += f"{INDENT*4}}}\n"
-            methods += f"{INDENT*4}return &{union_class_name}{{{pascal(field_name)}: &obj}}, nil\n"
-            methods += f"{INDENT*3}case string:\n"
-            methods += f"{INDENT*4}var obj {union_type}\n"
-            methods += f"{INDENT*4}err = json.Unmarshal([]byte(v), &obj)\n"
-            methods += f"{INDENT*4}if err != nil {{\n"
-            methods += f"{INDENT*5}return nil, err\n"
-            methods += f"{INDENT*4}}}\n"
-            methods += f"{INDENT*4}return &{union_class_name}{{{pascal(field_name)}: &obj}}, nil\n"
-            methods += f"{INDENT*3}case io.Reader:\n"
-            methods += f"{INDENT*4}var obj {union_type}\n"
-            methods += f"{INDENT*4}err = json.NewDecoder(v).Decode(&obj)\n"
-            methods += f"{INDENT*4}if err != nil {{\n"
-            methods += f"{INDENT*5}return nil, err\n"
-            methods += f"{INDENT*4}}}\n"
-            methods += f"{INDENT*4}return &{union_class_name}{{{pascal(field_name)}: &obj}}, nil\n"
-            methods += f"{INDENT*3}default:\n"
-            methods += f"{INDENT*4}return nil, fmt.Errorf(\"unsupported data type for JSON: %T\", data)\n"
-            methods += f"{INDENT*2}}}\n"
-        methods += f"{INDENT}default:\n"
-        methods += f"{INDENT*2}return nil, fmt.Errorf(\"unsupported media type: %s\", mediaType)\n"
-        methods += f"{INDENT}}}\n"
-        methods += f"{INDENT}return nil, nil\n"
-        methods += f"}}\n\n"
-
-        methods += f"func (u *{union_class_name}) IsJsonMatch(node map[string]interface{{}}) bool {{\n"
-        methods += f"{INDENT}if u == nil {{\n"
-        methods += f"{INDENT*2}return false\n"
-        methods += f"{INDENT}}}\n"
-        for union_type in union_types:
-            field_name = self.safe_identifier(union_type.split('/')[-1])
-            methods += f"{INDENT}if u.{pascal(field_name)} != nil {{\n"
-            methods += f"{INDENT*2}_, ok := node[\"{pascal(field_name)}\"].({union_type})\n"
-            methods += f"{INDENT*2}return ok\n"
-            methods += f"{INDENT}}}\n"
-        methods += f"{INDENT}return false\n"
-        methods += f"}}\n\n"
-        return methods
-
     def generate_to_byte_array_method(self, struct_name: str) -> str:
         """Generates the ToByteArray method for the struct"""
         method_definition = f"\nfunc (s *{struct_name}) ToByteArray(contentType string) ([]byte, error) {{\n"
+        if not (self.avro_annotation or self.json_annotation):
+            method_definition += f"{INDENT}return nil, fmt.Errorf(\"unsupported content type: %s\", contentType)\n"
+            method_definition += f"}}\n\n"
+            return method_definition
         method_definition += f"{INDENT}var result []byte\n"
         method_definition += f"{INDENT}var err error\n"
         method_definition += f"{INDENT}mediaType := strings.Split(contentType, \";\")[0]\n"
@@ -338,19 +209,20 @@ class AvroToGo:
         method_definition += f"{INDENT}default:\n"
         method_definition += f"{INDENT*2}return nil, fmt.Errorf(\"unsupported media type: %s\", mediaType)\n"
         method_definition += f"{INDENT}}}\n"
-        method_definition += f"{INDENT}if strings.HasSuffix(mediaType, \"+gzip\") {{\n"
-        method_definition += f"{INDENT*2}var buf bytes.Buffer\n"
-        method_definition += f"{INDENT*2}gzipWriter := gzip.NewWriter(&buf)\n"
-        method_definition += f"{INDENT*2}_, err = gzipWriter.Write(result)\n"
-        method_definition += f"{INDENT*2}if err != nil {{\n"
-        method_definition += f"{INDENT*3}return nil, err\n"
-        method_definition += f"{INDENT*2}}}\n"
-        method_definition += f"{INDENT*2}err = gzipWriter.Close()\n"
-        method_definition += f"{INDENT*2}if err != nil {{\n"
-        method_definition += f"{INDENT*3}return nil, err\n"
-        method_definition += f"{INDENT*2}}}\n"
-        method_definition += f"{INDENT*2}result = buf.Bytes()\n"
-        method_definition += f"{INDENT}}}\n"
+        if self.avro_annotation or self.json_annotation:
+            method_definition += f"{INDENT}if strings.HasSuffix(mediaType, \"+gzip\") {{\n"
+            method_definition += f"{INDENT*2}var buf bytes.Buffer\n"
+            method_definition += f"{INDENT*2}gzipWriter := gzip.NewWriter(&buf)\n"
+            method_definition += f"{INDENT*2}_, err = gzipWriter.Write(result)\n"
+            method_definition += f"{INDENT*2}if err != nil {{\n"
+            method_definition += f"{INDENT*3}return nil, err\n"
+            method_definition += f"{INDENT*2}}}\n"
+            method_definition += f"{INDENT*2}err = gzipWriter.Close()\n"
+            method_definition += f"{INDENT*2}if err != nil {{\n"
+            method_definition += f"{INDENT*3}return nil, err\n"
+            method_definition += f"{INDENT*2}}}\n"
+            method_definition += f"{INDENT*2}result = buf.Bytes()\n"
+            method_definition += f"{INDENT}}}\n"
         method_definition += f"{INDENT}return result, nil\n"
         method_definition += f"}}\n\n"
         return method_definition
@@ -358,30 +230,34 @@ class AvroToGo:
     def generate_from_data_method(self, struct_name: str) -> str:
         """Generates the FromData method for the struct"""
         method_definition = f"\nfunc FromData(data interface{{}}, contentType string) (*{struct_name}, error) {{\n"
+        if not (self.avro_annotation or self.json_annotation):
+            method_definition += f"{INDENT*1}return nil, fmt.Errorf(\"unsupported content type: %s\", contentType)\n"
+            method_definition += f"}}\n\n"
+            return method_definition
         method_definition += f"{INDENT}var s {struct_name}\n"
         method_definition += f"{INDENT}var err error\n"
         method_definition += f"{INDENT}mediaType := strings.Split(contentType, \";\")[0]\n"
-        method_definition += f"{INDENT}if strings.HasSuffix(mediaType, \"+gzip\") {{\n"
-        method_definition += f"{INDENT*2}var reader io.Reader\n"
-        method_definition += f"{INDENT*2}switch v := data.(type) {{\n"
-        method_definition += f"{INDENT*3}case []byte:\n"
-        method_definition += f"{INDENT*4}reader = bytes.NewReader(v)\n"
-        method_definition += f"{INDENT*3}case io.Reader:\n"
-        method_definition += f"{INDENT*4}reader = v\n"
-        method_definition += f"{INDENT*3}default:\n"
-        method_definition += f"{INDENT*4}return nil, fmt.Errorf(\"unsupported data type for gzip: %T\", data)\n"
-        method_definition += f"{INDENT*2}}}\n"
-        method_definition += f"{INDENT*2}gzipReader, err := gzip.NewReader(reader)\n"
-        method_definition += f"{INDENT*2}if err != nil {{\n"
-        method_definition += f"{INDENT*3}return nil, err\n"
-        method_definition += f"{INDENT*2}}}\n"
-        method_definition += f"{INDENT*2}defer gzipReader.Close()\n"
-        method_definition += f"{INDENT*2}data, err = io.ReadAll(gzipReader)\n"
-        method_definition += f"{INDENT*2}if err != nil {{\n"
-        method_definition += f"{INDENT*3}return nil, err\n"
-        method_definition += f"{INDENT*2}}}\n"
-        method_definition += f"{INDENT*2}mediaType = mediaType[:len(mediaType)-5]\n"
-        method_definition += f"{INDENT}}}\n"
+        if self.avro_annotation or self.json_annotation:
+            method_definition += f"{INDENT}if strings.HasSuffix(mediaType, \"+gzip\") {{\n"
+            method_definition += f"{INDENT*2}var reader io.Reader\n"
+            method_definition += f"{INDENT*2}switch v := data.(type) {{\n"
+            method_definition += f"{INDENT*3}case []byte:\n"
+            method_definition += f"{INDENT*4}reader = bytes.NewReader(v)\n"
+            method_definition += f"{INDENT*3}case io.Reader:\n"
+            method_definition += f"{INDENT*4}reader = v\n"
+            method_definition += f"{INDENT*3}default:\n"
+            method_definition += f"{INDENT*4}return nil, fmt.Errorf(\"unsupported data type for gzip: %T\", data)\n"
+            method_definition += f"{INDENT*2}}}\n"
+            method_definition += f"{INDENT*2}gzipReader, err := gzip.NewReader(reader)\n"
+            method_definition += f"{INDENT*2}if err != nil {{\n"
+            method_definition += f"{INDENT*3}return nil, err\n"
+            method_definition += f"{INDENT*2}}}\n"
+            method_definition += f"{INDENT*2}defer gzipReader.Close()\n"
+            method_definition += f"{INDENT*2}data, err = io.ReadAll(gzipReader)\n"
+            method_definition += f"{INDENT*2}if err != nil {{\n"
+            method_definition += f"{INDENT*3}return nil, err\n"
+            method_definition += f"{INDENT*2}}}\n"
+            method_definition += f"{INDENT}}}\n"
         method_definition += f"{INDENT}switch mediaType {{\n"
         if self.json_annotation:
             method_definition += f"{INDENT}case \"application/json\":\n"
@@ -411,21 +287,22 @@ class AvroToGo:
         method_definition += f"{INDENT}default:\n"
         method_definition += f"{INDENT*2}return nil, fmt.Errorf(\"unsupported media type: %s\", mediaType)\n"
         method_definition += f"{INDENT}}}\n"
-        method_definition += f"{INDENT}return &s, err\n"
+        method_definition += f"{INDENT}if err != nil {{\n"
+        method_definition += f"{INDENT*2}return nil, err\n"
+        method_definition += f"{INDENT}}}\n"
+        method_definition += f"{INDENT}return &s, nil\n"
         method_definition += f"}}\n\n"
         return method_definition
 
     def generate_is_json_match_method(self, struct_name: str, avro_schema: Dict) -> str:
         """Generates the isJsonMatch method for the struct"""
-        method_definition = f"\nfunc (s *{struct_name}) IsJsonMatch(node map[string]interface{{}}) bool {{\n"
-        method_definition += f"{INDENT}_, ok := node[\"{self.base_package}\"].(map[string]interface{{}})\n"
-        method_definition += f"{INDENT}if !ok {{\n"
-        method_definition += f"{INDENT*2}return false\n"
-        method_definition += f"{INDENT}}}\n"
+        method_definition = f"\nfunc IsJsonMatch(node map[string]interface{{}}) bool {{\n"
+        predicates = []
         for field in avro_schema.get('fields', []):
             field_name = pascal(field['name'])
             field_type = self.convert_avro_type_to_go(field_name, field['type'])
-            method_definition += f"{INDENT}{self.get_is_json_match_clause(field_name, field_type)}\n"
+            predicates.append(self.get_is_json_match_clause(field_name, field_type))
+        method_definition += f"{INDENT}" + f"\n{INDENT}".join(predicates) + "\n"
         method_definition += f"{INDENT}return true\n"
         method_definition += f"}}\n\n"
         return method_definition
@@ -455,13 +332,89 @@ class AvroToGo:
         else:
             return f"if _, ok := node[\"{field_name}\"].(map[string]interface{{}}); !ok {{ return false }}"
 
-
     def generate_to_object_method(self, struct_name: str) -> str:
         """Generates the toObject method for the struct"""
         method_definition = f"\nfunc (s *{struct_name}) ToObject() interface{{}} {{\n"
         method_definition += f"{INDENT}return s\n"
         method_definition += f"}}\n\n"
         return method_definition
+
+    def generate_union_class(self, field_name: str, avro_type: List) -> str:
+        """Generates a union class for Go"""
+        union_class_name = pascal(field_name) + 'Union'
+        class_definition = f"type {union_class_name} struct {{\n"
+        union_types = [self.convert_avro_type_to_go(field_name + "Option" + str(i), t) for i, t in enumerate(avro_type)]
+        for union_type in union_types:
+            field_name = self.safe_identifier(union_type.split('/')[-1])
+            class_definition += f"{INDENT}{pascal(field_name)} {union_type}\n"
+        class_definition += "}\n\n"
+        class_definition += self.generate_union_class_methods(union_class_name, union_types)
+        self.write_to_file(self.base_package, union_class_name, class_definition)
+        return union_class_name
+
+    def generate_union_class_methods(self, union_class_name: str, union_types: List[str]) -> str:
+        """Generates methods for the union class"""
+        methods = f"func (u *{union_class_name}) ToObject() interface{{}} {{\n"
+        methods += f"{INDENT}if u == nil {{\n"
+        methods += f"{INDENT*2}return nil\n"
+        methods += f"{INDENT}}}\n"
+        for union_type in union_types:
+            field_name = self.safe_identifier(union_type.split('/')[-1])
+            methods += f"{INDENT}if u.{pascal(field_name)} != nil {{\n"
+            methods += f"{INDENT*2}return u.{pascal(field_name)}\n"
+            methods += f"{INDENT}}}\n"
+        methods += f"{INDENT}return nil\n"
+        methods += f"}}\n\n"
+        methods += f"func (u *{union_class_name}) ToByteArray(contentType string) ([]byte, error) {{\n"
+        methods += f"{INDENT}if u == nil {{\n"
+        methods += f"{INDENT*2}return nil, nil\n"
+        methods += f"{INDENT}}}\n"
+        methods += f"{INDENT}var result []byte\n"
+        methods += f"{INDENT}var err error\n"
+        methods += f"{INDENT}mediaType := strings.Split(contentType, \";\")[0]\n"
+        methods += f"{INDENT}switch mediaType {{\n"
+        if self.json_annotation:
+            methods += f"{INDENT}case \"application/json\":\n"
+            for union_type in union_types:
+                field_name = self.safe_identifier(union_type.split('/')[-1])
+                methods += f"{INDENT*2}if u.{pascal(field_name)} != nil {{\n"
+                methods += f"{INDENT*3}result, err = json.Marshal(u.{pascal(field_name)})\n"
+                methods += f"{INDENT*3}if err != nil {{\n"
+                methods += f"{INDENT*4}return nil, err\n"
+                methods += f"{INDENT*3}}}\n"
+                methods += f"{INDENT*2}return result, nil\n"
+                methods += f"{INDENT*2}}}\n"
+        if self.avro_annotation:
+            methods += f"{INDENT}case \"avro/binary\", \"application/vnd.apache.avro+avro\":\n"
+            for union_type in union_types:
+                field_name = self.safe_identifier(union_type.split('/')[-1])
+                methods += f"{INDENT*2}if u.{pascal(field_name)} != nil {{\n"
+                methods += f"{INDENT*3}var buf bytes.Buffer\n"
+                methods += f"{INDENT*3}encoder := avro.NewBinaryEncoder(&buf)\n"
+                methods += f"{INDENT*3}err = avro.Marshal(u.{pascal(field_name)}, encoder)\n"
+                methods += f"{INDENT*3}if err != nil {{\n"
+                methods += f"{INDENT*4}return nil, err\n"
+                methods += f"{INDENT*3}}}\n"
+                methods += f"{INDENT*3}result = buf.Bytes()\n"
+                methods += f"{INDENT*2}return result, nil\n"
+                methods += f"{INDENT*2}}}\n"
+        methods += f"{INDENT}default:\n"
+        methods += f"{INDENT*2}return nil, fmt.Errorf(\"unsupported media type: %s\", mediaType)\n"
+        methods += f"{INDENT}}}\n"
+        methods += f"{INDENT}return nil, fmt.Errorf(\"no valid union member to marshal\")\n"
+        methods += f"}}\n\n"
+        methods += f"func (u *{union_class_name}) IsJsonMatch(node map[string]interface{{}}) bool {{\n"
+        methods += f"{INDENT}if u == nil {{\n"
+        methods += f"{INDENT*2}return false\n"
+        methods += f"{INDENT}}}\n"
+        for union_type in union_types:
+            field_name = self.safe_identifier(union_type.split('/')[-1])
+            methods += f"{INDENT}if u.{pascal(field_name)} != nil {{\n"
+            methods += f"{INDENT*2}return IsJsonMatch(node)\n"
+            methods += f"{INDENT}}}\n"
+        methods += f"{INDENT}return false\n"
+        methods += f"}}\n\n"
+        return methods
 
     def write_to_file(self, package: str, name: str, definition: str):
         """Writes a Go struct or enum to a file"""
@@ -473,49 +426,28 @@ class AvroToGo:
 
         with open(file_path, 'w', encoding='utf-8') as file:
             if package:
-                file.write(f"package {package.split('/')[-1]}\n")
+                file.write(f"package {package.split('/')[-1]}\n\n")
+            imports = ""
             if "time.Time" in definition:
-                file.write("import \"time\"\n")
-            if "gzip" in definition:
-                file.write("import \"compress/gzip\"\n")
+                imports += f"{INDENT}\"time\"\n"
+            if self.avro_annotation or self.json_annotation:
+                imports += f"{INDENT}\"compress/gzip\"\n"
+            if self.json_annotation:
+                imports += f"{INDENT}\"encoding/json\"\n"
             if "bytes" in definition:
-                file.write("import \"bytes\"\n")
+                imports += f"{INDENT}\"bytes\"\n"
             if "fmt" in definition:
-                file.write("import \"fmt\"\n")
+                imports += f"{INDENT}\"fmt\"\n"
             if "io" in definition:
-                file.write("import \"io\"\n")
-            if "encoding/json" in definition:
-                file.write("import \"encoding/json\"\n")
-            if "github.com/hamba/avro/v2" in definition:
-                file.write("import \"github.com/hamba/avro/v2\"\n")
-            # Add imports for referenced packages
+                imports += f"{INDENT}\"io\"\n"
+            if "strings" in definition:
+                imports += f"{INDENT}\"strings\"\n"
+            if self.avro_annotation:
+                imports += f"{INDENT}\"github.com/hamba/avro/v2\"\n"
             for ref_pkg, types in self.referenced_packages.items():
-                file.write(f"import \"{ref_pkg}\"\n")
+                imports += f"{INDENT}\"{ref_pkg}\"\n"
+            file.write(f"import (\n{imports})\n\n")
             file.write(definition)
-
-    def generate_main_file(self):
-        """Generates a main.go file for demonstrating usage of generated structs"""
-        main_content = """package main
-
-import (
-    "fmt"
-)
-
-func main() {
-    fmt.Println("Generated Go structs from Avro schema.")
-}
-"""
-        with open(os.path.join(self.output_dir, "main.go"), 'w', encoding='utf-8') as file:
-            file.write(main_content)
-
-    def generate_go_mod_file(self, module_name: str):
-        """Generates a go.mod file for the project"""
-        go_mod_content = f"""module {module_name}
-
-go 1.16
-"""
-        with open(os.path.join(self.output_dir, "go.mod"), 'w', encoding='utf-8') as file:
-            file.write(go_mod_content)
 
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to Go"""
@@ -526,9 +458,23 @@ go 1.16
         self.output_dir = output_dir
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema)
-        self.generate_main_file()
-        self.generate_go_mod_file("github.com/yourusername/yourproject")
+        self.write_go_mod_file()
 
+    def write_go_mod_file(self):
+        """Writes the go.mod file for the Go project"""
+        go_mod_content = ""
+        go_mod_content += "module " + self.base_package + "\n\n"
+        go_mod_content += "go 1.16\n\n"
+        if self.avro_annotation:
+            go_mod_content += "require (\n"
+            go_mod_content += "    github.com/hamba/avro/v2 v2.0.0\n"
+            go_mod_content += ")\n"
+        
+        go_mod_path = os.path.join(self.output_dir, "go.mod")
+        with open(go_mod_path, 'w', encoding='utf-8') as file:
+            file.write(go_mod_content)
+
+   
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Go"""
         with open(avro_schema_path, 'r', encoding='utf-8') as file:
