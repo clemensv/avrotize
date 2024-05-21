@@ -148,8 +148,14 @@ class AvroToGo:
             field_name = pascal(field['name'])
             field_type = self.convert_avro_type_to_go(field_name, field['type'])
             struct_definition += f"{INDENT}{field_name} {field_type}"
+            if self.json_annotation or self.avro_annotation:
+                struct_definition += " `"
             if self.json_annotation:
-                struct_definition += f"`json:\"{field['name']}\"`"
+                struct_definition += f"json:\"{field['name']}\""
+            if self.avro_annotation:
+                struct_definition += f"{' ' if self.json_annotation else ''}avro:\"{field['name']}\""
+            if self.json_annotation or self.avro_annotation:
+                struct_definition += "`"
             struct_definition += "\n"
         struct_definition += "}\n\n"
 
@@ -157,6 +163,10 @@ class AvroToGo:
         struct_definition += self.generate_from_data_method(struct_name)
         struct_definition += self.generate_is_json_match_method(struct_name, avro_schema)
         struct_definition += self.generate_to_object_method(struct_name)
+
+        if self.avro_annotation:
+            schema_json = json.dumps(avro_schema).replace('"', '\\"')
+            struct_definition += f"var {struct_name}Schema = avro.MustParse(`{schema_json}`)\n"
 
         self.write_to_file(namespace.replace('.', '/'), struct_name, struct_definition)
         return qualified_struct_name
@@ -199,13 +209,10 @@ class AvroToGo:
             method_definition += f"{INDENT*2}}}\n"
         if self.avro_annotation:
             method_definition += f"{INDENT}case \"avro/binary\", \"application/vnd.apache.avro+avro\":\n"
-            method_definition += f"{INDENT*2}var buf bytes.Buffer\n"
-            method_definition += f"{INDENT*2}encoder := avro.NewBinaryEncoder(&buf)\n"
-            method_definition += f"{INDENT*2}err = avro.Marshal(s, encoder)\n"
+            method_definition += f"{INDENT*2}result, err = avro.Marshal({struct_name}Schema, s)\n"
             method_definition += f"{INDENT*2}if err != nil {{\n"
             method_definition += f"{INDENT*3}return nil, err\n"
             method_definition += f"{INDENT*2}}}\n"
-            method_definition += f"{INDENT*2}result = buf.Bytes()\n"
         method_definition += f"{INDENT}default:\n"
         method_definition += f"{INDENT*2}return nil, fmt.Errorf(\"unsupported media type: %s\", mediaType)\n"
         method_definition += f"{INDENT}}}\n"
@@ -275,12 +282,13 @@ class AvroToGo:
             method_definition += f"{INDENT}case \"avro/binary\", \"application/vnd.apache.avro+avro\":\n"
             method_definition += f"{INDENT*2}switch v := data.(type) {{\n"
             method_definition += f"{INDENT*3}case []byte:\n"
-            method_definition += f"{INDENT*4}buf := bytes.NewReader(v)\n"
-            method_definition += f"{INDENT*4}decoder := avro.NewBinaryDecoder(buf)\n"
-            method_definition += f"{INDENT*4}err = avro.Unmarshal(decoder, &s)\n"
+            method_definition += f"{INDENT*4}err = avro.Unmarshal({struct_name}Schema, v, &s)\n"
             method_definition += f"{INDENT*3}case io.Reader:\n"
-            method_definition += f"{INDENT*4}decoder := avro.NewBinaryDecoder(v)\n"
-            method_definition += f"{INDENT*4}err = avro.Unmarshal(decoder, &s)\n"
+            method_definition += f"{INDENT*4}buf, err := io.ReadAll(v)\n"
+            method_definition += f"{INDENT*4}if err != nil {{\n"
+            method_definition += f"{INDENT*5}return nil, err\n"
+            method_definition += f"{INDENT*4}}}\n"
+            method_definition += f"{INDENT*4}err = avro.Unmarshal({struct_name}Schema, buf, &s)\n"
             method_definition += f"{INDENT*3}default:\n"
             method_definition += f"{INDENT*4}return nil, fmt.Errorf(\"unsupported data type for Avro: %T\", data)\n"
             method_definition += f"{INDENT*2}}}\n"
@@ -300,7 +308,7 @@ class AvroToGo:
         predicates = []
         for field in avro_schema.get('fields', []):
             field_name = pascal(field['name'])
-            field_type = self.convert_avro_type_to_go(field_name, field['type'])
+            field_type = self.convert_avro_type_to_go(field['name'], field['type'])
             predicates.append(self.get_is_json_match_clause(field_name, field_type))
         method_definition += f"{INDENT}" + f"\n{INDENT}".join(predicates) + "\n"
         method_definition += f"{INDENT}return true\n"
@@ -389,13 +397,10 @@ class AvroToGo:
             for union_type in union_types:
                 field_name = self.safe_identifier(union_type.split('/')[-1])
                 methods += f"{INDENT*2}if u.{pascal(field_name)} != nil {{\n"
-                methods += f"{INDENT*3}var buf bytes.Buffer\n"
-                methods += f"{INDENT*3}encoder := avro.NewBinaryEncoder(&buf)\n"
-                methods += f"{INDENT*3}err = avro.Marshal(u.{pascal(field_name)}, encoder)\n"
+                methods += f"{INDENT*3}result, err = avro.Marshal({union_class_name}Schema, u.{pascal(field_name)})\n"
                 methods += f"{INDENT*3}if err != nil {{\n"
                 methods += f"{INDENT*4}return nil, err\n"
                 methods += f"{INDENT*3}}}\n"
-                methods += f"{INDENT*3}result = buf.Bytes()\n"
                 methods += f"{INDENT*2}return result, nil\n"
                 methods += f"{INDENT*2}}}\n"
         methods += f"{INDENT}default:\n"
