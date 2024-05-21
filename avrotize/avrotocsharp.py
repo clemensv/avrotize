@@ -735,6 +735,8 @@ class AvroToCSharp:
             schema = [schema]
             
         self.schema_doc = schema
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
         if not glob.glob(os.path.join(output_dir, '*.csproj')):
             csproj_file = os.path.join(
                 output_dir, f"{os.path.basename(output_dir)}.csproj")

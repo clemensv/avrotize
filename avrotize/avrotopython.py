@@ -309,6 +309,8 @@ class AvroToPython:
     def convert_schemas(self, avro_schemas: List, output_dir: str):
         """ Converts Avro schema to Python data classes"""
         self.output_dir = output_dir
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir, exist_ok=True)
         with open(os.path.join(self.output_dir, "__init__.py"), 'w', encoding='utf-8') as file:
             file.write('')
         for avro_schema in avro_schemas:

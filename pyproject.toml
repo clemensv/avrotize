@@ -26,6 +26,7 @@ dependencies = [
     "jsoncomparison>=1.1.0",
     "requests>=2.31.0",
     "azure-kusto-data>=4.4.1",
+    "azure-identity>=1.6.0",
     "datapackage>=1.15.4",
 ]
 dev-dependencies = [
@@ -39,6 +40,11 @@ dev-dependencies = [
     "pydantic>=2.7.1",
     "avro>=1.11.3",
     "testcontainers>=4.4.1",
+    "pymysql>=1.1.0",
+    "psycopg2>=2.9.9",
+    "pyodbc>=5.1.0",
+    "pymongo>=4.7.2",
+    "cx_oracle>=9.3.0"
 ]
 
 [project.scripts]

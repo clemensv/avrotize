@@ -15,7 +15,7 @@ class AvroToGo:
     """Converts Avro schema to Go structs, including JSON and Avro marshalling methods"""
 
     def __init__(self, base_package: str = '') -> None:
-        self.base_package = base_package.replace('.', '/')
+        self.base_package = base_package
         self.output_dir = os.getcwd()
         self.generated_types_avro_namespace: Dict[str, str] = {}
         self.generated_types_go_package: Dict[str, str] = {}
@@ -23,6 +23,9 @@ class AvroToGo:
         self.referenced_packages_stack: List[Dict[str, Set[str]]] = []
         self.avro_annotation = False
         self.json_annotation = False
+        self.longest_common_prefix = ''
+        self.package_site = 'github.com'
+        self.package_username = 'username'
 
     def safe_identifier(self, name: str) -> str:
         """Converts a name to a safe Go identifier"""
@@ -34,6 +37,15 @@ class AvroToGo:
         if name in reserved_words:
             return f"{name}_"
         return name
+    
+    def go_type_name(self, name: str, namespace: str) -> str:
+        """Returns a qualified name for a Go struct or enum"""
+        if namespace:
+            if namespace.startswith(self.longest_common_prefix):
+                namespace = namespace[len(self.longest_common_prefix):]
+            namespace = ''.join([pascal(t[:-6] if t.endswith("_types") else t) for t in namespace.split('.')])
+            return f"{namespace}{pascal(name)}"
+        return pascal(name)
 
     def map_primitive_to_go(self, avro_type: str, is_optional: bool) -> str:
         """Maps Avro primitive types to Go types"""
@@ -57,15 +69,10 @@ class AvroToGo:
             'bytes': '[]byte',
             'string': 'string',
         }
-        qualified_avro_type = avro_type
-        if '.' in avro_type:
-            type_name = avro_type.split('.')[-1]
-            package_name = '/'.join(avro_type.split('.')[:-1]).lower()
-            qualified_avro_type = package_name + '/' + type_name
-            avro_type = type_name
-            self.referenced_packages.setdefault(package_name, set()).add(type_name)
-        if qualified_avro_type in self.generated_types_avro_namespace:
-            return avro_type
+        if avro_type in self.generated_types_avro_namespace:
+            type_name = avro_type.rsplit('.',1)[-1]
+            namespace = avro_type.rsplit('.',1)[0] if '.' in avro_type else ''
+            return self.go_type_name(type_name, namespace)
         else:
             return required_mapping.get(avro_type, avro_type) if not is_optional else optional_mapping.get(avro_type, avro_type)
 
@@ -73,7 +80,7 @@ class AvroToGo:
         """Concatenates package and name using a slash separator"""
         return f"{package.lower()}/{name}" if package else name
 
-    def convert_avro_type_to_go(self, field_name: str, avro_type: Union[str, Dict, List], nullable: bool = False) -> str:
+    def convert_avro_type_to_go(self, field_name: str, avro_type: Union[str, Dict, List], nullable: bool = False, parent_namespace: str = '') -> str:
         """Converts Avro type to Go type"""
         if isinstance(avro_type, str):
             return self.map_primitive_to_go(avro_type, nullable)
@@ -85,20 +92,20 @@ class AvroToGo:
                 if isinstance(non_null_types[0], str):
                     return self.map_primitive_to_go(non_null_types[0], True)
                 else:
-                    return self.convert_avro_type_to_go(field_name, non_null_types[0])
+                    return self.convert_avro_type_to_go(field_name, non_null_types[0], nullable, parent_namespace)
             else:
-                return self.generate_union_class(field_name, avro_type)
+                return self.generate_union_class(field_name, avro_type, parent_namespace)
         elif isinstance(avro_type, dict):
             if avro_type['type'] in ['record', 'enum']:
-                return self.generate_class_or_enum(avro_type)
+                return self.generate_class_or_enum(avro_type, parent_namespace)
             elif avro_type['type'] == 'fixed' or avro_type['type'] == 'bytes' and 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'decimal':
                     return 'float64'
             elif avro_type['type'] == 'array':
-                item_type = self.convert_avro_type_to_go(field_name, avro_type['items'], nullable=True)
+                item_type = self.convert_avro_type_to_go(field_name, avro_type['items'], nullable=True, parent_namespace=parent_namespace)
                 return f"[]{item_type}"
             elif avro_type['type'] == 'map':
-                values_type = self.convert_avro_type_to_go(field_name, avro_type['values'], nullable=True)
+                values_type = self.convert_avro_type_to_go(field_name, avro_type['values'], nullable=True, parent_namespace=parent_namespace)
                 return f"map[string]{values_type}"
             elif 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'date':
@@ -109,18 +116,19 @@ class AvroToGo:
                     return 'time.Time'
                 elif avro_type['logicalType'] == 'uuid':
                     return 'string'
-            return self.convert_avro_type_to_go(field_name, avro_type['type'])
+            return self.convert_avro_type_to_go(field_name, avro_type['type'], parent_namespace=parent_namespace)
         return 'interface{}'
 
-    def generate_class_or_enum(self, avro_schema: Dict) -> str:
+    def generate_class_or_enum(self, avro_schema: Dict, parent_namespace: str = '') -> str:
         """Generates a Go struct or enum from an Avro schema"""
         self.referenced_packages_stack.append(self.referenced_packages)
         self.referenced_packages = {}
+        namespace = avro_schema.get('namespace', parent_namespace)
         qualified_type = ''
         if avro_schema['type'] == 'record':
-            qualified_type = self.generate_struct(avro_schema)
+            qualified_type = self.generate_struct(avro_schema, namespace)
         elif avro_schema['type'] == 'enum':
-            qualified_type = self.generate_enum(avro_schema)
+            qualified_type = self.generate_enum(avro_schema, namespace)
         if not qualified_type:
             return 'interface{}'
         self.referenced_packages = self.referenced_packages_stack.pop()
@@ -131,23 +139,25 @@ class AvroToGo:
             self.referenced_packages.setdefault(package_name, set()).add(type_name)
         return type_name
 
-    def generate_struct(self, avro_schema: Dict) -> str:
+    def generate_struct(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a Go struct from an Avro record schema"""
         struct_definition = ''
         if 'doc' in avro_schema:
             struct_definition += f"// {avro_schema['doc']}\n"
-        namespace = avro_schema.get('namespace', '')
-        struct_name = self.safe_identifier(avro_schema['name'])
-        qualified_struct_name = self.concat_package(namespace.replace('.', '/'), struct_name)
-        if qualified_struct_name in self.generated_types_avro_namespace:
-            return qualified_struct_name
-        self.generated_types_avro_namespace[qualified_struct_name] = "struct"
-        self.generated_types_go_package[qualified_struct_name] = "struct"
-        struct_definition += f"type {struct_name} struct {{\n"
+        namespace = avro_schema.get('namespace', parent_namespace)
+        avro_fullname = namespace + '.' + avro_schema['name'] if namespace else avro_schema['name']
+        go_struct_name = self.go_type_name(avro_schema['name'], namespace)
+        if avro_fullname in self.generated_types_avro_namespace:
+            return go_struct_name
+        self.generated_types_avro_namespace[avro_fullname] = "struct"
+        self.generated_types_go_package[go_struct_name] = "struct"
+        struct_definition += f"type {go_struct_name} struct {{\n"
         for field in avro_schema.get('fields', []):
             field_name = pascal(field['name'])
-            field_type = self.convert_avro_type_to_go(field_name, field['type'])
+            field_type = self.convert_avro_type_to_go(field_name, field['type'], parent_namespace=namespace)
             struct_definition += f"{INDENT}{field_name} {field_type}"
+            if self.json_annotation or self.avro_annotation:
+                struct_definition += " `"
             if self.json_annotation:
                 struct_definition += f"json:\"{field['name']}\""
             if self.avro_annotation:
@@ -157,36 +167,36 @@ class AvroToGo:
             struct_definition += "\n"
         struct_definition += "}\n\n"
 
-        struct_definition += self.generate_to_byte_array_method(struct_name)
-        struct_definition += self.generate_from_data_method(struct_name)
-        struct_definition += self.generate_is_json_match_method(struct_name, avro_schema)
-        struct_definition += self.generate_to_object_method(struct_name)
-
         if self.avro_annotation:
             schema_json = json.dumps(avro_schema).replace('"', '\\"')
-            struct_definition += f"var {struct_name}Schema = avro.MustParse(`{schema_json}`)\n"
+            struct_definition += f"var {go_struct_name}Schema, _ = avro.Parse(`{schema_json}`)\n\n"
 
-        self.write_to_file(namespace.replace('.', '/'), struct_name, struct_definition)
-        return qualified_struct_name
+        struct_definition += self.generate_to_byte_array_method(go_struct_name)
+        struct_definition += self.generate_from_data_method(go_struct_name)
+        struct_definition += self.generate_is_json_match_method(go_struct_name, avro_schema, namespace)
+        struct_definition += self.generate_to_object_method(go_struct_name)
 
-    def generate_enum(self, avro_schema: Dict) -> str:
+        self.write_to_file('', go_struct_name, struct_definition)
+        return go_struct_name
+
+    def generate_enum(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a Go enum from an Avro enum schema"""
         enum_definition = ''
         if 'doc' in avro_schema:
             enum_definition += f"// {avro_schema['doc']}\n"
-        namespace = avro_schema.get('namespace', '')
-        enum_name = self.safe_identifier(avro_schema['name'])
-        qualified_enum_name = self.concat_package(namespace.replace('.', '/'), enum_name)
-        self.generated_types_avro_namespace[qualified_enum_name] = "enum"
-        self.generated_types_go_package[qualified_enum_name] = "enum"
+        namespace = avro_schema.get('namespace', parent_namespace)
+        avro_fullname = namespace + '.' + avro_schema['name'] if namespace else avro_schema['name']
+        enum_name = self.go_type_name(avro_schema['name'], namespace)
+        self.generated_types_avro_namespace[avro_fullname] = "enum"
+        self.generated_types_go_package[enum_name] = "enum"
         symbols = avro_schema.get('symbols', [])
         enum_definition += f"type {enum_name} int\n\n"
         enum_definition += f"const (\n"
         for i, symbol in enumerate(symbols):
             enum_definition += f"{INDENT}{enum_name}_{symbol} {enum_name} = {i}\n"
         enum_definition += ")\n\n"
-        self.write_to_file(namespace.replace('.', '/'), enum_name, enum_definition)
-        return qualified_enum_name
+        self.write_to_file('', enum_name, enum_definition)
+        return enum_name
 
     def generate_to_byte_array_method(self, struct_name: str) -> str:
         """Generates the ToByteArray method for the struct"""
@@ -234,7 +244,7 @@ class AvroToGo:
 
     def generate_from_data_method(self, struct_name: str) -> str:
         """Generates the FromData method for the struct"""
-        method_definition = f"\nfunc FromData(data interface{{}}, contentType string) (*{struct_name}, error) {{\n"
+        method_definition = f"\nfunc ({struct_name}) FromData(data interface{{}}, contentType string) (*{struct_name}, error) {{\n"
         if not (self.avro_annotation or self.json_annotation):
             method_definition += f"{INDENT*1}return nil, fmt.Errorf(\"unsupported content type: %s\", contentType)\n"
             method_definition += f"}}\n\n"
@@ -282,11 +292,11 @@ class AvroToGo:
             method_definition += f"{INDENT*3}case []byte:\n"
             method_definition += f"{INDENT*4}err = avro.Unmarshal({struct_name}Schema, v, &s)\n"
             method_definition += f"{INDENT*3}case io.Reader:\n"
-            method_definition += f"{INDENT*4}buf, err := io.ReadAll(v)\n"
+            method_definition += f"{INDENT*4}rawData, err := io.ReadAll(v)\n"
             method_definition += f"{INDENT*4}if err != nil {{\n"
             method_definition += f"{INDENT*5}return nil, err\n"
             method_definition += f"{INDENT*4}}}\n"
-            method_definition += f"{INDENT*4}err = avro.Unmarshal({struct_name}Schema, buf, &s)\n"
+            method_definition += f"{INDENT*4}err = avro.Unmarshal({struct_name}Schema, rawData, &s)\n"
             method_definition += f"{INDENT*3}default:\n"
             method_definition += f"{INDENT*4}return nil, fmt.Errorf(\"unsupported data type for Avro: %T\", data)\n"
             method_definition += f"{INDENT*2}}}\n"
@@ -300,13 +310,13 @@ class AvroToGo:
         method_definition += f"}}\n\n"
         return method_definition
 
-    def generate_is_json_match_method(self, struct_name: str, avro_schema: Dict) -> str:
+    def generate_is_json_match_method(self, struct_name: str, avro_schema: Dict, namespace: str) -> str:
         """Generates the isJsonMatch method for the struct"""
-        method_definition = f"\nfunc IsJsonMatch(node map[string]interface{{}}) bool {{\n"
+        method_definition = f"\nfunc ({struct_name}) IsJsonMatch(node map[string]interface{{}}) bool {{\n"
         predicates = []
         for field in avro_schema.get('fields', []):
             field_name = pascal(field['name'])
-            field_type = self.convert_avro_type_to_go(field['name'], field['type'])
+            field_type = self.convert_avro_type_to_go(field_name, field['type'], parent_namespace=namespace)
             predicates.append(self.get_is_json_match_clause(field_name, field_type))
         method_definition += f"{INDENT}" + f"\n{INDENT}".join(predicates) + "\n"
         method_definition += f"{INDENT}return true\n"
@@ -345,17 +355,17 @@ class AvroToGo:
         method_definition += f"}}\n\n"
         return method_definition
 
-    def generate_union_class(self, field_name: str, avro_type: List) -> str:
+    def generate_union_class(self, field_name: str, avro_type: List, parent_namespace: str) -> str:
         """Generates a union class for Go"""
-        union_class_name = pascal(field_name) + 'Union'
+        union_class_name = self.go_type_name(pascal(field_name) + 'Union', parent_namespace)
         class_definition = f"type {union_class_name} struct {{\n"
-        union_types = [self.convert_avro_type_to_go(field_name + "Option" + str(i), t) for i, t in enumerate(avro_type)]
+        union_types = [self.convert_avro_type_to_go(field_name + "Option" + str(i), t, parent_namespace=parent_namespace) for i, t in enumerate(avro_type)]
         for union_type in union_types:
-            field_name = self.safe_identifier(union_type.split('/')[-1])
-            class_definition += f"{INDENT}{pascal(field_name)} {union_type}\n"
+            field_name = self.safe_identifier(union_type)
+            class_definition += f"{INDENT}{pascal(field_name)} *{union_type}\n"
         class_definition += "}\n\n"
         class_definition += self.generate_union_class_methods(union_class_name, union_types)
-        self.write_to_file(self.base_package, union_class_name, class_definition)
+        self.write_to_file('', union_class_name, class_definition)
         return union_class_name
 
     def generate_union_class_methods(self, union_class_name: str, union_types: List[str]) -> str:
@@ -365,7 +375,7 @@ class AvroToGo:
         methods += f"{INDENT*2}return nil\n"
         methods += f"{INDENT}}}\n"
         for union_type in union_types:
-            field_name = self.safe_identifier(union_type.split('/')[-1])
+            field_name = self.safe_identifier(union_type)
             methods += f"{INDENT}if u.{pascal(field_name)} != nil {{\n"
             methods += f"{INDENT*2}return u.{pascal(field_name)}\n"
             methods += f"{INDENT}}}\n"
@@ -382,7 +392,7 @@ class AvroToGo:
         if self.json_annotation:
             methods += f"{INDENT}case \"application/json\":\n"
             for union_type in union_types:
-                field_name = self.safe_identifier(union_type.split('/')[-1])
+                field_name = self.safe_identifier(union_type)
                 methods += f"{INDENT*2}if u.{pascal(field_name)} != nil {{\n"
                 methods += f"{INDENT*3}result, err = json.Marshal(u.{pascal(field_name)})\n"
                 methods += f"{INDENT*3}if err != nil {{\n"
@@ -393,12 +403,15 @@ class AvroToGo:
         if self.avro_annotation:
             methods += f"{INDENT}case \"avro/binary\", \"application/vnd.apache.avro+avro\":\n"
             for union_type in union_types:
-                field_name = self.safe_identifier(union_type.split('/')[-1])
+                field_name = self.safe_identifier(union_type)
                 methods += f"{INDENT*2}if u.{pascal(field_name)} != nil {{\n"
-                methods += f"{INDENT*3}result, err = avro.Marshal({union_class_name}Schema, u.{pascal(field_name)})\n"
+                methods += f"{INDENT*3}var buf bytes.Buffer\n"
+                methods += f"{INDENT*3}encoder := avro.NewBinaryEncoder(&buf)\n"
+                methods += f"{INDENT*3}err = avro.Marshal(u.{pascal(field_name)}, encoder)\n"
                 methods += f"{INDENT*3}if err != nil {{\n"
                 methods += f"{INDENT*4}return nil, err\n"
                 methods += f"{INDENT*3}}}\n"
+                methods += f"{INDENT*3}result = buf.Bytes()\n"
                 methods += f"{INDENT*2}return result, nil\n"
                 methods += f"{INDENT*2}}}\n"
         methods += f"{INDENT}default:\n"
@@ -411,9 +424,10 @@ class AvroToGo:
         methods += f"{INDENT*2}return false\n"
         methods += f"{INDENT}}}\n"
         for union_type in union_types:
-            field_name = self.safe_identifier(union_type.split('/')[-1])
+            field_name = self.safe_identifier(union_type)
             methods += f"{INDENT}if u.{pascal(field_name)} != nil {{\n"
-            methods += f"{INDENT*2}return IsJsonMatch(node)\n"
+            methods += f"{INDENT*2}{self.get_is_json_match_clause(field_name, union_type)}\n"
+            methods += f"{INDENT*2}return true;\n"
             methods += f"{INDENT}}}\n"
         methods += f"{INDENT}return false\n"
         methods += f"}}\n\n"
@@ -421,36 +435,57 @@ class AvroToGo:
 
     def write_to_file(self, package: str, name: str, definition: str):
         """Writes a Go struct or enum to a file"""
-        directory_path = os.path.join(
-            self.output_dir, package.replace('.', os.sep).replace('/', os.sep))
+        package = self.base_package
+        directory_path = self.output_dir
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)
         file_path = os.path.join(directory_path, f"{name}.go")
 
         with open(file_path, 'w', encoding='utf-8') as file:
             if package:
-                file.write(f"package {package.split('/')[-1]}\n\n")
+                file.write(f"package {package}\n\n")
             imports = ""
             if "time.Time" in definition:
                 imports += f"{INDENT}\"time\"\n"
-            if self.avro_annotation or self.json_annotation:
+            if "gzip." in definition:
                 imports += f"{INDENT}\"compress/gzip\"\n"
-            if self.json_annotation:
+            if "json." in definition:
                 imports += f"{INDENT}\"encoding/json\"\n"
-            if "bytes" in definition:
+            if "bytes." in definition:
                 imports += f"{INDENT}\"bytes\"\n"
-            if "fmt" in definition:
+            if "fmt." in definition:
                 imports += f"{INDENT}\"fmt\"\n"
-            if "io" in definition:
+            if "io." in definition:
                 imports += f"{INDENT}\"io\"\n"
-            if "strings" in definition:
+            if "strings." in definition:
                 imports += f"{INDENT}\"strings\"\n"
-            if self.avro_annotation:
+            if "avro." in definition:
                 imports += f"{INDENT}\"github.com/hamba/avro/v2\"\n"
             for ref_pkg, types in self.referenced_packages.items():
-                imports += f"{INDENT}\"{ref_pkg}\"\n"
+                imports += f"{INDENT}\"{self.base_package+'/' if self.base_package else ''}{ref_pkg}\"\n"
             file.write(f"import (\n{imports})\n\n")
             file.write(definition)
+
+    def collect_namespaces(self, schema: JsonNode, parent_namespace: str = '') -> List[str]:
+        """ Performs a deep search of the schema to collect all namespaces """
+        namespaces = []
+        if isinstance(schema, dict):
+            namespace = str(schema.get('namespace', parent_namespace))
+            if namespace:
+                namespaces.append(namespace)
+            if 'fields' in schema and isinstance(schema['fields'], list):
+                for field in schema['fields']:
+                    if isinstance(field, dict) and 'type' in field and isinstance(field['type'], dict):
+                        namespaces.extend(self.collect_namespaces(field['type'], namespace))
+                    namespaces.extend(self.collect_namespaces(field, namespace))
+            if 'items' in schema and isinstance(schema['items'], dict):
+                namespaces.extend(self.collect_namespaces(schema['items'], namespace))
+            if 'values' in schema and isinstance(schema['values'], dict):
+                namespaces.extend(self.collect_namespaces(schema['values'], namespace))
+        elif isinstance(schema, list):
+            for item in schema:
+                namespaces.extend(self.collect_namespaces(item, parent_namespace))
+        return namespaces
 
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to Go"""
@@ -459,14 +494,29 @@ class AvroToGo:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
+        
+        namespaces = set(self.collect_namespaces(schema))
+        longest_common_prefix = ''
+        # find longest common prefix of the namespaces (not with os.path!!!)
+        for ns in namespaces:
+            if not longest_common_prefix:
+                longest_common_prefix = ns
+            else:
+                for i in range(min(len(longest_common_prefix), len(ns))):
+                    if longest_common_prefix[i] != ns[i]:
+                        longest_common_prefix = longest_common_prefix[:i]
+                        break
+        self.longest_common_prefix = longest_common_prefix.strip('.')
+
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema)
         self.write_go_mod_file()
+        self.write_modname_go_file()
 
     def write_go_mod_file(self):
         """Writes the go.mod file for the Go project"""
         go_mod_content = ""
-        go_mod_content += "module " + self.base_package + "\n\n"
+        go_mod_content += "module " + self.package_site + "/" + self.package_username + "/" + self.base_package + "\n\n"
         go_mod_content += "go 1.16\n\n"
         if self.avro_annotation:
             go_mod_content += "require (\n"
@@ -477,6 +527,15 @@ class AvroToGo:
         with open(go_mod_path, 'w', encoding='utf-8') as file:
             file.write(go_mod_content)
 
+    def write_modname_go_file(self):
+        """Writes the modname.go file for the Go project"""
+        modname_go_content = ""
+        modname_go_content += "package " + self.base_package + "\n\n"
+        modname_go_content += "const ModName = \"" + self.base_package + "\"\n"
+        
+        modname_go_path = os.path.join(self.output_dir, f"{self.base_package}.go")
+        with open(modname_go_path, 'w', encoding='utf-8') as file:
+            file.write(modname_go_content)
    
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Go"""
@@ -485,7 +544,7 @@ class AvroToGo:
         self.convert_schema(schema, output_dir)
 
 
-def convert_avro_to_go(avro_schema_path, go_file_path, package_name='', avro_annotation=False, json_annotation=False):
+def convert_avro_to_go(avro_schema_path, go_file_path, package_name='', avro_annotation=False, json_annotation=False, package_site='github.com', package_username='username'):
     """Converts Avro schema to Go structs
 
     Args:
@@ -499,10 +558,12 @@ def convert_avro_to_go(avro_schema_path, go_file_path, package_name='', avro_ann
     avrotogo.base_package = package_name
     avrotogo.avro_annotation = avro_annotation
     avrotogo.json_annotation = json_annotation
+    avrotogo.package_site = package_site
+    avrotogo.package_username = package_username
     avrotogo.convert(avro_schema_path, go_file_path)
 
 
-def convert_avro_schema_to_go(avro_schema: JsonNode, output_dir: str, package_name='', avro_annotation=False, json_annotation=False):
+def convert_avro_schema_to_go(avro_schema: JsonNode, output_dir: str, package_name='', avro_annotation=False, json_annotation=False, package_site='github.com', package_username='username'):
     """Converts Avro schema to Go structs
 
     Args:
@@ -516,4 +577,6 @@ def convert_avro_schema_to_go(avro_schema: JsonNode, output_dir: str, package_na
     avrotogo.base_package = package_name
     avrotogo.avro_annotation = avro_annotation
     avrotogo.json_annotation = json_annotation
+    avrotogo.package_site = package_site
+    avrotogo.package_username = package_username
     avrotogo.convert_schema(avro_schema, output_dir)

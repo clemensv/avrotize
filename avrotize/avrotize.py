@@ -10,6 +10,7 @@ from avrotize.avrotoproto import convert_avro_to_proto
 from avrotize.avrotopython import convert_avro_to_python
 from avrotize.avrotots import convert_avro_to_typescript
 from avrotize.avrototsql import convert_avro_to_sql
+from avrotize.avrotoxsd import convert_avro_to_xsd
 from avrotize.jsonstoavro import convert_jsons_to_avro
 from avrotize.kstructtoavro import convert_kafka_struct_to_avro_schema
 from avrotize.kustotoavro import convert_kusto_to_avro
@@ -165,7 +166,7 @@ def main():
         avro_schema_path = args.avsc
         xsd_schema_file_path = args.xsd
         print(f'Converting Avro {avro_schema_path} to XSD {xsd_schema_file_path}')
-        convert_xsd_to_avro(avro_schema_path, xsd_schema_file_path)
+        convert_avro_to_xsd(avro_schema_path, xsd_schema_file_path)
     elif args.command == 'a2k':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
