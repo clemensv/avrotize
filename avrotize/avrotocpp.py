@@ -1,6 +1,6 @@
 # pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, line-too-long
 
-""" Generates C++ code from Avro schema """
+"""Generates C++ code from Avro schema"""
 import json
 import os
 from typing import Dict, List, Union
@@ -119,7 +119,7 @@ class AvroToCpp:
         return 'nlohmann::json'
 
     def generate_class_or_enum(self, avro_schema: Dict) -> str:
-        """ Generates a C++ class or enum from an Avro schema """
+        """Generates a C++ class or enum from an Avro schema"""
         if avro_schema['type'] == 'record':
             return self.generate_class(avro_schema)
         elif avro_schema['type'] == 'enum':
@@ -127,7 +127,7 @@ class AvroToCpp:
         return 'nlohmann::json'
 
     def generate_class(self, avro_schema: Dict) -> str:
-        """ Generates a C++ class from an Avro record schema """
+        """Generates a C++ class from an Avro record schema"""
         class_definition = ''
         if 'doc' in avro_schema:
             class_definition += f"// {avro_schema['doc']}\n"
@@ -156,7 +156,7 @@ class AvroToCpp:
         return qualified_class_name
 
     def generate_enum(self, avro_schema: Dict) -> str:
-        """ Generates a C++ enum from an Avro enum schema """
+        """Generates a C++ enum from an Avro enum schema"""
         enum_definition = ''
         if 'doc' in avro_schema:
             enum_definition += f"// {avro_schema['doc']}\n"
@@ -270,7 +270,7 @@ class AvroToCpp:
         return class_definition
 
     def write_to_file(self, namespace: str, name: str, definition: str):
-        """ Writes a C++ class or enum to a file """
+        """Writes a C++ class or enum to a file"""
         directory_path = os.path.join(
             self.output_dir, namespace.replace('::', os.sep))
         if not os.path.exists(directory_path):
@@ -294,6 +294,109 @@ class AvroToCpp:
             if namespace:
                 file.write(f"}} // namespace {namespace.replace('::', ' ')}\n")
 
+    def generate_cmake_lists(self, project_name: str):
+        """Generates a CMakeLists.txt file"""
+        cmake_content = f"""cmake_minimum_required(VERSION 3.10)
+
+project({project_name})
+
+set(CMAKE_CXX_STANDARD 17)
+
+include_directories(${{CMAKE_SOURCE_DIR}}/include)
+
+find_package(Boost REQUIRED COMPONENTS uuid)
+find_package(ZLIB REQUIRED)
+
+add_library(gzip STATIC gzip/compress.cpp gzip/decompress.cpp)
+
+add_executable({project_name} main.cpp)
+
+target_link_libraries({project_name} Boost::uuid ZLIB::ZLIB gzip)
+"""
+        cmake_path = os.path.join(self.output_dir, 'CMakeLists.txt')
+        with open(cmake_path, 'w', encoding='utf-8') as file:
+            file.write(cmake_content)
+
+    def generate_build_scripts(self):
+        """Generates build scripts for Windows and Linux"""
+        build_script_linux = """#!/bin/bash
+mkdir -p build
+cd build
+cmake ..
+make
+"""
+        build_script_windows = """@echo off
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+"""
+        script_path_linux = os.path.join(self.output_dir, 'build.sh')
+        script_path_windows = os.path.join(self.output_dir, 'build.bat')
+
+        with open(script_path_linux, 'w', encoding='utf-8') as file:
+            file.write(build_script_linux)
+
+        with open(script_path_windows, 'w', encoding='utf-8') as file:
+            file.write(build_script_windows)
+
+    def generate_dependency_script(self):
+        """Generates scripts to download dependencies into a 'lib' folder"""
+        dependency_script_linux = """#!/bin/bash
+mkdir -p lib
+cd lib
+# Download nlohmann/json
+git clone https://github.com/nlohmann/json.git
+# Download zlib
+git clone https://github.com/madler/zlib.git
+# Download Boost (only uuid)
+mkdir -p boost
+cd boost
+BOOST_VERSION=1_75_0
+BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_$BOOST_VERSION.tar.gz
+wget -O boost.tar.gz $BOOST_URL
+tar --strip-components=1 -xf boost.tar.gz
+cd ..
+# Build zlib
+cd zlib
+mkdir build
+cd build
+cmake ..
+make
+"""
+
+        dependency_script_windows = """@echo off
+mkdir lib
+cd lib
+:: Download nlohmann/json
+git clone https://github.com/nlohmann/json.git
+:: Download zlib
+git clone https://github.com/madler/zlib.git
+:: Download Boost (only uuid)
+mkdir boost
+cd boost
+set BOOST_VERSION=1_75_0
+set BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_%BOOST_VERSION%.tar.gz
+curl -L -o boost.tar.gz %BOOST_URL%
+tar --strip-components=1 -xf boost.tar.gz
+cd ..
+:: Build zlib
+cd zlib
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+"""
+
+        script_path_linux = os.path.join(self.output_dir, 'download_dependencies.sh')
+        script_path_windows = os.path.join(self.output_dir, 'download_dependencies.bat')
+
+        with open(script_path_linux, 'w', encoding='utf-8') as file:
+            file.write(dependency_script_linux)
+
+        with open(script_path_windows, 'w', encoding='utf-8') as file:
+            file.write(dependency_script_windows)
+
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to C++"""
         if not isinstance(schema, list):
@@ -303,6 +406,9 @@ class AvroToCpp:
         self.output_dir = output_dir
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema)
+        self.generate_cmake_lists("AvroToCpp")
+        self.generate_build_scripts()
+        self.generate_dependency_script()
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to C++"""
