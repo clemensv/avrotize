@@ -1,22 +1,37 @@
 import json
 import sys
 import os
+from typing import Dict, List, cast
+
+
+JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | float | None
 
 from avrotize.common import altname
 
-def convert_avro_to_sql(avro_schema_path, sql_file_path, sql_dialect, emit_cloud_events_columns=False):
+def convert_avro_to_sql(avro_schema_path, dbscript_file_path, db_dialect, emit_cloud_events_columns=False, schema_name: str = ''):
     """
-    Converts an Avro schema to SQL schema for the specified SQL dialect.
+    Converts an Avro schema to database schema for the specified DB dialect.
 
     Args:
-        avro_schema_path (str): Path to the Avro schema file.
-        sql_file_path (str): Path to the output SQL file.
-        sql_dialect (str): SQL dialect (e.g., 'tsql', 'postgres', 'mysql').
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        avro_schema_path (str): Path to the Avro schema file. db_file_path
+        (str): Path to the output SQL file. db_dialect (str): SQL/DB dialect.
+        Supported: 'sqlserver', 'postgres', 'mysql', 'mariadb', 'sqlite',
+        'oracle', 'db2', 'sqlanywhere', 'bigquery', 'snowflake', 'redshift',
+        'cassandra', 'mongodb', 'dynamodb', 'elasticsearch', 'couchdb', 'neo4j',
+        'firebase', 'cosmosdb', 'hbase'.
+        emit_cloud_events_columns (bool): Whether to include cloud events
+        columns.
 
     Raises:
         ValueError: If the SQL dialect is unsupported.
     """
+    if db_dialect not in ["sqlserver", "postgres", "mysql", "mariadb", "sqlite", 
+                          "oracle", "db2", "sqlanywhere", "bigquery", "snowflake", 
+                          "redshift", "cassandra", "mongodb", "dynamodb", "elasticsearch",
+                          "couchdb", "neo4j", "firebase", "cosmosdb", "hbase"]:
+        print(f"Unsupported SQL dialect: {db_dialect}")
+        sys.exit(1)
+
     schema_file = avro_schema_path
     if not schema_file:
         print("Please specify the avro schema file")
@@ -29,15 +44,20 @@ def convert_avro_to_sql(avro_schema_path, sql_file_path, sql_dialect, emit_cloud
     if isinstance(schema, list):
         tables_sql = []
         for schema in schema_list:
-            tables_sql.extend(generate_sql(schema, sql_dialect, emit_cloud_events_columns, schema_list))
-        with open(sql_file_path, "w", encoding="utf-8") as sql_file:
+            tables_sql.extend(generate_sql(schema, db_dialect, emit_cloud_events_columns, schema_list, schema_name))
+        with open(dbscript_file_path, "w", encoding="utf-8") as sql_file:
             sql_file.write("\n".join(tables_sql))
     else:
-        tables_sql = generate_sql(schema, sql_dialect, emit_cloud_events_columns, schema_list)
-        with open(sql_file_path, "w", encoding="utf-8") as sql_file:
+        tables_sql = generate_sql(schema, db_dialect, emit_cloud_events_columns, schema_list, schema_name)
+        with open(dbscript_file_path, "w", encoding="utf-8") as sql_file:
             sql_file.write("\n".join(tables_sql))
 
-def generate_sql(schema, sql_dialect, emit_cloud_events_columns, schema_list):
+def generate_sql(
+        schema:Dict[str,JsonNode], 
+        sql_dialect: str,
+        emit_cloud_events_columns:bool, 
+        schema_list: List[Dict[str,JsonNode]],
+        schema_name: str = ''):
     """
     Generates SQL schema statements for the given Avro schema.
 
@@ -50,12 +70,19 @@ def generate_sql(schema, sql_dialect, emit_cloud_events_columns, schema_list):
     Returns:
         list: List of SQL statements.
     """
-    if sql_dialect in ["tsql", "postgres", "mysql", "mariadb", "sqlite", "oracle", "db2", "sqlanywhere", "bigquery", "snowflake", "redshift"]:
-        return generate_relational_sql(schema, sql_dialect, emit_cloud_events_columns, schema_list)
+    if sql_dialect in ["sqlserver", "postgres", "mysql", "mariadb", "sqlite", "oracle", "db2", "sqlanywhere", "bigquery", "snowflake", "redshift"]:
+        return generate_relational_sql(schema, sql_dialect, emit_cloud_events_columns, schema_list, schema_name)
+    elif sql_dialect == "cassandra":
+        return generate_cassandra_schema(schema, emit_cloud_events_columns, schema_name)
     else:
         raise ValueError(f"Unsupported SQL dialect: {sql_dialect}")
 
-def generate_relational_sql(schema, sql_dialect, emit_cloud_events_columns, schema_list):
+def generate_relational_sql(
+        schema:Dict[str,JsonNode], 
+        sql_dialect: str, 
+        emit_cloud_events_columns:bool, 
+        schema_list: List[Dict[str,JsonNode]], 
+        schema_name: str = ''):
     """
     Generates relational SQL schema statements for the given Avro schema.
 
@@ -71,8 +98,8 @@ def generate_relational_sql(schema, sql_dialect, emit_cloud_events_columns, sche
     namespace = schema.get("namespace", "")
     plain_table_name = altname(schema, 'sql') or f"{namespace}_{schema['name']}"
     table_name = escape_name(plain_table_name, sql_dialect)
-    fields = schema["fields"]
-    unique_record_keys = schema.get("unique", [])
+    fields: List[Dict[str, JsonNode]] = cast(List[Dict[str, JsonNode]], schema["fields"])
+    unique_record_keys:List[str] = cast(List[str],schema.get("unique", []))
 
     sql = []
     sql.append(f"CREATE TABLE {table_name} (")
@@ -94,8 +121,19 @@ def generate_relational_sql(schema, sql_dialect, emit_cloud_events_columns, sche
             f"    {escape_name('___subject', sql_dialect)} {avro_type_to_sql_type('string', sql_dialect)} NULL,"
         ])
     if unique_record_keys:
-        unique_columns = [escape_name(altname(field, field, 'sql') or field, sql_dialect) for field in unique_record_keys]
-        sql.append(f"    {primary_key_clause(sql_dialect)} ({', '.join(unique_columns)})")
+        unique_column_altnames = []
+        if sql_dialect in ["mysql", "mariadb"]:            
+            for field in fields:
+                if field["name"] in unique_record_keys:
+                    column_type = avro_type_to_sql_type(field["type"], sql_dialect)
+                    if column_type in ["BLOB", "TEXT"]:
+                        unique_column_altnames.append(escape_name(altname(field, 'sql')+"(20)", sql_dialect))
+                    else:
+                        unique_column_altnames.append(escape_name(altname(field, 'sql'), sql_dialect))
+        else:
+            unique_column_altnames = [escape_name(altname(field, 'sql'), sql_dialect) for field in fields if field["name"] in unique_record_keys]
+        
+        sql.append(f"    {primary_key_clause(sql_dialect)} ({', '.join(unique_column_altnames)})")
     else:
         sql[-1] = sql[-1][:-1]  # Remove the last comma
     sql.append(");")
@@ -173,7 +211,7 @@ def comment_on_table_clause(dialect, table_name, doc_string):
     """
     if dialect in ["postgres", "oracle"]:
         return f"COMMENT ON TABLE {table_name} IS '{doc_string}';"
-    elif dialect == "tsql":
+    elif dialect == "sqlserver":
         return f"EXEC sp_addextendedproperty 'MS_Description', '{doc_string}', 'SCHEMA', 'dbo', 'TABLE', '{table_name}';"
     elif dialect == "sqlite":
         return f"-- COMMENT ON TABLE {table_name} IS '{doc_string}';"
@@ -196,7 +234,7 @@ def comment_on_column_clause(dialect, table_name, column_name, doc_string):
     """
     if dialect in ["postgres", "oracle"]:
         return f"COMMENT ON COLUMN {escape_name(table_name, dialect)}.{escape_name(column_name, dialect)} IS '{doc_string}';"
-    elif dialect == "tsql":
+    elif dialect == "sqlserver":
         return f"EXEC sp_addextendedproperty 'MS_Description', '{doc_string}', 'SCHEMA', 'dbo', 'TABLE', '{table_name}', 'COLUMN', '{column_name}';"
     elif dialect == "sqlite":
         return f"-- COMMENT ON COLUMN {escape_name(table_name, dialect)}.{escape_name(column_name, dialect)} IS '{doc_string}';"
@@ -230,8 +268,9 @@ def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit
         schema_json = f.read()
 
     schema_list = schema = json.loads(schema_json)
-    if not os.path.exists(nosql_file_path):
-        os.makedirs(nosql_file_path, exist_ok=True)
+    dirname = os.path.dirname(nosql_file_path)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname, exist_ok=True)
 
     if isinstance(schema, list):
         for schema in schema_list:
@@ -262,8 +301,6 @@ def generate_nosql(schema, nosql_dialect, emit_cloud_events_columns, schema_list
         return generate_mongodb_schema(schema, emit_cloud_events_columns)
     elif nosql_dialect == "dynamodb":
         return generate_dynamodb_schema(schema, emit_cloud_events_columns)
-    elif nosql_dialect == "cassandra":
-        return generate_cassandra_schema(schema, emit_cloud_events_columns)
     elif nosql_dialect == "elasticsearch":
         return generate_elasticsearch_schema(schema, emit_cloud_events_columns)
     elif nosql_dialect == "couchdb":
@@ -376,7 +413,32 @@ def generate_dynamodb_schema(schema, emit_cloud_events_columns):
 
     return json.dumps(dynamodb_schema, indent=4)
 
-def generate_cassandra_schema(schema, emit_cloud_events_columns):
+def compact_table_name(table_name, max_length):
+    """
+    Compacts the table name to fit the specified maximum length.
+
+    Args:
+        table_name (str): Table name.
+        max_length (int): Maximum length of the table name.
+
+    Returns:
+        str: Compacted table name.
+    """
+    if len(table_name) > max_length:
+        # drop vowels, one by one, seek from end
+        vowels = "aeiou"
+        while len(table_name) > max_length:
+            count = 0
+            for i in range(len(table_name) - 1, -1, -1):
+                if table_name[i].lower() in vowels:
+                    count += 1
+                    table_name = table_name[:i] + table_name[i + 1:]
+                    break
+            if count == 0:
+                break
+    return table_name[:max_length]
+
+def generate_cassandra_schema(schema: Dict[str, JsonNode], emit_cloud_events_columns: bool, schema_name: str) -> List[str]:
     """
     Generates Cassandra schema statements for the given Avro schema.
 
@@ -387,30 +449,37 @@ def generate_cassandra_schema(schema, emit_cloud_events_columns):
     Returns:
         list: List of Cassandra schema statements.
     """
-    namespace = schema.get("namespace", "")
-    table_name = altname(schema, 'sql') or f"{namespace}_{schema['name']}"
-    fields = schema["fields"]
-    unique_record_keys = schema.get("unique", [])
+    namespace = cast(str,schema.get("namespace", "")).replace(".", "_")
+    table_name = altname(schema, 'sql')
+    table_name = escape_name(f"{namespace}_{table_name}" if namespace else table_name, "cassandra")
+    table_name = f"{schema_name}.{table_name}" if schema_name else table_name
+    table_name = compact_table_name(table_name,48)  # Cassandra table name length limit
+    fields: List[Dict[str,JsonNode]] = cast(List[Dict[str,JsonNode]],schema["fields"])
+    unique_record_keys: List[str] = cast(List[str],schema.get("unique", []))
 
     cql = []
     cql.append(f"CREATE TABLE {table_name} (")
     for field in fields:
-        column_name = altname(field, 'sql') or field["name"]
+        column_name = escape_name(altname(field, 'sql') or field["name"], 'cassandra')
         column_type = convert_avro_type_to_cassandra_type(field["type"])
         cql.append(f"    {column_name} {column_type},")
     if emit_cloud_events_columns:
         cql.extend([
-            f"    {escape_name('___type', 'cassandra')} text,",
-            f"    {escape_name('___source', 'cassandra')} text,",
-            f"    {escape_name('___id', 'cassandra')} text,",
-            f"    {escape_name('___time', 'cassandra')} timestamp,",
-            f"    {escape_name('___subject', 'cassandra')} text"
+            f"    {escape_name('cloudevents_type', 'cassandra')} text,",
+            f"    {escape_name('cloudevents_source', 'cassandra')} text,",
+            f"    {escape_name('cloudevents_id', 'cassandra')} text,",
+            f"    {escape_name('cloudevents_time', 'cassandra')} timestamp,",
+            f"    {escape_name('cloudevents_subject', 'cassandra')} text,"
         ])
     if unique_record_keys:
-        unique_columns = [escape_name(altname(field, field, 'sql') or field, 'cassandra') for field in unique_record_keys]
+        unique_columns = [escape_name(field_name, "cassandra") for field_name in unique_record_keys]
+        unique_column_altnames = [altname(field, 'sql') for field in fields if field["name"] in unique_record_keys]
         cql.append(f"    PRIMARY KEY ({', '.join(unique_columns)})")
+    elif emit_cloud_events_columns:
+        cql.append(f"    PRIMARY KEY ({escape_name('cloudevents_id', 'cassandra')})")
     else:
-        cql[-1] = cql[-1][:-1]  # Remove the last comma
+        all_columns = [escape_name(altname(field, 'sql') or field, 'cassandra') for field in fields]
+        cql.append(f"    PRIMARY KEY ({', '.join(all_columns)})")
     cql.append(");")
     return cql
 
@@ -647,7 +716,7 @@ def escape_name(name, dialect):
     Returns:
         str: The escaped name.
     """
-    if dialect in ["tsql", "sqlanywhere"]:
+    if dialect in ["sqlserver", "sqlanywhere"]:
         return f"[{name}]"
     elif dialect in ["postgres", "sqlite", "bigquery", "snowflake", "redshift"]:
         return f'"{name}"'
@@ -655,6 +724,8 @@ def escape_name(name, dialect):
         return f"`{name}`"
     elif dialect in ["oracle", "db2"]:
         return f'"{name.upper()}"'
+    elif dialect == "cassandra":
+        return f'"{name}"'
     elif dialect in ["mongodb", "dynamodb", "cassandra", "elasticsearch", "couchdb", "neo4j", "firebase", "cosmosdb", "hbase"]:
         return name
     else:
@@ -672,7 +743,7 @@ def avro_type_to_sql_type(avro_type, dialect):
         str: The corresponding SQL type.
     """
     avro_to_sql_type_map = {
-        "tsql": {
+        "sqlserver": {
             "null": "NULL",
             "boolean": "BIT",
             "int": "INT",
@@ -680,7 +751,7 @@ def avro_type_to_sql_type(avro_type, dialect):
             "float": "FLOAT",
             "double": "FLOAT",
             "bytes": "VARBINARY(MAX)",
-            "string": "NVARCHAR(MAX)"
+            "string": "NVARCHAR(512)"
         },
         "postgres": {
             "null": "NULL",

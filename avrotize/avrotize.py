@@ -68,11 +68,18 @@ def main():
     k2a_parser.add_argument('--namespace', type=str, help='Namespace for the Avro schema', required=False)
     k2a_parser.add_argument('--emit-cloudevents-xregistry', action='store_true', help='Emit an xRegistry manifest with CloudEvents declarations for each table instead of a single Avro schema', required=False)
 
-    a2tsql_parser = subparsers.add_parser('a2tsql', help='Convert Avro schema to T-SQL schema')
-    a2tsql_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
-    a2tsql_parser.add_argument('--tsql', type=str, help='Path to the T-SQL table', required=True)
-    a2tsql_parser.add_argument('--record-type', type=str, help='Record type in the Avro schema', required=False)
-    a2tsql_parser.add_argument('--emit-cloudevents-columns', action='store_true', help='Add CloudEvents columns to the T-SQL table', default=False)
+    a2sql_parser = subparsers.add_parser('a2sql', help='Convert Avro schema to SQL schema')
+    a2sql_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2sql_parser.add_argument('--sql', type=str, help='Path to the SQL table', required=True)
+    a2sql_parser.add_argument('--dialect', type=str, help='SQL dialect (database type)', choices=['mysql', 'mariadb', 'postgres', 'sqlserver', 'oracle', 'sqlite', 'bigquery', 'snowflake', 'redshift', 'db2'], required=True)
+    a2sql_parser.add_argument('--record-type', type=str, help='Record type in the Avro schema', required=False)
+    a2sql_parser.add_argument('--emit-cloudevents-columns', action='store_true', help='Add CloudEvents columns to the SQL table', default=False)
+
+    a2mongo_parser = subparsers.add_parser('a2mongo', help='Convert Avro schema to MongoDB schema')
+    a2mongo_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
+    a2mongo_parser.add_argument('--mongo', type=str, help='Path to the MongoDB schema', required=True)
+    a2mongo_parser.add_argument('--record-type', type=str, help='Record type in the Avro schema', required=False)
+    a2mongo_parser.add_argument('--emit-cloudevents-columns', action='store_true', help='Add CloudEvents columns to the MongoDB schema', default=False)
 
     a2pq_parser = subparsers.add_parser('a2pq', help='Convert Avro schema to Parquet schema')
     a2pq_parser.add_argument('--avsc', type=str, help='Path to the Avro schema file', required=True)
@@ -197,13 +204,21 @@ def main():
         emit_cloudevents_xregistry = args.emit_cloudevents_xregistry
         print(f'Converting Kusto {kusto_uri} to Avro {avro_schema_path}')
         convert_kusto_to_avro(kusto_uri, kusto_database, namespace, avro_schema_path, emit_cloudevents_xregistry)
-    elif args.command == 'a2tsql':
+    elif args.command == 'a2sql':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type
-        tsql_file_path = args.tsql
+        sql_file_path = args.sql
+        dialect = args.dialect
         emit_cloud_events_columns = args.emit_cloudevents_columns
-        print(f'Converting Avro {avro_schema_path} to T-SQL {tsql_file_path}')
-        convert_avro_to_sql(avro_schema_path, tsql_file_path, "tsql", emit_cloud_events_columns)
+        print(f'Converting Avro {avro_schema_path} to {dialect} {sql_file_path}')
+        convert_avro_to_sql(avro_schema_path, sql_file_path, dialect, emit_cloud_events_columns)
+    elif args.command == 'a2mongo':
+        avro_schema_path = args.avsc
+        avro_record_type = args.record_type
+        mongo_file_path = args.mongo
+        emit_cloud_events_columns = args.emit_cloudevents_columns
+        print(f'Converting Avro {avro_schema_path} to MongoDB {mongo_file_path}')
+        convert_avro_to_sql(avro_schema_path, avro_record_type, "mongodb", emit_cloud_events_columns)
     elif args.command == 'a2pq':
         avro_schema_path = args.avsc
         avro_record_type = args.record_type

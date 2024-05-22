@@ -29,7 +29,8 @@ dependencies = [
     "azure-identity>=1.6.0",
     "datapackage>=1.15.4",
 ]
-dev-dependencies = [
+[project.optional-dependencies]
+dev = [
     "pytest>=7.2.1",
     "fastavro>=1.9.4",
     "xmlschema>=3.0.2",
@@ -44,7 +45,8 @@ dev-dependencies = [
     "psycopg2>=2.9.9",
     "pyodbc>=5.1.0",
     "pymongo>=4.7.2",
-    "cx_oracle>=9.3.0"
+    "cx_oracle>=8.3.0",
+    "cassandra-driver>=3.29.1"
 ]
 
 [project.scripts]

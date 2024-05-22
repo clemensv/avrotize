@@ -7,7 +7,8 @@
       { "name": "CategoryName", "type": "string" },
       { "name": "Description", "type": ["null", "string"], "default": null },
       { "name": "Picture", "type": ["null", "bytes"], "default": null }
-    ]
+    ],
+    "unique": ["CategoryID"]
   },
   {
     "type": "record",
@@ -24,7 +25,8 @@
       { "name": "Country", "type": ["null", "string"], "default": null },
       { "name": "Phone", "type": ["null", "string"], "default": null },
       { "name": "Fax", "type": ["null", "string"], "default": null }
-    ]
+    ],
+    "unique": ["CustomerID"]
   },
   {
     "type": "record",
@@ -60,7 +62,8 @@
       { "name": "Notes", "type": ["null", "string"], "default": null },
       { "name": "ReportsTo", "type": ["null", "int"], "default": null },
       { "name": "PhotoPath", "type": ["null", "string"], "default": null }
-    ]
+    ],
+    "unique": ["EmployeeID"]
   },
   {
     "type": "record",
@@ -92,7 +95,8 @@
       { "name": "ShipRegion", "type": ["null", "string"], "default": null },
       { "name": "ShipPostalCode", "type": ["null", "string"], "default": null },
       { "name": "ShipCountry", "type": ["null", "string"], "default": null }
-    ]
+    ],
+    "unique": ["OrderID"]
   },
   {
     "type": "record",
@@ -103,7 +107,8 @@
       { "name": "UnitPrice", "type": "float" },
       { "name": "Quantity", "type": "int" },
       { "name": "Discount", "type": "float" }
-    ]
+    ],
+    "unique": ["OrderID", "ProductID"]
   },
   {
     "type": "record",
@@ -123,7 +128,8 @@
       { "name": "UnitsOnOrder", "type": ["null", "int"], "default": null },
       { "name": "ReorderLevel", "type": ["null", "int"], "default": null },
       { "name": "Discontinued", "type": "boolean" }
-    ]
+    ],
+    "unique": ["ProductID"]
   },
   {
     "type": "record",
@@ -132,7 +138,8 @@
       { "name": "ShipperID", "type": "int" },
       { "name": "CompanyName", "type": "string" },
       { "name": "Phone", "type": ["null", "string"], "default": null }
-    ]
+    ],
+    "unique": ["ShipperID"]
   },
   {
     "type": "record",
@@ -150,7 +157,8 @@
       { "name": "Phone", "type": ["null", "string"], "default": null },
       { "name": "Fax", "type": ["null", "string"], "default": null },
       { "name": "HomePage", "type": ["null", "string"], "default": null }
-    ]
+    ],
+    "unique": ["SupplierID"]
   },
   {
     "type": "record",
@@ -158,7 +166,8 @@
     "fields": [
       { "name": "RegionID", "type": "int" },
       { "name": "RegionDescription", "type": "string" }
-    ]
+    ],
+    "unique": ["RegionID"]
   },
   {
     "type": "record",
@@ -167,7 +176,8 @@
       { "name": "TerritoryID", "type": "string" },
       { "name": "TerritoryDescription", "type": "string" },
       { "name": "RegionID", "type": "int" }
-    ]
+    ],
+    "unique": ["TerritoryID"]
   },
   {
     "type": "record",
@@ -175,6 +185,7 @@
     "fields": [
       { "name": "EmployeeID", "type": "int" },
       { "name": "TerritoryID", "type": "string" }
-    ]
+    ],
+    "unique": ["EmployeeID", "TerritoryID"]
   }
 ]

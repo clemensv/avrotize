@@ -11,11 +11,14 @@ from testcontainers.postgres import PostgresContainer
 from testcontainers.mongodb import MongoDbContainer
 from testcontainers.mssql import SqlServerContainer
 from testcontainers.oracle import OracleDbContainer
+from testcontainers.cassandra import CassandraContainer
 import pymysql
 import psycopg2
 import pymongo
 import pyodbc
 import cx_Oracle
+from cassandra.cluster import Cluster, DCAwareRoundRobinPolicy
+import asyncio
 
 from avrotize.common import altname
 
@@ -47,7 +50,6 @@ class TestAvroToDB(unittest.TestCase):
             f.write(self.schema_json)
 
     def tearDown(self):
-        import os
         os.remove("test_schema.avsc")
 
     def test_mysql_schema_creation(self):
@@ -180,7 +182,7 @@ class TestAvroToDB(unittest.TestCase):
             conn = pyodbc.connect(conn_str)
             cursor = conn.cursor()
             cloudevents_columns_count = 5
-            convert_avro_to_sql(avro_path, sql_path, "tsql", emit_cloud_events_columns=True)
+            convert_avro_to_sql(avro_path, sql_path, "sqlserver", emit_cloud_events_columns=True)
             with open(sql_path, "r", encoding="utf-8") as sql_file:
                 schema_sql = sql_file.read()
                 for statement in schema_sql.split(";"):
@@ -245,3 +247,38 @@ class TestAvroToDB(unittest.TestCase):
                 self.assertEqual(len(columns), len(avro_record["fields"])+cloudevents_columns_count)  # id, name, email, and CloudEvents columns
             cursor.close()
             conn.close()
+
+    def test_cassandra_schema_creation(self):
+        self.run_cassandra_schema_creation("address")
+        self.run_cassandra_schema_creation("northwind")
+
+    def run_cassandra_schema_creation(self, avro_name):
+        cwd = os.getcwd()        
+        avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
+        cql_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-cassandra.cql")
+        with CassandraContainer() as cassandra:
+            cluster = Cluster(contact_points=cassandra.get_contact_points(), 
+                              port=cassandra.get_exposed_port(9042), 
+                              protocol_version=4,
+                              load_balancing_policy=DCAwareRoundRobinPolicy(local_dc=cassandra.get_local_datacenter()))
+            session = cluster.connect()
+            keyspace = avro_name.lower()
+            session.execute(f"CREATE KEYSPACE {keyspace} WITH REPLICATION = {{'class': 'SimpleStrategy', 'replication_factor': 1}};")
+            session.set_keyspace(keyspace)
+            convert_avro_to_sql(avro_path, cql_path, "cassandra", emit_cloud_events_columns=True, schema_name=keyspace)
+            with open(cql_path, "r", encoding="utf-8") as cql_file:
+                cql_script = cql_file.read()
+                statements = cql_script.split(";")
+                for statement in statements:
+                    if statement.strip():
+                        session.execute(statement)
+            # tables = session.execute(f"SELECT table_name FROM system_schema.tables;")
+            # with open(avro_path, "r", encoding="utf-8") as avsc_file:
+            #     avro_schema = json.load(avsc_file)
+            # for table in tables:
+            #     if isinstance(avro_schema, list):
+            #         table_name = table.table_name
+            #         columns = session.execute(f"SELECT column_name FROM system_schema.columns WHERE table_name = '{table_name}';")
+            #         self.assertEqual(len(columns), len(avro_schema[0]["fields"]))  # Number of columns should match the number of fields in the Avro schema
+            session.shutdown()
+            cluster.shutdown()

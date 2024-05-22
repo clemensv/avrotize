@@ -22,6 +22,7 @@ class AvroToCpp:
         self.generated_types_cpp_namespace: Dict[str, str] = {}
         self.avro_annotation = False
         self.json_annotation = False
+        self.generated_files: List[str] = []
 
     def safe_identifier(self, name: str) -> str:
         """Converts a name to a safe C++ identifier"""
@@ -272,7 +273,7 @@ class AvroToCpp:
     def write_to_file(self, namespace: str, name: str, definition: str):
         """Writes a C++ class or enum to a file"""
         directory_path = os.path.join(
-            self.output_dir, namespace.replace('::', os.sep))
+            self.output_dir, "include", namespace.replace('::', os.sep))
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)
         file_path = os.path.join(directory_path, f"{name}.hpp")
@@ -288,30 +289,68 @@ class AvroToCpp:
             file.write("#include <chrono>\n")
             file.write("#include <boost/uuid/uuid.hpp>\n")
             file.write("#include <boost/uuid/uuid_io.hpp>\n")
-            file.write("#include \"gzip/compress.hpp\"\n")
-            file.write("#include \"gzip/decompress.hpp\"\n")
             file.write(definition)
             if namespace:
                 file.write(f"}} // namespace {namespace.replace('::', ' ')}\n")
 
+        # Collect the generated file names
+        self.generated_files.append(file_path.replace(os.sep, '/'))
+
     def generate_cmake_lists(self, project_name: str):
         """Generates a CMakeLists.txt file"""
+        generated_sources = '\n    '.join(self.generated_files)
         cmake_content = f"""cmake_minimum_required(VERSION 3.10)
 
+# Set output directory for executables and libraries
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/lib)
+
+# Set intermediate directory
+set(CMAKE_BINARY_DIR ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/intermediate)
+        
 project({project_name})
 
 set(CMAKE_CXX_STANDARD 17)
 
+# Integrate vcpkg
+if (DEFINED ENV{{VCPKG_ROOT}} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{{VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "")
+elseif (EXISTS "${{CMAKE_SOURCE_DIR}}/vcpkg/scripts/buildsystems/vcpkg.cmake" AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE "${{CMAKE_SOURCE_DIR}}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "")
+endif ()
+
 include_directories(${{CMAKE_SOURCE_DIR}}/include)
+
+# Set Boost_ROOT to vcpkg installation directory
+if (NOT Boost_INCLUDE_DIR)
+    set(Boost_INCLUDE_DIR "${{CMAKE_SOURCE_DIR}}/vcpkg/installed/x64-windows/include")
+endif()
+if (NOT Boost_LIBRARY_DIR)
+    set(Boost_LIBRARY_DIR "${{CMAKE_SOURCE_DIR}}/vcpkg/installed/x64-windows/lib")
+endif()
 
 find_package(Boost REQUIRED COMPONENTS uuid)
 find_package(ZLIB REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
-add_library(gzip STATIC gzip/compress.cpp gzip/decompress.cpp)
+include_directories(${{Boost_INCLUDE_DIRS}})
+link_directories(${{Boost_LIBRARY_DIRS}})
 
-add_executable({project_name} main.cpp)
+add_library({project_name} INTERFACE) 
+target_include_directories({project_name} INTERFACE .${{CMAKE_SOURCE_DIR}}/include)
 
-target_link_libraries({project_name} Boost::uuid ZLIB::ZLIB gzip)
+target_link_libraries({project_name} INTERFACE Boost::boost Boost::uuid ZLIB::ZLIB nlohmann_json::nlohmann_json)
+
+# Set properties for each target if needed
+set_target_properties({project_name} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${{CMAKE_RUNTIME_OUTPUT_DIRECTORY}}
+    LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_LIBRARY_OUTPUT_DIRECTORY}}
+    ARCHIVE_OUTPUT_DIRECTORY ${{CMAKE_ARCHIVE_OUTPUT_DIRECTORY}}
+)
+
 """
         cmake_path = os.path.join(self.output_dir, 'CMakeLists.txt')
         with open(cmake_path, 'w', encoding='utf-8') as file:
@@ -340,62 +379,90 @@ cmake --build . --config Release
         with open(script_path_windows, 'w', encoding='utf-8') as file:
             file.write(build_script_windows)
 
-    def generate_dependency_script(self):
-        """Generates scripts to download dependencies into a 'lib' folder"""
-        dependency_script_linux = """#!/bin/bash
-mkdir -p lib
-cd lib
-# Download nlohmann/json
-git clone https://github.com/nlohmann/json.git
-# Download zlib
-git clone https://github.com/madler/zlib.git
-# Download Boost (only uuid)
-mkdir -p boost
-cd boost
-BOOST_VERSION=1_75_0
-BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_$BOOST_VERSION.tar.gz
-wget -O boost.tar.gz $BOOST_URL
-tar --strip-components=1 -xf boost.tar.gz
-cd ..
-# Build zlib
-cd zlib
-mkdir build
+    def generate_setup_scripts(self):
+        """Generates setup scripts for installing vcpkg and dependencies"""
+
+        setup_script_linux = """#!/bin/bash
+# Check if the current directory is inside a git repository
+if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    echo "Inside a git repository"
+    if [ -d "vcpkg/.git" ]; then
+        echo "vcpkg submodule already exists"
+    else
+        echo "Adding vcpkg as a submodule"
+        git submodule add https://github.com/Microsoft/vcpkg.git vcpkg
+        git submodule update --init --recursive
+    fi
+else
+    if [ -d "vcpkg/.git" ]; then
+        echo "vcpkg already cloned"
+    else
+        echo "Not inside a git repository. Cloning vcpkg."
+        git clone https://github.com/Microsoft/vcpkg.git vcpkg
+    fi
+fi
+
+# Setup vcpkg
+./vcpkg/bootstrap-vcpkg.sh
+
+# Set VCPKG_ROOT environment variable
+export VCPKG_ROOT=$(pwd)/vcpkg
+
+# Install dependencies using vcpkg
+./vcpkg/vcpkg install boost-uuid zlib nlohmann-json
+
+# Configure and build project using CMake
+mkdir -p build
 cd build
-cmake ..
-make
+cmake -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake ..
+cmake --build .
 """
 
-        dependency_script_windows = """@echo off
-mkdir lib
-cd lib
-:: Download nlohmann/json
-git clone https://github.com/nlohmann/json.git
-:: Download zlib
-git clone https://github.com/madler/zlib.git
-:: Download Boost (only uuid)
-mkdir boost
-cd boost
-set BOOST_VERSION=1_75_0
-set BOOST_URL=https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_%BOOST_VERSION%.tar.gz
-curl -L -o boost.tar.gz %BOOST_URL%
-tar --strip-components=1 -xf boost.tar.gz
-cd ..
-:: Build zlib
-cd zlib
+        setup_script_windows = """@echo off
+:: Check if the current directory is inside a git repository
+git rev-parse --is-inside-work-tree 2>nul
+if %errorlevel% equ 0 (
+    echo Inside a git repository
+    if exist vcpkg\\.git (
+        echo vcpkg submodule already exists
+    ) else (
+        echo Adding vcpkg as a submodule
+        git submodule add https://github.com/Microsoft/vcpkg.git vcpkg
+        git submodule update --init --recursive
+    )
+) else (
+    if exist vcpkg\\.git (
+        echo vcpkg already cloned
+    ) else (
+        echo Not inside a git repository. Cloning vcpkg.
+        git clone https://github.com/Microsoft/vcpkg.git vcpkg
+    )
+)
+
+:: Setup vcpkg
+call vcpkg\\bootstrap-vcpkg.bat
+
+:: Set VCPKG_ROOT environment variable
+set VCPKG_ROOT=%cd%\\vcpkg
+
+:: Install dependencies using vcpkg
+vcpkg\\vcpkg install boost-uuid zlib nlohmann-json
+
+:: Configure and build project using CMake
 mkdir build
 cd build
-cmake ..
-cmake --build . --config Release
+cmake -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\\scripts\\buildsystems\\vcpkg.cmake ..
+cmake --build .
 """
 
-        script_path_linux = os.path.join(self.output_dir, 'download_dependencies.sh')
-        script_path_windows = os.path.join(self.output_dir, 'download_dependencies.bat')
+        script_path_linux = os.path.join(self.output_dir, 'setup.sh')
+        script_path_windows = os.path.join(self.output_dir, 'setup.bat')
 
         with open(script_path_linux, 'w', encoding='utf-8') as file:
-            file.write(dependency_script_linux)
+            file.write(setup_script_linux)
 
         with open(script_path_windows, 'w', encoding='utf-8') as file:
-            file.write(dependency_script_windows)
+            file.write(setup_script_windows)
 
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to C++"""
@@ -408,7 +475,7 @@ cmake --build . --config Release
             self.generate_class_or_enum(avro_schema)
         self.generate_cmake_lists("AvroToCpp")
         self.generate_build_scripts()
-        self.generate_dependency_script()
+        self.generate_setup_scripts()
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to C++"""
