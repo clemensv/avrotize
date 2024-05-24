@@ -1,0 +1,108 @@
+{%- if json_annotation or avro_annotation %}
+    static {{ class_name }} from_data(const std::vector<uint8_t>& data, const std::string& content_type) {
+        {{ class_name }} result;
+        std::string media_type = content_type.substr(0, content_type.find(';'));
+        std::vector<uint8_t> decompressed_data = data;
+        if (media_type.find("+gzip") != std::string::npos) {
+            std::stringstream compressed;
+            compressed.write(reinterpret_cast<const char*>(data.data()), data.size());
+            std::stringstream decompressed;
+            boost::iostreams::filtering_streambuf<boost::iostreams::input> in;
+            in.push(boost::iostreams::gzip_decompressor());
+            in.push(compressed);
+            boost::iostreams::copy(in, decompressed);
+            std::string decompressed_str = decompressed.str();
+            decompressed_data.assign(decompressed_str.begin(), decompressed_str.end());
+            media_type = media_type.substr(0, media_type.find("+gzip"));
+        }
+        {%- if json_annotation %}
+        if (media_type == "application/json") {
+            std::string json_str(decompressed_data.begin(), decompressed_data.end());
+            return nlohmann::json::parse(json_str).get<{{ class_name }}>();
+        }
+        {%- endif %}
+        {%- if avro_annotation %}
+        if (media_type == "avro/binary" || media_type == "application/vnd.apache.avro+avro") {
+            return deserialize_avro<{{ class_name }}>(decompressed_data);
+        } 
+        {%- endif %}
+        else {
+            throw std::invalid_argument("Unsupported media type: " + media_type);
+        }
+    }
+
+
+    std::vector<uint8_t> to_byte_array(const std::string& content_type) const {
+        std::vector<uint8_t> result;
+        std::string media_type = content_type.substr(0, content_type.find(';'));
+        {%- if json_annotation %}
+        if (media_type == "application/json") {
+            std::string json_str = nlohmann::json(*this).dump();
+            result.assign(json_str.begin(), json_str.end());
+        } 
+        {%- endif %}
+        {%- if avro_annotation %}
+        if (media_type == "avro/binary" || media_type == "application/vnd.apache.avro+avro") {
+            result = serialize_avro(*this);
+        } 
+        {%- endif %}
+        if (result.empty()) {
+            throw std::invalid_argument("Unsupported media type: " + media_type);
+        }
+        if (content_type.find("+gzip") != std::string::npos) {
+            std::stringstream compressed;
+            std::stringstream origin;
+            origin.write(reinterpret_cast<const char*>(result.data()), result.size());
+            boost::iostreams::filtering_streambuf<boost::iostreams::output> out;
+            out.push(boost::iostreams::gzip_compressor());
+            out.push(compressed);
+            boost::iostreams::copy(origin, out);
+            std::string compressed_str = compressed.str();
+            result.assign(compressed_str.begin(), compressed_str.end());
+        }
+        return result;
+    }
+{%- endif %}
+
+{%- if avro_annotation %}
+    template<typename T>
+    static T deserialize_avro(const std::vector<uint8_t>& data) {
+        T deserialized_data;
+        avro::DecoderPtr decoder = avro::binaryDecoder();
+        avro::InputStreamPtr in = avro::memoryInputStream(data.data(), data.size());
+        decoder->init(*in);
+        avro::decode(*decoder, deserialized_data);
+        return deserialized_data;
+    }
+
+    std::vector<uint8_t> serialize_avro(const {{ class_name }}& rec) const {
+        std::vector<uint8_t> serialized_data;
+        avro::EncoderPtr encoder = avro::binaryEncoder();
+        avro::OutputStreamPtr out = avro::memoryOutputStream();
+        encoder->init(*out);
+        avro::encode(*encoder, rec);
+        encoder->flush();
+        auto input = avro::memoryInputStream(*out);
+        const uint8_t* buffer;
+        size_t len;
+        while (input->next(&buffer, &len)) {
+            serialized_data.insert(serialized_data.end(), buffer, buffer + len);
+        }
+        return serialized_data;
+    }
+
+    static const std::string AVRO_SCHEMA_STR;
+    static avro::ValidSchema AVRO_SCHEMA;
+    static void initialize_avro_schema() {
+        avro::compileJsonSchemaFromString(AVRO_SCHEMA_STR, AVRO_SCHEMA);
+    }
+    static avro::ValidSchema get_avro_schema() {
+        return AVRO_SCHEMA;
+    }
+    static const std::string AVRO_SCHEMA_STR = R"({{ schema_json }})";
+    avro::ValidSchema {{ class_name }}::AVRO_SCHEMA = [] {
+        avro::ValidSchema schema;
+        {{ class_name }}::initialize_avro_schema();
+        return schema;
+    }();
+{%- endif %}

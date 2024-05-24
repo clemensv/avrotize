@@ -1,0 +1,77 @@
+cmake_minimum_required(VERSION 3.10)
+
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    IF (NOT DEFINED VCPKG_ROOT)
+        message(STATUS "Setting up vcpkg...")
+        SET(VCPKG_ROOT ${CMAKE_SOURCE_DIR}/vcpkg CACHE STRING "" FORCE)
+
+        if(WIN32)
+            set(BOOTSTRAP_COMMAND ${VCPKG_ROOT}/bootstrap-vcpkg.bat)
+            set(VCPKG_EXECUTABLE ${VCPKG_ROOT}/vcpkg.exe)
+        else()
+            set(BOOTSTRAP_COMMAND ${VCPKG_ROOT}/bootstrap-vcpkg.sh)
+            set(VCPKG_EXECUTABLE ${VCPKG_ROOT}/vcpkg)
+        endif()
+
+        if(NOT EXISTS "${BOOTSTRAP_COMMAND}")
+            execute_process(
+                COMMAND git clone https://github.com/Microsoft/vcpkg.git ${VCPKG_ROOT}
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            )
+        endif()    
+    
+        if(NOT EXISTS ${VCPKG_EXECUTABLE})
+            execute_process(
+                COMMAND ${BOOTSTRAP_COMMAND}
+                WORKING_DIRECTORY ${VCPKG_ROOT}
+            )
+        endif()
+    endif()
+    set(CMAKE_TOOLCHAIN_FILE "{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "")    
+endif()
+
+# Set output directory for executables and libraries
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Build/${CMAKE_BUILD_TYPE}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Build/${CMAKE_BUILD_TYPE}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/Build/${CMAKE_BUILD_TYPE}/lib)
+
+# Set intermediate directory
+set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/Build/${CMAKE_BUILD_TYPE}/intermediate)
+
+project({{project_name}})
+
+set(CMAKE_CXX_STANDARD 17)
+
+# Specify dependencies
+find_package(Boost REQUIRED COMPONENTS uuid {'iostreams' if self.avro_annotation or self.json_annotation else ''})
+find_package(GTest REQUIRED)
+{{-'find_package(ZLIB REQUIRED)' if self.avro_annotation or self.json_annotation else ''}}
+{{-'find_package(nlohmann_json REQUIRED)' if self.json_annotation else ''}}
+{{-'find_package(avro-cpp REQUIRED)' if self.avro_annotation else ''}}
+
+include_directories(${Boost_INCLUDE_DIRS})
+link_directories(${Boost_LIBRARY_DIRS})
+
+add_library(${PROJECT_NAME} INTERFACE)
+target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME} INTERFACE Boost::boost Boost::uuid 
+{{- ' ZLIB::ZLIB' if self.avro_annotation or self.json_annotation else ''-}} 
+{{- ' nlohmann_json::nlohmann_json' if self.json_annotation else ''-}} 
+{{- ' avro::avro ' if self.avro_annotation else ''-}})
+
+# Set properties for each target if needed
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
+)
+
+# Add unit tests
+file(GLOB TEST_SOURCES "tests/*.cpp")
+add_executable(runUnitTests ${TEST_SOURCES})
+target_link_libraries(runUnitTests GTest::GTest GTest::Main ${PROJECT_NAME})
+
+# Enable testing
+enable_testing()
+add_test(NAME runUnitTests COMMAND runUnitTests)

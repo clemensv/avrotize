@@ -1,9 +1,11 @@
 from collections import defaultdict
+import os
 import re
 from typing import Dict, Tuple, Union, Any, List
 from jsoncomparison import NO_DIFF, Compare
 import hashlib
 import json    
+import jinja2
 
 def avro_name(name):
     """Convert a name into an Avro name."""
@@ -369,3 +371,27 @@ def altname(schema_obj: dict, purpose: str):
     if "altnames" in schema_obj and purpose in schema_obj["altnames"]:
         return schema_obj["altnames"][purpose]
     return schema_obj["name"]
+
+def process_template(file_path: str, **kvargs) -> str:
+    """
+    Process a file as a Jinja2 template with the given object as input.
+
+    Args:
+        file_path (str): The path to the file.
+        obj (Any): The object to use as input for the template.
+
+    Returns:
+        str: The processed template as a string.
+    """
+    # Load the template environment
+    file_dir = os.path.dirname(__file__)
+    template_loader = jinja2.FileSystemLoader(searchpath=file_dir)
+    template_env = jinja2.Environment(loader=template_loader)
+
+    # Load the template from the file
+    template = template_env.get_template(file_path)
+
+    # Render the template with the object as input
+    output = template.render(**kvargs)
+
+    return output

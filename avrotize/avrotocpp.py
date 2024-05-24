@@ -5,7 +5,7 @@ import json
 import os
 from typing import Dict, List, Union
 
-from avrotize.common import is_generic_avro_type, pascal
+from avrotize.common import is_generic_avro_type, pascal, process_template
 
 INDENT = '    '
 
@@ -168,10 +168,11 @@ class AvroToCpp:
             class_definition += f"{INDENT}{field_type} {field_name};\n"
         class_definition += "public:\n"
         class_definition += f"{INDENT}{class_name}() = default;\n"
-        class_definition += self.generate_to_byte_array_method(class_name)
-        class_definition += self.generate_from_data_method(class_name)
-        class_definition += self.generate_is_json_match_method(class_name, avro_schema)
-        class_definition += self.generate_to_json_method(class_name)
+
+        class_definition += process_template("avrotocpp/dataclass_body.jinja", class_name=class_name, avro_annotation=self.avro_annotation, json_annotation=self.json_annotation)
+        if self.json_annotation:
+            class_definition += self.generate_is_json_match_method(class_name, avro_schema)
+            class_definition += self.generate_to_json_method(class_name)
         class_definition += "};\n\n"
 
         # Create includes
@@ -202,44 +203,12 @@ class AvroToCpp:
 
     def generate_to_byte_array_method(self, class_name: str) -> str:
         """Generates the to_byte_array method for the class"""
-        method_definition = f"\nstd::vector<uint8_t> to_byte_array(const std::string& content_type) const {{\n"
-        method_definition += f"{INDENT}std::vector<uint8_t> result;\n"
-        method_definition += f"{INDENT}std::string media_type = content_type.substr(0, content_type.find(';'));\n"
-        method_definition += f"{INDENT}if (media_type == \"application/json\") {{\n"
-        method_definition += f"{INDENT*2}result = nlohmann::json::to_string(*this);\n"
-        method_definition += f"{INDENT}}} else if (media_type == \"avro/binary\" || media_type == \"application/vnd.apache.avro+avro\") {{\n"
-        method_definition += f"{INDENT*2}result = serialize_avro(*this);\n"
-        method_definition += f"{INDENT}}} else {{\n"
-        method_definition += f"{INDENT*2}throw std::invalid_argument(\"Unsupported media type: \" + media_type);\n"
-        method_definition += f"{INDENT}}}\n"
-        method_definition += f"{INDENT}if (media_type.find(\"+gzip\") != std::string::npos) {{\n"
-        method_definition += f"{INDENT*2}result = compress_gzip(result);\n"
-        method_definition += f"{INDENT}}}\n"
-        method_definition += f"{INDENT}return result;\n"
-        method_definition += f"}}\n"
-        return method_definition
+        return process_template("avrotocpp/to_byte_array_method.jinja", class_name=class_name, avro_annotation=self.avro_annotation, json_annotation=self.json_annotation)
 
     def generate_from_data_method(self, class_name: str) -> str:
         """Generates the from_data method for the class"""
-        method_definition = f"\nstatic {class_name} from_data(const std::vector<uint8_t>& data, const std::string& content_type) {{\n"
-        method_definition += f"{INDENT}{class_name} result;\n"
-        method_definition += f"{INDENT}std::string media_type = content_type.substr(0, content_type.find(';'));\n"
-        method_definition += f"{INDENT}std::vector<uint8_t> decompressed_data = data;\n"
-        method_definition += f"{INDENT}if (media_type.find(\"+gzip\") != std::string::npos) {{\n"
-        method_definition += f"{INDENT*2}decompressed_data = decompress_gzip(data);\n"
-        method_definition += f"{INDENT*2}media_type = media_type.substr(0, media_type.find(\"+gzip\"));\n"
-        method_definition += f"{INDENT}}}\n"
-        method_definition += f"{INDENT}if (media_type == \"application/json\") {{\n"
-        method_definition += f"{INDENT*2}result = nlohmann::json::from_cbor(decompressed_data).get<{class_name}>();\n"
-        method_definition += f"{INDENT}}} else if (media_type == \"avro/binary\" || media_type == \"application/vnd.apache.avro+avro\") {{\n"
-        method_definition += f"{INDENT*2}result = deserialize_avro<{class_name}>(decompressed_data);\n"
-        method_definition += f"{INDENT}}} else {{\n"
-        method_definition += f"{INDENT*2}throw std::invalid_argument(\"Unsupported media type: \" + media_type);\n"
-        method_definition += f"{INDENT}}}\n"
-        method_definition += f"{INDENT}return result;\n"
-        method_definition += f"}}\n"
-        return method_definition
-
+        return process_template("avrotocpp/from_data_method.jinja", class_name=class_name, avro_annotation=self.avro_annotation, json_annotation=self.json_annotation)
+     
     def generate_is_json_match_method(self, class_name: str, avro_schema: Dict) -> str:
         """Generates the is_json_match method for the class"""
         method_definition = f"\nstatic bool is_json_match(const nlohmann::json& node) {{\n"
@@ -283,6 +252,19 @@ class AvroToCpp:
         method_definition += f"{INDENT}return nlohmann::json(*this);\n"
         method_definition += f"}}\n"
         return method_definition
+
+    def generate_avro_schema(self, class_name: str, avro_schema: Dict) -> str:
+        """Generates the AVRO_SCHEMA static variable and initialization code"""
+        schema_json = json.dumps(avro_schema, indent=4)
+        return process_template("avrotocpp/avro_schema.jinja", class_name=class_name, schema_json=schema_json)
+
+    def generate_serialize_avro_method(self, class_name: str) -> str:
+        """Generates the serialize_avro method for the class"""
+        return process_template("avrotocpp/serialize_avro_method.jinja", class_name=class_name)
+
+    def generate_deserialize_avro_method(self, class_name: str) -> str:
+        """Generates the deserialize_avro method for the class"""
+        return process_template("avrotocpp/deserialize_avro_method.jinja", class_name=class_name)
 
     def generate_union_class(self, class_name: str, field_name: str, avro_type: List) -> str:
         """Generates a union class for C++"""
@@ -427,120 +409,24 @@ class AvroToCpp:
 
     def generate_cmake_lists(self, project_name: str):
         """Generates a CMakeLists.txt file"""
-        cmake_content = f"""cmake_minimum_required(VERSION 3.10)
 
-if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    IF (NOT DEFINED VCPKG_ROOT)
-        message(STATUS "Setting up vcpkg...")
-        SET(VCPKG_ROOT ${{CMAKE_SOURCE_DIR}}/vcpkg CACHE STRING "" FORCE)
-
-        if(WIN32)
-            set(BOOTSTRAP_COMMAND ${{VCPKG_ROOT}}/bootstrap-vcpkg.bat)
-            set(VCPKG_EXECUTABLE ${{VCPKG_ROOT}}/vcpkg.exe)
-        else()
-            set(BOOTSTRAP_COMMAND ${{VCPKG_ROOT}}/bootstrap-vcpkg.sh)
-            set(VCPKG_EXECUTABLE ${{VCPKG_ROOT}}/vcpkg)
-        endif()
-
-        if(NOT EXISTS "${{BOOTSTRAP_COMMAND}}")
-            execute_process(
-                COMMAND git clone https://github.com/Microsoft/vcpkg.git ${{VCPKG_ROOT}}
-                WORKING_DIRECTORY ${{CMAKE_SOURCE_DIR}}
-            )
-        endif()    
-    
-        if(NOT EXISTS ${{VCPKG_EXECUTABLE}})
-            execute_process(
-                COMMAND ${{BOOTSTRAP_COMMAND}}
-                WORKING_DIRECTORY ${{VCPKG_ROOT}}
-            )
-        endif()
-    endif()
-    set(CMAKE_TOOLCHAIN_FILE "{{VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake"
-        CACHE STRING "")    
-endif()
-
-# Set output directory for executables and libraries
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/lib)
-
-# Set intermediate directory
-set(CMAKE_BINARY_DIR ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/intermediate)
-
-project({project_name})
-
-set(CMAKE_CXX_STANDARD 17)
-
-# Specify dependencies
-find_package(Boost REQUIRED COMPONENTS uuid)
-find_package(ZLIB REQUIRED)
-find_package(GTest REQUIRED)
-{'find_package(nlohmann_json REQUIRED)' if self.json_annotation else ''}
-{'find_package(avro-cpp REQUIRED)' if self.avro_annotation else ''}
-
-include_directories(${{Boost_INCLUDE_DIRS}})
-link_directories(${{Boost_LIBRARY_DIRS}})
-
-add_library(${{PROJECT_NAME}} INTERFACE)
-target_include_directories(${{PROJECT_NAME}} INTERFACE ${{CMAKE_SOURCE_DIR}}/include)
-target_link_libraries(${{PROJECT_NAME}} INTERFACE Boost::boost Boost::uuid ZLIB::ZLIB nlohmann_json::nlohmann_json)
-
-# Set properties for each target if needed
-set_target_properties(${{PROJECT_NAME}} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${{CMAKE_RUNTIME_OUTPUT_DIRECTORY}}
-    LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_LIBRARY_OUTPUT_DIRECTORY}}
-    ARCHIVE_OUTPUT_DIRECTORY ${{CMAKE_ARCHIVE_OUTPUT_DIRECTORY}}
-)
-
-# Add unit tests
-file(GLOB TEST_SOURCES "tests/*.cpp")
-add_executable(runUnitTests ${{TEST_SOURCES}})
-target_link_libraries(runUnitTests GTest::GTest GTest::Main ${{PROJECT_NAME}})
-
-# Enable testing
-enable_testing()
-add_test(NAME runUnitTests COMMAND runUnitTests)
-"""
+        # get the current file dir
+        cmake_content = process_template("avrotocpp/CMakeLists.txt.jinja", project_name=project_name, avro_annotation=self.avro_annotation, json_annotation=self.json_annotation)
         cmake_path = os.path.join(self.output_dir, 'CMakeLists.txt')
         with open(cmake_path, 'w', encoding='utf-8') as file:
             file.write(cmake_content)
     
     def generate_vcpkg_json(self):
         """Generates a vcpkg.json file"""
-        vcpkg_json = "{\n"
-        vcpkg_json += f"    \"name\": \"{os.path.basename(self.output_dir)}\",\n"
-        vcpkg_json += f"    \"version-string\": \"0.1.0\",\n"
-        vcpkg_json += f"    \"description\": \"C++ classes generated from Avro schema\",\n"
-        vcpkg_json += f"    \"dependencies\": [\n"
-        vcpkg_json += f"        \"boost-uuid\",\n"
-        if self.json_annotation:
-          vcpkg_json += f"        \"nlohmann-json\",\n"
-        vcpkg_json += f"        \"zlib\",\n"
-        vcpkg_json += f"        \"gtest\"\n"
-        if self.avro_annotation:
-            vcpkg_json += f"        \"avro-cpp\"\n"
-        vcpkg_json += f"    ]\n"
-        vcpkg_json += f"}}\n"
-
+        vcpkg_json = process_template("avrotocpp/vcpkg.json.jinja", project_name=self.base_namespace, avro_annotation=self.avro_annotation, json_annotation=self.json_annotation)
         vcpkg_json_path = os.path.join(self.output_dir, 'vcpkg.json')
         with open(vcpkg_json_path, 'w', encoding='utf-8') as file:
             file.write(vcpkg_json)
             
     def generate_build_scripts(self):
         """Generates build scripts for Windows and Linux"""
-        build_script_linux = "#!/bin/bash"
-        build_script_linux += "mkdir -p build"
-        build_script_linux += "cd build"
-        build_script_linux += "cmake .."
-        build_script_linux += "make"
-
-        build_script_windows = "@echo off\n"
-        build_script_windows += "mkdir build\n"
-        build_script_windows += "cd build\n"
-        build_script_windows += "cmake ..\n"
-        build_script_windows += "cmake --build . --config Release\n"
-        
+        build_script_linux = process_template("avrotocpp/build.sh.jinja")
+        build_script_windows = process_template("avrotocpp/build.bat.jinja")        
         script_path_linux = os.path.join(self.output_dir, 'build.sh')
         script_path_windows = os.path.join(self.output_dir, 'build.bat')
 

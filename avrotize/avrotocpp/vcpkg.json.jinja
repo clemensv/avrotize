@@ -1,0 +1,21 @@
+{
+    "name": "{{project_name}}",
+    "version-string": "0.1.0",
+    "description": "C++ classes generated from Avro schema",
+    "dependencies": [
+{%- if json_annotation %}
+        "nlohmann-json",
+{%- endif %}
+{%- if avro_annotation or json_annotation %}
+        "zlib",
+        "boost-iostreams",
+{%- endif %}
+        "gtest",
+{%- if avro_annotation %}
+        "avro-cpp",
+{%- endif %}
+        "boost",
+        "boost-uuid",
+        "boost-filesystem"	
+    ]
+}
