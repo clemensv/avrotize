@@ -5,7 +5,7 @@ import json
 import os
 from typing import Dict, List, Union
 
-from avrotize.common import is_generic_avro_type, pascal, camel
+from avrotize.common import is_generic_avro_type, pascal
 
 INDENT = '    '
 
@@ -23,6 +23,7 @@ class AvroToCpp:
         self.avro_annotation = False
         self.json_annotation = False
         self.generated_files: List[str] = []
+        self.test_files: List[str] = []
 
     def safe_identifier(self, name: str) -> str:
         """Converts a name to a safe C++ identifier"""
@@ -79,7 +80,7 @@ class AvroToCpp:
         """Concatenates namespace and name using a double colon separator"""
         return f"{namespace}::{name}" if namespace else name
 
-    def convert_avro_type_to_cpp(self, field_name: str, avro_type: Union[str, Dict, List], nullable: bool = False) -> str:
+    def convert_avro_type_to_cpp(self, field_name: str, avro_type: Union[str, Dict, List], nullable: bool = False, parent_namespace: str = '') -> str:
         """Converts Avro type to C++ type"""
         if isinstance(avro_type, str):
             return self.map_primitive_to_cpp(avro_type, nullable)
@@ -91,21 +92,21 @@ class AvroToCpp:
                 if isinstance(non_null_types[0], str):
                     return self.map_primitive_to_cpp(non_null_types[0], True)
                 else:
-                    return self.convert_avro_type_to_cpp(field_name, non_null_types[0])
+                    return self.convert_avro_type_to_cpp(field_name, non_null_types[0], parent_namespace=parent_namespace)
             else:
-                types: List[str] = [self.convert_avro_type_to_cpp(field_name, t) for t in non_null_types]
+                types: List[str] = [self.convert_avro_type_to_cpp(field_name, t, parent_namespace=parent_namespace) for t in non_null_types]
                 return 'std::variant<' + ', '.join(types) + '>'
         elif isinstance(avro_type, dict):
             if avro_type['type'] in ['record', 'enum']:
-                return self.generate_class_or_enum(avro_type)
+                return self.generate_class_or_enum(avro_type, parent_namespace)
             elif avro_type['type'] == 'fixed' or avro_type['type'] == 'bytes' and 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'decimal':
                     return 'std::string'  # Handle decimal as string for simplicity
             elif avro_type['type'] == 'array':
-                item_type = self.convert_avro_type_to_cpp(field_name, avro_type['items'], nullable=True)
+                item_type = self.convert_avro_type_to_cpp(field_name, avro_type['items'], nullable=True, parent_namespace=parent_namespace)
                 return f"std::vector<{item_type}>"
             elif avro_type['type'] == 'map':
-                values_type = self.convert_avro_type_to_cpp(field_name, avro_type['values'], nullable=True)
+                values_type = self.convert_avro_type_to_cpp(field_name, avro_type['values'], nullable=True, parent_namespace=parent_namespace)
                 return f"std::map<std::string, {values_type}>"
             elif 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'date':
@@ -116,62 +117,87 @@ class AvroToCpp:
                     return 'std::chrono::system_clock::time_point'
                 elif avro_type['logicalType'] == 'uuid':
                     return 'boost::uuids::uuid'
-            return self.convert_avro_type_to_cpp(field_name, avro_type['type'])
+            return self.convert_avro_type_to_cpp(field_name, avro_type['type'], parent_namespace=parent_namespace)
         return 'nlohmann::json'
 
-    def generate_class_or_enum(self, avro_schema: Dict) -> str:
+    def generate_class_or_enum(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a C++ class or enum from an Avro schema"""
         if avro_schema['type'] == 'record':
-            return self.generate_class(avro_schema)
+            return self.generate_class(avro_schema, parent_namespace)
         elif avro_schema['type'] == 'enum':
-            return self.generate_enum(avro_schema)
+            return self.generate_enum(avro_schema, parent_namespace)
         return 'nlohmann::json'
 
-    def generate_class(self, avro_schema: Dict) -> str:
+    def generate_class(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a C++ class from an Avro record schema"""
         class_definition = ''
         if 'doc' in avro_schema:
             class_definition += f"// {avro_schema['doc']}\n"
-        namespace = avro_schema.get('namespace', '')
+        avro_namespace = avro_schema.get('namespace', parent_namespace)
+        namespace = self.concat_namespace(self.base_namespace, avro_namespace.replace('.', '::'))
         class_name = self.safe_identifier(avro_schema['name'])
-        qualified_class_name = self.concat_namespace(namespace.replace('.', '::'), class_name)
+        qualified_class_name = self.concat_namespace(namespace, class_name)
         if qualified_class_name in self.generated_types_avro_namespace:
             return qualified_class_name
-        self.generated_types_avro_namespace[qualified_class_name] = "class"
+        self.generated_types_avro_namespace[qualified_class_name] = avro_namespace
         self.generated_types_cpp_namespace[qualified_class_name] = "class"
+
+        # Track the includes for member types
+        member_includes = set()
+
         class_definition += f"class {class_name} {{\n"
         class_definition += "public:\n"
         for field in avro_schema.get('fields', []):
             field_name = self.safe_identifier(field['name'])
-            field_type = self.convert_avro_type_to_cpp(field_name, field['type'])
+
+            # Track the Avro type before conversion to C++ type
+            avro_field_type = field['type']
+
+            # Convert to C++ type
+            field_type = self.convert_avro_type_to_cpp(field_name, avro_field_type, parent_namespace=avro_namespace)
+
+            # Check if the field_type is a custom type that requires an include
+            if isinstance(avro_field_type, dict) and avro_field_type['type'] in ['record', 'enum']:
+                include_namespace = self.concat_namespace(
+                    self.base_namespace,
+                    avro_field_type.get('namespace', avro_namespace).replace('.', '::')
+                )
+                include_name = avro_field_type['name']
+                member_includes.add(self.concat_namespace(include_namespace, include_name))
+
             class_definition += f"{INDENT}{field_type} {field_name};\n"
         class_definition += "public:\n"
         class_definition += f"{INDENT}{class_name}() = default;\n"
         class_definition += self.generate_to_byte_array_method(class_name)
         class_definition += self.generate_from_data_method(class_name)
         class_definition += self.generate_is_json_match_method(class_name, avro_schema)
-        class_definition += self.generate_to_object_method(class_name)
+        class_definition += self.generate_to_json_method(class_name)
         class_definition += "};\n\n"
 
-        self.write_to_file(namespace.replace('.', '::'), class_name, class_definition)
+        # Create includes
+        includes = self.generate_includes(member_includes)
+
+        self.write_to_file(namespace, class_name, includes, class_definition)
+        self.generate_unit_test(class_name, avro_schema.get('fields', []), namespace)
         return qualified_class_name
 
-    def generate_enum(self, avro_schema: Dict) -> str:
+    def generate_enum(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a C++ enum from an Avro enum schema"""
         enum_definition = ''
         if 'doc' in avro_schema:
             enum_definition += f"// {avro_schema['doc']}\n"
-        namespace = avro_schema.get('namespace', '')
+        avro_namespace = avro_schema.get('namespace', parent_namespace)
+        namespace = self.concat_namespace(self.base_namespace, avro_namespace.replace('.', '::'))
         enum_name = self.safe_identifier(avro_schema['name'])
-        qualified_enum_name = self.concat_namespace(namespace.replace('.', '::'), enum_name)
-        self.generated_types_avro_namespace[qualified_enum_name] = "enum"
+        qualified_enum_name = self.concat_namespace(namespace, enum_name)
+        self.generated_types_avro_namespace[qualified_enum_name] = avro_namespace
         self.generated_types_cpp_namespace[qualified_enum_name] = "enum"
         symbols = avro_schema.get('symbols', [])
         enum_definition += f"enum class {enum_name} {{\n"
         for symbol in symbols:
             enum_definition += f"{INDENT}{symbol},\n"
         enum_definition += "};\n\n"
-        self.write_to_file(namespace.replace('.', '::'), enum_name, enum_definition)
+        self.write_to_file(namespace, enum_name, "", enum_definition)
         return qualified_enum_name
 
     def generate_to_byte_array_method(self, class_name: str) -> str:
@@ -180,7 +206,7 @@ class AvroToCpp:
         method_definition += f"{INDENT}std::vector<uint8_t> result;\n"
         method_definition += f"{INDENT}std::string media_type = content_type.substr(0, content_type.find(';'));\n"
         method_definition += f"{INDENT}if (media_type == \"application/json\") {{\n"
-        method_definition += f"{INDENT*2}result = nlohmann::json::to_cbor(*this);\n"
+        method_definition += f"{INDENT*2}result = nlohmann::json::to_string(*this);\n"
         method_definition += f"{INDENT}}} else if (media_type == \"avro/binary\" || media_type == \"application/vnd.apache.avro+avro\") {{\n"
         method_definition += f"{INDENT*2}result = serialize_avro(*this);\n"
         method_definition += f"{INDENT}}} else {{\n"
@@ -219,7 +245,7 @@ class AvroToCpp:
         method_definition = f"\nstatic bool is_json_match(const nlohmann::json& node) {{\n"
         predicates = []
         for field in avro_schema.get('fields', []):
-            field_name = camel(field['name'])
+            field_name = self.safe_identifier(field['name'])
             field_type = self.convert_avro_type_to_cpp(field_name, field['type'])
             predicates.append(self.get_is_json_match_clause(field_name, field_type))
         method_definition += f"{INDENT}return " + " && ".join(predicates) + ";\n"
@@ -251,10 +277,10 @@ class AvroToCpp:
         else:
             return f"{field_type}::is_json_match(node[\"{field_name}\"])"
 
-    def generate_to_object_method(self, class_name: str) -> str:
+    def generate_to_json_method(self, class_name: str) -> str:
         """Generates the to_object method for the class"""
-        method_definition = f"\nnlohmann::json to_object() const {{\n"
-        method_definition += f"{INDENT}return nlohmann::json::to_json(*this);\n"
+        method_definition = f"\nnlohmann::json to_json() const {{\n"
+        method_definition += f"{INDENT}return nlohmann::json(*this);\n"
         method_definition += f"}}\n"
         return method_definition
 
@@ -268,9 +294,97 @@ class AvroToCpp:
             field_name = self.safe_identifier(union_type.split('::')[-1])
             class_definition += f"{INDENT}{union_type} get_{field_name}() const;\n"
         class_definition += "};\n\n"
-        return class_definition
 
-    def write_to_file(self, namespace: str, name: str, definition: str):
+        # Write the union class to a separate file
+        namespace = self.concat_namespace(self.base_namespace, class_name.lower())
+        includes = self.generate_includes(set(union_types))
+        self.write_to_file(namespace, union_class_name, includes, class_definition)
+
+        return union_class_name
+
+    def generate_includes(self, member_includes: set) -> str:
+        """Generates the include statements for the member types"""
+        includes = '\n'.join([f'#include "{include.replace("::", "/")}.hpp"' for include in member_includes])
+        return includes
+    
+    def generate_unit_test(self, class_name: str, fields: List[Dict[str, str]], namespace: str):
+        """Generates a unit test for a given class"""
+        test_definition = f'#include <gtest/gtest.h>\n'
+        test_definition += f'#include "{namespace.replace("::", "/")}/{class_name}.hpp"\n\n'
+        test_definition += f'TEST({class_name}Test, PropertiesTest) {{\n'
+        test_definition += f'{INDENT}{namespace}::{class_name} instance;\n'
+
+        for field in fields:
+            field_name = self.safe_identifier(field['name'])
+            test_value = self.get_test_value(field['type'])
+            test_definition += f'{INDENT}instance.{field_name} = {test_value};\n'
+            test_definition += f'{INDENT}EXPECT_EQ(instance.{field_name}, {test_value});\n'
+
+        test_definition += '}\n'
+
+        test_dir = os.path.join(self.output_dir, "tests")
+        if not os.path.exists(test_dir):
+            os.makedirs(test_dir, exist_ok=True)
+
+        test_file_path = os.path.join(test_dir, f"{class_name}_test.cpp")
+        with open(test_file_path, 'w', encoding='utf-8') as file:
+            file.write(test_definition)
+
+        self.test_files.append(test_file_path.replace(os.sep, '/'))
+
+    def get_test_value(self, avro_type: Union[str, Dict, List]) -> str:
+        """Returns a default test value based on the Avro type"""
+        if isinstance(avro_type, str):
+            test_values = {
+                'string': '"test_string"',
+                'boolean': 'true',
+                'int': '42',
+                'long': '42LL',
+                'float': '3.14f',
+                'double': '3.14',
+                'bytes': '{0x01, 0x02, 0x03}',
+                'null': 'std::monostate()',
+            }
+            return test_values.get(avro_type, '/* Unknown type */')
+
+        elif isinstance(avro_type, list):
+            # For unions, use the first non-null type
+            non_null_types = [t for t in avro_type if t != 'null']
+            if non_null_types:
+                return self.get_test_value(non_null_types[0])
+            return '/* Unknown union type */'
+
+        elif isinstance(avro_type, dict):
+            avro_type_name = avro_type['type']
+            if avro_type_name == 'record':
+                return f"{avro_type['name']}()"
+            elif avro_type_name == 'enum':
+                return f"{avro_type['name']}::{avro_type['symbols'][0]}"
+            elif avro_type_name == 'array':
+                item_type = self.get_test_value(avro_type['items'])
+                return f"std::vector<{item_type}>{{{item_type}}}"
+            elif avro_type_name == 'map':
+                value_type = self.get_test_value(avro_type['values'])
+                return f"std::map<std::string, {value_type}>{{{{\"key\", {value_type}}}}}"
+            elif avro_type_name == 'fixed' or (avro_type_name == 'bytes' and 'logicalType' in avro_type and avro_type['logicalType'] == 'decimal'):
+                return '"fixed_bytes"'
+            elif 'logicalType' in avro_type:
+                logical_type = avro_type['logicalType']
+                if logical_type == 'date':
+                    return 'std::chrono::system_clock::now()'
+                elif logical_type in ['time-millis', 'time-micros']:
+                    return 'std::chrono::milliseconds(123456)'
+                elif logical_type in ['timestamp-millis', 'timestamp-micros']:
+                    return 'std::chrono::system_clock::now()'
+                elif logical_type == 'uuid':
+                    return 'boost::uuids::random_generator()()'
+            return '/* Unknown complex type */'
+
+        return '/* Unknown type */'
+
+
+
+    def write_to_file(self, namespace: str, name: str, includes: str, definition: str):
         """Writes a C++ class or enum to a file"""
         directory_path = os.path.join(
             self.output_dir, "include", namespace.replace('::', os.sep))
@@ -279,27 +393,72 @@ class AvroToCpp:
         file_path = os.path.join(directory_path, f"{name}.hpp")
 
         with open(file_path, 'w', encoding='utf-8') as file:
-            if namespace:
-                file.write(f"namespace {namespace.replace('::', ' ')} {{\n\n")
-            file.write("#include <nlohmann/json.hpp>\n")
-            file.write("#include <vector>\n")
-            file.write("#include <map>\n")
-            file.write("#include <optional>\n")
+            file.write("#pragma once\n")
+            if self.json_annotation:
+                file.write("#include <nlohmann/json.hpp>\n")
+            if self.avro_annotation:
+                file.write("#include <avro/Specific.hh>\n")
+                file.write("#include <avro/Encoder.hh>\n")
+                file.write("#include <avro/Decoder.hh>\n")
+                file.write("#include <avro/Compiler.hh>\n")
+                file.write("#include <avro/Stream.hh>\n")
+            if "std::vector" in definition:
+                file.write("#include <vector>\n")
+            if "std::map" in definition:
+               file.write("#include <map>\n")
+            if "std::optional" in definition:
+                file.write("#include <optional>\n")
             file.write("#include <stdexcept>\n")
-            file.write("#include <chrono>\n")
-            file.write("#include <boost/uuid/uuid.hpp>\n")
-            file.write("#include <boost/uuid/uuid_io.hpp>\n")
+            if "std::chrono" in definition:
+                file.write("#include <chrono>\n")
+            if "boost::uuid" in definition:
+               file.write("#include <boost/uuid/uuid.hpp>\n")
+               file.write("#include <boost/uuid/uuid_io.hpp>\n")
+            if includes:
+                file.write(includes + '\n')
+            if namespace:
+                file.write(f"namespace {namespace} {{\n\n")
             file.write(definition)
             if namespace:
-                file.write(f"}} // namespace {namespace.replace('::', ' ')}\n")
+                file.write(f"}} // namespace {namespace}\n")
 
         # Collect the generated file names
         self.generated_files.append(file_path.replace(os.sep, '/'))
 
     def generate_cmake_lists(self, project_name: str):
         """Generates a CMakeLists.txt file"""
-        generated_sources = '\n    '.join(self.generated_files)
         cmake_content = f"""cmake_minimum_required(VERSION 3.10)
+
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    IF (NOT DEFINED VCPKG_ROOT)
+        message(STATUS "Setting up vcpkg...")
+        SET(VCPKG_ROOT ${{CMAKE_SOURCE_DIR}}/vcpkg CACHE STRING "" FORCE)
+
+        if(WIN32)
+            set(BOOTSTRAP_COMMAND ${{VCPKG_ROOT}}/bootstrap-vcpkg.bat)
+            set(VCPKG_EXECUTABLE ${{VCPKG_ROOT}}/vcpkg.exe)
+        else()
+            set(BOOTSTRAP_COMMAND ${{VCPKG_ROOT}}/bootstrap-vcpkg.sh)
+            set(VCPKG_EXECUTABLE ${{VCPKG_ROOT}}/vcpkg)
+        endif()
+
+        if(NOT EXISTS "${{BOOTSTRAP_COMMAND}}")
+            execute_process(
+                COMMAND git clone https://github.com/Microsoft/vcpkg.git ${{VCPKG_ROOT}}
+                WORKING_DIRECTORY ${{CMAKE_SOURCE_DIR}}
+            )
+        endif()    
+    
+        if(NOT EXISTS ${{VCPKG_EXECUTABLE}})
+            execute_process(
+                COMMAND ${{BOOTSTRAP_COMMAND}}
+                WORKING_DIRECTORY ${{VCPKG_ROOT}}
+            )
+        endif()
+    endif()
+    set(CMAKE_TOOLCHAIN_FILE "{{VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "")    
+endif()
 
 # Set output directory for executables and libraries
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/bin)
@@ -308,68 +467,80 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TY
 
 # Set intermediate directory
 set(CMAKE_BINARY_DIR ${{CMAKE_SOURCE_DIR}}/Build/${{CMAKE_BUILD_TYPE}}/intermediate)
-        
+
 project({project_name})
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Integrate vcpkg
-if (DEFINED ENV{{VCPKG_ROOT}} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{{VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake"
-        CACHE STRING "")
-elseif (EXISTS "${{CMAKE_SOURCE_DIR}}/vcpkg/scripts/buildsystems/vcpkg.cmake" AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(CMAKE_TOOLCHAIN_FILE "${{CMAKE_SOURCE_DIR}}/vcpkg/scripts/buildsystems/vcpkg.cmake"
-        CACHE STRING "")
-endif ()
-
-include_directories(${{CMAKE_SOURCE_DIR}}/include)
-
-# Set Boost_ROOT to vcpkg installation directory
-if (NOT Boost_INCLUDE_DIR)
-    set(Boost_INCLUDE_DIR "${{CMAKE_SOURCE_DIR}}/vcpkg/installed/x64-windows/include")
-endif()
-if (NOT Boost_LIBRARY_DIR)
-    set(Boost_LIBRARY_DIR "${{CMAKE_SOURCE_DIR}}/vcpkg/installed/x64-windows/lib")
-endif()
-
+# Specify dependencies
 find_package(Boost REQUIRED COMPONENTS uuid)
 find_package(ZLIB REQUIRED)
-find_package(nlohmann_json REQUIRED)
+find_package(GTest REQUIRED)
+{'find_package(nlohmann_json REQUIRED)' if self.json_annotation else ''}
+{'find_package(avro-cpp REQUIRED)' if self.avro_annotation else ''}
 
 include_directories(${{Boost_INCLUDE_DIRS}})
 link_directories(${{Boost_LIBRARY_DIRS}})
 
-add_library({project_name} INTERFACE) 
-target_include_directories({project_name} INTERFACE .${{CMAKE_SOURCE_DIR}}/include)
-
-target_link_libraries({project_name} INTERFACE Boost::boost Boost::uuid ZLIB::ZLIB nlohmann_json::nlohmann_json)
+add_library(${{PROJECT_NAME}} INTERFACE)
+target_include_directories(${{PROJECT_NAME}} INTERFACE ${{CMAKE_SOURCE_DIR}}/include)
+target_link_libraries(${{PROJECT_NAME}} INTERFACE Boost::boost Boost::uuid ZLIB::ZLIB nlohmann_json::nlohmann_json)
 
 # Set properties for each target if needed
-set_target_properties({project_name} PROPERTIES
+set_target_properties(${{PROJECT_NAME}} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${{CMAKE_RUNTIME_OUTPUT_DIRECTORY}}
     LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_LIBRARY_OUTPUT_DIRECTORY}}
     ARCHIVE_OUTPUT_DIRECTORY ${{CMAKE_ARCHIVE_OUTPUT_DIRECTORY}}
 )
 
+# Add unit tests
+file(GLOB TEST_SOURCES "tests/*.cpp")
+add_executable(runUnitTests ${{TEST_SOURCES}})
+target_link_libraries(runUnitTests GTest::GTest GTest::Main ${{PROJECT_NAME}})
+
+# Enable testing
+enable_testing()
+add_test(NAME runUnitTests COMMAND runUnitTests)
 """
         cmake_path = os.path.join(self.output_dir, 'CMakeLists.txt')
         with open(cmake_path, 'w', encoding='utf-8') as file:
             file.write(cmake_content)
+    
+    def generate_vcpkg_json(self):
+        """Generates a vcpkg.json file"""
+        vcpkg_json = "{\n"
+        vcpkg_json += f"    \"name\": \"{os.path.basename(self.output_dir)}\",\n"
+        vcpkg_json += f"    \"version-string\": \"0.1.0\",\n"
+        vcpkg_json += f"    \"description\": \"C++ classes generated from Avro schema\",\n"
+        vcpkg_json += f"    \"dependencies\": [\n"
+        vcpkg_json += f"        \"boost-uuid\",\n"
+        if self.json_annotation:
+          vcpkg_json += f"        \"nlohmann-json\",\n"
+        vcpkg_json += f"        \"zlib\",\n"
+        vcpkg_json += f"        \"gtest\"\n"
+        if self.avro_annotation:
+            vcpkg_json += f"        \"avro-cpp\"\n"
+        vcpkg_json += f"    ]\n"
+        vcpkg_json += f"}}\n"
 
+        vcpkg_json_path = os.path.join(self.output_dir, 'vcpkg.json')
+        with open(vcpkg_json_path, 'w', encoding='utf-8') as file:
+            file.write(vcpkg_json)
+            
     def generate_build_scripts(self):
         """Generates build scripts for Windows and Linux"""
-        build_script_linux = """#!/bin/bash
-mkdir -p build
-cd build
-cmake ..
-make
-"""
-        build_script_windows = """@echo off
-mkdir build
-cd build
-cmake ..
-cmake --build . --config Release
-"""
+        build_script_linux = "#!/bin/bash"
+        build_script_linux += "mkdir -p build"
+        build_script_linux += "cd build"
+        build_script_linux += "cmake .."
+        build_script_linux += "make"
+
+        build_script_windows = "@echo off\n"
+        build_script_windows += "mkdir build\n"
+        build_script_windows += "cd build\n"
+        build_script_windows += "cmake ..\n"
+        build_script_windows += "cmake --build . --config Release\n"
+        
         script_path_linux = os.path.join(self.output_dir, 'build.sh')
         script_path_windows = os.path.join(self.output_dir, 'build.bat')
 
@@ -379,92 +550,7 @@ cmake --build . --config Release
         with open(script_path_windows, 'w', encoding='utf-8') as file:
             file.write(build_script_windows)
 
-    def generate_setup_scripts(self):
-        """Generates setup scripts for installing vcpkg and dependencies"""
-
-        setup_script_linux = """#!/bin/bash
-# Check if the current directory is inside a git repository
-if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-    echo "Inside a git repository"
-    if [ -d "vcpkg/.git" ]; then
-        echo "vcpkg submodule already exists"
-    else
-        echo "Adding vcpkg as a submodule"
-        git submodule add https://github.com/Microsoft/vcpkg.git vcpkg
-        git submodule update --init --recursive
-    fi
-else
-    if [ -d "vcpkg/.git" ]; then
-        echo "vcpkg already cloned"
-    else
-        echo "Not inside a git repository. Cloning vcpkg."
-        git clone https://github.com/Microsoft/vcpkg.git vcpkg
-    fi
-fi
-
-# Setup vcpkg
-./vcpkg/bootstrap-vcpkg.sh
-
-# Set VCPKG_ROOT environment variable
-export VCPKG_ROOT=$(pwd)/vcpkg
-
-# Install dependencies using vcpkg
-./vcpkg/vcpkg install boost-uuid zlib nlohmann-json
-
-# Configure and build project using CMake
-mkdir -p build
-cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake ..
-cmake --build .
-"""
-
-        setup_script_windows = """@echo off
-:: Check if the current directory is inside a git repository
-git rev-parse --is-inside-work-tree 2>nul
-if %errorlevel% equ 0 (
-    echo Inside a git repository
-    if exist vcpkg\\.git (
-        echo vcpkg submodule already exists
-    ) else (
-        echo Adding vcpkg as a submodule
-        git submodule add https://github.com/Microsoft/vcpkg.git vcpkg
-        git submodule update --init --recursive
-    )
-) else (
-    if exist vcpkg\\.git (
-        echo vcpkg already cloned
-    ) else (
-        echo Not inside a git repository. Cloning vcpkg.
-        git clone https://github.com/Microsoft/vcpkg.git vcpkg
-    )
-)
-
-:: Setup vcpkg
-call vcpkg\\bootstrap-vcpkg.bat
-
-:: Set VCPKG_ROOT environment variable
-set VCPKG_ROOT=%cd%\\vcpkg
-
-:: Install dependencies using vcpkg
-vcpkg\\vcpkg install boost-uuid zlib nlohmann-json
-
-:: Configure and build project using CMake
-mkdir build
-cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\\scripts\\buildsystems\\vcpkg.cmake ..
-cmake --build .
-"""
-
-        script_path_linux = os.path.join(self.output_dir, 'setup.sh')
-        script_path_windows = os.path.join(self.output_dir, 'setup.bat')
-
-        with open(script_path_linux, 'w', encoding='utf-8') as file:
-            file.write(setup_script_linux)
-
-        with open(script_path_windows, 'w', encoding='utf-8') as file:
-            file.write(setup_script_windows)
-
-    def convert_schema(self, schema: JsonNode, output_dir: str):
+    def convert_schema(self, schema: Union[Dict, List], output_dir: str):
         """Converts Avro schema to C++"""
         if not isinstance(schema, list):
             schema = [schema]
@@ -472,10 +558,10 @@ cmake --build .
             os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
         for avro_schema in (x for x in schema if isinstance(x, dict)):
-            self.generate_class_or_enum(avro_schema)
-        self.generate_cmake_lists("AvroToCpp")
+            self.generate_class_or_enum(avro_schema, '')
+        self.generate_cmake_lists(self.base_namespace)
         self.generate_build_scripts()
-        self.generate_setup_scripts()
+        self.generate_vcpkg_json()
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to C++"""
@@ -484,35 +570,16 @@ cmake --build .
         self.convert_schema(schema, output_dir)
 
 
-def convert_avro_to_cpp(avro_schema_path, cpp_file_path, namespace='', avro_annotation=False, json_annotation=False):
-    """Converts Avro schema to C++ classes
+def convert_avro_to_cpp(avro_schema_path, output_dir, namespace='', avro_annotation=False, json_annotation=False):
+    """Converts Avro schema to C++ classes"""
+    avroToCpp = AvroToCpp(namespace)
+    avroToCpp.avro_annotation = avro_annotation
+    avroToCpp.json_annotation = json_annotation
+    avroToCpp.convert(avro_schema_path, output_dir)
 
-    Args:
-        avro_schema_path (str): Avro input schema path  
-        cpp_file_path (str): Output C++ file path 
-        namespace (str): Base namespace name
-        avro_annotation (bool): Include Avro annotations
-        json_annotation (bool): Include JSON annotations
-    """
-    avrotocpp = AvroToCpp()
-    avrotocpp.base_namespace = namespace
-    avrotocpp.avro_annotation = avro_annotation
-    avrotocpp.json_annotation = json_annotation
-    avrotocpp.convert(avro_schema_path, cpp_file_path)
-
-
-def convert_avro_schema_to_cpp(avro_schema: JsonNode, output_dir: str, namespace='', avro_annotation=False, json_annotation=False):
-    """Converts Avro schema to C++ classes
-
-    Args:
-        avro_schema (JsonNode): Avro schema as a dictionary or list of dictionaries
-        output_dir (str): Output directory path 
-        namespace (str): Base namespace name
-        avro_annotation (bool): Include Avro annotations
-        json_annotation (bool): Include JSON annotations
-    """
-    avrotocpp = AvroToCpp()
-    avrotocpp.base_namespace = namespace
-    avrotocpp.avro_annotation = avro_annotation
-    avrotocpp.json_annotation = json_annotation
-    avrotocpp.convert_schema(avro_schema, output_dir)
+def convert_avro_schema_to_cpp(avro_schema: Dict, output_dir: str, namespace: str = '', avro_annotation: bool = False, json_annotation: bool = False):
+    """Converts Avro schema to C++ classes"""
+    avroToCpp = AvroToCpp(namespace)
+    avroToCpp.avro_annotation = avro_annotation
+    avroToCpp.json_annotation = json_annotation
+    avroToCpp.convert_schema(avro_schema, output_dir)
