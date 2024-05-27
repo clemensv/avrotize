@@ -14,15 +14,16 @@ JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 class KustoToAvro:
     """ Converts Kusto table schemas to Avro schema format."""
 
-    def __init__(self, kusto_uri, kusto_database, avro_namespace: str, avro_schema_path, emit_cloudevents_xregistry: bool, token_provider=None):
+    def __init__(self, kusto_uri, kusto_database, avro_namespace: str, avro_schema_path, emit_cloudevents: bool, emit_cloudevents_xregistry: bool, token_provider=None):
         """ Initializes the KustoToAvro class with the Kusto URI and database name. """
         kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(kusto_uri) if not token_provider else KustoConnectionStringBuilder.with_token_provider(kusto_uri, token_provider)
         self.client = KustoClient(kcsb)
         self.kusto_database = kusto_database
         self.avro_namespace = avro_namespace
         self.avro_schema_path = avro_schema_path
-        self.emit_cloudevents_xregistry = emit_cloudevents_xregistry
-        if self.emit_cloudevents_xregistry:
+        self.emit_xregistry = emit_cloudevents_xregistry
+        self.emit_cloudevents = emit_cloudevents or emit_cloudevents_xregistry
+        if self.emit_xregistry:
             if not self.avro_namespace:
                 raise ValueError(
                     "The avro_namespace must be specified when emit_cloudevents_xregistry is True")
@@ -207,7 +208,7 @@ class KustoToAvro:
         type_values: List[str|None] = []
         type_column: Dict[str, JsonNode] = {}
         is_cloudevent = False
-        if self.emit_cloudevents_xregistry:
+        if self.emit_cloudevents:
             is_cloudevent = 'type' in column_names and 'source' in column_names and 'data' in column_names and 'id' in column_names
             if is_cloudevent:
                 type_column = next(
@@ -244,11 +245,12 @@ class KustoToAvro:
                     for schema in data_schemas:
                         if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "record":
                             schema = self.wrap_schema_in_root_record(schema, type_name_name, type_namespace)
-                        ce_attribs: Dict[str, JsonNode] ={}
-                        for col in [col for col in kusto_schema['OrderedColumns'] if col['Name'].lstrip('_') != 'data']:
-                            ce_attribs[col['Name'].lstrip('_')] = "string"
-                        if isinstance(schema, dict):
-                            schema["ce_attribs"] = ce_attribs
+                        if self.emit_xregistry:
+                            ce_attribs: Dict[str, JsonNode] ={}
+                            for col in [col for col in kusto_schema['OrderedColumns'] if col['Name'].lstrip('_') != 'data']:
+                                ce_attribs[col['Name'].lstrip('_')] = "string"
+                            if isinstance(schema, dict):
+                                schema["ce_attribs"] = ce_attribs
                         self.apply_schema_attributes(schema, kusto_schema, table_name, type_value, type_namespace)
                         schemas.append(schema)
             else:
@@ -294,7 +296,7 @@ class KustoToAvro:
             schema["altnames"] = {
                     "kql": table_name
                 }
-            if self.emit_cloudevents_xregistry and type_value:
+            if self.emit_cloudevents and type_value:
                 schema["ce_type"] = type_value
             if type_namespace:
                 schema["namespace"] = type_namespace
@@ -356,7 +358,7 @@ class KustoToAvro:
                     union_schema.append(avro_schema)
 
         output = None
-        if self.emit_cloudevents_xregistry:
+        if self.emit_xregistry:
             xregistry_messages = {}
             xregistry_schemas = {}
             groupname = self.avro_namespace
@@ -389,7 +391,10 @@ class KustoToAvro:
                     "metadata": {
                         "type": {
                             "value": schemaid
-                        }
+                        },
+                        "source": {
+                            "value": "{source}"
+                        },
                     },
                     "schemaformat": f"Avro/{AVRO_VERSION}",
                     "schemaurl": f"#/schemagroups/{groupname}/schemas/{schemaid}"
@@ -429,8 +434,8 @@ class KustoToAvro:
             json.dump(output, avro_file, indent=4)
 
 
-def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, avro_namespace: str, avro_schema_file: str, emit_cloudevents_xregistry: bool, token_provider=None):
+def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, avro_namespace: str, avro_schema_file: str, emit_cloudevents:bool, emit_cloudevents_xregistry: bool, token_provider=None):
     """ Converts Kusto table schemas to Avro schema format."""
     kusto_to_avro = KustoToAvro(
-        kusto_uri, kusto_database, avro_namespace, avro_schema_file, emit_cloudevents_xregistry, token_provider=token_provider)
+        kusto_uri, kusto_database, avro_namespace, avro_schema_file,emit_cloudevents, emit_cloudevents_xregistry, token_provider=token_provider)
     return kusto_to_avro.process_all_tables()

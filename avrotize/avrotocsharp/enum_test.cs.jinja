@@ -1,0 +1,19 @@
+using System;
+using NUnit.Framework;
+
+namespace {{ namespace }}
+{
+    [TestFixture]
+    public class {{ test_class_name }}
+    {
+        [Test]
+        public void Test_{{ enum_base_name }}_Enum()
+        {
+            var values = Enum.GetValues(typeof({{ enum_base_name }}));
+            foreach (var value in values)
+            {
+                Assert.IsTrue(Enum.IsDefined(typeof({{ enum_base_name }}), value));
+            }
+        }
+    }
+}

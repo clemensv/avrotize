@@ -133,10 +133,10 @@ class AvroToPython:
             class_definition += f'\n{INDENT}AvroType: ClassVar[avro.schema.Schema] = avro.schema.parse(\n{INDENT*2}"{avro_schema_json}");\n'
         
         for import_type in import_types:
-            import_type_package = import_type.rsplit('.', 1)[0]
-            import_type_type = import_type.split('.')[-1]
+            import_type_package = import_type
             if import_type_package.startswith(package_name):
                 import_type_package = import_type_package[len(package_name):]
+            import_type_type = import_type.split('.')[-1]
             if import_type_package:
                 imp = f"from {import_type_package.lower()} import {import_type_type}\n"
                 if import_type_package.startswith('.'):

@@ -30,7 +30,7 @@ class TestAvroToCSharp(unittest.TestCase):
 
         convert_avro_to_csharp(avro_path, cs_path)
         assert subprocess.check_call(
-            ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
+            ['dotnet', 'test'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
 
     def test_convert_address_avsc_to_csharp_avro_annotation(self):
         """ Test converting an address.avsc file to C# """
@@ -43,7 +43,7 @@ class TestAvroToCSharp(unittest.TestCase):
 
         convert_avro_to_csharp(avro_path, cs_path, avro_annotation=True)
         assert subprocess.check_call(
-            ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
+            ['dotnet', 'test'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
 
     def test_convert_address_avsc_to_csharp_system_text_json_annotation(self):
         """ Test converting an address.avsc file to C# """

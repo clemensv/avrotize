@@ -1,0 +1,54 @@
+using System;
+using System.Collections.Generic;
+using NUnit.Framework;
+using FluentAssertions;
+
+namespace {{ namespace }}
+{
+    /// <summary> Test class for {{ class_base_name }} </summary> 
+    [TestFixture]
+    public class {{ test_class_name }}
+    {
+        private {{ class_base_name }} _instance = new {{ class_base_name }}();
+
+        /// <summary> Setup </summary>
+        [SetUp]
+        public void Setup()
+        {
+            {%- for field in fields %}
+            {%- if not field.is_const %}
+            _instance.{{ field.field_name }} = {{ field.test_value }};
+            {%- endif %}
+            {%- endfor %}
+        }
+
+        {%- for field in fields %}
+        /// <summary> Testing property {{ field.field_name }}  </summary>
+        [Test]
+        public void Test{{ field.field_name | replace ('@','') | pascal }}Property()
+        {
+            var testValue = {{ field.test_value }};
+            {%- if not field.is_const %}
+            _instance.{{ field.field_name }} = testValue;
+            {%- endif %}
+            {%- if field.is_primitive %}
+            testValue.Should().Be(_instance.{{ field.field_name }});
+            {%- else %}
+            testValue.Should().BeEquivalentTo(_instance.{{ field.field_name }});
+            {%- endif %}
+        }
+        {%- endfor %}
+        {%- if avro_annotation %}
+        /// <summary> Testing Avro serializer </summary>
+        [Test]
+        public void Test_ToByteArray_FromData()
+        {
+            var mediaType = "application/vnd.apache.avro+avro";
+            var bytes = _instance.ToByteArray(mediaType);
+            var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
+            _instance.Should().BeEquivalentTo(newInstance);
+        }
+
+        {%- endif %}
+    }
+}

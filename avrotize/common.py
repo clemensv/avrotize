@@ -2,10 +2,13 @@ from collections import defaultdict
 import os
 import re
 from typing import Dict, Tuple, Union, Any, List
+import uuid
 from jsoncomparison import NO_DIFF, Compare
 import hashlib
 import json    
 import jinja2
+from jinja2.ext import Extension
+from jinja2 import Template, nodes
 
 def avro_name(name):
     """Convert a name into an Avro name."""
@@ -387,6 +390,8 @@ def process_template(file_path: str, **kvargs) -> str:
     file_dir = os.path.dirname(__file__)
     template_loader = jinja2.FileSystemLoader(searchpath=file_dir)
     template_env = jinja2.Environment(loader=template_loader)
+    template_env.filters['pascal'] = pascal
+    template_env.filters['camel'] = camel
 
     # Load the template from the file
     template = template_env.get_template(file_path)

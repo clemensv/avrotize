@@ -119,6 +119,14 @@ class AvroToKusto:
                     f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{json_name}\"}},")
             kusto.append("]\n```\n\n")
 
+        if emit_cloud_events_columns:
+            kusto.append(
+                f".create materialized-view with (backfill=true) {table_name}Latest on table {table_name} {{")
+            kusto.append(
+                f"    {table_name} | summarize arg_max(___time, *) by ___type, ___source, ___subject")
+            kusto.append("}")
+            kusto.append("")
+
         if emit_cloudevents_dispatch_table:
             event_type = schema["namespace"] + "." + \
                 schema["name"] if "namespace" in schema else schema["name"]
@@ -145,7 +153,7 @@ class AvroToKusto:
             kusto.append("  \"IsTransactional\": false,")
             kusto.append("  \"PropagateIngestionProperties\": true,")
             kusto.append("}]")
-            kusto.append("```")
+            kusto.append("```\n")
 
         return kusto
 
