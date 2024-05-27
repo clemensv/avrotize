@@ -448,7 +448,7 @@ class AvroToCSharp:
             self.write_to_file(namespace, class_name +"."+union_class_name, class_definition)
         
         self.generated_types[ref] = "union" # it doesn't matter if the names clash, we just need to know whether it's a union
-        return union_class_name
+        return ref
 
     def find_type(self, kind: str, avro_schema: JsonNode, type_name: str, type_namespace: str, parent_namespace = '') -> JsonNode:
         """ recursively find the type (kind 'record' or 'enum') in the schema """
@@ -605,7 +605,7 @@ class AvroToCSharp:
         """Returns a default test value based on the Avro type"""
         test_values = {
             'string': '"test_string"',
-            'boolean': 'true',
+            'bool': 'true',
             'int': '42',
             'long': '42L',
             'float': '3.14f',

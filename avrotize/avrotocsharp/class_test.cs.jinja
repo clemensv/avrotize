@@ -32,9 +32,13 @@ namespace {{ namespace }}
             _instance.{{ field.field_name }} = testValue;
             {%- endif %}
             {%- if field.is_primitive %}
-            testValue.Should().Be(_instance.{{ field.field_name }});
+            {%- if field.field_type.startswith("List<") or field.field_type.startswith("Dictionary<") %}
+            _instance.{{ field.field_name }}.Should().AllBeEquivalentTo(testValue);
             {%- else %}
-            testValue.Should().BeEquivalentTo(_instance.{{ field.field_name }});
+            _instance.{{ field.field_name }}.Should().Be(testValue);
+            {%- endif %}
+            {%- else %}
+            _instance.{{ field.field_name }}.Should().BeEquivalentTo(testValue);
             {%- endif %}
         }
         {%- endfor %}
