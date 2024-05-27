@@ -113,6 +113,10 @@
 ```
 
 
+.create materialized-view with (backfill=true) TelemetryRecordLatest on table TelemetryRecord {
+    TelemetryRecord | summarize arg_max(___time, *) by ___type, ___source, ___subject
+}
+
 .alter table [TelemetryRecord] policy update
 ```
 [{

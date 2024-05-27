@@ -71,3 +71,7 @@
 ]
 ```
 
+
+.create materialized-view with (backfill=true) recordLatest on table record {
+    record | summarize arg_max(___time, *) by ___type, ___source, ___subject
+}

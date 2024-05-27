@@ -761,7 +761,7 @@ def avro_type_to_sql_type(avro_type, dialect):
             "float": "REAL",
             "double": "DOUBLE PRECISION",
             "bytes": "BYTEA",
-            "string": "TEXT"
+            "string": "VARCHAR(512)"
         },
         "mysql": {
             "null": "NULL",
@@ -771,7 +771,7 @@ def avro_type_to_sql_type(avro_type, dialect):
             "float": "FLOAT",
             "double": "DOUBLE",
             "bytes": "BLOB",
-            "string": "TEXT"
+            "string": "VARCHAR(512)"
         },
         "mariadb": {
             "null": "NULL",
@@ -781,7 +781,7 @@ def avro_type_to_sql_type(avro_type, dialect):
             "float": "FLOAT",
             "double": "DOUBLE",
             "bytes": "BLOB",
-            "string": "TEXT"
+            "string": "VARCHAR(512)"
         },
         "sqlite": {
             "null": "NULL",
@@ -791,7 +791,7 @@ def avro_type_to_sql_type(avro_type, dialect):
             "float": "REAL",
             "double": "REAL",
             "bytes": "BLOB",
-            "string": "TEXT"
+            "string": "VARCHAR(512)"
         },
         "oracle": {
             "null": "NULL",
@@ -801,7 +801,7 @@ def avro_type_to_sql_type(avro_type, dialect):
             "float": "FLOAT(126)",
             "double": "FLOAT(126)",
             "bytes": "BLOB",
-            "string": "CLOB"
+            "string": "VARCHAR(512)"
         },
         "db2": {
             "null": "NULL",
@@ -811,7 +811,7 @@ def avro_type_to_sql_type(avro_type, dialect):
             "float": "REAL",
             "double": "DOUBLE",
             "bytes": "BLOB",
-            "string": "CLOB"
+            "string": "VARCHAR(512)"
         },
         "sqlanywhere": {
             "null": "NULL",
@@ -821,7 +821,7 @@ def avro_type_to_sql_type(avro_type, dialect):
             "float": "FLOAT",
             "double": "FLOAT",
             "bytes": "LONG BINARY",
-            "string": "LONG VARCHAR"
+            "string": "VARCHAR(512)"
         },
         "bigquery": {
             "null": "NULL",
