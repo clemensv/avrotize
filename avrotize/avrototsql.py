@@ -268,7 +268,7 @@ def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit
         schema_json = f.read()
 
     schema_list = schema = json.loads(schema_json)
-    dirname = os.path.dirname(nosql_file_path)
+    dirname = nosql_file_path
     if not os.path.exists(dirname):
         os.makedirs(dirname, exist_ok=True)
 
