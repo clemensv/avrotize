@@ -354,6 +354,29 @@ def camel(string):
     result = words[0].lower() + ''.join(word.capitalize() for word in words[1:])
     return result
 
+def snake(string):
+    """ Convert a string to snake_case """
+    if '::' in string:
+        strings = string.split('::')
+        return strings[0] + '::' + '::'.join(snake(s) for s in strings[1:])
+    if '.' in string:
+        strings = string.split('.')
+        return '.'.join(snake(s) for s in strings)
+    if not string or len(string) == 0:
+        return string
+    words = []
+    if '_' in string:
+        # snake_case
+        words = re.split(r'_', string)
+    elif string[0].isupper():
+        # PascalCase
+        words = re.findall(r'[A-Z][a-z0-9_]*\.?', string)
+    else:
+        # camelCase
+        words = re.findall(r'[a-z0-9]+\.?|[A-Z][a-z0-9_]*\.?', string)
+    result = '_'.join(word.lower() for word in words)
+    return result
+
 def fullname(avro_schema: dict):
     name = avro_schema.get("name", "")
     namespace = avro_schema.get("namespace", "")
@@ -400,3 +423,11 @@ def process_template(file_path: str, **kvargs) -> str:
     output = template.render(**kvargs)
 
     return output
+
+def render_template(template: str, output: str, **kvargs):
+    """ Render a template and write it to a file """
+    out = process_template(template, **kvargs)
+    # make sure the directory exists
+    os.makedirs(os.path.dirname(output), exist_ok=True)
+    with open(output, 'w', encoding='utf-8') as f:
+        f.write(out)

@@ -1,0 +1,105 @@
+{%- if serde_annotation %}
+use serde::{self, Serialize, Deserialize};
+{%- endif %}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum {{ union_enum_name }} {
+{%- for union_field in union_fields %}
+    {{ union_field.name }}({{ union_field.type -}})
+    {%- if not loop.last %},{% endif %}
+{%- endfor %}
+}
+
+impl Default for {{ union_enum_name }} {
+    fn default() -> Self {
+        return {{ union_enum_name }}::{{ union_fields[0].name }}({{ union_fields[0].default_value }})
+    }
+}
+
+{% if serde_annotation or avro_annotation %}
+impl Serialize for {{ union_enum_name }} {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer
+    {
+        match self {
+            {%- for union_field in union_fields %}
+            {{ union_enum_name }}::{{ union_field.name}}(value) => value.serialize(serializer),
+            {%- endfor %}
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for {{ union_enum_name }} {
+    fn deserialize<D>(deserializer: D) -> Result<{{ union_enum_name }}, D::Error>
+    where
+        D: serde::de::Deserializer<'de>
+    {
+        let node = serde_json::Value::deserialize(deserializer)?;
+        {%- for union_field in union_fields %}
+        if {{ union_field.json_match_predicate }} {
+            {%- if union_field.type.startswith("Vec<") %}
+            {%- set field_type = 'Vec::<'+union_field.type[4:] %}
+            let result = {{ field_type }}::deserialize(node).unwrap();
+            {%- elif union_field.type.startswith("std::collections::HashMap<") %}
+            {%- set field_type = 'std::collections::HashMap::<'+union_field.type[26:] %}
+            let result = {{ field_type }}::deserialize(node).unwrap();
+            {%-else %}
+            let result = {{ union_field.type }}::deserialize(node).unwrap();
+            {%-endif %}
+            return Ok({{ union_enum_name }}::{{ union_field.name }}(result));
+        }
+        {%- endfor %}
+        Err(serde::de::Error::custom("No valid variant found"))
+    }
+}
+
+impl {{ union_enum_name }} {
+    pub fn is_json_match(node: &serde_json::Value) -> bool {
+        return{%- for predicate in json_match_predicates %}
+        {{ predicate }}{%if not loop.last%}||{%endif%}
+        {%- endfor %}; 
+    }
+
+    /// Returns the struct instance itself
+    pub fn to_object(&self) -> &Self {
+        return self;
+    }
+}
+{% endif %}
+
+#[cfg(test)]
+impl {{ union_enum_name }} {
+    pub fn generate_random_instance() -> {{ union_enum_name }} {
+        let mut rng = rand::thread_rng();
+        match rand::Rng::gen_range(&mut rng, 0..{{ union_fields | length }}) {
+            {%- for union_field in union_fields %}
+            {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }}),
+            {%- endfor %}
+            _ => panic!("Invalid random index generated"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serialize_deserialize_{{ union_enum_name.lower() }}() {
+        let mut rng = rand::thread_rng();
+        {%- for union_field in union_fields %}
+        let instance = {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }});
+        {%- if serde_annotation %}
+        let json_bytes = serde_json::to_vec(&instance).unwrap();
+        let deserialized_instance: {{ union_enum_name }} = serde_json::from_slice(&json_bytes).unwrap();
+        assert_eq!(instance, deserialized_instance);
+        {%- endif %}
+        {%- if avro_annotation %}
+        let avro_bytes = instance.to_byte_array("avro/binary").unwrap();
+        let deserialized_avro_instance: {{ union_enum_name }} = {{ union_enum_name }}::from_data(&avro_bytes, "avro/binary").unwrap();
+        assert_eq!(instance, deserialized_avro_instance);
+        {%- endif %}
+        {%- endfor %}
+    }
+}

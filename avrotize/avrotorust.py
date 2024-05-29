@@ -1,53 +1,51 @@
-# pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, line-too-long
-
-"""Generates Rust structs from Avro schema"""
 import json
 import os
 from typing import Dict, List, Union
-from avrotize.common import is_generic_avro_type
+from avrotize.common import is_generic_avro_type, render_template, pascal, camel, snake
 
 INDENT = '    '
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
 
-def pascal(s: str) -> str:
-    """Convert string to PascalCase."""
-    return ''.join(word.capitalize() for word in s.split('_'))
-
-
-def camel(s: str) -> str:
-    """Convert string to camelCase."""
-    s = pascal(s)
-    return s[0].lower() + s[1:] if s else s
-
-
 class AvroToRust:
     """Converts Avro schema to Rust structs, including Serde and Avro marshalling methods"""
 
     def __init__(self, base_package: str = '') -> None:
-        self.base_package = base_package.replace('.', '/')
+        self.base_package = base_package.replace('.', '/').lower()
         self.output_dir = os.getcwd()
         self.generated_types_avro_namespace: Dict[str, str] = {}
         self.generated_types_rust_package: Dict[str, str] = {}
         self.avro_annotation = False
         self.serde_annotation = False
-
-    def safe_identifier(self, name: str) -> str:
-        """Converts a name to a safe Rust identifier"""
-        reserved_words = [
+        
+    reserved_words = [
             'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern', 'false', 'fn', 'for', 'if', 'impl',
             'in', 'let', 'loop', 'match', 'mod', 'move', 'mut', 'pub', 'ref', 'return', 'self', 'Self', 'static',
             'struct', 'super', 'trait', 'true', 'type', 'unsafe', 'use', 'where', 'while', 'async', 'await', 'dyn',
         ]
-        if name in reserved_words:
+
+    def safe_identifier(self, name: str) -> str:
+        """Converts a name to a safe Rust identifier"""
+        if name in AvroToRust.reserved_words:
             return f"{name}_"
         return name
+    
+    def escaped_identifier(self, name: str) -> str:
+        """Converts a name to a safe Rust identifier with a leading r# prefix"""
+        if name != "crate" and name in AvroToRust.reserved_words:
+            return f"r#{name}"
+        return name
+    
+    def safe_package(self, package: str) -> str:
+        """Converts a package name to a safe Rust package name"""
+        elements = package.split('::')
+        return '::'.join([self.escaped_identifier(element) for element in elements])
 
-    def map_primitive_to_rust(self, avro_type: str, is_optional: bool) -> str:
+    def map_primitive_to_rust(self, avro_fullname: str, is_optional: bool) -> str:
         """Maps Avro primitive types to Rust types"""
         optional_mapping = {
-            'null': 'Option<()>',
+            'null': 'None',
             'boolean': 'Option<bool>',
             'int': 'Option<i32>',
             'long': 'Option<i64>',
@@ -57,7 +55,7 @@ class AvroToRust:
             'string': 'Option<String>',
         }
         required_mapping = {
-            'null': '()',
+            'null': 'None',
             'boolean': 'bool',
             'int': 'i32',
             'long': 'i64',
@@ -66,46 +64,53 @@ class AvroToRust:
             'bytes': 'Vec<u8>',
             'string': 'String',
         }
-        if '.' in avro_type:
-            type_name = avro_type.split('.')[-1]
-            package_name = '::'.join(avro_type.split('.')[:-1]).lower()
-            avro_type = self.concat_package(package_name, type_name)
-        if avro_type in self.generated_types_avro_namespace:
-            qualified_class_name = self.concat_package(self.base_package, avro_type)
-            return qualified_class_name
+        rust_fullname = avro_fullname
+        if '.' in rust_fullname:
+            type_name = pascal(avro_fullname.split('.')[-1])
+            package_name = '::'.join(avro_fullname.split('.')[:-1]).lower()
+            rust_fullname = self.safe_package(self.concat_package(package_name, type_name))
+        if rust_fullname in self.generated_types_rust_package:
+            return rust_fullname
         else:
-            return required_mapping.get(avro_type, avro_type) if not is_optional else optional_mapping.get(avro_type, avro_type)
+            return required_mapping.get(avro_fullname, avro_fullname) if not is_optional else optional_mapping.get(avro_fullname, avro_fullname)
 
     def concat_package(self, package: str, name: str) -> str:
         """Concatenates package and name using a double colon separator"""
-        return f"{package.lower()}::{name}" if package else name
+        return f"crate::{package.lower()}::{name.lower()}::{name}" if package else name
 
     def convert_avro_type_to_rust(self, field_name: str, avro_type: Union[str, Dict, List], namespace: str, nullable: bool = False) -> str:
         """Converts Avro type to Rust type"""
+        ns = namespace.replace('.', '::').lower()
+        type_name = ''
         if isinstance(avro_type, str):
-            return self.map_primitive_to_rust(avro_type, nullable)
+            type_name = self.map_primitive_to_rust(avro_type, nullable)
         elif isinstance(avro_type, list):
             if is_generic_avro_type(avro_type):
                 return 'serde_json::Value' if self.serde_annotation else 'std::collections::HashMap<String, String>'
             non_null_types = [t for t in avro_type if t != 'null']
             if len(non_null_types) == 1:
+                # Rust apache-avro has a bug in the union type handling, so we need to swap the types
+                # if the first type is not null
+                if avro_type[0] != 'null':
+                    avro_type[1] = avro_type[0]
+                    avro_type[0] = 'null'
                 if isinstance(non_null_types[0], str):
-                    return self.map_primitive_to_rust(non_null_types[0], True)
+                    type_name = self.map_primitive_to_rust(non_null_types[0], True)
                 else:
-                    return self.convert_avro_type_to_rust(field_name, non_null_types[0], namespace)
+                    type_name = self.convert_avro_type_to_rust(field_name, non_null_types[0], namespace)
             else:
-                return self.generate_union_enum(field_name, avro_type, namespace)
+                type_name = self.generate_union_enum(field_name, avro_type, namespace)
         elif isinstance(avro_type, dict):
             if avro_type['type'] in ['record', 'enum']:
-                return self.generate_class_or_enum(avro_type, namespace)
+                type_name = self.generate_class_or_enum(avro_type, namespace)
             elif avro_type['type'] == 'fixed' or avro_type['type'] == 'bytes' and 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'decimal':
                     return 'f64'
             elif avro_type['type'] == 'array':
-                item_type = self.convert_avro_type_to_rust(field_name, avro_type['items'], namespace, nullable=True)
+                item_type = self.convert_avro_type_to_rust(field_name, avro_type['items'], namespace)
                 return f"Vec<{item_type}>"
             elif avro_type['type'] == 'map':
-                values_type = self.convert_avro_type_to_rust(field_name, avro_type['values'], namespace, nullable=True)
+                values_type = self.convert_avro_type_to_rust(field_name, avro_type['values'], namespace)
                 return f"std::collections::HashMap<String, {values_type}>"
             elif 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'date':
@@ -116,12 +121,15 @@ class AvroToRust:
                     return 'chrono::NaiveDateTime'
                 elif avro_type['logicalType'] == 'uuid':
                     return 'uuid::Uuid'
-            return self.convert_avro_type_to_rust(field_name, avro_type['type'], namespace)
+            else:
+                type_name = self.convert_avro_type_to_rust(field_name, avro_type['type'], namespace)
+        if type_name:
+            return type_name
         return 'serde_json::Value' if self.serde_annotation else 'std::collections::HashMap<String, String>'
 
     def generate_class_or_enum(self, avro_schema: Dict, parent_namespace: str = '') -> str:
         """Generates a Rust struct or enum from an Avro schema"""
-        namespace = avro_schema.get('namespace', parent_namespace)
+        namespace = avro_schema.get('namespace', parent_namespace).lower()
         if avro_schema['type'] == 'record':
             return self.generate_struct(avro_schema, namespace)
         elif avro_schema['type'] == 'enum':
@@ -130,224 +138,188 @@ class AvroToRust:
 
     def generate_struct(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a Rust struct from an Avro record schema"""
-        struct_definition = ''
-        if 'doc' in avro_schema:
-            struct_definition += f"/// {avro_schema['doc']}\n"
-        namespace = avro_schema.get('namespace', parent_namespace)
-        struct_name = self.safe_identifier(avro_schema['name'])
-        qualified_struct_name = self.concat_package(namespace.replace('.', '::'), struct_name)
-        if qualified_struct_name in self.generated_types_avro_namespace:
-            return qualified_struct_name
-        self.generated_types_avro_namespace[qualified_struct_name] = "struct"
-        self.generated_types_rust_package[qualified_struct_name] = "struct"
-        struct_definition += f"#[derive(Debug, Serialize, Deserialize)]\n" if self.serde_annotation else f"#[derive(Debug)]\n"
-        struct_definition += f"pub struct {struct_name} {{\n"
+        fields = []
         for field in avro_schema.get('fields', []):
             original_field_name = field['name']
-            field_name = self.safe_identifier(camel(original_field_name))
-            field_type = self.convert_avro_type_to_rust(field_name, field['type'], namespace)
-            serde_rename = f'#[serde(rename = "{original_field_name}")] ' if field_name != original_field_name else ''
-            struct_definition += f"{INDENT}{serde_rename}pub {field_name}: {field_type},\n"
-        struct_definition += "}\n\n"
+            field_name = self.safe_identifier(snake(original_field_name))
+            field_type = self.convert_avro_type_to_rust(field_name, field['type'], parent_namespace)
+            serde_rename = field_name != original_field_name
+            fields.append({
+                'original_name': original_field_name,
+                'name': field_name,
+                'type': field_type,
+                'serde_rename': serde_rename,
+                'random_value': self.generate_random_value(field_type)
+            })
+        
+        struct_name = self.safe_identifier(pascal(avro_schema['name']))
+        ns = parent_namespace.replace('.', '::').lower()
+        qualified_struct_name = self.safe_package(self.concat_package(ns, struct_name))
+        if not 'namespace' in avro_schema:
+            avro_schema['namespace'] = parent_namespace
+        avro_schema_str = json.dumps(avro_schema)        
+        avro_schema_str = avro_schema_str.replace('"', '§')
+        avro_schema_str = f"\",\n{INDENT*2}\"".join(
+            [avro_schema_str[i:i+80] for i in range(0, len(avro_schema_str), 80)])
+        avro_schema_str = avro_schema_str.replace('§', '\\"')
+        avro_schema_str = f"concat!(\"{avro_schema_str}\")"
 
-        struct_definition += self.generate_impl_block(struct_name, avro_schema)
-        self.write_to_file(namespace.replace('.', '::'), struct_name, struct_definition)
+        context = {
+            'avro_annotation': self.avro_annotation,
+            'serde_annotation': self.serde_annotation,
+            'doc': avro_schema.get('doc', ''),
+            'struct_name': struct_name,
+            'fields': fields,
+            'avro_schema': avro_schema_str,
+            'json_match_predicates': [self.get_is_json_match_clause(f['original_name'], f['type']) for f in fields]
+        }
+
+        file_name = self.to_file_name(qualified_struct_name)
+        target_file = os.path.join(self.output_dir, "src", file_name + ".rs")
+        render_template('avrotorust/dataclass_struct.rs.jinja', target_file, **context)
+        self.write_mod_rs(parent_namespace)
+
+        self.generated_types_avro_namespace[qualified_struct_name] = "struct"
+        self.generated_types_rust_package[qualified_struct_name] = "struct"
+
         return qualified_struct_name
+    
+    def get_is_json_match_clause(self, field_name: str, field_type: str, for_union=False) -> str:
+        """Generates the is_json_match clause for a field"""
+        ref = f'node[\"{field_name}\"]' if not for_union else 'node'
+        if field_type == 'String' or field_type == 'Option<String>':
+            return f"{ref}.is_string()"
+        elif field_type == 'bool' or field_type == 'Option<bool>':
+            return f"{ref}.is_boolean()"
+        elif field_type == 'i32' or field_type == 'Option<i32>':
+            return f"{ref}.is_i64()"
+        elif field_type == 'i64' or field_type == 'Option<i64>':
+            return f"{ref}.is_i64()"
+        elif field_type == 'f32' or field_type == 'Option<f32>':
+            return f"{ref}.is_f64()"
+        elif field_type == 'f64' or field_type == 'Option<f64>':
+            return f"{ref}.is_f64()"
+        elif field_type == 'Vec<u8>' or field_type == 'Option<Vec<u8>>':
+            return f"{ref}.is_array()"
+        elif field_type == 'serde_json::Value' or field_type == 'std::collections::HashMap<String, String>':
+            return f"{ref}.is_object()"
+        elif field_type.startswith('std::collections::HashMap<String, '):
+            return f"{ref}.is_object()"
+        elif field_type.startswith('Vec<'):
+            return f"{ref}.is_array()"
+        else:
+            return f"{field_type}::is_json_match(&{ref})"
+
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a Rust enum from an Avro enum schema"""
-        enum_definition = ''
-        if 'doc' in avro_schema:
-            enum_definition += f"/// {avro_schema['doc']}\n"
-        namespace = avro_schema.get('namespace', parent_namespace)
-        enum_name = self.safe_identifier(avro_schema['name'])
-        qualified_enum_name = self.concat_package(namespace.replace('.', '::'), enum_name)
+        symbols = avro_schema.get('symbols', [])
+        enum_name = self.safe_identifier(pascal(avro_schema['name']))
+        ns = parent_namespace.replace('.', '::').lower()
+        qualified_enum_name = self.safe_package(self.concat_package(ns, enum_name))
+        
+        if not 'namespace' in avro_schema:
+            avro_schema['namespace'] = parent_namespace
+        avro_schema_str = json.dumps(avro_schema)
+        avro_schema_str = avro_schema_str.replace('"', '§')
+        avro_schema_str = f"\",\n{INDENT*2}\"".join(
+            [avro_schema_str[i:i+80] for i in range(0, len(avro_schema_str), 80)])
+        avro_schema_str = avro_schema_str.replace('§', '\\"')
+        avro_schema_str = f"concat!(\"{avro_schema_str}\")"
+
+        context = {
+            'avro_annotation': self.avro_annotation,
+            'serde_annotation': self.serde_annotation,
+            'enum_name': enum_name,
+            'symbols': symbols,
+            'avro_schema': avro_schema_str,
+        }
+
+        file_name = self.to_file_name(qualified_enum_name)
+        target_file = os.path.join(self.output_dir, "src", file_name + ".rs")
+        render_template('avrotorust/dataclass_enum.rs.jinja', target_file, **context)
+        self.write_mod_rs(parent_namespace)
+
         self.generated_types_avro_namespace[qualified_enum_name] = "enum"
         self.generated_types_rust_package[qualified_enum_name] = "enum"
-        symbols = avro_schema.get('symbols', [])
-        enum_definition += f"#[derive(Debug, Serialize, Deserialize)]\n" if self.serde_annotation else f"#[derive(Debug)]\n"
-        enum_definition += f"pub enum {enum_name} {{\n"
-        for symbol in symbols:
-            enum_definition += f"{INDENT}{symbol},\n"
-        enum_definition += "}\n\n"
-        self.write_to_file(namespace.replace('.', '::'), enum_name, enum_definition)
+
         return qualified_enum_name
-
-    def generate_impl_block(self, struct_name: str, avro_schema: Dict) -> str:
-        """Generates a single impl block for all methods and static fields"""
-        impl_block = f"impl {struct_name} {{\n"
-        impl_block += self.generate_static_schema_field(avro_schema)
-        impl_block += self.generate_to_byte_array_method(struct_name)
-        impl_block += self.generate_from_data_method(struct_name)
-        impl_block += self.generate_is_json_match_method(struct_name, avro_schema)
-        impl_block += self.generate_to_object_method(struct_name)
-        impl_block += "}\n"
-        return impl_block
-
-    def generate_static_schema_field(self, avro_schema: Dict) -> str:
-        """Generates a static field containing the Avro schema"""
-        schema_json = json.dumps(avro_schema).replace('"', '\\"')
-        static_field = f"{INDENT}/// The static Avro schema as a JSON string\n"
-        static_field += f"{INDENT}pub const SCHEMA: &'static str = \"{schema_json}\";\n"
-        return static_field
-
-    def generate_to_byte_array_method(self, struct_name: str) -> str:
-        """Generates the to_byte_array method for the struct"""
-        method_definition = f"{INDENT}/// Serializes the struct to a byte array based on the provided content type\n"
-        method_definition += f"{INDENT}pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {{\n"
-        method_definition += f"{INDENT*2}let result: Vec<u8>;\n"
-        method_definition += f"{INDENT*2}let media_type = content_type.split(';').next().unwrap_or(\"\");\n"
-        method_definition += f"{INDENT*2}match media_type {{\n"
-        if self.serde_annotation:
-            method_definition += f"{INDENT*3}\"application/json\" => {{\n"
-            method_definition += f"{INDENT*4}result = serde_json::to_vec(self)?;\n"
-            method_definition += f"{INDENT*3}}}\n"
-        if self.avro_annotation:
-            method_definition += f"{INDENT*3}\"avro/binary\" | \"application/vnd.apache.avro+avro\" => {{\n"
-            method_definition += f"{INDENT*4}let mut writer = avro_rs::Writer::new(&Self::SCHEMA, &self)?;\n"
-            method_definition += f"{INDENT*4}result = writer.into_inner()?;\n"
-            method_definition += f"{INDENT*3}}}\n"
-        method_definition += f"{INDENT*3}_ => return Err(format!(\"unsupported media type: {{}}\", media_type).into()),\n"
-        method_definition += f"{INDENT*2}}}\n"
-        method_definition += f"{INDENT*2}if media_type.ends_with(\"+gzip\") {{\n"
-        method_definition += f"{INDENT*3}let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());\n"
-        method_definition += f"{INDENT*3}encoder.write_all(&result)?;\n"
-        method_definition += f"{INDENT*3}result = encoder.finish()?;\n"
-        method_definition += f"{INDENT*2}}}\n"
-        method_definition += f"{INDENT*2}Ok(result)\n"
-        method_definition += f"{INDENT}}}\n"
-        return method_definition
-
-    def generate_from_data_method(self, struct_name: str) -> str:
-        """Generates the from_data method for the struct"""
-        method_definition = f"{INDENT}/// Deserializes the struct from a byte array based on the provided content type\n"
-        method_definition += f"{INDENT}pub fn from_data(data: impl AsRef<[u8]>, content_type: &str) -> Result<Self, Box<dyn std::error::Error>> {{\n"
-        method_definition += f"{INDENT*2}let media_type = content_type.split(';').next().unwrap_or(\"\");\n"
-        method_definition += f"{INDENT*2}let data = if media_type.ends_with(\"+gzip\") {{\n"
-        method_definition += f"{INDENT*3}let mut decoder = flate2::read::GzDecoder::new(data.as_ref());\n"
-        method_definition += f"{INDENT*3}let mut decompressed_data = Vec::new();\n"
-        method_definition += f"{INDENT*3}std::io::copy(&mut decoder, &mut decompressed_data)?;\n"
-        method_definition += f"{INDENT*3}decompressed_data\n"
-        method_definition += f"{INDENT*2}}} else {{\n"
-        method_definition += f"{INDENT*3}data.as_ref().to_vec()\n"
-        method_definition += f"{INDENT*2}}};\n"
-        method_definition += f"{INDENT*2}match media_type {{\n"
-        if self.serde_annotation:
-            method_definition += f"{INDENT*3}\"application/json\" => {{\n"
-            method_definition += f"{INDENT*4}let result = serde_json::from_slice(&data)?;\n"
-            method_definition += f"{INDENT*4}Ok(result)\n"
-            method_definition += f"{INDENT*3}}}\n"
-        if self.avro_annotation:
-            method_definition += f"{INDENT*3}\"avro/binary\" | \"application/vnd.apache.avro+avro\" => {{\n"
-            method_definition += f"{INDENT*4}let reader = avro_rs::Reader::new(&data[..], &Self::SCHEMA)?;\n"
-            method_definition += f"{INDENT*4}let result = reader.collect::<Result<Self, _>>()?.pop().ok_or(\"failed to read Avro data\")?;\n"
-            method_definition += f"{INDENT*4}Ok(result)\n"
-            method_definition += f"{INDENT*3}}}\n"
-        method_definition += f"{INDENT*3}_ => Err(format!(\"unsupported media type: {{}}\", media_type).into()),\n"
-        method_definition += f"{INDENT*2}}}\n"
-        method_definition += f"{INDENT}}}\n"
-        return method_definition
-
-    def generate_is_json_match_method(self, struct_name: str, avro_schema: Dict) -> str:
-        """Generates the is_json_match method for the struct"""
-        method_definition = f"{INDENT}/// Checks if the given JSON value matches the schema of the struct\n"
-        method_definition += f"{INDENT}pub fn is_json_match(node: &serde_json::Value) -> bool {{\n"
-        predicates = []
-        for field in avro_schema.get('fields', []):
-            field_name = camel(field['name'])
-            field_type = self.convert_avro_type_to_rust(field_name, field['type'], namespace='')
-            predicates.append(self.get_is_json_match_clause(field_name, field_type))
-        method_definition += f"{INDENT*2}" + " && ".join(predicates) + "\n"
-        method_definition += f"{INDENT}}}\n"
-        return method_definition
-
-    def get_is_json_match_clause(self, field_name: str, field_type: str) -> str:
-        """Generates the is_json_match clause for a field"""
-        if field_type == 'String' or field_type == 'Option<String>':
-            return f"node[\"{field_name}\"].is_string()"
-        elif field_type == 'bool' or field_type == 'Option<bool>':
-            return f"node[\"{field_name}\"].is_boolean()"
-        elif field_type == 'i32' or field_type == 'Option<i32>':
-            return f"node[\"{field_name}\"].is_i64()"
-        elif field_type == 'i64' or field_type == 'Option<i64>':
-            return f"node[\"{field_name}\"].is_i64()"
-        elif field_type == 'f32' or field_type == 'Option<f32>':
-            return f"node[\"{field_name}\"].is_f64()"
-        elif field_type == 'f64' or field_type == 'Option<f64>':
-            return f"node[\"{field_name}\"].is_f64()"
-        elif field_type == 'Vec<u8>' or field_type == 'Option<Vec<u8>>':
-            return f"node[\"{field_name}\"].is_array()"
-        elif field_type == 'serde_json::Value' or field_type == 'std::collections::HashMap<String, String>':
-            return f"node[\"{field_name}\"].is_object()"
-        elif field_type.startswith('std::collections::HashMap<String, '):
-            return f"node[\"{field_name}\"].is_object()"
-        elif field_type.startswith('Vec<'):
-            return f"node[\"{field_name}\"].is_array()"
-        else:
-            return f"Self::is_json_match(node[\"{field_name}\"])"
-
-    def generate_to_object_method(self, struct_name: str) -> str:
-        """Generates the to_object method for the struct"""
-        method_definition = f"{INDENT}/// Converts the struct to a JSON object\n"
-        method_definition += f"{INDENT}pub fn to_object(&self) -> serde_json::Value {{\n"
-        method_definition += f"{INDENT*2}serde_json::to_value(self).unwrap_or(serde_json::Value::Null)\n"
-        method_definition += f"{INDENT}}}\n"
-        return method_definition
 
     def generate_union_enum(self, field_name: str, avro_type: List, namespace: str) -> str:
         """Generates a union enum for Rust"""
+        ns = namespace.replace('.', '::').lower()
         union_enum_name = pascal(field_name) + 'Union'
-        enum_definition = f"#[derive(Debug, Serialize, Deserialize)]\n" if self.serde_annotation else f"#[derive(Debug)]\n"
-        if self.serde_annotation:
-            enum_definition += f"#[serde(untagged)]\n"
-        enum_definition += f"pub enum {union_enum_name} {{\n"
-        union_types = [self.convert_avro_type_to_rust(field_name + "Option" + str(i), t, namespace) for i, t in enumerate(avro_type)]
-        for union_type in union_types:
-            safe_field_name = self.safe_identifier(union_type.split('::')[-1])
-            enum_definition += f"{INDENT}{safe_field_name}({union_type}),\n"
-        enum_definition += "}\n\n"
-        self.write_to_file(namespace.replace('.', '::'), union_enum_name, enum_definition)
-        return union_enum_name
+        union_types = [self.convert_avro_type_to_rust(field_name + "Option" + str(i), t, namespace) for i, t in enumerate(avro_type) if t != 'null']
+        union_fields = [
+            {
+                'name': pascal(t.rsplit('::',1)[-1]), 
+                'type': t, 
+                'random_value': self.generate_random_value(t),
+                'default_value': 'Default::default()',
+                'json_match_predicate': self.get_is_json_match_clause(field_name, t, for_union=True),
+            } for i, t in enumerate(union_types)]
+        qualified_union_enum_name = self.safe_package(self.concat_package(ns, union_enum_name))
+        context = {
+            'serde_annotation': self.serde_annotation,
+            'union_enum_name': union_enum_name,
+            'union_fields': union_fields,
+            'json_match_predicates': [self.get_is_json_match_clause(f['name'], f['type'], for_union=True) for f in union_fields]
+        }
 
-    def write_to_file(self, package: str, name: str, definition: str):
-        """Writes a Rust struct or enum to a file"""
-        directory_path = os.path.join(
-            self.output_dir, "src", package.replace('.', os.sep).replace('::', os.sep))
-        if not os.path.exists(directory_path):
-            os.makedirs(directory_path, exist_ok=True)
-        file_path = os.path.join(directory_path, f"{name}.rs")
+        file_name = self.to_file_name(qualified_union_enum_name)
+        target_file = os.path.join(self.output_dir, "src", file_name + ".rs").lower()
+        render_template('avrotorust/dataclass_union.rs.jinja', target_file, **context)
+        self.generated_types_avro_namespace[qualified_union_enum_name] = "union"
+        self.generated_types_rust_package[qualified_union_enum_name] = "union"
+        self.write_mod_rs(namespace)
 
-        with open(file_path, 'w', encoding='utf-8') as file:
-            if "chrono::NaiveDate" in definition:
-                file.write("use chrono::NaiveDate;\n")
-            if "chrono::NaiveTime" in definition:
-                file.write("use chrono::NaiveTime;\n")
-            if "chrono::NaiveDateTime" in definition:
-                file.write("use chrono::NaiveDateTime;\n")
-            if "uuid::Uuid" in definition:
-                file.write("use uuid::Uuid;\n")
-            if "flate2" in definition:
-                file.write("use flate2::read::GzDecoder;\n")
-                file.write("use flate2::write::GzEncoder;\n")
-            if "serde_json::Value" in definition:
-                file.write("use serde_json::Value;\n")
-            if "std::collections::HashMap" in definition:
-                file.write("use std::collections::HashMap;\n")
-            if "serde::Serialize" in definition:
-                file.write("use serde::Serialize;\n")
-            if "serde::Deserialize" in definition:
-                file.write("use serde::Deserialize;\n")
-            if "avro_rs" in definition:
-                file.write("use avro_rs::{Reader, Writer};\n")
-            if "std::io" in definition:
-                file.write("use std::io;\n")
-            file.write(definition)
+        return qualified_union_enum_name
 
-        self.write_mod_rs(package)
+    def to_file_name(self, qualified_name):
+        """Converts a qualified union enum name to a file name"""
+        if qualified_name.startswith('crate::'):
+            qualified_name = qualified_name[(len('crate::')):]
+        qualified_name = qualified_name.replace('r#', '')
+        return qualified_name.rsplit('::',1)[0].replace('::', os.sep).lower()
+    
+    def generate_random_value(self, rust_type: str) -> str:
+        """Generates a random value for a given Rust type"""
+        if rust_type == 'String' or rust_type == 'Option<String>':
+            return 'format!("random_string_{}", rand::Rng::gen::<u32>(&mut rng))'
+        elif rust_type == 'bool' or rust_type == 'Option<bool>':
+            return 'rand::Rng::gen::<bool>(&mut rng)'
+        elif rust_type == 'i32' or rust_type == 'Option<i32>':
+            return 'rand::Rng::gen_range(&mut rng, 0..100)'
+        elif rust_type == 'i64' or rust_type == 'Option<i64>':
+            return 'rand::Rng::gen_range(&mut rng, 0..100) as i64'
+        elif rust_type == 'f32' or rust_type == 'Option<f32>':
+            return '(rand::Rng::gen::<f32>(&mut rng)*1000.0).round()/1000.0'
+        elif rust_type == 'f64' or rust_type == 'Option<f64>':
+            return '(rand::Rng::gen::<f64>(&mut rng)*1000.0).round()/1000.0'
+        elif rust_type == 'Vec<u8>' or rust_type == 'Option<Vec<u8>>':
+            return 'vec![rand::Rng::gen::<u8>(&mut rng); 10]'
+        elif rust_type == 'chrono::NaiveDate':
+            return 'chrono::NaiveDate::from_ymd(rand::Rng::gen_range(&mut rng, 2000..2023), rand::Rng::gen_range(&mut rng, 1..13), rand::Rng::gen_range(&mut rng, 1..29))'
+        elif rust_type == 'chrono::NaiveTime':
+            return 'chrono::NaiveTime::from_hms(rand::Rng::gen_range(&mut rng, 0..24),rand::Rng::gen_range(&mut rng, 0..60), rand::Rng::gen_range(&mut rng, 0..60))'
+        elif rust_type == 'chrono::NaiveDateTime':
+            return 'chrono::NaiveDateTime::new(chrono::NaiveDate::from_ymd(rand::Rng::gen_range(&mut rng, 2000..2023), rand::Rng::gen_range(&mut rng, 1..13), rand::Rng::gen_range(&mut rng, 1..29)), chrono::NaiveTime::from_hms(rand::Rng::gen_range(&mut rng, 0..24), rand::Rng::gen_range(&mut rng, 0..60), rand::Rng::gen_range(&mut rng, 0..60)))'
+        elif rust_type == 'uuid::Uuid':
+            return 'uuid::Uuid::new_v4()'
+        elif rust_type.startswith('std::collections::HashMap<String, '):
+            inner_type = rust_type.split(', ')[1][:-1]
+            return f'(0..3).map(|_| (format!("key_{{}}", rand::Rng::gen::<u32>(&mut rng)), {self.generate_random_value(inner_type)})).collect()'
+        elif rust_type.startswith('Vec<'):
+            inner_type = rust_type[4:-1]
+            return f'(0..3).map(|_| {self.generate_random_value(inner_type)}).collect()'
+        elif rust_type in self.generated_types_rust_package:
+            return f'{rust_type}::generate_random_instance()'
+        else:
+            return 'Default::default()'
 
-    def write_mod_rs(self, package: str):
+    def write_mod_rs(self, namespace: str):
         """Writes the mod.rs file for a Rust module"""
-        directories = package.split('::')
+        directories = namespace.split('.')
         for i in range(len(directories)):
             sub_package = '::'.join(directories[:i + 1])
             directory_path = os.path.join(
@@ -357,7 +329,9 @@ class AvroToRust:
             mod_rs_path = os.path.join(directory_path, "mod.rs")
             
             types = [file.replace('.rs', '') for file in os.listdir(directory_path) if file.endswith('.rs') and file != "mod.rs"]
-            mod_statements = '\n'.join(f'pub mod {typ};' for typ in types)
+            mod_statements = '\n'.join(f'pub mod {self.escaped_identifier(typ.lower())};' for typ in types)
+            mods = [dir for dir in os.listdir(directory_path) if os.path.isdir(os.path.join(directory_path, dir))]
+            mod_statements += '\n' + '\n'.join(f'pub mod {self.escaped_identifier(mod.lower())};' for mod in mods)
 
             with open(mod_rs_path, 'w', encoding='utf-8') as file:
                 file.write(mod_statements)
@@ -365,17 +339,17 @@ class AvroToRust:
     def write_cargo_toml(self):
         """Writes the Cargo.toml file for the Rust project"""
         dependencies = []
-        if self.serde_annotation:
+        if self.serde_annotation or self.avro_annotation:
             dependencies.append('serde = { version = "1.0", features = ["derive"] }')
             dependencies.append('serde_json = "1.0"')
-        if any(typ in self.generated_types_avro_namespace.values() for typ in ['chrono::NaiveDate', 'chrono::NaiveTime', 'chrono::NaiveDateTime']):
-            dependencies.append('chrono = "0.4"')
-        if any(typ in self.generated_types_avro_namespace.values() for typ in ['uuid::Uuid']):
-            dependencies.append('uuid = { version = "0.8", features = ["serde"] }')
-        if any(typ in self.generated_types_avro_namespace.values() for typ in ['flate2']):
+        dependencies.append('chrono = "0.4"')
+        dependencies.append('uuid = { version = "0.8", features = ["serde"] }')
+        if self.avro_annotation or self.serde_annotation:
             dependencies.append('flate2 = "1.0"')
         if self.avro_annotation:
-            dependencies.append('avro-rs = "0.9"')
+            dependencies.append('apache-avro = "0.16.0"')
+            dependencies.append('lazy_static = "1.4"')
+        dependencies.append('rand = "0.8"')
 
         cargo_toml_content =  f"[package]\n"
         cargo_toml_content += f"name = \"{self.base_package.replace('/', '_')}\"\n"
@@ -389,7 +363,7 @@ class AvroToRust:
 
     def write_lib_rs(self):
         """Writes the lib.rs file for the Rust project"""
-        modules = {name.split('::')[0] for name in self.generated_types_rust_package.keys()}
+        modules = {name[(len('crate::')):].split('::')[0] for name in self.generated_types_rust_package}
         mod_statements = '\n'.join(f'pub mod {module};' for module in modules)
         
         lib_rs_content = f"""
