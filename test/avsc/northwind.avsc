@@ -2,189 +2,183 @@
   {
     "type": "record",
     "name": "Category",
+    "namespace": "Northwind",
+    "doc": "A category of products.",
     "fields": [
-      { "name": "CategoryID", "type": "int" },
-      { "name": "CategoryName", "type": "string" },
-      { "name": "Description", "type": ["null", "string"], "default": null },
-      { "name": "Picture", "type": ["null", "bytes"], "default": null }
+      { "name": "CategoryID", "type": "int", "doc": "The unique identifier for the category." },
+      { "name": "CategoryName", "type": "string", "doc": "The name of the category." },
+      { "name": "Description", "type": ["null", "string"], "default": null, "doc": "A description of the category." },
+      { "name": "Picture", "type": ["null", "bytes"], "default": null, "doc": "A picture of the category." }
     ],
     "unique": ["CategoryID"]
   },
   {
     "type": "record",
     "name": "Customer",
+    "namespace": "Northwind",
+    "doc": "A customer of the company.",
     "fields": [
-      { "name": "CustomerID", "type": "string" },
-      { "name": "CompanyName", "type": "string" },
-      { "name": "ContactName", "type": ["null", "string"], "default": null },
-      { "name": "ContactTitle", "type": ["null", "string"], "default": null },
-      { "name": "Address", "type": ["null", "string"], "default": null },
-      { "name": "City", "type": ["null", "string"], "default": null },
-      { "name": "Region", "type": ["null", "string"], "default": null },
-      { "name": "PostalCode", "type": ["null", "string"], "default": null },
-      { "name": "Country", "type": ["null", "string"], "default": null },
-      { "name": "Phone", "type": ["null", "string"], "default": null },
-      { "name": "Fax", "type": ["null", "string"], "default": null }
+      { "name": "CustomerID", "type": "string", "doc": "The unique identifier for the customer." },
+      { "name": "CompanyName", "type": "string", "doc": "The name of the company." },
+      { "name": "ContactName", "type": ["null", "string"], "default": null, "doc": "The name of the contact person." },
+      { "name": "ContactTitle", "type": ["null", "string"], "default": null, "doc": "The title of the contact person." },
+      { "name": "Address", "type": ["null", "string"], "default": null, "doc": "The address of the customer." },
+      { "name": "City", "type": ["null", "string"], "default": null, "doc": "The city where the customer is located." },
+      { "name": "Region", "type": ["null", "string"], "default": null, "doc": "The region where the customer is located." },
+      { "name": "PostalCode", "type": ["null", "string"], "default": null, "doc": "The postal code of the customer." },
+      { "name": "Country", "type": ["null", "string"], "default": null, "doc": "The country where the customer is located." },
+      { "name": "Phone", "type": ["null", "string"], "default": null, "doc": "The phone number of the customer." },
+      { "name": "Fax", "type": ["null", "string"], "default": null, "doc": "The fax number of the customer." }
     ],
     "unique": ["CustomerID"]
   },
   {
     "type": "record",
     "name": "Employee",
+    "namespace": "Northwind",
+    "doc": "An employee of the company.",
     "fields": [
-      { "name": "EmployeeID", "type": "int" },
-      { "name": "LastName", "type": "string" },
-      { "name": "FirstName", "type": "string" },
-      { "name": "Title", "type": ["null", "string"], "default": null },
-      {
-        "name": "TitleOfCourtesy",
-        "type": ["null", "string"],
-        "default": null
-      },
-      {
-        "name": "BirthDate",
-        "type": ["null", { "type": "int", "logicalType": "date" }],
-        "default": null
-      },
-      {
-        "name": "HireDate",
-        "type": ["null", { "type": "int", "logicalType": "date" }],
-        "default": null
-      },
-      { "name": "Address", "type": ["null", "string"], "default": null },
-      { "name": "City", "type": ["null", "string"], "default": null },
-      { "name": "Region", "type": ["null", "string"], "default": null },
-      { "name": "PostalCode", "type": ["null", "string"], "default": null },
-      { "name": "Country", "type": ["null", "string"], "default": null },
-      { "name": "HomePhone", "type": ["null", "string"], "default": null },
-      { "name": "Extension", "type": ["null", "string"], "default": null },
-      { "name": "Photo", "type": ["null", "bytes"], "default": null },
-      { "name": "Notes", "type": ["null", "string"], "default": null },
-      { "name": "ReportsTo", "type": ["null", "int"], "default": null },
-      { "name": "PhotoPath", "type": ["null", "string"], "default": null }
+      { "name": "EmployeeID", "type": "int", "doc": "The unique identifier for the employee." },
+      { "name": "LastName", "type": "string", "doc": "The last name of the employee." },
+      { "name": "FirstName", "type": "string", "doc": "The first name of the employee." },
+      { "name": "Title", "type": ["null", "string"], "default": null, "doc": "The title of the employee." },
+      { "name": "TitleOfCourtesy", "type": ["null", "string"], "default": null, "doc": "The courtesy title of the employee." },
+      { "name": "BirthDate", "type": ["null", { "type": "int", "logicalType": "date" }], "default": null, "doc": "The birth date of the employee." },
+      { "name": "HireDate", "type": ["null", { "type": "int", "logicalType": "date" }], "default": null, "doc": "The hire date of the employee." },
+      { "name": "Address", "type": ["null", "string"], "default": null, "doc": "The address of the employee." },
+      { "name": "City", "type": ["null", "string"], "default": null, "doc": "The city where the employee is located." },
+      { "name": "Region", "type": ["null", "string"], "default": null, "doc": "The region where the employee is located." },
+      { "name": "PostalCode", "type": ["null", "string"], "default": null, "doc": "The postal code of the employee." },
+      { "name": "Country", "type": ["null", "string"], "default": null, "doc": "The country where the employee is located." },
+      { "name": "HomePhone", "type": ["null", "string"], "default": null, "doc": "The home phone number of the employee." },
+      { "name": "Extension", "type": ["null", "string"], "default": null, "doc": "The extension number of the employee." },
+      { "name": "Photo", "type": ["null", "bytes"], "default": null, "doc": "A photo of the employee." },
+      { "name": "Notes", "type": ["null", "string"], "default": null, "doc": "Notes about the employee." },
+      { "name": "ReportsTo", "type": ["null", "int"], "default": null, "doc": "The ID of the employee's manager." },
+      { "name": "PhotoPath", "type": ["null", "string"], "default": null, "doc": "The path to the employee's photo." }
     ],
     "unique": ["EmployeeID"]
   },
   {
     "type": "record",
     "name": "Order",
+    "namespace": "Northwind",
+    "doc": "An order placed by a customer.",
     "fields": [
-      { "name": "OrderID", "type": "int" },
-      { "name": "CustomerID", "type": ["null", "string"], "default": null },
-      { "name": "EmployeeID", "type": ["null", "int"], "default": null },
-      {
-        "name": "OrderDate",
-        "type": ["null", { "type": "int", "logicalType": "date" }],
-        "default": null
-      },
-      {
-        "name": "RequiredDate",
-        "type": ["null", { "type": "int", "logicalType": "date" }],
-        "default": null
-      },
-      {
-        "name": "ShippedDate",
-        "type": ["null", { "type": "int", "logicalType": "date" }],
-        "default": null
-      },
-      { "name": "ShipVia", "type": ["null", "int"], "default": null },
-      { "name": "Freight", "type": ["null", "float"], "default": null },
-      { "name": "ShipName", "type": ["null", "string"], "default": null },
-      { "name": "ShipAddress", "type": ["null", "string"], "default": null },
-      { "name": "ShipCity", "type": ["null", "string"], "default": null },
-      { "name": "ShipRegion", "type": ["null", "string"], "default": null },
-      { "name": "ShipPostalCode", "type": ["null", "string"], "default": null },
-      { "name": "ShipCountry", "type": ["null", "string"], "default": null }
+      { "name": "OrderID", "type": "int", "doc": "The unique identifier for the order." },
+      { "name": "CustomerID", "type": ["null", "string"], "default": null, "doc": "The ID of the customer who placed the order." },
+      { "name": "EmployeeID", "type": ["null", "int"], "default": null, "doc": "The ID of the employee who handled the order." },
+      { "name": "OrderDate", "type": ["null", { "type": "int", "logicalType": "date" }], "default": null, "doc": "The date the order was placed." },
+      { "name": "RequiredDate", "type": ["null", { "type": "int", "logicalType": "date" }], "default": null, "doc": "The date the order is required by." },
+      { "name": "ShippedDate", "type": ["null", { "type": "int", "logicalType": "date" }], "default": null, "doc": "The date the order was shipped." },
+      { "name": "ShipVia", "type": ["null", "int"], "default": null, "doc": "The ID of the shipper." },
+      { "name": "Freight", "type": ["null", "float"], "default": null, "doc": "The freight charges for the order." },
+      { "name": "ShipName", "type": ["null", "string"], "default": null, "doc": "The name of the recipient." },
+      { "name": "ShipAddress", "type": ["null", "string"], "default": null, "doc": "The address where the order is to be shipped." },
+      { "name": "ShipCity", "type": ["null", "string"], "default": null, "doc": "The city where the order is to be shipped." },
+      { "name": "ShipRegion", "type": ["null", "string"], "default": null, "doc": "The region where the order is to be shipped." },
+      { "name": "ShipPostalCode", "type": ["null", "string"], "default": null, "doc": "The postal code where the order is to be shipped." },
+      { "name": "ShipCountry", "type": ["null", "string"], "default": null, "doc": "The country where the order is to be shipped." }
     ],
     "unique": ["OrderID"]
   },
   {
     "type": "record",
     "name": "OrderDetail",
+    "namespace": "Northwind",
+    "doc": "Details of a product included in an order.",
     "fields": [
-      { "name": "OrderID", "type": "int" },
-      { "name": "ProductID", "type": "int" },
-      { "name": "UnitPrice", "type": "float" },
-      { "name": "Quantity", "type": "int" },
-      { "name": "Discount", "type": "float" }
+      { "name": "OrderID", "type": "int", "doc": "The ID of the order." },
+      { "name": "ProductID", "type": "int", "doc": "The ID of the product." },
+      { "name": "UnitPrice", "type": "float", "doc": "The price per unit of the product." },
+      { "name": "Quantity", "type": "int", "doc": "The quantity of the product ordered." },
+      { "name": "Discount", "type": "float", "doc": "The discount applied to the product." }
     ],
     "unique": ["OrderID", "ProductID"]
   },
   {
     "type": "record",
     "name": "Product",
+    "namespace": "Northwind",
+    "doc": "A product available for sale.",
     "fields": [
-      { "name": "ProductID", "type": "int" },
-      { "name": "ProductName", "type": "string" },
-      { "name": "SupplierID", "type": ["null", "int"], "default": null },
-      { "name": "CategoryID", "type": ["null", "int"], "default": null },
-      {
-        "name": "QuantityPerUnit",
-        "type": ["null", "string"],
-        "default": null
-      },
-      { "name": "UnitPrice", "type": ["null", "float"], "default": null },
-      { "name": "UnitsInStock", "type": ["null", "int"], "default": null },
-      { "name": "UnitsOnOrder", "type": ["null", "int"], "default": null },
-      { "name": "ReorderLevel", "type": ["null", "int"], "default": null },
-      { "name": "Discontinued", "type": "boolean" }
+      { "name": "ProductID", "type": "int", "doc": "The unique identifier for the product." },
+      { "name": "ProductName", "type": "string", "doc": "The name of the product." },
+      { "name": "SupplierID", "type": ["null", "int"], "default": null, "doc": "The ID of the supplier of the product." },
+      { "name": "CategoryID", "type": ["null", "int"], "default": null, "doc": "The ID of the category the product belongs to." },
+      { "name": "QuantityPerUnit", "type": ["null", "string"], "default": null, "doc": "The quantity of the product per unit." },
+      { "name": "UnitPrice", "type": ["null", "float"], "default": null, "doc": "The price per unit of the product." },
+      { "name": "UnitsInStock", "type": ["null", "int"], "default": null, "doc": "The number of units in stock." },
+      { "name": "UnitsOnOrder", "type": ["null", "int"], "default": null, "doc": "The number of units on order." },
+      { "name": "ReorderLevel", "type": ["null", "int"], "default": null, "doc": "The reorder level for the product." },
+      { "name": "Discontinued", "type": "boolean", "doc": "Whether the product is discontinued." }
     ],
     "unique": ["ProductID"]
   },
   {
     "type": "record",
     "name": "Shipper",
+    "namespace": "Northwind",
+    "doc": "A shipper responsible for delivering orders.",
     "fields": [
-      { "name": "ShipperID", "type": "int" },
-      { "name": "CompanyName", "type": "string" },
-      { "name": "Phone", "type": ["null", "string"], "default": null }
+      { "name": "ShipperID", "type": "int", "doc": "The unique identifier for the shipper." },
+      { "name": "CompanyName", "type": "string", "doc": "The name of the shipping company." },
+      { "name": "Phone", "type": ["null", "string"], "default": null, "doc": "The phone number of the shipper." }
     ],
     "unique": ["ShipperID"]
   },
   {
     "type": "record",
     "name": "Supplier",
+    "namespace": "Northwind",
+    "doc": "A supplier of products.",
     "fields": [
-      { "name": "SupplierID", "type": "int" },
-      { "name": "CompanyName", "type": "string" },
-      { "name": "ContactName", "type": ["null", "string"], "default": null },
-      { "name": "ContactTitle", "type": ["null", "string"], "default": null },
-      { "name": "Address", "type": ["null", "string"], "default": null },
-      { "name": "City", "type": ["null", "string"], "default": null },
-      { "name": "Region", "type": ["null", "string"], "default": null },
-      { "name": "PostalCode", "type": ["null", "string"], "default": null },
-      { "name": "Country", "type": ["null", "string"], "default": null },
-      { "name": "Phone", "type": ["null", "string"], "default": null },
-      { "name": "Fax", "type": ["null", "string"], "default": null },
-      { "name": "HomePage", "type": ["null", "string"], "default": null }
+      { "name": "SupplierID", "type": "int", "doc": "The unique identifier for the supplier." },
+      { "name": "CompanyName", "type": "string", "doc": "The name of the supplier's company." },
+      { "name": "ContactName", "type": ["null", "string"], "default": null, "doc": "The name of the contact person at the supplier." },
+      { "name": "ContactTitle", "type": ["null", "string"], "default": null, "doc": "The title of the contact person at the supplier." },
+      { "name": "Address", "type": ["null", "string"], "default": null, "doc": "The address of the supplier." },
+      { "name": "City", "type": ["null", "string"], "default": null, "doc": "The city where the supplier is located." },
+      { "name": "Region", "type": ["null", "string"], "default": null, "doc": "The region where the supplier is located." },
+      { "name": "PostalCode", "type": ["null", "string"], "default": null, "doc": "The postal code of the supplier." },
+      { "name": "Country", "type": ["null", "string"], "default": null, "doc": "The country where the supplier is located." },
+      { "name": "Phone", "type": ["null", "string"], "default": null, "doc": "The phone number of the supplier." },
+      { "name": "Fax", "type": ["null", "string"], "default": null, "doc": "The fax number of the supplier." },
+      { "name": "HomePage", "type": ["null", "string"], "default": null, "doc": "The homepage of the supplier." }
     ],
     "unique": ["SupplierID"]
   },
   {
     "type": "record",
     "name": "Region",
+    "namespace": "Northwind",
+    "doc": "A region where the company operates.",
     "fields": [
-      { "name": "RegionID", "type": "int" },
-      { "name": "RegionDescription", "type": "string" }
+      { "name": "RegionID", "type": "int", "doc": "The unique identifier for the region." },
+      { "name": "RegionDescription", "type": "string", "doc": "A description of the region." }
     ],
     "unique": ["RegionID"]
   },
   {
     "type": "record",
     "name": "Territory",
+    "namespace": "Northwind",
+    "doc": "A territory within a region.",
     "fields": [
-      { "name": "TerritoryID", "type": "string" },
-      { "name": "TerritoryDescription", "type": "string" },
-      { "name": "RegionID", "type": "int" }
+      { "name": "TerritoryID", "type": "string", "doc": "The unique identifier for the territory." },
+      { "name": "TerritoryDescription", "type": "string", "doc": "A description of the territory." },
+      { "name": "RegionID", "type": "int", "doc": "The ID of the region the territory belongs to." }
     ],
     "unique": ["TerritoryID"]
   },
   {
     "type": "record",
     "name": "EmployeeTerritory",
+    "namespace": "Northwind",
+    "doc": "An association between an employee and a territory.",
     "fields": [
-      { "name": "EmployeeID", "type": "int" },
-      { "name": "TerritoryID", "type": "string" }
+      { "name": "EmployeeID", "type": "int", "doc": "The ID of the employee." },
+      { "name": "TerritoryID", "type": "string", "doc": "The ID of the territory." }
     ],
     "unique": ["EmployeeID", "TerritoryID"]
   }

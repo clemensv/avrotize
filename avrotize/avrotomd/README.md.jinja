@@ -1,0 +1,49 @@
+# {{ schema_name }} Schemas
+
+{%- if records %}
+## Records
+{%- for namespace, records in records.items() %}
+### Namespace: {{ namespace }}
+{%- for record in records %}
+#### {{ record.name }}
+{%- if record.doc %}
+{{ record.doc }}
+{%- endif %}
+- **Type:** record
+##### Fields
+{%- for field in record.fields %}
+{{ generate_field_markdown(field, 5) }}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endif %}
+
+{%- if enums %}
+## Enums
+{%- for namespace, enums in enums.items() %}
+### Namespace: {{ namespace }}
+{%- for enum in enums %}
+#### {{ enum.name }}
+{%- if enum.doc %}
+{{ enum.doc }}
+{%- endif %}
+- **Type:** enum
+- **Symbols:** {{ enum.symbols | join(', ') }}
+{%- endfor %}
+{%- endfor %}
+{%- endif %}
+
+{%- if fixeds %}
+## Fixed Types
+{%- for namespace, fixeds in fixeds.items() %}
+### Namespace: {{ namespace }}
+{%- for fixed in fixeds %}
+#### {{ fixed.name }}
+{%- if fixed.doc %}
+{{ fixed.doc }}
+{%- endif %}
+- **Type:** fixed
+- **Size:** {{ fixed.size }}
+{%- endfor %}
+{%- endfor %}
+{%- endif %}

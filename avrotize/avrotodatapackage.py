@@ -1,10 +1,12 @@
 import json
 import sys
-from typing import Dict, List
+from typing import Dict, List, cast, Optional
 from datapackage import Package, Resource
 
-JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
+from avrotize.common import get_longest_namespace_prefix
 
+
+JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 
 class AvroToDataPackageConverter:
     """Class to convert Avro schema to Data Package."""
@@ -16,79 +18,78 @@ class AvroToDataPackageConverter:
         """Get the full name of a record type."""
         return f"{namespace}.{name}" if namespace else name
 
-    def convert_avro_to_datapackage(self, avro_schema_path, avro_record_type, datapackage_path):
+    def convert_avro_to_datapackage(self, avro_schema_path: str, avro_record_type: Optional[str], datapackage_path: str):
         """Convert an Avro schema to a Data Package."""
-        schema_file = avro_schema_path
-        if not schema_file:
-            print("Please specify the avro schema file")
-            sys.exit(1)
-        with open(schema_file, "r", encoding="utf-8") as f:
+        with open(avro_schema_path, "r", encoding="utf-8") as f:
             schema_json = f.read()
 
         # Parse the schema as a JSON object
         schema = json.loads(schema_json)
         self.cache_named_types(schema)
 
-        if isinstance(schema, list) and avro_record_type:
-            schema = next(
-                (x for x in schema if x["name"] == avro_record_type or x["namespace"] + "." + x["name"] == avro_record_type), None)
-            if schema is None:
-                print(f"No top-level record type {avro_record_type} found in the Avro schema")
-                sys.exit(1)
-        elif isinstance(schema, dict) and "type" in schema and isinstance(schema["type"], list):
-            # Handle the top-level union type
-            for sub_type in schema["type"]:
-                self.create_datapackage_for_type(sub_type, datapackage_path)
-            return
-        elif not isinstance(schema, dict):
+        if isinstance(schema, list):
+            if avro_record_type:
+                schema = next(
+                    (x for x in schema if x["name"] == avro_record_type or x["namespace"] + "." + x["name"] == avro_record_type), None)
+                if schema is None:
+                    print(f"No top-level record type {avro_record_type} found in the Avro schema")
+                    sys.exit(1)
+            schemas_to_convert = schema
+        elif isinstance(schema, dict):
+            schemas_to_convert = [schema]
+        else:
             print("Expected a single Avro schema as a JSON object, or a list of schema records")
             sys.exit(1)
 
-        # Create the Data Package for the main schema
-        self.create_datapackage_for_type(schema, datapackage_path)
+        longest_namespace_prefix = get_longest_namespace_prefix(schema)
+        self.create_datapackage_for_schemas(schemas_to_convert, datapackage_path, longest_namespace_prefix)
 
-    def create_datapackage_for_type(self, schema, datapackage_path):
-        """Create a Data Package for a given schema."""
-        # Get the name and fields of the top-level record
-        table_name = schema["name"]
-        fields = schema["fields"]
-
-        # Create a list to store the Data Package schema
+    def create_datapackage_for_schemas(self, schemas: List[Dict[str, JsonNode]], datapackage_path: str, namespace_prefix: str):
+        """Create a Data Package for given schemas."""
+        package = Package()
         data_package_resources = []
 
-        # Append the Data Package schema with the column names and types
-        resource_schema = {
-            "fields": []
-        }
+        for schema in schemas:
+            name = str(schema["name"])
+            namespace = str(schema.get("namespace", ""))
+            if namespace.startswith(namespace_prefix):
+                namespace = namespace[len(namespace_prefix):].strip(".")
+            table_name = f"{namespace}_{name}" if namespace else name
+            fields = cast(List[Dict[str, JsonNode]], schema["fields"])
 
-        for field in fields:
-            column_name = field["name"]
-            column_type = self.convert_avro_type_to_datapackage_type(field["type"])
-            resource_schema["fields"].append({"name": column_name, "type": column_type})
+            # Create the Data Package schema
+            resource_schema: Dict[str, List[JsonNode]] = {
+                "fields": []
+            }
 
-        data_package_resources.append({
-            "name": table_name,
-            "path": f"{table_name}.csv",
-            "schema": resource_schema
-        })
+            for field in fields:
+                column_name = field["name"]
+                column_type = self.convert_avro_type_to_datapackage_type(field["type"])
+                field_schema = {"name": column_name, "type": column_type}
+                if "doc" in field:
+                    field_schema["description"] = field["doc"]
+                resource_schema["fields"].append(field_schema)
 
-        # Create the Data Package
-        package = Package()
+            resource = {
+                "name": table_name,
+                "schema": resource_schema
+            }
+            data_package_resources.append(resource)
+
+        # Add resources to the Data Package
         for resource in data_package_resources:
-            package.infer(resource["path"])
-            resource_obj = Resource(resource)
-            package.add_resource(resource_obj)
+            package.add_resource(resource)
 
         # Save the Data Package
-        package.descriptor["name"] = table_name
-        package.descriptor["resources"] = data_package_resources
+        package.descriptor["name"] = namespace_prefix
         package.commit()
-        package.save(f"{datapackage_path}_{table_name}.json")
 
-    def convert_avro_type_to_datapackage_type(self, avro_type):
+        with open(datapackage_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(package.descriptor, indent=2))
+
+    def convert_avro_type_to_datapackage_type(self, avro_type: JsonNode) -> str:
         """Convert an Avro type to a Data Package type."""
         if isinstance(avro_type, list):
-            # Handle union types
             item_count = len(avro_type)
             if item_count == 1:
                 return self.convert_avro_type_to_datapackage_type(avro_type[0])
@@ -136,46 +137,37 @@ class AvroToDataPackageConverter:
 
         return "string"
 
-    def cache_named_types(self, avro_type):
+    def cache_named_types(self, avro_type: JsonNode):
         """Add an encountered type to the list of types."""
         if isinstance(avro_type, list):
             for item in avro_type:
                 self.cache_named_types(item)
         if isinstance(avro_type, dict) and avro_type.get("name"):
-            self.named_type_cache[self.get_fullname(avro_type.get(
-                "namespace"), avro_type.get("name"))] = avro_type
+            self.named_type_cache[self.get_fullname(str(avro_type.get(
+                "namespace")), str(avro_type.get("name")))] = avro_type
             if "fields" in avro_type:
-                for field in avro_type.get("fields"):
+                for field in cast(List[Dict[str,JsonNode]],avro_type.get("fields")):
                     if "type" in field:
                         self.cache_named_types(field.get("type"))
 
-    def map_scalar_type(self, type_name: str):
+    def map_scalar_type(self, type_name: str) -> str:
         """Map an Avro scalar type to a Data Package scalar type."""
-        if type_name == "null":
-            return "string"
-        elif type_name == "int":
-            return "integer"
-        elif type_name == "long":
-            return "integer"
-        elif type_name == "float":
-            return "number"
-        elif type_name == "double":
-            return "number"
-        elif type_name == "boolean":
-            return "boolean"
-        elif type_name == "bytes":
-            return "string"
-        elif type_name == "string":
-            return "string"
-        else:
-            return "string"
+        scalar_type_mapping = {
+            "null": "string",
+            "int": "integer",
+            "long": "integer",
+            "float": "number",
+            "double": "number",
+            "boolean": "boolean",
+            "bytes": "string",
+            "string": "string"
+        }
+        return scalar_type_mapping.get(type_name, "string")
 
-
-def convert_avro_to_datapackage(avro_schema_path, avro_record_type, datapackage_path):
+def convert_avro_to_datapackage(avro_schema_path: str, avro_record_type: Optional[str], datapackage_path: str):
     """Convert an Avro schema to a Data Package."""
     converter = AvroToDataPackageConverter()
     converter.convert_avro_to_datapackage(avro_schema_path, avro_record_type, datapackage_path)
-
 
 # Example usage:
 # convert_avro_to_datapackage("schema.avsc", "MyRecord", "datapackage.json")

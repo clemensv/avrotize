@@ -5,6 +5,11 @@ Module to convert Avro schema to a GraphQL schema.
 
 import json
 import os
+from typing import Dict, List
+
+from avrotize.common import get_longest_namespace_prefix
+
+JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 
 class AvroToGraphQLConverter:
     """
@@ -23,39 +28,59 @@ class AvroToGraphQLConverter:
         self.records = {}
         self.enums = {}
         self.fixeds = {}
+        self.longest_namespace_prefix = ""
 
-    def convert(self):
+    def convert(self: 'AvroToGraphQLConverter'):
         """
         Convert Avro schema to GraphQL schema and save to file.
         """
         with open(self.avro_schema_path, 'r', encoding='utf-8') as file:
-            avro_schemas = json.load(file)
+            avro_schemas: JsonNode = json.load(file)
+            
+        self.longest_namespace_prefix = get_longest_namespace_prefix(avro_schemas)
 
-        for schema in avro_schemas:
-            self.extract_named_types(schema)
+        if isinstance(avro_schemas, dict):
+            self.extract_named_types(avro_schemas)
+        elif isinstance(avro_schemas, list):
+            for schema in avro_schemas:
+                if isinstance(schema, dict):
+                    self.extract_named_types(schema)
+        else:
+            raise ValueError("Expected a single Avro schema as a JSON object, or a list of schema records")
 
         graphql_content = self.generate_graphql()
 
         with open(self.graphql_schema_path, "w", encoding="utf-8") as file:
             file.write(graphql_content)
-
-    def extract_named_types(self, schema):
+            
+    def qualified_name(self, schema: Dict[str, JsonNode]) -> str:
+        """
+        Get the full name of a record type.
+        """
+        name = str(schema['name'])
+        namespace = str(schema.get('namespace', ''))
+        if namespace.startswith(self.longest_namespace_prefix):
+            namespace = namespace[len(self.longest_namespace_prefix):].strip('.')
+        return f"{namespace}_{name}" if namespace else name
+    
+    def extract_named_types(self, schema: Dict[str, JsonNode]):
         """
         Extract all named types (records, enums, fixed) from the schema.
         """
         if isinstance(schema, dict):
             if schema['type'] == 'record':
-                self.records[schema['name']] = schema
+                self.records[self.qualified_name(schema)] = schema
             elif schema['type'] == 'enum':
-                self.enums[schema['name']] = schema
+                self.enums[self.qualified_name(schema)] = schema
             elif schema['type'] == 'fixed':
-                self.fixeds[schema['name']] = schema
-            if 'fields' in schema:
+                self.fixeds[self.qualified_name(schema)] = schema
+            if 'fields' in schema and isinstance(schema['fields'], list):
                 for field in schema['fields']:
-                    self.extract_named_types(field['type'])
-            if 'items' in schema:
+                    if isinstance(field, dict) and 'type' in field and isinstance(field['type'], dict):
+                        self.extract_named_types(field['type'])
+            if 'items' in schema and isinstance(schema['items'], dict):
                 self.extract_named_types(schema['items'])
-            if 'values' in schema:
+            if 'values' in schema and isinstance(schema['values'], dict):
                 self.extract_named_types(schema['values'])
         elif isinstance(schema, list):
             for sub_schema in schema:
@@ -128,13 +153,13 @@ class AvroToGraphQLConverter:
             if avro_type['type'] == 'array':
                 return f"[{self.get_graphql_type(avro_type['items'])}]"
             if avro_type['type'] == 'map':
-                return f"JSON"
-            if avro_type['type'] in self.records:
-                return avro_type['type']
-            if avro_type['type'] in self.enums:
-                return avro_type['type']
-            if avro_type['type'] in self.fixeds:
-                return avro_type['type']
+                return "JSON"
+            if avro_type['type'] == "record" and self.qualified_name(avro_type) in self.records:
+                return self.qualified_name(avro_type)
+            if avro_type['type'] == "enum" and self.qualified_name(avro_type) in self.enums:
+                return self.qualified_name(avro_type)
+            if avro_type['type'] == "fixed" and self.qualified_name(avro_type) in self.fixeds:
+                return self.qualified_name(avro_type)
             return self.get_graphql_primitive_type(avro_type['type'])
         return self.get_graphql_primitive_type(avro_type)
 
@@ -145,6 +170,7 @@ class AvroToGraphQLConverter:
         :param avro_type: Avro type as a string.
         :return: GraphQL type as a string.
         """
+        
         type_mapping = {
             "string": "String",
             "bytes": "String",
@@ -157,7 +183,8 @@ class AvroToGraphQLConverter:
             "date": "Date",
             "timestamp-millis": "DateTime"
         }
-        return type_mapping.get(avro_type, "String")
+        return type_mapping.get(avro_type, 'String')
+        
 
 def convert_avro_to_graphql(avro_schema_path, graphql_schema_path):
     """

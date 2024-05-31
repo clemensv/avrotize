@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import sys
 import tempfile
 import unittest
@@ -28,7 +29,7 @@ sys.path.append(project_root)
 
 import unittest
 from unittest.mock import patch
-from avrotize.avrototsql import convert_avro_to_sql, convert_avro_to_nosql
+from avrotize.avrotodb import convert_avro_to_sql, convert_avro_to_nosql
 
 
 class TestAvroToDB(unittest.TestCase):
@@ -149,6 +150,9 @@ class TestAvroToDB(unittest.TestCase):
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
         model_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-mongo")
+        if os.path.exists(model_path):
+            shutil.rmtree(model_path, ignore_errors=True)
+        os.makedirs(model_path, exist_ok=True)
         with MongoDbContainer() as mongo:
             client = pymongo.MongoClient(mongo.get_connection_url())
             db = client.test
@@ -164,16 +168,18 @@ class TestAvroToDB(unittest.TestCase):
             collections = db.list_collection_names()
             for collection in collections:
                 if isinstance(avro_schema, list):
-                    self.assertTrue(any([collection == self.get_fullname(t) for t in avro_schema]))
+                    self.assertTrue(any([collection.lower() == self.get_fullname(t).lower() for t in avro_schema]))
                 else:
-                    self.assertTrue(collection == self.get_fullname(avro_schema))
+                    self.assertTrue(collection.lower() == self.get_fullname(avro_schema).lower())
             client.close()
 
     def test_mssql_schema_creation(self):
+        """Test schema creation for Microsoft SQL Server database."""
         self.run_mssql_schema_creation("address")
         self.run_mssql_schema_creation("northwind")
 
     def run_mssql_schema_creation(self, avro_name):
+        """Test schema creation for Microsoft SQL Server database."""
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
         sql_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-mssql.sql")

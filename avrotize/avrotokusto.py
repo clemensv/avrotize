@@ -331,3 +331,12 @@ def convert_avro_to_kusto_db(avro_schema_path, avro_record_type, kusto_uri, kust
             except Exception as e:
                 print(e)
                 sys.exit(1)
+
+def convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, kusto_uri, kusto_database, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, token_provider=None):
+    """Converts an Avro schema to a Kusto table schema."""
+    if not kusto_uri and not kusto_database:
+        convert_avro_to_kusto_file(
+            avro_schema_path, avro_record_type, kusto_file_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table)
+    else:
+        convert_avro_to_kusto_db(
+            avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloudevents_columns, emit_cloudevents_dispatch_table, token_provider)

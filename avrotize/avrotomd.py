@@ -5,6 +5,9 @@ Module to convert Avro schema to a comprehensive README.md.
 
 import json
 import os
+from jinja2 import Environment, FileSystemLoader
+
+from avrotize.common import render_template
 
 class AvroToMarkdownConverter:
     """
@@ -32,68 +35,52 @@ class AvroToMarkdownConverter:
             avro_schemas = json.load(file)
 
         schema_name = os.path.splitext(os.path.basename(self.avro_schema_path))[0]
-        for schema in avro_schemas:
-            self.extract_named_types(schema)
+        if isinstance(avro_schemas, dict):
+            self.extract_named_types(avro_schemas)
+        elif isinstance(avro_schemas, list):
+            for schema in avro_schemas:
+                self.extract_named_types(schema)
 
-        markdown_content = self.generate_markdown(schema_name)
+        self.generate_markdown(schema_name)
 
-        with open(self.markdown_path, "w", encoding="utf-8") as file:
-            file.write(markdown_content)
-
-    def extract_named_types(self, schema):
+    def extract_named_types(self, schema, parent_namespace: str = ''):
         """
         Extract all named types (records, enums, fixed) from the schema.
         """
+        
         if isinstance(schema, dict):
+            ns = schema.get('namespace', parent_namespace)
             if schema['type'] == 'record':
-                self.records.setdefault(schema['namespace'], []).append(schema)
+                self.records.setdefault(ns, []).append(schema)
             elif schema['type'] == 'enum':
-                self.enums.setdefault(schema['namespace'], []).append(schema)
+                self.enums.setdefault(ns, []).append(schema)
             elif schema['type'] == 'fixed':
-                self.fixeds.setdefault(schema['namespace'], []).append(schema)
+                self.fixeds.setdefault(ns, []).append(schema)
             if 'fields' in schema:
                 for field in schema['fields']:
-                    self.extract_named_types(field['type'])
+                    self.extract_named_types(field['type'], ns)
             if 'items' in schema:
-                self.extract_named_types(schema['items'])
+                self.extract_named_types(schema['items'], ns)
             if 'values' in schema:
-                self.extract_named_types(schema['values'])
+                self.extract_named_types(schema['values'], ns)
         elif isinstance(schema, list):
             for sub_schema in schema:
-                self.extract_named_types(sub_schema)
-
-    def generate_markdown(self, schema_name):
+                self.extract_named_types(sub_schema, '')
+                
+    def generate_markdown(self, schema_name: str):
         """
-        Generate markdown content from the extracted types.
+        Generate markdown content from the extracted types using Jinja2 template.
 
         :param schema_name: The name of the schema file.
         :return: Markdown content as a string.
         """
-        markdown = []
-        markdown.append(f"# {schema_name} Schemas\n")
-
-        if self.records:
-            markdown.append("\n## Records\n")
-            for namespace, records in self.records.items():
-                markdown.append(f"### Namespace: {namespace}\n")
-                for record in records:
-                    markdown.append(self.generate_record_markdown(record))
-
-        if self.enums:
-            markdown.append("\n## Enums\n")
-            for namespace, enums in self.enums.items():
-                markdown.append(f"### Namespace: {namespace}\n")
-                for enum in enums:
-                    markdown.append(self.generate_enum_markdown(enum))
-
-        if self.fixeds:
-            markdown.append("\n## Fixed Types\n")
-            for namespace, fixeds in self.fixeds.items():
-                markdown.append(f"### Namespace: {namespace}\n")
-                for fixed in fixeds:
-                    markdown.append(self.generate_fixed_markdown(fixed))
-
-        return "\n".join(markdown)
+        render_template("avrotomd/README.md.jinja", self.markdown_path,
+            schema_name = schema_name,
+            records  = self.records,
+            enums = self.enums,
+            fixeds = self.fixeds,
+            generate_field_markdown = self.generate_field_markdown
+        )
 
     def generate_field_markdown(self, field, level):
         """
@@ -117,53 +104,6 @@ class AvroToMarkdownConverter:
             field_md.append(f"- **Symbols:** {', '.join(field['type']['symbols'])}")
         field_md.append("\n")
         return "\n".join(field_md)
-
-    def generate_record_markdown(self, record):
-        """
-        Generate markdown content for a record.
-
-        :param record: Record schema as a dictionary.
-        :return: Markdown content as a string.
-        """
-        record_md = []
-        record_md.append(f"#### {record['name']}\n")
-        if 'doc' in record:
-            record_md.append(f"{record['doc']}\n")
-        record_md.append("- **Type:** record\n")
-        record_md.append("##### Fields\n")
-        for field in record['fields']:
-            record_md.append(self.generate_field_markdown(field, 5))
-        return "\n".join(record_md)
-
-    def generate_enum_markdown(self, enum):
-        """
-        Generate markdown content for an enum.
-
-        :param enum: Enum schema as a dictionary.
-        :return: Markdown content as a string.
-        """
-        enum_md = []
-        enum_md.append(f"#### {enum['name']}\n")
-        if 'doc' in enum:
-            enum_md.append(f"{enum['doc']}\n")
-        enum_md.append("- **Type:** enum\n")
-        enum_md.append(f"- **Symbols:** {', '.join(enum['symbols'])}\n")
-        return "\n".join(enum_md)
-
-    def generate_fixed_markdown(self, fixed):
-        """
-        Generate markdown content for a fixed type.
-
-        :param fixed: Fixed schema as a dictionary.
-        :return: Markdown content as a string.
-        """
-        fixed_md = []
-        fixed_md.append(f"#### {fixed['name']}\n")
-        if 'doc' in fixed:
-            fixed_md.append(f"{fixed['doc']}\n")
-        fixed_md.append("- **Type:** fixed\n")
-        fixed_md.append(f"- **Size:** {fixed['size']}\n")
-        return "\n".join(fixed_md)
 
     def get_avro_type(self, avro_type):
         """

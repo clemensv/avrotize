@@ -1,7 +1,9 @@
+""" Avro Tools Module """
+
 import json
 import hashlib
 import base64
-from typing import Any, Dict, List, cast
+from typing import Dict, List, cast
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | int | bool | None
 
@@ -15,6 +17,12 @@ def transform_to_pcf(schema_json: str) -> str:
     schema = json.loads(schema_json)
     canonical_schema = canonicalize_schema(schema)
     return json.dumps(canonical_schema, separators=(',', ':'))
+
+def avsc_to_pcf(schema_file: str) -> None:
+    """ Convert an Avro schema file to its Parsing Canonical Form (PCF)."""
+    with open(schema_file, 'r', encoding='utf-8') as file:
+        schema = json.load(file)
+        print(transform_to_pcf(json.dumps(schema)))
 
 def canonicalize_schema(schema: JsonNode, namespace:str="") -> JsonNode:
     """
@@ -157,3 +165,4 @@ def pcf_schema(schema_json):
     """
     pcf = transform_to_pcf(schema_json)
     return PCFSchemaResult(pcf, fingerprint_sha256(schema_json), fingerprint_md5(schema_json), fingerprint_rabin(schema_json))
+

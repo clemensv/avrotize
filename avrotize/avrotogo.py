@@ -5,7 +5,7 @@ import json
 import os
 from typing import Dict, List, Union, Set
 
-from avrotize.common import is_generic_avro_type, camel, pascal
+from avrotize.common import get_longest_namespace_prefix, is_generic_avro_type, camel, pascal
 
 INDENT = '    '
 
@@ -466,27 +466,6 @@ class AvroToGo:
             file.write(f"import (\n{imports})\n\n")
             file.write(definition)
 
-    def collect_namespaces(self, schema: JsonNode, parent_namespace: str = '') -> List[str]:
-        """ Performs a deep search of the schema to collect all namespaces """
-        namespaces = []
-        if isinstance(schema, dict):
-            namespace = str(schema.get('namespace', parent_namespace))
-            if namespace:
-                namespaces.append(namespace)
-            if 'fields' in schema and isinstance(schema['fields'], list):
-                for field in schema['fields']:
-                    if isinstance(field, dict) and 'type' in field and isinstance(field['type'], dict):
-                        namespaces.extend(self.collect_namespaces(field['type'], namespace))
-                    namespaces.extend(self.collect_namespaces(field, namespace))
-            if 'items' in schema and isinstance(schema['items'], dict):
-                namespaces.extend(self.collect_namespaces(schema['items'], namespace))
-            if 'values' in schema and isinstance(schema['values'], dict):
-                namespaces.extend(self.collect_namespaces(schema['values'], namespace))
-        elif isinstance(schema, list):
-            for item in schema:
-                namespaces.extend(self.collect_namespaces(item, parent_namespace))
-        return namespaces
-
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to Go"""
         if not isinstance(schema, list):
@@ -494,19 +473,8 @@ class AvroToGo:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
-        
-        namespaces = set(self.collect_namespaces(schema))
-        longest_common_prefix = ''
-        # find longest common prefix of the namespaces (not with os.path!!!)
-        for ns in namespaces:
-            if not longest_common_prefix:
-                longest_common_prefix = ns
-            else:
-                for i in range(min(len(longest_common_prefix), len(ns))):
-                    if longest_common_prefix[i] != ns[i]:
-                        longest_common_prefix = longest_common_prefix[:i]
-                        break
-        self.longest_common_prefix = longest_common_prefix.strip('.')
+
+        self.longest_common_prefix = get_longest_namespace_prefix(schema)
 
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema)

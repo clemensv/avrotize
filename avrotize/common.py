@@ -431,3 +431,40 @@ def render_template(template: str, output: str, **kvargs):
     os.makedirs(os.path.dirname(output), exist_ok=True)
     with open(output, 'w', encoding='utf-8') as f:
         f.write(out)
+        
+        
+def get_longest_namespace_prefix(schema):
+    """ Get the longest common prefix for the namespace of all types in the schema. """
+    namespaces = set(collect_namespaces(schema))
+    longest_common_prefix = ''
+    # find longest common prefix of the namespaces (not with os.path!!!)
+    for ns in namespaces:
+        if not longest_common_prefix:
+            longest_common_prefix = ns
+        else:
+            for i in range(min(len(longest_common_prefix), len(ns))):
+                if longest_common_prefix[i] != ns[i]:
+                    longest_common_prefix = longest_common_prefix[:i]
+                    break
+    return longest_common_prefix.strip('.')
+
+def collect_namespaces(schema: Any, parent_namespace: str = '') -> List[str]:
+    """ Performs a deep search of the schema to collect all namespaces """
+    namespaces = []
+    if isinstance(schema, dict):
+        namespace = str(schema.get('namespace', parent_namespace))
+        if namespace:
+            namespaces.append(namespace)
+        if 'fields' in schema and isinstance(schema['fields'], list):
+            for field in schema['fields']:
+                if isinstance(field, dict) and 'type' in field and isinstance(field['type'], dict):
+                    namespaces.extend(collect_namespaces(field['type'], namespace))
+                namespaces.extend(collect_namespaces(field, namespace))
+        if 'items' in schema and isinstance(schema['items'], dict):
+            namespaces.extend(collect_namespaces(schema['items'], namespace))
+        if 'values' in schema and isinstance(schema['values'], dict):
+            namespaces.extend(collect_namespaces(schema['values'], namespace))
+    elif isinstance(schema, list):
+        for item in schema:
+            namespaces.extend(collect_namespaces(item, parent_namespace))
+    return namespaces

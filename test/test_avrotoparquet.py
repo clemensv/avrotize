@@ -17,6 +17,7 @@ from avrotize.avrotoparquet import convert_avro_to_parquet
 
 class TestAvroToParquet(unittest.TestCase):
     def test_convert_address_avsc_to_parquet(self):
+        """ Test converting an Avro schema to Parquet"""
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
         parquet_path = os.path.join(tempfile.gettempdir(), "avrotize", "address.parquet")
@@ -24,7 +25,7 @@ class TestAvroToParquet(unittest.TestCase):
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
         
-        convert_avro_to_parquet(avro_path, None, parquet_path, False)           
+        convert_avro_to_parquet(avro_path, None, parquet_path, False)       
 
     def test_convert_telemetry_avsc_to_parquet(self):
         cwd = os.getcwd()        
