@@ -6,7 +6,7 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Upload Python Package
+name: Upload Python Package and VS Code Extension 
 
 on:
   push:
@@ -40,3 +40,20 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_KEY }}
+    - name: Update VS Code Extension
+      run: |
+        python -m tools/editvscodeext.py --extension-root ${{ github.workspace }}/vscode/avrotize --commands ${{ github.workspace }}/avrotize/commands.json
+    - name: Install Node and NPM
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20'
+    - name: Package the VS Code Extension
+      run: |
+        npm install -g vsce
+        cd ${{ github.workspace }}/vscode/avrotize
+        vsce package --out ${{ github.workspace }}/avrotize.vsix
+    - name: Upload VS Code Extension
+      uses: actions/upload-artifact@v2
+      with:
+        name: avrotize
+        path: ${{ github.workspace }}/avrotize.vsix

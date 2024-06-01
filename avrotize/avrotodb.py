@@ -12,7 +12,7 @@ JsonNode = Dict[str,
                 'JsonNode'] | List['JsonNode'] | str | bool | int | float | None
 
 
-def convert_avro_to_sql(avro_schema_path, dbscript_file_path, db_dialect, emit_cloud_events_columns=False, schema_name: str = ''):
+def convert_avro_to_sql(avro_schema_path, dbscript_file_path, db_dialect, emit_cloudevents_columns=False, schema_name: str = ''):
     """
     Converts an Avro schema to database schema for the specified DB dialect.
 
@@ -23,7 +23,7 @@ def convert_avro_to_sql(avro_schema_path, dbscript_file_path, db_dialect, emit_c
                           'sqlite', 'oracle', 'db2', 'sqlanywhere', 'bigquery', 'snowflake', 
                           'redshift', 'cassandra', 'mongodb', 'dynamodb', 'elasticsearch', 
                           'couchdb', 'neo4j', 'firebase', 'cosmosdb', 'hbase'.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
         schema_name (str): Schema name (optional).
 
     Raises:
@@ -48,12 +48,12 @@ def convert_avro_to_sql(avro_schema_path, dbscript_file_path, db_dialect, emit_c
         tables_sql = []
         for schema in schema_list:
             tables_sql.extend(generate_sql(
-                schema, db_dialect, emit_cloud_events_columns, schema_list, schema_name))
+                schema, db_dialect, emit_cloudevents_columns, schema_list, schema_name))
         with open(dbscript_file_path, "w", encoding="utf-8") as sql_file:
             sql_file.write("\n".join(tables_sql))
     else:
         tables_sql = generate_sql(
-            schema, db_dialect, emit_cloud_events_columns, schema_list, schema_name)
+            schema, db_dialect, emit_cloudevents_columns, schema_list, schema_name)
         with open(dbscript_file_path, "w", encoding="utf-8") as sql_file:
             sql_file.write("\n".join(tables_sql))
 
@@ -61,7 +61,7 @@ def convert_avro_to_sql(avro_schema_path, dbscript_file_path, db_dialect, emit_c
 def generate_sql(
         schema: Dict[str, JsonNode],
         sql_dialect: str,
-        emit_cloud_events_columns: bool,
+        emit_cloudevents_columns: bool,
         schema_list: List[Dict[str, JsonNode]],
         schema_name: str = '') -> List[str]:
     """
@@ -70,7 +70,7 @@ def generate_sql(
     Args:
         schema (dict): Avro schema.
         sql_dialect (str): SQL dialect.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
         schema_list (list): List of all schemas.
         schema_name (str): Schema name (optional).
 
@@ -79,9 +79,9 @@ def generate_sql(
     """
     if sql_dialect in ["sqlserver", "postgres", "mysql", "mariadb", "sqlite", "oracle", "db2", "sqlanywhere",
                        "bigquery", "snowflake", "redshift"]:
-        return generate_relational_sql(schema, sql_dialect, emit_cloud_events_columns, schema_list, schema_name)
+        return generate_relational_sql(schema, sql_dialect, emit_cloudevents_columns, schema_list, schema_name)
     elif sql_dialect == "cassandra":
-        return generate_cassandra_schema(schema, emit_cloud_events_columns, schema_name)
+        return generate_cassandra_schema(schema, emit_cloudevents_columns, schema_name)
     else:
         raise ValueError(f"Unsupported SQL dialect: {sql_dialect}")
 
@@ -89,7 +89,7 @@ def generate_sql(
 def generate_relational_sql(
         schema: Dict[str, JsonNode],
         sql_dialect: str,
-        emit_cloud_events_columns: bool,
+        emit_cloudevents_columns: bool,
         schema_list: List[Dict[str, JsonNode]],
         schema_name: str = '') -> List[str]:
     """
@@ -98,7 +98,7 @@ def generate_relational_sql(
     Args:
         schema (dict): Avro schema.
         sql_dialect (str): SQL dialect.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
         schema_list (list): List of all schemas.
         schema_name (str): Schema name (optional).
 
@@ -126,10 +126,11 @@ def generate_relational_sql(
         if field.get("unique", False):
             column_definition += f" {unique_clause(sql_dialect)}"
         if sql_dialect == "mysql" and field["name"] in column_comments:
-            column_definition += f" COMMENT '{column_comments[str(field['name'])]}'"
+            cmt = column_comments[str(field['name'])].replace("'", "''")
+            column_definition += f" COMMENT '{cmt}'"
         sql.append(f"    {column_definition},")
 
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         sql.extend([
             f"    {escape_name('___type', sql_dialect)} {avro_type_to_sql_type('string', sql_dialect)} NOT NULL,",
             f"    {escape_name('___source', sql_dialect)} {avro_type_to_sql_type('string', sql_dialect)} NOT NULL,",
@@ -237,7 +238,7 @@ def generate_table_comment_sql(dialect: str, table_comments: Dict[str, str], tab
     """
     comments = []
     if "doc" in table_comments:
-        doc_string = table_comments["doc"]
+        doc_string = table_comments["doc"].replace("'", "''")
         if dialect == "sqlserver":
             comments.append(
                 f"EXEC sp_addextendedproperty 'MS_Description', '{doc_string}', 'SCHEMA', 'dbo', 'TABLE', '{table_name}';")
@@ -265,11 +266,11 @@ def generate_column_comment_sql(dialect: str, column_comments: Dict[str, str], t
     """
     comments = []
     for column_name, comment in column_comments.items():
+        comment_data = json.loads(comment)
+        doc = comment_data.get("doc", "")
+        doc = doc.replace("'", "''")
+        schema = comment_data.get("schema", "")
         if dialect == "sqlserver":
-            comment_data = json.loads(comment)
-            doc = comment_data.get("doc", "")
-            doc = doc.replace('"', '\\"').replace("'", "\\'")
-            schema = comment_data.get("schema", "")
             if doc:
                 comments.append(
                     f"EXEC sp_addextendedproperty 'MS_Description', '{doc}', 'SCHEMA', 'dbo', 'TABLE', '{table_name}', 'COLUMN', '{column_name}';")
@@ -277,6 +278,7 @@ def generate_column_comment_sql(dialect: str, column_comments: Dict[str, str], t
                 comments.append(
                     f"EXEC sp_addextendedproperty 'MS_Schema', '{json.dumps(schema)}', 'SCHEMA', 'dbo', 'TABLE', '{table_name}', 'COLUMN', '{column_name}';")
         else:
+            comment = comment.replace("'", "''")
             comments.append(
                 f"COMMENT ON COLUMN {escape_name(table_name, dialect)}.{escape_name(column_name, dialect)} IS '{comment}';")
     return comments
@@ -515,13 +517,13 @@ def primary_key_clause(dialect):
     return "PRIMARY KEY"
 
 
-def generate_cassandra_schema(schema: Dict[str, JsonNode], emit_cloud_events_columns: bool, schema_name: str) -> List[str]:
+def generate_cassandra_schema(schema: Dict[str, JsonNode], emit_cloudevents_columns: bool, schema_name: str) -> List[str]:
     """
     Generates Cassandra schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
         schema_name (str): Schema name (optional).
 
     Returns:
@@ -545,7 +547,7 @@ def generate_cassandra_schema(schema: Dict[str, JsonNode], emit_cloud_events_col
             altname(field, 'sql') or field["name"], 'cassandra')
         column_type = convert_avro_type_to_cassandra_type(field["type"])
         cql.append(f"    {column_name} {column_type},")
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         cql.extend([
             f"    {escape_name('cloudevents_type', 'cassandra')} text,",
             f"    {escape_name('cloudevents_source', 'cassandra')} text,",
@@ -559,7 +561,7 @@ def generate_cassandra_schema(schema: Dict[str, JsonNode], emit_cloud_events_col
         unique_column_altnames = [altname(
             field, 'sql') for field in fields if field["name"] in unique_record_keys]
         cql.append(f"    PRIMARY KEY ({', '.join(unique_columns)})")
-    elif emit_cloud_events_columns:
+    elif emit_cloudevents_columns:
         cql.append(
             f"    PRIMARY KEY ({escape_name('cloudevents_id', 'cassandra')})")
     else:
@@ -633,7 +635,7 @@ def compact_table_name(table_name, max_length):
     return table_name[:max_length]
 
 
-def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit_cloud_events_columns=False):
+def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit_cloudevents_columns=False):
     """
     Converts an Avro schema to NoSQL schema for the specified NoSQL dialect.
 
@@ -641,7 +643,7 @@ def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit
         avro_schema_path (str): Path to the Avro schema file.
         nosql_file_path (str): Path to the output NoSQL schema file.
         nosql_dialect (str): NoSQL dialect (e.g., 'mongodb', 'dynamodb', 'cassandra').
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
 
     Raises:
         ValueError: If the NoSQL dialect is unsupported.
@@ -661,60 +663,60 @@ def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit
     if isinstance(schema, list):
         for schema in schema_list:
             model = generate_nosql(schema, nosql_dialect,
-                                   emit_cloud_events_columns, schema_list)
+                                   emit_cloudevents_columns, schema_list)
             file_name = os.path.join(
                 nosql_file_path, get_file_name(schema, "json"))
             with open(file_name, "w", encoding="utf-8") as nosql_file:
                 nosql_file.write(model)
     else:
         model = generate_nosql(schema, nosql_dialect,
-                               emit_cloud_events_columns, schema_list)
+                               emit_cloudevents_columns, schema_list)
         file_name = os.path.join(
             nosql_file_path, get_file_name(schema_list, "json"))
         with open(file_name, "w", encoding="utf-8") as nosql_file:
             nosql_file.write(model)
 
 
-def generate_nosql(schema, nosql_dialect, emit_cloud_events_columns, schema_list):
+def generate_nosql(schema, nosql_dialect, emit_cloudevents_columns, schema_list):
     """
     Generates NoSQL schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
         nosql_dialect (str): NoSQL dialect.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
         schema_list (list): List of all schemas.
 
     Returns:
         list: List of NoSQL schema statements.
     """
     if nosql_dialect == "mongodb":
-        return generate_mongodb_schema(schema, emit_cloud_events_columns)
+        return generate_mongodb_schema(schema, emit_cloudevents_columns)
     elif nosql_dialect == "dynamodb":
-        return generate_dynamodb_schema(schema, emit_cloud_events_columns)
+        return generate_dynamodb_schema(schema, emit_cloudevents_columns)
     elif nosql_dialect == "elasticsearch":
-        return generate_elasticsearch_schema(schema, emit_cloud_events_columns)
+        return generate_elasticsearch_schema(schema, emit_cloudevents_columns)
     elif nosql_dialect == "couchdb":
-        return generate_couchdb_schema(schema, emit_cloud_events_columns)
+        return generate_couchdb_schema(schema, emit_cloudevents_columns)
     elif nosql_dialect == "neo4j":
-        return generate_neo4j_schema(schema, emit_cloud_events_columns)
+        return generate_neo4j_schema(schema, emit_cloudevents_columns)
     elif nosql_dialect == "firebase":
-        return generate_firebase_schema(schema, emit_cloud_events_columns)
+        return generate_firebase_schema(schema, emit_cloudevents_columns)
     elif nosql_dialect == "cosmosdb":
-        return generate_cosmosdb_schema(schema, emit_cloud_events_columns)
+        return generate_cosmosdb_schema(schema, emit_cloudevents_columns)
     elif nosql_dialect == "hbase":
-        return generate_hbase_schema(schema, emit_cloud_events_columns)
+        return generate_hbase_schema(schema, emit_cloudevents_columns)
     else:
         raise ValueError(f"Unsupported NoSQL dialect: {nosql_dialect}")
 
 
-def generate_mongodb_schema(schema, emit_cloud_events_columns):
+def generate_mongodb_schema(schema, emit_cloudevents_columns):
     """
     Generates MongoDB schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
 
     Returns:
         list: List of MongoDB schema statements.
@@ -746,7 +748,7 @@ def generate_mongodb_schema(schema, emit_cloud_events_columns):
         if field.get("doc", ""):
             mongodb_schema["$jsonSchema"]["properties"][column_name]["description"] = field["doc"]
 
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         mongodb_schema["$jsonSchema"]["properties"].update({
             "___type": {"bsonType": "string"},
             "___source": {"bsonType": "string"},
@@ -797,13 +799,13 @@ def convert_avro_type_to_mongodb_type(avro_type):
     return avro_to_mongodb_type_map.get(avro_type, {"bsonType": "string"})
 
 
-def generate_dynamodb_schema(schema, emit_cloud_events_columns):
+def generate_dynamodb_schema(schema, emit_cloudevents_columns):
     """
     Generates DynamoDB schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
 
     Returns:
         list: List of DynamoDB schema statements.
@@ -837,7 +839,7 @@ def generate_dynamodb_schema(schema, emit_cloud_events_columns):
             dynamodb_schema["KeySchema"].append(
                 {"AttributeName": column_name, "KeyType": "RANGE"})
 
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         dynamodb_schema["AttributeDefinitions"].extend([
             {"AttributeName": "___type", "AttributeType": "S"},
             {"AttributeName": "___source", "AttributeType": "S"},
@@ -888,13 +890,13 @@ def convert_avro_type_to_dynamodb_type(avro_type):
     return avro_to_dynamodb_type_map.get(avro_type, "S")
 
 
-def generate_elasticsearch_schema(schema, emit_cloud_events_columns):
+def generate_elasticsearch_schema(schema, emit_cloudevents_columns):
     """
     Generates Elasticsearch schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
 
     Returns:
         list: List of Elasticsearch schema statements.
@@ -914,7 +916,7 @@ def generate_elasticsearch_schema(schema, emit_cloud_events_columns):
         column_type = convert_avro_type_to_elasticsearch_type(field["type"])
         es_mapping["mappings"]["properties"][column_name] = column_type
 
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         es_mapping["mappings"]["properties"].update({
             "___type": {"type": "keyword"},
             "___source": {"type": "keyword"},
@@ -963,13 +965,13 @@ def convert_avro_type_to_elasticsearch_type(avro_type):
     return avro_to_elasticsearch_type_map.get(avro_type, {"type": "text"})
 
 
-def generate_couchdb_schema(schema, emit_cloud_events_columns):
+def generate_couchdb_schema(schema, emit_cloudevents_columns):
     """
     Generates CouchDB schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
 
     Returns:
         list: List of CouchDB schema statements.
@@ -988,7 +990,7 @@ def generate_couchdb_schema(schema, emit_cloud_events_columns):
         column_type = convert_avro_type_to_couchdb_type(field["type"])
         couchdb_schema["properties"][column_name] = column_type
 
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         couchdb_schema["properties"].update({
             "___type": {"type": "string"},
             "___source": {"type": "string"},
@@ -1037,13 +1039,13 @@ def convert_avro_type_to_couchdb_type(avro_type):
     return avro_to_couchdb_type_map.get(avro_type, {"type": "string"})
 
 
-def generate_neo4j_schema(schema, emit_cloud_events_columns):
+def generate_neo4j_schema(schema, emit_cloudevents_columns):
     """
     Generates Neo4j schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
 
     Returns:
         list: List of Neo4j schema statements.
@@ -1058,7 +1060,7 @@ def generate_neo4j_schema(schema, emit_cloud_events_columns):
         column_name = altname(field, 'sql') or field["name"]
         column_type = convert_avro_type_to_neo4j_type(field["type"])
         cypher.append(f"    {column_name}: {column_type},")
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         cypher.extend([
             f"    {escape_name('___type', 'neo4j')}: 'string',",
             f"    {escape_name('___source', 'neo4j')}: 'string',",
@@ -1108,13 +1110,13 @@ def convert_avro_type_to_neo4j_type(avro_type):
     return avro_to_neo4j_type_map.get(avro_type, "string")
 
 
-def generate_firebase_schema(schema, emit_cloud_events_columns):
+def generate_firebase_schema(schema, emit_cloudevents_columns):
     """
     Generates Firebase schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
 
     Returns:
         list: List of Firebase schema statements.
@@ -1132,7 +1134,7 @@ def generate_firebase_schema(schema, emit_cloud_events_columns):
         column_type = convert_avro_type_to_firebase_type(field["type"])
         firebase_schema["fields"][column_name] = column_type
 
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         firebase_schema["fields"].update({
             "___type": {"type": "string"},
             "___source": {"type": "string"},
@@ -1181,13 +1183,13 @@ def convert_avro_type_to_firebase_type(avro_type):
     return avro_to_firebase_type_map.get(avro_type, {"type": "string"})
 
 
-def generate_cosmosdb_schema(schema, emit_cloud_events_columns):
+def generate_cosmosdb_schema(schema, emit_cloudevents_columns):
     """
     Generates CosmosDB schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
 
     Returns:
         list: List of CosmosDB schema statements.
@@ -1214,7 +1216,7 @@ def generate_cosmosdb_schema(schema, emit_cloud_events_columns):
         cosmosdb_schema["fields"][column_name] = column_type
         cosmosdb_schema["partitionKey"]["paths"].append(f"/{column_name}")
 
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         cosmosdb_schema["fields"].update({
             "___type": {"type": "string"},
             "___source": {"type": "string"},
@@ -1264,13 +1266,13 @@ def convert_avro_type_to_cosmosdb_type(avro_type):
     return avro_to_cosmosdb_type_map.get(avro_type, {"type": "string"})
 
 
-def generate_hbase_schema(schema, emit_cloud_events_columns):
+def generate_hbase_schema(schema, emit_cloudevents_columns):
     """
     Generates HBase schema statements for the given Avro schema.
 
     Args:
         schema (dict): Avro schema.
-        emit_cloud_events_columns (bool): Whether to include cloud events columns.
+        emit_cloudevents_columns (bool): Whether to include cloud events columns.
 
     Returns:
         list: List of HBase schema statements.
@@ -1290,7 +1292,7 @@ def generate_hbase_schema(schema, emit_cloud_events_columns):
         hbase_schema["column_families"].append(
             {"name": column_name, "column_family": column_family})
 
-    if emit_cloud_events_columns:
+    if emit_cloudevents_columns:
         hbase_schema["column_families"].extend([
             {"name": "___type", "column_family": "string"},
             {"name": "___source", "column_family": "string"},

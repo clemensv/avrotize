@@ -42,7 +42,7 @@ class AvroToIcebergConverter:
         """Get the full name of a record type."""
         return f"{namespace}.{name}" if namespace else name
 
-    def convert_avro_to_iceberg(self, avro_schema_path: str, avro_record_type: str, output_path: str, emit_cloud_events_columns: bool=False):
+    def convert_avro_to_iceberg(self, avro_schema_path: str, avro_record_type: str, output_path: str, emit_cloudevents_columns: bool=False):
         """Convert an Avro schema to an Iceberg schema."""
         schema_file = avro_schema_path
         if not schema_file:
@@ -81,7 +81,7 @@ class AvroToIcebergConverter:
             iceberg_fields.append(
                 NestedField(field_id=self.get_id(), name=column_name, type=column_type))
 
-        if emit_cloud_events_columns:
+        if emit_cloudevents_columns:
             iceberg_fields.extend([
                 NestedField(field_id=self.get_id(),
                       name="___type", type=StringType()),
@@ -203,8 +203,8 @@ class AvroToIcebergConverter:
             return StringType()
 
 
-def convert_avro_to_iceberg(avro_schema_path, avro_record_type, output_path, emit_cloud_events_columns=False):
+def convert_avro_to_iceberg(avro_schema_path, avro_record_type, output_path, emit_cloudevents_columns=False):
     """Convert an Avro schema to an Iceberg schema."""
     converter = AvroToIcebergConverter()
     converter.convert_avro_to_iceberg(
-        avro_schema_path, avro_record_type, output_path, emit_cloud_events_columns)
+        avro_schema_path, avro_record_type, output_path, emit_cloudevents_columns)

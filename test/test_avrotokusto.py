@@ -103,20 +103,20 @@ def test_convert_telemetry_avsc_to_kusto():
     convert_case("telemetry", False, False)
 
 
-def convert_case(file_base_name: str, emit_cloud_events_columns, emit_cloudevents_dispatch_table):
+def convert_case(file_base_name: str, emit_cloudevents_columns, emit_cloudevents_dispatch_table):
     """Convert an Avro schema to Kusto query language"""
     cwd = os.getcwd()
     avro_path = os.path.join(cwd, "test", "avsc", file_base_name+".avsc")
     kql_path = os.path.join(tempfile.gettempdir(
-    ), "avrotize", file_base_name+('-ce' if emit_cloud_events_columns else '')+('-dt' if emit_cloudevents_dispatch_table else '')+".kql")
+    ), "avrotize", file_base_name+('-ce' if emit_cloudevents_columns else '')+('-dt' if emit_cloudevents_dispatch_table else '')+".kql")
     kql_ref_path = os.path.join(cwd, "test", "avsc", file_base_name +
-                                ('-ce' if emit_cloud_events_columns else '')+('-dt' if emit_cloudevents_dispatch_table else '')+"-ref.kql")
+                                ('-ce' if emit_cloudevents_columns else '')+('-dt' if emit_cloudevents_dispatch_table else '')+"-ref.kql")
     dir_name = os.path.dirname(kql_path)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name, exist_ok=True)
 
     convert_avro_to_kusto_file(
-        avro_path, None, kql_path, emit_cloud_events_columns, emit_cloudevents_dispatch_table)
+        avro_path, None, kql_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table)
     if os.path.exists(kql_ref_path):
         with open(kql_path, 'r', encoding="utf-8") as file1, open(kql_ref_path, 'r', encoding="utf-8") as file2:
             content1 = file1.read()

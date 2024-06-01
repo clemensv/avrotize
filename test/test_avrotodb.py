@@ -70,7 +70,7 @@ class TestAvroToDB(unittest.TestCase):
                                    database=mysql.dbname)
             cursor = conn.cursor()
             cloudevents_columns_count = 5
-            convert_avro_to_sql(avro_path, sql_path, "mysql", emit_cloud_events_columns=True)
+            convert_avro_to_sql(avro_path, sql_path, "mysql", emit_cloudevents_columns=True)
             with open(sql_path, "r", encoding="utf-8") as sql_file:
                 schema_sql = sql_file.read()
                 for statement in schema_sql.split(";"):
@@ -113,7 +113,7 @@ class TestAvroToDB(unittest.TestCase):
                                     database=postgres.dbname)
             cursor = conn.cursor()
             cloudevents_columns_count = 5
-            convert_avro_to_sql(avro_path, sql_path, "postgres", emit_cloud_events_columns=True)
+            convert_avro_to_sql(avro_path, sql_path, "postgres", emit_cloudevents_columns=True)
             with open(sql_path, "r", encoding="utf-8") as sql_file:
                 schema_sql = sql_file.read()
                 cursor.execute(schema_sql)
@@ -156,7 +156,7 @@ class TestAvroToDB(unittest.TestCase):
         with MongoDbContainer() as mongo:
             client = pymongo.MongoClient(mongo.get_connection_url())
             db = client.test
-            convert_avro_to_nosql(avro_path, model_path, "mongodb", emit_cloud_events_columns=True)
+            convert_avro_to_nosql(avro_path, model_path, "mongodb", emit_cloudevents_columns=True)
             json_files = [f for f in os.listdir(model_path) if f.endswith('.json')]
             for json_file in json_files:
                 with open(os.path.join(model_path, json_file), "r", encoding="utf-8") as json_file:
@@ -188,7 +188,7 @@ class TestAvroToDB(unittest.TestCase):
             conn = pyodbc.connect(conn_str)
             cursor = conn.cursor()
             cloudevents_columns_count = 5
-            convert_avro_to_sql(avro_path, sql_path, "sqlserver", emit_cloud_events_columns=True)
+            convert_avro_to_sql(avro_path, sql_path, "sqlserver", emit_cloudevents_columns=True)
             with open(sql_path, "r", encoding="utf-8") as sql_file:
                 schema_sql = sql_file.read()
                 for statement in schema_sql.split(";"):
@@ -228,7 +228,7 @@ class TestAvroToDB(unittest.TestCase):
             conn = cx_Oracle.connect(conn_str)
             cursor = conn.cursor()
             cloudevents_columns_count = 5
-            convert_avro_to_sql("test_schema.avsc", "test_schema.sql", "oracle", emit_cloud_events_columns=True)
+            convert_avro_to_sql("test_schema.avsc", "test_schema.sql", "oracle", emit_cloudevents_columns=True)
             with open("test_schema.sql", "r", encoding="utf-8") as sql_file:
                 schema_sql = sql_file.read()
                 for statement in schema_sql.split(";"):
@@ -271,7 +271,7 @@ class TestAvroToDB(unittest.TestCase):
             keyspace = avro_name.lower()
             session.execute(f"CREATE KEYSPACE {keyspace} WITH REPLICATION = {{'class': 'SimpleStrategy', 'replication_factor': 1}};")
             session.set_keyspace(keyspace)
-            convert_avro_to_sql(avro_path, cql_path, "cassandra", emit_cloud_events_columns=True, schema_name=keyspace)
+            convert_avro_to_sql(avro_path, cql_path, "cassandra", emit_cloudevents_columns=True, schema_name=keyspace)
             with open(cql_path, "r", encoding="utf-8") as cql_file:
                 cql_script = cql_file.read()
                 statements = cql_script.split(";")

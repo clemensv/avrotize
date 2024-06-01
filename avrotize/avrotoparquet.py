@@ -19,7 +19,7 @@ class AvroToParquetConverter:
         """ Get the full name of a record type."""
         return f"{namespace}.{name}" if namespace else name
 
-    def convert_avro_to_parquet(self, avro_schema_path, avro_record_type, parquet_file_path, emit_cloud_events_columns=False):
+    def convert_avro_to_parquet(self, avro_schema_path, avro_record_type, parquet_file_path, emit_cloudevents_columns=False):
         """ Convert an Avro schema to a Parquet schema."""
         schema_file = avro_schema_path
         if not schema_file:
@@ -57,7 +57,7 @@ class AvroToParquetConverter:
             column_type = self.convert_avro_type_to_parquet_type(field["type"])
             parquet_schema.append((column_name, column_type))
 
-        if emit_cloud_events_columns:
+        if emit_cloudevents_columns:
             parquet_schema.extend([
                 ("___type", pa.string()),
                 ("___source", pa.string()),
@@ -201,8 +201,8 @@ class AvroToParquetConverter:
             return pa.string()
 
 
-def convert_avro_to_parquet(avro_schema_path, avro_record_type, parquet_file_path, emit_cloud_events_columns=False):
+def convert_avro_to_parquet(avro_schema_path, avro_record_type, parquet_file_path, emit_cloudevents_columns=False):
     """ Convert an Avro schema to a Parquet schema."""
     converter = AvroToParquetConverter()
     converter.convert_avro_to_parquet(
-        avro_schema_path, avro_record_type, parquet_file_path, emit_cloud_events_columns)
+        avro_schema_path, avro_record_type, parquet_file_path, emit_cloudevents_columns)

@@ -1,27 +1,5 @@
 [
     {
-        "command": "pcf",
-        "description": "Create the Parsing Canonical Form (PCF) of an Avrotize schema",
-        "function": {
-            "name": "avrotize.avrotools.avsc_to_pcf",
-            "args": {
-                "schema_file": "input_file_path"                
-            }
-        },
-        "extensions": [
-            ".avsc"
-        ],
-        "args": [
-            {
-                "name": "input",
-                "type": "str",
-                "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
-            }
-        ],
-        "prompts": []
-    },
-    {
         "command": "p2a",
         "description": "Convert Proto schema to Avrotize schema",
         "function": {
@@ -52,7 +30,8 @@
                 "type": "str",
                 "help": "Deprecated: Path of the proto file (for backcompat)"
             }
-        ],
+        ],        
+        "suggested_output_file_path": "{input_file_name}.avsc",
         "prompts": []
     },
     {
@@ -107,6 +86,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}-proto",
         "prompts": [
             {
                 "name": "--naming",
@@ -172,6 +152,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
         "prompts": [
             {
                 "name": "--namespace",
@@ -233,6 +214,7 @@
                 "default": "default"
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.jsons",
         "prompts": []
     },
     {
@@ -274,6 +256,7 @@
                 "required": true
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
         "prompts": [
             {
                 "name": "--namespace",
@@ -315,6 +298,7 @@
                 "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.xsd",
         "prompts": []
     },
     {
@@ -384,6 +368,7 @@
                 "required": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.kql",
         "prompts": [
             {
                 "name": "--kusto-uri",
@@ -471,6 +456,7 @@
                 "required": false
             }
         ],
+        "suggested_output_file_path": "{kusto_database}.avsc",
         "prompts": [
             {
                 "name": "--namespace",
@@ -502,7 +488,7 @@
                 "avro_schema_path": "input_file_path",
                 "dbscript_file_path": "output_file_path",
                 "db_dialect": "args.dialect",
-                "emit_cloud_events_columns": "args.emit_cloudevents_columns"
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
             }
         },
         "extensions": [
@@ -551,6 +537,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.sql",
         "prompts": [
             {
                 "name": "--dialect",
@@ -581,7 +568,7 @@
         "command": "a2mongo",
         "description": "Convert Avrotize schema to MongoDB schema",
         "function": {
-            "name": "avrotize.avrototsql.convert_avro_to_nosql",
+            "name": "avrotize.avrotodb.convert_avro_to_nosql",
             "args": {
                 "avro_schema_path": "input_file_path",
                 "nosql_file_path": "output_file_path",
@@ -612,6 +599,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.json",
         "prompts": [
             {
                 "name": "--emit-cloudevents-columns",
@@ -667,6 +655,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.parquet",
         "prompts": [
             {
                 "name": "--emit-cloudevents-columns",
@@ -685,7 +674,7 @@
                 "avro_schema_path": "input_file_path",
                 "output_path": "output_file_path",
                 "avro_record_type": "args.record_type",
-                "emit_cloud_events_columns": "args.emit_cloudevents_columns"
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
             }
         },
         "extensions": [
@@ -717,6 +706,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.iceberg",
         "prompts": [
             {
                 "name": "--emit-cloudevents-columns",
@@ -765,6 +755,7 @@
                 "required": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
         "prompts": [
             {
                 "name": "--namespace",
@@ -807,6 +798,7 @@
                 "help": "Deprecated: Path(s) to the ASN.1 schema file(s) (for backcompat)"
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
         "prompts": []
     },
     {
@@ -841,10 +833,11 @@
                 "help": "Deprecated: Path to the Kafka Struct file (for backcompat)"
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
         "prompts": []
     },
     {
-        "command": "a2csharp",
+        "command": "a2cs",
         "description": "Convert Avrotize schema to C# classes",
         "function": {
             "name": "avrotize.avrotocsharp.convert_avro_to_csharp",
@@ -880,10 +873,10 @@
                 "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
             },
             {
-                "name": "--package",
+                "name": "--namespace",
                 "type": "str",
-                "help": "Java package name",
-                "required": true
+                "help": "C# project name",
+                "required": false
             },
             {
                 "name": "--avro-annotation",
@@ -892,9 +885,15 @@
                 "default": false
             },
             {
-                "name": "--jackson-annotation",
+                "name": "--system_text_json_annotation",
                 "type": "bool",
-                "help": "Use Jackson annotations",
+                "help": "Use System.Text.Json annotations",
+                "default": false
+            },
+            {
+                "name": "--newtonsoft-json-annotation",
+                "type": "bool",
+                "help": "Use Newtonsoft.Json annotations",
                 "default": false
             },
             {
@@ -904,7 +903,15 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}-cs",
         "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the C# root namespace for the project",
+                "type": "str",
+                "default": "{input_file_name}-cs",
+                "required": true
+            },
             {
                 "name": "--avro-annotation",
                 "message": "Use Avro annotations?",
@@ -912,8 +919,8 @@
                 "default": false
             },
             {
-                "name": "--jackson-annotation",
-                "message": "Use Jackson annotations?",
+                "name": "--system_text_json_annotation",
+                "message": "Use System.Text.Json annotations?",
                 "type": "bool",
                 "default": false
             },
@@ -985,6 +992,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}-java",
         "prompts": [
             {
                 "name": "--avro-annotation",
@@ -1059,6 +1067,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}-py",
         "prompts": [
             {
                 "name": "--dataclasses-json-annotation",
@@ -1127,6 +1136,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}-ts",
         "prompts": [
             {
                 "name": "--avro-annotation",
@@ -1188,6 +1198,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}-js",
         "prompts": [
             {
                 "name": "--avro-annotation",
@@ -1250,6 +1261,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}-cpp",
         "prompts": [
             {
                 "name": "--namespace",
@@ -1338,6 +1350,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}-go",
         "prompts": [
             {
                 "name": "--avro-annotation",
@@ -1424,6 +1437,7 @@
                 "default": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}-rust",
         "prompts": [
             {
                 "name": "--package",
@@ -1479,6 +1493,7 @@
                 "required": false
             }
         ],
+        "suggested_output_file_path": "{input_file_name}.json",
         "prompts": [
             {
                 "name": "--record-type",
@@ -1513,6 +1528,29 @@
                 "type": "str",
                 "help": "Output path for the Markdown documentation",
                 "required": true
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.md",
+        "prompts": []
+    },
+    {
+        "command": "pcf",
+        "description": "Create the Parsing Canonical Form (PCF) of an Avrotize schema",
+        "function": {
+            "name": "avrotize.avrotools.avsc_to_pcf",
+            "args": {
+                "schema_file": "input_file_path"                
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
             }
         ],
         "prompts": []
