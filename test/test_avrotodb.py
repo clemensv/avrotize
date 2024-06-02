@@ -7,6 +7,7 @@ import unittest
 from os import path, getcwd
 import json
 import pytest
+import sqlalchemy
 from testcontainers.mysql import MySqlContainer
 from testcontainers.postgres import PostgresContainer
 from testcontainers.mongodb import MongoDbContainer
@@ -17,7 +18,7 @@ import pymysql
 import psycopg2
 import pymongo
 import pyodbc
-import cx_Oracle
+import oracledb
 from cassandra.cluster import Cluster, DCAwareRoundRobinPolicy
 import asyncio
 
@@ -213,46 +214,44 @@ class TestAvroToDB(unittest.TestCase):
             cursor.close()
             conn.close()
 
-    @pytest.mark.skip("driver too hard to install")
     def test_oracle_schema_creation(self):
         self.run_oracle_schema_creation("address")
         self.run_oracle_schema_creation("northwind")
 
     def run_oracle_schema_creation(self, avro_name):
-        cwd = os.getcwd()        
+        """Test schema creation for Oracle database."""
+        cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
         sql_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-oracle.sql")
         with OracleDbContainer() as oracle:
-            cx_Oracle.init_oracle_client(lib_dir='c:\\tools\\instantclient_21_13')
-            conn_str = f'user="{oracle.username}" password="{oracle.password}" dsn="{oracle.get_container_host_ip()}:{oracle.get_exposed_port(1521)}/FREEPDB1"'
-            conn = cx_Oracle.connect(conn_str)
-            cursor = conn.cursor()
+            # Create an SQLAlchemy engine
+            engine = sqlalchemy.create_engine(oracle.get_connection_url())
             cloudevents_columns_count = 5
-            convert_avro_to_sql("test_schema.avsc", "test_schema.sql", "oracle", emit_cloudevents_columns=True)
-            with open("test_schema.sql", "r", encoding="utf-8") as sql_file:
-                schema_sql = sql_file.read()
-                for statement in schema_sql.split(";"):
-                    if statement.strip():
-                        cursor.execute(statement)
-            cursor.execute("SELECT table_name FROM user_tables")
-            tables = cursor.fetchall()
-            with open(avro_path, "r", encoding="utf-8") as avsc_file:
-                avro_schema = json.load(avsc_file)
-            for table_cols in tables:
-                table = table_cols[0]
-                if isinstance(avro_schema, list):
-                    self.assertTrue(any([table == altname(t, "sql") for t in avro_schema]))
-                else:
-                    self.assertTrue(table == altname(avro_schema, "sql"))
-                cursor.execute(f"SELECT column_name FROM user_tab_columns WHERE table_name = '{table}';")
-                columns = cursor.fetchall()
-                if isinstance(avro_schema, list):
-                    avro_record = [t for t in avro_schema if table == altname(t, "sql")][0]
-                else:
-                    avro_record = avro_schema
-                self.assertEqual(len(columns), len(avro_record["fields"])+cloudevents_columns_count)  # id, name, email, and CloudEvents columns
-            cursor.close()
-            conn.close()
+            convert_avro_to_sql(avro_path, sql_path, "oracle", emit_cloudevents_columns=True)
+            
+            with engine.begin() as session:
+                with open(sql_path, "r", encoding="utf-8") as sql_file:
+                    schema_sql = sql_file.read()
+                    for statement in schema_sql.split(";"):
+                        if statement.strip().strip('\n'):
+                            session.execute(sqlalchemy.text(statement))
+                result = session.execute(sqlalchemy.text("SELECT table_name FROM user_tables"))
+                tables = [row[0] for row in result.fetchall()]
+
+                with open(avro_path, "r", encoding="utf-8") as avsc_file:
+                    avro_schema = json.load(avsc_file)
+                for table in tables:
+                    if not isinstance(avro_schema, list):
+                        avro_schema = [avro_schema]
+                    found = next(table == altname(t, "sql").upper() for t in avro_schema)
+                    if found:
+                        result = session.execute(sqlalchemy.text(f"SELECT column_name FROM user_tab_columns WHERE table_name = '{table}'"))
+                        columns = [row[0] for row in result.fetchall()]
+                        if isinstance(avro_schema, list):
+                            avro_record = [t for t in avro_schema if table == altname(t, "sql").upper()][0]
+                        else:
+                            avro_record = avro_schema
+                        self.assertEqual(len(columns), len(avro_record["fields"]) + cloudevents_columns_count)  # id, name, email, and CloudEvents columns
 
     def test_cassandra_schema_creation(self):
         self.run_cassandra_schema_creation("address")

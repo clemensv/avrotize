@@ -110,7 +110,8 @@ def main():
                     func_args[arg] = getattr(args, val[5:])
                 else:
                     func_args[arg] = val           
-        printmsg(f'Executing {command["description"]} with input {input_file_path} and output {output_file_path if output_file_path else "stdout"}')
+        if output_file_path:
+            printmsg(f'Executing {command["description"]} with input {input_file_path} and output {output_file_path}')
         func(**func_args)
         
         if temp_output:

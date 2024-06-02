@@ -93,10 +93,16 @@ class AvroToTypeScript:
             return self.convert_avro_type_to_typescript(avro_type['type'], parent_namespace, import_types, class_name, field_name)
         return 'any'
 
-    def concat_namespace(self, namespace: str, name: str) -> str:
+    def get_qualified_name(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
         return f"{namespace}.{name}" if namespace != '' else name
-
+    
+    def concat_namespace(self, namespace: str, name: str) -> str:
+        """ Concatenates namespace and name with a dot separator """
+        if namespace and name:
+            return f"{namespace}.{name}"
+        return namespace or name
+    
     def generate_class_or_enum(self, avro_schema: Dict, parent_namespace: str, write_file: bool = True) -> str:
         """ Generates a Class or Enum """
         if avro_schema['type'] == 'record':
@@ -109,11 +115,8 @@ class AvroToTypeScript:
         """ Generate TypeScript class from Avro record """
         import_types: Set[str] = set()
         class_name = pascal(avro_schema['name'])
-        namespace = avro_schema.get('namespace', '')
-        if not namespace and parent_namespace:
-            namespace = parent_namespace
-        if self.base_package:
-            namespace = f'{self.base_package}.{namespace}'
+        
+        namespace = self.concat_namespace(self.base_package, avro_schema.get('namespace', parent_namespace))
         fields = avro_schema.get('fields', [])
         doc = avro_schema.get('doc', '')
 
@@ -183,11 +186,7 @@ class AvroToTypeScript:
     def generate_enum(self, avro_schema: Dict, parent_namespace: str, write_file: bool = True) -> str:
         """ Generate TypeScript enum from Avro enum """
         enum_name = pascal(avro_schema['name'])
-        namespace = avro_schema.get('namespace', '')
-        if not namespace and parent_namespace:
-            namespace = parent_namespace
-        if self.base_package:
-            namespace = f'{self.base_package}.{namespace}'
+        namespace = self.concat_namespace(self.base_package, avro_schema.get('namespace', parent_namespace))
         symbols = avro_schema.get('symbols', [])
 
         enum_body = ''
@@ -268,7 +267,8 @@ class AvroToTypeScript:
         class_definition += f"\n\n{self.INDENT}/// <summary>\n{self.INDENT}/// Checks if the JSON element matches the schema\n{self.INDENT}/// </summary>"
         class_definition += f"\n{self.INDENT}public static isJsonMatch(element: any): boolean {{"
         class_definition += f"\n{self.INDENT*2}return "
-        namespace = avro_schema.get('namespace', parent_namespace)
+        namespace = self.concat_namespace(self.base_package, avro_schema.get('namespace', parent_namespace))
+       
         field_count = 0
         for field in avro_schema.get('fields', []):
             if field_count > 0:

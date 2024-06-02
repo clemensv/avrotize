@@ -26,7 +26,7 @@
         "submenus": [
             {
                 "id": "convertSubmenu",
-                "label": "Convert"
+                "label": "Convert to"
             }
         ],
         "menus": {
@@ -42,157 +42,157 @@
                     "command": "avrotize.p2a",
                     "group": "navigation",
                     "when": "resourceExtname == .proto",
-                    "title": "to Avrotize schema"
-                },
-                {
-                    "command": "avrotize.a2p",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Proto schema"
+                    "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.j2a",
                     "group": "navigation",
                     "when": "resourceExtname == .json || resourceExtname == .jsons",
-                    "title": "to Avrotize schema"
-                },
-                {
-                    "command": "avrotize.a2j",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to JSON schema"
+                    "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.x2a",
                     "group": "navigation",
                     "when": "resourceExtname == .xsd",
-                    "title": "to Avrotize schema"
-                },
-                {
-                    "command": "avrotize.a2x",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to XSD schema"
-                },
-                {
-                    "command": "avrotize.a2k",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Kusto table schemas"
+                    "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.k2a",
                     "group": "navigation",
                     "when": "resourceExtname == .kusto",
-                    "title": "to Avrotize schema"
-                },
-                {
-                    "command": "avrotize.a2sql",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to SQL schema"
-                },
-                {
-                    "command": "avrotize.a2mongo",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to MongoDB schema"
-                },
-                {
-                    "command": "avrotize.a2pq",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Parquet or Iceberg schema"
-                },
-                {
-                    "command": "avrotize.a2ib",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Iceberg schema"
+                    "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.pq2a",
                     "group": "navigation",
                     "when": "resourceExtname == .parquet",
-                    "title": "to Avrotize schema"
+                    "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.asn2a",
                     "group": "navigation",
                     "when": "resourceExtname == .asn1",
-                    "title": "to Avrotize schema"
+                    "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.kstruct2a",
                     "group": "navigation",
                     "when": "resourceExtname == .kstruct",
-                    "title": "to Avrotize schema"
+                    "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.a2cs",
                     "group": "navigation",
                     "when": "resourceExtname == .avsc",
-                    "title": "to C# classes"
-                },
-                {
-                    "command": "avrotize.a2java",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Java classes"
-                },
-                {
-                    "command": "avrotize.a2py",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Python classes"
-                },
-                {
-                    "command": "avrotize.a2ts",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to TypeScript classes"
-                },
-                {
-                    "command": "avrotize.a2js",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to JavaScript classes"
+                    "title": "C# classes"
                 },
                 {
                     "command": "avrotize.a2cpp",
                     "group": "navigation",
                     "when": "resourceExtname == .avsc",
-                    "title": "to C++ classes"
-                },
-                {
-                    "command": "avrotize.a2go",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Go classes"
-                },
-                {
-                    "command": "avrotize.a2rust",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Rust classes"
-                },
-                {
-                    "command": "avrotize.a2dp",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Datapackage schema"
-                },
-                {
-                    "command": "avrotize.a2md",
-                    "group": "navigation",
-                    "when": "resourceExtname == .avsc",
-                    "title": "to Markdown documentation"
+                    "title": "C++ classes"
                 },
                 {
                     "command": "avrotize.pcf",
                     "group": "navigation",
                     "when": "resourceExtname == .avsc",
                     "title": "Create the Parsing Canonical Form (PCF) of an Avrotize schema"
+                },
+                {
+                    "command": "avrotize.a2dp",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Datapackage schema"
+                },
+                {
+                    "command": "avrotize.a2go",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Go classes"
+                },
+                {
+                    "command": "avrotize.a2ib",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Iceberg schema"
+                },
+                {
+                    "command": "avrotize.a2j",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "JSON schema"
+                },
+                {
+                    "command": "avrotize.a2java",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Java classes"
+                },
+                {
+                    "command": "avrotize.a2js",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "JavaScript classes"
+                },
+                {
+                    "command": "avrotize.a2k",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Kusto table schemas"
+                },
+                {
+                    "command": "avrotize.a2md",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Markdown documentation"
+                },
+                {
+                    "command": "avrotize.a2mongo",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "MongoDB schema"
+                },
+                {
+                    "command": "avrotize.a2pq",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Parquet or Iceberg schema"
+                },
+                {
+                    "command": "avrotize.a2p",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Proto schema"
+                },
+                {
+                    "command": "avrotize.a2py",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Python classes"
+                },
+                {
+                    "command": "avrotize.a2rust",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Rust classes"
+                },
+                {
+                    "command": "avrotize.a2sql",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "SQL schema"
+                },
+                {
+                    "command": "avrotize.a2ts",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "TypeScript classes"
+                },
+                {
+                    "command": "avrotize.a2x",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "XSD schema"
                 }
             ],
             "editor/context": [
@@ -200,134 +200,134 @@
                     "submenu": "convertSubmenu",
                     "title": "Convert",
                     "group": "navigation",
-                    "when": "resourceExtname == .kusto || resourceExtname == .proto || resourceExtname == .parquet || resourceExtname == .xsd || resourceExtname == .kstruct || resourceExtname == .jsons || resourceExtname == .asn1 || resourceExtname == .json || resourceExtname == .avsc"
+                    "when": "resourceExtname == .proto || resourceExtname == .parquet || resourceExtname == .kstruct || resourceExtname == .avsc || resourceExtname == .json || resourceExtname == .xsd || resourceExtname == .jsons || resourceExtname == .asn1 || resourceExtname == .kusto"
                 }
             ]
         },
         "commands": [
             {
                 "command": "avrotize.p2a",
-                "title": "to Avrotize schema",
+                "title": "Avrotize schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2p",
-                "title": "to Proto schema",
+                "title": "Proto schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.j2a",
-                "title": "to Avrotize schema",
+                "title": "Avrotize schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2j",
-                "title": "to JSON schema",
+                "title": "JSON schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.x2a",
-                "title": "to Avrotize schema",
+                "title": "Avrotize schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2x",
-                "title": "to XSD schema",
+                "title": "XSD schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2k",
-                "title": "to Kusto table schemas",
+                "title": "Kusto table schemas",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.k2a",
-                "title": "to Avrotize schema",
+                "title": "Avrotize schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2sql",
-                "title": "to SQL schema",
+                "title": "SQL schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2mongo",
-                "title": "to MongoDB schema",
+                "title": "MongoDB schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2pq",
-                "title": "to Parquet or Iceberg schema",
+                "title": "Parquet or Iceberg schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2ib",
-                "title": "to Iceberg schema",
+                "title": "Iceberg schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.pq2a",
-                "title": "to Avrotize schema",
+                "title": "Avrotize schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.asn2a",
-                "title": "to Avrotize schema",
+                "title": "Avrotize schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.kstruct2a",
-                "title": "to Avrotize schema",
+                "title": "Avrotize schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2cs",
-                "title": "to C# classes",
+                "title": "C# classes",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2java",
-                "title": "to Java classes",
+                "title": "Java classes",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2py",
-                "title": "to Python classes",
+                "title": "Python classes",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2ts",
-                "title": "to TypeScript classes",
+                "title": "TypeScript classes",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2js",
-                "title": "to JavaScript classes",
+                "title": "JavaScript classes",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2cpp",
-                "title": "to C++ classes",
+                "title": "C++ classes",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2go",
-                "title": "to Go classes",
+                "title": "Go classes",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2rust",
-                "title": "to Rust classes",
+                "title": "Rust classes",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2dp",
-                "title": "to Datapackage schema",
+                "title": "Datapackage schema",
                 "category": "Convert"
             },
             {
                 "command": "avrotize.a2md",
-                "title": "to Markdown documentation",
+                "title": "Markdown documentation",
                 "category": "Convert"
             },
             {

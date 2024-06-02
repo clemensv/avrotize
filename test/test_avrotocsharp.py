@@ -19,86 +19,47 @@ sys.path.append(project_root)
 
 
 class TestAvroToCSharp(unittest.TestCase):
+    
+    def run_convert_avsc_to_csharp(self, avsc_name, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False, pascal_properties=False):
+        """ Test converting an avsc file to C# """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", avsc_name + ".avsc")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", avsc_name + "-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+
+        convert_avro_to_csharp(avro_path, cs_path, pascal_properties=pascal_properties, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation)
+        assert subprocess.check_call(
+            ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
+    
     def test_convert_address_avsc_to_csharp(self):
         """ Test converting an address.avsc file to C# """
-        cwd = os.getcwd()
-        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-cs")
-        if os.path.exists(cs_path):
-            shutil.rmtree(cs_path, ignore_errors=True)
-        os.makedirs(cs_path, exist_ok=True)
-
-        convert_avro_to_csharp(avro_path, cs_path)
-        assert subprocess.check_call(
-            ['dotnet', 'test'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
-
+        self.run_convert_avsc_to_csharp("address")
+   
     def test_convert_address_avsc_to_csharp_avro_annotation(self):
         """ Test converting an address.avsc file to C# """
-        cwd = os.getcwd()
-        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-cs-avro")
-        if os.path.exists(cs_path):
-            shutil.rmtree(cs_path, ignore_errors=True)
-        os.makedirs(cs_path, exist_ok=True)
-
-        convert_avro_to_csharp(avro_path, cs_path, avro_annotation=True)
-        assert subprocess.check_call(
-            ['dotnet', 'test'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
+        self.run_convert_avsc_to_csharp("address", avro_annotation=True)
 
     def test_convert_address_avsc_to_csharp_system_text_json_annotation(self):
         """ Test converting an address.avsc file to C# """
-        cwd = os.getcwd()
-        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-cs-stj")
-        if os.path.exists(cs_path):
-            shutil.rmtree(cs_path, ignore_errors=True)
-        os.makedirs(cs_path, exist_ok=True)
-
-        convert_avro_to_csharp(
-            avro_path, cs_path, system_text_json_annotation=True, pascal_properties=True)
-        assert subprocess.check_call(
-            ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
-        
+        self.run_convert_avsc_to_csharp("address", system_text_json_annotation=True) 
+                                        
     def test_convert_enumfield_avsc_to_csharp_system_text_json_annotation(self):
         """ Test converting an address.avsc file to C# """
-        cwd = os.getcwd()
-        avro_path = os.path.join(cwd, "test", "avsc", "enumfield.avsc")
-        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "enumfield-cs-stj")
-        if os.path.exists(cs_path):
-            shutil.rmtree(cs_path, ignore_errors=True)
-        os.makedirs(cs_path, exist_ok=True)
-
-        convert_avro_to_csharp(
-            avro_path, cs_path, system_text_json_annotation=True, pascal_properties=True)
-        assert subprocess.check_call(
-            ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
-
+        self.run_convert_avsc_to_csharp("enumfield", system_text_json_annotation=True)
+        
     def test_convert_address_avsc_to_csharp_newtonsoft_json_annotation(self):
         """ Test converting an address.avsc file to C# """
-        cwd = os.getcwd()
-        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
-        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-cs-nj")
-        if os.path.exists(cs_path):
-            shutil.rmtree(cs_path, ignore_errors=True)
-        os.makedirs(cs_path, exist_ok=True)
-
-        convert_avro_to_csharp(
-            avro_path, cs_path, newtonsoft_json_annotation=True, pascal_properties=True)
-        assert subprocess.check_call(
-            ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
-
+        self.run_convert_avsc_to_csharp("address", newtonsoft_json_annotation=True)
+        
     def test_convert_telemetry_avsc_to_csharp(self):
         """ Test converting a telemetry.avsc file to C# """
-        cwd = os.getcwd()
-        avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
-        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-cs")
-        if os.path.exists(cs_path):
-            shutil.rmtree(cs_path, ignore_errors=True)
-        os.makedirs(cs_path, exist_ok=True)
-
-        convert_avro_to_csharp(avro_path, cs_path)
-        assert subprocess.check_call(
-            ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
+        self.run_convert_avsc_to_csharp("telemetry")
+        
+    def test_convert_address_nn_avsc_to_csharp(self):
+        """ Test converting an address.nn.avsc file to C# """
+        self.run_convert_avsc_to_csharp("address-nn")
         
     def test_convert_twotypeunion_ann_avsc_to_csharp(self):
         """ Test converting an address.avsc file to C# """

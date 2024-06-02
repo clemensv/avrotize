@@ -1,0 +1,12 @@
+package {{ base_package }}
+
+{%- if doc %}
+    // {{ doc }}
+{%- endif %}
+type {{ struct_name }} int
+
+const (
+{%- for symbol in symbols %}
+    {{ struct_name }}_{{ symbol }} {{ struct_name }} = {{ loop.index0 }}
+{%- endfor %}
+)

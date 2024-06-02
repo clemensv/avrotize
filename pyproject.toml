@@ -47,8 +47,9 @@ dev = [
     "psycopg2>=2.9.9",
     "pyodbc>=5.1.0",
     "pymongo>=4.7.2",
-    "cx_oracle>=8.3.0",
-    "cassandra-driver>=3.29.1"
+    "oracledb>=2.2.1",
+    "cassandra-driver>=3.29.1",
+    "sqlalchemy>=2.0.15"
 ]
 
 [project.scripts]

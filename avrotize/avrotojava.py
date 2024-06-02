@@ -199,9 +199,17 @@ class AvroToJava:
         self.generated_types_avro_namespace: Dict[str,str] = {}
         self.generated_types_java_package: Dict[str,str] = {}
 
-    def concat_package(self, package: str, name: str) -> str:
+    def qualified_name(self, package: str, name: str) -> str:
         """Concatenates package and name using a dot separator"""
         return f"{package.lower()}.{name}" if package else name
+    
+    def join_packages(self, parent_package: str, package: str) -> str:
+        """Joins package and name using a dot separator"""
+        if parent_package and package:
+            return f"{parent_package}.{package}".lower()
+        elif parent_package:
+            return parent_package.lower()
+        return package.lower()
 
     class JavaType:
         """Java type definition"""
@@ -245,10 +253,10 @@ class AvroToJava:
         if '.' in avro_type:
             type_name = avro_type.split('.')[-1]
             package_name = '.'.join(avro_type.split('.')[:-1]).lower()
-            avro_type = self.concat_package(package_name, type_name)
+            avro_type = self.qualified_name(package_name, type_name)
         if avro_type in self.generated_types_avro_namespace:
             kind = self.generated_types_avro_namespace[avro_type]
-            qualified_class_name = self.concat_package(self.base_package, avro_type)
+            qualified_class_name = self.qualified_name(self.base_package, avro_type)
             return AvroToJava.JavaType(qualified_class_name, is_class=kind=="class", is_enum=kind=="enum")
         else:
             return AvroToJava.JavaType(required_mapping.get(avro_type, avro_type) if not is_optional else optional_mapping.get(avro_type, avro_type))
@@ -335,10 +343,11 @@ class AvroToJava:
         namespace = avro_schema.get('namespace', parent_package)
         if not 'namespace' in avro_schema:
             avro_schema['namespace'] = namespace
-        package = self.concat_package(self.base_package, namespace).replace('.', '/').lower()
+        package = self.join_packages(self.base_package, namespace)
+        package = package.replace('.', '/').lower()
         class_name = self.safe_identifier(avro_schema['name'])
-        namespace_qualified_name = self.concat_package(namespace,avro_schema['name'])
-        qualified_class_name = self.concat_package(package.replace('/', '.'), class_name)
+        namespace_qualified_name = self.qualified_name(namespace,avro_schema['name'])
+        qualified_class_name = self.qualified_name(package.replace('/', '.'), class_name)
         if namespace_qualified_name in self.generated_types_avro_namespace:
             return AvroToJava.JavaType(qualified_class_name, is_class=True)
         self.generated_types_avro_namespace[namespace_qualified_name] = "class"
@@ -421,7 +430,7 @@ class AvroToJava:
         return AvroToJava.JavaType(qualified_class_name, is_class=True)
     
     def create_is_json_match_method(self, avro_schema, parent_namespace, class_name) -> str:
-        """ Generates the isJsonMatch method for Jackson """
+        """ Generates the isJsonMatch method for a class using Jackson """
         predicates = ''
         class_definition = ''
         class_definition += f"\n\n{INDENT}/**\n{INDENT} * Checks if the JSON node matches the schema\n{INDENT}"
@@ -659,10 +668,10 @@ class AvroToJava:
         if 'doc' in avro_schema:
             enum_definition += f"/** {avro_schema['doc']} */\n"
             
-        package = self.concat_package(self.base_package, avro_schema.get('namespace', parent_package)).replace('.', '/').lower()       
+        package = self.join_packages(self.base_package, avro_schema.get('namespace', parent_package)).replace('.', '/').lower()       
         enum_name = self.safe_identifier(avro_schema['name'])
-        type_name = self.concat_package(package.replace('/', '.'), enum_name)
-        self.generated_types_avro_namespace[self.concat_package(avro_schema.get('namespace', parent_package),avro_schema['name'])] = "enum"
+        type_name = self.qualified_name(package.replace('/', '.'), enum_name)
+        self.generated_types_avro_namespace[self.qualified_name(avro_schema.get('namespace', parent_package),avro_schema['name'])] = "enum"
         self.generated_types_java_package[type_name] = "enum"       
         symbols = avro_schema.get('symbols', [])
         symbols_str = ', '.join(symbols)
@@ -680,7 +689,7 @@ class AvroToJava:
         
         list_is_json_match: List[str] = []
         union_class_name = class_name + pascal(field_name) + 'Union'
-        package = self.concat_package(self.base_package, parent_package).replace('.', '/').lower()
+        package = self.join_packages(self.base_package, parent_package).replace('.', '/').lower()
         union_types: List[AvroToJava.JavaType] = [self.convert_avro_type_to_java(class_name, field_name + "Option" + str(i), t, parent_package) for i, t in enumerate(avro_type)]
         for i, union_type in enumerate(union_types):
             # we need the nullable version (wrapper) of all primitive types
@@ -968,6 +977,8 @@ def convert_avro_to_java(avro_schema_path, java_file_path, package_name='', pasc
         avro_schema_path (_type_): Avro input schema path  
         cs_file_path (_type_): Output C# file path 
     """
+    if not package_name:
+        package_name = os.path.basename(java_file_path)
     avrotojava = AvroToJava()
     avrotojava.base_package = package_name
     avrotojava.pascal_properties = pascal_properties

@@ -42,9 +42,18 @@ class AvroToCSharp:
         self.generated_types: Dict[str,str] = {}
         self.generated_avro_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
 
-    def concat_namespace(self, namespace: str, name: str) -> str:
+    def get_qualified_name(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
         return f"{namespace}.{name}" if namespace != '' else name
+    
+    def concat_namespace(self, namespace: str, name: str) -> str:
+        """ Concatenates namespace and name with a dot separator """
+        if namespace and name:
+            return f"{namespace}.{name}"
+        elif namespace:
+            return namespace
+        else:
+            return name
 
     def map_primitive_to_csharp(self, avro_type: str) -> str:
         """ Maps Avro primitive types to C# types """
@@ -137,7 +146,7 @@ class AvroToCSharp:
             avro_schema['namespace'] = parent_namespace
         namespace = pascal(self.concat_namespace(self.base_namespace, avro_namespace))
         class_name = pascal(avro_schema['name'])
-        ref = 'global::'+self.concat_namespace(namespace, class_name)
+        ref = 'global::'+self.get_qualified_name(namespace, class_name)
         if ref in self.generated_types:
             return ref
         
@@ -297,7 +306,7 @@ class AvroToCSharp:
         namespace = pascal(self.concat_namespace(
             self.base_namespace, avro_schema.get('namespace', parent_namespace)))
         enum_name = pascal(avro_schema['name'])
-        ref = 'global::'+self.concat_namespace(namespace, enum_name)
+        ref = 'global::'+self.get_qualified_name(namespace, enum_name)
         if ref in self.generated_types:
             return ref
 
@@ -311,7 +320,7 @@ class AvroToCSharp:
         
         if write_file:
             self.write_to_file(namespace, enum_name, enum_definition)
-        ref = 'global::'+self.concat_namespace(namespace, enum_name)
+        ref = 'global::'+self.get_qualified_name(namespace, enum_name)
         self.generated_types[ref] = "enum"
         self.generated_avro_types[ref] = avro_schema
         return ref
@@ -522,11 +531,14 @@ class AvroToCSharp:
             if self.newtonsoft_json_annotation:
                 file_content += "using Newtonsoft.Json;\n"
             
-            # Namespace declaration with correct indentation for the definition
-            file_content += f"\nnamespace {namespace}\n{{\n"
-            indented_definition = '\n'.join(
-                [f"{INDENT}{line}" for line in definition.split('\n')])
-            file_content += f"{indented_definition}\n}}"
+            if namespace:
+                # Namespace declaration with correct indentation for the definition
+                file_content += f"\nnamespace {namespace}\n{{\n"
+                indented_definition = '\n'.join(
+                    [f"{INDENT}{line}" for line in definition.split('\n')])
+                file_content += f"{indented_definition}\n}}"
+            else:
+                file_content += definition
             file.write(file_content)
 
     def generate_tests(self, output_dir: str) -> None:
@@ -677,6 +689,9 @@ def convert_avro_to_csharp(avro_schema_path, cs_file_path, base_namespace='', pa
         avro_schema_path (_type_): Avro input schema path  
         cs_file_path (_type_): Output C# file path 
     """
+    
+    if not base_namespace:
+        base_namespace = os.path.basename(cs_file_path)
     avrotocs = AvroToCSharp(base_namespace)
     avrotocs.pascal_properties = pascal_properties
     avrotocs.system_text_json_annotation = system_text_json_annotation

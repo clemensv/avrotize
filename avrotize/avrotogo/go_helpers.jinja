@@ -1,0 +1,31 @@
+package {{ base_package }}
+
+import (
+    "math/rand"
+    "time"
+)
+
+func init() {
+    rand.Seed(time.Now().UnixNano())
+}
+
+func Opt[T any](s T) *T {
+	return &s
+}
+
+{%- for struct in structs %}
+func random{{ struct.name }}() {{ struct.name }} {
+    return {{ struct.name }} {
+        {%- for field in struct.fields %}
+        {{ field.name }}: {{ field.value }},
+        {%- endfor %}
+    }
+}
+{%- endfor %}
+
+{%- for enum in enums %}
+func random{{ enum.name }}() {{ enum.name }} {
+    return 0
+}
+{%- endfor %}
+

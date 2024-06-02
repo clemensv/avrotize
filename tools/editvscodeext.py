@@ -48,7 +48,6 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
     all_extensions = set()
     for command in commands:
         command_description = command['description']
-        # strip all text before the first occurence of ' to ' in the command description
         command_description = clip_command_description(command_description)
         all_extensions.update(command['extensions'])
         ext_conditions = " || ".join([f"resourceExtname == {ext}" for ext in command['extensions']])
@@ -56,8 +55,11 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
             "command": f"avrotize.{command['command']}",
             "group": "navigation",
             "when": ext_conditions,
-            "title": clip_command_description(command['description'])
+            "title": command_description
         })
+        
+    # sort the submenus by title
+    convert_submenus = sorted(convert_submenus, key=lambda x: x['title'])
     
     package_json['contributes']['menus']['editor/context'].append({
         "submenu": "convertSubmenu",
@@ -68,7 +70,7 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
     package_json['contributes']['menus']['convertSubmenu'] = convert_submenus
     package_json['contributes']['submenus'] = [{
                 "id": "convertSubmenu",
-                "label": "Convert"
+                "label": "Convert to"
             }]
     package_json['contributes']['commands'] = [
         {
@@ -89,76 +91,112 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
         "import * as vscode from 'vscode';",
         "import { exec } from 'child_process';",
         "import * as path from 'path';",
+        "import * as fs from 'fs';",
         "",
      ]
-
-    extension_ts_content.append(f"async function checkAvrotizeTool(context: vscode.ExtensionContext) {{")
+    
+    extension_ts_content.append(f"async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {{")
     extension_ts_content.append(f"{INDENT}try {{")
-    extension_ts_content.append(f"{INDENT*2}exec('avrotize -h', async (error, stdout, stderr) => {{")
-    extension_ts_content.append(f"{INDENT*3}if (error) {{")
+    extension_ts_content.append(f"{INDENT*2}const toolAvailable = await execShellCommand('avrotize -h')")
+    extension_ts_content.append(f"{INDENT*3}.then(() => true)")
+    extension_ts_content.append(f"{INDENT*3}.catch(async (error) => {{")
     extension_ts_content.append(f"{INDENT*4}const installOption = await vscode.window.showWarningMessage(")
     extension_ts_content.append(f"{INDENT*5}'avrotize tool is not available. Do you want to install it?', 'Yes', 'No');")
     extension_ts_content.append(f"{INDENT*4}if (installOption === 'Yes') {{")
     extension_ts_content.append(f"{INDENT*5}if (!await isPythonAvailable()) {{")
-    extension_ts_content.append(f"{INDENT*6}vscode.window.showErrorMessage('Python 3.11 or higher must be installed.');")
-    extension_ts_content.append(f"{INDENT*6}return;")
+    extension_ts_content.append(f"{INDENT*6}const downloadOption = await vscode.window.showErrorMessage('Python 3.11 or higher must be installed. Do you want to open the download page?', 'Yes', 'No');")
+    extension_ts_content.append(f"{INDENT*6}if (downloadOption === 'Yes') {{")
+    extension_ts_content.append(f"{INDENT*7}vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));")
+    extension_ts_content.append(f"{INDENT*6}}}")
+    extension_ts_content.append(f"{INDENT*6}return false;")
     extension_ts_content.append(f"{INDENT*5}}}")
-    extension_ts_content.append(f"{INDENT*5}await createVenvAndInstall(context.extensionPath);")
+    extension_ts_content.append(f"{INDENT*5}outputChannel.show(true);")
+    extension_ts_content.append(f"{INDENT*5}outputChannel.appendLine('Installing avrotize tool...');")
+    extension_ts_content.append(f"{INDENT*5}await execShellCommand('pip install avrotize', outputChannel);")
     extension_ts_content.append(f"{INDENT*5}vscode.window.showInformationMessage('avrotize tool has been installed successfully.');")
+    extension_ts_content.append(f"{INDENT*5}return true;")
     extension_ts_content.append(f"{INDENT*4}}}")
-    extension_ts_content.append(f"{INDENT*3}}}")
-    extension_ts_content.append(f"{INDENT*2}}});")
+    extension_ts_content.append(f"{INDENT*4}return false;")
+    extension_ts_content.append(f"{INDENT*3}}});")
+    extension_ts_content.append(f"{INDENT*2}return toolAvailable;")
     extension_ts_content.append(f"{INDENT}}} catch (error) {{")
     extension_ts_content.append(f"{INDENT*2}vscode.window.showErrorMessage('Error checking avrotize tool availability: ' + error);")
+    extension_ts_content.append(f"{INDENT*2}return false;")
     extension_ts_content.append(f"{INDENT}}}")
     extension_ts_content.append("}")
-
+    
     extension_ts_content.append(f"async function isPythonAvailable(): Promise<boolean> {{")
     extension_ts_content.append(f"{INDENT}try {{")
-    extension_ts_content.append(f"{INDENT*2}const output = await execShellCommand('python3 --version');")
+    extension_ts_content.append(f"{INDENT*2}const output = await execShellCommand('python --version');")
     extension_ts_content.append(f"{INDENT*2}const version = output.trim().split(' ')[1];")
     extension_ts_content.append(f"{INDENT*2}const [major, minor] = version.split('.').map(num => parseInt(num));")
+    # show info message if python version is less than 3.11
+    extension_ts_content.append(f"{INDENT*2}if (major < 3 || (major === 3 && minor < 11)) {{")
+    extension_ts_content.append(f"{INDENT*3}vscode.window.showInformationMessage('Python 3.11 or higher must be installed. Found version: ' + version);")
+    extension_ts_content.append(f"{INDENT*3}return false;")
+    extension_ts_content.append(f"{INDENT*2}}}")
     extension_ts_content.append(f"{INDENT*2}return major === 3 && minor >= 11;")
     extension_ts_content.append(f"{INDENT}}} catch {{")
     extension_ts_content.append(f"{INDENT*2}return false;")
     extension_ts_content.append(f"{INDENT}}}")
     extension_ts_content.append("}")
 
-    extension_ts_content.append(f"async function createVenvAndInstall(extensionPath: string) {{")
-    extension_ts_content.append(f"{INDENT}const venvPath = path.join(extensionPath, 'venv');")
-    extension_ts_content.append(f"{INDENT}await execShellCommand(`python3 -m venv ${{venvPath}}`);")
-    extension_ts_content.append(f"{INDENT}const pipPath = path.join(venvPath, 'bin', 'pip');")
-    extension_ts_content.append(f"{INDENT}await execShellCommand(`${{pipPath}} install avrotize`);")
-    extension_ts_content.append("}")
-
-    extension_ts_content.append(f"function execShellCommand(cmd: string): Promise<string> {{")
+    extension_ts_content.append(f"\nfunction execShellCommand(cmd: string, outputChannel?: vscode.OutputChannel): Promise<string> {{")
     extension_ts_content.append(f"{INDENT}return new Promise((resolve, reject) => {{")
-    extension_ts_content.append(f"{INDENT*2}exec(cmd, (error, stdout, stderr) => {{")
+    extension_ts_content.append(f"{INDENT*2}const process = exec(cmd, (error, stdout, stderr) => {{")
     extension_ts_content.append(f"{INDENT*3}if (error) {{")
-    extension_ts_content.append(f"{INDENT*4}reject(stderr);")
+    extension_ts_content.append(f"{INDENT*4}reject(error);")
     extension_ts_content.append(f"{INDENT*3}}} else {{")
-    extension_ts_content.append(f"{INDENT*4}resolve(stdout);")
+    extension_ts_content.append(f"{INDENT*4}resolve(stdout ? stdout : stderr);")
     extension_ts_content.append(f"{INDENT*3}}}")
     extension_ts_content.append(f"{INDENT*2}}});")
+    extension_ts_content.append(f"{INDENT*2}if (outputChannel) {{")
+    extension_ts_content.append(f"{INDENT*3}process.stdout?.on('data', (data) => {{")
+    extension_ts_content.append(f"{INDENT*4}outputChannel.append(data.toString());")
+    extension_ts_content.append(f"{INDENT*3}}});")
+    extension_ts_content.append(f"{INDENT*3}process.stderr?.on('data', (data) => {{")
+    extension_ts_content.append(f"{INDENT*4}outputChannel.append(data.toString());")
+    extension_ts_content.append(f"{INDENT*3}}});")
+    extension_ts_content.append(f"{INDENT*2}}}")
     extension_ts_content.append(f"{INDENT}}});")
-    extension_ts_content.append("}")
-
-    extension_ts_content.append(f"function executeCommand(command: string) {{")
+    extension_ts_content.append("}")    
+    
+    extension_ts_content.append(f"function executeCommand(command: string, outputPath: vscode.Uri | null, outputChannel: vscode.OutputChannel) {{")
     extension_ts_content.append(f"{INDENT}exec(command, (error, stdout, stderr) => {{")
     extension_ts_content.append(f"{INDENT*2}if (error) {{")
+    extension_ts_content.append(f"{INDENT*3}outputChannel.appendLine(`Error: ${{error.message}}`);")
     extension_ts_content.append(f"{INDENT*3}vscode.window.showErrorMessage(`Error: ${{stderr}}`);")
     extension_ts_content.append(f"{INDENT*2}}} else {{")
+    extension_ts_content.append(f"{INDENT*3}outputChannel.appendLine(stdout);")
+    extension_ts_content.append(f"{INDENT*3}if (outputPath) {{")
+    extension_ts_content.append(f"{INDENT*4}if (fs.existsSync(outputPath.fsPath)) {{")
+    extension_ts_content.append(f"{INDENT*5}const stats = fs.statSync(outputPath.fsPath);")
+    extension_ts_content.append(f"{INDENT*5}if (stats.isFile()) {{")
+    extension_ts_content.append(f"{INDENT*6}vscode.workspace.openTextDocument(outputPath).then((document) => {{")
+    extension_ts_content.append(f"{INDENT*7}vscode.window.showTextDocument(document);")
+    extension_ts_content.append(f"{INDENT*6}}});")
+    extension_ts_content.append(f"{INDENT*5}}} else if (stats.isDirectory()) {{")
+    extension_ts_content.append(f"{INDENT*6}vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(outputPath.fsPath), true);")
+    extension_ts_content.append(f"{INDENT*5}}}")
+    extension_ts_content.append(f"{INDENT*4}}}")
+    extension_ts_content.append(f"{INDENT*3}}} else {{")
+    extension_ts_content.append(f"{INDENT*4}vscode.workspace.openTextDocument({{ content: stdout }}).then((document) => {{")
+    extension_ts_content.append(f"{INDENT*5}vscode.window.showTextDocument(document);")
+    extension_ts_content.append(f"{INDENT*4}}});")
+    extension_ts_content.append(f"{INDENT*3}}}")
     extension_ts_content.append(f"{INDENT*3}vscode.window.showInformationMessage(`Success: ${{stdout}}`);")
     extension_ts_content.append(f"{INDENT*2}}}")
     extension_ts_content.append(f"{INDENT}}});")
     extension_ts_content.append("}")
+
     
     extension_ts_content.extend(
         [
             "export function activate(context: vscode.ExtensionContext) {",
             f"{INDENT}const disposables: vscode.Disposable[] = [];",
-            "",
-            f"{INDENT}checkAvrotizeTool(context);",
+            f"{INDENT}(async () => {{",
+            f"{INDENT*2}const outputChannel = vscode.window.createOutputChannel('avrotize');",
+            f"{INDENT*2}if (!await checkAvrotizeTool(context, outputChannel)) {{ return; }};",
             ""
         ]
     )
@@ -166,8 +204,8 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
     # Add command implementations
     for command in commands:
         file_basename_defined = False
-        extension_ts_content.append(f"{INDENT}disposables.push(vscode.commands.registerCommand('avrotize.{command['command']}', async (uri: vscode.Uri) => {{")
-        extension_ts_content.append(f"{INDENT*2}const filePath = uri.fsPath;")
+        extension_ts_content.append(f"{INDENT*2}disposables.push(vscode.commands.registerCommand('avrotize.{command['command']}', async (uri: vscode.Uri) => {{")
+        extension_ts_content.append(f"{INDENT*3}const filePath = uri.fsPath;")
         
         args_str = ''
         output_prompt = ''
@@ -185,8 +223,8 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
                         ext = splitext[1]
                         if ext: 
                             filter_extensions = f"'{ext} File': ['{ext}']"
-                    extension_ts_content.append(f"{INDENT*2}const outputPathSuggestion = getSuggestedOutputPath(filePath, '{suggested_output_path}');")
-                output_prompt = f"{INDENT*2}const outputPath = await vscode.window.showSaveDialog(" + \
+                    extension_ts_content.append(f"{INDENT*3}const outputPathSuggestion = getSuggestedOutputPath(filePath, '{suggested_output_path}');")
+                output_prompt = f"{INDENT*3}const outputPath = await vscode.window.showSaveDialog(" + \
                     f"{{ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : {{ {filter_extensions} }} }});"
                 args_str += f" --out ${{outputPath.fsPath}}"
         
@@ -198,20 +236,20 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
             
             if choices:
                 choices_str = ', '.join([f"'{c}'" for c in choices])
-                extension_ts_content.append(f"{INDENT*2}const {prompt_var_name} = await vscode.window.showQuickPick([{choices_str}], {{ placeHolder: '{prompt_message}' }});")
+                extension_ts_content.append(f"{INDENT*3}const {prompt_var_name} = await vscode.window.showQuickPick([{choices_str}], {{ placeHolder: '{prompt_message}' }});")
             else:
                 if arg.get('type') == 'bool':
-                    extension_ts_content.append(f"{INDENT*2}const {prompt_var_name} = await vscode.window.showQuickPick(['Yes', 'No'], {{ title: '{prompt_message}' }}) === 'Yes';")
+                    extension_ts_content.append(f"{INDENT*3}const {prompt_var_name} = await vscode.window.showQuickPick(['Yes', 'No'], {{ title: '{prompt_message}' }}) === 'Yes';")
                 else:
                     default_value = prompt.get('default', '')
                     if isinstance(default_value, bool):
-                        extension_ts_content.append(f"{INDENT*2}const {prompt_var_name}_default_value = {'Yes' if default_value else 'No'};")
+                        extension_ts_content.append(f"{INDENT*3}const {prompt_var_name}_default_value = {'Yes' if default_value else 'No'};")
                     elif default_value:
                         if not file_basename_defined:
-                            extension_ts_content.append(f"{INDENT*2}const fileBaseName = path.basename(filePath, path.extname(filePath));")
+                            extension_ts_content.append(f"{INDENT*3}const fileBaseName = path.basename(filePath, path.extname(filePath));")
                             file_basename_defined = True
-                        extension_ts_content.append(f"{INDENT*2}const {prompt_var_name}_default_value = '{default_value}'.replace('{{input_file_name}}', fileBaseName);")
-                    line = f"{INDENT*2}const {prompt_var_name} = await vscode.window.showInputBox({{ prompt: '{prompt_message}'" 
+                        extension_ts_content.append(f"{INDENT*3}const {prompt_var_name}_default_value = '{default_value}'.replace('{{input_file_name}}', fileBaseName);")
+                    line = f"{INDENT*3}const {prompt_var_name} = await vscode.window.showInputBox({{ prompt: '{prompt_message}'" 
                     if default_value:
                         line += f", value: `${{ {prompt_var_name}_default_value }}` }});"
                     else:
@@ -219,21 +257,22 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
                     extension_ts_content.append(line)
             
             if arg.get('type') == 'bool':
-                extension_ts_content.append(f"{INDENT*2}const {prompt_var_name}_arg = {prompt_var_name} ? '{prompt['name']}' : '';")
+                extension_ts_content.append(f"{INDENT*3}const {prompt_var_name}_arg = {prompt_var_name} ? '{prompt['name']}' : '';")
                 args_str += f" ${{{prompt_var_name}_arg}}"
             else:
                 args_str += f" {prompt['name']} ${{{prompt_var_name}}}"
                 
         if output_prompt:
             extension_ts_content.append(output_prompt)
-            extension_ts_content.append(f"{INDENT*2}if (!outputPath) {{ return; }}")
-        extension_ts_content.append(f"{INDENT*2}const command = `avrotize {command['command']} {args_str}`;")
-        extension_ts_content.append(f"{INDENT*2}executeCommand(command);")
-        extension_ts_content.append(f"{INDENT}}}));")
+            extension_ts_content.append(f"{INDENT*3}if (!outputPath) {{ return; }}")
+        extension_ts_content.append(f"{INDENT*3}const command = `avrotize {command['command']} {args_str}`;")
+        extension_ts_content.append(f"{INDENT*3}executeCommand(command, {'outputPath' if output_prompt else 'null'}, outputChannel);")
+        extension_ts_content.append(f"{INDENT*2}}}));")
         extension_ts_content.append("")
 
     # Finalize the src/extension.ts content
-    extension_ts_content.append(f"{INDENT}context.subscriptions.push(...disposables);")
+    extension_ts_content.append(f"{INDENT*2}context.subscriptions.push(...disposables);")
+    extension_ts_content.append(f"{INDENT}}})();")
     extension_ts_content.append("}")
     extension_ts_content.append("")
     extension_ts_content.append("export function deactivate() {}")
@@ -249,7 +288,7 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
 
 def clip_command_description(command_description):
     if ' to ' in command_description:
-        command_description = command_description[command_description.find(' to ')+1:]
+        command_description = command_description[command_description.find(' to ')+4:]
     return command_description
 
 def main():

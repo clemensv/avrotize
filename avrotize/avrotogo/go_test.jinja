@@ -1,0 +1,47 @@
+package {{ base_package }}
+
+import (
+    "testing"
+)
+
+func Test{{ struct_name }}_Instantiate(t *testing.T) {
+    random{{ struct_name }}()
+}
+
+{%- if kind == "struct" and (json_annotation or avro_annotation) %}
+
+func Test{{ struct_name }}_ToByteArray(t *testing.T) {
+    s := random{{ struct_name }}()
+    {%- if json_annotation %}
+    _, err := s.ToByteArray("application/json")
+    if err != nil {
+        t.Errorf("ToByteArray failed: %v", err)
+    }
+    {%- endif %}
+    {%- if avro_annotation %}
+    _, err := s.ToByteArray("avro/binary")
+    if err != nil {
+        t.Errorf("ToByteArray failed: %v", err)
+    }
+    {%- endif %}
+}
+
+func Test{{ struct_name }}_FromData(t *testing.T) {
+    input := random{{struct_name}}()
+    {%- if json_annotation %}    
+	dataj, _ := input.ToByteArray("application/json")
+    _, err := {{struct_name}}FromData(dataj, "application/json")
+    if err != nil {
+        t.Errorf("FromData failed: %v", err)
+    }
+    {%- endif %}
+    {%- if avro_annotation %}
+    dataa, _ := input.ToByteArray("avro/binary")
+    _, err := {{struct_name}}FromData(dataa, "avro/binary")
+    if err != nil {
+        t.Errorf("FromData failed: %v", err)
+    }
+    {%- endif %}
+}
+
+{%- endif %}

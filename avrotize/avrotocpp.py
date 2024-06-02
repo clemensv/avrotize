@@ -68,17 +68,25 @@ class AvroToCpp:
         if '.' in avro_type:
             type_name = avro_type.split('.')[-1]
             package_name = '::'.join(avro_type.split('.')[:-1]).lower()
-            avro_type = self.concat_namespace(package_name, type_name)
+            avro_type = self.get_qualified_name(package_name, type_name)
         if avro_type in self.generated_types_avro_namespace:
             kind = self.generated_types_avro_namespace[avro_type]
-            qualified_class_name = self.concat_namespace(self.base_namespace, avro_type)
+            qualified_class_name = self.get_qualified_name(self.base_namespace, avro_type)
             return qualified_class_name
         else:
             return required_mapping.get(avro_type, avro_type) if not is_optional else optional_mapping.get(avro_type, avro_type)
 
-    def concat_namespace(self, namespace: str, name: str) -> str:
+    def get_qualified_name(self, namespace: str, name: str) -> str:
         """Concatenates namespace and name using a double colon separator"""
         return f"{namespace}::{name}" if namespace else name
+    
+    def concat_namespace(self, namespace: str, name: str) -> str:
+        """Concatenates namespace and name using a double colon separator"""
+        if namespace and name:
+            return f"{namespace}::{name}"
+        elif namespace:
+            return namespace
+        return name
 
     def convert_avro_type_to_cpp(self, field_name: str, avro_type: Union[str, Dict, List], nullable: bool = False, parent_namespace: str = '') -> str:
         """Converts Avro type to C++ type"""
@@ -136,7 +144,7 @@ class AvroToCpp:
         avro_namespace = avro_schema.get('namespace', parent_namespace)
         namespace = self.concat_namespace(self.base_namespace, avro_namespace.replace('.', '::'))
         class_name = self.safe_identifier(avro_schema['name'])
-        qualified_class_name = self.concat_namespace(namespace, class_name)
+        qualified_class_name = self.get_qualified_name(namespace, class_name)
         if qualified_class_name in self.generated_types_avro_namespace:
             return qualified_class_name
         self.generated_types_avro_namespace[qualified_class_name] = avro_namespace
@@ -163,7 +171,7 @@ class AvroToCpp:
                     avro_field_type.get('namespace', avro_namespace).replace('.', '::')
                 )
                 include_name = avro_field_type['name']
-                member_includes.add(self.concat_namespace(include_namespace, include_name))
+                member_includes.add(self.get_qualified_name(include_namespace, include_name))
 
             class_definition += f"{INDENT}{field_type} {field_name};\n"
         class_definition += "public:\n"
@@ -190,7 +198,7 @@ class AvroToCpp:
         avro_namespace = avro_schema.get('namespace', parent_namespace)
         namespace = self.concat_namespace(self.base_namespace, avro_namespace.replace('.', '::'))
         enum_name = self.safe_identifier(avro_schema['name'])
-        qualified_enum_name = self.concat_namespace(namespace, enum_name)
+        qualified_enum_name = self.get_qualified_name(namespace, enum_name)
         self.generated_types_avro_namespace[qualified_enum_name] = avro_namespace
         self.generated_types_cpp_namespace[qualified_enum_name] = "enum"
         symbols = avro_schema.get('symbols', [])
@@ -278,7 +286,7 @@ class AvroToCpp:
         class_definition += "};\n\n"
 
         # Write the union class to a separate file
-        namespace = self.concat_namespace(self.base_namespace, class_name.lower())
+        namespace = self.get_qualified_name(self.base_namespace, class_name.lower())
         includes = self.generate_includes(set(union_types))
         self.write_to_file(namespace, union_class_name, includes, class_definition)
 
