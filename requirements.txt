@@ -79,7 +79,6 @@ pyodbc>=5.1.0
 pyparsing>=3.1.2
 pytest>=8.2.1
 python-dateutil>=2.9.0.post0
-pywin32>=306
 referencing>=0.35.1
 requests>=2.32.3
 rfc3986>=2.0.0
