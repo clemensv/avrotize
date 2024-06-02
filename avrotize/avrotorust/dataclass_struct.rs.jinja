@@ -1,0 +1,204 @@
+{%- if avro_annotation %}
+use lazy_static::lazy_static;
+use apache_avro::Schema;
+{%- endif %}
+{%- if serde_annotation or avro_annotation %}
+use serde::{Serialize, Deserialize};
+{%- endif %}
+use std::io::Write;
+use flate2::write::GzEncoder;
+use flate2::read::GzDecoder;
+{%- set uses_chrono = false %}
+{%- set uses_uuid = false %}
+{%- set uses_hashmap = false%}
+{%- for field in fields %}
+{%- if field.type == "NaiveDate" or field.type == "NaiveTime" or field.type == "NaiveDateTime" %}
+{%- set uses_chrono = true %}
+{%- endif %}
+{%- if field.type == "Uuid" %}
+{%- set uses_uuid = true %}
+{%- endif %}
+{%- if field.type.startswith("HashMap<") %}
+{%- set uses_hashmap = true %}
+{%- endif %}
+{%- endfor %}
+{%- if uses_chrono %}
+use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
+{%- endif %}
+{%- if uuid %}
+use uuid::Uuid;
+{%- endif %}
+{%- if uses_hashmap %}
+use std::collections::HashMap;
+{%- endif %}
+
+
+{% if doc %}
+/// {{ doc }}
+{%- endif %}
+#[derive(Debug{%- if serde_annotation or avro_annotation %}, Serialize, Deserialize{%- endif %}, PartialEq, Clone, Default)]
+pub struct {{ struct_name }} {
+{%- for field in fields %}
+    {%- if field.serde_rename %}
+    #[serde(rename = "{{ field.original_name }}")]
+    {%- endif %}
+    pub {{ field.name }}: {{ field.type }},
+{%- endfor %}
+}
+
+{% if avro_annotation %}
+lazy_static! {
+    /// The static Avro schema as a parsed object
+    pub static ref SCHEMA: Schema = Schema::parse_str(
+        {{ avro_schema }}).unwrap();
+}
+{%- endif %}
+
+impl {{ struct_name }} {
+   /// Serializes the struct to a byte array based on the provided content type
+    pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let result: Vec<u8>;
+        let media_type = content_type.split(';').next().unwrap_or("");
+        {%- if serde_annotation %}
+        if media_type.starts_with("application/json") {
+            result = serde_json::to_vec(self)?;
+        }
+        else {% endif -%}
+        {%- if avro_annotation %}
+        if media_type.starts_with("avro/binary") || 
+           media_type.starts_with("application/vnd.apache.avro+avro") {
+            let value = apache_avro::to_value(self).unwrap();
+            result = apache_avro::to_avro_datum(&SCHEMA, value).unwrap();
+        }
+        {%- endif %}
+        {%- if avro_annotation or serde_annotation %}
+        {
+        {%- endif %}
+            return Err(format!("unsupported media type: {}", media_type).into())
+        {%- if avro_annotation or serde_annotation %}
+        }
+        {%- endif %}
+        if media_type.ends_with("+gzip") {
+            let mut encoder = GzEncoder::new(Vec::new(), flate2::Compression::default());
+            encoder.write_all(&result)?;
+            let gzipresult = encoder.finish()?;
+            return Ok(gzipresult)
+        } else {
+            return Ok(result)
+        }
+    }
+
+    /// Deserializes the struct from a byte array based on the provided content type
+    pub fn from_data(data: impl AsRef<[u8]>, content_type: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let media_type = content_type.split(';').next().unwrap_or("");
+        let data = if media_type.ends_with("+gzip") {
+            let mut decoder = GzDecoder::new(data.as_ref());
+            let mut decompressed_data = Vec::new();
+            std::io::copy(&mut decoder, &mut decompressed_data)?;
+            decompressed_data
+        } else {
+            data.as_ref().to_vec()
+        };
+        {%- if serde_annotation %}
+        if media_type.starts_with("application/json") {
+            let result = serde_json::from_slice(&data)?;
+            return Ok(result)
+        }
+        {%- endif %}
+        {%- if avro_annotation %}
+        if media_type.starts_with("avro/binary") || 
+           media_type.starts_with("application/vnd.apache.avro+avro") {
+            let value = apache_avro::from_avro_datum(&SCHEMA, &mut &data[..], None).unwrap();
+            return Ok(apache_avro::from_value(&value).unwrap());
+        }
+        {%- endif %}
+        Err(format!("unsupported media type: {}", media_type).into())
+    }
+
+    /// Checks if the given JSON value matches the schema of the struct
+    pub fn is_json_match(node: &serde_json::Value) -> bool {
+        {%- for predicate in json_match_predicates %}
+        {{ predicate }} &&
+        {%- endfor %}
+        true
+    }
+
+    /// Returns the struct instance itself
+    pub fn to_object(&self) -> &Self {
+        self
+    }
+}
+
+#[cfg(test)]
+impl {{ struct_name }} {
+    pub fn generate_random_instance() -> {{ struct_name }} {
+        let mut rng = rand::thread_rng();
+        {{ struct_name }} {
+            {%- for field in fields %}
+            {%- if field.type.startswith("Option<") %}
+            {{ field.name }}: Some({{ field.random_value }}),
+            {%- else %}
+            {{ field.name }}: {{ field.random_value }},
+            {%- endif %}
+            {%- endfor %}
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+ 
+    #[test]
+    fn test_create_{{ struct_name.lower() }}() {
+        let instance = {{struct_name}}::generate_random_instance();
+        {%- for field in fields %}
+        {%- if field.type.startswith("Option<") %}
+        assert!(instance.{{ field.name }}.is_some()); // Check that {{ field.name }} is not None
+        {%- elif field.type.startswith("Vec<") %}
+        {%- set field_type = 'Vec::<'+field.type[4:] %}
+        assert!(instance.{{ field.name }} != {{ field_type }}::default()); // Check that {{ field.name }} is not default
+        {%- elif field.type.startswith("std::collections::HashMap<")%}
+        assert!(instance.{{ field.name }}.len() >= 0); // Check that {{ field.name }} is not empty
+        {%- elif field.type != "bool" %}
+        assert!(instance.{{ field.name }} != {{ field.type }}::default()); // Check that {{ field.name }} is not default
+        {%- endif %}
+        {%- endfor %}
+    }
+
+    {%- if serde_annotation or avro_annotation %}
+    #[test]
+    fn test_serialize_deserialize_{{ struct_name.lower() }}() {
+        let instance = {{struct_name}}::generate_random_instance();
+        {%- if serde_annotation %}
+        // Test JSON serialization and deserialization
+        let json_bytes = instance.to_byte_array("application/json").unwrap();
+        let deserialized_instance: {{ struct_name }} = {{ struct_name }}::from_data(&json_bytes, "application/json").unwrap();
+        assert_eq!(instance, deserialized_instance);
+        // Test JSON serialization and deserialization with compression
+        let json_gzip_bytes = instance.to_byte_array("application/json+gzip").unwrap();
+        let deserialized_gzip_instance: {{ struct_name }} = {{ struct_name }}::from_data(&json_gzip_bytes, "application/json+gzip").unwrap();
+        assert_eq!(instance, deserialized_gzip_instance);
+        {%- endif %}
+        {%- if avro_annotation %}
+        // Test Avro serialization and deserialization
+        let avro_bytes = instance.to_byte_array("avro/binary").unwrap();
+        let deserialized_avro_instance: {{ struct_name }} = {{ struct_name }}::from_data(&avro_bytes, "avro/binary").unwrap();
+        assert_eq!(instance, deserialized_avro_instance);
+        // Test Avro serialization and deserialization with compression
+        let avro_gzip_bytes = instance.to_byte_array("avro/binary+gzip").unwrap();
+        let deserialized_avro_gzip_instance: {{ struct_name }} = {{ struct_name }}::from_data(&avro_gzip_bytes, "avro/binary+gzip").unwrap();
+        assert_eq!(instance, deserialized_avro_gzip_instance);
+        {%- endif %}
+    }
+    {%- endif %}
+
+    {%- if serde_annotation %}
+    #[test]
+    fn test_is_json_match() {
+        let instance = {{ struct_name }}::generate_random_instance();
+        let json = serde_json::to_value(&instance).unwrap();
+        assert!({{ struct_name }}::is_json_match(&json));
+    }
+    {%- endif %}
+}

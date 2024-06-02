@@ -1,3 +1,5 @@
+""" Test Avro to Proto conversion """
+
 import os
 import sys
 import tempfile
@@ -16,7 +18,9 @@ import unittest
 from unittest.mock import patch
 
 class TestAvroToProto(unittest.TestCase):
+    """ Test Avro to Proto conversion"""
     def test_convert_address_avsc_to_proto(self):
+        """ Test converting an Avro schema to Proto"""
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
         proto_path = os.path.join(tempfile.gettempdir(), "avrotize", "address.proto")
@@ -25,8 +29,21 @@ class TestAvroToProto(unittest.TestCase):
             os.makedirs(dir, exist_ok=True)
         
         convert_avro_to_proto(avro_path, proto_path)           
+        
+    def test_convert_address_nn_avsc_to_proto(self):
+        """ Test converting an Avro schema to Proto"""
+        cwd = os.getcwd()        
+        avro_path = os.path.join(cwd, "test", "avsc", "address-nn.avsc")
+        proto_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-nn.proto")
+        dir = os.path.dirname(proto_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir, exist_ok=True)
+        
+        convert_avro_to_proto(avro_path, proto_path)           
+
 
     def test_convert_telemetry_avsc_to_proto(self):
+        """ Test converting an Avro schema to Proto"""
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
         proto_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry.proto")

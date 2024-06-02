@@ -25,6 +25,7 @@ class AvroToProto:
     def __init__(self) -> None:
         self.naming_mode: Literal['snake', 'pascal', 'camel'] = 'pascal'
         self.allow_optional: bool = False
+        self.default_namespace: str = ''
 
     def avro_primitive_to_proto_type(self, avro_type: str, dependencies: List[str]) -> str:
         """Map Avro primitive types to Protobuf types."""
@@ -233,23 +234,25 @@ class AvroToProto:
         raise ValueError(f"Unknown field type {field_type}")
 
     def avro_schema_to_proto_message(self, avro_schema: dict, proto_files: ProtoFiles) -> str:
+        """Convert an Avro schema to a Protobuf message definition."""
         comment = Comment('',{})
         if 'doc' in avro_schema:
             comment = Comment(avro_schema["doc"], {})
+        namespace = avro_schema.get("namespace", self.default_namespace)
         if avro_schema['type'] == 'record':
             message = self.convert_record_type(avro_schema, comment, proto_files)
-            file = next((f for f in proto_files.files if f.package == avro_schema["namespace"]), None)
+            file = next((f for f in proto_files.files if f.package == namespace), None)
             if not file:
-                file = ProtoFile({}, {}, {}, [], {}, avro_schema["namespace"])
+                file = ProtoFile({}, {}, {}, [], {}, namespace)
                 proto_files.files.append(file)
             file.messages[message.name] = message
         elif avro_schema['type'] == 'enum':
             enum_name = avro_schema['name']
             enum_symbols = {symbol: Field(comment, '', symbol, '', '', symbol, s, []) for s, symbol in enumerate(avro_schema['symbols'])}
             enum = Enum(comment, enum_name, enum_symbols)
-            file = next((f for f in proto_files.files if f.package == avro_schema["namespace"]), None)
+            file = next((f for f in proto_files.files if f.package == namespace), None)
             if not file:
-                file = ProtoFile({}, {}, {}, [], {}, avro_schema["namespace"])
+                file = ProtoFile({}, {}, {}, [], {}, namespace)
                 proto_files.files.append(file)
             file.enums[enum_name] = enum
         return avro_schema["name"]
@@ -350,4 +353,5 @@ def convert_avro_to_proto(avro_schema_path, proto_file_path, naming_mode: Litera
     avrotoproto = AvroToProto()
     avrotoproto.naming_mode = naming_mode
     avrotoproto.allow_optional = allow_optional
+    avrotoproto.default_namespace = os.path.splitext(os.path.basename(proto_file_path))[0]
     avrotoproto.convert_avro_to_proto(avro_schema_path, proto_file_path)

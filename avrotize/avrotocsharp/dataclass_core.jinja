@@ -1,0 +1,164 @@
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation %}
+    /// <summary>
+    /// Creates an object from the data
+    /// </summary>
+    /// <param name="data">The input data to convert</param>
+    /// <param name="contentTypeString">The content type string of the desired encoding</param>
+    /// <returns>The converted object</returns>
+    public static {{ class_name }}? FromData(object? data, string? contentTypeString )
+    {
+        if ( data == null ) return null;
+        if ( data is {{ class_name }}) return ({{ class_name }})data;
+        if ( contentTypeString == null ) contentTypeString = System.Net.Mime.MediaTypeNames.Application.Octet;
+        var contentType = new System.Net.Mime.ContentType(contentTypeString);
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation %}
+        if ( contentType.MediaType.EndsWith("+gzip"))
+        {
+            var stream = data switch
+            {
+                System.IO.Stream s => s, System.BinaryData bd => bd.ToStream(), byte[] bytes => new System.IO.MemoryStream(bytes),
+                _ => throw new NotSupportedException("Data is not of a supported type for gzip decompression")
+            };
+            using (var gzip = new System.IO.Compression.GZipStream(stream, System.IO.Compression.CompressionMode.Decompress))
+            {
+                System.IO.MemoryStream memoryStream = new System.IO.MemoryStream();
+                gzip.CopyTo(memoryStream);
+                memoryStream.Position = 0;
+                data = memoryStream.ToArray();
+            }
+        }
+    {%- endif %}
+    {%- if avro_annotation %}
+        if ( contentType.MediaType.StartsWith("avro/") || contentType.MediaType.StartsWith("application/vnd.apache.avro") )
+        {
+            var stream = data switch
+            {
+                System.IO.Stream s => s, System.BinaryData bd => bd.ToStream(), byte[] bytes => new System.IO.MemoryStream(bytes),
+                _ => throw new NotSupportedException("Data is not of a supported type for conversion to Stream")
+            };
+            #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
+            if (contentType.MediaType.StartsWith("avro/binary") || contentType.MediaType.StartsWith("application/vnd.apache.avro+avro"))
+            {
+                var reader = new global::Avro.Generic.GenericDatumReader<global::Avro.Generic.GenericRecord>({{ class_name }}.AvroSchema, {{ class_name }}.AvroSchema);
+                return new {{ class_name }}(reader.Read(null, new global::Avro.IO.BinaryDecoder(stream)));
+            }
+            if ( contentType.MediaType.StartsWith("avro/json") || contentType.MediaType.StartsWith("application/vnd.apache.avro+json"))
+            {
+                var reader = new global::Avro.Generic.GenericDatumReader<global::Avro.Generic.GenericRecord>({{ class_name }}.AvroSchema, {{ class_name }}.AvroSchema);
+                return new {{ class_name }}(reader.Read(null, new global::Avro.IO.JsonDecoder({{ class_name }}.AvroSchema, stream)));
+            }
+            #pragma warning restore CS8625
+        }    
+    {%- endif %}
+    {%- if system_text_json_annotation %}
+        if ( contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {
+            if (data is System.Text.Json.JsonElement) 
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>((System.Text.Json.JsonElement)data);
+            }
+            else if ( data is string)
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>((string)data);
+            }
+            else if (data is System.BinaryData)
+            {
+                return ((System.BinaryData)data).ToObjectFromJson<{{ class_name }}>();
+            }
+            else if (data is byte[])
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>(new ReadOnlySpan<byte>((byte[])data));
+            }
+            else if (data is System.IO.Stream)
+            {
+                return System.Text.Json.JsonSerializer.DeserializeAsync<{{ class_name }}>((System.IO.Stream)data).Result;
+            }
+        }
+    {%- endif %}
+    {%- if newtonsoft_json_annotation %}
+        if ( contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {
+            if (data is string)
+            {
+                return Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_name }}>((string)data);
+            }
+            else if (data is System.BinaryData)
+            {
+                return ((System.BinaryData)data).ToObjectFromJson<{{ class_name }}>();
+            }
+        }
+    {%- endif %}
+        throw new System.NotSupportedException($"Unsupported media type {contentType.MediaType}");
+    }
+    {%-endif %}
+
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation %}
+    /// <summary>
+    /// Converts the object to a byte array
+    /// </summary>
+    /// <param name="contentTypeString">The content type string of the desired encoding</param>
+    /// <returns>The encoded data</returns>
+    public byte[] ToByteArray(string contentTypeString)
+    {
+        var contentType = new System.Net.Mime.ContentType(contentTypeString);
+        byte[]? result = null;
+    {%- if avro_annotation %}
+        if (contentType.MediaType.StartsWith("avro/binary") || contentType.MediaType.StartsWith("application/vnd.apache.avro+avro"))
+        {
+            var stream = new System.IO.MemoryStream();
+            var writer = new global::Avro.Specific.SpecificDatumWriter<{{ class_name }}>({{ class_name }}.AvroSchema);
+            var encoder = new global::Avro.IO.BinaryEncoder(stream);
+            writer.Write(this, encoder);
+            encoder.Flush();
+            result = stream.ToArray();
+        }
+        else if (contentType.MediaType.StartsWith("avro/json") || contentType.MediaType.StartsWith("application/vnd.apache.avro+json"))
+        {
+            var stream = new System.IO.MemoryStream();
+            var writer = new global::Avro.Specific.SpecificDatumWriter<{{ class_name }}>({{ class_name }}.AvroSchema);
+            var encoder = new global::Avro.IO.JsonEncoder({{ class_name }}.AvroSchema, stream);
+            writer.Write(this, encoder);
+            encoder.Flush();
+            result = stream.ToArray();
+        }
+    {%- endif %}
+    {%- if system_text_json_annotation %}
+    if (contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {
+            result = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(this);
+        }
+    {%- endif %}
+    {%- if newtonsoft_json_annotation %}
+        if (contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {
+            result = System.Text.Encoding.GetEncoding(contentType.CharSet??"utf-8").GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(this));
+        }
+    {%- endif %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation %}
+    if (result != null && contentType.MediaType.EndsWith("+gzip"))
+        {
+            var stream = new System.IO.MemoryStream();
+            using (var gzip = new System.IO.Compression.GZipStream(stream, System.IO.Compression.CompressionMode.Compress))
+            {
+                gzip.Write(result, 0, result.Length);
+            }
+            result = stream.ToArray();
+        }
+    {%- endif %}
+        return ( result != null ) ? result : throw new System.NotSupportedException($"Unsupported media type {contentType.MediaType}");
+    }
+    {%- endif %}
+
+    {%- if system_text_json_annotation %}
+    /// <summary>
+    /// Checks if the JSON element matches the schema
+    /// </summary>
+    /// <param name="element">The JSON element to check</param>
+    public static bool IsJsonMatch(System.Text.Json.JsonElement element)
+    {
+        return 
+    {%- for clause in json_match_clauses %}
+        {{ clause }}{{ ' &&' if not loop.last }}
+    {%- endfor %};
+    }
+    {%- endif %}

@@ -1,0 +1,65 @@
+using System;
+using System.Collections.Generic;
+using NUnit.Framework;
+using FluentAssertions;
+
+{% if namespace %}
+namespace {{ namespace }}
+{
+{% endif %}
+{% set ind=4 if namespace else 0 %}
+{% filter indent(width=ind, first=True) %}
+/// <summary> Test class for {{ class_base_name }} </summary> 
+[TestFixture]
+public class {{ test_class_name }}
+{
+    private {{ class_base_name }} _instance = new {{ class_base_name }}();
+
+    /// <summary> Setup </summary>
+    [SetUp]
+    public void Setup()
+    {
+        {%- for field in fields %}
+        {%- if not field.is_const %}
+        _instance.{{ field.field_name }} = {{ field.test_value }};
+        {%- endif %}
+        {%- endfor %}
+    }
+
+    {%- for field in fields %}
+    /// <summary> Testing property {{ field.field_name }}  </summary>
+    [Test]
+    public void Test{{ field.field_name | replace ('@','') | pascal }}Property()
+    {
+        var testValue = {{ field.test_value }};
+        {%- if not field.is_const %}
+        _instance.{{ field.field_name }} = testValue;
+        {%- endif %}
+        {%- if field.is_primitive %}
+        {%- if field.field_type.startswith("List<") or field.field_type.startswith("Dictionary<") %}
+        _instance.{{ field.field_name }}.Should().AllBeEquivalentTo(testValue);
+        {%- else %}
+        _instance.{{ field.field_name }}.Should().Be(testValue);
+        {%- endif %}
+        {%- else %}
+        _instance.{{ field.field_name }}.Should().BeEquivalentTo(testValue);
+        {%- endif %}
+    }
+    {%- endfor %}
+    {%- if avro_annotation %}
+    /// <summary> Testing Avro serializer </summary>
+    [Test]
+    public void Test_ToByteArray_FromData()
+    {
+        var mediaType = "application/vnd.apache.avro+avro";
+        var bytes = _instance.ToByteArray(mediaType);
+        var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
+        _instance.Should().BeEquivalentTo(newInstance);
+    }
+
+    {%- endif %}
+}
+{% endfilter %}
+{% if namespace %}
+}
+{% endif %}

@@ -1,23 +1,20 @@
 <!-- omit from toc -->
 
-# Apache Avro Schema - Formal Specification
+# Avrotize Schema Specification
 
 <!-- omit from toc -->
 
 ## Abstract
 
-This document provides a comprehensive specification of the schema definition
-system utilized by Apache Avro. It details the structure and syntax of Avro
-schemas. The serialization rules of the Avro binary and JSON encodings are
-not defined in this document.
-
-> Note that some features marked PROPOSED are not defined by the Avro project
+This document provides defines Avrotize Schema model. Avrotize Schema builds on
+and is a superset of the [Apache
+Avro](https://avro.apache.org/docs/1.11.1/specification/) schema model.
 
 <!-- omit from toc -->
 
 ## Contents
 
-- [Apache Avro Schema - Formal Specification](#apache-avro-schema---formal-specification)
+- [Avrotize Schema Specification](#avrotize-schema-specification)
   - [Abstract](#abstract)
   - [Contents](#contents)
   - [1. Introduction](#1-introduction)
@@ -60,28 +57,46 @@ not defined in this document.
       - [3.9.1. `record` field Declarations](#391-record-field-declarations)
     - [3.10. `enum` Type](#310-enum-type)
     - [3.11. array](#311-array)
-    - [3.12. map](#394-map)
-    - [3.13. Type Unions](#310-type-unions)
-  - [4. The "Parsing Canonical Form" for Avro Schemas](#4-the-parsing-canonical-form-for-avro-schemas)
-      - [4.1. Transforming into Parsing Canonical Form](#41-transforming-into-parsing-canonical-form)
+    - [3.12. map](#312-map)
+    - [3.13. Type Unions](#313-type-unions)
+  - [4. The "Parsing Canonical Form" for Avro Schemas](#4-parsing-canonical-form-for-avro-schemas)
   - [5. Schema Fingerprints](#5-schema-fingerprints)
   - [6. Security Considerations](#6-security-considerations)
   - [7. IANA Considerations](#7-iana-considerations)
     - [7.1. Media Type Registration](#71-media-type-registration)
-    - [7.2. Schema reference parameter for Avro Schema](#72-schema-reference-parameter-for-avro-schema)
+    - [7.2. Schema reference parameter](#72-schema-reference-parameter)
   - [7. References](#7-references)
-
 
 ---
 
 ## 1. Introduction
 
-Apache Avro is a serialization framework used for data serialization within
-Apache Hadoop and many other messaging and eventing contexts. Avro provides a
-compact, fast binary data format and a simple integration with dynamic
-languages. Avro depends on schemas, defined in JSON format, that define what
-data is being serialized and deserialized. This document is a formal specification
-of the Avro schema system, detailing the syntax and semantics of Avro schemas.
+Avrotize Schema is a schema format to define structured data types in a platform
+and programming language-independent manner.
+
+Avrotize Schema is a full superset of the [Apache
+Avro](https://avro.apache.org/docs/1.11.1/specification/) schema model.
+
+Yet, the purpose of Avrotize Schema differs from Apache Avro Schema in that it
+is not primarily intended for serialization and deserialization of data using
+the Avro framework. Instead, Avrotize Schema is designed to capture any kind of
+structured data in a way that is easy to read and write, and can be used in any
+context where structured data definitions are needed.
+
+The Avrotize project provides converters from and to a variety of other schema
+models as well as database schema and data class code generation tools, all of
+which use Avrotize Schema as the internal representation of the metadata model
+on which they operate.
+
+Avrotize uses the extensibility of Apache Avro Schema to provide additional
+features and capabilities. Each Avrotize Schema is a valid Avro Schema, and
+Avrotize Schema can be used in place of Avro Schema in any Avro Schema context.
+
+As the Apache Avro project does not provide a formal specification that is
+independent of the framework implementation, this document also defines the Avro
+schema elements in a formal and independent manner, detailing the syntax and
+semantics. Avrotize extensions to Avro Schema are annotated as such in this 
+document.
 
 Avro Schemas are defined in JSON, which is easily readable and writable.
 
@@ -95,20 +110,20 @@ interpreted as described in RFC 2119.
 
 ### 3.1. Schema Declarations
 
-An **Avro schema** is a JSON value or object that defines the structure of data
+A **schema** is a JSON value or object that defines the structure of data
 being serialized or deserialized. Primitive type schemas are represented as JSON
 values (strings), while logical and complex type schemas are represented as JSON
 objects. Type unions are represented as JSON arrays.
 
-| Type kind | Avro Schema                                |
+| Type kind | Schema                                     |
 | --------- | ------------------------------------------ |
 | primitive | `"string"`                                 |
 | logical   | `{ "type": "int", "logicalType": "date" }` |
 | complex   | `{ "type": "array", "items": "string" }`   |
 | union     | `["null", "string"]`                       |
 
-Complex Avro schemas of type `record`, `enum`, `fixed` are
-[**named types**](#311-named-types), which have a **fullname** composed of a
+Complex schemas of type `record`, `enum`, `fixed` are
+[**named types**](#33-named-types), which have a **fullname** composed of a
 **namespace** and a **name**. The **namespace** is a string that commonly
 identifies the schema's organization or project, and the **name** is a string
 that identifies the schema within the namespace.
@@ -122,7 +137,7 @@ Subsequent references to a declared named type MUST be made by its **fullname**.
 
 #### 3.1.1. Schema documents
 
-An **Avro schema document**, which is a restriction of the general Avro schema
+A **schema document**, which is a restriction of the general Avro schema
 pattern to enable sharing of schemas across different parties, MUST contain
 either a single named type or a union of named types at its root. This
 restriction ensures that code generation tools can generate code for the schema
@@ -135,13 +150,13 @@ self-contained and can be easily shared and distributed.
 
 #### 3.1.2. Media Type
 
-The media type for **Avro schema documents** is `application/vnd.apache.avro.schema+json`.
+The media type for **schema documents** is `application/vnd.apache.avro.schema+json`.
 
 See [IANA Considerations](#5-iana-considerations) for more information.
 
 ### 3.2. Documentation Strings
 
-All Avro schemas and `record` field declarations MAY contain an OPTIONAL `doc`
+All schemas and `record` field declarations MAY contain an OPTIONAL `doc`
 attribute, which is a string that provides human-readable documentation for the
 schema. The `doc` attribute is used to describe the purpose and usage of the
 schema.
@@ -162,7 +177,7 @@ Example:
 
 #### 3.2.1. International Documentation Strings
 
-> This 3.2.1. section is a proposal and NOT normative
+> Avrotize extension
 
 The OPTIONAL `docs` attribute MAY contain a map of strings keyed by language codes to
 provide internationalized documentation for the schema. The language codes are defined
@@ -204,6 +219,9 @@ Example:
 ```
 
 ### 3.3. Named Types
+
+Named types allow for the definition of complex types that can be reused once
+declared and subsequently referenced by name within the schema.
 
 Named types MUST be defined with a REQUIRED `name` and OPTIONAL `namespace`
 attribute. Schemas with `record`, `enum`, and `fixed` types are named types.
@@ -282,7 +300,7 @@ old name and map it to the new name.
 
 #### 3.3.2. Alternate Names
 
-> Section 3.3.2. is a proposal and NOT normative
+> Avrotize extension
 
 All named types AND fields MAY have an OPTIONAL `altnames` attribute, which
 is a map of alternative names for the named type or field. Alternative names
@@ -301,12 +319,12 @@ map is keyed by the symbol name and contains the alternate name.
 ##### 3.3.2.1. Alternate Names for JSON Encoding
 
 For the "Plain JSON" encoding, the `altnames` attribute is used to map JSON
-identifiers that are incompatible with the Avro schema `name` restrictions. The
+identifiers that are incompatible with the schema `name` restrictions. The
 reserved key for this purpose is `json`.
 
 The following is an example of a record schema named `Contact` in the
 `com.example` namespace. It has a JSON field names `first-name` and `last-name`
-that are mapped to the Avro field names `firstName` and `lastName` respectively.
+that are mapped to the field names `firstName` and `lastName` respectively.
 
 ```json
 {
@@ -420,22 +438,22 @@ each subsequent word is capitalized, with no spaces or underscores.
 
 ### 3.5. Extensibility
 
-Avro schemas are extensible, allowing for the addition of any user-defined
-attributes to any schema. Extension attributes are ignored by Avro's built-in
-processing, but can be used by custom processing tools. Extension attributes
-MUST be made accessible by Apache Avro implementations for reading and writing.
+Schemas are extensible, allowing for the addition of any user-defined attributes
+to any schema. Extension attributes MUST be ignored by processors that do not
+know how to handle them. Extension attributes MUST be made accessible by Apache
+implementations for reading and writing by clients.
 
-To avoid conflicts with future Avro extensions, the names of user-defined
+To avoid conflicts with future schema extensions, the names of user-defined
 attributes SHOULD be chosen to avoid collisions. It is RECOMMENDED to use a
 prefix, as in `myorg_myattribute`, to denote user-defined attributes.
 
 ### 3.6. Primitive Type Schemas
 
-The primitive types in Avro are defined in this section.
+The primitive types are defined in this section.
 
 #### 3.6.1. null
 
-Represents an absence of a value. Used in Avro to allow optional fields or to
+Represents an absence of a value. Used to allow optional fields or to
 represent non-existent values in data records.
 
 #### 3.6.2. boolean
@@ -501,7 +519,16 @@ used and can then be referenced by its [fullname](#313-named-types).
 ### 3.8. Logical Types
 
 Logical types provide a way to extend the primitive types with additional
-semantics.
+semantics. Logical types are defined as an attribute in the schema that
+annotates the primitive type. The `logicalType` attribute value is a string that
+identifies the logical type.
+
+Applications that do not recognize the logical type MUST ignore the `logicalType`
+attribute and treat the schema as if the logical type were not present.
+
+The following logical types are well-known and defined in this document. Avrotize
+Schema extends the Avro logical type set with RFC 3339 date and time annotations
+for `string` types.
 
 #### 3.8.1. decimal
 
@@ -510,7 +537,7 @@ It is defined by two attributes: `precision` and `scale`. The `precision`
 attribute specifies the total number of digits in the number, while the `scale`
 attribute specifies the number of digits to the right of the decimal point.
 
-The `decimal` logical type is represented in Avro as a `bytes` or `fixed` type,
+The `decimal` logical type is represented as a `bytes` or `fixed` type,
 where the bytes contain the two's complement representation of the decimal
 number. The REQUIRED `precision` and OPTIONAL `scale` attributes are stored as
 metadata in the schema.
@@ -522,6 +549,18 @@ metadata in the schema.
   "precision": 10,
   "scale": 2
 }
+```
+
+In Avrotize Schema, the `decimal` logical type MAY also annotate the `string`
+primitive type. In this case, the string value is a decimal number represented as
+a string value. The [ABNF](https://tools.ietf.org/html/rfc5234) grammar for the
+`decimal` logical type when expressed as a string is as follows:
+
+```abnf
+decimal = [ sign ] int [ frac ]
+sign    = "+" / "-"
+int     = 1*DIGIT
+frac    = "." 1*DIGIT
 ```
 
 #### 3.8.2. UUID
@@ -545,9 +584,11 @@ Example:
 
 #### 3.8.3. date
 
-The `date` logical type represents a calendar date without a time component. It
-is defined as the number of days since the Unix epoch, January 1, 1970. The
-`date` logical type annotates the `int` primitive type.
+The `date` logical type represents a calendar date without a time component. 
+
+In Avro Schema, the logical type annotates the `int` primitive type. It is
+defined as the number of days since the Unix epoch, January 1, 1970. The `date`
+logical type annotates the `int` primitive type.
 
 Example:
 
@@ -558,11 +599,18 @@ Example:
 }
 ```
 
+In Avrotize Schema, the `date` logical type MAY additionally annotate the
+`string` primitive type. In this case, the string value is an [RFC
+3339](https://tools.ietf.org/html/rfc3339) "full-date" string, i.e. a date
+without a time component.
+
 #### 3.8.4. time-millis
 
 The `time-millis` logical type represents a time of day with millisecond
-precision. It is defined as the number of milliseconds after midnight. The
-`time-millis` logical type annotates the `int` primitive type.
+precision.
+
+In Avro Schema, the `time-millis` logical type annotates the `int` primitive
+type. It is defined as the number of milliseconds after midnight.
 
 Example:
 
@@ -573,10 +621,17 @@ Example:
 }
 ```
 
+In Avrotize Schema, the `time-millis` logical type can also annotate the
+`string` primitive type. In this case, the string value is an [RFC
+3339](https://tools.ietf.org/html/rfc3339) "partial-time" string, i.e. a time
+of day with millisecond precision.
+
 #### 3.8.5. time-micros
 
 The `time-micros` logical type represents a time of day with microsecond
-precision. It is defined as the number of microseconds after midnight. The
+precision. 
+
+In Avro Schema, it is defined as the number of microseconds after midnight. The
 `time-micros` logical type annotates the `long` primitive type.
 
 Example:
@@ -588,12 +643,19 @@ Example:
 }
 ```
 
+In Avrotize Schema, the `time-micros` logical type MAY also annotate the
+`string` primitive type. In this case, the string value is an [RFC
+3339](https://tools.ietf.org/html/rfc3339) "partial-time" string, i.e. a time of
+day with microsecond precision.
+
 #### 3.8.6. timestamp-millis
 
 The `timestamp-millis` logical type represents an instant in time with
-millisecond precision. It is defined as the number of milliseconds since the Unix
-epoch, January 1, 1970 00:00:00.00 UTC. The `timestamp-millis` logical type annotates the `long`
-primitive type.
+millisecond precision. 
+
+In Avro Schema, it is defined as the number of milliseconds since the
+Unix epoch, January 1, 1970 00:00:00.00 UTC. The `timestamp-millis` logical type
+annotates the `long` primitive type.
 
 Example:
 
@@ -604,12 +666,19 @@ Example:
 }
 ```
 
+In Avrotize Schema, the `timestamp-millis` logical type MAY also annotate the
+`string` primitive type. In this case, the string value is an [RFC
+3339](https://tools.ietf.org/html/rfc3339) "date-time" string, i.e. a date and
+time with millisecond precision.
+
 #### 3.8.7. timestamp-micros
 
 The `timestamp-micros` logical type represents an instant in time with
-microsecond precision. It is defined as the number of microseconds since the Unix
-epoch, January 1, 1970 00:00:00.00 UTC. The `timestamp-micros` logical type annotates the `long`
-primitive type.
+microsecond precision. 
+
+In Avro Schema, it is defined as the number of microseconds since the Unix
+epoch, January 1, 1970 00:00:00.00 UTC. The `timestamp-micros` logical type
+annotates the `long` primitive type.
 
 Example:
 
@@ -620,12 +689,19 @@ Example:
 }
 ```
 
+In Avrotize Schema, the `timestamp-micros` logical type MAY also annotate the
+`string` primitive type. In this case, the string value is an [RFC
+3339](https://tools.ietf.org/html/rfc3339) "date-time" string, i.e. a date and
+time with microsecond precision.
+
 #### 3.8.8. local-timestamp-millis
 
 The `local-timestamp-millis` logical type represents an instant in time with
-millisecond precision in the local timezone. It is defined as the number of
-milliseconds since the Unix epoch, January 1, 1970 00:00:00.00 in the local
-timezone. The `local-timestamp-millis` logical type annotates the `long` primitive type.
+millisecond precision in the local timezone. 
+
+In Avro Schema, it is defined as the number of milliseconds since the Unix
+epoch, January 1, 1970 00:00:00.00 in the local timezone. The
+`local-timestamp-millis` logical type annotates the `long` primitive type.
 
 Example:
 
@@ -636,12 +712,19 @@ Example:
 }
 ```
 
+In Avrotize Schema, the `local-timestamp-millis` logical type MAY also annotate
+the `string` primitive type. In this case, the string value is an [RFC
+3339](https://tools.ietf.org/html/rfc3339) "date-time" string, i.e. a date and
+time with millisecond precision, whereby the offset is ignored.
+
 #### 3.8.9. local-timestamp-micros
 
 The `local-timestamp-micros` logical type represents an instant in time with
-microsecond precision in the local timezone. It is defined as the number of
-microseconds since the Unix epoch, January 1, 1970 00:00:00.00 in the local
-timezone. The `local-timestamp-micros` logical type annotates the `long` primitive type.
+microsecond precision in the local timezone. 
+
+In Avro Schema, it is defined as the number of microseconds since the Unix
+epoch, January 1, 1970 00:00:00.00 in the local timezone. The
+`local-timestamp-micros` logical type annotates the `long` primitive type.
 
 Example:
 
@@ -652,6 +735,11 @@ Example:
 }
 ```
 
+In Avrotize Schema, the `local-timestamp-micros` logical type MAY also annotate
+the `string` primitive type. In this case, the string value is an [RFC
+3339](https://tools.ietf.org/html/rfc3339) "date-time" string, i.e. a date and
+time with microsecond precision, whereby the offset is ignored.
+
 #### 3.8.10. duration
 
 The duration logical type represents an amount of time defined by a number of
@@ -661,10 +749,10 @@ is measured, the number of days in the month and number of milliseconds in a day
 may differ. Other standard periods such as years, quarters, hours and minutes
 can be expressed through these basic periods.
 
-A duration logical type annotates Avro fixed type of size 12, which stores three
-little-endian unsigned integers that represent durations at different
-granularities of time. The first stores a number in months, the second stores a
-number in days, and the third stores a number in milliseconds.
+In Avro Schema, a duration logical type annotates fixed type of size 12, which
+stores three little-endian unsigned integers that represent durations at
+different granularities of time. The first stores a number in months, the second
+stores a number in days, and the third stores a number in milliseconds.
 
 Example:
 
@@ -676,6 +764,10 @@ Example:
   "logicalType": "duration"
 }
 ```
+
+In Avrotize Schema, the `duration` logical type MAY also annotate the `string`
+primitive type. In this case, the string value is an [RFC
+3339](https://tools.ietf.org/html/rfc3339) "duration" string (Appendix A).
 
 ### 3.9. `record` Type
 
@@ -699,9 +791,9 @@ A field declaration is an object that contains the following attributes:
   This restriction ensures that the `name` attribute is a valid identifier in
   most programming languages and databases.
 - `aliases`: See [Alias Names](#331-alias-names).
-- PROPOSED: `altnames`: See [Alternate Names](#332-alternate-names).
+- `altnames`: See [Alternate Names](#332-alternate-names).
 - `type`: The type of the field. The `type` attribute's value MUST be an
-  [Avro schema](#31-schema-declarations) expression.
+  [schema](#31-schema-declarations) expression.
 - `doc`, `docs`: See [Documentation Strings](#32-documentation-strings).
 - `default`: The default value of the field. The `default` attribute's value
   MUST be a valid value of the field's type. The `default` attribute is OPTIONAL.
@@ -715,10 +807,10 @@ The `default` attribute is used to provide a default value for the field when
 the field is not present in the serialized data.
 
 The value of the `default` attribute MUST be a valid value of the field's type.
-Since the value is declared as a JSON value in the Avro Schema, the default
+Since the value is declared as a JSON value in the schema, the default
 value MUST be encoded in JSON in accordance with the following mapping:
 
-| Avro Type | JSON Type | Example    | Note                                                 |
+| Type      | JSON Type | Example    | Note                                                 |
 | --------- | --------- | ---------- | ---------------------------------------------------- |
 | null      | null      | `null`     |                                                      |
 | boolean   | boolean   | `true`     |                                                      |
@@ -740,10 +832,10 @@ symbols.
 
 The following attributes are used to define an `enum` type:
 
-- `name`, `namespace`, `aliases`, PROPOSED: `altnames`: See [Named Types](#33-named-types).
-- `doc`, PROPOSED: `docs`: See [Documentation Strings](#32-documentation-strings).
+- `name`, `namespace`, `aliases`, `altnames`: See [Named Types](#33-named-types).
+- `doc`, `docs`: See [Documentation Strings](#32-documentation-strings).
 - `symbols`: An array of strings that represent the symbols of the enum.
-- PROPOSED: `altsymbols`: See [Alternate Names](#332-alternate-names).
+- `altsymbols`: See [Alternate Names](#332-alternate-names).
 
 Example:
 
@@ -764,7 +856,7 @@ the `items` attribute.
 The following attributes are used to define an `array` type:
 
 - `items`: The type of the elements in the array. The `items` attribute's value
-  MUST be an [Avro schema](#31-schema-declarations) expression.
+  MUST be an [schema](#31-schema-declarations) expression.
 - `default`: The default value of the array. The `default` attribute's value
   MUST be a valid value of the array's type. The `default` attribute is OPTIONAL.
 
@@ -785,7 +877,7 @@ and the values are of the specified type.
 The following attributes are used to define a `map` type:
 
 - `values`: The type of the values in the map. The `values` attribute's value
-  MUST be an [Avro schema](#31-schema-declarations) expression.
+  MUST be an [schema](#31-schema-declarations) expression.
 - `default`: The default value of the map. The `default` attribute's value MUST
   be a valid value of the map's type. The `default` attribute is OPTIONAL.
 
@@ -800,7 +892,7 @@ Example:
 
 ### 3.13. Type Unions
 
-A type union is an array of Avro schema expressions. A value of a type union
+A type union is an array of schema expressions. A value of a type union
 MUST be a valid value of exactly one of the types in the union.
 
 All types in a type union MUST be distinct.
@@ -840,7 +932,7 @@ With multiple records in a type union being permitted, it is RECOMMENDED for all
 such records to be structurally distinct. This means that the records should
 have different fields or field types. This is to help avoid ambiguity when
 reading data that is serialized with a type union in cases where data
-structuress are described with Avro Schema, but a data serialization model is
+structuress are described with schema, but a data serialization model is
 used where the data encoding does not support type markers.
 
 ```json
@@ -864,108 +956,87 @@ used where the data encoding does not support type markers.
 ]
 ```
 
-## 4. The "Parsing Canonical Form" for Avro Schemas
+## 4. Parsing Canonical Form for Avro Schemas
 
-One of the defining characteristics of Avro's binary encoding is that a reader
-must use the schema used by the writer of the data in order to know how to read
-the data. This assumption results in a data format that’s compact and also
-amenable to many forms of schema evolution. However, the specification so far
-has not defined what it means for the reader to have the “same” schema as the
-writer. Does the schema need to be textually identical? Well, clearly adding or
-removing some whitespace to a JSON expression does not change its meaning. At
-the same time, reordering the fields of records clearly does change the meaning.
-So what does it mean for a reader to have "the same" schema as a writer?
+### 4.1 Overview
 
-The _Parsing Canonical Form_ is a transformation of a writer’s schema that let’s
-us define what it means for two schemas to be "the same" for the purpose of
-reading data written against the schema. It is called _Parsing Canonical Form_
-because the transformations strip away parts of the schema, like "doc"
-attributes, that are irrelevant to readers trying to parse incoming data. It is
-called _Canonical Form_ because the transformations normalize the JSON text
-(such as the order of attributes) in a way that eliminates unimportant
-differences between schemas. If the Parsing Canonical Forms of two different
-schemas are textually equal, then those schemas are "the same" as far as any
-reader is concerned, i.e., there is no serialized data that would allow a reader
-to distinguish data generated by a writer using one of the original schemas from
-data generated by a writing using the other original schema.
+The parsing canonical form of an Avrotize Schema is a JSON representation of the
+schema that has a well-defined structure and ordering of elements, such that two
+schemas that are semantically equivalent have the same canonical form.
 
-The next subsection specifies the transformations that define Parsing Canonical
-Form. But with a well-defined canonical form, it can be convenient to go one
-step further, transforming these canonical forms into simple integers
-(“fingerprints”) that can be used to uniquely identify schemas. The subsection
-after next recommends some standard practices for generating such fingerprints.
+The Parsing Canonical Form (PCF) standardizes schemas by removing irrelevant
+differences. This ensures that two schemas are considered identical if their
+PCFs match. PCF normalizes the JSON text, disregarding attributes irrelevant to
+parsing. If the PCFs of two schemas are textually identical, then the schemas
+are considered the same for reading data.
 
-#### 4.1. Transforming into Parsing Canonical Form
+### 4.2 Transforming into Parsing Canonical Form
 
-Assuming an input schema (in JSON form) that’s already UTF-8 text for a valid
-Avro schema (including all quotes as required by JSON), the following
-transformations will produce its Parsing Canonical Form:
+To transform a schema into its Parsing Canonical Form, apply the following steps
+to the schema in JSON format:
 
-1. [PRIMITIVES] Convert primitive schemas to their simple form (e.g., int
-   instead of {"type":"int"}).
-2. [FULLNAMES] Replace short names with fullnames, using applicable namespaces
-   to do so. Then eliminate namespace attributes, which are now redundant.
-3. [STRIP] Keep only attributes that are relevant to parsing data, which are:
-   `type`, `name`, `fields`, `symbols`, `items`, `values`, `size`. Strip all
-   others (e.g., doc and aliases).
-4. [ORDER] Order the appearance of fields of JSON objects as follows: `name`,
-   `type`, `fields`, `symbols`, `items`, `values`, `size`. For example, if an
-   object has `type`, `name`, and `size` fields, then the `name` field should appear
-   first, followed by the `type` and then the `size` fields.
-5. [STRINGS] For all JSON string literals in the schema text, replace any
-   escaped characters (e.g., \uXXXX escapes) with their UTF-8 equivalents.
-6. [INTEGERS] Eliminate quotes around and any leading zeros in front of JSON
-   integer literals (which appear in the size attributes of fixed schemas).
-7. [WHITESPACE] Eliminate all whitespace in JSON outside of string literals.
+1. **Primitive Conversion (PRIMITIVES)**: Convert primitive schemas to their
+   simple form (e.g., `int` instead of `{"type":"int"}`).
+2. **Namespace Handling (FULLNAMES)**: Replace short names with fullnames using
+   the applicable namespaces, then remove namespace attributes.
+3. **Attribute Stripping (STRIP)**: Retain only attributes relevant to parsing
+   (`type`, `name`, `fields`, `symbols`, `items`, `values`, `size`). Remove
+   others (e.g., `doc`, `aliases`).
+4. **Field Ordering (ORDER)**: Order JSON object fields as follows: `name`,
+   `type`, `fields`, `symbols`, `items`, `values`, `size`. For example, for an
+   object with `type`, `name`, and `size` fields, the `name` field should appear
+   first, followed by `type`, and then `size`.
+5. **String Normalization (STRINGS)**: Replace escaped characters in JSON string
+   literals with their UTF-8 equivalents.
+6. **Integer Normalization (INTEGERS)**: Remove quotes around and leading zeros
+   from JSON integer literals in `size` attributes.
+7. **Whitespace Removal (WHITESPACE)**: Eliminate all whitespace outside JSON
+   string literals.
 
 ## 5. Schema Fingerprints
 
-"[A] fingerprinting algorithm is a procedure that maps an arbitrarily large data
-item (such as a computer file) to a much shorter bit string, its fingerprint,
-that uniquely identifies the original data for all practical purposes" (quoted
-from Wikipedia). In the Avro context, fingerprints of Parsing Canonical Form can
-be useful in a number of applications; for example, to cache encoder and decoder
-objects, to tag data items with a short substitute for the writer’s full schema,
-and to quickly negotiate common-case schemas between readers and writers.
+### 5.1 Overview
 
-In designing fingerprinting algorithms, there is a fundamental trade-off between
-the length of the fingerprint and the probability of collisions. To help
-application designers find appropriate points within this trade-off space, while
-encouraging interoperability and ease of implementation, we recommend using one
-of the following three algorithms when fingerprinting Avro schemas:
+A fingerprinting algorithm maps a large data item to a shorter bit string,
+uniquely identifying the original data for practical purposes. Fingerprints of
+PCFs facilitate various applications, such as caching encoders/decoders, tagging
+data with schema identifiers, and negotiating common schemas between readers and
+writers.
 
-- When applications can tolerate longer fingerprints, we recommend using the
-  SHA-256 digest algorithm to generate 256-bit fingerprints of Parsing Canonical
-  Forms. Most languages today have SHA-256 implementations in their libraries.
-- At the opposite extreme, the smallest fingerprint we recommend is a 64-bit
-  Rabin fingerprint. Below, we provide pseudo-code for this algorithm that can
-  be easily translated into any programming language. 64-bit fingerprints should
-  guarantee uniqueness for schema caches of up to a million entries (for such a
-  cache, the chance of a collision is 3E-8). We don’t recommend shorter
-  fingerprints, as the chances of collisions is too great (for example, with
-  32-bit fingerprints, a cache with as few as 100,000 schemas has a 50% chance
-  of having a collision).
-- Between these two extremes, we recommend using the
-  [MD5 message digest](https://en.wikipedia.org/wiki/MD5) to generate 128-bit
-  fingerprints. These make sense only where very large numbers of schemas are
-  being manipulated (tens of millions); otherwise, 64-bit fingerprints should be
-  sufficient. As with SHA-256, MD5 implementations are found in most libraries
-  today.
+### 5.2 Recommended Fingerprinting Algorithms
 
-These fingerprints are not meant to provide any security guarantees, even the
-longer SHA-256-based ones. Most Avro applications should be surrounded by
-security measures that prevent attackers from writing random data and otherwise
-interfering with the consumers of schemas. We recommend that these surrounding
-mechanisms be used to prevent collision and pre-image attacks (i.e., “forgery”)
-on schema fingerprints, rather than relying on the security properties of the
-fingerprints themselves.
+#### 5.2.1 SHA-256
 
-Rabin fingerprints are
-[cyclic redundancy checks](https://en.wikipedia.org/wiki/Cyclic_redundancy_check)
-computed using irreducible polynomials. In the style of the
-[Appendix of RFC 1952 (pg 10)](https://www.ietf.org/rfc/rfc1952.txt), which
-defines the CRC-32 algorithm, here’s our definition of the 64-bit AVRO
-fingerprinting algorithm:
+For applications tolerating longer fingerprints, use the SHA-256 digest
+algorithm to generate 256-bit fingerprints. SHA-256 implementations are widely
+available in many programming languages.
+
+#### 5.2.2 Rabin Fingerprint (64-bit)
+
+For minimal fingerprint length, use a 64-bit Rabin fingerprint. This provides
+sufficient uniqueness for schema caches up to a million entries, with a
+collision probability of 3E-8. We do not recommend shorter fingerprints due to
+higher collision probabilities.
+
+#### 5.2.3 MD5
+
+For intermediate fingerprint length, use the MD5 message digest to generate
+128-bit fingerprints. MD5 is suitable for handling tens of millions of schemas,
+but for smaller sets, 64-bit fingerprints are sufficient. MD5 implementations
+are commonly available.
+
+### 5.3 Security Considerations
+
+These fingerprints do not provide security guarantees. Surrounding security
+mechanisms should prevent collision and pre-image attacks on schema
+fingerprints, rather than relying on the security properties of the
+fingerprints.
+
+### 5.4 Rabin Fingerprint Algorithm
+
+Rabin fingerprints use cyclic redundancy checks computed with irreducible
+polynomials. Below is the definition of the 64-bit Avro fingerprinting
+algorithm:
 
 ```java
 long fingerprint64(byte[] buf) {
@@ -990,12 +1061,11 @@ void initFPTable() {
 }
 ```
 
-Readers interested in the mathematics behind this algorithm may want to read
-[Chapter 14 of the Second Edition of Hacker’s Delight](https://books.google.com/books?id=XD9iAwAAQBAJ&pg=PA319). (Unlike RFC-1952 and the
-book chapter, we prepend a single one bit to messages. We do this because CRCs
-ignore leading zero bits, which can be problematic. Our code prepends a one-bit
-by initializing fingerprints using EMPTY, rather than initializing using zero as
-in RFC-1952 and the book chapter.)
+For the mathematics behind this algorithm, refer to [Chapter 14 of Hacker’s
+Delight, Second
+Edition](https://books.google.com/books?id=XD9iAwAAQBAJ&pg=PA319). This
+implementation prepends a single one-bit to messages to address the issue of
+CRCs ignoring leading zero bits.
 
 ## 6. Security Considerations
 
@@ -1010,9 +1080,7 @@ data structures.
 This specification defines the `application/vnd.apache.avro.schema+json` media
 type for Avro Schema document that shall be registered with IANA.
 
-### 7.2. Schema reference parameter for Avro Schema
-
-> Section 7.2. is a proposal and NOT normative
+### 7.2. Schema reference parameter 
 
 This specification defines the `schema` reference parameter for Avro Schema
 documents that shall be registered with IANA for use in conjunction the

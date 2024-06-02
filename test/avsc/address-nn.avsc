@@ -1,0 +1,61 @@
+{
+    "type": "record",
+    "name": "Address",
+    "fields": [
+        {
+            "name": "type",
+            "type": "string",
+            "doc": "The type of the record",
+            "const": "address"
+        },
+        {
+            "name": "postOfficeBox",
+            "type": [
+                "null",
+                "string"
+            ],
+            "doc": "The post office box number"
+        },
+        {
+            "name": "extendedAddress",
+            "type": [
+                "null",
+                "string"
+            ],
+            "doc": "The extended address"
+        },
+        {
+            "name": "streetAddress",
+            "type": [
+                "null",
+                "string"
+            ],
+            "doc": "The street address"
+        },
+        {
+            "name": "locality",
+            "type": "string",
+            "doc": "The locality"
+        },
+        {
+            "name": "region",
+            "type": "string",
+            "doc": "The region",
+            "default": "None"
+        },
+        {
+            "name": "postalCode",
+            "type": [
+                "null",
+                "string"
+            ],
+            "doc": "The postal code"
+        },
+        {
+            "name": "countryName",
+            "type": "string",
+            "doc": "The country name"
+        }
+    ],
+    "doc": "An address similar to http://microformats.org/wiki/h-card"
+}

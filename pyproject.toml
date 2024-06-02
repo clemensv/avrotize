@@ -26,8 +26,13 @@ dependencies = [
     "jsoncomparison>=1.1.0",
     "requests>=2.31.0",
     "azure-kusto-data>=4.4.1",
+    "azure-identity>=1.6.0",
+    "datapackage>=1.15.4",
+    "jinja2>=3.1.4",
+    "pyiceberg>=0.6.1",
 ]
-dev-dependencies = [
+[project.optional-dependencies]
+dev = [
     "pytest>=7.2.1",
     "fastavro>=1.9.4",
     "xmlschema>=3.0.2",
@@ -38,6 +43,13 @@ dev-dependencies = [
     "pydantic>=2.7.1",
     "avro>=1.11.3",
     "testcontainers>=4.4.1",
+    "pymysql>=1.1.0",
+    "psycopg2>=2.9.9",
+    "pyodbc>=5.1.0",
+    "pymongo>=4.7.2",
+    "oracledb>=2.2.1",
+    "cassandra-driver>=3.29.1",
+    "sqlalchemy>=2.0.15"
 ]
 
 [project.scripts]

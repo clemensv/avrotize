@@ -1,0 +1,74 @@
+{%- if avro_annotation %}
+use lazy_static::lazy_static;
+use apache_avro::Schema;
+use apache_avro::{Reader, Writer};
+{%- endif %}
+{%- if serde_annotation %}
+use serde::{self,Serialize, Deserialize};
+{%- endif %}
+
+#[derive(Debug{%- if serde_annotation %}, Serialize, Deserialize{%- endif %}, PartialEq, Clone, Default)]
+pub enum {{ enum_name }} {
+    #[default]
+{%- for symbol in symbols %}
+    {{ symbol }},
+{%- endfor %}
+}
+
+impl {{ enum_name }} {
+    {%- if avro_annotation %}
+    lazy_static! {
+        /// The static Avro schema as a parsed object
+        pub static ref SCHEMA: Schema = Schema::parse_str(r#"{{ avro_schema | escape }}"#).unwrap();
+    }
+    {%- endif %}
+}
+
+{%- if serde_annotation or avro_annotation %}
+impl {{ enum_name }} {
+    pub fn is_json_match(node: &serde_json::Value) -> bool {
+        return node.is_string();
+    }
+
+    /// Returns the struct instance itself
+    pub fn to_object(&self) -> &Self {
+        return self;
+    }
+}
+{%- endif %}
+
+#[cfg(test)]
+impl {{ enum_name }} {
+    pub fn generate_random_instance() -> {{ enum_name }} {
+        let mut rng = rand::thread_rng();
+        match rand::Rng::gen_range(&mut rng, 0..{{ symbols | length }}) {
+            {%- for symbol in symbols %}
+            {{ loop.index0 }} => {{ enum_name }}::{{ symbol }},
+            {%- endfor %}
+            _ => panic!("Invalid random index generated"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::Rng;
+
+    #[test]
+    fn test_serialize_deserialize_{{ enum_name.lower() }}() {
+        {%- for symbol in symbols %}
+        let instance = {{ enum_name }}::{{ symbol }};
+        {%- if serde_annotation %}
+        let json_bytes = serde_json::to_vec(&instance).unwrap();
+        let deserialized_instance: {{ enum_name }} = serde_json::from_slice(&json_bytes).unwrap();
+        assert_eq!(instance, deserialized_instance);
+        {%- endif %}
+        {%- if avro_annotation %}
+        let avro_bytes = instance.to_byte_array("avro/binary").unwrap();
+        let deserialized_avro_instance: {{ enum_name }} = {{ enum_name }}::from_data(&avro_bytes, "avro/binary").unwrap();
+        assert_eq!(instance, deserialized_avro_instance);
+        {%- endif %}
+        {%- endfor %}
+    }
+}

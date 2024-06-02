@@ -310,8 +310,10 @@ class AvroToXSD:
 
     def convert_avro_to_xsd(self, avro_schema_path: str, xml_file_path: str) -> None:
         """Convert Avro schema file to XML schema file."""
-        with open(avro_schema_path, 'r') as avro_file:
+        with open(avro_schema_path, 'r', encoding='utf-8') as avro_file:
+           with open(avro_schema_path, 'r', encoding='utf-8') as avro_file:
             avro_schema = json.load(avro_file)
+            
         xml_schema = self.avro_schema_to_xsd(avro_schema)
         self.save_xsd_to_file(xml_schema, xml_file_path)
 

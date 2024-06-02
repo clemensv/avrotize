@@ -1,0 +1,151 @@
+package {{ base_package }}
+
+import (
+    {%- if "time.Time" in imports %}
+    "time"
+    {%- endif %}
+    {%- if json_annotation %}
+    "encoding/json"
+    {%- endif %}
+    {%- if json_annotation or avro_annotation %}
+    "compress/gzip"
+    "bytes"
+    "fmt"
+    "io"
+    "strings"
+    {%- endif %}
+    {%- if avro_annotation %}
+    "github.com/hamba/avro/v2"
+    {%- endif %}
+    {%- for ref_pkg in referenced_packages %}
+    "{{ ref_pkg }}"
+    {%- endfor %}
+)
+
+{%- if doc %}
+    // {{ doc }}
+{%- endif %}
+type {{ struct_name }} struct {
+    {%- for field in fields %}
+    {{ field.name }} {{ field.type }}{% if json_annotation or avro_annotation %} `{%- if json_annotation -%}json:"{{ field.original_name }}"{%- endif %}{%- if avro_annotation -%} avro:"{{ field.original_name }}"{%- endif -%}`{% endif %}
+    {%- endfor %}
+}
+
+{%- if avro_annotation %}
+var {{ struct_name }}Schema, _ = avro.Parse(`{{ avro_schema }}`)
+{% endif %}
+
+{%- if json_annotation or avro_annotation %}
+func (s *{{ struct_name }}) ToByteArray(contentType string) ([]byte, error) {
+    var result []byte
+    var err error
+    mediaType := strings.Split(contentType, ";")[0]
+    switch mediaType {
+    {%- if json_annotation %}
+    case "application/json":
+        result, err = json.Marshal(s)
+        if err != nil {
+            return nil, err
+        }
+    {%- endif %}
+    {%- if avro_annotation %}
+    case "avro/binary", "application/vnd.apache.avro+avro":
+        result, err = avro.Marshal({{ struct_name }}Schema, s)
+        if err != nil {
+            return nil, err
+        }
+    {%- endif %}
+    default:
+        return nil, fmt.Errorf("unsupported media type: %s", mediaType)
+    }
+    if strings.HasSuffix(mediaType, "+gzip") {
+        var buf bytes.Buffer
+        gzipWriter := gzip.NewWriter(&buf)
+        _, err = gzipWriter.Write(result)
+        if err != nil {
+            return nil, err
+        }
+        err = gzipWriter.Close()
+        if err != nil {
+            return nil, err
+        }
+        result = buf.Bytes()
+    }
+    return result, nil
+}
+
+func {{ struct_name }}FromData(data interface{}, contentType string) (*{{ struct_name }}, error) {
+    var err error
+    var s {{ struct_name }}
+    mediaType := strings.Split(contentType, ";")[0]
+    if strings.HasSuffix(mediaType, "+gzip") {
+        var reader io.Reader
+        switch v := data.(type) {
+        case []byte:
+            reader = bytes.NewReader(v)
+        case io.Reader:
+            reader = v
+        default:
+            return nil, fmt.Errorf("unsupported data type for gzip: %T", data)
+        }
+        gzipReader, err := gzip.NewReader(reader)
+        if err != nil {
+            return nil, err
+        }
+        defer gzipReader.Close()
+        data, err = io.ReadAll(gzipReader)
+        if err != nil {
+            return nil, err
+        }
+    }
+    switch mediaType {
+    {%- if json_annotation %}
+    case "application/json":
+        switch v := data.(type) {
+        case []byte:
+            err = json.Unmarshal(v, &s)
+        case string:
+            err = json.Unmarshal([]byte(v), &s)
+        case io.Reader:
+            err = json.NewDecoder(v).Decode(&s)
+        default:
+            return nil, fmt.Errorf("unsupported data type for JSON: %T", data)
+        }
+    {%- endif %}
+    {%- if avro_annotation %}
+    case "avro/binary", "application/vnd.apache.avro+avro":
+        switch v := data.(type) {
+        case []byte:
+            err = avro.Unmarshal({{ struct_name }}Schema, v, &s)
+        case io.Reader:
+            rawData, err := io.ReadAll(v)
+            if err != nil {
+                return nil, err
+            }
+            err = avro.Unmarshal({{ struct_name }}Schema, rawData, &s)
+        default:
+            return nil, fmt.Errorf("unsupported data type for Avro: %T", data)
+        }
+    {%- endif %}
+    default:
+        return nil, fmt.Errorf("unsupported media type: %s", mediaType)
+    }
+    if err != nil {
+        return nil, err
+    }
+    return &s, nil
+}
+{%- endif %}
+
+{%- if json_annotation %}
+func (s *{{ struct_name }}) IsJsonMatch(node map[string]interface{}) bool {
+    {%- for clause in json_match_predicates %}
+    {{ clause }}
+    {%- endfor %}
+    return true
+}
+{%- endif %}
+
+func (s *{{ struct_name }}) ToObject() interface{} {
+    return s
+}

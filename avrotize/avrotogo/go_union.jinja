@@ -1,0 +1,38 @@
+package {{ base_package }}
+
+
+type {{ union_class_name }} struct {
+    {%- for union_type in union_types %}
+    {{ union_type | pascal }} *{{ union_type }}
+    {%- endfor %}
+}
+
+func (u *{{ union_class_name }}) ToObject() interface{} {
+    if u == nil {
+        return nil
+    }
+    {%- for union_type in union_types %}
+    if u.{{ union_type | pascal }} != nil {
+        return u.{{ union_type | pascal }}
+    }
+    {%- endfor %}
+    return nil
+}
+
+{%- if json_annotation or avro_annotation %}
+{%- endif %}
+
+{%- if json_annotation %}
+func (u *{{ union_class_name }}) IsJsonMatch(node map[string]interface{}) bool {
+    if u == nil {
+        return false
+    }
+    {%- for union_type in union_types %}
+    if u.{{ union_type | pascal }} != nil {
+        {{ get_is_json_match_clause(union_type | pascal, union_type) }}
+        return true
+    }
+    {%- endfor %}
+    return false
+}
+{%- endif %}

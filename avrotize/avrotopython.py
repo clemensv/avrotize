@@ -133,10 +133,10 @@ class AvroToPython:
             class_definition += f'\n{INDENT}AvroType: ClassVar[avro.schema.Schema] = avro.schema.parse(\n{INDENT*2}"{avro_schema_json}");\n'
         
         for import_type in import_types:
-            import_type_package = import_type.rsplit('.', 1)[0]
-            import_type_type = import_type.split('.')[-1]
+            import_type_package = import_type
             if import_type_package.startswith(package_name):
                 import_type_package = import_type_package[len(package_name):]
+            import_type_type = import_type.split('.')[-1]
             if import_type_package:
                 imp = f"from {import_type_package.lower()} import {import_type_type}\n"
                 if import_type_package.startswith('.'):
@@ -309,6 +309,8 @@ class AvroToPython:
     def convert_schemas(self, avro_schemas: List, output_dir: str):
         """ Converts Avro schema to Python data classes"""
         self.output_dir = output_dir
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir, exist_ok=True)
         with open(os.path.join(self.output_dir, "__init__.py"), 'w', encoding='utf-8') as file:
             file.write('')
         for avro_schema in avro_schemas:

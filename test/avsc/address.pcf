@@ -1,0 +1,1 @@
+{"name":"record","type":"record","fields":["string",{"name":"example.com.postOfficeBox","type":["null","string"]},{"name":"example.com.extendedAddress","type":["null","string"]},{"name":"example.com.streetAddress","type":["null","string"]},"string","string",{"name":"example.com.postalCode","type":["null","string"]},"string"]}
