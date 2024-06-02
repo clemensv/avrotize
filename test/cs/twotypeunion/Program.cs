@@ -1,7 +1,7 @@
 using System;
 using System.Text;
 using System.Text.Json;
-using Com.Example.Avro;
+using TwoTypeUnion.Com.Example.Avro;
 
 public class TestProgram
 {

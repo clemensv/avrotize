@@ -1,6 +1,6 @@
 using System;
 using System.Text.Json;
-using Com.Example.Avro;
+using TypeMapUnion.Com.Example.Avro;
 
 public class TestProgram
 {

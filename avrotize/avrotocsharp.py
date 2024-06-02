@@ -691,7 +691,7 @@ def convert_avro_to_csharp(avro_schema_path, cs_file_path, base_namespace='', pa
     """
     
     if not base_namespace:
-        base_namespace = os.path.basename(cs_file_path)
+        base_namespace = os.path.splitext(os.path.basename(cs_file_path))[0].replace('-', '_')
     avrotocs = AvroToCSharp(base_namespace)
     avrotocs.pascal_properties = pascal_properties
     avrotocs.system_text_json_annotation = system_text_json_annotation

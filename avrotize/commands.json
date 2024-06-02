@@ -158,7 +158,7 @@
                 "name": "--namespace",
                 "message": "Enter the namespace for the Avro schema",
                 "type": "str",
-                "required": true
+                "required": false
             },
             {
                 "name": "--split-top-level-records",
@@ -253,7 +253,7 @@
                 "name": "--namespace",
                 "type": "str",
                 "help": "Namespace for the Avrotize schema",
-                "required": true
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.avsc",
@@ -262,7 +262,7 @@
                 "name": "--namespace",
                 "message": "Enter the namespace for the Avro schema",
                 "type": "str",
-                "required": true
+                "required": false
             }
         ]
     },
@@ -429,13 +429,14 @@
             {
                 "name": "--kusto-uri",
                 "type": "str",
-                "help": "Deprecated: Kusto URI (for backcompat)"
+                "help": "Kusto Cluster URI",
+                "required": false
             },
             {
                 "name": "--kusto-database",
                 "type": "str",
                 "help": "Kusto database",
-                "required": true
+                "required": false
             },
             {
                 "name": "--namespace",
@@ -910,7 +911,7 @@
                 "message": "Enter the C# root namespace for the project",
                 "type": "str",
                 "default": "{input_file_name}-cs",
-                "required": true
+                "required": false
             },
             {
                 "name": "--avro-annotation",

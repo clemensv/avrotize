@@ -77,7 +77,7 @@ class TestAvroToCSharp(unittest.TestCase):
         
         copy_tree(test_csproj, cs_test_path)
 
-        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, avro_annotation=True, pascal_properties=True)
+        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, avro_annotation=True, pascal_properties=True, base_namespace="TwoTypeUnion")
         assert subprocess.check_call(
             ['dotnet', 'run', '--force'], cwd=cs_test_path, stdout=sys.stdout, stderr=sys.stderr) == 0
         
@@ -122,7 +122,7 @@ class TestAvroToCSharp(unittest.TestCase):
         
         copy_tree(test_csproj, cs_test_path)
 
-        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, pascal_properties=True)
+        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, pascal_properties=True, base_namespace="TypeMapUnion")
         assert subprocess.check_call(
             ['dotnet', 'run', '--force'], cwd=cs_test_path, stdout=sys.stdout, stderr=sys.stderr) == 0
         

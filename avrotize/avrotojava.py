@@ -343,7 +343,7 @@ class AvroToJava:
         namespace = avro_schema.get('namespace', parent_package)
         if not 'namespace' in avro_schema:
             avro_schema['namespace'] = namespace
-        package = self.join_packages(self.base_package, namespace)
+        package = self.join_packages(self.base_package, namespace).replace('.', '/').lower()
         package = package.replace('.', '/').lower()
         class_name = self.safe_identifier(avro_schema['name'])
         namespace_qualified_name = self.qualified_name(namespace,avro_schema['name'])
@@ -978,7 +978,7 @@ def convert_avro_to_java(avro_schema_path, java_file_path, package_name='', pasc
         cs_file_path (_type_): Output C# file path 
     """
     if not package_name:
-        package_name = os.path.basename(java_file_path)
+        package_name = os.path.splitext(os.path.basename(java_file_path))[0].replace('-', '_').lower()
     avrotojava = AvroToJava()
     avrotojava.base_package = package_name
     avrotojava.pascal_properties = pascal_properties
