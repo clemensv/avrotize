@@ -19,7 +19,7 @@ def get_proto():
 
 def get_json():
     """Provides the JSON input file path."""
-    return os.path.join(os.path.dirname(__file__), 'jsons', 'address.json')
+    return os.path.join(os.path.dirname(__file__), 'jsons', 'address.jsons')
 
 def get_parquet():
     """Provides the Parquet input file path."""
@@ -72,7 +72,7 @@ class TestMain(unittest.TestCase):
         main()
         assert os.path.exists(tempfile.gettempdir() + '/output.avsc')  # Add assertion for file existence
             
-    @patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(command='a2x', input=get_avsc(), out=tempfile.gettempdir() + '/output.xsd'))
+    @patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(command='a2x', input=get_avsc(), out=tempfile.gettempdir() + '/output.xsd', namespace='urn:foo'))
     def test_main_a2x_command(self, mock_parse_args):
         """Test main function with a2x command."""
         main()

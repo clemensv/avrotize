@@ -1674,8 +1674,11 @@ class JsonToAvroConverter:
 def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, namespace: str = '', utility_namespace='', root_class_name='', split_top_level_records=False) -> list | dict | str:
     """Convert JSON schema file to Avro schema file."""
     
-    if not os.path.exists(json_schema_file_path):
-        raise FileNotFoundError(f'JSON schema file {json_schema_file_path} not found')
+    if not json_schema_file_path:
+        raise ValueError('JSON schema file path is required')
+    if not json_schema_file_path.startswith('http'):
+        if not os.path.exists(json_schema_file_path):
+            raise FileNotFoundError(f'JSON schema file {json_schema_file_path} not found')
         
     try:
         converter = JsonToAvroConverter()

@@ -112,14 +112,12 @@ class AvroToPython:
         """Generates a Python data class from an Avro record schema"""
         import_types: Set[str] = set()
         class_name = avro_schema['name']
-        package_name: str = avro_schema.get('namespace', '')
-        if parent_package:
-            package_name = f"{parent_package}.{package_name}"        
-        fields = [self.generate_field(field, parent_package, import_types) for field in avro_schema.get('fields', [])]
+        package_name: str = avro_schema.get('namespace', parent_package)
+        fields = [self.generate_field(field, package_name, import_types) for field in avro_schema.get('fields', [])]
         class_definition = f"@dataclass\nclass {class_name}:\n"
         docstring = avro_schema.get('doc', '').strip() if 'doc' in avro_schema else f'A {class_name} record.'
         class_definition += INDENT + f'"""\n{INDENT}{docstring}\n\n{INDENT}Attributes:\n'
-        class_definition += ''.join([self.generate_field_docstring(field, parent_package) for field in avro_schema.get('fields', [])])
+        class_definition += ''.join([self.generate_field_docstring(field, package_name) for field in avro_schema.get('fields', [])])
         class_definition += INDENT + '"""\n'            
         class_definition += ''.join(fields) if fields else INDENT + "\n"
         
@@ -138,8 +136,9 @@ class AvroToPython:
                 import_type_package = import_type_package[len(package_name):]
             import_type_type = import_type.split('.')[-1]
             if import_type_package:
-                imp = f"from {import_type_package.lower()} import {import_type_type}\n"
-                if import_type_package.startswith('.'):
+                is_local = import_type_package.startswith('.')
+                imp = f"from {self.base_package+'.' if self.base_package and not is_local else ''}{import_type_package.lower()} import {import_type_type}\n"
+                if is_local:
                     local_imports += imp
                 else:
                     imports += imp
@@ -238,9 +237,7 @@ class AvroToPython:
     def generate_enum(self, avro_schema: Dict, parent_package: str, write_file: bool) -> str:
         """Generates a Python enum from an Avro enum schema"""
         class_name = avro_schema['name']
-        package_name: str = avro_schema.get('namespace', '')
-        if parent_package:
-            package_name = f"{parent_package}.{package_name}"
+        package_name: str = avro_schema.get('namespace', parent_package)
         symbols = avro_schema.get('symbols', [])
         enum_definition = f"class {class_name}(Enum):\n"
         docstring = avro_schema.get('doc', '').strip() if 'doc' in avro_schema else f'A {class_name} enum.'
@@ -277,6 +274,8 @@ class AvroToPython:
     
     def write_to_file(self, package:str, name: str, definition: str):
         """Writes a Python class to a file"""
+        if self.base_package:
+            package = f"{self.base_package}.{package}"
         directory_path = os.path.join(self.output_dir, package.replace('.', '/').replace('/', os.sep).lower())
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)

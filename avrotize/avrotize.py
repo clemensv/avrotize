@@ -58,7 +58,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.version:
+    if 'version' in args and args.version:
         print(f'Avrotize {_version.version}')
         return
     
@@ -112,9 +112,10 @@ def main():
             else:
                 val = command['function']['args'][arg]
                 if val.startswith('args.'):
-                    func_args[arg] = getattr(args, val[5:])
+                    if hasattr(args, val[5:]):
+                        func_args[arg] = getattr(args, val[5:])
                 else:
-                    func_args[arg] = val           
+                    func_args[arg] = val
         if output_file_path:
             printmsg(f'Executing {command["description"]} with input {input_file_path} and output {output_file_path}')
         func(**func_args)
