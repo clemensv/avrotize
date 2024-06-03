@@ -276,7 +276,8 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
                 extension_ts_content.append(f"{INDENT*3}const {prompt_var_name}_arg = {prompt_var_name} ? '{prompt['name']}' : '';")
                 args_str += f" ${{{prompt_var_name}_arg}}"
             else:
-                args_str += f" {prompt['name']} ${{{prompt_var_name}}}"
+                extension_ts_content.append(f"{INDENT*3}const {prompt_var_name}_arg = {prompt_var_name} ? `{prompt['name']} ${{{prompt_var_name}}}` : '';")
+                args_str += f" ${{{prompt_var_name}_arg}}"
                 
         if output_prompt:
             extension_ts_content.append(output_prompt)

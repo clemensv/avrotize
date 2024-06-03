@@ -126,11 +126,12 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-proto');
             const naming_value = await vscode.window.showQuickPick(['snake', 'camel', 'pascal'], { placeHolder: 'Select type naming convention' });
+            const naming_value_arg = naming_value ? `--naming ${naming_value}` : '';
             const allow_optional_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Enable support for \'optional\' fields?' }) === 'Yes';
             const allow_optional_value_arg = allow_optional_value ? '--allow-optional' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'All Files': ['*'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2p ${filePath} --out ${outputPath.fsPath} --naming ${naming_value} ${allow_optional_value_arg}`;
+            const command = `avrotize a2p ${filePath} --out ${outputPath.fsPath} ${naming_value_arg} ${allow_optional_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -138,11 +139,12 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
+            const namespace_value_arg = namespace_value ? `--namespace ${namespace_value}` : '';
             const split_top_level_records_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Split top-level records into separate files?' }) === 'Yes';
             const split_top_level_records_value_arg = split_top_level_records_value ? '--split-top-level-records' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
             if (!outputPath) { return; }
-            const command = `avrotize j2a ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value} ${split_top_level_records_value_arg}`;
+            const command = `avrotize j2a ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg} ${split_top_level_records_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -159,9 +161,10 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
+            const namespace_value_arg = namespace_value ? `--namespace ${namespace_value}` : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
             if (!outputPath) { return; }
-            const command = `avrotize x2a ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value}`;
+            const command = `avrotize x2a ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -169,9 +172,10 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.xsd');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the target namespace for the XSD schema (optional)' });
+            const namespace_value_arg = namespace_value ? `--namespace ${namespace_value}` : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'xsd File': ['xsd'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2x ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value}`;
+            const command = `avrotize a2x ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -179,14 +183,16 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.kql');
             const kusto_uri_value = await vscode.window.showInputBox({ prompt: 'Enter the Kusto Cluster URI (optional)' });
+            const kusto_uri_value_arg = kusto_uri_value ? `--kusto-uri ${kusto_uri_value}` : '';
             const kusto_database_value = await vscode.window.showInputBox({ prompt: 'Enter the Kusto database name (optional)' });
+            const kusto_database_value_arg = kusto_database_value ? `--kusto-database ${kusto_database_value}` : '';
             const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the Kusto table?' }) === 'Yes';
             const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
             const emit_cloudevents_dispatch_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Emit a _cloudevents_dispatch ingestion table and update policies?' }) === 'Yes';
             const emit_cloudevents_dispatch_value_arg = emit_cloudevents_dispatch_value ? '--emit-cloudevents-dispatch' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'kql File': ['kql'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2k ${filePath} --out ${outputPath.fsPath} --kusto-uri ${kusto_uri_value} --kusto-database ${kusto_database_value} ${emit_cloudevents_columns_value_arg} ${emit_cloudevents_dispatch_value_arg}`;
+            const command = `avrotize a2k ${filePath} --out ${outputPath.fsPath} ${kusto_uri_value_arg} ${kusto_database_value_arg} ${emit_cloudevents_columns_value_arg} ${emit_cloudevents_dispatch_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -194,13 +200,14 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{kusto_database}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
+            const namespace_value_arg = namespace_value ? `--namespace ${namespace_value}` : '';
             const emit_cloudevents_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Emit CloudEvents declarations for each table?' }) === 'Yes';
             const emit_cloudevents_value_arg = emit_cloudevents_value ? '--emit-cloudevents' : '';
             const emit_xregistry_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Emit an xRegistry manifest with CloudEvents declarations?' }) === 'Yes';
             const emit_xregistry_value_arg = emit_xregistry_value ? '--emit-xregistry' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
             if (!outputPath) { return; }
-            const command = `avrotize k2a ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value} ${emit_cloudevents_value_arg} ${emit_xregistry_value_arg}`;
+            const command = `avrotize k2a ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg} ${emit_cloudevents_value_arg} ${emit_xregistry_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -208,11 +215,12 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.sql');
             const dialect_value = await vscode.window.showQuickPick(['mysql', 'mariadb', 'postgres', 'sqlserver', 'oracle', 'sqlite', 'bigquery', 'snowflake', 'redshift', 'db2'], { placeHolder: 'Select the SQL dialect' });
+            const dialect_value_arg = dialect_value ? `--dialect ${dialect_value}` : '';
             const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the SQL table?' }) === 'Yes';
             const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'sql File': ['sql'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2sql ${filePath} --out ${outputPath.fsPath} --dialect ${dialect_value} ${emit_cloudevents_columns_value_arg}`;
+            const command = `avrotize a2sql ${filePath} --out ${outputPath.fsPath} ${dialect_value_arg} ${emit_cloudevents_columns_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -253,9 +261,10 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
+            const namespace_value_arg = namespace_value ? `--namespace ${namespace_value}` : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
             if (!outputPath) { return; }
-            const command = `avrotize pq2a ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value}`;
+            const command = `avrotize pq2a ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -283,6 +292,7 @@ export function activate(context: vscode.ExtensionContext) {
             const fileBaseName = path.basename(filePath, path.extname(filePath));
             const namespace_value_default_value = '{input_file_name}-cs'.replace('{input_file_name}', fileBaseName);
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the C# root namespace for the project', value: `${ namespace_value_default_value }` });
+            const namespace_value_arg = namespace_value ? `--namespace ${namespace_value}` : '';
             const avro_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use Avro annotations?' }) === 'Yes';
             const avro_annotation_value_arg = avro_annotation_value ? '--avro-annotation' : '';
             const system_text_json_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use System.Text.Json annotations?' }) === 'Yes';
@@ -291,7 +301,7 @@ export function activate(context: vscode.ExtensionContext) {
             const pascal_properties_value_arg = pascal_properties_value ? '--pascal-properties' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'All Files': ['*'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2cs ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value} ${avro_annotation_value_arg} ${system_text_json_annotation_value_arg} ${pascal_properties_value_arg}`;
+            const command = `avrotize a2cs ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg} ${avro_annotation_value_arg} ${system_text_json_annotation_value_arg} ${pascal_properties_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -353,13 +363,14 @@ export function activate(context: vscode.ExtensionContext) {
             const fileBaseName = path.basename(filePath, path.extname(filePath));
             const namespace_value_default_value = '{input_file_name}'.replace('{input_file_name}', fileBaseName);
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the root namespace for the C++ classes (optional)', value: `${ namespace_value_default_value }` });
+            const namespace_value_arg = namespace_value ? `--namespace ${namespace_value}` : '';
             const avro_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use Avro annotations?' }) === 'Yes';
             const avro_annotation_value_arg = avro_annotation_value ? '--avro-annotation' : '';
             const json_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use JSON annotations?' }) === 'Yes';
             const json_annotation_value_arg = json_annotation_value ? '--json-annotation' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'All Files': ['*'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2cpp ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value} ${avro_annotation_value_arg} ${json_annotation_value_arg}`;
+            const command = `avrotize a2cpp ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg} ${avro_annotation_value_arg} ${json_annotation_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -371,11 +382,14 @@ export function activate(context: vscode.ExtensionContext) {
             const json_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use JSON annotations?' }) === 'Yes';
             const json_annotation_value_arg = json_annotation_value ? '--json-annotation' : '';
             const package_value = await vscode.window.showInputBox({ prompt: 'Enter the Go package name (optional)' });
+            const package_value_arg = package_value ? `--package ${package_value}` : '';
             const package_site_value = await vscode.window.showInputBox({ prompt: 'Enter the Go package site (optional)' });
+            const package_site_value_arg = package_site_value ? `--package-site ${package_site_value}` : '';
             const package_username_value = await vscode.window.showInputBox({ prompt: 'Enter the Go package username (optional)' });
+            const package_username_value_arg = package_username_value ? `--package-username ${package_username_value}` : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'All Files': ['*'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2go ${filePath} --out ${outputPath.fsPath} ${avro_annotation_value_arg} ${json_annotation_value_arg} --package ${package_value} --package-site ${package_site_value} --package-username ${package_username_value}`;
+            const command = `avrotize a2go ${filePath} --out ${outputPath.fsPath} ${avro_annotation_value_arg} ${json_annotation_value_arg} ${package_value_arg} ${package_site_value_arg} ${package_username_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -383,13 +397,14 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-rust');
             const package_value = await vscode.window.showInputBox({ prompt: 'Enter the Rust package name (optional)' });
+            const package_value_arg = package_value ? `--package ${package_value}` : '';
             const avro_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use Avro annotations?' }) === 'Yes';
             const avro_annotation_value_arg = avro_annotation_value ? '--avro-annotation' : '';
             const json_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use JSON annotations?' }) === 'Yes';
             const json_annotation_value_arg = json_annotation_value ? '--json-annotation' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'All Files': ['*'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2rust ${filePath} --out ${outputPath.fsPath} --package ${package_value} ${avro_annotation_value_arg} ${json_annotation_value_arg}`;
+            const command = `avrotize a2rust ${filePath} --out ${outputPath.fsPath} ${package_value_arg} ${avro_annotation_value_arg} ${json_annotation_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -397,9 +412,10 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.json');
             const record_type_value = await vscode.window.showInputBox({ prompt: 'Enter the record type in the Avro schema (optional)' });
+            const record_type_value_arg = record_type_value ? `--record-type ${record_type_value}` : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'json File': ['json'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2dp ${filePath} --out ${outputPath.fsPath} --record-type ${record_type_value}`;
+            const command = `avrotize a2dp ${filePath} --out ${outputPath.fsPath} ${record_type_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -422,9 +438,10 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
+            const namespace_value_arg = namespace_value ? `--namespace ${namespace_value}` : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
             if (!outputPath) { return; }
-            const command = `avrotize csv2a ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value}`;
+            const command = `avrotize csv2a ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
