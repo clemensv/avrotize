@@ -35,25 +35,25 @@ jobs:
         pip install build
     - name: Build package
       run: python -m build
-    - name: Publish package
-      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_KEY }}
-    - name: Update VS Code Extension
+    - name: Update VS Code Extension Code with commands.json
       run: |
-        python -m tools/editvscodeext.py --extension-root ${{ github.workspace }}/vscode/avrotize --commands ${{ github.workspace }}/avrotize/commands.json
+        python tools/editvscodeext.py --extension-root ${{ github.workspace }}/vscode/avrotize --commands ${{ github.workspace }}/avrotize/commands.json
     - name: Install Node and NPM
       uses: actions/setup-node@v2
       with:
         node-version: '20'
-    - name: Package the VS Code Extension
+    - name: Set up dependencies for VS Code Extension
       run: |
-        npm install -g vsce
         cd ${{ github.workspace }}/vscode/avrotize
-        vsce package --out ${{ github.workspace }}/avrotize.vsix
-    - name: Upload VS Code Extension
-      uses: actions/upload-artifact@v2
+        npm install
+    - name: Publish VS Code Extension
+      run: |
+        cd ${{ github.workspace }}/vscode/avrotize
+        npm run deploy
+      env:
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+    - name: Publish Python package
+      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
       with:
-        name: avrotize
-        path: ${{ github.workspace }}/avrotize.vsix
+        user: __token__
+        password: ${{ secrets.PYPI_API_KEY }}

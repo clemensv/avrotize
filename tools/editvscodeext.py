@@ -15,6 +15,8 @@ def get_latest_git_tag() -> str:
     """
     try:
         latest_tag = subprocess.check_output(['git', 'describe', '--tags', '--abbrev=0']).strip().decode('utf-8')
+        if latest_tag.startswith('v'):
+            latest_tag = latest_tag[1:]
         return latest_tag
     except subprocess.CalledProcessError:
         return "0.0.1"
