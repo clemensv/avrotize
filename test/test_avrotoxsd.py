@@ -64,6 +64,10 @@ class TestAvroToXsd(xmlunittest.XmlTestCase):
     def test_convert_address_nn_avsc_to_xsd(self):
         """ Test converting an Avro schema to XSD"""
         self.create_xsd_from_avro("address-nn.avsc")
+        
+    def test_convert_northwind_avsc_to_xsd(self):
+        """ Test converting an Avro schema to XSD"""
+        self.create_xsd_from_avro("northwind.avsc")
 
     def test_convert_telemetry_avsc_to_xsd(self):
         """ Test converting an Avro schema to XSD"""

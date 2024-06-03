@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/vocabulary" xmlns:this="http://example.com/vocabulary">
+
+  <!-- Address Type Definition -->
+  <xs:complexType name="AddressType">
+    <xs:attribute name="Street" type="xs:string"/>
+    <xs:attribute name="City" type="xs:string"/>
+    <xs:attribute name="State" type="xs:string"/>
+    <xs:attribute name="PostalCode" type="xs:string"/>
+    <xs:attribute name="Country" type="xs:string"/>
+  </xs:complexType>
+
+  <!-- Contact Type Definition -->
+  <xs:complexType name="ContactType">
+    <xs:attribute name="FirstName" type="xs:string"/>
+    <xs:attribute name="LastName" type="xs:string"/>
+    <xs:attribute name="Email" type="xs:string"/>
+    <xs:attribute name="Phone" type="xs:string"/>
+    <xs:attribute name="Position" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <!-- Interaction Type Definition -->
+  <xs:complexType name="InteractionType">
+    <xs:attribute name="Date" type="xs:date"/>
+    <xs:attribute name="Type" type="xs:string"/>
+    <xs:attribute name="Notes" type="xs:string"/>
+    <xs:attribute name="Contact" type="xs:string"/>
+  </xs:complexType>
+
+  <!-- Customer Type Definition -->
+  <xs:complexType name="CustomerType">
+    <xs:attribute name="CustomerID" type="xs:string"/>
+    <xs:attribute name="CompanyName" type="xs:string"/>
+    <xs:attribute name="Website" type="xs:string" use="optional"/>
+    <xs:attribute name="Address" type="this:AddressType"/>
+    <xs:attribute name="Contact" type="this:ContactType"/>
+    <xs:attribute name="Interaction" type="this:InteractionType"/>
+  </xs:complexType>
+
+  <!-- Root Element -->
+  <xs:element name="CRMData">
+    <xs:complexType>
+      <xs:attribute name="Customer" type="this:CustomerType"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

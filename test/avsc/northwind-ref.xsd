@@ -1,0 +1,500 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:Northwind" targetNamespace="urn:Northwind">
+  <xs:complexType name="Category">
+    <xs:annotation>
+      <xs:documentation>A category of products.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="CategoryID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The unique identifier for the category.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="CategoryName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The name of the category.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Description" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>A description of the category.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Picture" type="xs:hexBinary">
+        <xs:annotation>
+          <xs:documentation>A picture of the category.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Customer">
+    <xs:annotation>
+      <xs:documentation>A customer of the company.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="CustomerID" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The unique identifier for the customer.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="CompanyName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The name of the company.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ContactName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The name of the contact person.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ContactTitle" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The title of the contact person.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Address" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The address of the customer.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="City" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The city where the customer is located.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Region" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The region where the customer is located.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="PostalCode" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The postal code of the customer.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Country" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The country where the customer is located.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Phone" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The phone number of the customer.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Fax" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The fax number of the customer.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Employee">
+    <xs:annotation>
+      <xs:documentation>An employee of the company.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="EmployeeID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The unique identifier for the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="LastName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The last name of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="FirstName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The first name of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Title" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The title of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="TitleOfCourtesy" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The courtesy title of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="BirthDate" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The birth date of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="HireDate" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The hire date of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Address" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The address of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="City" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The city where the employee is located.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Region" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The region where the employee is located.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="PostalCode" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The postal code of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Country" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The country where the employee is located.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="HomePhone" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The home phone number of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Extension" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The extension number of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Photo" type="xs:hexBinary">
+        <xs:annotation>
+          <xs:documentation>A photo of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Notes" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>Notes about the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ReportsTo" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The ID of the employee's manager.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="PhotoPath" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The path to the employee's photo.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Order">
+    <xs:annotation>
+      <xs:documentation>An order placed by a customer.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="OrderID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The unique identifier for the order.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="CustomerID" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The ID of the customer who placed the order.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="EmployeeID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The ID of the employee who handled the order.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="OrderDate" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The date the order was placed.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="RequiredDate" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The date the order is required by.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ShippedDate" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The date the order was shipped.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ShipVia" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The ID of the shipper.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Freight" type="xs:float">
+        <xs:annotation>
+          <xs:documentation>The freight charges for the order.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ShipName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The name of the recipient.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ShipAddress" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The address where the order is to be shipped.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ShipCity" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The city where the order is to be shipped.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ShipRegion" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The region where the order is to be shipped.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ShipPostalCode" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The postal code where the order is to be shipped.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ShipCountry" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The country where the order is to be shipped.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="OrderDetail">
+    <xs:annotation>
+      <xs:documentation>Details of a product included in an order.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="OrderID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The ID of the order.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ProductID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The ID of the product.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="UnitPrice" type="xs:float">
+        <xs:annotation>
+          <xs:documentation>The price per unit of the product.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Quantity" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The quantity of the product ordered.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Discount" type="xs:float">
+        <xs:annotation>
+          <xs:documentation>The discount applied to the product.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Product">
+    <xs:annotation>
+      <xs:documentation>A product available for sale.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="ProductID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The unique identifier for the product.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ProductName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The name of the product.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="SupplierID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The ID of the supplier of the product.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="CategoryID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The ID of the category the product belongs to.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="QuantityPerUnit" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The quantity of the product per unit.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="UnitPrice" type="xs:float">
+        <xs:annotation>
+          <xs:documentation>The price per unit of the product.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="UnitsInStock" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The number of units in stock.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="UnitsOnOrder" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The number of units on order.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ReorderLevel" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The reorder level for the product.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Discontinued" type="xs:boolean">
+        <xs:annotation>
+          <xs:documentation>Whether the product is discontinued.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Shipper">
+    <xs:annotation>
+      <xs:documentation>A shipper responsible for delivering orders.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="ShipperID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The unique identifier for the shipper.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="CompanyName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The name of the shipping company.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Phone" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The phone number of the shipper.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Supplier">
+    <xs:annotation>
+      <xs:documentation>A supplier of products.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="SupplierID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The unique identifier for the supplier.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="CompanyName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The name of the supplier's company.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ContactName" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The name of the contact person at the supplier.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="ContactTitle" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The title of the contact person at the supplier.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Address" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The address of the supplier.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="City" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The city where the supplier is located.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Region" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The region where the supplier is located.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="PostalCode" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The postal code of the supplier.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Country" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The country where the supplier is located.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Phone" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The phone number of the supplier.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="Fax" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The fax number of the supplier.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="HomePage" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The homepage of the supplier.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Region">
+    <xs:annotation>
+      <xs:documentation>A region where the company operates.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="RegionID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The unique identifier for the region.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="RegionDescription" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>A description of the region.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="Territory">
+    <xs:annotation>
+      <xs:documentation>A territory within a region.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="TerritoryID" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The unique identifier for the territory.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="TerritoryDescription" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>A description of the territory.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="RegionID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The ID of the region the territory belongs to.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="EmployeeTerritory">
+    <xs:annotation>
+      <xs:documentation>An association between an employee and a territory.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="EmployeeID" type="xs:integer">
+        <xs:annotation>
+          <xs:documentation>The ID of the employee.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="TerritoryID" type="xs:string">
+        <xs:annotation>
+          <xs:documentation>The ID of the territory.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

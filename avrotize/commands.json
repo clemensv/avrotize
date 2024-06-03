@@ -288,7 +288,8 @@
             "name": "avrotize.avrotoxsd.convert_avro_to_xsd",
             "args": {
                 "avro_schema_path": "input_file_path",
-                "xml_file_path": "output_file_path"
+                "xml_file_path": "output_file_path",
+                "target_namespace": "args.namespace"
             }
         },
         "extensions": [
@@ -313,10 +314,23 @@
                 "type": "str",
                 "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
                 "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Target namespace for the XSD schema",
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.xsd",
-        "prompts": []
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the target namespace for the XSD schema (optional)",
+                "type": "str",
+                "required": false
+            }
+        ]
     },
     {
         "command": "a2k",

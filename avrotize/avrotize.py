@@ -65,12 +65,12 @@ def main():
         if not command:
             print(f"Error: Command {args.command} not found.")
             exit(1)
-
+        
         input_file_path = args.input or getattr(args, 'avsc', None) or getattr(args, 'proto', None) or getattr(args, 'jsons', None) or getattr(args, 'xsd', None) or getattr(args, 'kusto_uri', None) or getattr(args, 'parquet', None) or getattr(args, 'asn', None) or getattr(args, 'kstruct', None)
         temp_input = None
         skip_input_file_handling = command.get('skip_input_file_handling', False)
         if not skip_input_file_handling:
-            if input_file_path is None and sys.stdin.isatty():
+            if input_file_path is None:
                 temp_input = tempfile.NamedTemporaryFile(delete=False, mode='w', encoding='utf-8')
                 input_file_path = temp_input.name
                 # read to EOF

@@ -288,7 +288,7 @@ class XSDToAvro:
 
         if 'type' in element.attrib:
             field = self.process_element(element, namespaces, dependencies)
-            field['xmlkind'] = 'attribute'
+            field['xmlkind'] = 'element'
             avro_type['fields'].append(field)
             if dependencies:
                 avro_type['dependencies'] = dependencies

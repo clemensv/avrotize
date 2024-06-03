@@ -1,3 +1,4 @@
+<?xml version="1.0" ?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:example:com" targetNamespace="urn:example:com">
   <xs:complexType name="record">
     <xs:annotation>

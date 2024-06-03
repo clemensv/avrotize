@@ -8,11 +8,12 @@ from xml.dom import minidom
 from avrotize.common import is_generic_avro_type
 
 class AvroToXSD:
-    def __init__(self):
+    def __init__(self, target_namespace: str = ''):
         self.xmlns = {"xs": "http://www.w3.org/2001/XMLSchema"}
         self.union_types: Dict[str, str] = {}
         self.known_types: List[str] = []
         self.common_namespace = ''
+        self.target_namespace = target_namespace
 
     def find_common_namespace(self, namespaces: List[str]) -> str:
         """
@@ -40,7 +41,6 @@ class AvroToXSD:
             self.common_namespace = namespace
         else:
             self.common_namespace = self.find_common_namespace([self.common_namespace, namespace])
-
 
     def convert_avro_primitive(self, avro_type: str | dict) -> str:
         """Map Avro primitive types to XML schema (XSD) data types."""
@@ -231,11 +231,12 @@ class AvroToXSD:
         else:
             element.set('type', self.convert_avro_primitive(field_type))       
 
-    def create_field(self, schema_root: Element, record_name: str, parent: Element, field: dict) -> ET.Element:
+    def create_field(self, schema_root: Element, record_name: str, parent: Element, field: dict, attributes_parent: Element) -> ET.Element:
         """Convert an Avro field to an XML element."""
         field_name = field['name']
         field_type = field['type']
         field_doc = field.get('doc', '')
+        xmlkind = field.get('xmlkind', 'element')
         if isinstance(field_type,list):
             element = self.create_union(schema_root, record_name, parent, field_name, field_type)
             if field_doc:
@@ -243,7 +244,10 @@ class AvroToXSD:
                 documentation = self.create_element(annotation, "documentation")
                 documentation.text = field_doc
         else:
-            element = self.create_element(parent, "element", name=field_name)
+            if xmlkind == 'attribute':
+                element = self.create_element(attributes_parent, "attribute", name=field_name)
+            else:
+                element = self.create_element(parent, "element", name=field_name)
             if field_doc:
                 annotation = self.create_element(element, "annotation")
                 documentation = self.create_element(annotation, "documentation")
@@ -264,13 +268,18 @@ class AvroToXSD:
             documentation = self.create_element(annotation, "documentation")
             documentation.text = doc
         sequence = self.create_element(complex_type, "sequence")
+        attributes_parent = complex_type  # Attributes should be direct children of the complexType, not inside the sequence
         for field in record['fields']:
-            self.create_field(schema_root, name, sequence, field)
+            self.create_field(schema_root, name, sequence, field, attributes_parent)
         self.known_types.append(name)
         return name
 
     def xsd_namespace_from_avro_namespace(self, namespace: str):
-        return "urn:"+namespace.replace('.', ':')
+        """Convert an Avro namespace to an XML schema namespace."""
+        if not self.target_namespace:
+            return "urn:"+namespace.replace('.', ':')
+        else:
+            return self.target_namespace
 
     def avro_schema_to_xsd(self, avro_schema: dict) -> Element:
         """Convert the top-level Avro schema to an XML schema."""
@@ -279,10 +288,13 @@ class AvroToXSD:
         if isinstance(avro_schema, list):
             for record in avro_schema:
                 if record['type'] == 'record':
+                    if 'namespace' in record:
+                        self.update_common_namespace(record['namespace'])
                     self.create_record(schema, record)
                 elif record['type'] == 'enum':
+                    if 'namespace' in record:
+                        self.update_common_namespace(record['namespace'])
                     self.create_enum(schema, record)
-
         else:
             if avro_schema['type'] == 'record':
                 if 'namespace' in avro_schema:
@@ -305,18 +317,17 @@ class AvroToXSD:
         """Save the XML schema to a file."""
         tree_str = tostring(schema, 'utf-8')
         pretty_tree = minidom.parseString(tree_str).toprettyxml(indent="  ")
-        with open(xml_path, 'w') as xml_file:
+        with open(xml_path, 'w', encoding='utf-8') as xml_file:
             xml_file.write(pretty_tree)
 
     def convert_avro_to_xsd(self, avro_schema_path: str, xml_file_path: str) -> None:
         """Convert Avro schema file to XML schema file."""
         with open(avro_schema_path, 'r', encoding='utf-8') as avro_file:
-           with open(avro_schema_path, 'r', encoding='utf-8') as avro_file:
             avro_schema = json.load(avro_file)
             
         xml_schema = self.avro_schema_to_xsd(avro_schema)
         self.save_xsd_to_file(xml_schema, xml_file_path)
 
-def convert_avro_to_xsd(avro_schema_path: str, xml_file_path: str) -> None:
-    avrotoxml = AvroToXSD()
+def convert_avro_to_xsd(avro_schema_path: str, xml_file_path: str, target_namespace: str = '') -> None:
+    avrotoxml = AvroToXSD(target_namespace)
     avrotoxml.convert_avro_to_xsd(avro_schema_path, xml_file_path)
