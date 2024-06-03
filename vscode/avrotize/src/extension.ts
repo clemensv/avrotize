@@ -3,10 +3,24 @@ import { exec } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 
+const currentVersionMajor = 1;
+const currentVersionMinor = 9;
+const currentVersionPatch = 4;
 async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {
     try {
-        const toolAvailable = await execShellCommand('avrotize -h')
-            .then(() => true)
+        const toolAvailable = await execShellCommand('avrotize --version')
+            .then(async (output:string) => {
+                const version = output.trim().split(' ')[1];
+                const [major, minor, patch] = version.split('.',3).map(num => parseInt(num));
+                outputChannel.appendLine(`avrotize tool version: ${version}`);
+                if (major < currentVersionMajor || (major === currentVersionMajor && minor < currentVersionMinor) || (major === currentVersionMajor && minor === currentVersionMinor && patch < currentVersionPatch)) {
+                    outputChannel.show(true);
+                    outputChannel.appendLine('avrotize tool version is outdated. Updating.');
+                    await execShellCommand('pip install --upgrade avrotize', outputChannel);
+                    vscode.window.showInformationMessage('avrotize tool has been updated successfully.');
+                };
+                return true;
+            })
             .catch(async (error) => {
                 const installOption = await vscode.window.showWarningMessage(
                     'avrotize tool is not available. Do you want to install it?', 'Yes', 'No');
@@ -154,9 +168,10 @@ export function activate(context: vscode.ExtensionContext) {
         disposables.push(vscode.commands.registerCommand('avrotize.a2x', async (uri: vscode.Uri) => {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.xsd');
+            const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the target namespace for the XSD schema (optional)' });
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'xsd File': ['xsd'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2x ${filePath} --out ${outputPath.fsPath}`;
+            const command = `avrotize a2x ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -335,7 +350,9 @@ export function activate(context: vscode.ExtensionContext) {
         disposables.push(vscode.commands.registerCommand('avrotize.a2cpp', async (uri: vscode.Uri) => {
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-cpp');
-            const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the root namespace for the C++ classes (optional)' });
+            const fileBaseName = path.basename(filePath, path.extname(filePath));
+            const namespace_value_default_value = '{input_file_name}'.replace('{input_file_name}', fileBaseName);
+            const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the root namespace for the C++ classes (optional)', value: `${ namespace_value_default_value }` });
             const avro_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use Avro annotations?' }) === 'Yes';
             const avro_annotation_value_arg = avro_annotation_value ? '--avro-annotation' : '';
             const json_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use JSON annotations?' }) === 'Yes';
@@ -399,6 +416,16 @@ export function activate(context: vscode.ExtensionContext) {
             const filePath = uri.fsPath;
             const command = `avrotize pcf ${filePath}`;
             executeCommand(command, null, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.csv2a', async (uri: vscode.Uri) => {
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
+            const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize csv2a ${filePath} --out ${outputPath.fsPath} --namespace ${namespace_value}`;
+            executeCommand(command, outputPath, outputChannel);
         }));
 
         context.subscriptions.push(...disposables);

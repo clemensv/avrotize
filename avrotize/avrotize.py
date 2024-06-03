@@ -10,6 +10,7 @@ import tempfile
 import sys
 import os
 import json
+from avrotize import _version
 
 def load_commands():
     """Load the commands from the commands.json file."""
@@ -50,12 +51,17 @@ def main():
     """Main function for the command line utility."""
     commands = load_commands()
     parser = argparse.ArgumentParser(description='Convert a variety of schema formats to Avrotize schema and vice versa.')
+    parser.add_argument('--version', action='store_true', help='Print the version of Avrotize.')
 
     subparsers = parser.add_subparsers(dest='command')
     create_subparsers(subparsers, commands)
 
     args = parser.parse_args()
 
+    if args.version:
+        print(f'Avrotize {_version.version}')
+        return
+    
     if args.command is None:
         parser.print_help()
         return

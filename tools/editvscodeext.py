@@ -95,12 +95,26 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
         "import * as path from 'path';",
         "import * as fs from 'fs';",
         "",
+        f"const currentVersionMajor = {latest_version.split('.',2)[0]};",
+        f"const currentVersionMinor = {latest_version.split('.',2)[1]};",
+        f"const currentVersionPatch = {latest_version.split('.',2)[2]};",
      ]
     
     extension_ts_content.append(f"async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {{")
     extension_ts_content.append(f"{INDENT}try {{")
-    extension_ts_content.append(f"{INDENT*2}const toolAvailable = await execShellCommand('avrotize -h')")
-    extension_ts_content.append(f"{INDENT*3}.then(() => true)")
+    extension_ts_content.append(f"{INDENT*2}const toolAvailable = await execShellCommand('avrotize --version')")
+    extension_ts_content.append(f"{INDENT*3}.then(async (output:string) => {{");
+    extension_ts_content.append(f"{INDENT*4}const version = output.trim().split(' ')[1];")
+    extension_ts_content.append(f"{INDENT*4}const [major, minor, patch] = version.split('.',3).map(num => parseInt(num));")
+    extension_ts_content.append(f"{INDENT*4}outputChannel.appendLine(`avrotize tool version: ${{version}}`);")
+    extension_ts_content.append(f"{INDENT*4}if (major < currentVersionMajor || (major === currentVersionMajor && minor < currentVersionMinor) || (major === currentVersionMajor && minor === currentVersionMinor && patch < currentVersionPatch)) {{")
+    extension_ts_content.append(f"{INDENT*5}outputChannel.show(true);")
+    extension_ts_content.append(f"{INDENT*5}outputChannel.appendLine('avrotize tool version is outdated. Updating.');")
+    extension_ts_content.append(f"{INDENT*5}await execShellCommand('pip install --upgrade avrotize', outputChannel);")
+    extension_ts_content.append(f"{INDENT*5}vscode.window.showInformationMessage('avrotize tool has been updated successfully.');")
+    extension_ts_content.append(f"{INDENT*4}}};")
+    extension_ts_content.append(f"{INDENT*4}return true;")
+    extension_ts_content.append(f"{INDENT*3}}})")
     extension_ts_content.append(f"{INDENT*3}.catch(async (error) => {{")
     extension_ts_content.append(f"{INDENT*4}const installOption = await vscode.window.showWarningMessage(")
     extension_ts_content.append(f"{INDENT*5}'avrotize tool is not available. Do you want to install it?', 'Yes', 'No');")

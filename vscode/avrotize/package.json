@@ -12,7 +12,7 @@
         "type": "git",
         "url": "https://github.com/clemensv/avrotize.git"
     },
-    "version": "1.6.1",
+    "version": "1.9.2",
     "engines": {
         "vscode": "^1.89.0"
     },
@@ -78,6 +78,12 @@
                     "command": "avrotize.kstruct2a",
                     "group": "navigation",
                     "when": "resourceExtname == .kstruct",
+                    "title": "Avrotize schema"
+                },
+                {
+                    "command": "avrotize.csv2a",
+                    "group": "navigation",
+                    "when": "resourceExtname == .csv",
                     "title": "Avrotize schema"
                 },
                 {
@@ -200,7 +206,7 @@
                     "submenu": "convertSubmenu",
                     "title": "Convert",
                     "group": "navigation",
-                    "when": "resourceExtname == .kusto || resourceExtname == .kstruct || resourceExtname == .proto || resourceExtname == .json || resourceExtname == .parquet || resourceExtname == .jsons || resourceExtname == .xsd || resourceExtname == .avsc || resourceExtname == .asn1"
+                    "when": "resourceExtname == .parquet || resourceExtname == .xsd || resourceExtname == .kusto || resourceExtname == .avsc || resourceExtname == .proto || resourceExtname == .json || resourceExtname == .csv || resourceExtname == .kstruct || resourceExtname == .asn1 || resourceExtname == .jsons"
                 }
             ]
         },
@@ -333,6 +339,11 @@
             {
                 "command": "avrotize.pcf",
                 "title": "Create the Parsing Canonical Form (PCF) of an Avrotize schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.csv2a",
+                "title": "Avrotize schema",
                 "category": "Convert"
             }
         ]
