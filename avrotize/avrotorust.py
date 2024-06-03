@@ -407,6 +407,10 @@ def convert_avro_to_rust(avro_schema_path, rust_file_path, package_name='', avro
         avro_annotation (bool): Include Avro annotations
         serde_annotation (bool): Include Serde annotations
     """
+    
+    if not package_name:
+        package_name = os.path.splitext(os.path.basename(avro_schema_path))[0].lower().replace('-', '_')
+        
     avrotorust = AvroToRust()
     avrotorust.base_package = package_name
     avrotorust.avro_annotation = avro_annotation

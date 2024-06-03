@@ -353,5 +353,5 @@ def convert_avro_to_proto(avro_schema_path, proto_file_path, naming_mode: Litera
     avrotoproto = AvroToProto()
     avrotoproto.naming_mode = naming_mode
     avrotoproto.allow_optional = allow_optional
-    avrotoproto.default_namespace = os.path.splitext(os.path.basename(proto_file_path))[0]
+    avrotoproto.default_namespace = os.path.splitext(os.path.basename(proto_file_path))[0].replace('-','_')
     avrotoproto.convert_avro_to_proto(avro_schema_path, proto_file_path)

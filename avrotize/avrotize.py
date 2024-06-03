@@ -39,8 +39,7 @@ def create_subparsers(subparsers, commands):
                 carg = cmd_parser.add_argument(arg['name'], **kwargs)
             else:
                 carg = cmd_parser.add_argument(arg['name'], **kwargs)
-            if arg.get('required', False):
-                carg.required = True
+            carg.required = arg.get('required', True)
 
 def dynamic_import(module, func):
     """Dynamically import a module and function."""

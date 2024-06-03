@@ -30,6 +30,7 @@ dependencies = [
     "datapackage>=1.15.4",
     "jinja2>=3.1.4",
     "pyiceberg>=0.6.1",
+    "pandas>=2.2.2",
 ]
 [project.optional-dependencies]
 dev = [

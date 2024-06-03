@@ -548,6 +548,10 @@ class AvroToTypeScript:
 
 def convert_avro_to_typescript(avro_schema_path, js_dir_path, package_name='', typedjson_annotation=False, avro_annotation=False):
     """ Convert Avro schema to TypeScript classes """
+    
+    if not package_name:
+        package_name = os.path.splitext(os.path.basename(avro_schema_path))[0].lower().replace('-', '_')
+        
     converter = AvroToTypeScript(package_name, typed_json_annotation=typedjson_annotation, avro_annotation=avro_annotation)
     converter.convert(avro_schema_path, js_dir_path)
 

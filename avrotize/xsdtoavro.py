@@ -2,6 +2,7 @@
 
 """Converts XSD to Avro schema."""
 
+import os
 import re
 from typing import Dict, List, Tuple
 import xml.etree.ElementTree as ET
@@ -358,6 +359,8 @@ class XSDToAvro:
 
     def convert_xsd_to_avro(self, xsd_path: str, avro_path: str, namespace: str | None = None):
         """Convert XSD to Avro schema and write to a file."""
+        
+        
         avro_schema = self.xsd_to_avro(xsd_path, code_namespace=namespace)
         with open(avro_path, 'w', encoding='utf-8') as f:
             json.dump(avro_schema, f, indent=4)
@@ -372,5 +375,10 @@ def convert_xsd_to_avro(xsd_path: str, avro_path: str, namespace: str | None = N
     avro_path: str - Path to the Avro file.
     namespace: str | None - Namespace of the Avro schema.    
     """
+    
+    if not os.path.exists(xsd_path):
+        raise FileNotFoundError(f"XSD file not found at {xsd_path}")    
+    if not namespace:
+        namespace = os.path.splitext(os.path.basename(xsd_path))[0].lower().replace('-', '_')        
     xsd_to_avro = XSDToAvro()
     xsd_to_avro.convert_xsd_to_avro(xsd_path, avro_path, namespace)

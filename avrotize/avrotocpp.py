@@ -466,6 +466,10 @@ class AvroToCpp:
 
 def convert_avro_to_cpp(avro_schema_path, output_dir, namespace='', avro_annotation=False, json_annotation=False):
     """Converts Avro schema to C++ classes"""
+    
+    if not namespace:
+        namespace = os.path.splitext(os.path.basename(avro_schema_path))[0].replace('-', '_')
+    
     avroToCpp = AvroToCpp(namespace)
     avroToCpp.avro_annotation = avro_annotation
     avroToCpp.json_annotation = json_annotation

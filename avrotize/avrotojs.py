@@ -237,6 +237,10 @@ class AvroToJavaScript:
 
 def convert_avro_to_javascript(avro_schema_path, js_dir_path, package_name='', avro_annotation=False):
     """ Convert Avro schema to TypeScript classes """
+    
+    if not package_name:
+        package_name = os.path.splitext(os.path.basename(avro_schema_path))[0].replace('-', '_')
+    
     converter = AvroToJavaScript(package_name, avro_annotation=avro_annotation)
     converter.convert(avro_schema_path, js_dir_path)
     

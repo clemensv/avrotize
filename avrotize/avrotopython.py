@@ -329,6 +329,9 @@ class AvroToPython:
 
 def convert_avro_to_python(avro_schema_path, py_file_path, package_name = '', dataclasses_json_annotation = False, avro_annotation = False):
     """Converts Avro schema to Python data classes"""
+    if not package_name:
+        package_name = os.path.splitext(os.path.basename(avro_schema_path))[0].lower().replace('-', '_')
+        
     avro_to_python = AvroToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
     avro_to_python.convert(avro_schema_path, py_file_path)
 

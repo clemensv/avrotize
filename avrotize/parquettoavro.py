@@ -148,6 +148,10 @@ def convert_parquet_to_avro(parquet_file_path, avro_file_path, namespace=""):
     :param avro_file_path: Path to save the Avro schema file.
     :param namespace: Namespace for Avro records.
     """
+    
+    if not os.path.exists(parquet_file_path):
+        raise FileNotFoundError(f"Parquet file not found: {parquet_file_path}")
+    
     converter = ParquetToAvroConverter(parquet_file_path, avro_file_path, namespace)
     converter.convert()
 

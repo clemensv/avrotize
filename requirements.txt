@@ -100,3 +100,4 @@ wrapt>=1.16.0
 xlrd>=2.0.1
 xmlschema>=3.3.1
 xmlunittest>=0.5.0
+pandas>=2.2.2

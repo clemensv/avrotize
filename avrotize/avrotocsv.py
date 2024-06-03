@@ -113,5 +113,9 @@ def convert_avro_to_csv_schema(avro_schema_path, csv_schema_path):
     :param avro_schema_path: Path to the Avro schema file.
     :param csv_schema_path: Path to save the CSV schema file.
     """
+    
+    if not os.path.exists(avro_schema_path):
+        raise FileNotFoundError(f"Avro schema file not found: {avro_schema_path}")
+    
     converter = AvroToCSVSchemaConverter(avro_schema_path, csv_schema_path)
     converter.convert()

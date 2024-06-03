@@ -17,7 +17,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path of the proto file (or read from stdin if omitted)"
+                "help": "Path of the proto file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -28,7 +29,8 @@
             {
                 "name": "--proto",
                 "type": "str",
-                "help": "Deprecated: Path of the proto file (for backcompat)"
+                "help": "Deprecated: Path of the proto file (for backcompat)",
+                "required": false
             }
         ],        
         "suggested_output_file_path": "{input_file_name}.avsc",
@@ -54,18 +56,20 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Proto file (or read from stdin if omitted)"
+                "help": "Path to the Proto file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
                 "type": "str",
                 "help": "Path to the Avrotize schema file",
-                "required": true
+                "required": false
             },
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Proto file (for backcompat)"
+                "help": "Deprecated: Path to the Proto file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--naming",
@@ -83,7 +87,8 @@
                 "name": "--allow-optional",
                 "type": "bool",
                 "help": "Enable support for 'optional' fields",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}-proto",
@@ -96,13 +101,15 @@
                     "camel",
                     "pascal"
                 ],
-                "default": "pascal"
+                "default": "pascal",
+                "required": false
             },
             {
                 "name": "--allow-optional",
                 "message": "Enable support for 'optional' fields?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             }
         ]
     },
@@ -126,7 +133,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the JSON schema file (or read from stdin if omitted)"
+                "help": "Path to the JSON schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -137,7 +145,8 @@
             {
                 "name": "--jsons",
                 "type": "str",
-                "help": "Deprecated: Path to the JSON schema file (for backcompat)"
+                "help": "Deprecated: Path to the JSON schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--namespace",
@@ -149,7 +158,8 @@
                 "name": "--split-top-level-records",
                 "type": "bool",
                 "help": "Split top-level records into separate files",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.avsc",
@@ -164,7 +174,8 @@
                 "name": "--split-top-level-records",
                 "message": "Split top-level records into separate files?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             }
         ]
     },
@@ -187,7 +198,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -198,7 +210,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--naming",
@@ -236,7 +249,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the XSD schema file (or read from stdin if omitted)"
+                "help": "Path to the XSD schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -247,7 +261,8 @@
             {
                 "name": "--xsd",
                 "type": "str",
-                "help": "Deprecated: Path to the XSD schema file (for backcompat)"
+                "help": "Deprecated: Path to the XSD schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--namespace",
@@ -284,7 +299,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -295,7 +311,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.xsd",
@@ -324,7 +341,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -335,7 +353,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--kusto-uri",
@@ -359,7 +378,8 @@
                 "name": "--emit-cloudevents-columns",
                 "type": "bool",
                 "help": "Add CloudEvents columns to the Kusto table",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--emit-cloudevents-dispatch",
@@ -386,13 +406,15 @@
                 "name": "--emit-cloudevents-columns",
                 "message": "Add CloudEvents columns to the Kusto table?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--emit-cloudevents-dispatch",
                 "message": "Emit a _cloudevents_dispatch ingestion table and update policies?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             }
         ]
     },
@@ -418,7 +440,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Kusto URI (or read from stdin if omitted)"
+                "help": "Kusto file",
+                "required": false
             },
             {
                 "name": "--out",
@@ -469,13 +492,15 @@
                 "name": "--emit-cloudevents",
                 "message": "Emit CloudEvents declarations for each table?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--emit-xregistry",
                 "message": "Emit an xRegistry manifest with CloudEvents declarations?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "skip_input_file_handling": true
@@ -500,7 +525,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -511,7 +537,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--dialect",
@@ -535,7 +562,8 @@
                 "name": "--emit-cloudevents-columns",
                 "type": "bool",
                 "help": "Add CloudEvents columns to the SQL table",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.sql",
@@ -555,13 +583,15 @@
                     "redshift",
                     "db2"
                 ],
-                "default": "mysql"
+                "default": "mysql",
+                "required": true
             },
             {
                 "name": "--emit-cloudevents-columns",
                 "message": "Add CloudEvents columns to the SQL table?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             }
         ]
     },
@@ -585,19 +615,21 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
                 "type": "str",
-                "help": "Path to the MongoDB schema",
-                "required": false
+                "help": "Path to the MongoDB schemas",
+                "required": true
             },
             {
                 "name": "--emit-cloudevents-columns",
                 "type": "bool",
                 "help": "Add CloudEvents columns to the MongoDB schema",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.json",
@@ -630,7 +662,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -641,7 +674,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--record-type",
@@ -653,7 +687,8 @@
                 "name": "--emit-cloudevents-columns",
                 "type": "bool",
                 "help": "Add CloudEvents columns to the Parquet file",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.parquet",
@@ -686,7 +721,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -704,7 +740,8 @@
                 "name": "--emit-cloudevents-columns",
                 "type": "bool",
                 "help": "Add CloudEvents columns to the Iceberg schema",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.iceberg",
@@ -736,7 +773,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Parquet file (or read from stdin if omitted)"
+                "help": "Path to the Parquet file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -747,7 +785,8 @@
             {
                 "name": "--parquet",
                 "type": "str",
-                "help": "Deprecated: Path to the Parquet file (for backcompat)"
+                "help": "Deprecated: Path to the Parquet file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--namespace",
@@ -784,7 +823,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path(s) to the ASN.1 schema file(s) (or read from stdin if omitted)"
+                "help": "Path(s) to the ASN.1 schema file(s) (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -796,7 +836,8 @@
                 "name": "--asn",
                 "type": "str",
                 "nargs": "+",
-                "help": "Deprecated: Path(s) to the ASN.1 schema file(s) (for backcompat)"
+                "help": "Deprecated: Path(s) to the ASN.1 schema file(s) (for backcompat)",
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.avsc",
@@ -820,7 +861,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Kafka Struct file (or read from stdin if omitted)"
+                "help": "Path to the Kafka Struct file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -831,7 +873,8 @@
             {
                 "name": "--kstruct",
                 "type": "str",
-                "help": "Deprecated: Path to the Kafka Struct file (for backcompat)"
+                "help": "Deprecated: Path to the Kafka Struct file (for backcompat)",
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.avsc",
@@ -860,7 +903,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Kafka Struct file (or read from stdin if omitted)"
+                "help": "Path to the Kafka Struct file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -871,7 +915,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--namespace",
@@ -883,25 +928,29 @@
                 "name": "--avro-annotation",
                 "type": "bool",
                 "help": "Use Avro annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--system_text_json_annotation",
                 "type": "bool",
                 "help": "Use System.Text.Json annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--newtonsoft-json-annotation",
                 "type": "bool",
                 "help": "Use Newtonsoft.Json annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--pascal-properties",
                 "type": "bool",
                 "help": "Use PascalCase properties",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}-cs",
@@ -917,19 +966,22 @@
                 "name": "--avro-annotation",
                 "message": "Use Avro annotations?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--system_text_json_annotation",
                 "message": "Use System.Text.Json annotations?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--pascal-properties",
                 "message": "Use PascalCase properties?",
                 "type": "bool",
-                "default": false
+                "default": false,
+                "required": false
             }
         ]
     },
@@ -955,7 +1007,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -966,7 +1019,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--package",
@@ -978,19 +1032,22 @@
                 "name": "--avro-annotation",
                 "type": "bool",
                 "help": "Use Avro annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--jackson-annotation",
                 "type": "bool",
                 "help": "Use Jackson annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--pascal-properties",
                 "type": "bool",
                 "help": "Use PascalCase properties",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}-java",
@@ -1036,7 +1093,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -1047,7 +1105,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--package",
@@ -1059,13 +1118,15 @@
                 "name": "--dataclasses-json-annotation",
                 "type": "bool",
                 "help": "Use dataclasses-json annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--avro-annotation",
                 "type": "bool",
                 "help": "Use Avro annotations",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}-py",
@@ -1105,7 +1166,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -1116,7 +1178,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--package",
@@ -1128,13 +1191,15 @@
                 "name": "--avro-annotation",
                 "type": "bool",
                 "help": "Use Avro annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--typedjson-annotation",
                 "type": "bool",
                 "help": "Use TypedJSON annotations",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}-ts",
@@ -1173,7 +1238,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -1184,7 +1250,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--package",
@@ -1196,7 +1263,8 @@
                 "name": "--avro-annotation",
                 "type": "bool",
                 "help": "Use Avro annotations",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}-js",
@@ -1230,7 +1298,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -1241,7 +1310,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--namespace",
@@ -1253,13 +1323,15 @@
                 "name": "--avro-annotation",
                 "type": "bool",
                 "help": "Use Avro annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--json-annotation",
                 "type": "bool",
                 "help": "Use JSON annotations",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}-cpp",
@@ -1268,6 +1340,8 @@
                 "name": "--namespace",
                 "message": "Enter the root namespace for the C++ classes (optional)",
                 "type": "str",
+                "required": false,
+                "default": "{input_file_name}",
                 "required": false
             },
             {
@@ -1307,7 +1381,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -1318,7 +1393,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--package",
@@ -1342,13 +1418,15 @@
                 "name": "--avro-annotation",
                 "type": "bool",
                 "help": "Use Avro annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--json-annotation",
                 "type": "bool",
                 "help": "Use JSON annotations",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}-go",
@@ -1406,7 +1484,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -1417,7 +1496,8 @@
             {
                 "name": "--avsc",
                 "type": "str",
-                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)"
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
             },
             {
                 "name": "--package",
@@ -1429,13 +1509,15 @@
                 "name": "--avro-annotation",
                 "type": "bool",
                 "help": "Use Avro annotations",
-                "default": false
+                "default": false,
+                "required": false
             },
             {
                 "name": "--json-annotation",
                 "type": "bool",
                 "help": "Use JSON annotations",
-                "default": false
+                "default": false,
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}-rust",
@@ -1479,7 +1561,8 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
@@ -1522,13 +1605,14 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             },
             {
                 "name": "--out",
                 "type": "str",
                 "help": "Output path for the Markdown documentation",
-                "required": true
+                "required": false
             }
         ],
         "suggested_output_file_path": "{input_file_name}.md",
@@ -1551,9 +1635,55 @@
                 "name": "input",
                 "type": "str",
                 "nargs": "?",
-                "help": "Path to the Avrotize schema file (or read from stdin if omitted)"
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
             }
         ],
         "prompts": []
+    },
+    {
+        "command": "csv2a",
+        "description": "Convert CSV file to Avrotize schema",
+        "function": {
+            "name": "avrotize.csvtoavro.convert_csv_to_avro",
+            "args": {
+                "csv_file_path": "input_file_path",
+                "avro_file_path": "output_file_path",
+                "namespace": "args.namespace"
+            }
+        },
+        "extensions": [
+            ".csv"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the CSV file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Namespace for the Avrotize schema",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the namespace for the Avro schema",
+                "type": "str",
+                "required": false
+            }
+        ]
     }
 ]

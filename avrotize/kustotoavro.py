@@ -436,6 +436,14 @@ class KustoToAvro:
 
 def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, avro_namespace: str, avro_schema_file: str, emit_cloudevents:bool, emit_cloudevents_xregistry: bool, token_provider=None):
     """ Converts Kusto table schemas to Avro schema format."""
+    
+    if not kusto_uri:
+        raise ValueError("kusto_uri is required")
+    if not kusto_database:
+        raise ValueError("kusto_database is required")
+    if not avro_namespace:
+        avro_namespace = kusto_database
+    
     kusto_to_avro = KustoToAvro(
         kusto_uri, kusto_database, avro_namespace, avro_schema_file,emit_cloudevents, emit_cloudevents_xregistry, token_provider=token_provider)
     return kusto_to_avro.process_all_tables()
