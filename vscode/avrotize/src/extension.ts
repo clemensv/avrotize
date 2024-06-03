@@ -5,7 +5,7 @@ import * as fs from 'fs';
 
 const currentVersionMajor = 1;
 const currentVersionMinor = 9;
-const currentVersionPatch = 4;
+const currentVersionPatch = 5;
 async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {
     try {
         const toolAvailable = await execShellCommand('avrotize --version')
@@ -111,9 +111,9 @@ export function activate(context: vscode.ExtensionContext) {
     const disposables: vscode.Disposable[] = [];
     (async () => {
         const outputChannel = vscode.window.createOutputChannel('avrotize');
-        if (!await checkAvrotizeTool(context, outputChannel)) { return; };
 
         disposables.push(vscode.commands.registerCommand('avrotize.p2a', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
@@ -123,6 +123,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2p', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-proto');
             const naming_value = await vscode.window.showQuickPick(['snake', 'camel', 'pascal'], { placeHolder: 'Select type naming convention' });
@@ -136,6 +137,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.j2a', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
@@ -149,6 +151,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2j', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.jsons');
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'jsons File': ['jsons'] } });
@@ -158,6 +161,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.x2a', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
@@ -169,6 +173,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2x', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.xsd');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the target namespace for the XSD schema (optional)' });
@@ -180,6 +185,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2k', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.kql');
             const kusto_uri_value = await vscode.window.showInputBox({ prompt: 'Enter the Kusto Cluster URI (optional)' });
@@ -197,6 +203,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.k2a', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{kusto_database}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
@@ -212,6 +219,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2sql', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.sql');
             const dialect_value = await vscode.window.showQuickPick(['mysql', 'mariadb', 'postgres', 'sqlserver', 'oracle', 'sqlite', 'bigquery', 'snowflake', 'redshift', 'db2'], { placeHolder: 'Select the SQL dialect' });
@@ -225,6 +233,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2mongo', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.json');
             const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the MongoDB schema?' }) === 'Yes';
@@ -236,6 +245,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2pq', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.parquet');
             const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the Parquet file?' }) === 'Yes';
@@ -247,6 +257,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2ib', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.iceberg');
             const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the Iceberg schema?' }) === 'Yes';
@@ -258,6 +269,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.pq2a', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });
@@ -269,6 +281,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.asn2a', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
@@ -278,6 +291,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.kstruct2a', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
@@ -287,6 +301,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2cs', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-cs');
             const fileBaseName = path.basename(filePath, path.extname(filePath));
@@ -306,6 +321,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2java', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-java');
             const avro_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use Avro annotations?' }) === 'Yes';
@@ -321,6 +337,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2py', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-py');
             const dataclasses_json_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use dataclasses-json annotations?' }) === 'Yes';
@@ -334,6 +351,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2ts', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-ts');
             const avro_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use Avro annotations?' }) === 'Yes';
@@ -347,6 +365,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2js', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-js');
             const avro_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use Avro annotations?' }) === 'Yes';
@@ -358,6 +377,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2cpp', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-cpp');
             const fileBaseName = path.basename(filePath, path.extname(filePath));
@@ -375,6 +395,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2go', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-go');
             const avro_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use Avro annotations?' }) === 'Yes';
@@ -394,6 +415,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2rust', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}-rust');
             const package_value = await vscode.window.showInputBox({ prompt: 'Enter the Rust package name (optional)' });
@@ -409,6 +431,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2dp', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.json');
             const record_type_value = await vscode.window.showInputBox({ prompt: 'Enter the record type in the Avro schema (optional)' });
@@ -420,6 +443,7 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.a2md', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.md');
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'md File': ['md'] } });
@@ -429,12 +453,14 @@ export function activate(context: vscode.ExtensionContext) {
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.pcf', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const command = `avrotize pcf ${filePath}`;
             executeCommand(command, null, outputChannel);
         }));
 
         disposables.push(vscode.commands.registerCommand('avrotize.csv2a', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
             const filePath = uri.fsPath;
             const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
             const namespace_value = await vscode.window.showInputBox({ prompt: 'Enter the namespace for the Avro schema' });

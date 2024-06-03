@@ -12,7 +12,7 @@
         "type": "git",
         "url": "https://github.com/clemensv/avrotize.git"
     },
-    "version": "1.9.4",
+    "version": "1.9.5",
     "engines": {
         "vscode": "^1.89.0"
     },
@@ -206,7 +206,7 @@
                     "submenu": "convertSubmenu",
                     "title": "Convert",
                     "group": "navigation",
-                    "when": "resourceExtname == .avsc || resourceExtname == .csv || resourceExtname == .jsons || resourceExtname == .xsd || resourceExtname == .parquet || resourceExtname == .json || resourceExtname == .kusto || resourceExtname == .kstruct || resourceExtname == .proto || resourceExtname == .asn1"
+                    "when": "resourceExtname == .kstruct || resourceExtname == .avsc || resourceExtname == .jsons || resourceExtname == .proto || resourceExtname == .xsd || resourceExtname == .csv || resourceExtname == .kusto || resourceExtname == .asn1 || resourceExtname == .parquet || resourceExtname == .json"
                 }
             ]
         },

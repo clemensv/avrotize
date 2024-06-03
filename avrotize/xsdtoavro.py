@@ -124,11 +124,30 @@ class XSDToAvro:
         """Process an element in the XSD schema."""
         name = element.get('name')
         type_value = element.get('type', '')
-        avro_type = self.xsd_to_avro_type(type_value, namespaces)
-        if not type_value.startswith(f'{namespaces[XSD_NAMESPACE]}:') and type_value not in self.simple_type_map.keys():
-            dependencies.append(avro_type if isinstance(
-                avro_type, str) else avro_type.get('namespace')+'.'+avro_type.get('name'))
-            dependencies = list(set(dependencies))
+        if type_value:
+            avro_type = self.xsd_to_avro_type(type_value, namespaces)
+            if not type_value.startswith(f'{namespaces[XSD_NAMESPACE]}:') and type_value not in self.simple_type_map.keys():
+                dependencies.append(avro_type if isinstance(
+                    avro_type, str) else avro_type.get('namespace')+'.'+avro_type.get('name'))
+                dependencies = list(set(dependencies))
+        else:
+            complex_type = element.find(
+                f'{{{XSD_NAMESPACE}}}complexType', namespaces)
+            if complex_type is not None:
+                complex_type.set('name', name)
+                avro_type = self.process_complex_type(complex_type, namespaces)
+            else:
+                simple_type = element.find(
+                    f'{{{XSD_NAMESPACE}}}simpleType', namespaces)
+                if simple_type is not None:
+                    add_to_schema, simple_type_type = self.process_simple_type(
+                        simple_type, namespaces)
+                    if add_to_schema:
+                        avro_type = simple_type_type
+                    else:
+                        avro_type = self.simple_type_map[name]
+                else:
+                    raise ValueError('element must have a type or complexType')
 
         max_occurs = element.get('maxOccurs')
         if max_occurs is not None and max_occurs != '1':

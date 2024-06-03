@@ -212,7 +212,6 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
             f"{INDENT}const disposables: vscode.Disposable[] = [];",
             f"{INDENT}(async () => {{",
             f"{INDENT*2}const outputChannel = vscode.window.createOutputChannel('avrotize');",
-            f"{INDENT*2}if (!await checkAvrotizeTool(context, outputChannel)) {{ return; }};",
             ""
         ]
     )
@@ -221,6 +220,7 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
     for command in commands:
         file_basename_defined = False
         extension_ts_content.append(f"{INDENT*2}disposables.push(vscode.commands.registerCommand('avrotize.{command['command']}', async (uri: vscode.Uri) => {{")
+        extension_ts_content.append(f"{INDENT*3}if (!await checkAvrotizeTool(context, outputChannel)) {{ return; }}")
         extension_ts_content.append(f"{INDENT*3}const filePath = uri.fsPath;")
         
         args_str = ''
