@@ -16,6 +16,9 @@ The tool leans on the Apache Avro-derived
 ["Avrotize Schema"](https://github.com/clemensv/avrotize/blob/master/specs/avrotize-schema.md) as its schema
 model.
 
+
+![Screenshot](./media/screenshot.png)
+
 ## Features
 
 The Visual Studio Code extension for Avrotize provides a user-friendly interface
