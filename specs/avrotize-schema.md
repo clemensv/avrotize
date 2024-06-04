@@ -13,7 +13,6 @@ Avro](https://avro.apache.org/docs/1.11.1/specification/) schema model.
 <!-- omit from toc -->
 
 ## Contents
-
 - [Avrotize Schema Specification](#avrotize-schema-specification)
   - [Abstract](#abstract)
   - [Contents](#contents)
@@ -55,12 +54,21 @@ Avro](https://avro.apache.org/docs/1.11.1/specification/) schema model.
       - [3.8.10. duration](#3810-duration)
     - [3.9. `record` Type](#39-record-type)
       - [3.9.1. `record` field Declarations](#391-record-field-declarations)
-    - [3.10. `enum` Type](#310-enum-type)
+      - [3.10. `enum` Type](#310-enum-type)
     - [3.11. array](#311-array)
     - [3.12. map](#312-map)
     - [3.13. Type Unions](#313-type-unions)
-  - [4. The "Parsing Canonical Form" for Avro Schemas](#4-parsing-canonical-form-for-avro-schemas)
+  - [4. Parsing Canonical Form for Avro Schemas](#4-parsing-canonical-form-for-avro-schemas)
+    - [4.1 Overview](#41-overview)
+    - [4.2 Transforming into Parsing Canonical Form](#42-transforming-into-parsing-canonical-form)
   - [5. Schema Fingerprints](#5-schema-fingerprints)
+    - [5.1 Overview](#51-overview)
+    - [5.2 Recommended Fingerprinting Algorithms](#52-recommended-fingerprinting-algorithms)
+      - [5.2.1 SHA-256](#521-sha-256)
+      - [5.2.2 Rabin Fingerprint (64-bit)](#522-rabin-fingerprint-64-bit)
+      - [5.2.3 MD5](#523-md5)
+    - [5.3 Security Considerations](#53-security-considerations)
+    - [5.4 Rabin Fingerprint Algorithm](#54-rabin-fingerprint-algorithm)
   - [6. Security Considerations](#6-security-considerations)
   - [7. IANA Considerations](#7-iana-considerations)
     - [7.1. Media Type Registration](#71-media-type-registration)
