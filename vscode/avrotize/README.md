@@ -8,31 +8,17 @@ structure definitions, allowing you to convert between numerous data and
 database schema formats and to generate code for different programming
 languages.
 
-It is, for instance, a well-documented and predictable converter and code
-generator for data structures originally defined in JSON Schema (of arbitrarys
-complexity).
-
 The tool leans on the Apache Avro-derived
 ["Avrotize Schema"](https://github.com/clemensv/avrotize/blob/master/specs/avrotize-schema.md) as its schema
 model.
 
-
 ![Screenshot](https://raw.githubusercontent.com/clemensv/avrotize/master/vscode/avrotize/media/screenshot.png)
-
-## Features
-
-The Visual Studio Code extension for Avrotize provides a user-friendly interface
-to the Avrotize tool, allowing you to convert between different data structure
-formats and generate code for different programming languages. You will find the
-conversion commands in the context menu of the explorer view.
 
 ## Requirements
 
-The Avrotize tool must be installed on your system and available in the path.
 Avrotize requires Python 3.11 or later to be installed on your system first. 
 
-You can then install Avrotize using pip, or have the extension install the tool
-for you when you first use it. 
+You can let the extension install Avrotize or you can install it with PIP:
 
 ```bash
 pip install avrotize
@@ -46,9 +32,13 @@ Once Avrotize is installed, the extension will detect whether the Avrotize
 version is current and will automatically update it to match the extension
 version if necessary.
 
-## Using the Avrotize Extension
+## Features
 
-Once the Avrotize extension is installed, you can use it to convert different file formats to and from Avro schemas directly from the VS Code explorer context menu. The extension will add a new "Convert to" menu item with subitems based on the file type you are working with. Below is a guide to what commands are available for which file types and what happens when you select them.
+Avrotize lets you convert different file formats to and from Avro(-tize) schemas
+directly from the VS Code explorer context menu. The extension will add a new
+"Convert to" menu item with subitems based on the file type you are working
+with. Below is a guide to what commands are available for which file types and
+what happens when you select them.
 
 ### Supported File Types and Available Commands
 
@@ -57,8 +47,8 @@ Once the Avrotize extension is installed, you can use it to convert different fi
 | File Extension | Context Menu Command                | Description                                                              | Steps                                                                                                                                                                                               |
 | -------------- | ----------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `.avsc`        | Convert to > Parquet                | Converts an Avro schema to a Parquet file and saves the output.          | - Provide output file name and location                                                                                                                                                             |
-| `.avsc`        | Convert to > JSON                   | Converts an Avro schema to a JSON file and saves the output.             | - Provide output file name and location                                                                                                                                                             |
-| `.avsc`        | Convert to > XML                    | Converts an Avro schema to an XML file and saves the output.             | - Provide output file name and location                                                                                                                                                             |
+| `.avsc`        | Convert to > JSON                   | Converts an Avro schema to a JSON schema and saves the output.             | - Provide output file name and location                                                                                                                                                             |
+| `.avsc`        | Convert to > XML                    | Converts an Avro schema to an XML schema and saves the output.             | - Provide output file name and location                                                                                                                                                             |
 | `.avsc`        | Convert to > SQL Schema             | Converts an Avro schema to a SQL schema and saves the output.            | - Select the SQL dialect<br>- Decide if you want to add CloudEvents columns<br>- Provide output file name and location                                                                              |
 | `.avsc`        | Convert to > MongoDB Schema         | Converts an Avro schema to a MongoDB schema and saves the output.        | - Decide if you want to add CloudEvents columns<br>- Provide output file name and location                                                                                                          |
 | `.avsc`        | Convert to > Cassandra Schema       | Converts an Avro schema to a Cassandra schema and saves the output.      | - Decide if you want to add CloudEvents columns<br>- Provide output file name and location                                                                                                          |
@@ -85,10 +75,10 @@ Once the Avrotize extension is installed, you can use it to convert different fi
 | File Extension | Context Menu Command     | Description                                                     | Steps                                                                                                                                 |
 | -------------- | ------------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `.parquet`     | Convert to > Avro Schema | Converts a Parquet file to an Avro schema and saves the output. | - Provide namespace for the Avro schema<br>- Provide output file name and location                                                    |
-| `.json`        | Convert to > Avro Schema | Converts a JSON file to an Avro schema and saves the output.    | - Provide namespace for the Avro schema<br>- Decide if you want to split top-level records<br>- Provide output file name and location |
-| `.xml`         | Convert to > Avro Schema | Converts an XML file to an Avro schema and saves the output.    | - Provide namespace for the Avro schema<br>- Provide output file name and location                                                    |
-| `.asn`         | Convert to > Avro Schema | Converts an ASN file to an Avro schema and saves the output.    | - Provide output file name and location                                                                                               |
-| `.csv`         | Convert to > Avro Schema | Converts a CSV file to an Avro schema and saves the output.     | - Provide namespace for the Avro schema<br>- Provide output file name and location                                                    |
+| `.json`        | Convert to > Avro Schema | Converts a JSON schema to an Avro schema and saves the output.    | - Provide namespace for the Avro schema<br>- Decide if you want to split top-level records<br>- Provide output file name and location |
+| `.xml`         | Convert to > Avro Schema | Converts an XML schema to an Avro schema and saves the output.    | - Provide namespace for the Avro schema<br>- Provide output file name and location                                                    |
+| `.asn`         | Convert to > Avro Schema | Converts an ASN schema to an Avro schema and saves the output.    | - Provide output file name and location                                                                                               |
+| `.csv`         | Convert to > Avro Schema | Converts a CSV header schema to an Avro schema and saves the output.     | - Provide namespace for the Avro schema<br>- Provide output file name and location                                                    |
 
 ### Using the Context Menu Commands
 
