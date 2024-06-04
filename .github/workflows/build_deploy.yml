@@ -1,0 +1,93 @@
+name: Upload Python Package and VS Code Extension 
+
+on:
+  push:
+    branches: [ master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Set up .NET SDK 8.0
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'microsoft' 
+        java-version: '21'
+    - name: Setup Maven Action
+      uses: s4u/setup-maven-action@v1.12.0
+      with:
+        java-version: 21
+        maven-version: '3.9.6'
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.11.1
+    # we need to build the package for generating the _version.py file that isn't checked in
+    - name: Install dependencies and build package
+      run: |
+        python -m pip install --upgrade pip build wheel
+        python -m pip install pylint
+        python -m pip install -r requirements.txt
+        python -m build --sdist --wheel --outdir dist
+    - name: Install dependencies
+      run: pip install pytest pytest-md pytest-emoji
+    - name: Run pytest
+      uses: pavelzw/pytest-action@v2
+      with:
+        verbose: true
+        emoji: true
+        job-summary: false
+        click-to-expand: true
+        report-title: 'Test Report'
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+    - name: Build package
+      run: python -m build
+    - name: Update VS Code Extension Code with commands.json
+      run: |
+        python tools/editvscodeext.py --extension-root ${{ github.workspace }}/vscode/avrotize --commands ${{ github.workspace }}/avrotize/commands.json
+    - name: Install Node and NPM
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20'
+    - name: Set up dependencies for VS Code Extension
+      run: |
+        cd ${{ github.workspace }}/vscode/avrotize
+        npm install
+    - name: Publish VS Code Extension
+      run: |
+        cd ${{ github.workspace }}/vscode/avrotize
+        npm run deploy
+      env:
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+    - name: Publish Python package
+      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_KEY }}

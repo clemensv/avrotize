@@ -13,7 +13,7 @@ generator for data structures originally defined in JSON Schema (of arbitrarys
 complexity).
 
 The tool leans on the Apache Avro-derived
-["Avrotize Schema"](https://github.com/clemensv/avrotize/specs) as its schema
+["Avrotize Schema"](https://github.com/clemensv/avrotize/blob/master/specs/avrotize-schema.md) as its schema
 model.
 
 ## Features
