@@ -238,7 +238,9 @@ class AvroToProto:
         comment = Comment('',{})
         if 'doc' in avro_schema:
             comment = Comment(avro_schema["doc"], {})
-        namespace = avro_schema.get("namespace", self.default_namespace)
+        namespace = avro_schema.get("namespace", '')
+        if not namespace:
+            namespace = self.default_namespace
         if avro_schema['type'] == 'record':
             message = self.convert_record_type(avro_schema, comment, proto_files)
             file = next((f for f in proto_files.files if f.package == namespace), None)
