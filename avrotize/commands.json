@@ -2,6 +2,7 @@
   {
     "command": "p2a",
     "description": "Convert Proto schema to Avrotize schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.prototoavro.convert_proto_to_avro",
       "args": {
@@ -37,6 +38,7 @@
   {
     "command": "a2p",
     "description": "Convert Avrotize schema to Proto schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.avrotoproto.convert_avro_to_proto",
       "args": {
@@ -104,6 +106,7 @@
   {
     "command": "j2a",
     "description": "Convert JSON schema to Avrotize schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.jsonstoavro.convert_jsons_to_avro",
       "args": {
@@ -168,6 +171,7 @@
   {
     "command": "a2j",
     "description": "Convert Avrotize schema to JSON schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.avrotojsons.convert_avro_to_json_schema",
       "args": {
@@ -212,6 +216,7 @@
   {
     "command": "x2a",
     "description": "Convert XSD schema to Avrotize schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.xsdtoavro.convert_xsd_to_avro",
       "args": {
@@ -261,6 +266,7 @@
   {
     "command": "a2x",
     "description": "Convert Avrotize schema to XSD schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.avrotoxsd.convert_avro_to_xsd",
       "args": {
@@ -309,7 +315,8 @@
   },
   {
     "command": "a2k",
-    "description": "Convert Avrotize schema to Kusto table schemas",
+    "description": "Convert Avrotize schema to Kusto table schemas",    
+    "group": "4_RTDB",
     "function": {
       "name": "avrotize.avrotokusto.convert_avro_to_kusto",
       "args": {
@@ -407,7 +414,8 @@
   },
   {
     "command": "k2a",
-    "description": "Convert Kusto schema to Avrotize schema",
+    "description": "Convert Kusto schema to Avrotize schema",    
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.kustotoavro.convert_kusto_to_avro",
       "args": {
@@ -493,6 +501,7 @@
   {
     "command": "a2sql",
     "description": "Convert Avrotize schema to SQL schema",
+    "group": "5_SQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_sql",
       "args": {
@@ -581,6 +590,7 @@
   {
     "command": "a2mongo",
     "description": "Convert Avrotize schema to MongoDB schema",
+    "group": "6_NoSQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_nosql",
       "args": {
@@ -626,6 +636,7 @@
   {
     "command": "a2pq",
     "description": "Convert Avrotize schema to Parquet or Iceberg schema",
+    "group": "3_Datalake",
     "function": {
       "name": "avrotize.avrotoparquet.convert_avro_to_parquet",
       "args": {
@@ -683,6 +694,7 @@
   {
     "command": "a2ib",
     "description": "Convert Avrotize schema to Iceberg schema",
+    "group": "3_Datalake",    
     "function": {
       "name": "avrotize.avrotoiceberg.convert_avro_to_iceberg",
       "args": {
@@ -734,6 +746,7 @@
   {
     "command": "pq2a",
     "description": "Convert Parquet schema to Avrotize schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.parquettoavro.convert_parquet_to_avro",
       "args": {
@@ -783,6 +796,7 @@
   {
     "command": "asn2a",
     "description": "Convert ASN.1 schema to Avrotize schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.asn1toavro.convert_asn1_to_avro",
       "args": {
@@ -819,6 +833,7 @@
   {
     "command": "kstruct2a",
     "description": "Convert Kafka Struct to Avrotize schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.kstructtoavro.convert_kafka_struct_to_avro_schema",
       "args": {
@@ -854,6 +869,7 @@
   {
     "command": "a2cs",
     "description": "Convert Avrotize schema to C# classes",
+    "group": "2_ProgLanguages",
     "function": {
       "name": "avrotize.avrotocsharp.convert_avro_to_csharp",
       "args": {
@@ -957,6 +973,7 @@
   {
     "command": "a2java",
     "description": "Convert Avrotize schema to Java classes",
+    "group": "2_ProgLanguages",
     "function": {
       "name": "avrotize.avrotojava.convert_avro_to_java",
       "args": {
@@ -1042,6 +1059,7 @@
   {
     "command": "a2py",
     "description": "Convert Avrotize schema to Python classes",
+    "group": "2_ProgLanguages",
     "function": {
       "name": "avrotize.avrotopython.convert_avro_to_python",
       "args": {
@@ -1113,6 +1131,7 @@
   {
     "command": "a2ts",
     "description": "Convert Avrotize schema to TypeScript classes",
+    "group": "2_ProgLanguages",
     "function": {
       "name": "avrotize.avrotots.convert_avro_to_typescript",
       "args": {
@@ -1184,6 +1203,7 @@
   {
     "command": "a2js",
     "description": "Convert Avrotize schema to JavaScript classes",
+    "group": "2_ProgLanguages",
     "function": {
       "name": "avrotize.avrotojs.convert_avro_to_javascript",
       "args": {
@@ -1241,6 +1261,7 @@
   {
     "command": "a2cpp",
     "description": "Convert Avrotize schema to C++ classes",
+    "group": "2_ProgLanguages",
     "function": {
       "name": "avrotize.avrotocpp.convert_avro_to_cpp",
       "args": {
@@ -1320,6 +1341,7 @@
   {
     "command": "a2go",
     "description": "Convert Avrotize schema to Go classes",
+    "group": "2_ProgLanguages",
     "function": {
       "name": "avrotize.avrotogo.convert_avro_to_go",
       "args": {
@@ -1423,6 +1445,7 @@
   {
     "command": "a2rust",
     "description": "Convert Avrotize schema to Rust classes",
+    "group": "2_ProgLanguages",
     "function": {
       "name": "avrotize.avrotorust.convert_avro_to_rust",
       "args": {
@@ -1500,6 +1523,7 @@
   {
     "command": "a2dp",
     "description": "Convert Avrotize schema to Datapackage schema",
+    "group": "1_Schemas",
     "function": {
       "name": "avrotize.avrotodatapackage.convert_avro_to_datapackage",
       "args": {
@@ -1543,6 +1567,7 @@
   {
     "command": "a2md",
     "description": "Convert Avrotize schema to Markdown documentation",
+    "group": "7_Utility",
     "function": {
       "name": "avrotize.avrotomd.convert_avro_to_markdown",
       "args": {
@@ -1572,6 +1597,7 @@
   {
     "command": "pcf",
     "description": "Create the Parsing Canonical Form (PCF) of an Avrotize schema",
+    "group": "7_Utility",
     "function": {
       "name": "avrotize.avrotools.avsc_to_pcf",
       "args": {
@@ -1593,6 +1619,7 @@
   {
     "command": "csv2a",
     "description": "Convert CSV file to Avrotize schema",
+    "group": "1_Schemas",    
     "function": {
       "name": "avrotize.csvtoavro.convert_csv_to_avro",
       "args": {
@@ -1636,6 +1663,7 @@
   {
     "command": "a2cassandra",
     "description": "Convert Avrotize schema to Cassandra schema",
+    "group": "5_SQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_sql",
       "args": {
@@ -1681,6 +1709,7 @@
   {
     "command": "a2dynamodb",
     "description": "Convert Avrotize schema to DynamoDB schema",
+    "group": "6_NoSQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_nosql",
       "args": {
@@ -1726,6 +1755,7 @@
   {
     "command": "a2es",
     "description": "Convert Avrotize schema to Elasticsearch schema",
+    "group": "6_NoSQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_nosql",
       "args": {
@@ -1771,6 +1801,7 @@
   {
     "command": "a2couchdb",
     "description": "Convert Avrotize schema to CouchDB schema",
+    "group": "6_NoSQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_nosql",
       "args": {
@@ -1816,6 +1847,7 @@
   {
     "command": "a2neo4j",
     "description": "Convert Avrotize schema to Neo4j schema",
+    "group": "6_NoSQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_nosql",
       "args": {
@@ -1861,6 +1893,7 @@
   {
     "command": "a2firebase",
     "description": "Convert Avrotize schema to Firebase schema",
+    "group": "6_NoSQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_nosql",
       "args": {
@@ -1906,6 +1939,7 @@
   {
     "command": "a2cosmos",
     "description": "Convert Avrotize schema to CosmosDB schema",
+    "group": "6_NoSQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_nosql",
       "args": {
@@ -1951,6 +1985,7 @@
   {
     "command": "a2hbase",
     "description": "Convert Avrotize schema to HBase schema",
+    "group": "6_NoSQL",
     "function": {
       "name": "avrotize.avrotodb.convert_avro_to_nosql",
       "args": {

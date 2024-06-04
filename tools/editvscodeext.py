@@ -55,7 +55,7 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
         ext_conditions = " || ".join([f"resourceExtname == {ext}" for ext in command['extensions']])
         convert_submenus.append({
             "command": f"avrotize.{command['command']}",
-            "group": "navigation",
+            "group": command['group'],
             "when": ext_conditions,
             "title": command_description
         })

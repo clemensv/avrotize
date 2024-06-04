@@ -5,7 +5,7 @@ import * as fs from 'fs';
 
 const currentVersionMajor = 2;
 const currentVersionMinor = 0;
-const currentVersionPatch = 2;
+const currentVersionPatch = 3;
 async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {
     try {
         const toolAvailable = await execShellCommand('avrotize --version')

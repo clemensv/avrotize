@@ -73,6 +73,10 @@ class TestAvroToXsd(xmlunittest.XmlTestCase):
         """ Test converting an Avro schema to XSD"""
         self.create_xsd_from_avro("telemetry.avsc")
         
+    def test_convert_twotypeunion_avsc_to_xsd(self):
+        """ Test converting an Avro schema to XSD"""
+        self.create_xsd_from_avro("twotypeunion.avsc")
+        
     def test_convert_azurestorage_json_to_xsd(self):
         """ Test converting an Avro schema to XSD"""
         self.create_xsd_from_jsons("azurestorage.jsons")

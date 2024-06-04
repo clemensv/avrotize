@@ -96,12 +96,14 @@ class AvroToXSD:
         return self.create_element(parent, "complexType", **attributes)
 
     def create_fixed(self, schema_root, field_type):
+        """ handle Avro 'fixed' type"""
         simple_type = self.create_element(schema_root, "simpleType", name=field_type['name'])
         restriction = self.create_element(simple_type, "restriction", base="xs:hexBinary")
         restriction.set("fixed", "true")
         restriction.set("value", field_type['size'])        
 
     def create_map(self, schema_root: ET.Element, record_name: str, parent: ET.Element, map_schema: dict):
+        """ handle Avro 'map' type"""
         complex_type = self.create_element(parent, "complexType")
         sequence = self.create_element(complex_type, "sequence")
         item = self.create_element(sequence, "element", name="item", minOccurs="0", maxOccurs="unbounded")
@@ -115,7 +117,8 @@ class AvroToXSD:
             item_value = self.create_element(inner_sequence, "element", name="value")
             self.set_field_type(schema_root, record_name, item_value, map_schema['values'])
 
-    def create_union(self, schema_root: ET.Element, record_name: str, parent: ET.Element, field_name: str, field_type: list) -> ET.Element:
+    def create_union(self, schema_root: ET.Element, record_name: str, parent: ET.Element, field_name: str, field_type: list, insert_annotation: lambda e: None | None = None) -> ET.Element:
+        """Create an XML element for union types."""
 
         def create_or_get_union_simple_type(self, schema_root: ET.Element, parent:Element, types: List[str], **attributes) -> str:
             """Create an XML simpleType element for union types."""
@@ -136,15 +139,21 @@ class AvroToXSD:
         
         if isinstance(field_type, list) and is_generic_avro_type(field_type):
             element = self.create_element(parent, "any", minOccurs="0", maxOccurs="unbounded")
+            if insert_annotation: 
+                insert_annotation(element)
             return element
         
         non_null_types = [t for t in field_type if t != 'null']
         if len(non_null_types) == 1:
             element = self.create_element(parent, "element", name=field_name)
+            if insert_annotation: 
+                insert_annotation(element)
             self.set_field_type(schema_root, record_name, element, non_null_types[0])
             return element
         else:
             element = self.create_element(parent, "element", name=field_name)
+            if insert_annotation: 
+                insert_annotation(element)
             primitives = [t for t in non_null_types if self.is_avro_primitive(t)]
             for primitive in primitives:
                 non_null_types.remove(primitive)
@@ -188,6 +197,7 @@ class AvroToXSD:
             self.set_field_type(schema_root, record_name, item, item_type)
 
     def create_enum(self, schema_root: ET.Element, enum_schema: dict) -> str:
+        """Convert an Avro enum to an XML simpleType."""
         name = enum_schema['name']
         doc = enum_schema.get('doc', '')
         if name in self.known_types:
@@ -238,11 +248,12 @@ class AvroToXSD:
         field_doc = field.get('doc', '')
         xmlkind = field.get('xmlkind', 'element')
         if isinstance(field_type,list):
-            element = self.create_union(schema_root, record_name, parent, field_name, field_type)
-            if field_doc:
-                annotation = self.create_element(element, "annotation")
-                documentation = self.create_element(annotation, "documentation")
-                documentation.text = field_doc
+            def ia(e) -> None:
+                if field_doc:
+                    annotation = self.create_element(e, "annotation")
+                    documentation = self.create_element(annotation, "documentation")
+                    documentation.text = field_doc    
+            element = self.create_union(schema_root, record_name, parent, field_name, field_type, ia)
         else:
             if xmlkind == 'attribute':
                 element = self.create_element(attributes_parent, "attribute", name=field_name)

@@ -12,7 +12,7 @@
         "type": "git",
         "url": "https://github.com/clemensv/avrotize.git"
     },
-    "version": "2.0.2",
+    "version": "2.0.3",
     "engines": {
         "vscode": "^1.89.0"
     },
@@ -40,211 +40,211 @@
             "convertSubmenu": [
                 {
                     "command": "avrotize.p2a",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .proto",
                     "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.j2a",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .json || resourceExtname == .jsons",
                     "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.x2a",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .xsd",
                     "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.k2a",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .kusto",
                     "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.pq2a",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .parquet",
                     "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.asn2a",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .asn1",
                     "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.kstruct2a",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .kstruct",
                     "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.csv2a",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .csv",
                     "title": "Avrotize schema"
                 },
                 {
                     "command": "avrotize.a2cs",
-                    "group": "navigation",
+                    "group": "2_ProgLanguages",
                     "when": "resourceExtname == .avsc",
                     "title": "C# classes"
                 },
                 {
                     "command": "avrotize.a2cpp",
-                    "group": "navigation",
+                    "group": "2_ProgLanguages",
                     "when": "resourceExtname == .avsc",
                     "title": "C++ classes"
                 },
                 {
                     "command": "avrotize.a2cassandra",
-                    "group": "navigation",
+                    "group": "5_SQL",
                     "when": "resourceExtname == .avsc",
                     "title": "Cassandra schema"
                 },
                 {
                     "command": "avrotize.a2cosmos",
-                    "group": "navigation",
+                    "group": "6_NoSQL",
                     "when": "resourceExtname == .avsc",
                     "title": "CosmosDB schema"
                 },
                 {
                     "command": "avrotize.a2couchdb",
-                    "group": "navigation",
+                    "group": "6_NoSQL",
                     "when": "resourceExtname == .avsc",
                     "title": "CouchDB schema"
                 },
                 {
                     "command": "avrotize.pcf",
-                    "group": "navigation",
+                    "group": "7_Utility",
                     "when": "resourceExtname == .avsc",
                     "title": "Create the Parsing Canonical Form (PCF) of an Avrotize schema"
                 },
                 {
                     "command": "avrotize.a2dp",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .avsc",
                     "title": "Datapackage schema"
                 },
                 {
                     "command": "avrotize.a2dynamodb",
-                    "group": "navigation",
+                    "group": "6_NoSQL",
                     "when": "resourceExtname == .avsc",
                     "title": "DynamoDB schema"
                 },
                 {
                     "command": "avrotize.a2es",
-                    "group": "navigation",
+                    "group": "6_NoSQL",
                     "when": "resourceExtname == .avsc",
                     "title": "Elasticsearch schema"
                 },
                 {
                     "command": "avrotize.a2firebase",
-                    "group": "navigation",
+                    "group": "6_NoSQL",
                     "when": "resourceExtname == .avsc",
                     "title": "Firebase schema"
                 },
                 {
                     "command": "avrotize.a2go",
-                    "group": "navigation",
+                    "group": "2_ProgLanguages",
                     "when": "resourceExtname == .avsc",
                     "title": "Go classes"
                 },
                 {
                     "command": "avrotize.a2hbase",
-                    "group": "navigation",
+                    "group": "6_NoSQL",
                     "when": "resourceExtname == .avsc",
                     "title": "HBase schema"
                 },
                 {
                     "command": "avrotize.a2ib",
-                    "group": "navigation",
+                    "group": "3_Datalake",
                     "when": "resourceExtname == .avsc",
                     "title": "Iceberg schema"
                 },
                 {
                     "command": "avrotize.a2j",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .avsc",
                     "title": "JSON schema"
                 },
                 {
                     "command": "avrotize.a2java",
-                    "group": "navigation",
+                    "group": "2_ProgLanguages",
                     "when": "resourceExtname == .avsc",
                     "title": "Java classes"
                 },
                 {
                     "command": "avrotize.a2js",
-                    "group": "navigation",
+                    "group": "2_ProgLanguages",
                     "when": "resourceExtname == .avsc",
                     "title": "JavaScript classes"
                 },
                 {
                     "command": "avrotize.a2k",
-                    "group": "navigation",
+                    "group": "4_RTDB",
                     "when": "resourceExtname == .avsc",
                     "title": "Kusto table schemas"
                 },
                 {
                     "command": "avrotize.a2md",
-                    "group": "navigation",
+                    "group": "7_Utility",
                     "when": "resourceExtname == .avsc",
                     "title": "Markdown documentation"
                 },
                 {
                     "command": "avrotize.a2mongo",
-                    "group": "navigation",
+                    "group": "6_NoSQL",
                     "when": "resourceExtname == .avsc",
                     "title": "MongoDB schema"
                 },
                 {
                     "command": "avrotize.a2neo4j",
-                    "group": "navigation",
+                    "group": "6_NoSQL",
                     "when": "resourceExtname == .avsc",
                     "title": "Neo4j schema"
                 },
                 {
                     "command": "avrotize.a2pq",
-                    "group": "navigation",
+                    "group": "3_Datalake",
                     "when": "resourceExtname == .avsc",
                     "title": "Parquet or Iceberg schema"
                 },
                 {
                     "command": "avrotize.a2p",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .avsc",
                     "title": "Proto schema"
                 },
                 {
                     "command": "avrotize.a2py",
-                    "group": "navigation",
+                    "group": "2_ProgLanguages",
                     "when": "resourceExtname == .avsc",
                     "title": "Python classes"
                 },
                 {
                     "command": "avrotize.a2rust",
-                    "group": "navigation",
+                    "group": "2_ProgLanguages",
                     "when": "resourceExtname == .avsc",
                     "title": "Rust classes"
                 },
                 {
                     "command": "avrotize.a2sql",
-                    "group": "navigation",
+                    "group": "5_SQL",
                     "when": "resourceExtname == .avsc",
                     "title": "SQL schema"
                 },
                 {
                     "command": "avrotize.a2ts",
-                    "group": "navigation",
+                    "group": "2_ProgLanguages",
                     "when": "resourceExtname == .avsc",
                     "title": "TypeScript classes"
                 },
                 {
                     "command": "avrotize.a2x",
-                    "group": "navigation",
+                    "group": "1_Schemas",
                     "when": "resourceExtname == .avsc",
                     "title": "XSD schema"
                 }
@@ -254,7 +254,7 @@
                     "submenu": "convertSubmenu",
                     "title": "Convert",
                     "group": "navigation",
-                    "when": "resourceExtname == .avsc || resourceExtname == .parquet || resourceExtname == .xsd || resourceExtname == .proto || resourceExtname == .kusto || resourceExtname == .json || resourceExtname == .csv || resourceExtname == .asn1 || resourceExtname == .jsons || resourceExtname == .kstruct"
+                    "when": "resourceExtname == .kstruct || resourceExtname == .avsc || resourceExtname == .json || resourceExtname == .proto || resourceExtname == .kusto || resourceExtname == .xsd || resourceExtname == .asn1 || resourceExtname == .jsons || resourceExtname == .csv || resourceExtname == .parquet"
                 }
             ]
         },
