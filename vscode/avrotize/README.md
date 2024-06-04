@@ -17,7 +17,7 @@ The tool leans on the Apache Avro-derived
 model.
 
 
-![Screenshot](./media/screenshot.png)
+![Screenshot](https://raw.githubusercontent.com/clemensv/avrotize/master/vscode/avrotize/media/screenshot.png)
 
 ## Features
 
