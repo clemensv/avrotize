@@ -44,6 +44,14 @@ Converting from Avrotize Schema:
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
 - [`avrotize a2mongo`](#convert-avrotize-schema-to-mongodb-schema) - Convert Avrotize Schema to MongoDB schema.
+- [`avrotize a2cassandra`](#convert-avrotize-schema-to-cassandra-schema) - Convert Avrotize Schema to Cassandra schema.
+- [`avrotize a2es`](#convert-avrotize-schema-to-elasticsearch-schema) - Convert Avrotize Schema to Elasticsearch schema.
+- [`avrotize a2dynamodb`](#convert-avrotize-schema-to-dynamodb-schema) - Convert Avrotize Schema to DynamoDB schema.
+- [`avrotize a2cosmos`](#convert-avrotize-schema-to-cosmosdb-schema) - Convert Avrotize Schema to CosmosDB schema.
+- [`avrotize a2couchdb`](#convert-avrotize-schema-to-couchdb-schema) - Convert Avrotize Schema to CouchDB schema.
+- [`avrotize a2firebase`](#convert-avrotize-schema-to-firebase-schema) - Convert Avrotize Schema to Firebase schema.
+- [`avrotize a2hbase`](#convert-avrotize-schema-to-hbase-schema) - Convert Avrotize Schema to HBase schema.
+- [`avrotize a2neo4j`](#convert-avrotize-schema-to-neo4j-schema) - Convert Avrotize Schema to Neo4j schema.
 - [`avrotize a2dp`](#convert-avrotize-schema-to-datapackage-schema) - Convert Avrotize Schema to Datapackage schema.
 - [`avrotize a2md`](#convert-avrotize-schema-to-markdown-documentation) - Convert Avrotize Schema to Markdown documentation.
 
@@ -343,6 +351,104 @@ Conversion notes:
 
 - The fields of the Avro record type are mapped to fields in the MongoDB schema. Fields that are records or arrays or maps are mapped to fields of type `object`.
 - The emitted MongoDB schema file is a JSON file that can be used with MongoDB's `mongoimport` tool to create a collection with the specified schema.
+
+Here are the "Convert ..." sections for the newly added commands:
+
+### Convert Avrotize schema to Cassandra schema
+
+```bash
+avrotize a2cassandra [input] --out <output_directory> [--emit-cloudevents-columns]
+```
+
+- `input`: Path to the Avrotize schema file (or read from stdin if omitted).
+- `--out`: Output path for the Cassandra schema (required).
+- `--emit-cloudevents-columns`: Add CloudEvents columns to the Cassandra schema (optional, default: false).
+
+Refer to the detailed conversion notes for Cassandra in the [NoSQL Conversion Notes](nosqlcodegen.md).
+
+### Convert Avrotize schema to DynamoDB schema
+
+```bash
+avrotize a2dynamodb [input] --out <output_directory> [--emit-cloudevents-columns]
+```
+
+- `input`: Path to the Avrotize schema file (or read from stdin if omitted).
+- `--out`: Output path for the DynamoDB schema (required).
+- `--emit-cloudevents-columns`: Add CloudEvents columns to the DynamoDB schema (optional, default: false).
+
+Refer to the detailed conversion notes for DynamoDB in the [NoSQL Conversion Notes](nosqlcodegen.md).
+
+### Convert Avrotize schema to Elasticsearch schema
+
+```bash
+avrotize a2es [input] --out <output_directory> [--emit-cloudevents-columns]
+```
+
+- `input`: Path to the Avrotize schema file (or read from stdin if omitted).
+- `--out`: Output path for the Elasticsearch schema (required).
+- `--emit-cloudevents-columns`: Add CloudEvents columns to the Elasticsearch schema (optional, default: false).
+
+Refer to the detailed conversion notes for Elasticsearch in the [NoSQL Conversion Notes](nosqlcodegen.md).
+
+### Convert Avrotize schema to CouchDB schema
+
+```bash
+avrotize a2couchdb [input] --out <output_directory> [--emit-cloudevents-columns]
+```
+
+- `input`: Path to the Avrotize schema file (or read from stdin if omitted).
+- `--out`: Output path for the CouchDB schema (required).
+- `--emit-cloudevents-columns`: Add CloudEvents columns to the CouchDB schema (optional, default: false).
+
+Refer to the detailed conversion notes for CouchDB in the [NoSQL Conversion Notes](nosqlcodegen.md).
+
+### Convert Avrotize schema to Neo4j schema
+
+```bash
+avrotize a2neo4j [input] --out <output_directory> [--emit-cloudevents-columns]
+```
+
+- `input`: Path to the Avrotize schema file (or read from stdin if omitted).
+- `--out`: Output path for the Neo4j schema (required).
+- `--emit-cloudevents-columns`: Add CloudEvents columns to the Neo4j schema (optional, default: false).
+
+Refer to the detailed conversion notes for Neo4j in the [NoSQL Conversion Notes](nosqlcodegen.md).
+
+### Convert Avrotize schema to Firebase schema
+
+```bash
+avrotize a2firebase [input] --out <output_directory> [--emit-cloudevents-columns]
+```
+
+- `input`: Path to the Avrotize schema file (or read from stdin if omitted).
+- `--out`: Output path for the Firebase schema (required).
+- `--emit-cloudevents-columns`: Add CloudEvents columns to the Firebase schema (optional, default: false).
+
+Refer to the detailed conversion notes for Firebase in the [NoSQL Conversion Notes](nosqlcodegen.md).
+
+### Convert Avrotize schema to CosmosDB schema
+
+```bash
+avrotize a2cosmos [input] --out <output_directory> [--emit-cloudevents-columns]
+```
+
+- `input`: Path to the Avrotize schema file (or read from stdin if omitted).
+- `--out`: Output path for the CosmosDB schema (required).
+- `--emit-cloudevents-columns`: Add CloudEvents columns to the CosmosDB schema (optional, default: false).
+
+Refer to the detailed conversion notes for CosmosDB in the [NoSQL Conversion Notes](nosqlcodegen.md).
+
+### Convert Avrotize schema to HBase schema
+
+```bash
+avrotize a2hbase [input] --out <output_directory> [--emit-cloudevents-columns]
+```
+
+- `input`: Path to the Avrotize schema file (or read from stdin if omitted).
+- `--out`: Output path for the HBase schema (required).
+- `--emit-cloudevents-columns`: Add CloudEvents columns to the HBase schema (optional, default: false).
+
+Refer to the detailed conversion notes for HBase in the [NoSQL Conversion Notes](nosqlcodegen.md).
 
 ### Convert Avrotize Schema to empty Parquet file
 

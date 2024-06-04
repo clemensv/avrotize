@@ -665,16 +665,34 @@ def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit
             model = generate_nosql(schema, nosql_dialect,
                                    emit_cloudevents_columns, schema_list)
             file_name = os.path.join(
-                nosql_file_path, get_file_name(schema, "json"))
+                nosql_file_path, get_file_name(schema, get_nosql_file_extension(nosql_dialect)))
             with open(file_name, "w", encoding="utf-8") as nosql_file:
-                nosql_file.write(model)
+                if isinstance(model, list):
+                    nosql_file.write("\n".join(model))
+                else:
+                    nosql_file.write(model)
     else:
         model = generate_nosql(schema, nosql_dialect,
                                emit_cloudevents_columns, schema_list)
         file_name = os.path.join(
-            nosql_file_path, get_file_name(schema_list, "json"))
+            nosql_file_path, get_file_name(schema_list, get_nosql_file_extension(nosql_dialect)))
         with open(file_name, "w", encoding="utf-8") as nosql_file:
             nosql_file.write(model)
+
+def get_nosql_file_extension(nosql_dialect):
+    """
+    Returns the file extension for the given NoSQL dialect.
+
+    Args:
+        nosql_dialect (str): NoSQL dialect.
+
+    Returns:
+        str: File extension.
+    """
+    if nosql_dialect == "neo4j":
+        return "cypher"
+    else:
+        return "json"
 
 
 def generate_nosql(schema, nosql_dialect, emit_cloudevents_columns, schema_list):
