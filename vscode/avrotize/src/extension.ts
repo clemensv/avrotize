@@ -3,9 +3,9 @@ import { exec } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 
-const currentVersionMajor = 1;
-const currentVersionMinor = 9;
-const currentVersionPatch = 5;
+const currentVersionMajor = 2;
+const currentVersionMinor = 0;
+const currentVersionPatch = 2;
 async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {
     try {
         const toolAvailable = await execShellCommand('avrotize --version')
@@ -468,6 +468,102 @@ export function activate(context: vscode.ExtensionContext) {
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
             if (!outputPath) { return; }
             const command = `avrotize csv2a ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.a2cassandra', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.cql');
+            const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the Cassandra schema?' }) === 'Yes';
+            const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'cql File': ['cql'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize a2cassandra ${filePath} --out ${outputPath.fsPath} ${emit_cloudevents_columns_value_arg}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.a2dynamodb', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.json');
+            const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the DynamoDB schema?' }) === 'Yes';
+            const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'json File': ['json'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize a2dynamodb ${filePath} --out ${outputPath.fsPath} ${emit_cloudevents_columns_value_arg}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.a2es', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.json');
+            const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the Elasticsearch schema?' }) === 'Yes';
+            const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'json File': ['json'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize a2es ${filePath} --out ${outputPath.fsPath} ${emit_cloudevents_columns_value_arg}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.a2couchdb', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.json');
+            const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the CouchDB schema?' }) === 'Yes';
+            const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'json File': ['json'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize a2couchdb ${filePath} --out ${outputPath.fsPath} ${emit_cloudevents_columns_value_arg}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.a2neo4j', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.cypher');
+            const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the Neo4j schema?' }) === 'Yes';
+            const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'cypher File': ['cypher'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize a2neo4j ${filePath} --out ${outputPath.fsPath} ${emit_cloudevents_columns_value_arg}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.a2firebase', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.json');
+            const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the Firebase schema?' }) === 'Yes';
+            const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'json File': ['json'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize a2firebase ${filePath} --out ${outputPath.fsPath} ${emit_cloudevents_columns_value_arg}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.a2cosmos', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.json');
+            const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the CosmosDB schema?' }) === 'Yes';
+            const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'json File': ['json'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize a2cosmos ${filePath} --out ${outputPath.fsPath} ${emit_cloudevents_columns_value_arg}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.a2hbase', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.json');
+            const emit_cloudevents_columns_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Add CloudEvents columns to the HBase schema?' }) === 'Yes';
+            const emit_cloudevents_columns_value_arg = emit_cloudevents_columns_value ? '--emit-cloudevents-columns' : '';
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'json File': ['json'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize a2hbase ${filePath} --out ${outputPath.fsPath} ${emit_cloudevents_columns_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 

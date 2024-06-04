@@ -12,7 +12,7 @@
         "type": "git",
         "url": "https://github.com/clemensv/avrotize.git"
     },
-    "version": "1.9.5",
+    "version": "2.0.2",
     "engines": {
         "vscode": "^1.89.0"
     },
@@ -99,6 +99,24 @@
                     "title": "C++ classes"
                 },
                 {
+                    "command": "avrotize.a2cassandra",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Cassandra schema"
+                },
+                {
+                    "command": "avrotize.a2cosmos",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "CosmosDB schema"
+                },
+                {
+                    "command": "avrotize.a2couchdb",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "CouchDB schema"
+                },
+                {
                     "command": "avrotize.pcf",
                     "group": "navigation",
                     "when": "resourceExtname == .avsc",
@@ -111,10 +129,34 @@
                     "title": "Datapackage schema"
                 },
                 {
+                    "command": "avrotize.a2dynamodb",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "DynamoDB schema"
+                },
+                {
+                    "command": "avrotize.a2es",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Elasticsearch schema"
+                },
+                {
+                    "command": "avrotize.a2firebase",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Firebase schema"
+                },
+                {
                     "command": "avrotize.a2go",
                     "group": "navigation",
                     "when": "resourceExtname == .avsc",
                     "title": "Go classes"
+                },
+                {
+                    "command": "avrotize.a2hbase",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "HBase schema"
                 },
                 {
                     "command": "avrotize.a2ib",
@@ -157,6 +199,12 @@
                     "group": "navigation",
                     "when": "resourceExtname == .avsc",
                     "title": "MongoDB schema"
+                },
+                {
+                    "command": "avrotize.a2neo4j",
+                    "group": "navigation",
+                    "when": "resourceExtname == .avsc",
+                    "title": "Neo4j schema"
                 },
                 {
                     "command": "avrotize.a2pq",
@@ -206,7 +254,7 @@
                     "submenu": "convertSubmenu",
                     "title": "Convert",
                     "group": "navigation",
-                    "when": "resourceExtname == .kstruct || resourceExtname == .avsc || resourceExtname == .jsons || resourceExtname == .proto || resourceExtname == .xsd || resourceExtname == .csv || resourceExtname == .kusto || resourceExtname == .asn1 || resourceExtname == .parquet || resourceExtname == .json"
+                    "when": "resourceExtname == .avsc || resourceExtname == .parquet || resourceExtname == .xsd || resourceExtname == .proto || resourceExtname == .kusto || resourceExtname == .json || resourceExtname == .csv || resourceExtname == .asn1 || resourceExtname == .jsons || resourceExtname == .kstruct"
                 }
             ]
         },
@@ -344,6 +392,46 @@
             {
                 "command": "avrotize.csv2a",
                 "title": "Avrotize schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.a2cassandra",
+                "title": "Cassandra schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.a2dynamodb",
+                "title": "DynamoDB schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.a2es",
+                "title": "Elasticsearch schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.a2couchdb",
+                "title": "CouchDB schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.a2neo4j",
+                "title": "Neo4j schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.a2firebase",
+                "title": "Firebase schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.a2cosmos",
+                "title": "CosmosDB schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.a2hbase",
+                "title": "HBase schema",
                 "category": "Convert"
             }
         ]
