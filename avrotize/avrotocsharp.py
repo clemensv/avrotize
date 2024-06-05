@@ -638,7 +638,7 @@ class AvroToCSharp:
         if not isinstance(schema, list):
             schema = [schema]
         
-        project_name = os.path.basename(output_dir)
+        project_name = self.base_namespace
         self.schema_doc = schema
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
@@ -652,7 +652,7 @@ class AvroToCSharp:
                     file.write(process_template("avrotocsharp/project.sln.jinja", project_name=project_name, uuid=lambda:str(uuid.uuid4())))
         if not glob.glob(os.path.join(output_dir, "src", "*.csproj")):
             csproj_file = os.path.join(
-                output_dir, "src", f"{project_name}.csproj")
+                output_dir, "src", f"{pascal(project_name)}.csproj")
             if not os.path.exists(csproj_file):
                 if not os.path.exists(os.path.dirname(csproj_file)):
                     os.makedirs(os.path.dirname(csproj_file))
@@ -660,7 +660,7 @@ class AvroToCSharp:
                     file.write(process_template("avrotocsharp/project.csproj.jinja"))
         if not glob.glob(os.path.join(output_dir, "test", "*.csproj")):
             csproj_test_file = os.path.join(
-                output_dir, "test", f"{project_name}-test.csproj")
+                output_dir, "test", f"{pascal(project_name)}.Test.csproj")
             if not os.path.exists(csproj_test_file):
                 if not os.path.exists(os.path.dirname(csproj_test_file)):
                     os.makedirs(os.path.dirname(csproj_test_file))

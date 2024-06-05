@@ -13,17 +13,24 @@ namespace {{ namespace }}
 [TestFixture]
 public class {{ test_class_name }}
 {
-    private {{ class_base_name }} _instance = new {{ class_base_name }}();
+    private {{ class_base_name }} _instance;
 
-    /// <summary> Setup </summary>
-    [SetUp]
-    public void Setup()
+    /// <summary> Constructor </summary>
+    public {{ test_class_name }}()
     {
+        _instance = CreateInstance();
+    }
+
+    /// <summary> Create instance of {{ class_base_name }} </summary>
+    public {{ class_base_name }} CreateInstance()
+    {
+        var instance = new {{ class_base_name }}();
         {%- for field in fields %}
         {%- if not field.is_const %}
-        _instance.{{ field.field_name }} = {{ field.test_value }};
+        instance.{{ field.field_name }} = {{ field.test_value }};
         {%- endif %}
         {%- endfor %}
+        return instance;
     }
 
     {%- for field in fields %}

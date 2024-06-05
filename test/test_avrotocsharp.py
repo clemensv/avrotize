@@ -77,7 +77,7 @@ class TestAvroToCSharp(unittest.TestCase):
         
         copy_tree(test_csproj, cs_test_path)
 
-        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, avro_annotation=True, pascal_properties=True, base_namespace="TwoTypeUnion")
+        convert_avro_to_csharp(avro_path, cs_path, base_namespace="TwoTypeUnion", system_text_json_annotation=True, avro_annotation=True, pascal_properties=True)
         assert subprocess.check_call(
             ['dotnet', 'run', '--force'], cwd=cs_test_path, stdout=sys.stdout, stderr=sys.stderr) == 0
         
@@ -90,7 +90,7 @@ class TestAvroToCSharp(unittest.TestCase):
             shutil.rmtree(cs_path, ignore_errors=True)
         os.makedirs(cs_path, exist_ok=True)
 
-        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, pascal_properties=pascal_properties)
+        convert_avro_to_csharp(avro_path, cs_path, base_namespace="TwoTypeUnion", system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, pascal_properties=pascal_properties)
         assert subprocess.check_call(
             ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
         
@@ -122,7 +122,7 @@ class TestAvroToCSharp(unittest.TestCase):
         
         copy_tree(test_csproj, cs_test_path)
 
-        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, pascal_properties=True, base_namespace="TypeMapUnion")
+        convert_avro_to_csharp(avro_path, cs_path, base_namespace="TypeMapUnion", system_text_json_annotation=True, pascal_properties=True)
         assert subprocess.check_call(
             ['dotnet', 'run', '--force'], cwd=cs_test_path, stdout=sys.stdout, stderr=sys.stderr) == 0
         
@@ -136,7 +136,7 @@ class TestAvroToCSharp(unittest.TestCase):
             shutil.rmtree(cs_path, ignore_errors=True)
         os.makedirs(cs_path, exist_ok=True)
 
-        convert_avro_to_csharp(avro_path, cs_path, system_text_json_annotation=True, pascal_properties=True)
+        convert_avro_to_csharp(avro_path, cs_path, base_namespace="TypeNameUnion", system_text_json_annotation=True, pascal_properties=True)
         assert subprocess.check_call(['dotnet', 'build', '--force'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
 
     def test_convert_primitiveunion_avsc_to_csharp(self):
