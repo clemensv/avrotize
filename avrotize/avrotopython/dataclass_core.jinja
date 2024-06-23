@@ -1,0 +1,205 @@
+""" {{ class_name }} dataclass. """
+
+# pylint: disable=too-many-lines, too-many-locals, too-many-branches, too-many-statements, too-many-arguments, line-too-long, wildcard-import
+
+{%- if avro_annotation or dataclasses_json_annotation %}
+import io
+import gzip
+from enum import Enum
+from typing import *
+{%- endif -%}
+{%- if dataclasses_json_annotation %}
+import json
+from dataclasses_json import *
+{%- endif %}
+from dataclasses import *
+{%- if avro_annotation %}
+import avro.schema
+import avro.io
+{%- endif %}
+{%- for import_type in import_types %}
+{%- if import_type.startswith('.') %}
+from .{{ import_type.split('.')[-1]|lower }} import {{ import_type.split('.')[-1] }}
+{%- else %}
+from {{ import_type | lower }} import {{ import_type.split('.')[-1] }}
+{%- endif -%}
+{%- endfor %}
+
+{% if dataclasses_json_annotation %}
+@dataclass_json
+{%- endif %}
+@dataclass
+class {{ class_name }}:
+    """
+    {{ docstring }}
+    Attributes:
+        {% filter indent(8) %}
+        {%- for field in fields %}
+        {{ field.docstring }}
+        {%- endfor -%}
+        {%- endfilter %}
+    """
+    {%- for field in fields %}
+    {{ field.name }}: {{ field.type }}{% if field.name != field.original_name %}=field(metadata=config(field_name="{{ field.original_name }}")){% endif %}
+    {%- endfor %}    
+    {% if avro_annotation %}
+    AvroType: ClassVar[avro.schema.Schema] = avro.schema.parse(
+        "{{ avro_schema_json }}"
+    )
+    {%- endif %}
+
+    def __init__(self, **kwargs):
+        """ Initializes the dataclass with the provided keyword arguments."""
+        {% filter indent(8) %}
+        {{- init_fields }}
+        {%- endfilter %}
+
+    @classmethod
+    def from_serializer_dict(cls, data: dict) -> '{{ class_name }}':
+        """
+        Converts a dictionary to a dataclass instance.
+        
+        Args:
+            data: The dictionary to convert to a dataclass.
+        
+        Returns:
+            The dataclass representation of the dictionary.
+        """
+        {%- for field in fields %}
+        {%- if field.name != field.original_name %}
+        data['{{ field.name }}'] = data.pop('{{ field.original_name }}')
+        {%- endif %}
+        {%- endfor %}
+        return cls(**data)
+
+    def _dict_resolver(self, data):
+        """
+        Helps resolving the Enum values to their actual values and fixes the key names.
+        """ 
+        def _resolve_enum(v):
+            if isinstance(v,Enum):
+                return v.value
+            return v
+        def _fix_key(k):
+            return k[:-1] if k.endswith('_') else k
+        return {_fix_key(k): _resolve_enum(v) for k, v in iter(data)}
+    {%- if avro_annotation or dataclasses_json_annotation %}
+
+    def to_byte_array(self, content_type_string: str) -> bytes:
+        """
+        Converts the dataclass to a byte array based on the content type string.
+        
+        Args:
+            content_type_string: The content type string to convert the dataclass to.
+                Supported content types:
+                    {%- if avro_annotation %}
+                    'avro/binary': Encodes the data to Avro binary format.
+                    'application/vnd.apache.avro+avro': Encodes the data to Avro binary format.
+                    {%- endif %}
+                    {%- if dataclasses_json_annotation %}
+                    'application/json': Encodes the data to JSON format.
+                    {%- endif %}
+                Supported content type extensions:
+                    '+gzip': Compresses the byte array using gzip, e.g. 'application/json+gzip'.
+
+        Returns:
+            The byte array representation of the dataclass.        
+        """
+        content_type = content_type_string.split(';')[0].strip()
+        result = None
+
+        {%- if avro_annotation %}
+        if content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
+            stream = io.BytesIO()
+            writer = avro.io.DatumWriter(self.AvroType)
+            encoder = avro.io.BinaryEncoder(stream)
+            writer.write(asdict(self, dict_factory=self._dict_resolver), encoder)
+            result = stream.getvalue()
+        {%- endif %}
+
+        {%- if dataclasses_json_annotation %}
+        if content_type == 'application/json':
+            result = json.dumps(asdict(self, dict_factory=self._dict_resolver)).encode('utf-8')
+        {%- endif %}
+
+        if result is not None and content_type.endswith('+gzip'):
+            with io.BytesIO() as stream:
+                with gzip.GzipFile(fileobj=stream, mode='wb') as gzip_file:
+                    gzip_file.write(result)
+                result = stream.getvalue()
+
+        if result is None:
+            raise NotImplementedError(f"Unsupported media type {content_type}")
+
+        return result
+
+    @classmethod
+    def from_data(cls, data: Any, content_type_string: Optional[str] = None) -> Optional['{{ class_name }}']:
+        """
+        Converts the data to a dataclass based on the content type string.
+        
+        Args:
+            data: The data to convert to a dataclass.
+            content_type_string: The content type string to convert the data to. 
+                Supported content types:
+                    {%- if avro_annotation %}
+                    'avro/binary': Attempts to decode the data from Avro binary encoded format.
+                    'application/vnd.apache.avro+avro': Attempts to decode the data from Avro binary encoded format.
+                    'avro/json': Attempts to decode the data from Avro JSON encoded format.
+                    'application/vnd.apache.avro+json': Attempts to decode the data from Avro JSON encoded format.
+                    {%- endif %}
+                    {%- if dataclasses_json_annotation %}                
+                    'application/json': Attempts to decode the data from JSON encoded format.
+                    {%- endif %}
+                Supported content type extensions:
+                    '+gzip': First decompresses the data using gzip, e.g. 'application/json+gzip'.
+        Returns:
+            The dataclass representation of the data.        
+        """
+        if data is None:
+            return None
+        if isinstance(data, cls):
+            return data
+
+        content_type = (content_type_string or 'application/octet-stream').split(';')[0].strip()
+
+        if content_type.endswith('+gzip'):
+            if isinstance(data, (bytes, io.BytesIO)):
+                stream = io.BytesIO(data) if isinstance(data, bytes) else data
+            else:
+                raise NotImplementedError('Data is not of a supported type for gzip decompression')
+            with gzip.GzipFile(fileobj=stream, mode='rb') as gzip_file:
+                data = gzip_file.read()
+
+        {%- if avro_annotation %}
+        if content_type in ['avro/binary', 'application/vnd.apache.avro+avro', 'avro/json', 'application/vnd.apache.avro+json']:
+            if isinstance(data, (bytes, io.BytesIO)):
+                stream = io.BytesIO(data) if isinstance(data, bytes) else data
+            else:
+                raise NotImplementedError('Data is not of a supported type for conversion to Stream')
+            reader = avro.io.DatumReader(cls.AvroType)
+            if content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
+                decoder = avro.io.BinaryDecoder(stream)
+            else:
+                raise NotImplementedError(f'Unsupported Avro media type {content_type}')
+            _record = reader.read(decoder)            
+            return {{ class_name }}.from_serializer_dict(_record)
+        {%- endif %}
+
+        {%- if dataclasses_json_annotation %}
+        if content_type == 'application/json':
+            if isinstance(data, (bytes, str)):
+                data_str = data.decode('utf-8') if isinstance(data, bytes) else data
+                _record = json.loads(data_str)
+                {%- for field in fields %}
+                {%- if field.name != field.original_name %}
+                _record['{{ field.name }}'] = _record.pop('{{ field.original_name }}')
+                {%- endif %}
+                {%- endfor %}
+                return {{ class_name }}.from_serializer_dict(_record)
+            else:
+                raise NotImplementedError('Data is not of a supported type for JSON deserialization')
+        {%- endif %}
+
+        raise NotImplementedError(f'Unsupported media type {content_type}')
+    {%- endif %}

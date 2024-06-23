@@ -19,7 +19,7 @@ sys.path.append(project_root)
 
 class TestAvroToPython(unittest.TestCase):
     def test_convert_address_avsc_to_python(self):
-        """ Test converting an address.avsc file to C# """
+        """ Test converting an address.avsc file to Python """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
         py_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-py")
@@ -31,10 +31,10 @@ class TestAvroToPython(unittest.TestCase):
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
-            ['python', '-m', 'pylint', '-E', '.'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_address_avsc_to_python_json(self):
-        """ Test converting an address.avsc file to C# """
+        """ Test converting an address.avsc file to Python """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
         py_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-py-json")
@@ -47,10 +47,10 @@ class TestAvroToPython(unittest.TestCase):
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
-            ['python', '-m', 'pylint', '-E', '.'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
         
     def test_convert_address_avsc_to_python_json_avro(self):
-        """ Test converting an address.avsc file to C# """
+        """ Test converting an address.avsc file to Python """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
         py_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-py-jsonavro")
@@ -63,7 +63,7 @@ class TestAvroToPython(unittest.TestCase):
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
-            ['python', '-m', 'pylint', '-E', '.'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_address_avsc_to_python_avro(self):
         """ Test converting an address.avsc file to Python with avro annotation """
@@ -78,10 +78,10 @@ class TestAvroToPython(unittest.TestCase):
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
-            ['python', '-m', 'pylint', '-E', '.'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_telemetry_avsc_to_python(self):
-        """ Test converting a telemetry.avsc file to C# """
+        """ Test converting a telemetry.avsc file to Python """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
         py_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-py")
@@ -93,10 +93,10 @@ class TestAvroToPython(unittest.TestCase):
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
-            ['python', '-m', 'pylint', '-E', '.'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_python(self):
-        """ Test converting a jfrog-pipelines.json file to C# """
+        """ Test converting a jfrog-pipelines.json file to Python """
         cwd = getcwd()
         jsons_path = path.join(cwd, "test", "jsons", "jfrog-pipelines.json")
         avro_path = path.join(tempfile.gettempdir(), "avrotize", "jfrog-pipelines.avsc")
@@ -106,8 +106,8 @@ class TestAvroToPython(unittest.TestCase):
         os.makedirs(py_path, exist_ok=True)
 
         convert_jsons_to_avro(jsons_path, avro_path)
-        convert_avro_to_python(avro_path, py_path)
+        convert_avro_to_python(avro_path, py_path, dataclasses_json_annotation=True, avro_annotation=True)
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
-            ['python', '-m', 'pylint', '-E', '.'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+            ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0

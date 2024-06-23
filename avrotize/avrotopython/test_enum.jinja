@@ -1,0 +1,24 @@
+import os
+import sys
+import unittest
+
+sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), '../src'.replace('/', os.sep))))
+
+from {{ base_package }}{{ '.' if base_package else ''}}{{ package_name|lower }}.{{class_name|lower}} import {{ class_name }}
+
+class {{ test_class_name }}(unittest.TestCase):
+
+    def setUp(self):
+        """
+        Setup test
+        """
+        self.instance = {{ test_class_name }}.create_instance()
+
+    @staticmethod
+    def create_instance():
+        """
+        Create instance of {{ class_name }}
+        """
+        return "{{ symbols[0] }}"
+
+   

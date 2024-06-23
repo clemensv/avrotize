@@ -1,0 +1,9 @@
+from enum import Enum
+
+class {{ class_name }}(Enum):
+    """
+    {{ docstring }}
+    """
+    {%- for symbol in symbols %}
+    {{ symbol }} = '{{symbol}}'
+    {%- endfor %}
