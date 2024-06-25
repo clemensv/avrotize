@@ -48,12 +48,12 @@
                 return new {{ class_name }}(reader.Read(null, new global::Avro.IO.JsonDecoder({{ class_name }}.AvroSchema, stream)));
             }
             #pragma warning restore CS8625
-        }    
+        }
     {%- endif %}
     {%- if system_text_json_annotation %}
         if ( contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
         {
-            if (data is System.Text.Json.JsonElement) 
+            if (data is System.Text.Json.JsonElement)
             {
                 return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>((System.Text.Json.JsonElement)data);
             }
@@ -92,6 +92,23 @@
     }
     {%-endif %}
 
+    {%- if avro_annotation %}
+    private class SpecificDatumWriter : global::Avro.Specific.SpecificDatumWriter<{{ class_name }}>
+    {
+        public SpecificDatumWriter() : base({{ class_name }}.AvroSchema)
+        {
+        }
+
+         protected override WriteItem ResolveEnum(global::Avro.EnumSchema es)
+         {
+             return base.ResolveEnum(global::Avro.EnumSchema.Create(es.Name, es.Symbols, GetType().Assembly.GetName().Name+"."+es.Namespace, null, null, es.Documentation, es.Default));
+         }
+    }
+    {%- endif %}
+
+    {%- if avro_annotation %}
+    {%- endif%}
+
     {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation %}
     /// <summary>
     /// Converts the object to a byte array
@@ -106,7 +123,7 @@
         if (contentType.MediaType.StartsWith("avro/binary") || contentType.MediaType.StartsWith("application/vnd.apache.avro+avro"))
         {
             var stream = new System.IO.MemoryStream();
-            var writer = new global::Avro.Specific.SpecificDatumWriter<{{ class_name }}>({{ class_name }}.AvroSchema);
+            var writer = new SpecificDatumWriter();
             var encoder = new global::Avro.IO.BinaryEncoder(stream);
             writer.Write(this, encoder);
             encoder.Flush();

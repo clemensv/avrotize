@@ -188,10 +188,17 @@ class AvroToCSharp:
                     field_name = pascal(field_name)
                 if field_name == class_name:
                     field_name += "_"
-                if field_type in self.generated_types and self.generated_types[field_type] == "union":
-                    get_method += f"\n{INDENT*3}case {pos}: return this.{field_name}?.ToObject();"
-                    put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = {field_type}.FromObject(fieldValue); break;"
-                else:    
+                if field_type in self.generated_types:
+                    if self.generated_types[field_type] == "union":
+                        get_method += f"\n{INDENT*3}case {pos}: return this.{field_name}?.ToObject();"
+                        put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = {field_type}.FromObject(fieldValue); break;"
+                    elif self.generated_types[field_type] == "enum":
+                        get_method += f"\n{INDENT*3}case {pos}: return ({field_type})this.{field_name};"
+                        put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = fieldValue is global::Avro.Generic.GenericEnum?Enum.Parse<{field_type}>(((global::Avro.Generic.GenericEnum)fieldValue).Value):({field_type})fieldValue; break;"
+                    elif self.generated_types[field_type] == "class":
+                        get_method += f"\n{INDENT*3}case {pos}: return this.{field_name};"
+                        put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
+                else:
                     get_method += f"\n{INDENT*3}case {pos}: return this.{field_name};"
                     put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
             get_method += f"\n{INDENT*3}default: throw new global::Avro.AvroRuntimeException($\"Bad index {{fieldPos}} in Get()\");"
@@ -327,7 +334,7 @@ class AvroToCSharp:
 
     def generate_embedded_union(self, class_name: str, field_name: str, avro_type: List, parent_namespace: str, write_file: bool) -> str:
         """ Generates an embedded Union Class """
-        
+
         class_definition_ctors = class_definition_decls = class_definition_read = ''
         class_definition_write = class_definition = class_definition_toobject = ''
         class_definition_objctr = class_definition_genericrecordctor = ''
@@ -335,7 +342,7 @@ class AvroToCSharp:
         list_is_json_match: List [str] = []
         union_class_name = pascal(field_name)+'Union'
         ref = class_name+'.'+union_class_name
-        
+
         union_types = [self.convert_avro_type_to_csharp(class_name, field_name+"Option"+str(i), t, parent_namespace) for i,t in enumerate(avro_type)]
         for i, union_type in enumerate(union_types):
             is_dict = is_list = False
@@ -363,9 +370,9 @@ class AvroToCSharp:
                 f"{INDENT*2}public {union_class_name}({union_type}? {union_type_name})\n{INDENT*2}{{\n{INDENT*3}this.{union_type_name} = {union_type_name};\n{INDENT*2}}}\n"
             class_definition_decls += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Gets the {union_type_name} value\n{INDENT*2}/// </summary>\n" + \
-                f"{INDENT*2}public {union_type}? {union_type_name} {{ get; private set; }} = null;\n"     
+                f"{INDENT*2}public {union_type}? {union_type_name} {{ get; private set; }} = null;\n"
             class_definition_toobject += f"{INDENT*3}if ({union_type_name} != null) {{\n{INDENT*4}return {union_type_name};\n{INDENT*3}}}\n"
-              
+
             if is_dict:
                 class_definition_read += f"{INDENT*3}if (element.ValueKind == JsonValueKind.Object)\n{INDENT*3}{{\n" + \
                         f"{INDENT*4}var map = System.Text.Json.JsonSerializer.Deserialize<{union_type}>(element, options);\n" + \
@@ -419,7 +426,7 @@ class AvroToCSharp:
                 class_definition += \
                     f"{INDENT*3}if (obj is global::Avro.Generic.GenericRecord)\n{INDENT*3}{{\n" + \
                     f"{INDENT*4}return new {union_class_name}((global::Avro.Generic.GenericRecord)obj);\n" + \
-                    f"{INDENT*3}}}\n"                    
+                    f"{INDENT*3}}}\n"
             class_definition += \
                 f"{INDENT*3}var self = new {union_class_name}();\n" + \
                 class_definition_objctr + \
@@ -455,7 +462,7 @@ class AvroToCSharp:
 
         if write_file:
             self.write_to_file(namespace, class_name +"."+union_class_name, class_definition)
-        
+
         self.generated_types[ref] = "union" # it doesn't matter if the names clash, we just need to know whether it's a union
         return ref
 
@@ -469,7 +476,7 @@ class AvroToCSharp:
         elif isinstance(avro_schema, dict):
             if avro_schema['type'] == kind and avro_schema['name'] == type_name and avro_schema.get('namespace', parent_namespace) == type_namespace:
                 return avro_schema
-            parent_namespace = avro_schema.get('namespace', parent_namespace)            
+            parent_namespace = avro_schema.get('namespace', parent_namespace)
             if 'fields' in avro_schema and isinstance(avro_schema['fields'], list):
                 for field in avro_schema['fields']:
                     if isinstance(field,dict) and 'type' in field and isinstance(field['type'], dict):
@@ -530,7 +537,7 @@ class AvroToCSharp:
                 file_content += "using System.Text.Json.Serialization;\n"
             if self.newtonsoft_json_annotation:
                 file_content += "using Newtonsoft.Json;\n"
-            
+
             if namespace:
                 # Namespace declaration with correct indentation for the definition
                 file_content += f"\nnamespace {namespace}\n{{\n"
@@ -584,7 +591,7 @@ class AvroToCSharp:
 
     def get_class_test_fields(self, avro_schema: Dict[str,JsonNode], class_name: str) -> List[Any]:
         """ Retrieves fields for a given class name """
-        
+
         class Field:
             def __init__(self, fn: str, ft:str, tv:Any, ct: bool, pm: bool):
                 self.field_name = fn
@@ -612,7 +619,7 @@ class AvroToCSharp:
                           not is_class)
                 fields.append(f)
         return cast(List[Any], fields)
-    
+
     def get_test_value(self, csharp_type: str) -> str:
         """Returns a default test value based on the Avro type"""
         test_values = {
@@ -637,7 +644,7 @@ class AvroToCSharp:
         """ Converts Avro schema to C# """
         if not isinstance(schema, list):
             schema = [schema]
-        
+
         project_name = self.base_namespace
         self.schema_doc = schema
         if not os.path.exists(output_dir):
@@ -666,8 +673,7 @@ class AvroToCSharp:
                     os.makedirs(os.path.dirname(csproj_test_file))
                 with open(csproj_test_file, 'w', encoding='utf-8') as file:
                     file.write(process_template("avrotocsharp/testproject.csproj.jinja", project_name=project_name))
-        
-            
+
         self.output_dir = output_dir
         for avro_schema in (avs for avs in schema if isinstance(avs, dict)):
             self.generate_class_or_enum(avro_schema, '')
@@ -689,7 +695,7 @@ def convert_avro_to_csharp(avro_schema_path, cs_file_path, base_namespace='', pa
         avro_schema_path (_type_): Avro input schema path  
         cs_file_path (_type_): Output C# file path 
     """
-    
+
     if not base_namespace:
         base_namespace = os.path.splitext(os.path.basename(cs_file_path))[0].replace('-', '_')
     avrotocs = AvroToCSharp(base_namespace)
