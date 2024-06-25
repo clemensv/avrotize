@@ -197,10 +197,20 @@ class AvroToCSharp:
                         put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = fieldValue is global::Avro.Generic.GenericEnum?Enum.Parse<{field_type}>(((global::Avro.Generic.GenericEnum)fieldValue).Value):({field_type})fieldValue; break;"
                     elif self.generated_types[field_type] == "class":
                         get_method += f"\n{INDENT*3}case {pos}: return this.{field_name};"
-                        put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
+                        put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = fieldValue is global::Avro.Generic.GenericRecord?new {field_type}((global::Avro.Generic.GenericRecord)fieldValue):({field_type})fieldValue; break;"
                 else:
                     get_method += f"\n{INDENT*3}case {pos}: return this.{field_name};"
-                    put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
+                    if field_type.startswith("List<"):
+                        inner_type = field_type.strip()[5:-2] if field_type[-1] == '?' else field_type[5:-1]
+                        if inner_type in self.generated_types:
+                            if self.generated_types[inner_type] == "class":
+                                put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = fieldValue is Object[]?((Object[])fieldValue).Select(x => new {inner_type}((global::Avro.Generic.GenericRecord)x)).ToList():({field_type})fieldValue; break;"
+                            else:
+                                put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = fieldValue is Object[]?((Object[])fieldValue).Select(x => ({inner_type})x).ToList():({field_type})fieldValue; break;"
+                        else:
+                            put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = fieldValue is Object[]?((Object[])fieldValue).Select(x => ({field_type[5:-1]})x).ToList():({field_type})fieldValue; break;"
+                    else:
+                        put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
             get_method += f"\n{INDENT*3}default: throw new global::Avro.AvroRuntimeException($\"Bad index {{fieldPos}} in Get()\");"
             put_method += f"\n{INDENT*3}default: throw new global::Avro.AvroRuntimeException($\"Bad index {{fieldPos}} in Put()\");"
             get_method += "\n"+INDENT+INDENT+"}\n"+INDENT+"}"
@@ -532,6 +542,7 @@ class AvroToCSharp:
         with open(file_path, 'w', encoding='utf-8') as file:
             # Common using statements (add more as needed)
             file_content = "#pragma warning disable CS8618\n#pragma warning disable CS8603\n\nusing System;\nusing System.Collections.Generic;\n"
+            file_content += "using System.Linq;\n"
             if self.system_text_json_annotation:
                 file_content += "using System.Text.Json;\n"
                 file_content += "using System.Text.Json.Serialization;\n"
