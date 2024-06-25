@@ -1381,7 +1381,8 @@ class JsonToAvroConverter:
                 doc = f"Alternate map: {field_type_name_list}. " if field_type_names else ''
                 doc += prop_docs
                 avro_alternate_record = self.create_map_type(json_field_types)
-                avro_alternate_record['alternateof'] = self.get_qualified_name(avro_record)
+                if not self.is_empty_type(avro_record):
+                    avro_alternate_record['alternateof'] = self.get_qualified_name(avro_record)
                 dependencies.append(
                     self.compose_namespace(namespace, record_name))
                 avro_record['doc'] = doc if not 'doc' in avro_record else avro_record['doc'] + ', ' + doc

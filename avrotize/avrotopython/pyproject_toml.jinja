@@ -4,11 +4,10 @@ version = "0.1.0"
 description = "A package for handling Avro schema data"
 authors = ["Your Name"]
 license = "MIT"
-
-packages = [ { include = "src/{{ package_name }}" } ]
+packages = [ { include = "{{ package_name|replace('-','_') }}", from="src" } ]
 
 [tool.poetry.dependencies]
-python = ">=3.11"
+python = "<4.0,>=3.11"
 dataclasses-json = "^0.6.7"
 
 [tool.poetry.dev-dependencies]

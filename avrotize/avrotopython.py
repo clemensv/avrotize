@@ -43,7 +43,7 @@ class AvroToPython:
     
     def is_python_typing_struct(self, type_name: str) -> bool:
         """ Checks if a type is a Python typing type """
-        return type_name.startswith('Dict[') or type_name.startswith('List[') or type_name.startswith('Optional[') or type_name.startswith('Union[') or type_name == 'Any'
+        return type_name.startswith('typing.Dict[') or type_name.startswith('typing.List[') or type_name.startswith('typing.Optional[') or type_name.startswith('typing.Union[') or type_name == 'typing.Any'
 
     def map_primitive_to_python(self, avro_type: str) -> str:
         """Maps Avro primitive types to Python types"""
@@ -58,7 +58,7 @@ class AvroToPython:
             'string': 'str',
         }
         if is_generic_avro_type(avro_type):
-            return 'Any'
+            return 'typing.Any'
         return mapping.get(avro_type, avro_type)
 
     def safe_name(self, name: str) -> str:
@@ -90,7 +90,7 @@ class AvroToPython:
         elif avro_type['logicalType'] == 'duration':
             import_types.add('datetime.timedelta')
             return 'timedelta'
-        return 'Any'
+        return 'typing.Any'
 
     def type_name(self, ref: str) -> str:
         """Converts a reference to a type name"""
@@ -112,7 +112,7 @@ class AvroToPython:
             return mapped_type
         elif isinstance(avro_type, list):
             if is_generic_avro_type(avro_type):
-                return 'Any'
+                return 'typing.Any'
             if is_type_with_alternate(avro_type):
                 return self.convert_avro_type_to_python(strip_alternate_type(avro_type), parent_package, import_types)
             non_null_types = [t for t in avro_type if t != 'null']
@@ -120,11 +120,11 @@ class AvroToPython:
                 t = self.convert_avro_type_to_python(
                     non_null_types[0], parent_package, import_types)
                 if 'null' in avro_type:
-                    return f"Optional[{t}]"
+                    return f'typing.Optional[{t}]'
                 else:
                     return t
             else:
-                return f"Union[{', '.join(self.convert_avro_type_to_python(t, parent_package, import_types) for t in non_null_types)}]"
+                return f"typing.Union[{', '.join(self.convert_avro_type_to_python(t, parent_package, import_types) for t in non_null_types)}]"
         elif isinstance(avro_type, dict):
             if avro_type['type'] == 'record':
                 class_ref = self.generate_class(
@@ -139,31 +139,31 @@ class AvroToPython:
                                  enum_ref if self.base_package else enum_ref)
                 return enum_ref.split('.')[-1]
             elif avro_type['type'] == 'array':
-                return f"List[{self.convert_avro_type_to_python(avro_type['items'], parent_package, import_types)}]"
+                return f"typing.List[{self.convert_avro_type_to_python(avro_type['items'], parent_package, import_types)}]"
             elif avro_type['type'] == 'map':
-                return f"Dict[str,{self.convert_avro_type_to_python(avro_type['values'], parent_package, import_types)}]"
+                return f"typing.Dict[str,{self.convert_avro_type_to_python(avro_type['values'], parent_package, import_types)}]"
             elif 'logicalType' in avro_type:
                 return self.convert_logical_type_to_python(avro_type, import_types)
             return self.convert_avro_type_to_python(avro_type['type'], parent_package, import_types)
-        return 'Any'
+        return 'typing.Any'
     
     # pylint: disable=eval-used
-    def init_field_value(self, field_type: str, field_name: str, field_is_enum: str, field_ref: str, enum_types: List[str]):
+    def init_field_value(self, field_type: str, field_name: str, field_is_enum: bool, field_ref: str, enum_types: List[str]):
         """ Initialize the field value based on its type. """
-        if field_type == "Any":
+        if field_type == "typing.Any":
             return field_ref
         elif field_type in ['int', 'str', 'float', 'bool', 'bytes', 'Decimal', 'datetime', 'date', 'time', 'timedelta']:
             return f"{field_type}({field_ref})"
-        elif field_type.startswith("List["):
+        elif field_type.startswith("typing.List["):
             inner_type = get_typing_args_from_string(field_type)[0]
             return f"{field_ref} if isinstance({field_ref}, list) else [{self.init_field_value(inner_type, field_name, field_is_enum, 'v', enum_types)} for v in {field_ref}]"
-        elif field_type.startswith("Dict["):
+        elif field_type.startswith("typing.Dict["):
             inner_type = get_typing_args_from_string(field_type)[1]
             return f"{field_ref} if isinstance({field_ref}, dict) else {{k: {self.init_field_value(inner_type, field_name, field_is_enum, 'v', enum_types)} for k, v in {field_ref}.items()}}"
-        elif field_type.startswith("Optional["):
-            inner_type = get_typing_args_from_string(field_type)[0]     
+        elif field_type.startswith("typing.Optional["):
+            inner_type = get_typing_args_from_string(field_type)[0]
             return self.init_field_value(inner_type, field_name, field_is_enum, field_ref, enum_types)
-        elif field_type.startswith("Union["):
+        elif field_type.startswith("typing.Union["):
             return self.init_field_value_from_union(get_typing_args_from_string(field_type), field_name, field_ref, enum_types)
         elif field_is_enum or field_type in enum_types:
             return f"{field_type}({field_ref})"
@@ -176,18 +176,18 @@ class AvroToPython:
         for field_union_type in union_args:
             init_statements.append(f"{self.init_field_value(field_union_type, field_name, False, field_ref, enum_types)} if isinstance({field_ref}, {field_union_type}) else")
         return ' '.join(init_statements) + ' None'
-    
+
     def init_fields(self, fields: List[Dict[str, Any]], enum_types: List[str]) -> str:
         """Initialize the fields of a class."""
         init_statements = []
         for field in fields:
             if field['is_enum'] or field['type'] in enum_types or field['is_primitive']:
-                init_statements.append(f"self.{field['name']}={self.init_field_value(field['type'], field['name'], field['is_enum'], 'kwargs.get('+chr(39)+field['name']+chr(39)+')', enum_types)}")
+                init_statements.append(f"self.{field['name']}={self.init_field_value(field['type'], field['name'], field['is_enum'], 'self.'+field['name'], enum_types)}")
             else:
-                init_statements.append(f"value_{field['name']} = kwargs.get('{field['name']}')")
+                init_statements.append(f"value_{field['name']} = self.{field['name']}")
                 init_statements.append(f"self.{field['name']} = {self.init_field_value(field['type'], field['name'], field['is_enum'], 'value_'+field['name'], enum_types)}")
         return '\n'.join(init_statements)
-    
+
     def generate_class(self, avro_schema: Dict, parent_package: str, write_file: bool) -> str:
         """Generates a Python data class from an Avro record schema"""
         import_types: Set[str] = set()
@@ -338,12 +338,12 @@ class AvroToPython:
                 'time': 'datetime.datetime.now().time()',
                 'Decimal': f'Decimal("{random.randint(0, 100)}.{random.randint(0, 100)}")',
                 'timedelta': 'datetime.timedelta(days=1)',
-                'Any': '{"test": "test"}'
+                'typing.Any': '{"test": "test"}'
             }
 
             def resolve(field_type: str) -> str:
                 # Regex pattern to find the inner type
-                pattern = re.compile(r'^(Optional|List|Dict|Union)\[(.+)\]$')
+                pattern = re.compile(r'^(?:typing\.)*(Optional|List|Dict|Union)\[(.+)\]$')
 
                 match = pattern.match(field_type)
                 if not match:
@@ -365,14 +365,14 @@ class AvroToPython:
 
                 return field_type
 
-            if field_type.startswith('Optional['):
+            if field_type.startswith('typing.Optional['):
                 field_type = resolve(field_type)
 
-            if field_type.startswith('List['):
+            if field_type.startswith('typing.List['):
                 field_type = resolve(field_type)
                 array_range = random.randint(1, 5)
                 return f"[{', '.join([generate_value(field_type) for _ in range(array_range)])}]"
-            elif field_type.startswith('Dict['):
+            elif field_type.startswith('typing.Dict['):
                 field_type = resolve(field_type)
                 dict_range = random.randint(1, 5)
                 dict_data = {}
@@ -380,7 +380,7 @@ class AvroToPython:
                     dict_data[''.join([chr(random.randint(97, 122)) for _ in range(
                         0, 20)])] = generate_value(field_type)
                 return f"{{{', '.join([chr(39)+key+chr(39)+f': {value}' for key, value in dict_data.items()])}}}"
-            elif field_type.startswith('Union['):
+            elif field_type.startswith('typing.Union['):
                 field_type = resolve(field_type)
                 return generate_value(field_type)
             return test_values.get(field_type, 'Test_'+field_type + '.create_instance()')

@@ -743,20 +743,17 @@ def strip_alternate_type(avro_schema: List[Dict[str, Any]]) -> List[Dict[str, An
 def get_typing_args_from_string(type_str: str) -> List[str]:
     """ gets the list of generic arguments of a type. """
     # This regex captures the main type and its generic arguments
-    pattern = re.compile(r'(\w+)\[(.+)\]')
+    pattern = re.compile(r'([\w\.]+)\[(.+)\]')
     match = pattern.match(type_str)
     
     if not match:
         return []
 
-    # The full match and the captured groups
-    main_type, args_str = match.groups()
-
+    _, args_str = match.groups()
     # Splitting the arguments while considering nested generic types
     args = []
     depth = 0
-    current_arg = []
-    
+    current_arg:List[str] = []    
     for char in args_str:
         if char == ',' and depth == 0:
             args.append(''.join(current_arg).strip())
@@ -767,8 +764,6 @@ def get_typing_args_from_string(type_str: str) -> List[str]:
             elif char == ']':
                 depth -= 1
             current_arg.append(char)
-
     if current_arg:
-        args.append(''.join(current_arg).strip())
-    
+        args.append(''.join(current_arg).strip())    
     return args

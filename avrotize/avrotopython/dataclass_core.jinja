@@ -5,14 +5,14 @@
 {%- if avro_annotation or dataclasses_json_annotation %}
 import io
 import gzip
-from enum import Enum
-from typing import *
-{%- endif -%}
-{%- if dataclasses_json_annotation %}
-import json
-from dataclasses_json import *
 {%- endif %}
-from dataclasses import *
+import enum
+import typing
+import dataclasses
+{%- if dataclasses_json_annotation %}
+import dataclasses_json
+import json
+{%- endif %}
 {%- if avro_annotation %}
 import avro.schema
 import avro.io
@@ -26,29 +26,27 @@ from {{ import_type | lower }} import {{ import_type.split('.')[-1] }}
 {%- endfor %}
 
 {% if dataclasses_json_annotation %}
-@dataclass_json
+@dataclasses_json.dataclass_json
 {%- endif %}
-@dataclass
+@dataclasses.dataclass
 class {{ class_name }}:
     """
     {{ docstring }}
     Attributes:
-        {% filter indent(8) %}
         {%- for field in fields %}
         {{ field.docstring }}
         {%- endfor -%}
-        {%- endfilter %}
     """
-    {%- for field in fields %}
-    {{ field.name }}: {{ field.type }}{% if field.name != field.original_name %}=field(metadata=config(field_name="{{ field.original_name }}")){% endif %}
+    {% for field in fields %}
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"){%- endif %})
     {%- endfor %}    
     {% if avro_annotation %}
-    AvroType: ClassVar[avro.schema.Schema] = avro.schema.parse(
+    AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.parse(
         "{{ avro_schema_json }}"
     )
     {%- endif %}
 
-    def __init__(self, **kwargs):
+    def __post_init__(self):
         """ Initializes the dataclass with the provided keyword arguments."""
         {% filter indent(8) %}
         {{- init_fields }}
@@ -72,12 +70,27 @@ class {{ class_name }}:
         {%- endfor %}
         return cls(**data)
 
+    def to_serializer_dict(self) -> dict:
+        """
+        Converts the dataclass to a dictionary.
+
+        Returns:
+            The dictionary representation of the dataclass.
+        """
+        asdict_result = dataclasses.asdict(self, dict_factory=self._dict_resolver)
+        {%- for field in fields %}
+        {%- if field.name != field.original_name and field.original_name+'_' != field.name %}
+        asdict_result['{{ field.original_name }}'] = asdict_result.pop('{{ field.name }}')
+        {%- endif %}
+        {%- endfor %}
+        return asdict_result
+
     def _dict_resolver(self, data):
         """
         Helps resolving the Enum values to their actual values and fixes the key names.
         """ 
         def _resolve_enum(v):
-            if isinstance(v,Enum):
+            if isinstance(v,enum.Enum):
                 return v.value
             return v
         def _fix_key(k):
@@ -113,13 +126,13 @@ class {{ class_name }}:
             stream = io.BytesIO()
             writer = avro.io.DatumWriter(self.AvroType)
             encoder = avro.io.BinaryEncoder(stream)
-            writer.write(asdict(self, dict_factory=self._dict_resolver), encoder)
+            writer.write(self.to_serializer_dict(), encoder)
             result = stream.getvalue()
         {%- endif %}
 
         {%- if dataclasses_json_annotation %}
         if content_type == 'application/json':
-            result = json.dumps(asdict(self, dict_factory=self._dict_resolver)).encode('utf-8')
+            result = json.dumps(self.to_serializer_dict()).encode('utf-8')
         {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):
@@ -134,7 +147,7 @@ class {{ class_name }}:
         return result
 
     @classmethod
-    def from_data(cls, data: Any, content_type_string: Optional[str] = None) -> Optional['{{ class_name }}']:
+    def from_data(cls, data: typing.Any, content_type_string: typing.Optional[str] = None) -> typing.Optional['{{ class_name }}']:
         """
         Converts the data to a dataclass based on the content type string.
         
@@ -148,18 +161,20 @@ class {{ class_name }}:
                     'avro/json': Attempts to decode the data from Avro JSON encoded format.
                     'application/vnd.apache.avro+json': Attempts to decode the data from Avro JSON encoded format.
                     {%- endif %}
-                    {%- if dataclasses_json_annotation %}                
+                    {%- if dataclasses_json_annotation %}
                     'application/json': Attempts to decode the data from JSON encoded format.
                     {%- endif %}
                 Supported content type extensions:
                     '+gzip': First decompresses the data using gzip, e.g. 'application/json+gzip'.
         Returns:
-            The dataclass representation of the data.        
+            The dataclass representation of the data.
         """
         if data is None:
             return None
         if isinstance(data, cls):
             return data
+        if isinstance(data, dict):
+            return cls.from_serializer_dict(data)
 
         content_type = (content_type_string or 'application/octet-stream').split(';')[0].strip()
 

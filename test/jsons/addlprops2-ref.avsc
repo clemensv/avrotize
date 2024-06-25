@@ -34,7 +34,8 @@
                         "null",
                         "int",
                         "string"
-                    ]
+                    ],
+                    "alternateof": "com.test.example.document"
                 }
             ]
         }

@@ -7,9 +7,9 @@
             "name": "document",
             "type": {
                 "type": "map",
-                "name": "document",
                 "values": "string",
-                "doc": "Extra properties: [string]. "
+                "alternateof": "com.test.example.document",
+                "name": "document"
             }
         }
     ]
