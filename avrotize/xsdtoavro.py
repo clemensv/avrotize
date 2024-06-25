@@ -155,7 +155,14 @@ class XSDToAvro:
         min_occurs = element.get('minOccurs')
         if min_occurs is not None and min_occurs == '0':
             avro_type = ['null', avro_type]
-        return {'name': name, 'type': avro_type}
+        avro_field = {'name': name, 'type': avro_type}
+        annotation = element.find(f'{{{XSD_NAMESPACE}}}annotation', namespaces)
+        if annotation is not None:
+            documentation = annotation.find(
+                f'{{{XSD_NAMESPACE}}}documentation', namespaces)
+            if documentation is not None and documentation.text is not None:
+                avro_field['doc'] = documentation.text.strip()
+        return avro_field
 
     def process_complex_type(self, complex_type: ET.Element, namespaces: dict) -> dict | str:
         """ Process a complex type in the XSD schema."""

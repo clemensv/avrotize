@@ -122,13 +122,13 @@ class AvroToXSD:
 
         def create_or_get_union_simple_type(self, schema_root: ET.Element, parent:Element, types: List[str], **attributes) -> str:
             """Create an XML simpleType element for union types."""
-            
+
             type_key_list = types.copy()
             type_key_list.sort()
             type_key = ''.join(type_key_list)
             if type_key in self.union_types:
                 return self.union_types[type_key]
-            
+
             name = "And".join([t.capitalize() for t in types])
             simple_type = self.create_element(schema_root, "simpleType", **attributes)
             simple_type.set("name", name)
@@ -136,13 +136,13 @@ class AvroToXSD:
             union.set("memberTypes", ' '.join([self.convert_avro_primitive(t) for t in types if t != 'null']))
             self.union_types[type_key] = name
             return name
-        
+
         if isinstance(field_type, list) and is_generic_avro_type(field_type):
             element = self.create_element(parent, "any", minOccurs="0", maxOccurs="unbounded")
             if insert_annotation: 
                 insert_annotation(element)
             return element
-        
+
         non_null_types = [t for t in field_type if t != 'null']
         if len(non_null_types) == 1:
             element = self.create_element(parent, "element", name=field_name)
