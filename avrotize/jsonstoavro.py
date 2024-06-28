@@ -756,6 +756,8 @@ class JsonToAvroConverter:
                             avro_type['unmerged_types'] = subtypes
                             avro_type['type'] = 'record'
                             avro_type['name'] = avro_name(local_name)
+                            if local_name != avro_name(local_name):
+                                avro_type['altnames'] = { 'json': local_name }
                             avro_type['namespace'] = namespace
                             avro_type['fields'] = []
                             if 'description' in json_type:
@@ -1279,6 +1281,8 @@ class JsonToAvroConverter:
                         'name': avro_name(field_name),
                         'type': self.nullable(effective_field_type) if not field_name in required_fields and 'null' not in effective_field_type else effective_field_type
                     }
+                    if field_name != avro_name(field_name):
+                        avro_field['altnames'] = { "json": field_name }
                     if const:
                         avro_field['const'] = const
                     if default:
@@ -1675,13 +1679,13 @@ class JsonToAvroConverter:
 
 def convert_jsons_to_avro(json_schema_file_path: str, avro_schema_path: str, namespace: str = '', utility_namespace='', root_class_name='', split_top_level_records=False) -> list | dict | str:
     """Convert JSON schema file to Avro schema file."""
-    
+
     if not json_schema_file_path:
         raise ValueError('JSON schema file path is required')
     if not json_schema_file_path.startswith('http'):
         if not os.path.exists(json_schema_file_path):
             raise FileNotFoundError(f'JSON schema file {json_schema_file_path} not found')
-        
+
     try:
         converter = JsonToAvroConverter()
         converter.split_top_level_records = split_top_level_records

@@ -45,7 +45,7 @@ class AvroToCSharp:
     def get_qualified_name(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
         return f"{namespace}.{name}" if namespace != '' else name
-    
+
     def concat_namespace(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
         if namespace and name:
@@ -87,7 +87,7 @@ class AvroToCSharp:
         if csharp_type.endswith('?'):
             csharp_type = csharp_type[:-1]
         return csharp_type in ['null', 'bool', 'int', 'long', 'float', 'double', 'bytes', 'string', 'DateTime', 'decimal', 'short', 'sbyte', 'ushort', 'uint', 'ulong', 'byte[]', 'object']
-    
+
     def map_csharp_primitive_to_clr_type(self, cs_type: str) -> str:
         """ Maps C# primitive types to CLR types"""
         map = {
@@ -149,7 +149,7 @@ class AvroToCSharp:
         ref = 'global::'+self.get_qualified_name(namespace, class_name)
         if ref in self.generated_types:
             return ref
-        
+
         class_definition += f"/// <summary>\n/// { avro_schema.get('doc', class_name ) }\n/// </summary>\n"
         fields_str = [self.generate_property(field, class_name, avro_namespace) for field in avro_schema.get('fields', [])]
         class_body = "\n".join(fields_str)
@@ -219,10 +219,10 @@ class AvroToCSharp:
 
         # emit helper methods
         class_definition += process_template(
-            "avrotocsharp/dataclass_core.jinja", 
-            class_name=class_name, 
-            avro_annotation=self.avro_annotation, 
-            system_text_json_annotation=self.system_text_json_annotation, 
+            "avrotocsharp/dataclass_core.jinja",
+            class_name=class_name,
+            avro_annotation=self.avro_annotation,
+            system_text_json_annotation=self.system_text_json_annotation,
             newtonsoft_json_annotation=self.newtonsoft_json_annotation,
             json_match_clauses=self.create_is_json_match_clauses(avro_schema, avro_namespace, class_name))
 
@@ -230,7 +230,7 @@ class AvroToCSharp:
 
         if write_file:
             self.write_to_file(namespace, class_name, class_definition)
-        
+
         self.generated_types[ref] = "class"
         self.generated_avro_types[ref] = avro_schema
         return ref
@@ -284,7 +284,7 @@ class AvroToCSharp:
             if not is_union:
                 class_definition += f"({'!' if is_optional else ''}element.TryGetProperty(\"{field_name_js}\", out System.Text.Json.JsonElement {field_name}) {'||' if is_optional else '&&'} true )"
         return class_definition
-    
+
     def get_is_json_match_clause_type(self, element_name, class_name, field_type) -> str:
         """ Generates the IsJsonMatch clause for a field """
         class_definition = ''
@@ -328,13 +328,12 @@ class AvroToCSharp:
             return ref
 
         enum_definition += "#pragma warning disable 1591\n\n"
-        enum_definition += f"/// <summary>\n/// {avro_schema.get('doc', enum_name )}\n/// </summary>\n"        
+        enum_definition += f"/// <summary>\n/// {avro_schema.get('doc', enum_name )}\n/// </summary>\n"
         symbols_str = [
             f"{INDENT}{symbol}" for symbol in avro_schema['symbols']]
         enum_body = ",\n".join(symbols_str)
         enum_definition += f"public enum {enum_name}\n{{\n{enum_body}\n}}"
-        
-        
+
         if write_file:
             self.write_to_file(namespace, enum_name, enum_definition)
         ref = 'global::'+self.get_qualified_name(namespace, enum_name)
@@ -374,7 +373,7 @@ class AvroToCSharp:
                 union_type_name = f"@{union_type_name}"
             class_definition_objctr += f"{INDENT*3}if (obj is {union_type})\n{INDENT*3}{{\n{INDENT*4}self.{union_type_name} = ({union_type})obj;\n{INDENT*4}return self;\n{INDENT*3}}}\n"
             if union_type in self.generated_types and self.generated_types[union_type] == "class":
-                class_definition_genericrecordctor += f"{INDENT*3}if (obj.Schema.Fullname == {union_type}.AvroSchema.Fullname)\n{INDENT*3}{{\n{INDENT*4}this.{union_type_name} = new {union_type}(obj);\n{INDENT*4}return;\n{INDENT*3}}}\n"     
+                class_definition_genericrecordctor += f"{INDENT*3}if (obj.Schema.Fullname == {union_type}.AvroSchema.Fullname)\n{INDENT*3}{{\n{INDENT*4}this.{union_type_name} = new {union_type}(obj);\n{INDENT*4}return;\n{INDENT*3}}}\n"
             class_definition_ctors += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Constructor for {union_type_name} values\n{INDENT*2}/// </summary>\n" + \
                 f"{INDENT*2}public {union_class_name}({union_type}? {union_type_name})\n{INDENT*2}{{\n{INDENT*3}this.{union_type_name} = {union_type_name};\n{INDENT*2}}}\n"
@@ -593,7 +592,8 @@ class AvroToCSharp:
                 "avrotocsharp/enum_test.cs.jinja",
                 namespace=namespace,
                 test_class_name=test_class_name,
-                enum_base_name=class_base_name
+                enum_base_name=class_base_name,
+                symbols=avro_schema.get('symbols', []),
             )
 
         test_file_path = os.path.join(test_directory_path, f"{test_class_name}.cs")
@@ -623,9 +623,9 @@ class AvroToCSharp:
                     field_name = f"@{field_name}"
                 field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], str(avro_schema.get('namespace', '')))
                 is_class = field_type in self.generated_types and self.generated_types[field_type] == "class"
-                f = Field(field_name, 
-                          field_type, 
-                          (self.get_test_value(field_type) if not "const" in field else '\"'+str(field["const"])+'\"'), 
+                f = Field(field_name,
+                          field_type,
+                          (self.get_test_value(field_type) if not "const" in field else '\"'+str(field["const"])+'\"'),
                           "const" in field and field["const"] is not None,
                           not is_class)
                 fields.append(f)
@@ -703,8 +703,8 @@ def convert_avro_to_csharp(avro_schema_path, cs_file_path, base_namespace='', pa
     Converts Avro schema to C# classes
 
     Args:
-        avro_schema_path (_type_): Avro input schema path  
-        cs_file_path (_type_): Output C# file path 
+        avro_schema_path (_type_): Avro input schema path
+        cs_file_path (_type_): Output C# file path
     """
 
     if not base_namespace:
@@ -723,13 +723,13 @@ def convert_avro_schema_to_csharp(avro_schema: JsonNode, output_dir: str, base_n
     Converts Avro schema to C# classes
 
     Args:
-        avro_schema (_type_): Avro schema to convert  
-        output_dir (_type_): Output directory 
-        base_namespace (_type_): Base namespace for the generated classes 
-        pascal_properties (_type_): Pascal case properties 
-        system_text_json_annotation (_type_): Use System.Text.Json annotations 
-        newtonsoft_json_annotation (_type_): Use Newtonsoft.Json annotations 
-        avro_annotation (_type_): Use Avro annotations 
+        avro_schema (_type_): Avro schema to convert
+        output_dir (_type_): Output directory
+        base_namespace (_type_): Base namespace for the generated classes
+        pascal_properties (_type_): Pascal case properties
+        system_text_json_annotation (_type_): Use System.Text.Json annotations
+        newtonsoft_json_annotation (_type_): Use Newtonsoft.Json annotations
+        avro_annotation (_type_): Use Avro annotations
     """
     avrotocs = AvroToCSharp(base_namespace)
     avrotocs.pascal_properties = pascal_properties

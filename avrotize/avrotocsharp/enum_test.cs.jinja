@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using FluentAssertions;
 
 namespace {{ namespace }}
 {
@@ -12,10 +13,9 @@ namespace {{ namespace }}
         public void Test_{{ enum_base_name }}_Enum()
         {
             var values = Enum.GetValues(typeof({{ enum_base_name }}));
-            foreach (var value in values)
-            {
-                Assert.IsTrue(Enum.IsDefined(typeof({{ enum_base_name }}), value));
-            }
+            {%- for symbol in symbols %}
+            Assert.That(Enum.IsDefined(typeof({{ enum_base_name }}), "{{ symbol }}"));
+            {%- endfor %}
         }
     }
 }
