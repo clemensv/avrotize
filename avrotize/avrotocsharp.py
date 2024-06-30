@@ -208,7 +208,7 @@ class AvroToCSharp:
                             else:
                                 put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = fieldValue is Object[]?((Object[])fieldValue).Select(x => ({inner_type})x).ToList():({field_type})fieldValue; break;"
                         else:
-                            put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = fieldValue is Object[]?((Object[])fieldValue).Select(x => ({field_type[5:-1]})x).ToList():({field_type})fieldValue; break;"
+                            put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = fieldValue is Object[]?((Object[])fieldValue).Select(x => ({inner_type})x).ToList():({field_type})fieldValue; break;"
                     else:
                         put_method += f"\n{INDENT*3}case {pos}: this.{field_name} = ({field_type})fieldValue; break;"
             get_method += f"\n{INDENT*3}default: throw new global::Avro.AvroRuntimeException($\"Bad index {{fieldPos}} in Get()\");"
