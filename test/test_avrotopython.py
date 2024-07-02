@@ -109,5 +109,6 @@ class TestAvroToPython(unittest.TestCase):
         convert_avro_to_python(avro_path, py_path, dataclasses_json_annotation=True, avro_annotation=True)
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
+        
         assert subprocess.check_call(
             ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0

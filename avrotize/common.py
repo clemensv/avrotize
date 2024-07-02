@@ -688,7 +688,7 @@ def inline_avro_references(avro_schema, type_dict, current_namespace, tracker=No
         # Inline the referenced schema
         inlined_schema = evict_tracked_references(
             type_dict[avro_schema].copy(), '', tracker)
-        if not inlined_schema.get('namespace'):
+        if isinstance(inlined_schema, dict) and not inlined_schema.get('namespace', None):
             inlined_schema['namespace'] = '.'.join(avro_schema.split('.')[:-1])
         inlined_schema = inline_avro_references(
             inlined_schema, type_dict, inlined_schema['namespace'], tracker)

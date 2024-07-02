@@ -18,11 +18,7 @@ import avro.schema
 import avro.io
 {%- endif %}
 {%- for import_type in import_types %}
-{%- if import_type.startswith('.') %}
-from .{{ import_type.split('.')[-1]|lower }} import {{ import_type.split('.')[-1] }}
-{%- else %}
-from {{ import_type | lower }} import {{ import_type.split('.')[-1] }}
-{%- endif -%}
+from {{ '.'.join(import_type.split('.')[:-1]) | lower }} import {{ import_type.split('.')[-1] }}
 {%- endfor %}
 
 {% if dataclasses_json_annotation %}
@@ -132,7 +128,7 @@ class {{ class_name }}:
 
         {%- if dataclasses_json_annotation %}
         if content_type == 'application/json':
-            result = json.dumps(self.to_serializer_dict()).encode('utf-8')
+            result = self.to_json()
         {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):

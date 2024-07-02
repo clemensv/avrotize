@@ -6,8 +6,8 @@ import json
 import os
 import re
 import random
-from typing import Dict, List, Set, Union, Any, get_args
-from avrotize.common import get_typing_args_from_string, is_generic_avro_type, pascal, process_template, build_flat_type_dict, inline_avro_references, is_type_with_alternate, strip_alternate_type
+from typing import Dict, List, Set, Tuple, Union, Any
+from avrotize.common import fullname, get_typing_args_from_string, is_generic_avro_type, pascal, process_template, build_flat_type_dict, inline_avro_references, is_type_with_alternate, strip_alternate_type
 
 INDENT = '    '
 
@@ -34,19 +34,65 @@ class AvroToPython:
         self.output_dir = os.getcwd()
         self.main_schema = None
         self.type_dict = None
-        self.generated_types:Dict[str, str] = {}
-        self.avro_generated_types:Dict[str, str] = {}
+        self.generated_types: Dict[str, str] = {}
 
     def is_python_primitive(self, type_name: str) -> bool:
         """ Checks if a type is a Python primitive type """
         return type_name in ['None', 'bool', 'int', 'float', 'str', 'bytes']
-    
+
     def is_python_typing_struct(self, type_name: str) -> bool:
         """ Checks if a type is a Python typing type """
         return type_name.startswith('typing.Dict[') or type_name.startswith('typing.List[') or type_name.startswith('typing.Optional[') or type_name.startswith('typing.Union[') or type_name == 'typing.Any'
 
-    def map_primitive_to_python(self, avro_type: str) -> str:
-        """Maps Avro primitive types to Python types"""
+    def safe_name(self, name: str) -> str:
+        """Converts a name to a safe Python name"""
+        if is_python_reserved_word(name):
+            return name + "_"
+        return name
+
+    def pascal_type_name(self, ref: str) -> str:
+        """Converts a reference to a type name"""
+        return '_'.join([pascal(part) for part in ref.split('.')[-1].split('_')])
+
+    def python_package_from_avro_type(self, namespace: str, type_name: str) -> str:
+        """Gets the Python package from a type name"""
+        type_name_package = '.'.join([part.lower() for part in type_name.split('.')]) if '.' in type_name else type_name.lower()
+        if '.' in type_name:
+            #  if the type name was already qualified, we don't need to add the namespace
+            package = type_name_package
+        else:
+            namespace_package = '.'.join([part.lower() for part in namespace.split('.')]) if namespace else ''
+            package = namespace_package + ('.' if namespace_package and type_name_package else '') + type_name_package
+        if self.base_package:
+            package = self.base_package + '.' + package
+        return package
+
+    def python_type_from_avro_type(self, type_name: str) -> str:
+        """Gets the Python class from a type name"""
+        return self.pascal_type_name(type_name)
+
+    def python_fully_qualified_name_from_avro_type(self, namespace: str, type_name: str) -> str:
+        """
+        Gets the fully qualified Python class name from an Avro type.
+        """
+        package = self.python_package_from_avro_type(namespace, type_name)
+        return package + ('.' if package else '') + self.python_type_from_avro_type(type_name)
+    
+    def strip_package_from_fully_qualified_name(self, fully_qualified_name: str) -> str:
+        """Strips the package from a fully qualified name"""
+        return fully_qualified_name.split('.')[-1]
+
+    def map_plain_type_reference_to_python(self, parent_namespace: str, avro_type: str) -> Tuple[bool, str]:
+        """
+        Maps an Avro type to a Python type
+
+        Args:
+            avro_type (str): Avro type
+
+        Returns:
+            Tuple[bool, str]: A tuple containing a boolean indicating
+                if the type is a primitive type and the Python type
+        """
         mapping = {
             'null': 'None',
             'boolean': 'bool',
@@ -58,14 +104,11 @@ class AvroToPython:
             'string': 'str',
         }
         if is_generic_avro_type(avro_type):
-            return 'typing.Any'
-        return mapping.get(avro_type, avro_type)
-
-    def safe_name(self, name: str) -> str:
-        """Converts a name to a safe Python name"""
-        if is_python_reserved_word(name):
-            return name + "_"
-        return name
+            return True, 'typing.Any'
+        mapped = mapping.get(avro_type, None)
+        if mapped:
+            return True, mapped
+        return False, self.python_fully_qualified_name_from_avro_type(parent_namespace, avro_type)
 
     def convert_logical_type_to_python(self, avro_type: Dict, import_types: Set[str]) -> str:
         """Converts Avro logical type to Python type"""
@@ -92,23 +135,13 @@ class AvroToPython:
             return 'timedelta'
         return 'typing.Any'
 
-    def type_name(self, ref: str) -> str:
-        """Converts a reference to a type name"""
-        return '_'.join([pascal(part) for part in ref.split('.')[-1].split('_')])
-
     def convert_avro_type_to_python(self, avro_type: Union[str, Dict, List], parent_package: str, import_types: set) -> str:
         """Converts Avro type to Python type"""
         if isinstance(avro_type, str):
-            mapped_type = self.map_primitive_to_python(avro_type)
-            if mapped_type == avro_type and not self.is_python_primitive(mapped_type):
-                python_package = '.'.join(
-                    [part.lower() for part in mapped_type.split('.')[:-1]])
-                if self.base_package:
-                    python_package = f"{self.base_package}.{python_package}"
-                python_type = python_package + \
-                    '.' + self.type_name(mapped_type)
-                import_types.add(python_type)
-                return self.type_name(python_type)
+            is_primitive, mapped_type = self.map_plain_type_reference_to_python(parent_package, avro_type)
+            if not is_primitive:
+                import_types.add(mapped_type)
+                return self.pascal_type_name(mapped_type)
             return mapped_type
         elif isinstance(avro_type, list):
             if is_generic_avro_type(avro_type):
@@ -117,8 +150,7 @@ class AvroToPython:
                 return self.convert_avro_type_to_python(strip_alternate_type(avro_type), parent_package, import_types)
             non_null_types = [t for t in avro_type if t != 'null']
             if len(non_null_types) == 1:
-                t = self.convert_avro_type_to_python(
-                    non_null_types[0], parent_package, import_types)
+                t = self.convert_avro_type_to_python(non_null_types[0], parent_package, import_types)
                 if 'null' in avro_type:
                     return f'typing.Optional[{t}]'
                 else:
@@ -127,17 +159,13 @@ class AvroToPython:
                 return f"typing.Union[{', '.join(self.convert_avro_type_to_python(t, parent_package, import_types) for t in non_null_types)}]"
         elif isinstance(avro_type, dict):
             if avro_type['type'] == 'record':
-                class_ref = self.generate_class(
-                    avro_type, parent_package, write_file=True)
-                import_types.add(self.base_package + '.' +
-                                 class_ref if self.base_package else class_ref)
-                return class_ref.split('.')[-1]
+                class_ref = self.generate_class(avro_type, parent_package, write_file=True)
+                import_types.add(class_ref)
+                return self.strip_package_from_fully_qualified_name(class_ref)
             elif avro_type['type'] == 'enum':
-                enum_ref = self.generate_enum(
-                    avro_type, parent_package, write_file=True)
-                import_types.add(self.base_package + '.' +
-                                 enum_ref if self.base_package else enum_ref)
-                return enum_ref.split('.')[-1]
+                enum_ref = self.generate_enum(avro_type, parent_package, write_file=True)
+                import_types.add(enum_ref)
+                return self.strip_package_from_fully_qualified_name(enum_ref)
             elif avro_type['type'] == 'array':
                 return f"typing.List[{self.convert_avro_type_to_python(avro_type['items'], parent_package, import_types)}]"
             elif avro_type['type'] == 'map':
@@ -146,20 +174,22 @@ class AvroToPython:
                 return self.convert_logical_type_to_python(avro_type, import_types)
             return self.convert_avro_type_to_python(avro_type['type'], parent_package, import_types)
         return 'typing.Any'
-    
+
     # pylint: disable=eval-used
     def init_field_value(self, field_type: str, field_name: str, field_is_enum: bool, field_ref: str, enum_types: List[str]):
         """ Initialize the field value based on its type. """
         if field_type == "typing.Any":
             return field_ref
+        elif field_type in ['datetime', 'date', 'time', 'timedelta']:
+            return f"{field_ref}"
         elif field_type in ['int', 'str', 'float', 'bool', 'bytes', 'Decimal', 'datetime', 'date', 'time', 'timedelta']:
             return f"{field_type}({field_ref})"
         elif field_type.startswith("typing.List["):
             inner_type = get_typing_args_from_string(field_type)[0]
-            return f"{field_ref} if isinstance({field_ref}, list) else [{self.init_field_value(inner_type, field_name, field_is_enum, 'v', enum_types)} for v in {field_ref}]"
+            return f"{field_ref} if isinstance({field_ref}, list) else [{self.init_field_value(inner_type, field_name, field_is_enum, 'v', enum_types)} for v in {field_ref}] if {field_ref} else None"
         elif field_type.startswith("typing.Dict["):
             inner_type = get_typing_args_from_string(field_type)[1]
-            return f"{field_ref} if isinstance({field_ref}, dict) else {{k: {self.init_field_value(inner_type, field_name, field_is_enum, 'v', enum_types)} for k, v in {field_ref}.items()}}"
+            return f"{field_ref} if isinstance({field_ref}, dict) else {{k: {self.init_field_value(inner_type, field_name, field_is_enum, 'v', enum_types)} for k, v in {field_ref}.items()}} if {field_ref} else None"
         elif field_type.startswith("typing.Optional["):
             inner_type = get_typing_args_from_string(field_type)[0]
             return self.init_field_value(inner_type, field_name, field_is_enum, field_ref, enum_types)
@@ -168,13 +198,14 @@ class AvroToPython:
         elif field_is_enum or field_type in enum_types:
             return f"{field_type}({field_ref})"
         else:
-            return f"{field_ref} if isinstance({field_ref}, {field_type}) else {field_type}.from_serializer_dict({field_ref})"
+            return f"{field_ref} if isinstance({field_ref}, {field_type}) else {field_type}.from_serializer_dict({field_ref}) if {field_ref} else None"
 
     def init_field_value_from_union(self, union_args: List[str], field_name, field_ref, enum_types):
         """Initialize the field value based on the Union type."""
         init_statements = []
         for field_union_type in union_args:
-            init_statements.append(f"{self.init_field_value(field_union_type, field_name, False, field_ref, enum_types)} if isinstance({field_ref}, {field_union_type}) else")
+            init_statements.append(
+                f"{self.init_field_value(field_union_type, field_name, field_union_type in enum_types, field_ref, enum_types)} if isinstance({field_ref}, {field_union_type}) else")
         return ' '.join(init_statements) + ' None'
 
     def init_fields(self, fields: List[Dict[str, Any]], enum_types: List[str]) -> str:
@@ -182,22 +213,33 @@ class AvroToPython:
         init_statements = []
         for field in fields:
             if field['is_enum'] or field['type'] in enum_types or field['is_primitive']:
-                init_statements.append(f"self.{field['name']}={self.init_field_value(field['type'], field['name'], field['is_enum'], 'self.'+field['name'], enum_types)}")
+                init_statements.append(
+                    f"self.{field['name']}={self.init_field_value(field['type'], field['name'], field['is_enum'], 'self.'+field['name'], enum_types)}")
             else:
                 init_statements.append(f"value_{field['name']} = self.{field['name']}")
-                init_statements.append(f"self.{field['name']} = {self.init_field_value(field['type'], field['name'], field['is_enum'], 'value_'+field['name'], enum_types)}")
+                init_statements.append(
+                    f"self.{field['name']} = {self.init_field_value(field['type'], field['name'], field['is_enum'], 'value_'+field['name'], enum_types)}")
         return '\n'.join(init_statements)
 
     def generate_class(self, avro_schema: Dict, parent_package: str, write_file: bool) -> str:
-        """Generates a Python data class from an Avro record schema"""
+        """
+        Generates a Python data class from an Avro record schema
+
+        Args:
+            avro_schema (Dict): Avro record schema
+            parent_package (str): Parent package
+            write_file (bool): Write the class to a file
+
+        Returns:
+            str: Python fully qualified class name
+        """
+
         import_types: Set[str] = set()
-        class_name = '_'.join([pascal(part)
-                              for part in avro_schema['name'].split('_')])
-        package_name: str = avro_schema.get('namespace', parent_package).lower()
-        qualified_name = f'{package_name}.{class_name}' if package_name else class_name
-        avro_qualified_name = f'{package_name}.{avro_schema["name"]}' if package_name else avro_schema["name"]
-        if qualified_name in self.generated_types:
-            return qualified_name
+        class_name = self.python_type_from_avro_type(avro_schema['name'])
+        package_name = self.python_package_from_avro_type(avro_schema.get('namespace', parent_package), avro_schema['name'])
+        python_qualified_name = self.python_fully_qualified_name_from_avro_type(avro_schema.get('namespace', parent_package), avro_schema['name'])
+        if python_qualified_name in self.generated_types:
+            return python_qualified_name
 
         fields = [{
             'definition': self.generate_field(field, package_name, import_types),
@@ -216,21 +258,17 @@ class AvroToPython:
         # we are including a copy of the avro schema of this type. Since that may
         # depend on other types, we need to inline all references to other types
         # into this schema
-        local_avro_schema = inline_avro_references(
-            avro_schema.copy(), self.type_dict, '')
-        avro_schema_json = json.dumps(local_avro_schema).replace('"', '\\"')
-        
+        local_avro_schema = inline_avro_references(avro_schema.copy(), self.type_dict, '')
+        avro_schema_json = json.dumps(local_avro_schema).replace('\\"', '"').replace('"', '\\"')
         enum_types = []
-        qualified_generated_types = {(self.base_package + '.' + t if self.base_package else t): v for t, v in self.generated_types.items()}
         for import_type in import_types:
-            if import_type in qualified_generated_types and qualified_generated_types[import_type] == "enum":
-                enum_types.append(import_type.split('.')[-1])
+            if import_type in self.generated_types and self.generated_types[import_type] == "enum":
+                enum_types.append(self.strip_package_from_fully_qualified_name(import_type))
 
         class_definition = process_template(
             "avrotopython/dataclass_core.jinja",
             class_name=class_name,
-            docstring=avro_schema.get('doc', '').strip(
-            ) if 'doc' in avro_schema else f'A {class_name} record.',
+            docstring=avro_schema.get('doc', '').strip() if 'doc' in avro_schema else f'A {class_name} record.',
             fields=fields,
             import_types=import_types,
             base_package=self.base_package,
@@ -239,24 +277,31 @@ class AvroToPython:
             avro_schema_json=avro_schema_json,
             init_fields=self.init_fields(fields, enum_types),
         )
-        
+
         if write_file:
             self.write_to_file(package_name, class_name, class_definition)
-            self.generate_test_class(
-                package_name, class_name, fields, import_types)
-        self.generated_types[qualified_name] = 'class'
-        self.avro_generated_types[avro_qualified_name] = 'class'
-        return qualified_name
+            self.generate_test_class(package_name, class_name, fields, import_types)
+        self.generated_types[python_qualified_name] = 'class'
+        return python_qualified_name
 
     def generate_enum(self, avro_schema: Dict, parent_package: str, write_file: bool) -> str:
-        """Generates a Python enum from an Avro enum schema"""
-        class_name = '_'.join([pascal(part)
-                              for part in avro_schema['name'].split('_')])
-        package_name: str = avro_schema.get('namespace', parent_package).lower()
-        qualified_name = f'{package_name}.{class_name}' if package_name else class_name
-        avro_qualified_name = f'{package_name}.{avro_schema["name"]}' if package_name else avro_schema["name"]
-        if qualified_name in self.generated_types:
-            return qualified_name
+        """
+        Generates a Python enum from an Avro enum schema
+
+        Args:
+            avro_schema (Dict): Avro enum schema
+            parent_package (str): Parent package
+            write_file (bool): Write the enum to a file
+
+        Returns:
+            str: Python fully qualified enum name
+        """
+
+        class_name = self.python_type_from_avro_type(avro_schema['name'])
+        package_name = self.python_package_from_avro_type(avro_schema.get('namespace', parent_package), avro_schema['name'])
+        python_qualified_name = self.python_fully_qualified_name_from_avro_type(avro_schema.get('namespace', parent_package), avro_schema['name'])
+        if python_qualified_name in self.generated_types:
+            return python_qualified_name
 
         symbols = [symbol if not is_python_reserved_word(
             symbol) else symbol + "_" for symbol in avro_schema.get('symbols', [])]
@@ -272,18 +317,15 @@ class AvroToPython:
         if write_file:
             self.write_to_file(package_name, class_name, enum_definition)
             self.generate_test_enum(package_name, class_name, symbols)
-        self.generated_types[qualified_name] = 'enum'
-        self.avro_generated_types[avro_qualified_name] = 'enum'
-        return qualified_name
+        self.generated_types[python_qualified_name] = 'enum'
+        return python_qualified_name
 
     def generate_test_class(self, package_name: str, class_name: str, fields: List[Dict[str, str]], import_types: Set[str]) -> None:
         """Generates a unit test class for a Python data class"""
         test_class_name = f"Test_{class_name}"
-        base_package = 'tests_'+self.base_package if self.base_package else 'tests'
+        tests_package_name = "test_"+package_name.replace('.', '_').lower()
         test_class_definition = process_template(
             "avrotopython/test_class.jinja",
-            test_base_package=base_package,
-            base_package=self.base_package,
             package_name=package_name,
             class_name=class_name,
             test_class_name=test_class_name,
@@ -293,8 +335,7 @@ class AvroToPython:
         )
 
         base_dir = os.path.join(self.output_dir, "tests")
-        test_file_path = os.path.join(
-            base_dir, f"test_{self.base_package.replace('.', '_').lower()+'_' if self.base_package else ''}{package_name.replace('.', '_').lower()}_{class_name.lower()}.py")
+        test_file_path = os.path.join(base_dir, f"{tests_package_name.replace('.', '_').lower()}.py")
         if not os.path.exists(os.path.dirname(test_file_path)):
             os.makedirs(os.path.dirname(test_file_path), exist_ok=True)
         with open(test_file_path, 'w', encoding='utf-8') as file:
@@ -303,19 +344,16 @@ class AvroToPython:
     def generate_test_enum(self, package_name: str, class_name: str, symbols: List[str]) -> None:
         """Generates a unit test class for a Python enum"""
         test_class_name = f"Test_{class_name}"
-        base_package = 'tests_'+self.base_package if self.base_package else 'tests'
+        tests_package_name = "test_"+package_name.replace('.', '_').lower()
         test_class_definition = process_template(
             "avrotopython/test_enum.jinja",
-            test_base_package=base_package,
-            base_package=self.base_package,
             package_name=package_name,
             class_name=class_name,
             test_class_name=test_class_name,
             symbols=symbols
         )
         base_dir = os.path.join(self.output_dir, "tests")
-        test_file_path = os.path.join(
-            base_dir, f"test_{self.base_package.replace('.', '_').lower()+'_' if self.base_package else ''}{package_name.replace('.', '_').lower()}_{class_name.lower()}.py")
+        test_file_path = os.path.join(base_dir, f"{tests_package_name.replace('.', '_').lower()}.py")
         if not os.path.exists(os.path.dirname(test_file_path)):
             os.makedirs(os.path.dirname(test_file_path), exist_ok=True)
         with open(test_file_path, 'w', encoding='utf-8') as file:
@@ -387,32 +425,20 @@ class AvroToPython:
 
         return generate_value(field_type)
 
-    def is_enum(self, avro_type: Union[str, Dict, List]) -> bool:
-        """Checks if a type is an Avro enum"""
-        if isinstance(avro_type, list) and len(avro_type) == 2 and 'null' in avro_type:
-            return self.is_enum(next(t for t in iter(avro_type) if t != 'null'))
-        if isinstance(avro_type, str):
-            return avro_type in self.avro_generated_types and self.avro_generated_types[avro_type] == 'enum'
-        elif isinstance(avro_type, dict):
-            return avro_type['type'] == 'enum'
-        return False
-
     def generate_field(self, field: Dict, parent_package: str, import_types: set) -> Any:
         """Generates a field for a Python data class"""
-        field_type = self.convert_avro_type_to_python(
-            field['type'], parent_package, import_types)
+        field_type = self.convert_avro_type_to_python(field['type'], parent_package, import_types)
         field_name = field['name']
         return {
             'name': field_name,
             'type': field_type,
             'is_primitive': self.is_python_primitive(field_type) or self.is_python_typing_struct(field_type),
-            'is_enum': self.is_enum(field['type']),
+            'is_enum': field_type in self.generated_types and self.generated_types[field_type] == 'enum'
         }
 
     def generate_field_docstring(self, field: Dict, parent_package: str) -> str:
         """Generates a field docstring for a Python data class"""
-        field_type = self.convert_avro_type_to_python(
-            field['type'], parent_package, set())
+        field_type = self.convert_avro_type_to_python(field['type'], parent_package, set())
         field_name = self.safe_name(field['name'])
         field_doc = field.get('doc', '').strip()
         if is_python_reserved_word(field_name):
@@ -420,34 +446,40 @@ class AvroToPython:
         field_docstring = f"{field_name} ({field_type}): {field_doc}"
         return field_docstring
 
-    def write_to_file(self, package: str, name: str, definition: str):
-        """Writes a Python class to a file"""
-        if self.base_package:
-            package = f"{self.base_package}.{package}"
-        directory_path = os.path.join(self.output_dir, "src", package.replace(
-            '.', '/').replace('/', os.sep).lower())
+    def write_to_file(self, package: str, class_name: str, python_code: str):
+        """
+        Writes a Python class to a file
+
+        Args:
+            package (str): Python package
+            class_name (str): Python class name
+            python_code (str): Python class definition
+        """
+
+        # the containing directory is the parent package
+        parent_package_name = '.'.join(package.split('.')[:-1])
+        parent_package_path = os.sep.join(parent_package_name.split('.')).lower()
+        directory_path = os.path.join(self.output_dir, "src", parent_package_path)
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)
 
         # drop an __init.py__ file in all directories along the path above output_dir
-        package_name = package
-        while package_name:
-            package_directory_path = os.path.join(
-                self.output_dir, "src", package_name.replace('.', '/').replace('/', os.sep).lower())
-            init_file_path = os.path.join(
-                package_directory_path, '__init__.py')
+        init_package_name = parent_package_name
+        while init_package_name:
+            package_directory_path = os.path.join(self.output_dir, "src", init_package_name.replace('.', os.sep).lower())
+            init_file_path = os.path.join(package_directory_path, '__init__.py')
             if not os.path.exists(init_file_path):
                 with open(init_file_path, 'w', encoding='utf-8') as file:
                     file.write('')
-            if '.' in package_name:
-                package_name = package_name.rsplit('.', 1)[0]
+            if '.' in init_package_name:
+                init_package_name = init_package_name.rsplit('.', 1)[0]
             else:
-                package_name = ''
+                init_package_name = ''
 
-        file_path = os.path.join(directory_path, f"{name.lower()}.py")
+        file_path = os.path.join(directory_path, f"{class_name.lower()}.py")
 
         with open(file_path, 'w', encoding='utf-8') as file:
-            file.write(definition)
+            file.write(python_code)
 
     def write_pyproject_toml(self, output_dir: str):
         """Writes pyproject.toml file to the output directory"""
@@ -472,8 +504,7 @@ class AvroToPython:
                 self.generate_enum(
                     avro_schema, self.base_package, write_file=True)
             elif avro_schema['type'] == 'record':
-                self.generate_class(
-                    avro_schema, self.base_package, write_file=True)
+                self.generate_class(avro_schema, self.base_package, write_file=True)
         self.write_pyproject_toml(self.output_dir)
 
     def convert(self, avro_schema_path: str, output_dir: str):

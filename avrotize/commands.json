@@ -7,7 +7,9 @@
       "name": "avrotize.prototoavro.convert_proto_to_avro",
       "args": {
         "proto_file_path": "input_file_path",
-        "avro_schema_path": "output_file_path"
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace",
+        "message_type": "args.message_type"
       }
     },
     "extensions": [".proto"],
@@ -29,6 +31,18 @@
         "name": "--proto",
         "type": "str",
         "help": "Deprecated: Path of the proto file (for backcompat)",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      },
+      {
+        "name": "--message-type",
+        "type": "str",
+        "help": "Generate the schema for a specific Proto message type and inline all references",
         "required": false
       }
     ],

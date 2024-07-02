@@ -8,11 +8,11 @@ import unittest
 
 sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), '../src'.replace('/', os.sep))))
 
-from {{ base_package }}{{ '.' if base_package else ''}}{{ package_name|lower }}.{{class_name|lower}} import {{ class_name }}
+from {{ package_name | lower }} import {{ class_name }}
 
 {%- for import_type in import_types %}
 {%- set import_type_name = 'Test_'+import_type.split('.')[-1] %}
-{%- set import_package_name = 'test_'+import_type.replace('.','_') | lower %}
+{%- set import_package_name = 'test_'+'_'.join(import_type.split('.')[:-1]) | lower %}
 
 {%- if import_type.startswith('.') %}
 from .{{ import_package_name }} import {{ import_type_name }}

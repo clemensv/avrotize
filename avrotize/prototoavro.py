@@ -5,7 +5,8 @@ Module to convert Protobuf .proto files to Avro schema.
 import json
 import os
 import re
-from avrotize.dependency_resolver import sort_messages_by_dependencies
+from typing import Dict
+from avrotize.dependency_resolver import sort_messages_by_dependencies, inline_dependencies_of
 from . import proto2parser
 from . import proto3parser
 
@@ -13,7 +14,7 @@ class ProtoToAvroConverter:
     """Class to convert Protobuf .proto files to Avro schema."""
 
     isomorphic_types = ['float', 'double', 'bytes', 'string']
-    imported_types = {}
+    imported_types: Dict[str, str] = {}
 
     def __init__(self):
         """Initialize ProtoToAvroConverter."""
@@ -51,7 +52,7 @@ class ProtoToAvroConverter:
             return proto_type
         return mapping.get(proto_type, proto_type)
 
-    def convert_proto_to_avro_schema(self, proto_file_path: str) -> list:
+    def convert_proto_to_avro_schema(self, proto_file_path: str, avro_namespace: str, message_type: str) -> list:
         """
         Convert .proto file to Avro schema.
 
@@ -71,7 +72,7 @@ class ProtoToAvroConverter:
             data = proto2parser.parse(proto_schema)
 
         # Get the namespace
-        namespace = data.package.value if data.package else ''
+        namespace = avro_namespace if avro_namespace else data.package.value if data.package else ''
 
         # Avro schema header
         avro_schema = []
@@ -96,7 +97,7 @@ class ProtoToAvroConverter:
                 if not os.path.exists(import_path):
                     raise FileNotFoundError(f'Import file {import_path} does not exist.')
 
-                avro_schema.extend(self.convert_proto_to_avro_schema(import_path))
+                avro_schema.extend(self.convert_proto_to_avro_schema(import_path, avro_namespace, message_type))
 
         # Convert message fields
         for _, m in data.messages.items():
@@ -107,7 +108,15 @@ class ProtoToAvroConverter:
             self.handle_enum(enum_type, avro_schema, namespace)
 
         # Sort the messages in avro_schema by dependencies
-        return sort_messages_by_dependencies(avro_schema)
+        avro_schema = sort_messages_by_dependencies(avro_schema)
+        if message_type:
+            message_schema = next((message for message in avro_schema if message['type'] == "record" and message['name'] == message_type), None)
+            if not message_schema:
+                raise ValueError(f'Message type {message_type} not found in the Avro schema.')
+            else:
+               inline_dependencies_of(avro_schema, message_schema)
+               return message_schema
+        return avro_schema
 
     @staticmethod
     def clean_comment(comment):
@@ -279,7 +288,7 @@ class ProtoToAvroConverter:
             avro_type = field_type
         return avro_type
 
-def convert_proto_to_avro(proto_file_path: str, avro_schema_path: str):
+def convert_proto_to_avro(proto_file_path: str, avro_schema_path: str, namespace: str = None, message_type: str = None):
     """
     Convert Protobuf .proto file to Avro schema.
 
@@ -295,7 +304,7 @@ def convert_proto_to_avro(proto_file_path: str, avro_schema_path: str):
         raise FileNotFoundError(f'Proto file {proto_file_path} does not exist.')
 
     converter = ProtoToAvroConverter()
-    avro_schema = converter.convert_proto_to_avro_schema(proto_file_path)
+    avro_schema = converter.convert_proto_to_avro_schema(proto_file_path, namespace, message_type)
 
     # Convert the Avro schema to JSON and write it to the file
     with open(avro_schema_path, 'w', encoding='utf-8') as avro_file:
