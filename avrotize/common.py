@@ -655,45 +655,59 @@ def evict_tracked_references(avro_schema, parent_namespace, tracker):
     return avro_schema
 
 
-def inline_avro_references(avro_schema, type_dict, current_namespace, tracker=None):
-    """ Inlines all referenced schemas in the Avro schema. """
+def inline_avro_references(avro_schema, type_dict, current_namespace, tracker=None, defined_types=None):
+    """ Inlines the first reference to a type in the Avro schema. """
     if tracker is None:
         tracker = set()
+    if defined_types is None:
+        defined_types = set()
+
     if isinstance(avro_schema, dict):
-        # if this type is a dupe, return the name
+        # Register the type if it's a record, enum, or fixed and is inlined in the same schema
+        if 'type' in avro_schema and avro_schema['type'] in ['record', 'enum', 'fixed']:
+            namespace = avro_schema.get('namespace', current_namespace)
+            qualified_name = (namespace + '.' if namespace else '') + avro_schema['name']
+            defined_types.add(qualified_name)
+
+        # Process record types
         if 'type' in avro_schema and avro_schema['type'] == 'record' and 'fields' in avro_schema:
             namespace = avro_schema.get('namespace', current_namespace)
-            qualified_name = (
-                namespace + '.' if namespace else '') + avro_schema['name']
+            qualified_name = (namespace + '.' if namespace else '') + avro_schema['name']
             if qualified_name in tracker:
                 return qualified_name
             tracker.add(qualified_name)
             for field in avro_schema['fields']:
                 field['type'] = inline_avro_references(
-                    field['type'], type_dict, current_namespace, tracker)
+                    field['type'], type_dict, namespace, tracker, defined_types)
+
         # Handling array types
         elif 'type' in avro_schema and avro_schema['type'] == 'array' and 'items' in avro_schema:
             avro_schema['items'] = inline_avro_references(
-                avro_schema['items'], type_dict, current_namespace, tracker)
+                avro_schema['items'], type_dict, current_namespace, tracker, defined_types)
+
         # Handling map types
         elif 'type' in avro_schema and avro_schema['type'] == 'map' and 'values' in avro_schema:
             avro_schema['values'] = inline_avro_references(
-                avro_schema['values'], type_dict, current_namespace, tracker)
+                avro_schema['values'], type_dict, current_namespace, tracker, defined_types)
+
+        # Inline other types, except enum and fixed
         elif 'type' in avro_schema and avro_schema['type'] not in ['enum', 'fixed']:
             avro_schema['type'] = inline_avro_references(
-                avro_schema['type'], type_dict, current_namespace, tracker)
+                avro_schema['type'], type_dict, current_namespace, tracker, defined_types)
+
     elif isinstance(avro_schema, list):
-        return [inline_avro_references(item, type_dict, current_namespace, tracker) for item in avro_schema]
-    elif avro_schema in type_dict and not avro_schema in tracker:
-        # Inline the referenced schema
-        inlined_schema = evict_tracked_references(
-            type_dict[avro_schema].copy(), '', tracker)
+        return [inline_avro_references(item, type_dict, current_namespace, tracker, defined_types) for item in avro_schema]
+
+    elif avro_schema in type_dict and avro_schema not in tracker and avro_schema not in defined_types:
+        # Inline the referenced schema if not already tracked and not defined in the current schema
+        inlined_schema = type_dict[avro_schema].copy()
         if isinstance(inlined_schema, dict) and not inlined_schema.get('namespace', None):
             inlined_schema['namespace'] = '.'.join(avro_schema.split('.')[:-1])
         inlined_schema = inline_avro_references(
-            inlined_schema, type_dict, inlined_schema['namespace'], tracker)
+            inlined_schema, type_dict, inlined_schema['namespace'], tracker, defined_types)
         tracker.add(avro_schema)
         return inlined_schema
+
     return avro_schema
 
 
