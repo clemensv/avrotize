@@ -259,7 +259,7 @@ class AvroToPython:
         # depend on other types, we need to inline all references to other types
         # into this schema
         local_avro_schema = inline_avro_references(avro_schema.copy(), self.type_dict, '')
-        avro_schema_json = json.dumps(local_avro_schema).replace('\\"', '"').replace('"', '\\"')
+        avro_schema_json = json.dumps(local_avro_schema).replace('\\"', '\'').replace('"', '\\"')
         enum_types = []
         for import_type in import_types:
             if import_type in self.generated_types and self.generated_types[import_type] == "enum":
