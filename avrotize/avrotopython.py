@@ -77,7 +77,7 @@ class AvroToPython:
         """
         package = self.python_package_from_avro_type(namespace, type_name)
         return package + ('.' if package else '') + self.python_type_from_avro_type(type_name)
-    
+
     def strip_package_from_fully_qualified_name(self, fully_qualified_name: str) -> str:
         """Strips the package from a fully qualified name"""
         return fully_qualified_name.split('.')[-1]
@@ -242,8 +242,8 @@ class AvroToPython:
             return python_qualified_name
 
         fields = [{
-            'definition': self.generate_field(field, package_name, import_types),
-            'docstring': self.generate_field_docstring(field, package_name)
+            'definition': self.generate_field(field, avro_schema.get('namespace', parent_package), import_types),
+            'docstring': self.generate_field_docstring(field, avro_schema.get('namespace', parent_package))
         } for field in avro_schema.get('fields', [])]
         fields = [{
             'name': self.safe_name(field['definition']['name']),
@@ -462,32 +462,62 @@ class AvroToPython:
         directory_path = os.path.join(self.output_dir, "src", parent_package_path)
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)
-
-        # drop an __init.py__ file in all directories along the path above output_dir
-        init_package_name = parent_package_name
-        while init_package_name:
-            package_directory_path = os.path.join(self.output_dir, "src", init_package_name.replace('.', os.sep).lower())
-            init_file_path = os.path.join(package_directory_path, '__init__.py')
-            if not os.path.exists(init_file_path):
-                with open(init_file_path, 'w', encoding='utf-8') as file:
-                    file.write('')
-            if '.' in init_package_name:
-                init_package_name = init_package_name.rsplit('.', 1)[0]
-            else:
-                init_package_name = ''
-
         file_path = os.path.join(directory_path, f"{class_name.lower()}.py")
 
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(python_code)
 
-    def write_pyproject_toml(self, output_dir: str):
+    def write_init_files(self):
+        """Writes __init__.py files to the output directories"""
+
+        def organize_generated_types():
+            """
+            Organizes the generated_types into a tree structure
+            """
+            generated_types_tree = {}
+            for generated_type, _ in self.generated_types.items():
+                package_parts = generated_type.split('.')
+                current_node = generated_types_tree
+                count:int = 0
+                for part in package_parts[:-1]:
+                    count += 1
+                    if part not in current_node:
+                        current_node[part] = {} if count < len(package_parts) - 1 else generated_type
+                    current_node = current_node[part]
+                current_node = package_parts[-1]
+            return generated_types_tree
+
+        def write_init_files_recursive(generated_types_tree, current_package: str):
+            """
+            Writes __init__.py files recursively
+            """
+            import_statements = []
+            all_statement = []
+            for package_name, package_content in generated_types_tree.items():
+                if isinstance(package_content, dict):
+                    import_statements.append(f"from .{package_name} import {', '.join(package_content.keys())}")
+                    all_statement.append(', '.join(['"'+k+'"' for k in package_content.keys()]))
+                    write_init_files_recursive(package_content, current_package + ('.' if current_package else '') + package_name)
+                else:
+                    class_name = package_content.split('.')[-1]
+                    import_statements.append(f"from .{package_name} import {class_name}")
+                    all_statement.append('"'+class_name+'"')
+            if current_package:
+                package_path = os.path.join(self.output_dir, 'src', current_package.replace('.', os.sep).lower())
+                init_file_path = os.path.join(package_path, '__init__.py')
+                with open(init_file_path, 'w', encoding='utf-8') as file:
+                    file.write('\n'.join(import_statements) + '\n\n__all__ = [' + ', '.join(all_statement) + ']\n')
+
+        # main function
+        write_init_files_recursive(organize_generated_types(), '')
+
+    def write_pyproject_toml(self):
         """Writes pyproject.toml file to the output directory"""
         pyproject_content = process_template(
             "avrotopython/pyproject_toml.jinja",
             package_name=self.base_package.replace('_', '-')
         )
-        with open(os.path.join(output_dir, 'pyproject.toml'), 'w', encoding='utf-8') as file:
+        with open(os.path.join(self.output_dir, 'pyproject.toml'), 'w', encoding='utf-8') as file:
             file.write(pyproject_content)
 
     def convert_schemas(self, avro_schemas: List, output_dir: str):
@@ -497,15 +527,14 @@ class AvroToPython:
         self.output_dir = output_dir
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir, exist_ok=True)
-        with open(os.path.join(self.output_dir, "__init__.py"), 'w', encoding='utf-8') as file:
-            file.write('')
         for avro_schema in avro_schemas:
             if avro_schema['type'] == 'enum':
                 self.generate_enum(
                     avro_schema, self.base_package, write_file=True)
             elif avro_schema['type'] == 'record':
                 self.generate_class(avro_schema, self.base_package, write_file=True)
-        self.write_pyproject_toml(self.output_dir)
+        self.write_init_files()
+        self.write_pyproject_toml()
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Python data classes"""
