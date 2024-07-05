@@ -34,7 +34,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.11.1
+        python-version: 3.10.12
     # we need to build the package for generating the _version.py file that isn't checked in
     - name: Install dependencies and build package
       run: |

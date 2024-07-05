@@ -120,7 +120,7 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
     extension_ts_content.append(f"{INDENT*5}'avrotize tool is not available. Do you want to install it?', 'Yes', 'No');")
     extension_ts_content.append(f"{INDENT*4}if (installOption === 'Yes') {{")
     extension_ts_content.append(f"{INDENT*5}if (!await isPythonAvailable()) {{")
-    extension_ts_content.append(f"{INDENT*6}const downloadOption = await vscode.window.showErrorMessage('Python 3.11 or higher must be installed. Do you want to open the download page?', 'Yes', 'No');")
+    extension_ts_content.append(f"{INDENT*6}const downloadOption = await vscode.window.showErrorMessage('Python 3.10 or higher must be installed. Do you want to open the download page?', 'Yes', 'No');")
     extension_ts_content.append(f"{INDENT*6}if (downloadOption === 'Yes') {{")
     extension_ts_content.append(f"{INDENT*7}vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));")
     extension_ts_content.append(f"{INDENT*6}}}")
@@ -146,9 +146,9 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
     extension_ts_content.append(f"{INDENT*2}const output = await execShellCommand('python --version');")
     extension_ts_content.append(f"{INDENT*2}const version = output.trim().split(' ')[1];")
     extension_ts_content.append(f"{INDENT*2}const [major, minor] = version.split('.').map(num => parseInt(num));")
-    # show info message if python version is less than 3.11
-    extension_ts_content.append(f"{INDENT*2}if (major < 3 || (major === 3 && minor < 11)) {{")
-    extension_ts_content.append(f"{INDENT*3}vscode.window.showInformationMessage('Python 3.11 or higher must be installed. Found version: ' + version);")
+    # show info message if python version is less than 3.10
+    extension_ts_content.append(f"{INDENT*2}if (major < 3 || (major === 3 && minor < 10)) {{")
+    extension_ts_content.append(f"{INDENT*3}vscode.window.showInformationMessage('Python 3.10 or higher must be installed. Found version: ' + version);")
     extension_ts_content.append(f"{INDENT*3}return false;")
     extension_ts_content.append(f"{INDENT*2}}}")
     extension_ts_content.append(f"{INDENT*2}return major === 3 && minor >= 11;")

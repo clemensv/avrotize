@@ -13,7 +13,7 @@ The tool leans on the Apache Avro-derived [Avrotize Schema](specs/avrotize-schem
 
 ## Installation
 
-You can install Avrotize from PyPI, [having installed Python 3.11 or later](https://www.python.org/downloads/):
+You can install Avrotize from PyPI, [having installed Python 3.10 or later](https://www.python.org/downloads/):
 
 ```bash
 pip install avrotize

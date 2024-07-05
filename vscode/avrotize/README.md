@@ -16,7 +16,7 @@ model.
 
 ## Requirements
 
-Avrotize requires Python 3.11 or later to be installed on your system first. 
+Avrotize requires Python 3.10 or later to be installed on your system first. 
 
 You can let the extension install Avrotize or you can install it with PIP:
 

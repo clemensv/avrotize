@@ -26,7 +26,7 @@ async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel
                     'avrotize tool is not available. Do you want to install it?', 'Yes', 'No');
                 if (installOption === 'Yes') {
                     if (!await isPythonAvailable()) {
-                        const downloadOption = await vscode.window.showErrorMessage('Python 3.11 or higher must be installed. Do you want to open the download page?', 'Yes', 'No');
+                        const downloadOption = await vscode.window.showErrorMessage('Python 3.10 or higher must be installed. Do you want to open the download page?', 'Yes', 'No');
                         if (downloadOption === 'Yes') {
                             vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));
                         }
@@ -52,7 +52,7 @@ async function isPythonAvailable(): Promise<boolean> {
         const version = output.trim().split(' ')[1];
         const [major, minor] = version.split('.').map(num => parseInt(num));
         if (major < 3 || (major === 3 && minor < 11)) {
-            vscode.window.showInformationMessage('Python 3.11 or higher must be installed. Found version: ' + version);
+            vscode.window.showInformationMessage('Python 3.10 or higher must be installed. Found version: ' + version);
             return false;
         }
         return major === 3 && minor >= 11;
