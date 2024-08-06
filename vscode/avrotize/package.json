@@ -492,7 +492,7 @@
         "watch-tests": "tsc -p . -w --outDir out",
         "pretest": "npm run compile-tests && npm run compile && npm run lint",
         "check-types": "tsc --noEmit",
-        "lint": "eslint src --ext ts",
+        "lint": "eslint src --ext .ts",
         "test": "vscode-test",
         "deploy": "vsce publish --no-yarn"
     },
@@ -510,5 +510,8 @@
         "eslint": "9.8.0",
         "npm-run-all": "^4.1.5",
         "typescript": "5.5.4"
+    },
+    "dependencies": {
+        "avrotize": "file:"
     }
 }
