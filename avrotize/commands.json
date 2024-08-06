@@ -435,6 +435,7 @@
       "args": {
         "kusto_uri": "args.kusto_uri",
         "kusto_database": "args.kusto_database",
+        "table_name": "args.table_name",
         "avro_namespace": "args.namespace",
         "avro_schema_file": "output_file_path",
         "emit_cloudevents": "args.emit_cloudevents",
@@ -466,6 +467,12 @@
         "name": "--kusto-database",
         "type": "str",
         "help": "Kusto database",
+        "required": false
+      },
+      {
+        "name": "--table-name",
+        "type": "str",
+        "help": "Kusto table name",
         "required": false
       },
       {

@@ -17,40 +17,42 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "jsonschema>=4.17.3",
+    "jsonschema>=4.23.0",
     "lark>=1.1.9",
-    "pyarrow>=15.0.0",
-    "asn1tools>=0.166.0",
-    "jsonpointer>=2.4",
+    "pyarrow>=17.0.0",
+    "asn1tools>=0.167.0",
+    "jsonpointer>=3.0.0",
     "jsonpath-ng>=1.6.1",
     "jsoncomparison>=1.1.0",
-    "requests>=2.31.0",
-    "azure-kusto-data>=4.4.1",
-    "azure-identity>=1.6.0",
+    "requests>=2.32.3",
+    "azure-kusto-data>=4.5.1",
+    "azure-identity>=1.17.1",
     "datapackage>=1.15.4",
     "jinja2>=3.1.4",
-    "pyiceberg>=0.6.1",
+    "pyiceberg>=0.7.0",
     "pandas>=2.2.2",
+    "docker>=7.1.0",
+    "requests==2.32.3"
 ]
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.2.1",
-    "fastavro>=1.9.4",
-    "xmlschema>=3.0.2",
-    "xmlunittest>=0.5.0",
-    "pylint>=3.1.0",
-    "dataclasses_json>0.6.4",
-    "dataclasses>=0.6",
-    "pydantic>=2.7.1",
-    "avro>=1.11.3",
-    "testcontainers>=4.4.1",
-    "pymysql>=1.1.0",
+    "pytest>=8.3.2",
+    "fastavro>=1.9.5",
+    "xmlschema>=3.3.2",
+    "xmlunittest>=1.0.1",
+    "pylint>=3.2.6",
+    "dataclasses_json>=0.6.7",
+    "dataclasses>=0.8",
+    "pydantic>=2.8.2",
+    "avro>=1.12.0",
+    "testcontainers>=4.7.2",
+    "pymysql>=1.1.1",
     "psycopg2>=2.9.9",
     "pyodbc>=5.1.0",
-    "pymongo>=4.7.2",
-    "oracledb>=2.2.1",
+    "pymongo>=4.8.0",
+    "oracledb>=2.3.0",
     "cassandra-driver>=3.29.1",
-    "sqlalchemy>=2.0.15"
+    "sqlalchemy>=2.0.32"
 ]
 
 [project.scripts]
@@ -59,4 +61,4 @@ avrotize = "avrotize.avrotize:main"
 [tool.setuptools_scm]
 write_to = "avrotize/_version.py"
 [tool.poetry.dev-dependencies]
-pytest-cov = "^3.0"
+pytest-cov = "^5.0.0"

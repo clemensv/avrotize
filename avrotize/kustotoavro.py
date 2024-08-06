@@ -14,11 +14,12 @@ JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 class KustoToAvro:
     """ Converts Kusto table schemas to Avro schema format."""
 
-    def __init__(self, kusto_uri, kusto_database, avro_namespace: str, avro_schema_path, emit_cloudevents: bool, emit_cloudevents_xregistry: bool, token_provider=None):
+    def __init__(self, kusto_uri, kusto_database, table_name: str | None, avro_namespace: str, avro_schema_path, emit_cloudevents: bool, emit_cloudevents_xregistry: bool, token_provider=None):
         """ Initializes the KustoToAvro class with the Kusto URI and database name. """
         kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(kusto_uri) if not token_provider else KustoConnectionStringBuilder.with_token_provider(kusto_uri, token_provider)
         self.client = KustoClient(kcsb)
         self.kusto_database = kusto_database
+        self.single_table_name = table_name
         self.avro_namespace = avro_namespace
         self.avro_schema_path = avro_schema_path
         self.emit_xregistry = emit_cloudevents_xregistry
@@ -112,8 +113,8 @@ class KustoToAvro:
         # consolidate the list types by eliminating duplicates
         for item in list_types:
             tree_hash = get_tree_hash(item)
-            if tree_hash.hash not in tree_hashes:
-                tree_hashes[tree_hash.hash] = item
+            if tree_hash.hash_value not in tree_hashes:
+                tree_hashes[tree_hash.hash_value] = item
         list_types = list(tree_hashes.values())
         unique_types = []
         prior_record = None
@@ -179,9 +180,12 @@ class KustoToAvro:
         if len(unique_types) > 1:
             # Using a union of inferred types
             return unique_types
-        else:
+        elif len(unique_types) == 1:
             # Single type, no need for union
             return unique_types[0]
+        else:
+            # No values, default to string
+            return "string"
 
     type_map : Dict[str, JsonNode] = {
             "int": "int", 
@@ -344,6 +348,8 @@ class KustoToAvro:
         """ Processes all tables in the database and returns a union schema."""
         union_schema = []
         tables_query = ".show tables | project TableName"
+        if self.single_table_name:
+            tables_query += f" | where TableName == '{self.single_table_name}'"
         tables = self.client.execute(self.kusto_database, tables_query)
         for row in tables.primary_results[0]:
             table_name = row['TableName']
@@ -434,7 +440,7 @@ class KustoToAvro:
             json.dump(output, avro_file, indent=4)
 
 
-def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, avro_namespace: str, avro_schema_file: str, emit_cloudevents:bool, emit_cloudevents_xregistry: bool, token_provider=None):
+def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, table_name: str | None, avro_namespace: str, avro_schema_file: str, emit_cloudevents:bool, emit_cloudevents_xregistry: bool, token_provider=None):
     """ Converts Kusto table schemas to Avro schema format."""
     
     if not kusto_uri:
@@ -445,5 +451,5 @@ def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, avro_namespace: s
         avro_namespace = kusto_database
     
     kusto_to_avro = KustoToAvro(
-        kusto_uri, kusto_database, avro_namespace, avro_schema_file,emit_cloudevents, emit_cloudevents_xregistry, token_provider=token_provider)
+        kusto_uri, kusto_database, table_name, avro_namespace, avro_schema_file,emit_cloudevents, emit_cloudevents_xregistry, token_provider=token_provider)
     return kusto_to_avro.process_all_tables()

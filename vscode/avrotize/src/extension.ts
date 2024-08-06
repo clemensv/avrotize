@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 const currentVersionMajor = 2;
-const currentVersionMinor = 0;
+const currentVersionMinor = 1;
 const currentVersionPatch = 3;
 async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {
     try {
@@ -51,7 +51,7 @@ async function isPythonAvailable(): Promise<boolean> {
         const output = await execShellCommand('python --version');
         const version = output.trim().split(' ')[1];
         const [major, minor] = version.split('.').map(num => parseInt(num));
-        if (major < 3 || (major === 3 && minor < 11)) {
+        if (major < 3 || (major === 3 && minor < 10)) {
             vscode.window.showInformationMessage('Python 3.10 or higher must be installed. Found version: ' + version);
             return false;
         }

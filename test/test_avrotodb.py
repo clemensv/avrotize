@@ -184,7 +184,7 @@ class TestAvroToDB(unittest.TestCase):
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", f"{avro_name}.avsc")
         sql_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{avro_name}-mssql.sql")
-        with SqlServerContainer() as mssql:
+        with SqlServerContainer("mcr.microsoft.com/azure-sql-edge:1.0.7") as mssql:
             conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={mssql.get_container_host_ip()},{mssql.get_exposed_port(1433)};UID={mssql.username};PWD={mssql.password}'
             conn = pyodbc.connect(conn_str)
             cursor = conn.cursor()
