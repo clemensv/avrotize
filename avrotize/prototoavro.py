@@ -354,4 +354,3 @@ def convert_proto_to_avro(proto_file_path: str, avro_schema_path: str, namespace
     with open(avro_schema_path, 'w', encoding='utf-8') as avro_file:
         avro_file.write(json.dumps(avro_schema, indent=2))
 
-    print(f'Converted {proto_file_path} to {avro_schema_path}')
