@@ -192,7 +192,7 @@ class AvroToPython:
             return f"{field_ref} if isinstance({field_ref}, dict) else {{k: {self.init_field_value(inner_type, field_name, field_is_enum, 'v', enum_types)} for k, v in {field_ref}.items()}} if {field_ref} else None"
         elif field_type.startswith("typing.Optional["):
             inner_type = get_typing_args_from_string(field_type)[0]
-            return self.init_field_value(inner_type, field_name, field_is_enum, field_ref, enum_types)
+            return self.init_field_value(inner_type, field_name, field_is_enum, field_ref, enum_types) + ' if ' + field_ref + ' else None'
         elif field_type.startswith("typing.Union["):
             return self.init_field_value_from_union(get_typing_args_from_string(field_type), field_name, field_ref, enum_types)
         elif field_is_enum or field_type in enum_types:
