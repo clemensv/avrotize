@@ -3,6 +3,7 @@
 import json
 import sys
 from typing import Any, List
+from avrotize.common import build_flat_type_dict, inline_avro_references, strip_first_doc
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder, ClientRequestProperties
 
 
@@ -13,12 +14,12 @@ class AvroToKusto:
         """Initializes a new instance of the AvroToKusto class."""
         pass
 
-    def convert_record_to_kusto(self, schema: dict, emit_cloudevents_columns: bool, emit_cloudevents_dispatch_table: bool) -> List[str]:
+    def convert_record_to_kusto(self, type_dict:dict, recordschema: dict, emit_cloudevents_columns: bool, emit_cloudevents_dispatch_table: bool) -> List[str]:
         """Converts an Avro record schema to a Kusto table schema."""
         # Get the name and fields of the top-level record
-        table_name = schema["name"]
-        fields = schema["fields"]
-
+        table_name = recordschema["name"]
+        fields = recordschema["fields"]
+        
         # Create a StringBuilder to store the kusto statements
         kusto = []
 
@@ -40,9 +41,11 @@ class AvroToKusto:
         kusto.append("")
 
         # Add the doc string as table metadata
-        if "doc" in schema:
+        if "doc" in recordschema:
+            doc_data = recordschema["doc"]
+            doc_data = (doc_data[:997] + "...") if len(doc_data) > 1000 else doc_data
             doc_string = json.dumps(json.dumps({
-                "description": schema["doc"]
+                "description": doc_data
             }))
             kusto.append(
                 f".alter table [{table_name}] docstring {doc_string};")
@@ -52,11 +55,24 @@ class AvroToKusto:
         for field in fields:
             column_name = field["name"]
             if "doc" in field:
+                doc_data = field["doc"]
+                if len(doc_data) > 900:
+                    doc_data = (doc_data[:897] + "...")
                 doc_content = {
-                    "description": field["doc"]
+                    "description": doc_data
                 }
                 if isinstance(field["type"], list) or isinstance(field["type"], dict):
-                    doc_content["type"] = field["type"]
+                    inline_schema = inline_avro_references(field["type"].copy(), type_dict.copy(), '')
+                    if (len(json.dumps(inline_schema)) + len(doc_data)) > 900:
+                        while strip_first_doc(inline_schema):
+                            if (len(json.dumps(inline_schema)) + len(doc_data)) < 900:
+                                break
+                        if (len(json.dumps(inline_schema)) + len(doc_data)) > 900:
+                            doc_content["schema"] = '{ "doc": "Schema too large to inline. Please refer to the Avro schema for more details." }'
+                        else:
+                            doc_content["schema"] = inline_schema
+                    else:
+                        doc_content["schema"] = inline_schema
                 doc = json.dumps(json.dumps(doc_content))
                 doc_string_statement.append(f"   [{column_name}]: {doc}")
         if doc_string_statement and emit_cloudevents_columns:
@@ -121,6 +137,9 @@ class AvroToKusto:
 
         if emit_cloudevents_columns:
             kusto.append(
+                f".drop materialized-view {table_name}Latest ifexists;")
+            kusto.append("")
+            kusto.append(
                 f".create materialized-view with (backfill=true) {table_name}Latest on table {table_name} {{")
             kusto.append(
                 f"    {table_name} | summarize arg_max(___time, *) by ___type, ___source, ___subject")
@@ -128,8 +147,8 @@ class AvroToKusto:
             kusto.append("")
 
         if emit_cloudevents_dispatch_table:
-            event_type = schema["namespace"] + "." + \
-                schema["name"] if "namespace" in schema else schema["name"]
+            event_type = recordschema["namespace"] + "." + \
+                recordschema["name"] if "namespace" in recordschema else recordschema["name"]
 
             query = f"_cloudevents_dispatch | where (specversion == '1.0' and type == '{event_type}') | " + \
                     "project"                        
@@ -224,8 +243,9 @@ class AvroToKusto:
                 "  {\"column\": \"data\", \"path\": \"$.data\"}")
             kusto_script.append("]\n```\n\n")
 
+        type_dict =  build_flat_type_dict(schema)
         for record in schema:
-            kusto_script.extend(self.convert_record_to_kusto(
+            kusto_script.extend(self.convert_record_to_kusto(type_dict,
                 record, emit_cloudevents_columns, emit_cloudevents_dispatch_table))
         return "\n".join(kusto_script)
 

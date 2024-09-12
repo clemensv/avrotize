@@ -710,6 +710,21 @@ def inline_avro_references(avro_schema, type_dict, current_namespace, tracker=No
 
     return avro_schema
 
+def strip_first_doc(schema) -> bool:
+    """ strip the first doc field anywhere in the schema"""
+    if isinstance(schema, dict):
+        if "doc" in schema:
+            del schema["doc"]
+            return True
+        for key in schema:
+            if strip_first_doc(schema[key]):
+                return True
+    elif isinstance(schema, list):
+        for item in schema:
+            if strip_first_doc(item):
+                return True
+    return False
+
 
 def is_type_with_alternate(avro_schema: List[Dict[str, Any]]) -> bool:
     """
