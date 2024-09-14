@@ -31,9 +31,9 @@ class {{ class_name }}(Enum):
 
         if ordinal is None:
             raise ValueError("ordinal must not be None")
-        {%- if ordinals | length > 0 %}
         if isinstance(ordinal, str) and ordinal.isdigit():
             ordinal = int(ordinal)
+        {%- if ordinals | length > 0 %}
         if isinstance(ordinal, int):
         {%- for sym, ord in ordinals.items() -%}
             {%- if loop.first %}
