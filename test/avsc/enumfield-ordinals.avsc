@@ -1,0 +1,34 @@
+[
+  {
+    "type": "record",
+    "name": "MyRecord",
+    "namespace": "com.example.avro",
+    "fields": [
+      {
+        "name": "enumField",
+        "type": {
+          "type": "enum",
+          "namespace": "com.example.avro",
+          "name": "MyEnum",
+          "symbols": ["SYMBOL1", "SYMBOL2", "SYMBOL3"],
+          "ordinals": {
+            "SYMBOL1": 1,
+            "SYMBOL2": 2,
+            "SYMBOL3": 3
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "MyRecord2",
+    "namespace": "com.example.avro",
+    "fields": [
+      {
+        "name": "enumField",
+        "type": "com.example.avro.MyEnum"
+      }
+    ]
+  }
+]

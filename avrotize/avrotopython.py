@@ -305,13 +305,15 @@ class AvroToPython:
 
         symbols = [symbol if not is_python_reserved_word(
             symbol) else symbol + "_" for symbol in avro_schema.get('symbols', [])]
+        ordinals =  avro_schema.get('ordinals', {})
 
         enum_definition = process_template(
             "avrotopython/enum_core.jinja",
             class_name=class_name,
             docstring=avro_schema.get('doc', '').strip(
             ) if 'doc' in avro_schema else f'A {class_name} enum.',
-            symbols=symbols
+            symbols=symbols,
+            ordinals=ordinals
         )
 
         if write_file:

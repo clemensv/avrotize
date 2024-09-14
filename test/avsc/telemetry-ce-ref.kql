@@ -20,17 +20,17 @@
 .alter table [TelemetryRecord] docstring "{\"description\": \"Represents a telemetry record for a race car.\"}";
 
 .alter table [TelemetryRecord] column-docstrings (
-   [id]: "{\"description\": \"The unique identifier of the telemetry record.\", \"type\": [\"null\", \"string\"]}",
+   [id]: "{\"description\": \"The unique identifier of the telemetry record.\", \"schema\": [\"null\", \"string\"]}",
    [version]: "{\"description\": \"The version of the telemetry record.\"}",
    [channel]: "{\"description\": \"The channel of the telemetry record.\"}",
-   [carId]: "{\"description\": \"The identifier of the race car.\", \"type\": [\"null\", \"string\"]}",
-   [intervalId]: "{\"description\": \"The interval identifier of the telemetry record.\", \"type\": [\"null\", \"string\"]}",
+   [carId]: "{\"description\": \"The identifier of the race car.\", \"schema\": [\"null\", \"string\"]}",
+   [intervalId]: "{\"description\": \"The interval identifier of the telemetry record.\", \"schema\": [\"null\", \"string\"]}",
    [sampleCount]: "{\"description\": \"The sample count of the telemetry record.\"}",
    [frequency]: "{\"description\": \"The frequency of the telemetry record.\"}",
-   [created]: "{\"description\": \"The creation timestamp of the telemetry record.\", \"type\": [\"null\", \"long\"]}",
-   [timespan]: "{\"description\": \"The timespan of the telemetry record.\", \"type\": {\"name\": \"RecordRange\", \"type\": \"record\", \"fields\": [{\"name\": \"started\", \"type\": \"long\", \"doc\": \"The start timestamp of the telemetry record.\"}, {\"name\": \"ended\", \"type\": \"long\", \"doc\": \"The end timestamp of the telemetry record.\"}]}}",
-   [data]: "{\"description\": \"The telemetry data.\", \"type\": {\"type\": \"array\", \"items\": \"double\"}}",
-   [lapId]: "{\"description\": \"The identifier of the lap.\", \"type\": [\"null\", \"string\"]}",
+   [created]: "{\"description\": \"The creation timestamp of the telemetry record.\", \"schema\": [\"null\", \"long\"]}",
+   [timespan]: "{\"description\": \"The timespan of the telemetry record.\", \"schema\": {\"name\": \"RecordRange\", \"type\": \"record\", \"fields\": [{\"name\": \"started\", \"type\": \"long\", \"doc\": \"The start timestamp of the telemetry record.\"}, {\"name\": \"ended\", \"type\": \"long\", \"doc\": \"The end timestamp of the telemetry record.\"}]}}",
+   [data]: "{\"description\": \"The telemetry data.\", \"schema\": {\"type\": \"array\", \"items\": \"double\"}}",
+   [lapId]: "{\"description\": \"The identifier of the lap.\", \"schema\": [\"null\", \"string\"]}",
    [___type] : 'Event type',
    [___source]: 'Context origin/source of the event',
    [___id]: 'Event identifier',
@@ -83,6 +83,8 @@
 ]
 ```
 
+
+.drop materialized-view TelemetryRecordLatest ifexists;
 
 .create materialized-view with (backfill=true) TelemetryRecordLatest on table TelemetryRecord {
     TelemetryRecord | summarize arg_max(___time, *) by ___type, ___source, ___subject

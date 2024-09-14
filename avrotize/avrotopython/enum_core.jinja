@@ -1,5 +1,9 @@
 from enum import Enum
 
+{%- if ordinals | length == 0 %}
+_{{ class_name }}_members = []
+{%- endif %}
+
 class {{ class_name }}(Enum):
     """
     {{ docstring }}
@@ -7,8 +11,6 @@ class {{ class_name }}(Enum):
     {%- for symbol in symbols %}
     {{ symbol }} = '{{symbol}}'
     {%- endfor %}
-
-    __member_list = []
 
     @classmethod
     def from_ordinal(cls, ordinal: int|str) -> '{{ class_name }}':
@@ -21,14 +23,37 @@ class {{ class_name }}(Enum):
         Returns:
             The enum member corresponding to the ordinal.
         """
+        {%- if ordinals | length == 0 %}
+        # pylint: disable=global-statement
+        global _{{ class_name }}_members
+        # pylint: enable=global-statement
+        {%- endif %}
+
         if ordinal is None:
             raise ValueError("ordinal must not be None")
-        if not cls.__member_list:
-            cls.__member_list = list(cls)
-        if 0 <= int(ordinal) < len(cls.__member_list):
-            return cls.__member_list[int(ordinal)]
+        {%- if ordinals | length > 0 %}
+        if isinstance(ordinal, str) and ordinal.isdigit():
+            ordinal = int(ordinal)
+        if isinstance(ordinal, int):
+        {%- for sym, ord in ordinals.items() -%}
+            {%- if loop.first %}
+            if ordinal == {{ ord }}:
+            {%- else %}
+            elif ordinal == {{ ord }}:
+            {%- endif %}
+                return {{ class_name }}.{{ sym }}
+        {%- endfor %}
+            raise ValueError("Ordinal not found in enum")
+        else:
+            raise ValueError("Ordinal must be an integer or a string representation of an integer")
+        {%- else %}
+        if not _{{ class_name }}_members:
+            _{{ class_name }}_members = list(cls)
+        if 0 <= int(ordinal) < len(_{{ class_name }}_members):
+            return _{{ class_name }}_members[ordinal]
         else:
             raise IndexError("Ordinal out of range for enum")
+        {%- endif %}
 
     @classmethod
     def to_ordinal(cls, member: '{{ class_name }}') -> int:
@@ -41,6 +66,22 @@ class {{ class_name }}(Enum):
         Returns:
             The ordinal of the enum member.
         """
-        if not cls.__member_list:
-            cls.__member_list = list(cls)
-        return cls.__member_list.index(member)
+        {%- if ordinals | length == 0 %}
+        # pylint: disable=global-statement
+        global _{{ class_name }}_members
+        # pylint: enable=global-statement
+        
+        if not _{{ class_name }}_members:
+            _{{ class_name }}_members = list(cls)
+        return _{{ class_name }}_members.index(member)
+        {%- else %}
+        {% for sym, ord in ordinals.items() %}
+        if member == {{ class_name }}.{{ sym }}:
+            return {{ ord }}
+        {%- endfor %}
+        raise ValueError("Member not found in enum")
+        {%- endif %}
+
+{%- if ordinals | length == 0 %}
+_{{ class_name }}_members = list({{ class_name }})
+{%- endif %}

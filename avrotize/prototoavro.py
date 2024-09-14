@@ -189,13 +189,15 @@ class ProtoToAvroConverter:
             'name': enum_type.name,
             'type': 'enum',
             'namespace': avro_namespace,
-            'symbols': []
+            'symbols': [],
+            'ordinals': {}
         }
 
         if comment:
             avro_enum['doc'] = comment
         for value in enum_type.fields:
             avro_enum['symbols'].append(value.name)
+            avro_enum['ordinals'][value.name] = int(value.number)
         avro_schema.append(avro_enum)
         self.generated_types[avro_enum['namespace']+'.'+avro_enum['name']] = "enum"
         return avro_enum
