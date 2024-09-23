@@ -1,0 +1,401 @@
+{
+  "type": "record",
+  "name": "FeedItem",
+  "namespace": "Microsoft.OpenData.RssFeeds",
+  "fields": [
+    {
+      "name": "author",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "FeedItemAuthor",
+          "namespace": "Microsoft.OpenData.RssFeeds",
+          "fields": [
+            {
+              "name": "name",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "href",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "email",
+              "type": ["null", "string"],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "publisher",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "FeedItemPublisher",
+          "namespace": "Microsoft.OpenData.RssFeeds",
+          "fields": [
+            {
+              "name": "name",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "href",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "email",
+              "type": ["null", "string"],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "summary",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "FeedItemSummary",
+          "namespace": "Microsoft.OpenData.RssFeeds",
+          "fields": [
+            {
+              "name": "value",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "type",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "language",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "base",
+              "type": ["null", "string"],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "title",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "FeedItemTitle",
+          "namespace": "Microsoft.OpenData.RssFeeds",
+          "fields": [
+            {
+              "name": "value",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "type",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "language",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "base",
+              "type": ["null", "string"],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "source",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "FeedItemSource",
+          "namespace": "Microsoft.OpenData.RssFeeds",
+          "fields": [
+            {
+              "name": "author",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "author_detail",
+              "type": ["null", "Microsoft.OpenData.RssFeeds.FeedItemAuthor"],
+              "default": null
+            },
+            {
+              "name": "contributors",
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": "Microsoft.OpenData.RssFeeds.FeedItemAuthor"
+                }
+              ],
+              "default": null
+            },
+            {
+              "name": "icon",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "id",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "link",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "links",
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "record",
+                    "name": "Link",
+                    "namespace": "Microsoft.OpenData.RssFeeds",
+                    "fields": [
+                      {
+                        "name": "rel",
+                        "type": ["null", "string"],
+                        "default": null
+                      },
+                      {
+                        "name": "href",
+                        "type": ["null", "string"],
+                        "default": null
+                      },
+                      {
+                        "name": "type",
+                        "type": ["null", "string"],
+                        "default": null
+                      },
+                      {
+                        "name": "title",
+                        "type": ["null", "string"],
+                        "default": null
+                      }
+                    ]
+                  }
+                }
+              ],
+              "default": null
+            },
+            {
+              "name": "logo",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "rights",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "subtitle",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "title",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "updated",
+              "type": [
+                "null",
+                {
+                  "type": "long",
+                  "logicalType": "timestamp-millis"
+                }
+              ],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "content",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "FeedItemContent",
+            "namespace": "Microsoft.OpenData.RssFeeds",
+            "fields": [
+              {
+                "name": "value",
+                "type": ["null", "string"],
+                "default": null
+              },
+              {
+                "name": "type",
+                "type": ["null", "string"],
+                "default": null
+              },
+              {
+                "name": "language",
+                "type": ["null", "string"],
+                "default": null
+              },
+              {
+                "name": "base",
+                "type": ["null", "string"],
+                "default": null
+              }
+            ]
+          }
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "enclosures",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "FeedItemEnclosure",
+            "namespace": "Microsoft.OpenData.RssFeeds",
+            "fields": [
+              {
+                "name": "href",
+                "type": ["null", "string"],
+                "default": null
+              },
+              {
+                "name": "length",
+                "type": ["null", "long"],
+                "default": null
+              },
+              {
+                "name": "type",
+                "type": ["null", "string"],
+                "default": null
+              }
+            ]
+          }
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "published",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "updated",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "created",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "expired",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "id",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "license",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "comments",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "contributors",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "Microsoft.OpenData.RssFeeds.FeedItemAuthor"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "links",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "Microsoft.OpenData.RssFeeds.Link"
+        }
+      ],
+      "default": null
+    }
+  ]
+}

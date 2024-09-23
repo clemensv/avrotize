@@ -12,13 +12,23 @@ import dataclasses
 {%- if dataclasses_json_annotation %}
 import dataclasses_json
 import json
+{%- for field in fields if field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
+{%- if loop.first %}
+from marshmallow import fields
+{%- endif %}
+{%- endfor %}
 {%- endif %}
 {%- if avro_annotation %}
 import avro.schema
 import avro.io
 {%- endif %}
-{%- for import_type in import_types %}
+{%- for import_type in import_types if import_type not in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta', 'decimal.Decimal'] %}
 from {{ '.'.join(import_type.split('.')[:-1]) | lower }} import {{ import_type.split('.')[-1] }}
+{%- endfor %}
+{%- for import_type in import_types if import_type in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta'] %}
+{%- if loop.first %}
+import datetime
+{%- endif %}
 {%- endfor %}
 
 {% if dataclasses_json_annotation %}
@@ -34,8 +44,9 @@ class {{ class_name }}:
         {%- endfor -%}
     """
     {% for field in fields %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"){%- endif %})
-    {%- endfor %}    
+    {%- set isdate = field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: datetime.datetime.isoformat(d) if d else None, decoder=lambda d:datetime.datetime.fromisoformat(d) if d else None, mm_field=fields.DateTime(format='iso'){%- endif -%}){%- endif %})
+    {%- endfor %}
     {% if avro_annotation %}
     AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.parse(
         "{{ avro_schema_json }}"
@@ -128,7 +139,9 @@ class {{ class_name }}:
 
         {%- if dataclasses_json_annotation %}
         if content_type == 'application/json':
+            #pylint: disable=no-member
             result = self.to_json()
+            #pylint: enable=no-member
         {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):

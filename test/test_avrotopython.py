@@ -89,7 +89,7 @@ class TestAvroToPython(unittest.TestCase):
             shutil.rmtree(py_path, ignore_errors=True)
         os.makedirs(py_path, exist_ok=True)
 
-        convert_avro_to_python(avro_path, py_path)
+        convert_avro_to_python(avro_path, py_path, dataclasses_json_annotation=True, avro_annotation=True)
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
@@ -104,7 +104,7 @@ class TestAvroToPython(unittest.TestCase):
             shutil.rmtree(py_path, ignore_errors=True)
         os.makedirs(py_path, exist_ok=True)
 
-        convert_avro_to_python(avro_path, py_path)
+        convert_avro_to_python(avro_path, py_path, dataclasses_json_annotation=True, avro_annotation=True)
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
@@ -119,7 +119,22 @@ class TestAvroToPython(unittest.TestCase):
             shutil.rmtree(py_path, ignore_errors=True)
         os.makedirs(py_path, exist_ok=True)
 
-        convert_avro_to_python(avro_path, py_path)
+        convert_avro_to_python(avro_path, py_path, dataclasses_json_annotation=True, avro_annotation=True)
+        new_env = os.environ.copy()
+        new_env['PYTHONPATH'] = py_path
+        assert subprocess.check_call(
+            ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+        
+    def test_convert_feeditem_avsc_to_python(self):
+        """ Test converting a enumfield-ordinal.avsc file to Python """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "feeditem.avsc")
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "feeditem-py")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        convert_avro_to_python(avro_path, py_path, dataclasses_json_annotation=True, avro_annotation=True)
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(

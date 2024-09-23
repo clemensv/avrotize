@@ -114,25 +114,25 @@ class AvroToPython:
         """Converts Avro logical type to Python type"""
         if avro_type['logicalType'] == 'decimal':
             import_types.add('decimal.Decimal')
-            return 'Decimal'
+            return 'decimal.Decimal'
         elif avro_type['logicalType'] == 'date':
             import_types.add('datetime.date')
-            return 'date'
+            return 'datetime.date'
         elif avro_type['logicalType'] == 'time-millis':
             import_types.add('datetime.time')
-            return 'time'
+            return 'datetime.time'
         elif avro_type['logicalType'] == 'time-micros':
             import_types.add('datetime.time')
-            return 'time'
+            return 'datetime.time'
         elif avro_type['logicalType'] == 'timestamp-millis':
             import_types.add('datetime.datetime')
-            return 'datetime'
+            return 'datetime.datetime'
         elif avro_type['logicalType'] == 'timestamp-micros':
             import_types.add('datetime.datetime')
-            return 'datetime'
+            return 'datetime.datetime'
         elif avro_type['logicalType'] == 'duration':
             import_types.add('datetime.timedelta')
-            return 'timedelta'
+            return 'datetime.timedelta'
         return 'typing.Any'
 
     def convert_avro_type_to_python(self, avro_type: Union[str, Dict, List], parent_package: str, import_types: set) -> str:
@@ -180,9 +180,9 @@ class AvroToPython:
         """ Initialize the field value based on its type. """
         if field_type == "typing.Any":
             return field_ref
-        elif field_type in ['datetime', 'date', 'time', 'timedelta']:
+        elif field_type in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta']:
             return f"{field_ref}"
-        elif field_type in ['int', 'str', 'float', 'bool', 'bytes', 'Decimal', 'datetime', 'date', 'time', 'timedelta']:
+        elif field_type in ['int', 'str', 'float', 'bool', 'bytes', 'Decimal']:
             return f"{field_type}({field_ref})"
         elif field_type.startswith("typing.List["):
             inner_type = get_typing_args_from_string(field_type)[0]
@@ -373,11 +373,11 @@ class AvroToPython:
                 'float': f'float({random.uniform(0, 100)})',
                 'bytes': 'b"test_bytes"',
                 'None': 'None',
-                'date': random.choice(['datetime.date.today()', 'datetime.date(2021, 1, 1)']),
-                'datetime': 'datetime.datetime.now()',
-                'time': 'datetime.datetime.now().time()',
-                'Decimal': f'Decimal("{random.randint(0, 100)}.{random.randint(0, 100)}")',
-                'timedelta': 'datetime.timedelta(days=1)',
+                'datetime.date': random.choice(['datetime.date.today()', 'datetime.date(2021, 1, 1)']),
+                'datetime.datetime': 'datetime.datetime.now(datetime.timezone.utc)',
+                'datetime.time': 'datetime.datetime.now(datetime.timezone.utc).time()',
+                'decimal.Decimal': f'decimal.Decimal("{random.randint(0, 100)}.{random.randint(0, 100)}")',
+                'datetime.timedelta': 'datetime.timedelta(days=1)',
                 'typing.Any': '{"test": "test"}'
             }
 
