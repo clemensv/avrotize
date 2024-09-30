@@ -477,7 +477,7 @@ def snake(string):
     return result
 
 
-def fullname(avro_schema: dict):
+def fullname(avro_schema: dict| str, parent_namespace: str = '') -> str:
     """
     Constructs the full name of the Avro schema.
     
@@ -487,8 +487,12 @@ def fullname(avro_schema: dict):
     Returns:
         str: The full name of the Avro schema.
     """
+    if isinstance(avro_schema, str):
+        if not '.' in avro_schema and parent_namespace:
+            return parent_namespace + '.' + avro_schema
+        return avro_schema
     name = avro_schema.get("name", "")
-    namespace = avro_schema.get("namespace", "")
+    namespace = avro_schema.get("namespace", parent_namespace)
     return namespace + "." + name if namespace else name
 
 

@@ -1,0 +1,40 @@
+/** {{ enum_name }} enum. */
+export enum {{ enum_name }} {
+    {%- for symbol in symbols %}
+    {{ symbol }} = "{{ symbol }}"{%- if not loop.last %},{%- endif %}
+    {%- endfor %}
+}
+
+export class {{ enum_name }}Utils {
+    /**
+    * Converts a {{ enum_name }} enum value to its ordinal.
+    * @param value - The {{ enum_name }} enum value ({{ symbols|join(', ') }}).
+    * @returns The ordinal number corresponding to the enum value.
+    */
+    static toOrdinal(value: {{ enum_name }}): number {
+        switch (value) {
+            {%- for symbol in symbols %}
+            case {{ enum_name }}.{{ symbol }}:
+                return {{ loop.index0 }};
+            {%- endfor %}
+            default:
+                throw new Error("Invalid {{ enum_name }} value");
+        }
+    }
+
+    /**
+    * Converts an ordinal to its corresponding {{ enum_name }} enum value.
+    * @param ordinal - The ordinal number of the enum value.
+    * @returns The corresponding {{ enum_name }} enum value.
+    */
+    static fromOrdinal(ordinal: number): {{ enum_name }} {
+        switch (ordinal) {
+            {%- for symbol in symbols %}
+            case {{ loop.index0 }}:
+                return {{ enum_name }}.{{ symbol }};
+            {%- endfor %}
+            default:
+                throw new Error("Invalid ordinal value");
+        }
+    }
+}
