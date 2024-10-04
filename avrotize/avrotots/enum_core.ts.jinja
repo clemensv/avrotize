@@ -37,4 +37,8 @@ export class {{ enum_name }}Utils {
                 throw new Error("Invalid ordinal value");
         }
     }
+
+    static isJsonMatch(value: string): boolean {
+        return Object.values({{ enum_name }}).includes(value as {{ enum_name }});
+    }
 }

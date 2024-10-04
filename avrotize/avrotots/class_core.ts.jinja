@@ -6,7 +6,7 @@ import { jsonObject, jsonMember, TypedJSON } from 'typedjson';
 {%- if avro_annotation %}
 import { Type } from 'avro-js';
 {%- endif %}
-{%- for import_type, import_path in import_types.items() %}
+{%- for import_type, import_path in imports.items() %}
 import { {{ import_type }} } from '{{ import_path }}';
 {%- endfor %}
 {%- if avro_annotation or typed_json_annotation %}
@@ -31,7 +31,7 @@ export class {{ class_name }} {
         {%- for field in fields %}
         {%- if field.is_enum %}
         if ( typeof {{ field.name }} === 'number' ) {
-            this.{{ field.name }} = {{ field.type }}Utils.fromOrdinal({{ field.name }});
+            this.{{ field.name }} = {{ field.type_no_null }}Utils.fromOrdinal({{ field.name }});
         } else {
             this.{{ field.name }} = {{ field.name }};
         }

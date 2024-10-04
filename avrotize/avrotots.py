@@ -5,6 +5,7 @@ import os
 from typing import Dict, List, Set, Union
 
 from avrotize.common import build_flat_type_dict, fullname, inline_avro_references, is_generic_avro_type, is_type_with_alternate, pascal, process_template, strip_alternate_type
+from numpy import full
 
 
 def is_typescript_reserved_word(word: str) -> bool:
@@ -19,8 +20,9 @@ def is_typescript_reserved_word(word: str) -> bool:
     ]
     return word in reserved_words
 
+
 class AvroToTypeScript:
-    """Converts Avro schema to TypeScript classes using templates."""
+    """Converts Avro schema to TypeScript classes using templates with namespace support."""
 
     def __init__(self, base_package: str = '', typed_json_annotation=False, avro_annotation=False) -> None:
         self.base_package = base_package
@@ -58,9 +60,23 @@ class AvroToTypeScript:
                 return 'string'
         return 'any'
 
+    def strip_nullable(self, ts_type: str) -> str:
+        """Strip nullable type from TypeScript type."""
+        # Handle union types and strip nullable types
+        types = [t.strip() for t in ts_type.split('|')]
+        non_nullable_types = [t for t in types if t != 'null']
+        return ' | '.join(non_nullable_types)
+    
     def is_typescript_primitive(self, ts_type: str) -> bool:
         """Check if TypeScript type is a primitive."""
+        ts_type = self.strip_nullable(ts_type)
         return ts_type in ['null', 'boolean', 'number', 'string', 'Date', 'any']
+    
+    def is_enum_type(self, ts_type: str, namespace: str) -> bool:
+        """Check if TypeScript type is an enum."""
+        ts_type = self.strip_nullable(ts_type)
+        fn_type = fullname(ts_type, namespace)
+        return not self.is_typescript_primitive(ts_type) and fn_type in self.generated_types and self.generated_types[fn_type] == 'enum'
 
     def safe_name(self, name: str) -> str:
         """Converts a name to a safe TypeScript name."""
@@ -69,11 +85,11 @@ class AvroToTypeScript:
         return name
 
     def convert_avro_type_to_typescript(self, avro_type: Union[str, Dict, List], parent_namespace: str, import_types: Set[str], class_name: str = '', field_name: str = '') -> str:
-        """Convert Avro type to TypeScript type."""
+        """Convert Avro type to TypeScript type with namespace support."""
         if isinstance(avro_type, str):
             mapped_type = self.map_primitive_to_typescript(avro_type)
             if mapped_type == avro_type and not self.is_typescript_primitive(mapped_type):
-                full_name = fullname(avro_type, parent_namespace)
+                full_name = self.concat_namespace(self.base_package,fullname(avro_type, parent_namespace))
                 import_types.add(full_name)
                 return pascal(avro_type.split('.')[-1])
             return mapped_type
@@ -83,8 +99,8 @@ class AvroToTypeScript:
             if 'null' in avro_type:
                 if len(avro_type) == 2:
                     return f'{self.convert_avro_type_to_typescript([t for t in avro_type if t != "null"][0], parent_namespace, import_types, class_name, field_name)} | null'
-                return f'{self.generate_embedded_union(class_name, field_name, avro_type, parent_namespace)} | null'
-            return self.generate_embedded_union(class_name, field_name, avro_type, parent_namespace)
+                return f'{self.generate_embedded_union(class_name, field_name, avro_type, parent_namespace, import_types)} | null'
+            return self.generate_embedded_union(class_name, field_name, avro_type, parent_namespace, import_types)
         elif isinstance(avro_type, dict):
             if avro_type['type'] == 'record':
                 class_ref = self.generate_class(avro_type, parent_namespace, write_file=True)
@@ -122,12 +138,11 @@ class AvroToTypeScript:
         return ''
 
     def generate_class(self, avro_schema: Dict, parent_namespace: str, write_file: bool = True) -> str:
-        """Generate TypeScript class from Avro record using templates."""
+        """Generate TypeScript class from Avro record using templates with namespace support."""
         import_types: Set[str] = set()
         class_name = pascal(avro_schema['name'])
-        namespace = avro_schema.get('namespace', parent_namespace)
-        package_name = self.concat_namespace(self.base_package, namespace)
-        ts_qualified_name = self.get_qualified_name(package_name, class_name)
+        namespace = self.concat_namespace(self.base_package, avro_schema.get('namespace', parent_namespace))
+        ts_qualified_name = self.get_qualified_name(namespace, class_name)
         if ts_qualified_name in self.generated_types:
             return ts_qualified_name
 
@@ -140,27 +155,29 @@ class AvroToTypeScript:
             'name': self.safe_name(field['definition']['name']),
             'original_name': field['definition']['name'],
             'type': field['definition']['type'],
-            'is_primitive': self.is_typescript_primitive(field['definition']['type']),
-            'is_enum': not self.is_typescript_primitive(field['definition']['type']) and fullname(field['definition']['type'], package_name) in self.generated_types and self.generated_types[fullname(field['definition']['type'], package_name)] == 'enum',
+            'type_no_null': self.strip_nullable(field['definition']['type']),
+            'is_primitive': field['definition']['is_primitive'],
+            'is_enum': field['definition']['is_enum'],
             'docstring': field['docstring'],
         } for field in fields]
 
         imports_with_paths: Dict[str, str] = {}
         for import_type in import_types:
-            import_type_package = import_type.rsplit('.',1)[0]
-            import_type_type = pascal(import_type.split('.')[-1])
-            import_type_package = import_type_package.replace('.', '/')
-            namespace_path = package_name.replace('.', '/')
-
-            if import_type_package:
-                import_type_package = os.path.relpath(import_type_package, namespace_path).replace(os.sep, '/')
-                if not import_type_package.startswith('.'):
-                    import_type_package = f'./{import_type_package}'
-                imports_with_paths[import_type.split('.')[-1]] = f'{import_type_package}/{import_type_type}.js'
-                if import_type in self.generated_types and self.generated_types[import_type] == 'enum':
-                    imports_with_paths[import_type.split('.')[-1]+"Utils"] = f'{import_type_package}/{import_type_type}.js'
+            if import_type == ts_qualified_name:
+                continue  
+            import_is_enum = import_type in self.generated_types and self.generated_types[import_type] == 'enum'
+            import_type_parts = import_type.split('.')
+            import_type_name = pascal(import_type_parts[-1])
+            import_path = '/'.join(import_type_parts)
+            current_path = '/'.join(namespace.split('.'))
+            relative_import_path = os.path.relpath(import_path, current_path).replace(os.sep, '/')
+            if not relative_import_path.startswith('.'):
+                relative_import_path = f'./{relative_import_path}'
+            if import_is_enum:
+                import_type_name_and_util = f"{import_type_name}, {import_type_name}Utils"
+                imports_with_paths[import_type_name_and_util] = relative_import_path + '.js'
             else:
-                imports_with_paths[import_type.split('.')[-1]] = f'./{import_type_type}.js'
+                imports_with_paths[import_type_name] = relative_import_path + '.js'
 
         # Inline the schema
         local_avro_schema = inline_avro_references(avro_schema.copy(), self.type_dict, parent_namespace)
@@ -168,10 +185,11 @@ class AvroToTypeScript:
 
         class_definition = process_template(
             "avrotots/class_core.ts.jinja",
+            namespace=namespace,
             class_name=class_name,
             docstring=avro_schema.get('doc', '').strip() if 'doc' in avro_schema else f'A {class_name} record.',
             fields=fields,
-            import_types=imports_with_paths,
+            imports=imports_with_paths,
             base_package=self.base_package,
             avro_annotation=self.avro_annotation,
             typed_json_annotation=self.typed_json_annotation,
@@ -180,40 +198,44 @@ class AvroToTypeScript:
         )
 
         if write_file:
-            self.write_to_file(package_name, class_name, class_definition)
+            self.write_to_file(namespace, class_name, class_definition)
         self.generated_types[ts_qualified_name] = 'class'
         return ts_qualified_name
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str, write_file: bool = True) -> str:
-        """Generate TypeScript enum from Avro enum using templates."""
+        """Generate TypeScript enum from Avro enum using templates with namespace support."""
         enum_name = pascal(avro_schema['name'])
-        namespace = avro_schema.get('namespace', parent_namespace)
-        package_name = self.concat_namespace(self.base_package, namespace)
-        ts_qualified_name = self.get_qualified_name(package_name, enum_name)
+        namespace = self.concat_namespace(self.base_package, avro_schema.get('namespace', parent_namespace))
+        ts_qualified_name = self.get_qualified_name(namespace, enum_name)
         if ts_qualified_name in self.generated_types:
             return ts_qualified_name
 
         symbols = avro_schema.get('symbols', [])
         enum_definition = process_template(
             "avrotots/enum_core.ts.jinja",
+            namespace=namespace,
             enum_name=enum_name,
             docstring=avro_schema.get('doc', '').strip() if 'doc' in avro_schema else f'A {enum_name} enum.',
             symbols=symbols,
         )
 
         if write_file:
-            self.write_to_file(package_name, enum_name, enum_definition)
+            self.write_to_file(namespace, enum_name, enum_definition)
         self.generated_types[ts_qualified_name] = 'enum'
         return ts_qualified_name
 
     def generate_field(self, field: Dict, parent_namespace: str, import_types: Set[str], class_name: str) -> Dict:
         """Generates a field for a TypeScript class."""
-        field_type = self.convert_avro_type_to_typescript(field['type'], parent_namespace, import_types, class_name, field['name'])
+        import_types_this = set()
+        field_type = self.convert_avro_type_to_typescript(
+            field['type'], parent_namespace, import_types_this, class_name, field['name'])
+        import_types.update(import_types_this)
         field_name = field['name']
         return {
             'name': field_name,
             'type': field_type,
             'is_primitive': self.is_typescript_primitive(field_type),
+            'is_enum': len(import_types_this) > 0 and self.is_enum_type(import_types_this.pop(),'')
         }
 
     def get_is_json_match_clause(self, field_name: str, field_type: str, field_is_enum: bool) -> str:
@@ -255,11 +277,11 @@ class AvroToTypeScript:
 
         return clause
 
-    def generate_embedded_union(self, class_name: str, field_name: str, avro_type: List, parent_namespace: str, write_file: bool = True) -> str:
-        """Generate embedded Union class for a field."""
+    def generate_embedded_union(self, class_name: str, field_name: str, avro_type: List, parent_namespace: str, parent_import_types: Set[str], write_file: bool = True) -> str:
+        """Generate embedded Union class for a field with namespace support."""
         union_class_name = pascal(field_name) + 'Union' if field_name else pascal(class_name) + 'Union'
         namespace = parent_namespace
-        union_types = [self.convert_avro_type_to_typescript(t, parent_namespace, set()) for t in avro_type if t != 'null']
+        union_types = [self.convert_avro_type_to_typescript( t, parent_namespace, parent_import_types) for t in avro_type if t != 'null']
         import_types = []
         for t in avro_type:
             if isinstance(t, str) and t in self.generated_types:
@@ -272,91 +294,142 @@ class AvroToTypeScript:
             return '|'.join(union_types)
         class_definition = ''
         for import_type in import_types:
-            import_type_package = import_type.rsplit('.',1)[0]
-            import_type_type = pascal(import_type.split('.')[-1])
-            import_type_package = import_type_package.replace('.', '/')
-            namespace_path = namespace.replace('.', '/')
+            if import_type == union_class_name:
+                continue  # Avoid importing itself
+            import_type_parts = import_type.split('.')
+            import_type_name = pascal(import_type_parts[-1])
+            import_namespace = '.'.join(import_type_parts[:-1])
+            import_path = '/'.join(import_type_parts)
+            current_path = '/'.join(namespace.split('.'))
+            relative_import_path = os.path.relpath(import_path, current_path).replace(os.sep, '/')
+            if not relative_import_path.startswith('.'):
+                relative_import_path = f'./{relative_import_path}'
+            class_definition += f"import {{ {import_type_name} }} from '{relative_import_path}.js';\n"
 
-            if import_type_package:
-                import_type_package = os.path.relpath(import_type_package, namespace_path).replace(os.sep, '/')
-                if not import_type_package.startswith('.'):
-                    import_type_package = f'./{import_type_package}'
-                class_definition += f"import {{ {import_type_type} }} from '{import_type_package}/{import_type_type}';\n"
-            else:
-                class_definition += f"import {{ {import_type_type} }} from '.{import_type_type}';\n"
+        class_definition += f"\nexport namespace {namespace} {{\n"
+        class_definition += f"{self.INDENT}export class {union_class_name} {{\n"
 
-        class_definition += f"\nexport class {union_class_name} {{\n"
-
-        class_definition += f"{self.INDENT}private value: any;\n\n"
+        class_definition += f"{self.INDENT*2}private value: any;\n\n"
 
         # Constructor
-        class_definition += f"{self.INDENT}constructor(value: { ' | '.join(union_types) }) {{\n"
-        class_definition += f"{self.INDENT*2}this.value = value;\n"
-        class_definition += f"{self.INDENT}}}\n\n"
+        class_definition += f"{self.INDENT*2}constructor(value: { ' | '.join(union_types) }) {{\n"
+        class_definition += f"{self.INDENT*3}this.value = value;\n"
+        class_definition += f"{self.INDENT*2}}}\n\n"
 
         # Method to check which type is set
         for union_type in union_types:
-            type_check_method = f"{self.INDENT}public is{pascal(union_type)}(): boolean {{\n"
+            type_check_method = f"{self.INDENT*2}public is{pascal(union_type)}(): boolean {{\n"
             if union_type.strip() in ['string', 'number', 'boolean']:
-                type_check_method += f"{self.INDENT*2}return typeof this.value === '{union_type.strip()}';\n"
+                type_check_method += f"{self.INDENT*3}return typeof this.value === '{union_type.strip()}';\n"
             elif union_type.strip() == 'Date':
-                type_check_method += f"{self.INDENT*2}return this.value instanceof Date;\n"
+                type_check_method += f"{self.INDENT*3}return this.value instanceof Date;\n"
             else:
-                type_check_method += f"{self.INDENT*2}return this.value instanceof {union_type.strip()};\n"
-            type_check_method += f"{self.INDENT}}}\n\n"
+                type_check_method += f"{self.INDENT*3}return this.value instanceof {union_type.strip()};\n"
+            type_check_method += f"{self.INDENT*2}}}\n\n"
             class_definition += type_check_method
 
         # Method to return the current value
-        class_definition += f"{self.INDENT}public toObject(): any {{\n"
-        class_definition += f"{self.INDENT*2}return this.value;\n"
-        class_definition += f"{self.INDENT}}}\n\n"
+        class_definition += f"{self.INDENT*2}public toObject(): any {{\n"
+        class_definition += f"{self.INDENT*3}return this.value;\n"
+        class_definition += f"{self.INDENT*2}}}\n\n"
 
         # Method to check if JSON matches any of the union types
-        class_definition += f"{self.INDENT}public static isJsonMatch(element: any): boolean {{\n"
+        class_definition += f"{self.INDENT*2}public static isJsonMatch(element: any): boolean {{\n"
         match_clauses = []
         for union_type in union_types:
             match_clauses.append(f"({self.get_is_json_match_clause('value', union_type, False)})")
-        class_definition += f"{self.INDENT*2}return {' || '.join(match_clauses)};\n"
-        class_definition += f"{self.INDENT}}}\n\n"
+        class_definition += f"{self.INDENT*3}return {' || '.join(match_clauses)};\n"
+        class_definition += f"{self.INDENT*2}}}\n\n"
 
         # Method to deserialize from JSON
-        class_definition += f"{self.INDENT}public static fromData(element: any, contentTypeString: string): {union_class_name} {{\n"
-        class_definition += f"{self.INDENT*2}const unionTypes = [{', '.join([t.strip() for t in union_types if not self.is_typescript_primitive(t.strip())])}];\n"
-        class_definition += f"{self.INDENT*2}for (const type of unionTypes) {{\n"
-        class_definition += f"{self.INDENT*3}if (type.isJsonMatch(element)) {{\n"
-        class_definition += f"{self.INDENT*4}return new {union_class_name}(type.fromData(element, contentTypeString));\n"
+        class_definition += f"{self.INDENT*2}public static fromData(element: any, contentTypeString: string): {union_class_name} {{\n"
+        class_definition += f"{self.INDENT*3}const unionTypes = [{', '.join([t.strip() for t in union_types if not self.is_typescript_primitive(t.strip())])}];\n"
+        class_definition += f"{self.INDENT*3}for (const type of unionTypes) {{\n"
+        class_definition += f"{self.INDENT*4}if (type.isJsonMatch(element)) {{\n"
+        class_definition += f"{self.INDENT*5}return new {union_class_name}(type.fromData(element, contentTypeString));\n"
+        class_definition += f"{self.INDENT*4}}}\n"
         class_definition += f"{self.INDENT*3}}}\n"
+        class_definition += f"{self.INDENT*3}throw new Error('No matching type for union');\n"
         class_definition += f"{self.INDENT*2}}}\n"
-        class_definition += f"{self.INDENT*2}throw new Error('No matching type for union');\n"
-        class_definition += f"{self.INDENT}}}\n"
 
+        class_definition += f"{self.INDENT}}}\n"
         class_definition += "}\n"
 
         if write_file:
             self.write_to_file(namespace, union_class_name, class_definition)
 
-        return union_class_name
+        return f"{namespace}.{union_class_name}"
 
     def write_to_file(self, namespace: str, name: str, content: str):
-        """Write TypeScript class to file."""
-        directory_path = os.path.join(self.src_dir, namespace.replace('.', os.sep))
+        """Write TypeScript class to file in the correct namespace directory."""
+        directory_path = os.path.join(self.src_dir, *namespace.split('.'))
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)
 
         file_path = os.path.join(directory_path, f"{name}.ts")
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(content)
-            
-    def generate_index_file(self):
-        """Generate an index.ts file that exports all generated classes and enums."""
-        index_content = ''
-        for class_name in self.generated_types:
-            import_path = './' + class_name.replace('.', '/') + '.js'
-            index_content += f"export * from '{import_path}';\n"
 
-        index_file_path = os.path.join(self.src_dir, 'index.ts')
-        with open(index_file_path, 'w', encoding='utf-8') as file:
-            file.write(index_content)
+    def generate_index_file(self):
+        """Generate index.ts files for each directory in the project."""
+        # Define the tree node class
+        class DirNode:
+            def __init__(self):
+                self.files = set()  # Set of file names (without extensions)
+                self.subdirs = {}  # Mapping from subdir names to DirNode instances
+
+        # Build the directory tree
+        root = DirNode()
+
+        for class_name in self.generated_types:
+            parts = class_name.split('.')
+            current_node = root
+
+            for idx, part in enumerate(parts):
+                is_last = idx == len(parts) - 1
+                if is_last:
+                    current_node.files.add(part)
+                else:
+                    if part not in current_node.subdirs:
+                        current_node.subdirs[part] = DirNode()
+                    current_node = current_node.subdirs[part]
+
+        # Function to generate index.ts files recursively
+        def generate_index_files(node, path_parts):
+            """Recursively generate index.ts files."""
+            dir_path = os.path.join(self.src_dir, *path_parts)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path, exist_ok=True)
+
+            exports = []
+
+            # Export all files in the current directory
+            for file_name in sorted(node.files):
+                export_path = f"./{file_name}.js"
+                exports.append(f"export * from '{export_path}';\n")
+
+            for subdir_name, subdir_node in node.subdirs.items():
+                # Check for name conflicts with files
+                if subdir_name in node.files:
+                    # There is a file and a directory with the same name
+                    # Decide whether to export the subdirectory; here we skip it to avoid conflicts
+                    continue
+
+                # Export the subdirectory's index.js
+                #export_path = f"./{subdir_name}/index.js"
+                #exports.append(f"export * from '{export_path}';\n")
+
+                # Recursively generate index.ts for the subdirectory
+                generate_index_files(subdir_node, path_parts + [subdir_name])
+
+            # Write the index.ts file
+            index_file_path = os.path.join(dir_path, 'index.ts')
+            with open(index_file_path, 'w', encoding='utf-8') as f:
+                f.writelines(exports)
+
+        # Start the recursive generation from the root
+        generate_index_files(root, [])
+
 
     def generate_project_files(self, output_dir: str):
         """Generate project files using templates."""
@@ -387,7 +460,7 @@ class AvroToTypeScript:
             file.write(gitignore_content)
 
     def convert_schema(self, schema: Union[List[Dict], Dict], output_dir: str, write_file: bool = True):
-        """Convert Avro schema to TypeScript classes."""
+        """Convert Avro schema to TypeScript classes with namespace support."""
         self.output_dir = output_dir
         self.src_dir = os.path.join(self.output_dir, "src")
         if isinstance(schema, dict):
@@ -409,16 +482,20 @@ class AvroToTypeScript:
         self.convert_schema(schema, output_dir)
         self.generate_project_files(output_dir)
 
+
 def convert_avro_to_typescript(avro_schema_path, js_dir_path, package_name='', typedjson_annotation=False, avro_annotation=False):
     """Convert Avro schema to TypeScript classes."""
     if not package_name:
         package_name = os.path.splitext(os.path.basename(avro_schema_path))[0].lower().replace('-', '_')
 
-    converter = AvroToTypeScript(package_name, typed_json_annotation=typedjson_annotation, avro_annotation=avro_annotation)
+    converter = AvroToTypeScript(package_name, typed_json_annotation=typedjson_annotation,
+                                 avro_annotation=avro_annotation)
     converter.convert(avro_schema_path, js_dir_path)
+
 
 def convert_avro_schema_to_typescript(avro_schema, js_dir_path, package_name='', typedjson_annotation=False, avro_annotation=False):
     """Convert Avro schema to TypeScript classes."""
-    converter = AvroToTypeScript(package_name, typed_json_annotation=typedjson_annotation, avro_annotation=avro_annotation)
+    converter = AvroToTypeScript(package_name, typed_json_annotation=typedjson_annotation,
+                                 avro_annotation=avro_annotation)
     converter.convert_schema(avro_schema, js_dir_path)
     converter.generate_project_files(js_dir_path)
