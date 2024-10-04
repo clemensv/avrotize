@@ -62,10 +62,9 @@ class AvroToTypeScript:
 
     def strip_nullable(self, ts_type: str) -> str:
         """Strip nullable type from TypeScript type."""
-        # Handle union types and strip nullable types
-        types = [t.strip() for t in ts_type.split('|')]
-        non_nullable_types = [t for t in types if t != 'null']
-        return ' | '.join(non_nullable_types)
+        if  ts_type.endswith('?'):
+            return ts_type[:-1]
+        return ts_type
     
     def is_typescript_primitive(self, ts_type: str) -> bool:
         """Check if TypeScript type is a primitive."""
@@ -98,8 +97,8 @@ class AvroToTypeScript:
                 return '{ [key: string]: any }'
             if 'null' in avro_type:
                 if len(avro_type) == 2:
-                    return f'{self.convert_avro_type_to_typescript([t for t in avro_type if t != "null"][0], parent_namespace, import_types, class_name, field_name)} | null'
-                return f'{self.generate_embedded_union(class_name, field_name, avro_type, parent_namespace, import_types)} | null'
+                    return f'{self.convert_avro_type_to_typescript([t for t in avro_type if t != "null"][0], parent_namespace, import_types, class_name, field_name)}?'
+                return f'{self.generate_embedded_union(class_name, field_name, avro_type, parent_namespace, import_types)}?'
             return self.generate_embedded_union(class_name, field_name, avro_type, parent_namespace, import_types)
         elif isinstance(avro_type, dict):
             if avro_type['type'] == 'record':
@@ -158,6 +157,7 @@ class AvroToTypeScript:
             'type_no_null': self.strip_nullable(field['definition']['type']),
             'is_primitive': field['definition']['is_primitive'],
             'is_enum': field['definition']['is_enum'],
+            'is_array': field['definition']['is_array'],
             'docstring': field['docstring'],
         } for field in fields]
 
@@ -235,14 +235,15 @@ class AvroToTypeScript:
             'name': field_name,
             'type': field_type,
             'is_primitive': self.is_typescript_primitive(field_type),
+            'is_array': field_type.endswith('[]'),
             'is_enum': len(import_types_this) > 0 and self.is_enum_type(import_types_this.pop(),'')
         }
 
     def get_is_json_match_clause(self, field_name: str, field_type: str, field_is_enum: bool) -> str:
         """Generates the isJsonMatch clause for a field."""
         field_name_js = field_name.rstrip('_')
-        is_optional = field_type.endswith(' | null')
-        field_type = field_type.replace(' | null', '').strip()
+        is_optional = field_type.endswith('?')
+        field_type = self.strip_nullable(field_type)
 
         if '|' in field_type:
             union_types = [t.strip() for t in field_type.split('|')]
@@ -361,75 +362,43 @@ class AvroToTypeScript:
         return f"{namespace}.{union_class_name}"
 
     def write_to_file(self, namespace: str, name: str, content: str):
-        """Write TypeScript class to file in the correct namespace directory."""
-        directory_path = os.path.join(self.src_dir, *namespace.split('.'))
-        if not os.path.exists(directory_path):
-            os.makedirs(directory_path, exist_ok=True)
+            """Write TypeScript class to file in the correct namespace directory."""
+            directory_path = os.path.join(self.src_dir, *namespace.split('.'))
+            if not os.path.exists(directory_path):
+                os.makedirs(directory_path, exist_ok=True)
 
-        file_path = os.path.join(directory_path, f"{name}.ts")
-        with open(file_path, 'w', encoding='utf-8') as file:
-            file.write(content)
+            file_path = os.path.join(directory_path, f"{name}.ts")
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(content)
 
     def generate_index_file(self):
-        """Generate index.ts files for each directory in the project."""
-        # Define the tree node class
-        class DirNode:
-            def __init__(self):
-                self.files = set()  # Set of file names (without extensions)
-                self.subdirs = {}  # Mapping from subdir names to DirNode instances
-
-        # Build the directory tree
-        root = DirNode()
+        """Generate a root index.ts file that exports all types with aliases scoped to their modules."""
+        exports = []
 
         for class_name in self.generated_types:
+            # Split the class_name into parts
             parts = class_name.split('.')
-            current_node = root
+            file_name = parts[-1]  # The actual type name (e.g., 'FareRules')
+            module_path = parts[:-1]  # The module path excluding the type (e.g., ['gtfs_dash_data', 'GeneralTransitFeedStatic'])
 
-            for idx, part in enumerate(parts):
-                is_last = idx == len(parts) - 1
-                if is_last:
-                    current_node.files.add(part)
-                else:
-                    if part not in current_node.subdirs:
-                        current_node.subdirs[part] = DirNode()
-                    current_node = current_node.subdirs[part]
+            # Construct the relative path to the .js file
+            # Exclude 'gtfs_dash_data' from the module path for the file path
+            file_relative_path = os.path.join(*(module_path[0:] + [f"{file_name}.js"])).replace(os.sep, '/')
+            if not file_relative_path.startswith('.'):
+                file_relative_path = './' + file_relative_path
 
-        # Function to generate index.ts files recursively
-        def generate_index_files(node, path_parts):
-            """Recursively generate index.ts files."""
-            dir_path = os.path.join(self.src_dir, *path_parts)
-            if not os.path.exists(dir_path):
-                os.makedirs(dir_path, exist_ok=True)
+            # Construct the alias name by joining module parts with underscores
+            # Exclude 'gtfs_dash_data' for brevity
+            alias_parts =  [pascal(part) for part in parts]
+            alias_name = '_'.join(alias_parts)
 
-            exports = []
+            # Generate the export statement with alias
+            exports.append(f"export {{ {file_name} as {alias_name} }} from '{file_relative_path}';\n")
 
-            # Export all files in the current directory
-            for file_name in sorted(node.files):
-                export_path = f"./{file_name}.js"
-                exports.append(f"export * from '{export_path}';\n")
-
-            for subdir_name, subdir_node in node.subdirs.items():
-                # Check for name conflicts with files
-                if subdir_name in node.files:
-                    # There is a file and a directory with the same name
-                    # Decide whether to export the subdirectory; here we skip it to avoid conflicts
-                    continue
-
-                # Export the subdirectory's index.js
-                #export_path = f"./{subdir_name}/index.js"
-                #exports.append(f"export * from '{export_path}';\n")
-
-                # Recursively generate index.ts for the subdirectory
-                generate_index_files(subdir_node, path_parts + [subdir_name])
-
-            # Write the index.ts file
-            index_file_path = os.path.join(dir_path, 'index.ts')
-            with open(index_file_path, 'w', encoding='utf-8') as f:
-                f.writelines(exports)
-
-        # Start the recursive generation from the root
-        generate_index_files(root, [])
-
+        # Write the root index.ts file
+        index_file_path = os.path.join(self.src_dir, 'index.ts')
+        with open(index_file_path, 'w', encoding='utf-8') as f:
+            f.writelines(exports)
 
     def generate_project_files(self, output_dir: str):
         """Generate project files using templates."""

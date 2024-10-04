@@ -1,7 +1,11 @@
 /** {{ class_name }} class. */
 {%- if typed_json_annotation %}
 import 'reflect-metadata';
+{%- if fields | selectattr("is_array") | list | length > 0 %}
+import { jsonObject, jsonMember, jsonArrayMember, TypedJSON } from 'typedjson';
+{%- else %}
 import { jsonObject, jsonMember, TypedJSON } from 'typedjson';
+{%- endif %}
 {%- endif %}
 {%- if avro_annotation %}
 import { Type } from 'avro-js';
@@ -22,12 +26,13 @@ export class {{ class_name }} {
     {%- for field in fields %}
     /** {{ field.docstring }} */
     {%- if typed_json_annotation %}
-    @jsonMember
+    {%- set field_type = field.type_no_null if not field.is_primitive else (field.type_no_null | pascal ) %}
+    {% if field.is_array -%}@jsonArrayMember({{ field_type | replace('[]', '') }}) {%- else -%}@jsonMember({%-if not field.is_enum-%}{{ field_type }}{%-else-%}String{%-endif-%}){%- endif %}
     {%- endif %}
-    public {{ field.name }}: {{ field.type }};
+    public {{ field.name }}{%- if field.type.endswith('?')-%}?{%-endif-%} : {{ field.type_no_null }};
     {%- endfor %}
 
-    constructor({%- for field in fields %}{{ field.name }}: {{ field.type }}{%- if not loop.last %}, {%- endif %}{%- endfor %}) {
+    constructor({%- for field in fields %}{{ field.name }}: {{ field.type_no_null }}{%- if not loop.last %}, {%- endif %}{%- endfor %}) {
         {%- for field in fields %}
         {%- if field.is_enum %}
         if ( typeof {{ field.name }} === 'number' ) {
@@ -104,7 +109,7 @@ export class {{ class_name }} {
         {%- else %}
         return (
             {%- for field in fields %}
-            {{ get_is_json_match_clause(field.name, field.type, field.is_enum) }}{%- if not loop.last %} &&
+            {{ get_is_json_match_clause(field.name, field.type_no_null, field.is_enum) }}{%- if not loop.last %} &&
             {%- endif %}
             {%- endfor %}
         );
