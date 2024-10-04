@@ -234,7 +234,7 @@ class AvroToTypeScript:
         return {
             'name': field_name,
             'type': field_type,
-            'is_primitive': self.is_typescript_primitive(field_type),
+            'is_primitive': self.is_typescript_primitive(field_type.replace('[]', '')),
             'is_array': field_type.endswith('[]'),
             'is_enum': len(import_types_this) > 0 and self.is_enum_type(import_types_this.pop(),'')
         }
