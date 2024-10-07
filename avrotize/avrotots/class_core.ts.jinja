@@ -27,7 +27,11 @@ export class {{ class_name }} {
     /** {{ field.docstring }} */
     {%- if typed_json_annotation %}
     {%- set field_type = field.type_no_null if not field.is_primitive else (field.type_no_null | pascal ) %}
-    {% if field.is_array -%}@jsonArrayMember({{ field_type | replace('[]', '') }}) {%- else -%}@jsonMember({%-if not field.is_enum-%}{{ field_type }}{%-else-%}String{%-endif-%}){%- endif %}
+    {% if field.is_union -%}
+    @jsonMember({serializer: {{ field_type }}.toJSON, deserializer: {{ field_type }}.fromJSON})
+    {%- elif field.is_array -%}@jsonArrayMember({{ field_type | replace('[]', '') }}) 
+    {%- else -%}@jsonMember({%-if not field.is_enum-%}{{ field_type }}{%-else-%}String{%-endif-%})
+    {%- endif %}
     {%- endif %}
     public {{ field.name }}{%- if field.type.endswith('?')-%}?{%-endif-%} : {{ field.type_no_null }};
     {%- endfor %}

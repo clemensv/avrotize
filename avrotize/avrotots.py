@@ -158,6 +158,7 @@ class AvroToTypeScript:
             'is_primitive': field['definition']['is_primitive'],
             'is_enum': field['definition']['is_enum'],
             'is_array': field['definition']['is_array'],
+            'is_union': field['definition']['is_union'],
             'docstring': field['docstring'],
         } for field in fields]
 
@@ -231,12 +232,14 @@ class AvroToTypeScript:
             field['type'], parent_namespace, import_types_this, class_name, field['name'])
         import_types.update(import_types_this)
         field_name = field['name']
+        import_name = import_types_this.pop() if len(import_types_this) > 0 else ''
         return {
             'name': field_name,
             'type': field_type,
             'is_primitive': self.is_typescript_primitive(field_type.replace('[]', '')),
             'is_array': field_type.endswith('[]'),
-            'is_enum': len(import_types_this) > 0 and self.is_enum_type(import_types_this.pop(),'')
+            'is_union': self.generated_types.get(import_name, '') == 'union',
+            'is_enum': self.generated_types.get(import_name, '') == 'enum',
         }
 
     def get_is_json_match_clause(self, field_name: str, field_type: str, field_is_enum: bool) -> str:
@@ -281,16 +284,9 @@ class AvroToTypeScript:
     def generate_embedded_union(self, class_name: str, field_name: str, avro_type: List, parent_namespace: str, parent_import_types: Set[str], write_file: bool = True) -> str:
         """Generate embedded Union class for a field with namespace support."""
         union_class_name = pascal(field_name) + 'Union' if field_name else pascal(class_name) + 'Union'
-        namespace = parent_namespace
-        union_types = [self.convert_avro_type_to_typescript( t, parent_namespace, parent_import_types) for t in avro_type if t != 'null']
-        import_types = []
-        for t in avro_type:
-            if isinstance(t, str) and t in self.generated_types:
-                import_types.append(t)
-            elif isinstance(t, dict) and 'type' in t and t['type'] == "array" and isinstance(t['items'], str) and t['items'] in self.generated_types:
-                import_types.append(t['items'])
-            elif isinstance(t, dict) and 'type' in t and t['type'] == "map" and isinstance(t['values'], str) and t['values'] in self.generated_types:
-                import_types.append(t['values'])
+        namespace = self.concat_namespace(self.base_package, parent_namespace)
+        import_types:Set[str] = set()
+        union_types = [self.convert_avro_type_to_typescript( t, parent_namespace, import_types) for t in avro_type if t != 'null']
         if not import_types:
             return '|'.join(union_types)
         class_definition = ''
@@ -299,67 +295,91 @@ class AvroToTypeScript:
                 continue  # Avoid importing itself
             import_type_parts = import_type.split('.')
             import_type_name = pascal(import_type_parts[-1])
-            import_namespace = '.'.join(import_type_parts[:-1])
             import_path = '/'.join(import_type_parts)
             current_path = '/'.join(namespace.split('.'))
             relative_import_path = os.path.relpath(import_path, current_path).replace(os.sep, '/')
             if not relative_import_path.startswith('.'):
                 relative_import_path = f'./{relative_import_path}'
             class_definition += f"import {{ {import_type_name} }} from '{relative_import_path}.js';\n"
+            
+        if self.typed_json_annotation:
+            class_definition += "import 'reflect-metadata';\n"
+            class_definition += "import { CustomDeserializerParams, CustomSerializerParams } from 'typedjson/lib/types/metadata.js';\n"
+            
 
-        class_definition += f"\nexport namespace {namespace} {{\n"
-        class_definition += f"{self.INDENT}export class {union_class_name} {{\n"
+        class_definition += f"\nexport class {union_class_name} {{\n"
 
-        class_definition += f"{self.INDENT*2}private value: any;\n\n"
+        class_definition += f"{self.INDENT}private value: any;\n\n"
 
         # Constructor
-        class_definition += f"{self.INDENT*2}constructor(value: { ' | '.join(union_types) }) {{\n"
-        class_definition += f"{self.INDENT*3}this.value = value;\n"
-        class_definition += f"{self.INDENT*2}}}\n\n"
+        class_definition += f"{self.INDENT}constructor(value: { ' | '.join(union_types) }) {{\n"
+        class_definition += f"{self.INDENT*2}this.value = value;\n"
+        class_definition += f"{self.INDENT}}}\n\n"
 
         # Method to check which type is set
         for union_type in union_types:
-            type_check_method = f"{self.INDENT*2}public is{pascal(union_type)}(): boolean {{\n"
+            type_check_method = f"{self.INDENT}public is{pascal(union_type)}(): boolean {{\n"
             if union_type.strip() in ['string', 'number', 'boolean']:
-                type_check_method += f"{self.INDENT*3}return typeof this.value === '{union_type.strip()}';\n"
+                type_check_method += f"{self.INDENT*2}return typeof this.value === '{union_type.strip()}';\n"
             elif union_type.strip() == 'Date':
-                type_check_method += f"{self.INDENT*3}return this.value instanceof Date;\n"
+                type_check_method += f"{self.INDENT*2}return this.value instanceof Date;\n"
             else:
-                type_check_method += f"{self.INDENT*3}return this.value instanceof {union_type.strip()};\n"
-            type_check_method += f"{self.INDENT*2}}}\n\n"
+                type_check_method += f"{self.INDENT*2}return this.value instanceof {union_type.strip()};\n"
+            type_check_method += f"{self.INDENT}}}\n\n"
             class_definition += type_check_method
 
         # Method to return the current value
-        class_definition += f"{self.INDENT*2}public toObject(): any {{\n"
-        class_definition += f"{self.INDENT*3}return this.value;\n"
-        class_definition += f"{self.INDENT*2}}}\n\n"
+        class_definition += f"{self.INDENT}public toJSON(): string {{\n"
+        class_definition += f"{self.INDENT*2}let rawJson : Uint8Array = this.value.toByteArray('application/json');\n"
+        class_definition += f"{self.INDENT*2}return new TextDecoder().decode(rawJson);\n"
+        class_definition += f"{self.INDENT}}}\n\n"
 
         # Method to check if JSON matches any of the union types
-        class_definition += f"{self.INDENT*2}public static isJsonMatch(element: any): boolean {{\n"
+        class_definition += f"{self.INDENT}public static isJsonMatch(element: any): boolean {{\n"
         match_clauses = []
         for union_type in union_types:
             match_clauses.append(f"({self.get_is_json_match_clause('value', union_type, False)})")
-        class_definition += f"{self.INDENT*3}return {' || '.join(match_clauses)};\n"
-        class_definition += f"{self.INDENT*2}}}\n\n"
+        class_definition += f"{self.INDENT*2}return {' || '.join(match_clauses)};\n"
+        class_definition += f"{self.INDENT}}}\n\n"
 
         # Method to deserialize from JSON
-        class_definition += f"{self.INDENT*2}public static fromData(element: any, contentTypeString: string): {union_class_name} {{\n"
-        class_definition += f"{self.INDENT*3}const unionTypes = [{', '.join([t.strip() for t in union_types if not self.is_typescript_primitive(t.strip())])}];\n"
-        class_definition += f"{self.INDENT*3}for (const type of unionTypes) {{\n"
-        class_definition += f"{self.INDENT*4}if (type.isJsonMatch(element)) {{\n"
-        class_definition += f"{self.INDENT*5}return new {union_class_name}(type.fromData(element, contentTypeString));\n"
-        class_definition += f"{self.INDENT*4}}}\n"
+        class_definition += f"{self.INDENT}public static fromData(element: any, contentTypeString: string): {union_class_name} {{\n"
+        class_definition += f"{self.INDENT*2}const unionTypes = [{', '.join([t.strip() for t in union_types if not self.is_typescript_primitive(t.strip())])}];\n"
+        class_definition += f"{self.INDENT*2}for (const type of unionTypes) {{\n"
+        class_definition += f"{self.INDENT*3}if (type.isJsonMatch(element)) {{\n"
+        class_definition += f"{self.INDENT*4}return new {union_class_name}(type.fromData(element, contentTypeString));\n"
         class_definition += f"{self.INDENT*3}}}\n"
-        class_definition += f"{self.INDENT*3}throw new Error('No matching type for union');\n"
         class_definition += f"{self.INDENT*2}}}\n"
-
+        class_definition += f"{self.INDENT*2}throw new Error('No matching type for union');\n"
         class_definition += f"{self.INDENT}}}\n"
+        
+        # Method to deserialize from JSON with custom deserializer params
+        class_definition += f"{self.INDENT}public static fromJSON(json: any, params: CustomDeserializerParams): {union_class_name} {{\n"
+        class_definition += f"{self.INDENT*2}try {{\n"
+        class_definition += f"{self.INDENT*3}return {union_class_name}.fromData(json, 'application/json');\n"
+        class_definition += f"{self.INDENT*2}}} catch (error) {{\n"
+        class_definition += f"{self.INDENT*3}return params.fallback(json, {union_class_name});\n"
+        class_definition += f"{self.INDENT*2}}}\n"
+        class_definition += f"{self.INDENT}}}\n\n"
+
+        # Method to serialize to JSON with custom serializer params
+        class_definition += f"{self.INDENT}public static toJSON(obj: any, params: CustomSerializerParams): any {{\n"
+        class_definition += f"{self.INDENT*2}try {{\n"
+        class_definition += f"{self.INDENT*3}const val = new {union_class_name}(obj);\n"
+        class_definition += f"{self.INDENT*3}return val.toJSON();\n"
+        class_definition += f"{self.INDENT*2}}} catch (error) {{\n"
+        class_definition += f"{self.INDENT*3}return params.fallback(this, {union_class_name});\n"
+        class_definition += f"{self.INDENT*2}}}\n"
+        class_definition += f"{self.INDENT}}}\n\n"
+
         class_definition += "}\n"
 
         if write_file:
             self.write_to_file(namespace, union_class_name, class_definition)
 
-        return f"{namespace}.{union_class_name}"
+        parent_import_types.add(f"{namespace}.{union_class_name}")
+        self.generated_types[f"{namespace}.{union_class_name}"] = 'union'
+        return f"{union_class_name}"
 
     def write_to_file(self, namespace: str, name: str, content: str):
             """Write TypeScript class to file in the correct namespace directory."""
