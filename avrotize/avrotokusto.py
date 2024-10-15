@@ -245,6 +245,8 @@ class AvroToKusto:
 
         type_dict =  build_flat_type_dict(schema)
         for record in schema:
+            if not isinstance(record, dict) or "type" not in record or record["type"] != "record":
+                continue
             kusto_script.extend(self.convert_record_to_kusto(type_dict,
                 record, emit_cloudevents_columns, emit_cloudevents_dispatch_table))
         return "\n".join(kusto_script)
