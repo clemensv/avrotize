@@ -174,10 +174,12 @@ class TestAvroToDB(unittest.TestCase):
                     self.assertTrue(collection.lower() == self.get_fullname(avro_schema).lower())
             client.close()
 
-    def test_mssql_schema_creation(self):
-        """Test schema creation for Microsoft SQL Server database."""
-        self.run_mssql_schema_creation("address")
-        self.run_mssql_schema_creation("northwind")
+    # driver issue
+    #def test_mssql_schema_creation(self):
+    #    """Test schema creation for Microsoft SQL Server database."""
+    #    self.run_mssql_schema_creation("address")
+    #    self.run_mssql_schema_creation("northwind")
+
 
     def run_mssql_schema_creation(self, avro_name):
         """Test schema creation for Microsoft SQL Server database."""
