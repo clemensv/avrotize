@@ -47,11 +47,15 @@ def convert_avro_to_sql(avro_schema_path, dbscript_file_path, db_dialect, emit_c
     if isinstance(schema, list):
         tables_sql = []
         for schema in schema_list:
+            if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "record":
+                continue
             tables_sql.extend(generate_sql(
                 schema, db_dialect, emit_cloudevents_columns, schema_list, schema_name))
         with open(dbscript_file_path, "w", encoding="utf-8") as sql_file:
             sql_file.write("\n".join(tables_sql))
     else:
+        if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "record":
+            raise ValueError("Invalid Avro record schema")
         tables_sql = generate_sql(
             schema, db_dialect, emit_cloudevents_columns, schema_list, schema_name)
         with open(dbscript_file_path, "w", encoding="utf-8") as sql_file:
@@ -662,6 +666,8 @@ def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit
 
     if isinstance(schema, list):
         for schema in schema_list:
+            if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "record":
+                continue
             model = generate_nosql(schema, nosql_dialect,
                                    emit_cloudevents_columns, schema_list)
             file_name = os.path.join(
@@ -672,6 +678,8 @@ def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit
                 else:
                     nosql_file.write(model)
     else:
+        if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "record":
+            raise ValueError("Invalid Avro record schema")
         model = generate_nosql(schema, nosql_dialect,
                                emit_cloudevents_columns, schema_list)
         file_name = os.path.join(
