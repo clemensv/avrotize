@@ -37,9 +37,18 @@ def create_subparsers(subparsers, commands):
             if arg['type'] == 'bool':
                 kwargs['action'] = 'store_true'
                 del kwargs['type']
-                carg = cmd_parser.add_argument(arg['name'], **kwargs)
+                argname = arg['name']
+                if '_' in argname:
+                    argname2 = argname.replace('_', '-')
+                    carg = cmd_parser.add_argument(argname, argname2, **kwargs)
+                else:
+                    carg = cmd_parser.add_argument(arg['name'], **kwargs)
             else:
-                carg = cmd_parser.add_argument(arg['name'], **kwargs)
+                if '_' in arg['name']:
+                    argname2 = arg['name'].replace('_', '-')
+                    carg = cmd_parser.add_argument(arg['name'], argname2, **kwargs)
+                else:
+                    carg = cmd_parser.add_argument(arg['name'], **kwargs)
             carg.required = arg.get('required', True)
 
 def dynamic_import(module, func):

@@ -899,6 +899,7 @@
         "avro_annotation": "args.avro_annotation",
         "system_text_json_annotation": "args.system_text_json_annotation",
         "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
+        "system_xml_annotation": "args.system_xml_annotation",
         "pascal_properties": "args.pascal_properties",
         "base_namespace": "args.namespace"
       }
@@ -941,6 +942,13 @@
         "name": "--system_text_json_annotation",
         "type": "bool",
         "help": "Use System.Text.Json annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--system-xml-annotation",
+        "type": "bool",
+        "help": "Use System.Xml annotations",
         "default": false,
         "required": false
       },

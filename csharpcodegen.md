@@ -2,10 +2,10 @@
 
 Avrotize is can generates C# classes from Avro schema files with the "a2csharp" command. The generated classes reflect the type model described by the Avro schema. 
 
-With the `avro_annotation` option, the code generator is an alternative to the `avrogen` tool provided by the Avro project. Unlike `avrogen`, Avrotize generates classes that directly support type unions and it allows combining Avro annotations
+With the `--avro-annotation` option, the code generator is an alternative to the `avrogen` tool provided by the Avro project. Unlike `avrogen`, Avrotize generates classes that directly support type unions and it allows combining Avro annotations
 with annotations for `System.Text.Json` serialization.
 
-With the `system_text_json_annotation` option, the code generator emits annotations for `System.Text.Json` serialization. This option can be used standalone and is not dependent on the `avro_annotation` option, which means that Avro Schema 
+With the `--system-text-json-annotation` option, the code generator emits annotations for `System.Text.Json` serialization. This option can be used standalone and is not dependent on the `--avro-annotation` option, which means that Avro Schema 
 can be used to generate classes with `System.Text.Json` serialization annotations as an alternative to JSON Schema, without
 the Avro serialization framework being required. The generated classes fully support type unions (equivalent to JSN Schema's `oneOf`) without requiring a "discriminator" field, but rather deduce the type from the serialized data's structure.
 
@@ -46,7 +46,7 @@ the Avro serialization framework being required. The generated classes fully sup
 ```
 
 The following is an example of the generated code for the schema above, with the
-`avro_annotation` option and the `system_text_json_annotation` option turned on.
+`--avro-annotation` option and the `--system-text-json-annotation` option turned on.
 We will discuss the generated code in detail below and which parts are generated
 by which option.
 
@@ -94,7 +94,7 @@ The generated code includes a class declaration for the record type defined in
 the Avro schema. The class name is derived from the name of the record type in
 the Avro schema.
 
-If the `avro_annotation` option is provided, the class implements the
+If the `--avro-annotation` option is provided, the class implements the
 `ISpecificRecord` interface from the Avro library. The interface provides
 methods to access the fields of the record and to convert the record to and from
 byte arrays. The interface is used by the Avro serialization framework to
@@ -145,7 +145,7 @@ The mapping for Avro types to C# types is as follows:
 | timestamp-micros | DateTime |
 | duration     | TimeSpan |
 
-If the `system_text_json_annotation` option is used, fields are annotated with
+If the `--system-text-json-annotation` option is used, fields are annotated with
 the `JsonPropertyName` attribute from the `System.Text.Json.Serialization`
 namespace. The attribute specifies the name of the field in the JSON
 representation of the record.
@@ -200,7 +200,7 @@ constructor initializes the fields of the record to their default values.
 
 ### Constructor from Avro GenericRecord
 
-If the `avro_annotation` option is used, the generated code includes a
+If the `--avro-annotation` option is used, the generated code includes a
 constructor that takes an Avro `GenericRecord` object as a parameter. The
 constructor initializes the fields of the record from the values in the
 `GenericRecord`.
@@ -222,7 +222,7 @@ constructor initializes the fields of the record from the values in the
 
 ### Avro Schema
 
-If the `avro_annotation` option is used, the generated code includes a static
+If the `--avro-annotation` option is used, the generated code includes a static
 field that contains the Avro schema for the record type. The schema is parsed
 from a JSON string that represents the schema.
 
@@ -240,7 +240,7 @@ from a JSON string that represents the schema.
 
 ### ISpecificRecord Interface Implementation
 
-If the `avro_annotation` option is used, the generated code includes
+If the `--avro-annotation` option is used, the generated code includes
 implementations of the `Get` and `Put` methods from the Avro framework's
 `ISpecificRecord` interface. The methods provide access to the fields of the
 record and allow the record to be serialized and deserialized by the Avro
@@ -277,7 +277,7 @@ serialization framework.
 
 ### ToByteArray Method
 
-If either or both the `avro_annotation` and `system_text_json_annotation`
+If either or both the `--avro-annotation` and `--system-text-json-annotation`
 options are used, the generated code includes a `ToByteArray` method that
 converts the record to a byte array. The method takes a content type string as a
 parameter that specifies the encoding of the data. The method encodes the record
@@ -287,14 +287,14 @@ The following encodings are supported:
 
 | Enabled Option | Content Type String | Encoding |
 |----------------|---------------------|----------|
-| avro_annotation | `avro/binary` | Avro binary encoding |
-| avro_annotation | `avro/vnd.apache.avro+avro` | Avro binary encoding |
-| avro_annotation | `avro/vnd.apache.avro+avro+gzip` | Avro binary encoding with GZIP compression |
-| avro_annotation | `avro/json` | Avro JSON encoding |
-| avro_annotation | `application/vnd.apache.avro+json` | Avro JSON encoding |
-| avro_annotation | `avro/vnd.apache.avro+json+gzip` | Avro JSON encoding with GZIP compression |
-| system_text_json_annotation | `application/json` | JSON encoding |
-| system_text_json_annotation | `application/json+gzip` | JSON encoding with GZIP compression |
+| --avro-annotation | `avro/binary` | Avro binary encoding |
+| --avro-annotation | `avro/vnd.apache.avro+avro` | Avro binary encoding |
+| --avro-annotation | `avro/vnd.apache.avro+avro+gzip` | Avro binary encoding with GZIP compression |
+| --avro-annotation | `avro/json` | Avro JSON encoding |
+| --avro-annotation | `application/vnd.apache.avro+json` | Avro JSON encoding |
+| --avro-annotation | `avro/vnd.apache.avro+json+gzip` | Avro JSON encoding with GZIP compression |
+| --system-text-json-annotation | `application/json` | JSON encoding |
+| --system-text-json-annotation | `application/json+gzip` | JSON encoding with GZIP compression |
 
 
 ```csharp    
@@ -347,7 +347,7 @@ The following encodings are supported:
 
 ### FromData Method
 
-If either or both the `avro_annotation` and `system_text_json_annotation`
+If either or both the `--avro-annotation` and `--system-text-json-annotation`
 options are used, the generated code includes a `FromData` method that converts
 a byte array to a record object. The method takes the encoded data and a content
 type string as parameters and returns the decoded record object.
@@ -444,7 +444,7 @@ the decoded record object.
 
 ### IsJsonMatch Method
 
-If the `system_text_json_annotation` option is used, the generated code includes
+If the `--system-text-json-annotation` option is used, the generated code includes
 an `IsJsonMatch` method that checks if a JSON element matches the schema. The
 method takes a `JsonElement` object as a parameter and returns a boolean value
 that indicates whether the JSON element matches the schema.
@@ -548,7 +548,7 @@ In this case:
 
 The following generated code refers to the `DocumentUnion` class that is
 produced for the `document` field shown above. If the
-`system_text_json_annotation` option is used, the union class is annotated with
+`--system-text-json-annotation` option is used, the union class is annotated with
 the `JsonConverter` attribute from the `System.Text.Json.Serialization`
 namespace. The attribute specifies the converter class that is used to serialize
 and deserialize the union.
@@ -565,7 +565,7 @@ and deserialize the union.
 The `DocumentUnion` class is embedded in the generated record class, into a
 separate file, but into the same partial class.
 
-If the `system_text_json_annotation` option is used, the `DocumentUnion` class
+If the `--system-text-json-annotation` option is used, the `DocumentUnion` class
 is derived from the `JsonConverter` class from the
 `System.Text.Json.Serialization` namespace. The class provides methods to
 serialize and deserialize the union.
@@ -613,7 +613,7 @@ union value that corresponds to the type of the object. This is a factory method
 instead of a constructor to disambiguate from generated constructors for maps,
 which are also represented as `Object` in some cases.
 
-If the `avro_annotation` option is used, the method checks whether the object is
+If the `--avro-annotation` option is used, the method checks whether the object is
 a GenericRecord and creates a union value from the GenericRecord with the respective
 constructor.
 
@@ -644,7 +644,7 @@ constructor.
 
 ### Constructor from Avro GenericRecord
 
-If the `avro_annotation` option is used, the generated code includes a
+If the `--avro-annotation` option is used, the generated code includes a
 constructor that takes an Avro `GenericRecord` object as a parameter. The
 constructor initializes the fields of the union from the values in the
 `GenericRecord`. 
@@ -737,7 +737,7 @@ void global::Avro.Specific.ISpecificRecord.Put(int fieldPos, object fieldValue)
 
 ### Read Method
 
-If the `system_text_json_annotation` option is used, the generated code includes a
+If the `--system-text-json-annotation` option is used, the generated code includes a
 `Read` method that reads the JSON representation of the object. The method takes a
 `Utf8JsonReader` object as a parameter and returns the union value that corresponds
 to the JSON data.
@@ -768,7 +768,7 @@ constructor.
 
 ### Write Method
 
-If the `system_text_json_annotation` option is used, the generated code includes a
+If the `--system-text-json-annotation` option is used, the generated code includes a
 `Write` method that writes the JSON representation of the object. The method takes a
 `Utf8JsonWriter` object as a parameter and writes the JSON representation of the union value.
 
@@ -798,7 +798,7 @@ that corresponds to the type.
 
 ### IsJsonMatch Method
 
-If the `system_text_json_annotation` option is used, the generated code includes an
+If the `--system-text-json-annotation` option is used, the generated code includes an
 `IsJsonMatch` method that checks if a JSON element matches the schema. The method
 takes a `JsonElement` object as a parameter and returns a boolean value that indicates
 whether the JSON element matches the schema.
@@ -938,7 +938,7 @@ a nullable field.
 The `Test1Union` class is generated for the `test1` field. As you may expect
 from the previous example, the union class has constructors for each type in
 the union, a `ToObject` method, and the `Read`, `Write`, and `IsJsonMatch`
-methods generated if 'system_text_json_annotation' is used.
+methods generated if '--system-text-json-annotation' is used.
 
 ```csharp
 #pragma warning disable CS8618

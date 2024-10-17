@@ -1,4 +1,4 @@
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
     /// <summary>
     /// Creates an object from the data
     /// </summary>
@@ -11,7 +11,7 @@
         if ( data is {{ class_name }}) return ({{ class_name }})data;
         if ( contentTypeString == null ) contentTypeString = System.Net.Mime.MediaTypeNames.Application.Octet;
         var contentType = new System.Net.Mime.ContentType(contentTypeString);
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
         if ( contentType.MediaType.EndsWith("+gzip"))
         {
             var stream = data switch
@@ -88,9 +88,36 @@
             }
         }
     {%- endif %}
+    {%- if system_xml_annotation %}
+        if ( contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Text.Xml) || contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Xml) || contentType.MediaType.EndsWith("+xml"))
+        {
+            var serializer = new System.Xml.Serialization.XmlSerializer(typeof({{ class_name }}));
+            if (data is string)
+            {
+                using (var reader = new System.IO.StringReader((string)data))
+                {
+                    return ({{ class_name }}?)serializer.Deserialize(reader);
+                }
+            }
+            else if (data is System.IO.Stream)
+            {
+                return ({{ class_name }}?)serializer.Deserialize((System.IO.Stream)data);
+            }
+            else if (data is System.BinaryData)
+            {
+                var memoryStream = new System.IO.MemoryStream(((System.BinaryData)data).ToArray());
+                return ({{ class_name }}?)serializer.Deserialize(memoryStream);
+            }
+            else if (data is byte[])
+            {
+                var memoryStream = new System.IO.MemoryStream((byte[])data);
+                return ({{ class_name }}?)serializer.Deserialize(memoryStream);
+            }
+        }
+    {%- endif %}
         throw new System.NotSupportedException($"Unsupported media type {contentType.MediaType}");
     }
-    {%-endif %}
+    {%- endif %}
 
     {%- if avro_annotation %}
     private class SpecificDatumWriter : global::Avro.Specific.SpecificDatumWriter<{{ class_name }}>
@@ -101,7 +128,15 @@
 
          protected override WriteItem ResolveEnum(global::Avro.EnumSchema es)
          {
-             return base.ResolveEnum(global::Avro.EnumSchema.Create(es.Name, es.Symbols, GetType().Assembly.GetName().Name+"."+es.Namespace, null, null, es.Documentation, es.Default));
+            var enumType = GetType().Assembly.GetType(GetType().Assembly.GetName().Name+"."+es.Namespace + "." + es.Name, false, true);
+            if (enumType != null)
+            {
+                return base.ResolveEnum(global::Avro.EnumSchema.Create(enumType.Name, es.Symbols, enumType.Namespace, null, null, es.Documentation, es.Default));
+            }
+            else
+            {
+                return base.ResolveEnum(es);
+            }
          }
     }
     {%- endif %}
@@ -109,7 +144,7 @@
     {%- if avro_annotation %}
     {%- endif%}
 
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
     /// <summary>
     /// Converts the object to a byte array
     /// </summary>
@@ -151,7 +186,22 @@
             result = System.Text.Encoding.GetEncoding(contentType.CharSet??"utf-8").GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(this));
         }
     {%- endif %}
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation %}
+    {%- if system_xml_annotation %}
+        if (contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Text.Xml) || contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Xml) || contentType.MediaType.EndsWith("+xml"))
+        {
+            var serializer = new System.Xml.Serialization.XmlSerializer(typeof({{ class_name }}));
+            using (var stream = new System.IO.MemoryStream())
+            {
+                using (var writer = new System.IO.StreamWriter(stream))
+                {
+                    serializer.Serialize(writer, this);
+                    writer.Flush();
+                    result = stream.ToArray();
+                }
+            }
+        }
+    {%- endif %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
     if (result != null && contentType.MediaType.EndsWith("+gzip"))
         {
             var stream = new System.IO.MemoryStream();
@@ -166,7 +216,7 @@
     }
     {%- endif %}
 
-    {%- if system_text_json_annotation %}
+    {%- if system_text_json_annotation or newtonsoft_json_annotation %}
     /// <summary>
     /// Checks if the JSON element matches the schema
     /// </summary>

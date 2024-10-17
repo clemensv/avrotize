@@ -22,6 +22,7 @@ class XSDToAvro:
         """ Initialize the class. """
         self.simple_type_map: Dict[str, str | dict] = {}
         self.avro_namespace = ''
+        self.xml_namespace = ''
 
     def xsd_targetnamespace_to_avro_namespace(self, targetnamespace: str) -> str:
         """Convert a XSD namespace to Avro Namespace."""
@@ -303,6 +304,7 @@ class XSDToAvro:
             'type': 'record',
             'name': 'Root',
             'namespace': self.avro_namespace,
+            'xmlns': self.xml_namespace,
             'fields': []
         }
         annotation = element.find(f'{{{XSD_NAMESPACE}}}annotation', namespaces)
@@ -349,6 +351,7 @@ class XSDToAvro:
         target_namespace = root.get('targetNamespace')
         if target_namespace is None:
             raise ValueError('targetNamespace not found')
+        self.xml_namespace = target_namespace
         if not code_namespace:
             self.avro_namespace = self.xsd_targetnamespace_to_avro_namespace(target_namespace)
         else:

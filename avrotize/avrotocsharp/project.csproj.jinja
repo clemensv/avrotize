@@ -5,9 +5,15 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
     <ItemGroup>
+        {%- if avro_annotation %}
         <PackageReference Include="Apache.Avro" Version="1.11.3" />
+        {%- endif %}
+        {%- if newtonsoft_json_annotation %}
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        {%- endif %}
+        {%- if system_text_json_annotation %}
         <PackageReference Include="System.Text.Json" Version="8.0.5" />
+        {%- endif %}
         <PackageReference Include="System.Memory.Data" Version="8.0.0" />
     </ItemGroup>
     <ItemGroup>

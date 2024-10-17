@@ -312,11 +312,13 @@ export function activate(context: vscode.ExtensionContext) {
             const avro_annotation_value_arg = avro_annotation_value ? '--avro-annotation' : '';
             const system_text_json_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use System.Text.Json annotations?' }) === 'Yes';
             const system_text_json_annotation_value_arg = system_text_json_annotation_value ? '--system_text_json_annotation' : '';
+            const system_xml_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use System.Xml annotations?' }) === 'Yes';
+            const system_xml_annotation_value_arg = system_xml_annotation_value ? '--system_xml_annotation' : '';
             const pascal_properties_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use PascalCase properties?' }) === 'Yes';
             const pascal_properties_value_arg = pascal_properties_value ? '--pascal-properties' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'All Files': ['*'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2cs ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg} ${avro_annotation_value_arg} ${system_text_json_annotation_value_arg} ${pascal_properties_value_arg}`;
+            const command = `avrotize a2cs ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg} ${avro_annotation_value_arg} ${system_text_json_annotation_value_arg} ${system_xml_annotation_value_arg} ${pascal_properties_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 

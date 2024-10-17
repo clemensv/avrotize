@@ -38,7 +38,9 @@ export class {{ enum_name }}Utils {
         }
     }
 
+    {%- if typed_json_annotation %}
     static isJsonMatch(value: string): boolean {
         return Object.values({{ enum_name }}).includes(value as {{ enum_name }});
     }
+    {%- endif %}
 }

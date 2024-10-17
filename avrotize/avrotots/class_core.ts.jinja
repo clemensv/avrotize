@@ -107,6 +107,8 @@ export class {{ class_name }} {
         throw new Error(`Unsupported media type: ${contentTypeString}`);
     }
 
+
+    {%- if typed_json_annotation %}
     public static isJsonMatch(element: any): boolean {
         {%- if fields|length == 0 %}
         return true;
@@ -119,5 +121,6 @@ export class {{ class_name }} {
         );
         {%- endif %}
     }
+    {%- endif %}
     {%- endif %}
 }

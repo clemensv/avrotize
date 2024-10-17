@@ -20,7 +20,7 @@ sys.path.append(project_root)
 
 class TestAvroToCSharp(unittest.TestCase):
     
-    def run_convert_avsc_to_csharp(self, avsc_name, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False, pascal_properties=False):
+    def run_convert_avsc_to_csharp(self, avsc_name, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False, system_xml_annotation=False, pascal_properties=False):
         """ Test converting an avsc file to C# """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", avsc_name + ".avsc")
@@ -29,33 +29,41 @@ class TestAvroToCSharp(unittest.TestCase):
             shutil.rmtree(cs_path, ignore_errors=True)
         os.makedirs(cs_path, exist_ok=True)
 
-        convert_avro_to_csharp(avro_path, cs_path, pascal_properties=pascal_properties, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation)
+        convert_avro_to_csharp(avro_path, cs_path, pascal_properties=pascal_properties, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, system_xml_annotation=system_xml_annotation)
         assert subprocess.check_call(
-            ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
+            ['dotnet', 'test'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
     
     def test_convert_address_avsc_to_csharp(self):
         """ Test converting an address.avsc file to C# """
         self.run_convert_avsc_to_csharp("address")
    
-    def test_convert_address_avsc_to_csharp_avro_annotation(self):
-        """ Test converting an address.avsc file to C# """
-        self.run_convert_avsc_to_csharp("address", avro_annotation=True)
+    def test_convert_address_avsc_to_csharp_annotated(self):
+        for system_text_json_annotation in [True, False]:
+            for newtonsoft_json_annotation in [True, False]:
+                for avro_annotation in [True, False]:
+                    for pascal_properties in [True, False]:
+                        for system_xml_annotation in [True, False]:
+                            self.run_convert_avsc_to_csharp("address", system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, pascal_properties=pascal_properties, system_xml_annotation=system_xml_annotation)
 
-    def test_convert_address_avsc_to_csharp_system_text_json_annotation(self):
-        """ Test converting an address.avsc file to C# """
-        self.run_convert_avsc_to_csharp("address", system_text_json_annotation=True) 
                                         
-    def test_convert_enumfield_avsc_to_csharp_system_text_json_annotation(self):
-        """ Test converting an address.avsc file to C# """
-        self.run_convert_avsc_to_csharp("enumfield", system_text_json_annotation=True)
-        
-    def test_convert_address_avsc_to_csharp_newtonsoft_json_annotation(self):
-        """ Test converting an address.avsc file to C# """
-        self.run_convert_avsc_to_csharp("address", newtonsoft_json_annotation=True)
-        
-    def test_convert_telemetry_avsc_to_csharp(self):
-        """ Test converting a telemetry.avsc file to C# """
-        self.run_convert_avsc_to_csharp("telemetry")
+    def test_convert_enumfield_avsc_to_csharp_annotated(self):
+        """ Test converting an enumfield.avsc file to C# """
+        for system_text_json_annotation in [True, False]:
+            for newtonsoft_json_annotation in [True, False]:
+                for avro_annotation in [True, False]:
+                    for pascal_properties in [True, False]:
+                        for system_xml_annotation in [True, False]:
+                            self.run_convert_avsc_to_csharp("enumfield", system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, pascal_properties=pascal_properties, system_xml_annotation=system_xml_annotation)
+
+
+    def test_convert_telemetry_avsc_to_csharp_annotated(self):
+        """ Test converting an telemetry.avsc file to C# """
+        for system_text_json_annotation in [True, False]:
+            for newtonsoft_json_annotation in [True, False]:
+                for avro_annotation in [True, False]:
+                    for pascal_properties in [True, False]:
+                        for system_xml_annotation in [True, False]:
+                            self.run_convert_avsc_to_csharp("telemetry", system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, pascal_properties=pascal_properties, system_xml_annotation=system_xml_annotation)
         
     def test_convert_address_nn_avsc_to_csharp(self):
         """ Test converting an address.nn.avsc file to C# """
@@ -81,7 +89,7 @@ class TestAvroToCSharp(unittest.TestCase):
         assert subprocess.check_call(
             ['dotnet', 'run', '--force'], cwd=cs_test_path, stdout=sys.stdout, stderr=sys.stderr) == 0
         
-    def run_test_convert_twotypeunion_avsc_to_csharp(self, system_text_json_annotation=True, newtonsoft_json_annotation=True, avro_annotation=True, pascal_properties=True):
+    def run_test_convert_twotypeunion_avsc_to_csharp(self, system_text_json_annotation=True, newtonsoft_json_annotation=True, avro_annotation=True, pascal_properties=True, system_xml_annotation=True):
         """ Test converting a twotypeunion.avsc file to C# """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "twotypeunion.avsc")
@@ -90,20 +98,19 @@ class TestAvroToCSharp(unittest.TestCase):
             shutil.rmtree(cs_path, ignore_errors=True)
         os.makedirs(cs_path, exist_ok=True)
 
-        convert_avro_to_csharp(avro_path, cs_path, base_namespace="TwoTypeUnion", system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, pascal_properties=pascal_properties)
+        convert_avro_to_csharp(avro_path, cs_path, base_namespace="TwoTypeUnion", system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, pascal_properties=pascal_properties, system_xml_annotation=system_xml_annotation)
         assert subprocess.check_call(
             ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
         
-    def test_convert_twotypeunion_avsc_to_csharp_system_text_json_annotation(self):
+    def test_convert_twotypeunion_avsc_to_csharp_annotated(self):
         """ Test converting a twotypeunion.avsc file to C# """
-        self.run_test_convert_twotypeunion_avsc_to_csharp(system_text_json_annotation=True, newtonsoft_json_annotation=False, avro_annotation=False)
-        self.run_test_convert_twotypeunion_avsc_to_csharp(system_text_json_annotation=True, newtonsoft_json_annotation=True, avro_annotation=False)
-        self.run_test_convert_twotypeunion_avsc_to_csharp(system_text_json_annotation=True, newtonsoft_json_annotation=False, avro_annotation=True)
-        self.run_test_convert_twotypeunion_avsc_to_csharp(system_text_json_annotation=True, newtonsoft_json_annotation=True, avro_annotation=True)
-        self.run_test_convert_twotypeunion_avsc_to_csharp(system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False)
-        self.run_test_convert_twotypeunion_avsc_to_csharp(system_text_json_annotation=False, newtonsoft_json_annotation=True, avro_annotation=False)
-        self.run_test_convert_twotypeunion_avsc_to_csharp(system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=True)
-        self.run_test_convert_twotypeunion_avsc_to_csharp(system_text_json_annotation=False, newtonsoft_json_annotation=True, avro_annotation=True)
+        for system_text_json_annotation in [True, False]:
+            for newtonsoft_json_annotation in [True, False]:
+                for avro_annotation in [True, False]:
+                    for pascal_properties in [True, False]:
+                        for system_xml_annotation in [True, False]:
+                            self.run_test_convert_twotypeunion_avsc_to_csharp(system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, pascal_properties=pascal_properties, system_xml_annotation=system_xml_annotation)
+        
         
     def test_convert_typemapunion_avsc_to_csharp(self):
         """ Test converting an address.avsc file to C# """
@@ -179,5 +186,5 @@ class TestAvroToCSharp(unittest.TestCase):
 
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_csharp(avro_path, cs_path, pascal_properties=True, avro_annotation=True,
-                               system_text_json_annotation=True, newtonsoft_json_annotation=True)
+                               system_text_json_annotation=True, newtonsoft_json_annotation=True, system_xml_annotation=True)
         assert subprocess.check_call(['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0

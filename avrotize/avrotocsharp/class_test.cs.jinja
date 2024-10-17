@@ -56,14 +56,24 @@ public class {{ test_class_name }}
     {%- if avro_annotation %}
     /// <summary> Testing Avro serializer </summary>
     [Test]
-    public void Test_ToByteArray_FromData()
+    public void Test_ToByteArray_FromData_Avro()
     {
         var mediaType = "application/vnd.apache.avro+avro";
         var bytes = _instance.ToByteArray(mediaType);
         var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
         _instance.Should().BeEquivalentTo(newInstance);
     }
-
+    {%- endif %}
+    {%- if system_xml_annotation %}
+    /// <summary> Testing XML serializer </summary>
+    [Test]
+    public void Test_ToByteArray_FromData_Xml()
+    {
+        var mediaType = "application/xml";
+        var bytes = _instance.ToByteArray(mediaType);
+        var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
+        _instance.Should().BeEquivalentTo(newInstance);
+    }
     {%- endif %}
 }
 {% endfilter %}
