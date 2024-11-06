@@ -101,6 +101,21 @@
 ```
 
 
+.create-or-alter table [record] ingestion avro mapping "record_avro_mapping"
+```
+[
+  {"Column": "type", "Properties": {"Field": "type"}},
+  {"Column": "postOfficeBox", "Properties": {"Field": "postOfficeBox"}},
+  {"Column": "extendedAddress", "Properties": {"Field": "extendedAddress"}},
+  {"Column": "streetAddress", "Properties": {"Field": "streetAddress"}},
+  {"Column": "locality", "Properties": {"Field": "locality"}},
+  {"Column": "region", "Properties": {"Field": "region"}},
+  {"Column": "postalCode", "Properties": {"Field": "postalCode"}},
+  {"Column": "countryName", "Properties": {"Field": "countryName"}},
+]
+```
+
+
 .drop materialized-view recordLatest ifexists;
 
 .create materialized-view with (backfill=true) recordLatest on table record {

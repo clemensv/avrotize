@@ -135,6 +135,17 @@ class AvroToKusto:
                     f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{json_name}\"}},")
             kusto.append("]\n```\n\n")
 
+        # Add the AVRO ingestion mapping for the table
+        kusto.append(
+            f".create-or-alter table [{table_name}] ingestion avro mapping \"{table_name}_avro_mapping\"")
+        kusto.append("```\n[")
+        for field in fields:
+            column_name = field["name"]
+            avro_field = field["name"]
+            kusto.append(
+            f"  {{\"Column\": \"{column_name}\", \"Properties\": {{\"Field\": \"{avro_field}\"}}}},")
+        kusto.append("]\n```\n\n")
+
         if emit_cloudevents_columns:
             kusto.append(
                 f".drop materialized-view {table_name}Latest ifexists;")

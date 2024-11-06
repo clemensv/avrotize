@@ -113,6 +113,24 @@
 ```
 
 
+.create-or-alter table [TelemetryRecord] ingestion avro mapping "TelemetryRecord_avro_mapping"
+```
+[
+  {"Column": "id", "Properties": {"Field": "id"}},
+  {"Column": "version", "Properties": {"Field": "version"}},
+  {"Column": "channel", "Properties": {"Field": "channel"}},
+  {"Column": "carId", "Properties": {"Field": "carId"}},
+  {"Column": "intervalId", "Properties": {"Field": "intervalId"}},
+  {"Column": "sampleCount", "Properties": {"Field": "sampleCount"}},
+  {"Column": "frequency", "Properties": {"Field": "frequency"}},
+  {"Column": "created", "Properties": {"Field": "created"}},
+  {"Column": "timespan", "Properties": {"Field": "timespan"}},
+  {"Column": "data", "Properties": {"Field": "data"}},
+  {"Column": "lapId", "Properties": {"Field": "lapId"}},
+]
+```
+
+
 .drop materialized-view TelemetryRecordLatest ifexists;
 
 .create materialized-view with (backfill=true) TelemetryRecordLatest on table TelemetryRecord {
