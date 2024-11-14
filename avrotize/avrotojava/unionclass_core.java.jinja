@@ -1,0 +1,73 @@
+{# unionclass_core.java.jinja - Core union class template #}
+
+package {{ package_name }};
+
+{%- if jackson_annotation %}
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+{%- endif %}
+
+public class {{ union_class_name }} {
+
+    {%- for type in union_types %}
+    {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
+    private {{ type }} _{{ typeName | strip_namespace | strip_dots | lower }};
+    {%- endfor %}
+
+    // Default constructor
+    public {{ union_class_name }}() {}
+
+    {%- for type in union_types %}
+    {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
+    public {{ union_class_name }}({{ type }} value) {
+        this._{{ typeName | strip_namespace | strip_dots | lower }} = value;
+    }
+    {%- endfor %}
+
+    // Union-type getters
+    {%- for type in union_types %}
+    {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
+    public {{ type }} get{{ typeName | strip_namespace | strip_dots | pascal }}() {
+        return this._{{ typeName | strip_namespace | strip_dots | lower }};
+    }
+    public void set{{ typeName | strip_namespace | strip_dots | pascal }}({{ type }} value) {
+        this._{{ typeName | strip_namespace | strip_dots | lower }} = value;
+    }
+    {%- endfor %}
+
+    // Method to retrieve current value as an Object
+    public Object getValue() {
+        {%- for type in union_types %}
+        {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
+        if (_{{ typeName | strip_namespace | strip_dots | lower }} != null) return _{{ typeName | strip_namespace | strip_dots | lower }};
+        {%- endfor %}
+        throw new UnsupportedOperationException("No value set in the union");
+    }
+
+    {%- if jackson_annotation %}
+    // JSON serialization
+    @JsonValue
+    public JsonNode toJson() throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.valueToTree(this.getValue());
+    }
+
+    // JSON deserialization
+    @JsonCreator
+    public static {{ union_class_name }} fromJson(JsonNode jsonNode) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        {%- for type in union_types %}
+        {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
+        try {
+            return new {{ union_class_name }}(mapper.treeToValue(jsonNode, {{ typeName }}.class));
+        } catch (JsonProcessingException e) {
+            // Ignore and try next type
+        }
+        {%- endfor %}
+        throw new IllegalArgumentException("Unsupported JSON format for " + jsonNode);
+    }
+    {%- endif %}
+}

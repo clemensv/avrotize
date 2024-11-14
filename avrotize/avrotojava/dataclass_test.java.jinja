@@ -1,0 +1,26 @@
+{# dataclass_test.java.jinja - Data class test template #}
+
+package {{ package_name }};
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+{%- if jackson_annotation %}
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+{%- endif %}
+
+public class {{ class_name }}Test {
+
+    @Test
+    public void testIsJsonMatch() throws Exception {
+        {%- if jackson_annotation %}
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode validNode = mapper.readTree("{}");
+        assertTrue({{ class_name }}.isJsonMatch(validNode));
+        {%- else %}
+        // Add tests for isJsonMatch if Jackson annotations are enabled
+        {%- endif %}
+    }
+
+    {# Additional tests can be added here #}
+}

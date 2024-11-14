@@ -1,0 +1,153 @@
+{# dataclass_core.java.jinja - Core data class template #}
+
+package {{ package_name }};
+
+{%- for import in imports %}
+import {{ import }};
+{%- endfor %}
+
+{%- if jackson_annotation %}
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+{%- endif %}
+
+{%- if avro_annotation %}
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.io.Encoder;
+import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.avro.specific.SpecificRecord;
+import org.apache.avro.AvroRuntimeException;
+{%- endif %}
+
+{%- if jackson_annotation or avro_annotation %}
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+{%- endif %}
+
+public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord{%- endif %} {
+
+    {# Field declarations #}
+    {%- for field in fields %}
+    {%- if field.doc %}
+    /** {{ field.doc }} */
+    {%- endif %}
+    {%- if jackson_annotation %}
+    @JsonProperty("{{ field.original_name }}")
+    {%- endif %}
+    private {{ field.type }} {{ field.name }};
+    {%- endfor %}
+
+    // Default constructor
+    public {{ class_name }}() {}
+
+    {# Getters and setters #}
+    {%- for field in fields %}
+    public {{ field.type }} get{{ field.name | capitalize }}() {
+        return this.{{ field.name }};
+    }
+
+    public void set{{ field.name | capitalize }}({{ field.type }} {{ field.name }}) {
+        this.{{ field.name }} = {{ field.name }};
+    }
+    {%- endfor %}
+
+    {# isJsonMatch method #}
+    {%- if jackson_annotation %}
+    {{ is_json_match_method }}
+    {%- endif %}
+
+    {%- if avro_annotation %}
+    // Avro schema and related methods
+    public static final Schema AVROSCHEMA = new Schema.Parser().parse("{{ avro_schema.replace('"', '\\"') }}");
+    public static final DatumWriter<{{ class_name }}> AVROWRITER = new SpecificDatumWriter<{{ class_name }}>(AVROSCHEMA);
+    public static final DatumReader<{{ class_name }}> AVROREADER = new SpecificDatumReader<{{ class_name }}>(AVROSCHEMA);
+
+    {%- if jackson_annotation %}
+    @JsonIgnore
+    {%- endif %}
+    @Override
+    public Schema getSchema() { return AVROSCHEMA; }
+
+    @Override
+    public Object get(int field$) {
+        switch (field$) {
+            {%- for field in fields %}
+            case {{ loop.index0 }}: return this.{{ field.name }};
+            {%- endfor %}
+            default: throw new AvroRuntimeException("Bad index: " + field$);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void put(int field$, Object value$) {
+        switch (field$) {
+            {%- for field in fields %}
+            case {{ loop.index0 }}: this.{{ field.name }} = ({{ field.type }}) value$; break;
+            {%- endfor %}
+            default: throw new AvroRuntimeException("Bad index: " + field$);
+        }
+    }
+    {%- endif %}
+
+    {# toByteArray method #}
+    {%- if jackson_annotation or avro_annotation %}
+    /**
+     * Converts the object to a byte array.
+     * @param contentType the content type of the byte array
+     * @return the byte array
+     */
+    public byte[] toByteArray(String contentType) throws IOException {
+        {%- if jackson_annotation %}
+        if (contentType.equalsIgnoreCase("application/json")) {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.writeValueAsBytes(this);
+        }
+        {%- endif %}
+        {%- if avro_annotation %}
+        if (contentType.equalsIgnoreCase("application/avro")) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            Encoder encoder = EncoderFactory.get().binaryEncoder(baos, null);
+            AVROWRITER.write(this, encoder);
+            encoder.flush();
+            return baos.toByteArray();
+        }
+        {%- endif %}
+        throw new UnsupportedOperationException("Unsupported content type: " + contentType);
+    }
+
+    /**
+     * Converts the data to an object.
+     * @param data the data to convert
+     * @param contentType the content type of the data
+     * @return the object
+     */
+    public static {{ class_name }} fromData(byte[] data, String contentType) throws IOException {
+        {%- if jackson_annotation %}
+        if (contentType.equalsIgnoreCase("application/json")) {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(data, {{ class_name }}.class);
+        }
+        {%- endif %}
+        {%- if avro_annotation %}
+        if (contentType.equalsIgnoreCase("application/avro")) {
+            ByteArrayInputStream bais = new ByteArrayInputStream(data);
+            return AVROREADER.read(null, DecoderFactory.get().binaryDecoder(bais, null));
+        }
+        {%- endif %}
+        throw new UnsupportedOperationException("Unsupported content type: " + contentType);
+    }
+    {%- endif %}
+
+    {# Additional methods or content can be added here #}
+}

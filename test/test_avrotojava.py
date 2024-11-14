@@ -69,7 +69,7 @@ class TestAvroToJava(unittest.TestCase):
             shutil.rmtree(java_path, ignore_errors=True)
         os.makedirs(java_path, exist_ok=True)
 
-        convert_avro_to_java(avro_path, java_path, package_name="telemetry.java.avro")
+        convert_avro_to_java(avro_path, java_path, package_name="telemetry.java.avro", pascal_properties=True, jackson_annotation=True, avro_annotation=True)
         assert subprocess.check_call(
             "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
         

@@ -1,0 +1,26 @@
+{# enum_test.java.jinja - Enum test template #}
+
+package {{ test_package_name }};
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class {{ enum_name }}Test {
+
+    @Test
+    public void testEnumValues() {
+        // Test if each enum value can be correctly instantiated and compared
+        {%- for value in enum_values %}
+        assertNotNull({{ enum_name }}.{{ value }});
+        assertEquals("{{ value }}", {{ enum_name }}.{{ value }}.name());
+        {%- endfor %}
+    }
+
+    @Test
+    public void testEnumParsing() {
+        // Test if string names of enum values can be parsed into enums
+        {%- for value in enum_values %}
+        assertEquals({{ enum_name }}.{{ value }}, {{ enum_name }}.valueOf("{{ value }}"));
+        {%- endfor %}
+    }
+}

@@ -476,6 +476,23 @@ def snake(string):
     result = '_'.join(word.lower() for word in words)
     return result
 
+def strip_namespace(class_reference: str) -> str:
+    """Strip the namespace portion off an expression."""
+    if class_reference:
+        return re.sub(r'^.+\.', '', class_reference)
+    return class_reference
+
+def strip_namespace_prefix(class_reference: str, prefix: str) -> str:
+    """Strip the namespace prefix off an expression."""
+    if class_reference:
+        return re.sub(r'^' + prefix + r'\.', '', class_reference)
+    return class_reference
+
+def strip_dots(class_reference: str) -> str:
+    """Concatenate the namespace portions of an expression, removing the dots."""
+    if class_reference:
+        return "".join(class_reference.split("."))
+    return class_reference
 
 def fullname(avro_schema: dict| str, parent_namespace: str = '') -> str:
     """
@@ -530,6 +547,10 @@ def process_template(file_path: str, **kvargs) -> str:
     template_env = jinja2.Environment(loader=template_loader)
     template_env.filters['pascal'] = pascal
     template_env.filters['camel'] = camel
+    template_env.filters['snake'] = snake
+    template_env.filters['strip_namespace'] = strip_namespace
+    template_env.filters['strip_namespace_prefix'] = strip_namespace_prefix
+    template_env.filters['strip_dots'] = strip_dots
 
     # Load the template from the file
     template = template_env.get_template(file_path)
