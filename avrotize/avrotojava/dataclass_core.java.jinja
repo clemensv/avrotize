@@ -2,10 +2,10 @@
 
 package {{ package_name }};
 
+{# Imports #}
 {%- for import in imports %}
 import {{ import }};
 {%- endfor %}
-
 {%- if jackson_annotation %}
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -13,7 +13,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 {%- endif %}
-
 {%- if avro_annotation %}
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -27,13 +26,16 @@ import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.avro.specific.SpecificRecord;
 import org.apache.avro.AvroRuntimeException;
 {%- endif %}
-
 {%- if jackson_annotation or avro_annotation %}
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import java.io.InputStream;
 {%- endif %}
 
+/** {{ class_doc }} */
 public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord{%- endif %} {
 
     {# Field declarations #}
@@ -108,22 +110,45 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
      * @return the byte array
      */
     public byte[] toByteArray(String contentType) throws IOException {
+        byte[] result = null;
+        String mediaType = contentType.split(";")[0].trim().toLowerCase();
+
         {%- if jackson_annotation %}
-        if (contentType.equalsIgnoreCase("application/json")) {
+        if (mediaType.equalsIgnoreCase("application/json")) {
             ObjectMapper mapper = new ObjectMapper();
-            return mapper.writeValueAsBytes(this);
+            result = mapper.writeValueAsBytes(this);
         }
         {%- endif %}
         {%- if avro_annotation %}
-        if (contentType.equalsIgnoreCase("application/avro")) {
+        if (mediaType.equalsIgnoreCase("application/avro") || mediaType.equalsIgnoreCase("avro/binary")) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             Encoder encoder = EncoderFactory.get().binaryEncoder(baos, null);
             AVROWRITER.write(this, encoder);
             encoder.flush();
-            return baos.toByteArray();
+            result = baos.toByteArray();
+        } else if (mediaType.equalsIgnoreCase("application/avro+json") || mediaType.equalsIgnoreCase("avro/json")) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            Encoder encoder = EncoderFactory.get().jsonEncoder(AVROSCHEMA, baos);
+            AVROWRITER.write(this, encoder);
+            encoder.flush();
+            result = baos.toByteArray();
         }
         {%- endif %}
-        throw new UnsupportedOperationException("Unsupported content type: " + contentType);
+
+        if (mediaType.endsWith("+gzip")) {
+            ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
+            try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(compressedStream)) {
+                gzipOutputStream.write(result);
+                gzipOutputStream.finish();
+                result = compressedStream.toByteArray();
+            }
+        }
+
+        if (result == null) {
+            throw new UnsupportedOperationException("Unsupported content type: " + contentType);
+        }
+
+        return result;
     }
 
     /**
@@ -133,21 +158,45 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
      * @return the object
      */
     public static {{ class_name }} fromData(byte[] data, String contentType) throws IOException {
+        String mediaType = contentType.split(";")[0].trim().toLowerCase();
+
+        // Handle gzip compressed data
+        if (mediaType.endsWith("+gzip")) {
+            try (InputStream inputStream = new ByteArrayInputStream(data);
+                 GZIPInputStream gzipStream = new GZIPInputStream(inputStream);
+                 ByteArrayOutputStream decompressedStream = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = gzipStream.read(buffer)) != -1) {
+                    decompressedStream.write(buffer, 0, bytesRead);
+                }
+                data = decompressedStream.toByteArray();
+                mediaType = mediaType.replace("+gzip", ""); // Remove gzip suffix
+            } catch (IOException e) {
+                throw new UnsupportedOperationException("Error decompressing gzip data", e);
+            }
+        }
+
+        // JSON deserialization
         {%- if jackson_annotation %}
-        if (contentType.equalsIgnoreCase("application/json")) {
+        if (mediaType.equalsIgnoreCase("application/json")) {
             ObjectMapper mapper = new ObjectMapper();
             return mapper.readValue(data, {{ class_name }}.class);
         }
         {%- endif %}
+
+        // Avro deserialization
         {%- if avro_annotation %}
-        if (contentType.equalsIgnoreCase("application/avro")) {
+        if (mediaType.equalsIgnoreCase("application/avro") || mediaType.equalsIgnoreCase("avro/binary")) {
             ByteArrayInputStream bais = new ByteArrayInputStream(data);
             return AVROREADER.read(null, DecoderFactory.get().binaryDecoder(bais, null));
+        } else if (mediaType.equalsIgnoreCase("application/avro+json") || mediaType.equalsIgnoreCase("avro/json")) {
+            ByteArrayInputStream bais = new ByteArrayInputStream(data);
+            return AVROREADER.read(null, DecoderFactory.get().jsonDecoder(AVROSCHEMA, bais));
         }
         {%- endif %}
+
         throw new UnsupportedOperationException("Unsupported content type: " + contentType);
     }
     {%- endif %}
-
-    {# Additional methods or content can be added here #}
 }
