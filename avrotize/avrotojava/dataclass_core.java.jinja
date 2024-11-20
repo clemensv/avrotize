@@ -46,7 +46,7 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
     {%- if jackson_annotation %}
     @JsonProperty("{{ field.original_name }}")
     {%- endif %}
-    private {{ field.type }} {{ field.name }};
+    private {{ field.type }} {{ field.name | camel }};
     {%- endfor %}
 
     // Default constructor
@@ -54,12 +54,12 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
 
     {# Getters and setters #}
     {%- for field in fields %}
-    public {{ field.type }} get{{ field.name | capitalize }}() {
-        return this.{{ field.name }};
+    public {{ field.type }} get{{ field.name | pascal }}() {
+        return this.{{ field.name | camel }};
     }
 
-    public void set{{ field.name | capitalize }}({{ field.type }} {{ field.name }}) {
-        this.{{ field.name }} = {{ field.name }};
+    public void set{{ field.name | pascal }}({{ field.type }} {{ field.name | camel}}) {
+        this.{{ field.name | camel }} = {{ field.name | camel}};
     }
     {%- endfor %}
 
@@ -70,7 +70,7 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
 
     {%- if avro_annotation %}
     // Avro schema and related methods
-    public static final Schema AVROSCHEMA = new Schema.Parser().parse("{{ avro_schema.replace('"', '\\"') }}");
+    public static final Schema AVROSCHEMA = new Schema.Parser().parse("{{ avro_schema }}");
     public static final DatumWriter<{{ class_name }}> AVROWRITER = new SpecificDatumWriter<{{ class_name }}>(AVROSCHEMA);
     public static final DatumReader<{{ class_name }}> AVROREADER = new SpecificDatumReader<{{ class_name }}>(AVROSCHEMA);
 
@@ -84,7 +84,7 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
     public Object get(int field$) {
         switch (field$) {
             {%- for field in fields %}
-            case {{ loop.index0 }}: return this.{{ field.name }};
+            case {{ loop.index0 }}: return this.{{ field.name | camel }};
             {%- endfor %}
             default: throw new AvroRuntimeException("Bad index: " + field$);
         }
@@ -95,7 +95,7 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
     public void put(int field$, Object value$) {
         switch (field$) {
             {%- for field in fields %}
-            case {{ loop.index0 }}: this.{{ field.name }} = ({{ field.type }}) value$; break;
+            case {{ loop.index0 }}: this.{{ field.name | camel }} = ({{ field.type }}) value$; break;
             {%- endfor %}
             default: throw new AvroRuntimeException("Bad index: " + field$);
         }
@@ -114,21 +114,21 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
         String mediaType = contentType.split(";")[0].trim().toLowerCase();
 
         {%- if jackson_annotation %}
-        if (mediaType.equalsIgnoreCase("application/json")) {
+        if (mediaType.startsWith("application/json")) {
             ObjectMapper mapper = new ObjectMapper();
             result = mapper.writeValueAsBytes(this);
         }
         {%- endif %}
         {%- if avro_annotation %}
-        if (mediaType.equalsIgnoreCase("application/avro") || mediaType.equalsIgnoreCase("avro/binary")) {
+        if (mediaType.startsWith("application/avro+json") || mediaType.startsWith("avro/json")) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            Encoder encoder = EncoderFactory.get().binaryEncoder(baos, null);
+            Encoder encoder = EncoderFactory.get().jsonEncoder(AVROSCHEMA, baos);
             AVROWRITER.write(this, encoder);
             encoder.flush();
             result = baos.toByteArray();
-        } else if (mediaType.equalsIgnoreCase("application/avro+json") || mediaType.equalsIgnoreCase("avro/json")) {
+        } else if (mediaType.startsWith("application/avro") || mediaType.startsWith("avro/binary")) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            Encoder encoder = EncoderFactory.get().jsonEncoder(AVROSCHEMA, baos);
+            Encoder encoder = EncoderFactory.get().binaryEncoder(baos, null);
             AVROWRITER.write(this, encoder);
             encoder.flush();
             result = baos.toByteArray();

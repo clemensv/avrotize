@@ -1,73 +1,104 @@
-{# unionclass_core.java.jinja - Core union class template #}
-
 package {{ package_name }};
 
-{%- if jackson_annotation %}
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
-{%- endif %}
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonGenerator;
 
+import org.apache.avro.generic.GenericData;
+import java.io.IOException;
+
+@JsonSerialize(using = {{ union_class_name }}.Serializer.class)
+@JsonDeserialize(using = {{ union_class_name }}.Deserializer.class)
 public class {{ union_class_name }} {
 
     {%- for type in union_types %}
-    {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
-    private {{ type }} _{{ typeName | strip_namespace | strip_dots | lower }};
+    private {{ type }} _{{ type | strip_namespace | strip_dots | lower }};
+    public {{ type }} get{{ type | strip_namespace | strip_dots | pascal }}() {
+        return _{{ type | strip_namespace | strip_dots | lower }};
+    }
+    public void set{{ type | strip_namespace | strip_dots | pascal }}({{ type }} value) {
+        this._{{ type | strip_namespace | strip_dots | lower }} = value;
+    }
     {%- endfor %}
 
     // Default constructor
     public {{ union_class_name }}() {}
 
+    // Constructors for each type
     {%- for type in union_types %}
-    {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
     public {{ union_class_name }}({{ type }} value) {
-        this._{{ typeName | strip_namespace | strip_dots | lower }} = value;
+        this._{{ type | strip_namespace | strip_dots | lower }} = value;
     }
     {%- endfor %}
 
-    // Union-type getters
-    {%- for type in union_types %}
-    {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
-    public {{ type }} get{{ typeName | strip_namespace | strip_dots | pascal }}() {
-        return this._{{ typeName | strip_namespace | strip_dots | lower }};
-    }
-    public void set{{ typeName | strip_namespace | strip_dots | pascal }}({{ type }} value) {
-        this._{{ typeName | strip_namespace | strip_dots | lower }} = value;
-    }
-    {%- endfor %}
-
-    // Method to retrieve current value as an Object
-    public Object getValue() {
+    // Generic object getter
+    public Object toObject() {
         {%- for type in union_types %}
-        {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
-        if (_{{ typeName | strip_namespace | strip_dots | lower }} != null) return _{{ typeName | strip_namespace | strip_dots | lower }};
+        if (this._{{ type | strip_namespace | strip_dots | lower }} != null) {
+            return this._{{ type | strip_namespace | strip_dots | lower }};
+        }
         {%- endfor %}
         throw new UnsupportedOperationException("No value set in the union");
     }
 
-    {%- if jackson_annotation %}
-    // JSON serialization
-    @JsonValue
-    public JsonNode toJson() throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.valueToTree(this.getValue());
-    }
-
-    // JSON deserialization
-    @JsonCreator
-    public static {{ union_class_name }} fromJson(JsonNode jsonNode) throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
+    // Constructor from Avro GenericData.Record
+    public {{ union_class_name }}(GenericData.Record record) {
         {%- for type in union_types %}
-        {%- set typeName = type if type != 'byte[]' else 'Bytes' %}
-        try {
-            return new {{ union_class_name }}(mapper.treeToValue(jsonNode, {{ typeName }}.class));
-        } catch (JsonProcessingException e) {
-            // Ignore and try next type
+        if ({{ type }}.AVROSCHEMA.getName().equals(record.getSchema().getName())
+            && {{ type }}.AVROSCHEMA.getNamespace().equals(record.getSchema().getNamespace())) {
+            this._{{ type | strip_namespace | strip_dots | lower }} = new {{ type }}(record);
+            return;
         }
         {%- endfor %}
-        throw new IllegalArgumentException("Unsupported JSON format for " + jsonNode);
+        throw new UnsupportedOperationException("No record type is set in the union");
     }
-    {%- endif %}
+
+    // JSON Serializer
+    public static class Serializer extends JsonSerializer<{{ union_class_name }}> {
+        @Override
+        public void serialize({{ union_class_name }} value, JsonGenerator generator, SerializerProvider serializers) throws IOException {
+            {%- for type in union_types %}
+            {{ type }} {{ type | strip_namespace | strip_dots | lower }}Value = value.get{{ type | strip_namespace | strip_dots | pascal }}();
+            if ({{ type | strip_namespace | strip_dots | lower }}Value != null) {
+                generator.writeObject({{ type | strip_namespace | strip_dots | lower }}Value);
+                return;
+            }
+            {%- endfor %}
+            throw new UnsupportedOperationException("No record type is set in the union");
+        }
+    }
+
+    // JSON Deserializer
+    public static class Deserializer extends JsonDeserializer<{{ union_class_name }}> {
+        @Override
+        public {{ union_class_name }} deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+            ObjectMapper mapper = (ObjectMapper) p.getCodec();
+            JsonNode node = mapper.readTree(p);
+
+            {%- for type in union_types %}
+            if (node.isObject() && {{ type }}.isJsonMatch(node)) {
+                return new {{ union_class_name }}(mapper.treeToValue(node, {{ type }}.class));
+            }
+            {%- endfor %}
+            throw new UnsupportedOperationException("No record type matched the JSON data");
+        }
+    }
+
+    // JSON Match Method
+    public static boolean isJsonMatch(JsonNode node) {
+        return (
+            {%- for type in union_types %}
+            ({{ type }}.isJsonMatch(node)) 
+            {%- if not loop.last %} || {%- endif %}
+            {%- endfor %}
+        );
+    }
 }

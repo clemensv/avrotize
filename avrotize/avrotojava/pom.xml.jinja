@@ -16,6 +16,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>{{ jdk_version }}</maven.compiler.source>
         <maven.compiler.target>{{ jdk_version }}</maven.compiler.target>
+        <slf4j.version>1.7.32</slf4j.version>
+        <junit.version>5.8.1</junit.version>
         {%- if jackson_annotation %}
         <jackson.version>2.13.0</jackson.version>
         {%- endif %}
@@ -47,8 +49,22 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.8.1</version>
+            <version>${junit.version}</version>
             <scope>test</scope>
+        </dependency>
+        
+        <!-- SLF4J API -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        
+        <!-- SLF4J Simple Binding -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
     </dependencies>
 

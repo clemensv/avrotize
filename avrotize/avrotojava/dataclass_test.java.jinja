@@ -2,6 +2,10 @@
 
 package {{ package_name }};
 
+{%- for import in imports %}
+import {{ import }};
+{%- endfor %}
+
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 {%- if jackson_annotation %}
@@ -10,13 +14,68 @@ import com.fasterxml.jackson.databind.JsonNode;
 {%- endif %}
 
 public class {{ class_name }}Test {
+    private {{ class_name }} instance;
+
+    public {{ class_name }}Test() {
+        instance = createInstance();
+    }
+
+    public {{ class_name }} createInstance() {
+        {{ class_name }} instance = new {{ class_name }}();
+        {%- for field in fields %}
+        {%- if not field.is_const %}
+        instance.set{{ field.name | pascal }}({{ field.test_value }});
+        {%- endif %}
+        {%- endfor %}
+        return instance;
+    }
+
+    {%- for field in fields %}
+    @Test
+    public void test{{ field.name | pascal }}Property() {
+        {{ field.type }} testValue = {{ field.test_value }};
+        {%- if not field.is_const %}
+        instance.set{{ field.name | pascal }}(testValue);
+        {%- endif %}
+        {%- if field.is_primitive %}
+        {%- if field.type.startswith("List<") or field.type.startswith("Map<") %}
+        assertEquals(testValue, instance.get{{ field.name | pascal }}());
+        {%- else %}
+        assertEquals(testValue, instance.get{{ field.name | pascal }}());
+        {%- endif %}
+        {%- else %}
+        assertEquals(testValue, instance.get{{ field.name | pascal }}());
+        {%- endif %}
+    }
+    {%- endfor %}
+
+    {%- if avro_annotation %}
+    @Test
+    public void testToByteArrayFromDataAvro() throws Exception {
+        String mediaType = "application/vnd.apache.avro+avro";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+    {%- endif %}
+
+    {%- if system_xml_annotation %}
+    @Test
+    public void testToByteArrayFromDataXml() throws Exception {
+        String mediaType = "application/xml";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+    {%- endif %}
 
     @Test
     public void testIsJsonMatch() throws Exception {
         {%- if jackson_annotation %}
         ObjectMapper mapper = new ObjectMapper();
         JsonNode validNode = mapper.readTree("{}");
-        assertTrue({{ class_name }}.isJsonMatch(validNode));
+        {{ class_name }} instance = createInstance();
+        assertTrue(instance.isJsonMatch(validNode));
         {%- else %}
         // Add tests for isJsonMatch if Jackson annotations are enabled
         {%- endif %}
