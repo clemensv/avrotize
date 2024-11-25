@@ -42,7 +42,7 @@ class AvroToCSharp:
         self.avro_annotation = False
         self.generated_types: Dict[str,str] = {}
         self.generated_avro_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
-        self.type_dict = {}
+        self.type_dict: Dict[str, Dict] = {}
 
     def get_qualified_name(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
