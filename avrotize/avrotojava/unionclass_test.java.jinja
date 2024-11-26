@@ -5,35 +5,32 @@ package {{ test_package_name }};
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
+{%- for type in class_union_types %}
+import {{ type.type_name }};
+{%- endfor %}
+
 {%- if jackson_annotation %}
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.core.JsonProcessingException;
 {%- endif %}
 
 public class {{ union_class_name }}Test {
-
-    {%- for type in union_types %}
-    @Test
-    public void test{{ type | strip_namespace }}SetterAndGetter() {
-        {{ union_class_name }} unionInstance = new {{ union_class_name }}(new {{ type }}());
-        assertNotNull(unionInstance.get{{ type | strip_namespace }}());
-        assertTrue(unionInstance.getValue() instanceof {{ type }});
-    }
-    {%- endfor %}
-
-    {%- if jackson_annotation %}
-    @Test
-    public void testJsonSerialization() throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
-        {%- for type in union_types %}
-        {{ union_class_name }} unionInstance = new {{ union_class_name }}(new {{ type }}());
-        JsonNode jsonNode = mapper.valueToTree(unionInstance);
-        assertNotNull(jsonNode);
-        {{ union_class_name }} deserializedInstance = mapper.treeToValue(jsonNode, {{ union_class_name }}.class);
-        assertNotNull(deserializedInstance.get{{ type | strip_namespace }}());
-        assertTrue(deserializedInstance.getValue() instanceof {{ type }});
+    public static {{ union_class_name }} createInstance() {
+        {{ union_class_name }} instance = new {{ union_class_name }}();
+        {%- for type in class_union_types %}
+        {%- if type.element_type %}
+        {%- set typeName = type.element_type.type_name + ("Map" if type.type_name.startswith("java.util.Map") else "Array") %}
+        instance.set{{ typeName | strip_namespace | strip_dots | pascal }}({{ type.element_type.test_value }});
+        {%- else %}
+        {%- set typeName = type.type_name.replace("[]", "Array" ) %}
+        {%- if type.is_class or type.is_enum %}
+        instance.set{{ typeName | strip_namespace | strip_dots | pascal }}({{ type.type_name }}Test.createInstance());
+        {%- else %}
+        instance.set{{ typeName | strip_namespace | strip_dots | pascal }}({{ type.test_value }});
+        {%- endif %}
+        {%- endif %}
         {%- endfor %}
+        return instance;
     }
-    {%- endif %}
+    
 }

@@ -1,76 +1,196 @@
 package {{ package_name }};
 
+{% for import in imports %}
+import {{ import }};
+{%- endfor %}
+{%- if jackson_annotation %}
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonGenerator;
+{%- endif %}
 
-import org.apache.avro.generic.GenericData;
+{%- if jackson_annotation or avro_annotation %}
+{%- endif %}
 import java.io.IOException;
 
+{% if jackson_annotation %}
 @JsonSerialize(using = {{ union_class_name }}.Serializer.class)
 @JsonDeserialize(using = {{ union_class_name }}.Deserializer.class)
+{%- endif %}
 public class {{ union_class_name }} {
-
+    
     {%- for type in union_types %}
-    private {{ type }} _{{ type | strip_namespace | strip_dots | lower }};
-    public {{ type }} get{{ type | strip_namespace | strip_dots | pascal }}() {
-        return _{{ type | strip_namespace | strip_dots | lower }};
+    {%- if type.element_type %}
+    {%- set typeName = type.element_type.type_name + ("Map" if type.type_name.startswith("java.util.Map") else "Array") %}
+    private {{ type.type_name }} _{{ typeName | strip_namespace | strip_dots | camel }};
+    public {{ type.type_name }} get{{ typeName | strip_namespace | strip_dots | pascal }}() {
+        return _{{ typeName | strip_namespace | strip_dots | camel }};
     }
-    public void set{{ type | strip_namespace | strip_dots | pascal }}({{ type }} value) {
-        this._{{ type | strip_namespace | strip_dots | lower }} = value;
+    public void set{{ typeName | strip_namespace | strip_dots | pascal }}({{ type.type_name }} value) {
+        this._{{ typeName | strip_namespace | strip_dots | camel }} = value;
     }
+    {%- else %}
+    {%- set typeName = type.type_name.replace("[]", "Array" ) %}
+    private {{ type.type_name }} _{{ typeName | strip_namespace | strip_dots | camel }};
+    public {{ type.type_name }} get{{ typeName | strip_namespace | strip_dots | pascal }}() {
+        return _{{ typeName | strip_namespace | strip_dots | camel }};
+    }
+    public void set{{ typeName | strip_namespace | strip_dots | pascal }}({{ type.type_name }} value) {
+        this._{{ typeName | strip_namespace | strip_dots | camel }} = value;
+    }
+    {%- endif %}
     {%- endfor %}
 
     // Default constructor
     public {{ union_class_name }}() {}
 
-    // Constructors for each type
-    {%- for type in union_types %}
-    public {{ union_class_name }}({{ type }} value) {
-        this._{{ type | strip_namespace | strip_dots | lower }} = value;
-    }
-    {%- endfor %}
-
-    // Generic object getter
-    public Object toObject() {
+    {%- if union_types | selectattr("element_type") | reject('equalto', None) | list %}
+    @SuppressWarnings("unchecked")
+    {%-endif %}
+    public {{ union_class_name }}(Object item) {
+        {% if avro_annotation %}
+        item = {{ base_package }}.AvroTypeResolver.resolveGenericDataRecord(item);
+        {%- endif %}
         {%- for type in union_types %}
-        if (this._{{ type | strip_namespace | strip_dots | lower }} != null) {
-            return this._{{ type | strip_namespace | strip_dots | lower }};
+        {%- if type.element_type %}
+        {%- set typeName = type.element_type.type_name + ("Map" if type.type_name.startswith("java.util.Map") else "Array") %}
+        if (item instanceof {{ "java.util.Map" if type.type_name.startswith("java.util.Map") else "java.util.List" }} ) {
+            this._{{ typeName | strip_namespace | strip_dots | camel }} = ({{ type.type_name }}) item;
+            return;
         }
+        {%- else %}
+        {%- set typeName = type.type_name.replace("[]", "Array" ) %}
+        if (item instanceof {{ type.type_name }}) {
+            this._{{ typeName | strip_namespace | strip_dots | camel }} = ({{ type.type_name }}) item;
+            return;
+        }
+        {%- endif %}
         {%- endfor %}
-        throw new UnsupportedOperationException("No value set in the union");
+        throw new UnsupportedOperationException("No matching type for the provided item");
     }
 
-    // Constructor from Avro GenericData.Record
-    public {{ union_class_name }}(GenericData.Record record) {
-        {%- for type in union_types %}
-        if ({{ type }}.AVROSCHEMA.getName().equals(record.getSchema().getName())
-            && {{ type }}.AVROSCHEMA.getNamespace().equals(record.getSchema().getNamespace())) {
-            this._{{ type | strip_namespace | strip_dots | lower }} = new {{ type }}(record);
+    public {{ union_class_name }}(org.apache.avro.generic.GenericRecord record) {
+        {%- for type in class_union_type_names if type.is_class %}
+        if ({{ type.type_name }}.AVROSCHEMA.getName().equals(record.getSchema().getName())
+            && {{ type.type_name }}.AVROSCHEMA.getNamespace().equals(record.getSchema().getNamespace())) {
+            this._{{ type.type_name | strip_namespace | strip_dots | camel }} = new {{ type.type_name }}(record);
             return;
         }
         {%- endfor %}
         throw new UnsupportedOperationException("No record type is set in the union");
     }
 
+    // Constructors for each type
+    {%- for type in union_types %}
+    {%- if type.element_type %}
+    {%- set typeName = type.element_type.type_name + ("Map" if type.type_name.startswith("java.util.Map") else "Array") %}
+    public {{ union_class_name }}({{ type.type_name }} value) {
+        this._{{ typeName | strip_namespace | strip_dots | camel }} = value;
+    }
+    {%- else %}
+    {%- set typeName = type.type_name.replace("[]", "Array" ) %}
+    public {{ union_class_name }}({{ type.type_name }} value) {
+        this._{{ typeName | strip_namespace | strip_dots | camel }} = value;
+    }
+    {%- endif %}
+    {%- endfor %}
+
+    @Override
+    public boolean equals(Object other) {
+        if (other == null) {
+            return {% for type in union_types -%}
+            {%- if type.element_type -%}
+            {%- set typeName = type.element_type.type_name + ("Map" if type.type_name.startswith("java.util.Map") else "Array") -%}
+            this._{{ typeName | strip_namespace | strip_dots | camel }} == null
+            {%- else -%}
+            {%- set typeName = type.type_name.replace("[]", "Array" ) -%}
+            this._{{ typeName | strip_namespace | strip_dots | camel }} == null
+            {%- endif -%}
+            {%- if not loop.last %} && {% endif -%}
+            {%- endfor -%};
+        }
+        if ( this == other ) {
+            return true;
+        }
+        if ( this.getClass() != other.getClass() ) {
+            return false;
+        }
+        {{ union_class_name }} otherUnion = ({{ union_class_name }}) other;
+        {%- for type in union_types %}
+        {%- if type.element_type %}
+        {%- set typeName = type.element_type.type_name + ("Map" if type.type_name.startswith("java.util.Map") else "Array") %}
+        if (this._{{ typeName | strip_namespace | strip_dots | camel }} != null) {
+            return this._{{ typeName | strip_namespace | strip_dots | camel }}.equals(otherUnion._{{ typeName | strip_namespace | strip_dots | camel }});
+        }
+        {%- else %}
+        {%- set typeName = type.type_name.replace("[]", "Array" ) %}
+        if (this._{{ typeName | strip_namespace | strip_dots | camel }} != null) {
+            return this._{{ typeName | strip_namespace | strip_dots | camel }}.equals(otherUnion._{{ typeName | strip_namespace | strip_dots | camel }});
+        }
+        {%- endif %}
+        {%- endfor %}
+        return false;
+    }
+
+    // Generic object getter
+    public Object toObject() {
+        {%- for type in union_types %}
+        {%- if type.element_type %}
+        {%- set typeName = type.element_type.type_name + ("Map" if type.type_name.startswith("java.util.Map") else "Array") %}
+        if (this._{{ typeName | strip_namespace | strip_dots | camel }} != null) {
+            return this._{{ typeName | strip_namespace | strip_dots | camel }};
+        }
+        {%- else %}
+        {%- set typeName = type.type_name.replace("[]", "Array" ) %}
+        if (this._{{ typeName | strip_namespace | strip_dots | camel }} != null) {
+            return this._{{ typeName | strip_namespace | strip_dots | camel }};
+        }
+        {%- endif %}
+        {%- endfor %}
+        return null;
+    }
+
+    {%- if avro_annotation %}
+    // Constructor from Avro GenericData.Record
+    public {{ union_class_name }}(org.apache.avro.generic.GenericData.Record record) {
+        {%- for type in class_union_type_names if type_is_class %}
+        if ({{ type.type_name }}.AVROSCHEMA.getName().equals(record.getSchema().getName())
+            && {{ type.type_name }}.AVROSCHEMA.getNamespace().equals(record.getSchema().getNamespace())) {
+            this._{{ type.type_name | strip_namespace | strip_dots | camel }} = new {{ type.type_name }}(record);
+            return;
+        }
+        {%- endfor %}
+        throw new UnsupportedOperationException("No record type is set in the union");
+    }
+    {%- endif %}
+
+    {%- if jackson_annotation %}
     // JSON Serializer
     public static class Serializer extends JsonSerializer<{{ union_class_name }}> {
         @Override
         public void serialize({{ union_class_name }} value, JsonGenerator generator, SerializerProvider serializers) throws IOException {
             {%- for type in union_types %}
-            {{ type }} {{ type | strip_namespace | strip_dots | lower }}Value = value.get{{ type | strip_namespace | strip_dots | pascal }}();
-            if ({{ type | strip_namespace | strip_dots | lower }}Value != null) {
-                generator.writeObject({{ type | strip_namespace | strip_dots | lower }}Value);
+            {%- if type.element_type %}
+            {%- set typeName = type.element_type.type_name + ("Map" if type.type_name.startswith("java.util.Map") else "Array") %}
+            if (value.get{{ typeName | strip_namespace | strip_dots | pascal }}() != null) {
+                generator.writeObject(value.get{{ typeName | strip_namespace | strip_dots | pascal }}());
                 return;
             }
+            {%- else %}
+            {%- set typeName = type.type_name.replace("[]", "Array" ) %}
+            {{ type.type_name }} {{ typeName | strip_namespace | strip_dots | camel }}Value = value.get{{ typeName | strip_namespace | strip_dots | pascal }}();
+            if ({{ typeName | strip_namespace | strip_dots | camel }}Value != null) {
+                generator.writeObject({{ typeName | strip_namespace | strip_dots | camel }}Value);
+                return;
+            }
+            {%- endif %}
             {%- endfor %}
             throw new UnsupportedOperationException("No record type is set in the union");
         }
@@ -83,9 +203,15 @@ public class {{ union_class_name }} {
             ObjectMapper mapper = (ObjectMapper) p.getCodec();
             JsonNode node = mapper.readTree(p);
 
-            {%- for type in union_types %}
-            if (node.isObject() && {{ type }}.isJsonMatch(node)) {
+            {%- for type in union_type_names %}
+            if ( node{{ json_match_predicates[type] }} ) {
+                {%- if type.startswith("java.util.Map") %}
+                return new {{ union_class_name }}(mapper.treeToValue(node, java.util.Map.class));
+                {%- elif type.startswith("java.util.List") %}
+                return new {{ union_class_name }}(mapper.treeToValue(node, java.util.List.class));
+                {%- else %}
                 return new {{ union_class_name }}(mapper.treeToValue(node, {{ type }}.class));
+                {%- endif %}
             }
             {%- endfor %}
             throw new UnsupportedOperationException("No record type matched the JSON data");
@@ -94,11 +220,7 @@ public class {{ union_class_name }} {
 
     // JSON Match Method
     public static boolean isJsonMatch(JsonNode node) {
-        return (
-            {%- for type in union_types %}
-            ({{ type }}.isJsonMatch(node)) 
-            {%- if not loop.last %} || {%- endif %}
-            {%- endfor %}
-        );
+        return true;
     }
+    {%- endif %}
 }

@@ -23,4 +23,9 @@ public class {{ enum_name }}Test {
         assertEquals({{ enum_name }}.{{ value }}, {{ enum_name }}.valueOf("{{ value }}"));
         {%- endfor %}
     }
+
+    public static {{ enum_name }} createInstance() {
+        {{ enum_name }} instance = {{ enum_name }}.{{ enum_values[0] }};
+        return instance;
+    }
 }

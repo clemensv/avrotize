@@ -1,0 +1,58 @@
+package {{ package_name }};
+
+import java.util.Map;
+import static java.util.Map.entry;
+import org.apache.avro.Schema;
+
+public class AvroTypeResolver extends org.apache.avro.specific.SpecificData {
+
+    public static Map<String, Class<?>> avroToJavaMap = Map.ofEntries(
+        {%- for key, java_type in avro_to_java_map.items() %}
+        entry("{{ key }}", {{ java_type.type_name }}.class){%- if loop.last %}{%- else %},{%- endif %}
+        {%- endfor %}
+    );
+    public static Map<Class<?>, Schema> javaToAvroMap = Map.ofEntries(
+        {%- for key, java_type in avro_to_java_map.items() %}
+        entry({{ java_type.type_name }}.class, {{ java_type.type_name }}.SCHEMA$){%- if loop.last %}{%- else %},{%- endif %}
+        {%- endfor %}
+    );
+
+    public AvroTypeResolver() {
+        super();
+    }
+
+    @Override
+    public Class<?> getClass(Schema schema) {
+        return avroToJavaMap.getOrDefault(schema.getFullName(), super.getClass(schema));
+    }
+
+    @Override
+    public Schema getSchema(java.lang.reflect.Type t) {
+        Schema temp = javaToAvroMap.get(t);
+        if (temp == null) {
+            temp = super.getSchema(t);
+        }
+        return temp;
+    }
+
+    private static final AvroTypeResolver INSTANCE = new AvroTypeResolver();
+    public static AvroTypeResolver get() {
+        return INSTANCE;
+    }
+
+    public static Object resolveGenericDataRecord(Object obj) {
+        if (obj instanceof org.apache.avro.generic.GenericData.Record) {
+            org.apache.avro.generic.GenericData.Record record = (org.apache.avro.generic.GenericData.Record) obj;
+            Schema schema = record.getSchema();
+            Class<?> clazz = avroToJavaMap.get(schema.getFullName());
+            if (clazz != null) {
+                try {
+                    return clazz.getConstructor(org.apache.avro.generic.GenericData.Record.class).newInstance(record);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to create instance of " + clazz.getName(), e);
+                }
+            }
+        }
+        return obj;
+    }
+}

@@ -7,13 +7,19 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 {%- endif %}
 
+{%- if avro_annotation %}
+import org.apache.avro.Schema;
+import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.avro.specific.SpecificDatumWriter;
+{%- endif %}
+
 public enum {{ enum_name }} {
 
     {%- for value in enum_values %}
     {{ value }}{{ "," if not loop.last else ";" }}
     {%- endfor %}
 
-    {%- if jackson_annotation %}
+    {% if jackson_annotation %}
     // Serialization for Jackson
     @JsonValue
     public String toValue() {
@@ -25,5 +31,12 @@ public enum {{ enum_name }} {
     public static {{ enum_name }} forValue(String value) {
         return {{ enum_name }}.valueOf(value.toUpperCase());
     }
+    {%- endif %}
+
+    {% if avro_annotation %}
+    // Avro schema and related methods
+    public static final Schema SCHEMA$ = new Schema.Parser().parse("{{ avro_schema }}");
+    public static final SpecificDatumWriter<{{ enum_name }}> AVROWRITER = new SpecificDatumWriter<{{ enum_name }}>(SCHEMA$);
+    public static final SpecificDatumReader<{{ enum_name }}> AVROREADER = new SpecificDatumReader<{{ enum_name }}>(SCHEMA$);
     {%- endif %}
 }

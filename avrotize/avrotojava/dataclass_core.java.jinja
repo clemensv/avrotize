@@ -3,19 +3,15 @@
 package {{ package_name }};
 
 {# Imports #}
-{%- for import in imports %}
-import {{ import }};
-{%- endfor %}
+
 {%- if jackson_annotation %}
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
 {%- endif %}
 {%- if avro_annotation %}
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
@@ -52,6 +48,50 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
     // Default constructor
     public {{ class_name }}() {}
 
+    {# Avro constructor #}
+    {%- if avro_annotation %}
+    public {{ class_name }}(GenericRecord record) {
+        {%- for field in fields %}
+        {%- if field.java_type.element_type %}
+        this.{{ field.name | camel }} = new {{ field.java_type.instance_type }}();
+        {%- if field.java_type.type_name.startswith("java.util.List") %}
+        for (Object item : (org.apache.avro.generic.GenericData.Array<?>) record.get("{{ field.original_name }}")) {
+            {%- if field.java_type.element_type.is_union %}
+            this.{{ field.name | camel }}.add(new {{ field.java_type.element_type.type_name }}(item));
+            {%- elif field.java_type.element_type.is_class %}
+            this.{{ field.name | camel }}.add(new {{ field.java_type.element_type.type_name }}((GenericRecord) item));
+            {%- else %}
+            this.{{ field.name | camel }}.add(({{ field.java_type.element_type.type_name }}) item);
+            {%- endif %}
+        }
+        {%- elif field.java_type.type_name.startswith("java.util.Map") %}
+        for (java.util.Map.Entry<?, ?> entry : ((java.util.Map<?, ?>) record.get("{{ field.original_name }}")).entrySet()) {
+            {%- if field.java_type.element_type.is_union %}
+            this.{{ field.name | camel }}.put(String.valueOf(entry.getKey()), new {{ field.java_type.element_type.type_name }}(entry.getValue()));
+            {%- elif field.java_type.element_type.is_class %}
+            this.{{ field.name | camel }}.put(String.valueOf(entry.getKey()), new {{ field.java_type.element_type.type_name }}((GenericRecord) entry.getValue()));
+            {%- else %}
+            this.{{ field.name | camel }}.put(String.valueOf(entry.getKey()), ({{ field.java_type.element_type.type_name }}) entry.getValue());
+            {%- endif %}
+        }
+        {%- endif %}
+        {%- else %}
+        {%- if field.type == "String" %}
+        this.{{ field.name | camel }} = record.get("{{ field.original_name }}") != null ? record.get("{{ field.original_name }}").toString() : null;
+        {%- elif field.is_enum %}
+        this.{{ field.name | camel }} = {{ field.type }}.valueOf(record.get("{{ field.original_name }}").toString());
+        {%- elif field.is_union %}
+        this.{{ field.name | camel }} = new {{ field.type }}(record.get("{{ field.original_name }}"));
+        {%- elif field.is_class %}
+        this.{{ field.name | camel }} = new {{ field.type }}((GenericRecord) record.get("{{ field.original_name }}"));
+        {%- else %}
+        this.{{ field.name | camel }} = ({{ field.type }}) record.get("{{ field.original_name }}");
+        {%- endif %}
+        {%- endif %}
+        {%- endfor %}
+    }
+    {%- endif %}
+
     {# Getters and setters #}
     {%- for field in fields %}
     public {{ field.type }} get{{ field.name | pascal }}() {
@@ -63,6 +103,35 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
     }
     {%- endfor %}
 
+    @Override
+    public boolean equals(Object otherObject) {
+        if (this == otherObject) {
+            return true;
+        }
+        if (otherObject == null || getClass() != otherObject.getClass()) {
+            return false;
+        }
+        {{ class_name }} other = ({{ class_name }}) otherObject;
+        {%- for field in fields %}
+        {%- if field.is_primitive %}
+        {%- if field.type.startswith("java.util.List<") or field.type.startswith("java.util.Map<") %}
+        if (!java.util.Objects.equals(this.{{ field.name | camel }}, other.{{ field.name | camel }})) {
+            return false;
+        }
+        {%- else %}
+        if (this.{{ field.name | camel }} != other.{{ field.name | camel }}) {
+            return false;
+        }
+        {%- endif %}
+        {%- else %}
+        if (!java.util.Objects.equals(this.{{ field.name | camel }}, other.{{ field.name | camel }})) {
+            return false;
+        }
+        {%- endif %}
+        {%- endfor %}
+        return true;
+    }
+
     {# isJsonMatch method #}
     {%- if jackson_annotation %}
     {{ is_json_match_method }}
@@ -70,32 +139,82 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
 
     {%- if avro_annotation %}
     // Avro schema and related methods
-    public static final Schema AVROSCHEMA = new Schema.Parser().parse("{{ avro_schema }}");
-    public static final DatumWriter<{{ class_name }}> AVROWRITER = new SpecificDatumWriter<{{ class_name }}>(AVROSCHEMA);
-    public static final DatumReader<{{ class_name }}> AVROREADER = new SpecificDatumReader<{{ class_name }}>(AVROSCHEMA);
-
-    {%- if jackson_annotation %}
+    public static final Schema SCHEMA$ = new Schema.Parser().parse("{{ avro_schema }}");
+    
+    {% if jackson_annotation %}
     @JsonIgnore
     {%- endif %}
     @Override
-    public Schema getSchema() { return AVROSCHEMA; }
+    public Schema getSchema() { return SCHEMA$; }
 
     @Override
     public Object get(int field$) {
         switch (field$) {
             {%- for field in fields %}
+            {%- if field.is_union %}
+            case {{ loop.index0 }}: return this.{{ field.name | camel }}.toObject();
+            {%- else %}
             case {{ loop.index0 }}: return this.{{ field.name | camel }};
+            {%- endif %}
             {%- endfor %}
             default: throw new AvroRuntimeException("Bad index: " + field$);
         }
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public void put(int field$, Object value$) {
         switch (field$) {
             {%- for field in fields %}
+            {%- if field.java_type.element_type %}
+            case {{ loop.index0 }}: 
+                this.{{ field.name | camel }} = new {{ field.java_type.instance_type }}();
+                {%- if field.java_type.type_name.startswith("java.util.List") %}
+                for (Object item : (org.apache.avro.generic.GenericData.Array<?>) value$) {
+                    {%- if field.java_type.element_type.is_union %}
+                    this.{{ field.name | camel }}.add(new {{ field.java_type.element_type.type_name }}(item));
+                    {%- elif field.java_type.element_type.is_class %}
+                    this.{{ field.name | camel }}.add(new {{ field.java_type.element_type.type_name }}((GenericRecord) item));
+                    {%- else %}
+                    this.{{ field.name | camel }}.add(({{ field.java_type.element_type.type_name }}) item);
+                    {%- endif %}
+                }
+                {%- elif field.java_type.type_name.startswith("java.util.Map") %}
+                for (java.util.Map.Entry<?, ?> entry : ((java.util.Map<?, ?>) value$).entrySet()) {
+                    {%- if field.java_type.element_type.is_union %}
+                    this.{{ field.name | camel }}.put(String.valueOf(entry.getKey()), new {{ field.java_type.element_type.type_name }}(entry.getValue()));
+                    {%- elif field.java_type.element_type.is_class %}
+                    this.{{ field.name | camel }}.put(String.valueOf(entry.getKey()), new {{ field.java_type.element_type.type_name }}((GenericRecord) entry.getValue()));
+                    {%- else %}
+                    this.{{ field.name | camel }}.put(String.valueOf(entry.getKey()), ({{ field.java_type.element_type.type_name }}) entry.getValue());
+                    {%- endif %}
+                }
+                {%- endif %}
+                break;
+            {%- else %}
+            {%-if field.type == "String" %}
+            case {{ loop.index0 }}: this.{{ field.name | camel }} = value$ != null ? value$.toString() : null; break;
+            {%-elif field.is_enum %}
+            case {{ loop.index0 }}: this.{{ field.name | camel }} = {{ field.type }}.valueOf(value$.toString()); break;
+            {%-elif field.is_union %}
+            case {{ loop.index0 }}: 
+                if (value$ == null ) {
+                    this.{{ field.name | camel }} = null;
+                } else {
+                    this.{{ field.name | camel }} = new {{ field.type }}(value$);
+                }
+                break;
+            {%-elif field.is_class %}
+            case {{ loop.index0 }}: 
+                if (value$ instanceof GenericRecord) {
+                    this.{{ field.name | camel }} = new {{ field.type }}((GenericRecord) value$);
+                } else {
+                    this.{{ field.name | camel }} = ({{ field.type }}) value$;
+                }
+                break;
+            {%- else %}
             case {{ loop.index0 }}: this.{{ field.name | camel }} = ({{ field.type }}) value$; break;
+            {%- endif %}
+            {%- endif %}
             {%- endfor %}
             default: throw new AvroRuntimeException("Bad index: " + field$);
         }
@@ -120,16 +239,18 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
         }
         {%- endif %}
         {%- if avro_annotation %}
-        if (mediaType.startsWith("application/avro+json") || mediaType.startsWith("avro/json")) {
+        if (mediaType.startsWith("application/avro+json") || mediaType.startsWith("avro/json") || mediaType.startsWith("application/vnd.apache.avro+avrojson")) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            Encoder encoder = EncoderFactory.get().jsonEncoder(AVROSCHEMA, baos);
-            AVROWRITER.write(this, encoder);
+            Encoder encoder = EncoderFactory.get().jsonEncoder(SCHEMA$, baos);
+            SpecificDatumWriter<{{ class_name }}> writer = new SpecificDatumWriter<{{ class_name }}>(SCHEMA$, {{ base_package }}.AvroTypeResolver.get());
+            writer.write(this, encoder);
             encoder.flush();
             result = baos.toByteArray();
-        } else if (mediaType.startsWith("application/avro") || mediaType.startsWith("avro/binary")) {
+        } else if (mediaType.startsWith("application/avro") || mediaType.startsWith("avro/binary") || mediaType.startsWith("application/vnd.apache.avro+avro")) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             Encoder encoder = EncoderFactory.get().binaryEncoder(baos, null);
-            AVROWRITER.write(this, encoder);
+            SpecificDatumWriter<{{ class_name }}> writer = new SpecificDatumWriter<{{ class_name }}>(SCHEMA$, {{ base_package }}.AvroTypeResolver.get());
+            writer.write(this, encoder);
             encoder.flush();
             result = baos.toByteArray();
         }
@@ -187,12 +308,14 @@ public class {{ class_name }}{%- if avro_annotation %} implements SpecificRecord
 
         // Avro deserialization
         {%- if avro_annotation %}
-        if (mediaType.equalsIgnoreCase("application/avro") || mediaType.equalsIgnoreCase("avro/binary")) {
+        if (mediaType.equalsIgnoreCase("application/avro") || mediaType.equalsIgnoreCase("avro/binary") || mediaType.equalsIgnoreCase("application/vnd.apache.avro+avro")) {
             ByteArrayInputStream bais = new ByteArrayInputStream(data);
-            return AVROREADER.read(null, DecoderFactory.get().binaryDecoder(bais, null));
-        } else if (mediaType.equalsIgnoreCase("application/avro+json") || mediaType.equalsIgnoreCase("avro/json")) {
+            SpecificDatumReader<{{ class_name }}> reader = new SpecificDatumReader<{{ class_name }}>(SCHEMA$, SCHEMA$, {{ base_package }}.AvroTypeResolver.get());
+            return reader.read(new {{class_name}}(), DecoderFactory.get().binaryDecoder(bais, null));
+        } else if (mediaType.equalsIgnoreCase("application/avro+json") || mediaType.equalsIgnoreCase("avro/json") || mediaType.equalsIgnoreCase("application/vnd.apache.avro+avrojson")) {
             ByteArrayInputStream bais = new ByteArrayInputStream(data);
-            return AVROREADER.read(null, DecoderFactory.get().jsonDecoder(AVROSCHEMA, bais));
+            SpecificDatumReader<{{ class_name }}> reader = new SpecificDatumReader<{{ class_name }}>(SCHEMA$, SCHEMA$, {{ base_package }}.AvroTypeResolver.get());
+            return reader.read(new {{class_name}}(), DecoderFactory.get().jsonDecoder(SCHEMA$, bais));
         }
         {%- endif %}
 

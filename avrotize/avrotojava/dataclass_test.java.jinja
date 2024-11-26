@@ -2,10 +2,6 @@
 
 package {{ package_name }};
 
-{%- for import in imports %}
-import {{ import }};
-{%- endfor %}
-
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 {%- if jackson_annotation %}
@@ -17,14 +13,18 @@ public class {{ class_name }}Test {
     private {{ class_name }} instance;
 
     public {{ class_name }}Test() {
-        instance = createInstance();
+        instance = {{ class_name }}Test.createInstance();
     }
 
-    public {{ class_name }} createInstance() {
+    public static {{ class_name }} createInstance() {
         {{ class_name }} instance = new {{ class_name }}();
         {%- for field in fields %}
+        {%- if field.is_class or field.is_enum %}
+        instance.set{{ field.name | pascal }}({{ field.type }}Test.createInstance());
+        {%- else %}
         {%- if not field.is_const %}
         instance.set{{ field.name | pascal }}({{ field.test_value }});
+        {%- endif %}
         {%- endif %}
         {%- endfor %}
         return instance;
@@ -38,7 +38,7 @@ public class {{ class_name }}Test {
         instance.set{{ field.name | pascal }}(testValue);
         {%- endif %}
         {%- if field.is_primitive %}
-        {%- if field.type.startswith("List<") or field.type.startswith("Map<") %}
+        {%- if field.type.startswith("java.util.List<") or field.type.startswith("java.util.Map<") %}
         assertEquals(testValue, instance.get{{ field.name | pascal }}());
         {%- else %}
         assertEquals(testValue, instance.get{{ field.name | pascal }}());
@@ -73,9 +73,10 @@ public class {{ class_name }}Test {
     public void testIsJsonMatch() throws Exception {
         {%- if jackson_annotation %}
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode validNode = mapper.readTree("{}");
         {{ class_name }} instance = createInstance();
-        assertTrue(instance.isJsonMatch(validNode));
+        byte[] bytes = instance.toByteArray("application/json");
+        JsonNode validNode = mapper.readTree(bytes);
+        assertTrue({{ class_name }}.isJsonMatch(validNode));
         {%- else %}
         // Add tests for isJsonMatch if Jackson annotations are enabled
         {%- endif %}
