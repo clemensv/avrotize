@@ -131,13 +131,21 @@ where the Avro Schema is known to the decoding party.
 
 The features are designed to be orthogonal and can be implemented separately.
 
-- [1: Alternate names](#feature-1-alternate-names)
-- [2: Avro `binary` and `fixed` type data encoding](#feature-2-avro-binary-and-fixed-type-data-encoding)
-- [3: Avro `decimal` logical type data encoding](#feature-3-avro-decimal-logical-type-data-encoding)
-- [4: Avro time, date, and duration logical types](#feature-4-avro-time-date-and-duration-logical-types)
-- [5: Handling unions with primitive type values and enum values](#feature-5-handling-unions-with-primitive-type-values-and-enum-values)
-- [6: Handling unions of record values and of maps](#feature-6-handling-unions-of-record-values-and-of-maps)
-- [7: Document root records](#feature-7-document-root-records)
+- ["Plain JSON" encoding for Apache Avro](#plain-json-encoding-for-apache-avro)
+  - [Notational Conventions](#notational-conventions)
+  - [Interoperability issues of the Avro JSON Encoding with common JSON usage](#interoperability-issues-of-the-avro-json-encoding-with-common-json-usage)
+  - [The Plain JSON encoding](#the-plain-json-encoding)
+    - [Feature 1: Alternate names](#feature-1-alternate-names)
+      - [`altnames` map](#altnames-map)
+      - [`altsymbols` map](#altsymbols-map)
+    - [Feature 2: Avro `binary` and `fixed` type data encoding](#feature-2-avro-binary-and-fixed-type-data-encoding)
+    - [Feature 3: Avro `decimal` logical type and `long` type data encodings](#feature-3-avro-decimal-logical-type-and-long-type-data-encodings)
+    - [Feature 4: Avro time, date, and duration logical types](#feature-4-avro-time-date-and-duration-logical-types)
+    - [Feature 5: Handling unions with primitive type values and enum values](#feature-5-handling-unions-with-primitive-type-values-and-enum-values)
+    - [Feature 6: Handling unions of record values and of maps](#feature-6-handling-unions-of-record-values-and-of-maps)
+      - [Type structure matching](#type-structure-matching)
+      - [Discriminator property](#discriminator-property)
+    - [Feature 7: Document root records](#feature-7-document-root-records)
 
 Features 2, 3, 4, and 5 are trivial on all platforms and frameworks that handle
 JSON. Features 1 and 7 are hints for the JSON encoder and decoder to be able to
@@ -281,11 +289,25 @@ When encoding data typed with the Avro `binary` or `fixed` types, the byte
 sequence is encoded into and from Base64 encoded string values, conforming with
 IETF RFC4648, Section 4.
 
-### Feature 3: Avro `decimal` logical type data encoding
+### Feature 3: Avro `decimal` logical type and `long` type data encodings
 
-When encoding data typed with the Avro logical `decimal` type, the numeric
-value is encoded into a from a JSON `number` value. JSON numbers are represented
-as text and do not lose precision as IEEE754 floating points do.
+When encoding data typed with the Avro logical `decimal` type or a `long` type,
+the numeric value is encoded into a JSON `string` value using the JSON number
+syntax defined in RFC8259, Section 6.
+
+RFC8259, Section 6 explicitly allows implementations to back the JSON number
+type with an IEEE754 double precision floating point type, even though the JSON
+syntax does not limit precision. 
+
+For `decimal` that means that JSON number values are not guaranteed to be able
+to represent the range of Avro decimal values. Worse, IEEE 754 cannot represent
+decimal values exactly (0.1 for instance), which causes precision issues in
+monetary calculations.
+
+Integer values that are outside the range of IEEE754 double precision floating
+point values are not guaranteed to be representable. The range of representable
+integers is -2^53 to 2^53. The required range for an Avro `long` type is -2^63
+to 2^63-1.
 
 When using a JSON library to implement the encoding, decimal values MUST NOT be
 converted through an IEEE floating point type (e.g. double or float in most
@@ -341,7 +363,7 @@ types for the plain JSON encoding.
 | ------------ | --------- | ----------------------------------------------------------------------------------- |
 | null         | null      | The field MAY be omitted                                                            |
 | boolean      | boolean   |                                                                                     |
-| int,long     | integer   |                                                                                     |
+| int          | integer   |                                                                                     |
 | float,double | number    |                                                                                     |
 | bytes        | string    | Base64 string, see [Feature 2](#feature-2-avro-binary-and-fixed-type-data-encoding) |
 | string       | string    |                                                                                     |
@@ -352,7 +374,7 @@ types for the plain JSON encoding.
 | fixed        | string    | Base64 string, see [Feature 2](#feature-2-avro-binary-and-fixed-type-data-encoding) |
 | date/time    | string    | See [Feature 4](#feature-4-avro-time-date-and-duration-logical-types)               |
 | UUID         | string    |                                                                                     |
-| decimal      | number    | See [Feature 3](#feature-3-avro-decimal-logical-type-data-encoding)                 |
+| decimal, long| string    | See [Feature 3](#feature-3-avro-decimal-logical-type-data-encoding)                 |
 
 ### Feature 6: Handling unions of record values and of maps
 
