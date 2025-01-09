@@ -393,8 +393,8 @@ class KustoToAvro:
                 xregistry_messages[schemaid] = {
                     "id": schemaid,
                     "name": schema_name,
-                    "format": "CloudEvents/1.0",
-                    "metadata": {
+                    "envelope": "CloudEvents/1.0",
+                    "envelopemetadata": {
                         "type": {
                             "value": schemaid
                         },
@@ -403,13 +403,13 @@ class KustoToAvro:
                         },
                     },
                     "schemaformat": f"Avro/{AVRO_VERSION}",
-                    "schemaurl": f"#/schemagroups/{groupname}/schemas/{schemaid}"
+                    "schemauri": f"#/schemagroups/{groupname}/schemas/{schemaid}"
                 }
                 for key, value in ce_attribs.items():
                     # skip the required attributes
                     if key == "type" or key == "source" or key == "id" or key == "specversion":
                         continue
-                    xregistry_messages[schemaid]["metadata"][key] = {
+                    xregistry_messages[schemaid]["envelopemetadata"][key] = {
                         "type": value,
                         "required": True
                     }
