@@ -36,7 +36,7 @@ export class {{ class_name }} {
     public {{ field.name }}{%- if field.type.endswith('?')-%}?{%-endif-%} : {{ field.type_no_null }};
     {%- endfor %}
 
-    constructor({%- for field in fields %}{{ field.name }}: {{ field.type_no_null }}{%- if not loop.last %}, {%- endif %}{%- endfor %}) {
+    constructor({%- for field in fields %}{{ field.name }}: {{ field.type_no_null }}{% if not loop.last %}, {% endif %}{%- endfor %}) {
         {%- for field in fields %}
         {%- if field.is_enum %}
         if ( typeof {{ field.name }} === 'number' ) {
