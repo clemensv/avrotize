@@ -9,8 +9,10 @@ import gzip
 import enum
 import typing
 import dataclasses
+from dataclasses import dataclass
 {%- if dataclasses_json_annotation %}
 import dataclasses_json
+from dataclasses_json import Undefined, dataclass_json
 import json
 {%- for field in fields if field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
 {%- if loop.first %}
@@ -32,9 +34,9 @@ import datetime
 {%- endfor %}
 
 {% if dataclasses_json_annotation %}
-@dataclasses_json.dataclass_json
+@dataclass_json(undefined=Undefined.EXCLUDE)
 {%- endif %}
-@dataclasses.dataclass
+@dataclass
 class {{ class_name }}:
     """
     {{ docstring }}
