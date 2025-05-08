@@ -1,0 +1,24 @@
+{
+    "type": "object",
+    "title": "FileMetadata",
+    "properties": {
+        "filename": {
+            "type": "string"
+        },
+        "blob": {
+            "type": "string",
+            "contentEncoding": "base64"
+        },
+        "metadata": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "filename",
+        "blob",
+        "metadata"
+    ]
+}

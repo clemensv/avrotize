@@ -2056,5 +2056,52 @@
         "default": false
       }
     ]
+  },
+  {
+    "command": "a2s",
+    "description": "Convert Avrotize schema to JSON structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotojstruct.convert_avro_to_json_structure",
+      "args": {
+        "avro_schema_file": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "naming_mode": "args.naming",
+        "avro_encoding": "args.avro_encoding"
+      }
+    },
+    "extensions": [".avsc"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON structure file",
+        "required": false
+      },
+      {
+        "name": "--naming",
+        "type": "str",
+        "help": "Type naming convention",
+        "choices": ["snake", "camel", "pascal", "default"],
+        "required": false,
+        "default": "default"
+      },
+      {
+        "name": "--avro-encoding",
+        "type": "bool",
+        "help": "Enable Avro encoding for unions",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
   }
 ]

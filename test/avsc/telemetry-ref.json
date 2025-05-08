@@ -1,0 +1,89 @@
+{
+    "type": "object",
+    "title": "TelemetryRecord",
+    "description": "Represents a telemetry record for a race car.",
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "The unique identifier of the telemetry record."
+        },
+        "version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The version of the telemetry record."
+        },
+        "channel": {
+            "type": "string",
+            "description": "The channel of the telemetry record."
+        },
+        "carId": {
+            "type": "string",
+            "description": "The identifier of the race car."
+        },
+        "intervalId": {
+            "type": "string",
+            "description": "The interval identifier of the telemetry record."
+        },
+        "sampleCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The sample count of the telemetry record."
+        },
+        "frequency": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The frequency of the telemetry record."
+        },
+        "created": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The creation timestamp of the telemetry record."
+        },
+        "timespan": {
+            "$ref": "#/definitions/RecordRange",
+            "description": "The timespan of the telemetry record."
+        },
+        "data": {
+            "type": "array",
+            "items": {
+                "type": "number",
+                "format": "double"
+            },
+            "description": "The telemetry data."
+        },
+        "lapId": {
+            "type": "string",
+            "description": "The identifier of the lap."
+        }
+    },
+    "required": [
+        "version",
+        "channel",
+        "sampleCount",
+        "frequency",
+        "timespan",
+        "data"
+    ],
+    "definitions": {
+        "RecordRange": {
+            "type": "object",
+            "title": "RecordRange",
+            "properties": {
+                "started": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "The start timestamp of the telemetry record."
+                },
+                "ended": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "The end timestamp of the telemetry record."
+                }
+            },
+            "required": [
+                "started",
+                "ended"
+            ]
+        }
+    }
+}

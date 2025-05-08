@@ -1,0 +1,58 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/example/com/record",
+    "name": "record",
+    "$root": "#/definitions/example/com/record",
+    "definitions": {
+        "example": {
+            "com": {
+                "record": {
+                    "name": "record",
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "description": "The type of the record"
+                        },
+                        "postOfficeBox": {
+                            "type": "string",
+                            "description": "The post office box number"
+                        },
+                        "extendedAddress": {
+                            "type": "string",
+                            "description": "The extended address"
+                        },
+                        "streetAddress": {
+                            "type": "string",
+                            "description": "The street address"
+                        },
+                        "locality": {
+                            "type": "string",
+                            "description": "The locality"
+                        },
+                        "region": {
+                            "type": "string",
+                            "default": "None",
+                            "description": "The region"
+                        },
+                        "postalCode": {
+                            "type": "string",
+                            "description": "The postal code"
+                        },
+                        "countryName": {
+                            "type": "string",
+                            "description": "The country name"
+                        }
+                    },
+                    "required": [
+                        "type",
+                        "locality",
+                        "region",
+                        "countryName"
+                    ],
+                    "description": "An address similar to http://microformats.org/wiki/h-card"
+                }
+            }
+        }
+    }
+}

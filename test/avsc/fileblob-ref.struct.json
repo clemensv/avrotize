@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/FileMetadata",
+    "name": "FileMetadata",
+    "$root": "#/definitions/FileMetadata",
+    "definitions": {
+        "FileMetadata": {
+            "name": "FileMetadata",
+            "type": "object",
+            "properties": {
+                "filename": {
+                    "type": "string"
+                },
+                "blob": {
+                    "type": "binary"
+                },
+                "metadata": {
+                    "type": "map",
+                    "values": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "filename",
+                "blob",
+                "metadata"
+            ]
+        }
+    }
+}

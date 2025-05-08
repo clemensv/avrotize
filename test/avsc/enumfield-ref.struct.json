@@ -1,0 +1,35 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/com/example/avro/MyRecord",
+    "name": "MyRecord",
+    "$root": "#/definitions/com/example/avro/MyRecord",
+    "definitions": {
+        "com": {
+            "example": {
+                "avro": {
+                    "MyEnum": {
+                        "name": "MyEnum",
+                        "type": "string",
+                        "enum": [
+                            "SYMBOL1",
+                            "SYMBOL2",
+                            "SYMBOL3"
+                        ]
+                    },
+                    "MyRecord": {
+                        "name": "MyRecord",
+                        "type": "object",
+                        "properties": {
+                            "enumField": {
+                                "$ref": "#/definitions/com/example/avro/MyEnum"
+                            }
+                        },
+                        "required": [
+                            "enumField"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

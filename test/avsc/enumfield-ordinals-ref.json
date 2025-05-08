@@ -1,0 +1,41 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "MyRecord": {
+            "type": "object",
+            "title": "MyRecord",
+            "properties": {
+                "enumField": {
+                    "type": "string",
+                    "enum": [
+                        "SYMBOL1",
+                        "SYMBOL2",
+                        "SYMBOL3"
+                    ],
+                    "title": "MyEnum"
+                }
+            },
+            "required": [
+                "enumField"
+            ]
+        },
+        "MyRecord2": {
+            "type": "object",
+            "title": "MyRecord2",
+            "properties": {
+                "enumField": {
+                    "type": "string",
+                    "enum": [
+                        "SYMBOL1",
+                        "SYMBOL2",
+                        "SYMBOL3"
+                    ],
+                    "title": "MyEnum"
+                }
+            },
+            "required": [
+                "enumField"
+            ]
+        }
+    }
+}

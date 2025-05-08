@@ -1,0 +1,283 @@
+{
+    "type": "object",
+    "title": "TopLevelType",
+    "properties": {
+        "version": {
+            "type": "string"
+        },
+        "document": {
+            "oneOf": [
+                {
+                    "$ref": "#/definitions/RecordType1"
+                },
+                {
+                    "$ref": "#/definitions/RecordType2"
+                },
+                {
+                    "$ref": "#/definitions/RecordType3a"
+                },
+                {
+                    "$ref": "#/definitions/RecordType3b"
+                },
+                {
+                    "$ref": "#/definitions/RecordType4a"
+                },
+                {
+                    "$ref": "#/definitions/RecordType4b"
+                }
+            ]
+        }
+    },
+    "required": [
+        "version",
+        "document"
+    ],
+    "definitions": {
+        "RecordType1": {
+            "type": "object",
+            "title": "RecordType1",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "field3": {
+                    "type": "string"
+                },
+                "field4": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "field5": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "fieldB": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "field1",
+                "field2",
+                "field3",
+                "field4",
+                "field5"
+            ]
+        },
+        "RecordType2": {
+            "type": "object",
+            "title": "RecordType2",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "field3": {
+                    "type": "boolean"
+                },
+                "field4": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "field5": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "fieldA": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "field1",
+                "field2",
+                "field3",
+                "fieldA"
+            ]
+        },
+        "RecordType3a": {
+            "type": "object",
+            "title": "RecordType3a",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "field3": {
+                    "type": "boolean"
+                },
+                "field4": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "field5": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "fieldA": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "field1",
+                "field2",
+                "field3",
+                "fieldA"
+            ]
+        },
+        "RecordType3b": {
+            "type": "object",
+            "title": "RecordType3b",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "field3": {
+                    "type": "boolean"
+                },
+                "field4": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "field5": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "fieldA": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            },
+            "required": [
+                "field1",
+                "field2",
+                "field3",
+                "fieldA"
+            ]
+        },
+        "RecordType4a": {
+            "type": "object",
+            "title": "RecordType4a",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "field3": {
+                    "type": "boolean"
+                },
+                "field4": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "field5": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "fieldA": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/RecordType4aMapValue"
+                    }
+                }
+            },
+            "required": [
+                "field1",
+                "field2",
+                "field3",
+                "fieldA"
+            ]
+        },
+        "RecordType4aMapValue": {
+            "type": "object",
+            "title": "RecordType4aMapValue",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "integer",
+                    "format": "int32"
+                }
+            },
+            "required": [
+                "field1",
+                "field2"
+            ]
+        },
+        "RecordType4b": {
+            "type": "object",
+            "title": "RecordType4b",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "field3": {
+                    "type": "boolean"
+                },
+                "field4": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "field5": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "fieldA": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/RecordType4bMapValue"
+                    }
+                }
+            },
+            "required": [
+                "field1",
+                "field2",
+                "field3",
+                "fieldA"
+            ]
+        },
+        "RecordType4bMapValue": {
+            "type": "object",
+            "title": "RecordType4bMapValue",
+            "properties": {
+                "field1": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "field2": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "field1",
+                "field2"
+            ]
+        }
+    }
+}

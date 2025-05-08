@@ -1,0 +1,498 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "Category": {
+            "type": "object",
+            "title": "Category",
+            "description": "A category of products.",
+            "properties": {
+                "CategoryID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The unique identifier for the category."
+                },
+                "CategoryName": {
+                    "type": "string",
+                    "description": "The name of the category."
+                },
+                "Description": {
+                    "type": "string",
+                    "description": "A description of the category."
+                },
+                "Picture": {
+                    "type": "string",
+                    "contentEncoding": "base64",
+                    "description": "A picture of the category."
+                }
+            },
+            "required": [
+                "CategoryID",
+                "CategoryName"
+            ]
+        },
+        "Customer": {
+            "type": "object",
+            "title": "Customer",
+            "description": "A customer of the company.",
+            "properties": {
+                "CustomerID": {
+                    "type": "string",
+                    "description": "The unique identifier for the customer."
+                },
+                "CompanyName": {
+                    "type": "string",
+                    "description": "The name of the company."
+                },
+                "ContactName": {
+                    "type": "string",
+                    "description": "The name of the contact person."
+                },
+                "ContactTitle": {
+                    "type": "string",
+                    "description": "The title of the contact person."
+                },
+                "Address": {
+                    "type": "string",
+                    "description": "The address of the customer."
+                },
+                "City": {
+                    "type": "string",
+                    "description": "The city where the customer is located."
+                },
+                "Region": {
+                    "type": "string",
+                    "description": "The region where the customer is located."
+                },
+                "PostalCode": {
+                    "type": "string",
+                    "description": "The postal code of the customer."
+                },
+                "Country": {
+                    "type": "string",
+                    "description": "The country where the customer is located."
+                },
+                "Phone": {
+                    "type": "string",
+                    "description": "The phone number of the customer."
+                },
+                "Fax": {
+                    "type": "string",
+                    "description": "The fax number of the customer."
+                }
+            },
+            "required": [
+                "CustomerID",
+                "CompanyName"
+            ]
+        },
+        "Employee": {
+            "type": "object",
+            "title": "Employee",
+            "description": "An employee of the company.",
+            "properties": {
+                "EmployeeID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The unique identifier for the employee."
+                },
+                "LastName": {
+                    "type": "string",
+                    "description": "The last name of the employee."
+                },
+                "FirstName": {
+                    "type": "string",
+                    "description": "The first name of the employee."
+                },
+                "Title": {
+                    "type": "string",
+                    "description": "The title of the employee."
+                },
+                "TitleOfCourtesy": {
+                    "type": "string",
+                    "description": "The courtesy title of the employee."
+                },
+                "BirthDate": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The birth date of the employee."
+                },
+                "HireDate": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The hire date of the employee."
+                },
+                "Address": {
+                    "type": "string",
+                    "description": "The address of the employee."
+                },
+                "City": {
+                    "type": "string",
+                    "description": "The city where the employee is located."
+                },
+                "Region": {
+                    "type": "string",
+                    "description": "The region where the employee is located."
+                },
+                "PostalCode": {
+                    "type": "string",
+                    "description": "The postal code of the employee."
+                },
+                "Country": {
+                    "type": "string",
+                    "description": "The country where the employee is located."
+                },
+                "HomePhone": {
+                    "type": "string",
+                    "description": "The home phone number of the employee."
+                },
+                "Extension": {
+                    "type": "string",
+                    "description": "The extension number of the employee."
+                },
+                "Photo": {
+                    "type": "string",
+                    "contentEncoding": "base64",
+                    "description": "A photo of the employee."
+                },
+                "Notes": {
+                    "type": "string",
+                    "description": "Notes about the employee."
+                },
+                "ReportsTo": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The ID of the employee's manager."
+                },
+                "PhotoPath": {
+                    "type": "string",
+                    "description": "The path to the employee's photo."
+                }
+            },
+            "required": [
+                "EmployeeID",
+                "LastName",
+                "FirstName"
+            ]
+        },
+        "Order": {
+            "type": "object",
+            "title": "Order",
+            "description": "An order placed by a customer.",
+            "properties": {
+                "OrderID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The unique identifier for the order."
+                },
+                "CustomerID": {
+                    "type": "string",
+                    "description": "The ID of the customer who placed the order."
+                },
+                "EmployeeID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The ID of the employee who handled the order."
+                },
+                "OrderDate": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The date the order was placed."
+                },
+                "RequiredDate": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The date the order is required by."
+                },
+                "ShippedDate": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The date the order was shipped."
+                },
+                "ShipVia": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The ID of the shipper."
+                },
+                "Freight": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "The freight charges for the order."
+                },
+                "ShipName": {
+                    "type": "string",
+                    "description": "The name of the recipient."
+                },
+                "ShipAddress": {
+                    "type": "string",
+                    "description": "The address where the order is to be shipped."
+                },
+                "ShipCity": {
+                    "type": "string",
+                    "description": "The city where the order is to be shipped."
+                },
+                "ShipRegion": {
+                    "type": "string",
+                    "description": "The region where the order is to be shipped."
+                },
+                "ShipPostalCode": {
+                    "type": "string",
+                    "description": "The postal code where the order is to be shipped."
+                },
+                "ShipCountry": {
+                    "type": "string",
+                    "description": "The country where the order is to be shipped."
+                }
+            },
+            "required": [
+                "OrderID"
+            ]
+        },
+        "OrderDetail": {
+            "type": "object",
+            "title": "OrderDetail",
+            "description": "Details of a product included in an order.",
+            "properties": {
+                "OrderID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The ID of the order."
+                },
+                "ProductID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The ID of the product."
+                },
+                "UnitPrice": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "The price per unit of the product."
+                },
+                "Quantity": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The quantity of the product ordered."
+                },
+                "Discount": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "The discount applied to the product."
+                }
+            },
+            "required": [
+                "OrderID",
+                "ProductID",
+                "UnitPrice",
+                "Quantity",
+                "Discount"
+            ]
+        },
+        "Product": {
+            "type": "object",
+            "title": "Product",
+            "description": "A product available for sale.",
+            "properties": {
+                "ProductID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The unique identifier for the product."
+                },
+                "ProductName": {
+                    "type": "string",
+                    "description": "The name of the product."
+                },
+                "SupplierID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The ID of the supplier of the product."
+                },
+                "CategoryID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The ID of the category the product belongs to."
+                },
+                "QuantityPerUnit": {
+                    "type": "string",
+                    "description": "The quantity of the product per unit."
+                },
+                "UnitPrice": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "The price per unit of the product."
+                },
+                "UnitsInStock": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The number of units in stock."
+                },
+                "UnitsOnOrder": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The number of units on order."
+                },
+                "ReorderLevel": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The reorder level for the product."
+                },
+                "Discontinued": {
+                    "type": "boolean",
+                    "description": "Whether the product is discontinued."
+                }
+            },
+            "required": [
+                "ProductID",
+                "ProductName",
+                "Discontinued"
+            ]
+        },
+        "Shipper": {
+            "type": "object",
+            "title": "Shipper",
+            "description": "A shipper responsible for delivering orders.",
+            "properties": {
+                "ShipperID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The unique identifier for the shipper."
+                },
+                "CompanyName": {
+                    "type": "string",
+                    "description": "The name of the shipping company."
+                },
+                "Phone": {
+                    "type": "string",
+                    "description": "The phone number of the shipper."
+                }
+            },
+            "required": [
+                "ShipperID",
+                "CompanyName"
+            ]
+        },
+        "Supplier": {
+            "type": "object",
+            "title": "Supplier",
+            "description": "A supplier of products.",
+            "properties": {
+                "SupplierID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The unique identifier for the supplier."
+                },
+                "CompanyName": {
+                    "type": "string",
+                    "description": "The name of the supplier's company."
+                },
+                "ContactName": {
+                    "type": "string",
+                    "description": "The name of the contact person at the supplier."
+                },
+                "ContactTitle": {
+                    "type": "string",
+                    "description": "The title of the contact person at the supplier."
+                },
+                "Address": {
+                    "type": "string",
+                    "description": "The address of the supplier."
+                },
+                "City": {
+                    "type": "string",
+                    "description": "The city where the supplier is located."
+                },
+                "Region": {
+                    "type": "string",
+                    "description": "The region where the supplier is located."
+                },
+                "PostalCode": {
+                    "type": "string",
+                    "description": "The postal code of the supplier."
+                },
+                "Country": {
+                    "type": "string",
+                    "description": "The country where the supplier is located."
+                },
+                "Phone": {
+                    "type": "string",
+                    "description": "The phone number of the supplier."
+                },
+                "Fax": {
+                    "type": "string",
+                    "description": "The fax number of the supplier."
+                },
+                "HomePage": {
+                    "type": "string",
+                    "description": "The homepage of the supplier."
+                }
+            },
+            "required": [
+                "SupplierID",
+                "CompanyName"
+            ]
+        },
+        "Region": {
+            "type": "object",
+            "title": "Region",
+            "description": "A region where the company operates.",
+            "properties": {
+                "RegionID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The unique identifier for the region."
+                },
+                "RegionDescription": {
+                    "type": "string",
+                    "description": "A description of the region."
+                }
+            },
+            "required": [
+                "RegionID",
+                "RegionDescription"
+            ]
+        },
+        "Territory": {
+            "type": "object",
+            "title": "Territory",
+            "description": "A territory within a region.",
+            "properties": {
+                "TerritoryID": {
+                    "type": "string",
+                    "description": "The unique identifier for the territory."
+                },
+                "TerritoryDescription": {
+                    "type": "string",
+                    "description": "A description of the territory."
+                },
+                "RegionID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The ID of the region the territory belongs to."
+                }
+            },
+            "required": [
+                "TerritoryID",
+                "TerritoryDescription",
+                "RegionID"
+            ]
+        },
+        "EmployeeTerritory": {
+            "type": "object",
+            "title": "EmployeeTerritory",
+            "description": "An association between an employee and a territory.",
+            "properties": {
+                "EmployeeID": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "The ID of the employee."
+                },
+                "TerritoryID": {
+                    "type": "string",
+                    "description": "The ID of the territory."
+                }
+            },
+            "required": [
+                "EmployeeID",
+                "TerritoryID"
+            ]
+        }
+    }
+}

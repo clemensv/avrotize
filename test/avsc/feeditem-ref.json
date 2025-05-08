@@ -1,0 +1,239 @@
+{
+    "type": "object",
+    "title": "FeedItem",
+    "properties": {
+        "author": {
+            "$ref": "#/definitions/FeedItemAuthor"
+        },
+        "publisher": {
+            "$ref": "#/definitions/FeedItemPublisher"
+        },
+        "summary": {
+            "$ref": "#/definitions/FeedItemSummary"
+        },
+        "title": {
+            "$ref": "#/definitions/FeedItemTitle"
+        },
+        "source": {
+            "$ref": "#/definitions/FeedItemSource"
+        },
+        "content": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/FeedItemContent"
+            }
+        },
+        "enclosures": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/FeedItemEnclosure"
+            }
+        },
+        "published": {
+            "type": "integer",
+            "format": "int64"
+        },
+        "updated": {
+            "type": "integer",
+            "format": "int64"
+        },
+        "created": {
+            "type": "integer",
+            "format": "int64"
+        },
+        "expired": {
+            "type": "integer",
+            "format": "int64"
+        },
+        "id": {
+            "type": "string"
+        },
+        "license": {
+            "type": "string"
+        },
+        "comments": {
+            "type": "string"
+        },
+        "contributors": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/FeedItemAuthor"
+            }
+        },
+        "links": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/Link"
+            }
+        }
+    },
+    "definitions": {
+        "FeedItemAuthor": {
+            "type": "object",
+            "title": "FeedItemAuthor",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "href": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "FeedItemPublisher": {
+            "type": "object",
+            "title": "FeedItemPublisher",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "href": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "FeedItemSummary": {
+            "type": "object",
+            "title": "FeedItemSummary",
+            "properties": {
+                "value": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "base": {
+                    "type": "string"
+                }
+            }
+        },
+        "FeedItemTitle": {
+            "type": "object",
+            "title": "FeedItemTitle",
+            "properties": {
+                "value": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "base": {
+                    "type": "string"
+                }
+            }
+        },
+        "FeedItemSource": {
+            "type": "object",
+            "title": "FeedItemSource",
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "author_detail": {
+                    "$ref": "#/definitions/FeedItemAuthor"
+                },
+                "contributors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/FeedItemAuthor"
+                    }
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "link": {
+                    "type": "string"
+                },
+                "links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Link"
+                    }
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "rights": {
+                    "type": "string"
+                },
+                "subtitle": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "integer",
+                    "format": "int64"
+                }
+            }
+        },
+        "Link": {
+            "type": "object",
+            "title": "Link",
+            "properties": {
+                "rel": {
+                    "type": "string"
+                },
+                "href": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "FeedItemContent": {
+            "type": "object",
+            "title": "FeedItemContent",
+            "properties": {
+                "value": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "base": {
+                    "type": "string"
+                }
+            }
+        },
+        "FeedItemEnclosure": {
+            "type": "object",
+            "title": "FeedItemEnclosure",
+            "properties": {
+                "href": {
+                    "type": "string"
+                },
+                "length": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
