@@ -8,7 +8,10 @@
                     "$ref": "#/definitions/RecordType1"
                 },
                 {
-                    "$ref": "#/definitions/RecordType2"
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             ]
         }
@@ -49,39 +52,6 @@
                 "field3",
                 "field4",
                 "field5"
-            ]
-        },
-        "RecordType2": {
-            "type": "object",
-            "title": "RecordType2",
-            "properties": {
-                "field1": {
-                    "type": "string"
-                },
-                "field2": {
-                    "type": "integer",
-                    "format": "int32"
-                },
-                "field3": {
-                    "type": "boolean"
-                },
-                "field4": {
-                    "type": "number",
-                    "format": "double"
-                },
-                "field5": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "fieldA": {
-                    "type": "string"
-                }
-            },
-            "required": [
-                "field1",
-                "field2",
-                "field3",
-                "fieldA"
             ]
         }
     }

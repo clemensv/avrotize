@@ -1,0 +1,95 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/com/example/avro/TopLevelType",
+    "name": "TopLevelType",
+    "$root": "#/definitions/com/example/avro/TopLevelType",
+    "definitions": {
+        "com": {
+            "example": {
+                "avro": {
+                    "RecordType1": {
+                        "name": "RecordType1",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "string"
+                            },
+                            "field2": {
+                                "type": "int32"
+                            },
+                            "field3": {
+                                "type": "string"
+                            },
+                            "field4": {
+                                "type": "double"
+                            },
+                            "field5": {
+                                "type": "int64"
+                            },
+                            "fieldB": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2",
+                            "field3",
+                            "field4",
+                            "field5"
+                        ]
+                    },
+                    "RecordType2": {
+                        "name": "RecordType2",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "string"
+                            },
+                            "field2": {
+                                "type": "int32"
+                            },
+                            "field3": {
+                                "type": "boolean"
+                            },
+                            "field4": {
+                                "type": "double"
+                            },
+                            "field5": {
+                                "type": "int64"
+                            },
+                            "fieldA": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2",
+                            "field3",
+                            "fieldA"
+                        ]
+                    },
+                    "TopLevelType": {
+                        "name": "TopLevelType",
+                        "type": "object",
+                        "properties": {
+                            "document": {
+                                "type": "choice",
+                                "choices": {
+                                    "RecordType1": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType1"
+                                    },
+                                    "RecordType2": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType2"
+                                    }
+                                }
+                            }
+                        },
+                        "required": [
+                            "document"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

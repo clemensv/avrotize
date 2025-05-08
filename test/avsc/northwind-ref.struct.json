@@ -1,0 +1,39 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/Northwind/Category",
+    "name": "Category",
+    "$root": "#/definitions/Northwind/Category",
+    "definitions": {
+        "Northwind": {
+            "Category": {
+                "name": "Category",
+                "type": "object",
+                "properties": {
+                    "CategoryID": {
+                        "type": "int32",
+                        "description": "The unique identifier for the category."
+                    },
+                    "CategoryName": {
+                        "type": "string",
+                        "description": "The name of the category."
+                    },
+                    "Description": {
+                        "type": "string",
+                        "default": null,
+                        "description": "A description of the category."
+                    },
+                    "Picture": {
+                        "type": "binary",
+                        "default": null,
+                        "description": "A picture of the category."
+                    }
+                },
+                "required": [
+                    "CategoryID",
+                    "CategoryName"
+                ],
+                "description": "A category of products."
+            }
+        }
+    }
+}

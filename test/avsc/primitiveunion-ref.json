@@ -1,0 +1,88 @@
+{
+    "type": "object",
+    "title": "Example",
+    "properties": {
+        "test1": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "integer",
+                    "format": "int32"
+                }
+            ]
+        },
+        "test2": {
+            "type": "integer",
+            "format": "int32"
+        },
+        "test3": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "boolean"
+                },
+                {
+                    "$ref": "#/definitions/SubRecord"
+                }
+            ]
+        },
+        "test4": {
+            "oneOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            ]
+        },
+        "test5": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            ]
+        }
+    },
+    "required": [
+        "test1",
+        "test3",
+        "test4",
+        "test5"
+    ],
+    "definitions": {
+        "SubRecord": {
+            "type": "object",
+            "title": "SubRecord",
+            "properties": {
+                "sub": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "sub"
+            ]
+        }
+    }
+}

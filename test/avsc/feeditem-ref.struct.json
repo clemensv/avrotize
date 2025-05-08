@@ -1,0 +1,312 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/Microsoft/OpenData/RssFeeds/FeedItem",
+    "name": "FeedItem",
+    "$root": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItem",
+    "definitions": {
+        "Microsoft": {
+            "OpenData": {
+                "RssFeeds": {
+                    "FeedItemAuthor": {
+                        "name": "FeedItemAuthor",
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "href": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "email": {
+                                "type": "string",
+                                "default": null
+                            }
+                        },
+                        "required": []
+                    },
+                    "FeedItemPublisher": {
+                        "name": "FeedItemPublisher",
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "href": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "email": {
+                                "type": "string",
+                                "default": null
+                            }
+                        },
+                        "required": []
+                    },
+                    "FeedItemSummary": {
+                        "name": "FeedItemSummary",
+                        "type": "object",
+                        "properties": {
+                            "value": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "type": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "language": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "base": {
+                                "type": "string",
+                                "default": null
+                            }
+                        },
+                        "required": []
+                    },
+                    "FeedItemTitle": {
+                        "name": "FeedItemTitle",
+                        "type": "object",
+                        "properties": {
+                            "value": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "type": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "language": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "base": {
+                                "type": "string",
+                                "default": null
+                            }
+                        },
+                        "required": []
+                    },
+                    "Link": {
+                        "name": "Link",
+                        "type": "object",
+                        "properties": {
+                            "rel": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "href": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "type": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "title": {
+                                "type": "string",
+                                "default": null
+                            }
+                        },
+                        "required": []
+                    },
+                    "FeedItemSource": {
+                        "name": "FeedItemSource",
+                        "type": "object",
+                        "properties": {
+                            "author": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "author_detail": {
+                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor",
+                                "default": null
+                            },
+                            "contributors": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor"
+                                },
+                                "default": null
+                            },
+                            "icon": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "id": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "link": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "links": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/Link"
+                                },
+                                "default": null
+                            },
+                            "logo": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "rights": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "subtitle": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "title": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "updated": {
+                                "type": "int64",
+                                "logicalType": "timestampMillis",
+                                "default": null
+                            }
+                        },
+                        "required": []
+                    },
+                    "FeedItemContent": {
+                        "name": "FeedItemContent",
+                        "type": "object",
+                        "properties": {
+                            "value": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "type": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "language": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "base": {
+                                "type": "string",
+                                "default": null
+                            }
+                        },
+                        "required": []
+                    },
+                    "FeedItemEnclosure": {
+                        "name": "FeedItemEnclosure",
+                        "type": "object",
+                        "properties": {
+                            "href": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "length": {
+                                "type": "int64",
+                                "default": null
+                            },
+                            "type": {
+                                "type": "string",
+                                "default": null
+                            }
+                        },
+                        "required": []
+                    },
+                    "FeedItem": {
+                        "name": "FeedItem",
+                        "type": "object",
+                        "properties": {
+                            "author": {
+                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor",
+                                "default": null
+                            },
+                            "publisher": {
+                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemPublisher",
+                                "default": null
+                            },
+                            "summary": {
+                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemSummary",
+                                "default": null
+                            },
+                            "title": {
+                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemTitle",
+                                "default": null
+                            },
+                            "source": {
+                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemSource",
+                                "default": null
+                            },
+                            "content": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemContent"
+                                },
+                                "default": null
+                            },
+                            "enclosures": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemEnclosure"
+                                },
+                                "default": null
+                            },
+                            "published": {
+                                "type": "int64",
+                                "logicalType": "timestampMillis",
+                                "default": null
+                            },
+                            "updated": {
+                                "type": "int64",
+                                "logicalType": "timestampMillis",
+                                "default": null
+                            },
+                            "created": {
+                                "type": "int64",
+                                "logicalType": "timestampMillis",
+                                "default": null
+                            },
+                            "expired": {
+                                "type": "int64",
+                                "logicalType": "timestampMillis",
+                                "default": null
+                            },
+                            "id": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "license": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "comments": {
+                                "type": "string",
+                                "default": null
+                            },
+                            "contributors": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor"
+                                },
+                                "default": null
+                            },
+                            "links": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/Link"
+                                },
+                                "default": null
+                            }
+                        },
+                        "required": []
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,94 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/racing/fabrikam/com/TelemetryRecord",
+    "name": "TelemetryRecord",
+    "$root": "#/definitions/racing/fabrikam/com/TelemetryRecord",
+    "definitions": {
+        "racing": {
+            "fabrikam": {
+                "com": {
+                    "RecordRange": {
+                        "name": "RecordRange",
+                        "type": "object",
+                        "properties": {
+                            "started": {
+                                "type": "int64",
+                                "description": "The start timestamp of the telemetry record."
+                            },
+                            "ended": {
+                                "type": "int64",
+                                "description": "The end timestamp of the telemetry record."
+                            }
+                        },
+                        "required": [
+                            "started",
+                            "ended"
+                        ]
+                    },
+                    "TelemetryRecord": {
+                        "name": "TelemetryRecord",
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "description": "The unique identifier of the telemetry record."
+                            },
+                            "version": {
+                                "type": "int32",
+                                "description": "The version of the telemetry record."
+                            },
+                            "channel": {
+                                "type": "string",
+                                "description": "The channel of the telemetry record."
+                            },
+                            "carId": {
+                                "type": "string",
+                                "description": "The identifier of the race car."
+                            },
+                            "intervalId": {
+                                "type": "string",
+                                "description": "The interval identifier of the telemetry record."
+                            },
+                            "sampleCount": {
+                                "type": "int64",
+                                "description": "The sample count of the telemetry record."
+                            },
+                            "frequency": {
+                                "type": "int64",
+                                "description": "The frequency of the telemetry record."
+                            },
+                            "created": {
+                                "type": "int64",
+                                "description": "The creation timestamp of the telemetry record."
+                            },
+                            "timespan": {
+                                "$ref": "#/definitions/racing/fabrikam/com/RecordRange",
+                                "description": "The timespan of the telemetry record."
+                            },
+                            "data": {
+                                "type": "array",
+                                "items": {
+                                    "type": "double"
+                                },
+                                "description": "The telemetry data."
+                            },
+                            "lapId": {
+                                "type": "string",
+                                "description": "The identifier of the lap."
+                            }
+                        },
+                        "required": [
+                            "version",
+                            "channel",
+                            "sampleCount",
+                            "frequency",
+                            "timespan",
+                            "data"
+                        ],
+                        "description": "Represents a telemetry record for a race car."
+                    }
+                }
+            }
+        }
+    }
+}

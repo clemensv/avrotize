@@ -1,0 +1,275 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/com/example/avro/TopLevelType",
+    "name": "TopLevelType",
+    "$root": "#/definitions/com/example/avro/TopLevelType",
+    "definitions": {
+        "com": {
+            "example": {
+                "avro": {
+                    "RecordType1": {
+                        "name": "RecordType1",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "string"
+                            },
+                            "field2": {
+                                "type": "int32"
+                            },
+                            "field3": {
+                                "type": "string"
+                            },
+                            "field4": {
+                                "type": "double"
+                            },
+                            "field5": {
+                                "type": "int64"
+                            },
+                            "fieldB": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2",
+                            "field3",
+                            "field4",
+                            "field5"
+                        ]
+                    },
+                    "RecordType2": {
+                        "name": "RecordType2",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "string"
+                            },
+                            "field2": {
+                                "type": "int32"
+                            },
+                            "field3": {
+                                "type": "boolean"
+                            },
+                            "field4": {
+                                "type": "double"
+                            },
+                            "field5": {
+                                "type": "int64"
+                            },
+                            "fieldA": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2",
+                            "field3",
+                            "fieldA"
+                        ]
+                    },
+                    "RecordType3a": {
+                        "name": "RecordType3a",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "string"
+                            },
+                            "field2": {
+                                "type": "int32"
+                            },
+                            "field3": {
+                                "type": "boolean"
+                            },
+                            "field4": {
+                                "type": "double"
+                            },
+                            "field5": {
+                                "type": "int64"
+                            },
+                            "fieldA": {
+                                "type": "map",
+                                "values": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2",
+                            "field3",
+                            "fieldA"
+                        ]
+                    },
+                    "RecordType3b": {
+                        "name": "RecordType3b",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "string"
+                            },
+                            "field2": {
+                                "type": "int32"
+                            },
+                            "field3": {
+                                "type": "boolean"
+                            },
+                            "field4": {
+                                "type": "double"
+                            },
+                            "field5": {
+                                "type": "int64"
+                            },
+                            "fieldA": {
+                                "type": "map",
+                                "values": {
+                                    "type": "int32"
+                                }
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2",
+                            "field3",
+                            "fieldA"
+                        ]
+                    },
+                    "RecordType4aMapValue": {
+                        "name": "RecordType4aMapValue",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "string"
+                            },
+                            "field2": {
+                                "type": "int32"
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2"
+                        ]
+                    },
+                    "RecordType4a": {
+                        "name": "RecordType4a",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "string"
+                            },
+                            "field2": {
+                                "type": "int32"
+                            },
+                            "field3": {
+                                "type": "boolean"
+                            },
+                            "field4": {
+                                "type": "double"
+                            },
+                            "field5": {
+                                "type": "int64"
+                            },
+                            "fieldA": {
+                                "type": "map",
+                                "values": {
+                                    "$ref": "#/definitions/com/example/avro/RecordType4aMapValue"
+                                }
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2",
+                            "field3",
+                            "fieldA"
+                        ]
+                    },
+                    "RecordType4bMapValue": {
+                        "name": "RecordType4bMapValue",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "int32"
+                            },
+                            "field2": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2"
+                        ]
+                    },
+                    "RecordType4b": {
+                        "name": "RecordType4b",
+                        "type": "object",
+                        "properties": {
+                            "field1": {
+                                "type": "string"
+                            },
+                            "field2": {
+                                "type": "int32"
+                            },
+                            "field3": {
+                                "type": "boolean"
+                            },
+                            "field4": {
+                                "type": "double"
+                            },
+                            "field5": {
+                                "type": "int64"
+                            },
+                            "fieldA": {
+                                "type": "map",
+                                "values": {
+                                    "$ref": "#/definitions/com/example/avro/RecordType4bMapValue"
+                                }
+                            }
+                        },
+                        "required": [
+                            "field1",
+                            "field2",
+                            "field3",
+                            "fieldA"
+                        ]
+                    },
+                    "TopLevelType": {
+                        "name": "TopLevelType",
+                        "type": "object",
+                        "properties": {
+                            "version": {
+                                "type": "string"
+                            },
+                            "document": {
+                                "type": "choice",
+                                "choices": {
+                                    "RecordType1": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType1"
+                                    },
+                                    "RecordType2": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType2"
+                                    },
+                                    "RecordType3a": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType3a"
+                                    },
+                                    "RecordType3b": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType3b"
+                                    },
+                                    "RecordType4a": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType4a"
+                                    },
+                                    "RecordType4b": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType4b"
+                                    }
+                                }
+                            }
+                        },
+                        "required": [
+                            "version",
+                            "document"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
