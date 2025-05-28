@@ -135,3 +135,16 @@ class TestAvroToJava(unittest.TestCase):
                              avro_annotation=True, jackson_annotation=True, package_name="jfrog.pipelines.java.avro")
         assert subprocess.check_call(
             "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+    
+    def test_convert_restricted_name_avsc_to_java(self):
+        """ Test converting an avsc file with a restricted name in the namespace to Java """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "restricted-namespace.avsc")
+        java_path = os.path.join(tempfile.gettempdir(), "avrotize", "restricted-namespace-java")
+        if os.path.exists(java_path):
+            shutil.rmtree(java_path, ignore_errors=True)
+        os.makedirs(java_path, exist_ok=True)
+
+        convert_avro_to_java(avro_path, java_path, package_name="restricted.namespace.java")
+        assert subprocess.check_call(
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
