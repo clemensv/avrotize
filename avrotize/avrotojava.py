@@ -201,7 +201,10 @@ class AvroToJava:
 
     def qualified_name(self, package: str, name: str) -> str:
         """Concatenates package and name using a dot separator"""
-        return f"{package.lower()}.{name}" if package else name
+        slash_package_name = package.replace('.', '/')
+        safe_package_slash = self.safe_package(slash_package_name.lower())
+        safe_package = safe_package_slash.replace('/', '.')
+        return f"{safe_package}.{name}" if package else name
     
     def join_packages(self, parent_package: str, package: str) -> str:
         """Joins package and name using a dot separator"""
@@ -227,6 +230,16 @@ class AvroToJava:
         if class_name and name == class_name:
             return f"{name}_"
         return name
+
+    def safe_package(self, packageName: str) -> str:
+        """Converts a name to a safe Java identifier by checking each path segment"""
+        segments = packageName.split('/')
+        safe_segments = [
+            self.safe_identifier(segment)
+            for segment in segments
+        ]
+        
+        return '/'.join(safe_segments)
     
     def map_primitive_to_java(self, avro_type: str, is_optional: bool) -> JavaType:
         """Maps Avro primitive types to Java types"""
@@ -345,6 +358,7 @@ class AvroToJava:
             avro_schema['namespace'] = namespace
         package = self.join_packages(self.base_package, namespace).replace('.', '/').lower()
         package = package.replace('.', '/').lower()
+        package = self.safe_package(package)
         class_name = self.safe_identifier(avro_schema['name'])
         namespace_qualified_name = self.qualified_name(namespace,avro_schema['name'])
         qualified_class_name = self.qualified_name(package.replace('/', '.'), class_name)
@@ -840,6 +854,7 @@ class AvroToJava:
     def write_to_file(self, package: str, name: str, definition: str):
         """ Writes a Java class or enum to a file """
         package = package.lower()
+        package = self.safe_package(package)
         directory_path = os.path.join(
             self.output_dir, package.replace('.', os.sep).replace('/', os.sep))
         if not os.path.exists(directory_path):
