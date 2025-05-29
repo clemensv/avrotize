@@ -26,16 +26,5 @@
         "default": "false"
       }
     ]
-  },
-  {
-    "type": "record",
-    "name": "MyRecord2",
-    "namespace": "com.example.avro",
-    "fields": [
-      {
-        "name": "enumField",
-        "type": "com.example.avro.MyEnum"
-      }
-    ]
   }
 ]
