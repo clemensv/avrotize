@@ -688,7 +688,7 @@ class AvroToJava:
         self.generated_types_avro_namespace[self.qualified_name(avro_schema.get('namespace', parent_package),avro_schema['name'])] = "enum"
         self.generated_types_java_package[type_name] = "enum"       
         symbols = avro_schema.get('symbols', [])
-        symbols_str = ', '.join(symbols)
+        symbols_str = ', '.join([symbol.upper() for symbol in symbols])
         enum_definition += f"public enum {enum_name} {{\n"
         enum_definition += f"{INDENT}{symbols_str};\n"
         enum_definition += "}\n"
