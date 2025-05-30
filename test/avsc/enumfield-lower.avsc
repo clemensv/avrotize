@@ -1,0 +1,30 @@
+[
+  {
+    "type": "record",
+    "name": "MyRecord",
+    "namespace": "com.example.avro",
+    "fields": [
+      {
+        "name": "snapshot",
+        "type": [
+          {
+            "type": "enum",
+            "name": "true_first_first_in_data_collection_last_in_data_collection_last_false_incremental",
+            "symbols": [
+              "true",
+              "first",
+              "first_in_data_collection",
+              "last_in_data_collection",
+              "last",
+              "false",
+              "incremental"
+            ],
+            "default": "false"
+          },
+          "null"
+        ],
+        "default": "false"
+      }
+    ]
+  }
+]
