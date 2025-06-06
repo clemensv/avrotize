@@ -19,34 +19,57 @@ class AvroToJsonStructure:
         self,
         avro_schema: Union[Dict[str, Any], List[Any]],
         namespace: str | None = None,
+        naming_mode: str = "default",
     ) -> Dict[str, Any]:
         """
         Entry-point: return a full JSON-Structure document for `avro_schema`.
         """
 
         # ------------- LIST (multiple root schemas) --------------------
-        if isinstance(avro_schema, list):
-            # Empty list – return a stub document
+        # Multi-schema pack mode
+        if isinstance(avro_schema, list) and naming_mode == "pack":
+            # Empty list yields empty pack
             if not avro_schema:
-                anon_name = f"empty_list_{uuid.uuid4().hex[:8]}"
+                anon_name = f"empty_pack_{uuid.uuid4().hex[:8]}"
                 return {
                     "$schema": "https://json-structure.org/meta/core/v0/#",
                     "$id": f"https://example.com/schemas/{anon_name}",
-                    "name": anon_name,
-                    "definitions": {},
+                    "$root": f"#/definitions/{anon_name}",
+                    "definitions": {
+                        anon_name: {"name": anon_name, "type": []}
+                    },
                 }
-
-            # TEMPORARY: process only first element
-            first = avro_schema[0]
+            # Register all root schemas into definitions
+            self.known_types.clear()
+            self.reference_stack.clear()
+            definitions: Dict[str, Any] = {}
+            type_refs = []
+            for root in avro_schema:
+                if isinstance(root, dict):
+                    self.register_definition(root, namespace, definitions)
+                    type_name = self.get_fqn(root.get('namespace', namespace), self.clean_name(root.get('name', '')))
+                    type_refs.append({"$ref": f"#/definitions/{type_name}"})
+            union_name = "AvroPack"
+            definitions[union_name] = {"name": union_name, "type": type_refs}
+            doc: Dict[str, Any] = {
+                "$schema": "https://json-structure.org/meta/core/v0/#",
+                "$id": "https://example.com/schemas/pack",
+                "$root": f"#/definitions/{union_name}",
+                "definitions": definitions,
+            }
+            return doc
+        # Fallback: single-schema or default mode
+        if isinstance(avro_schema, list):
+            # Default: convert only the first element
+            first = avro_schema[0] if avro_schema else {}
             if isinstance(first, dict):
-                return self.convert(first, namespace)
-
-            # First element non-dict → return stub
-            bad_name = f"invalid_list_root_{uuid.uuid4().hex[:8]}"
+                return self.convert(first, namespace, naming_mode)
+            # Non-dict first element: stub
+            anon = f"invalid_list_root_{uuid.uuid4().hex[:8]}"
             return {
                 "$schema": "https://json-structure.org/meta/core/v0/#",
-                "$id": f"https://example.com/schemas/{bad_name}",
-                "name": bad_name,
+                "$id": f"https://example.com/schemas/{anon}",
+                "name": anon,
                 "definitions": {},
             }
 
@@ -65,12 +88,16 @@ class AvroToJsonStructure:
             "$schema": "https://json-structure.org/meta/core/v0/#",
             "$id": f"https://example.com/schemas/{fqn}",
             "name": name,
+            # preserve pack-mode tag for single
+            **({"namingMode": naming_mode} if naming_mode != "default" else {}),
             "$root": f"#/definitions/{fqn}",
             "definitions": {},
         }
 
         # Build definitions – do NOT skip root
         self.register_definition(avro_schema, current_namespace, doc["definitions"])
+        
+        # Return the constructed document
         return doc
 
     # ------------------------------------------------------------------ REGISTRATION
@@ -139,18 +166,16 @@ class AvroToJsonStructure:
             for field in avro_schema.get("fields", []):
                 field_name = field["name"]
                 field_type_schema = field["type"]
-                
                 resolved_field_type = self.resolve_avro_type(field_type_schema, record_fields_namespace, definitions)
-
+                # Default value: only if Avro default is specified
                 if "default" in field:
                     resolved_field_type["default"] = self.encode_default_value(field["default"], resolved_field_type.get("type", "unknown"))
-                
+                # Required if not optional union
                 if not self.is_nullable_union(field_type_schema):
                     props["required"].append(field_name)
-                
+                # Field description
                 if "doc" in field:
                     resolved_field_type["description"] = field["doc"]
-                
                 props["properties"][field_name] = resolved_field_type
             type_definition_content = props
             
@@ -290,15 +315,37 @@ class AvroToJsonStructure:
 
     def resolve_logical_type(self, logical_type: str, schema: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Very small logical-type mapping demo. Extend as required.
+        Map Avro logical types to JSON Structure with appropriate 'logicalType'.
         """
-        mapping = {
-            "timestamp-micros": {"type": "int64", "logicalType": "timestampMicros"},
-            "timestamp-millis": {"type": "int64", "logicalType": "timestampMillis"},
-            "date": {"type": "int32", "logicalType": "date"},
-            "uuid": {"type": "string", "format": "uuid"},
+        # Base mapping for Avro logical types; remove 'format' in favor of 'logicalType'
+        mapping: Dict[str, Dict[str, Any]] = {
+            "timestamp-millis": {"type": "int64"},
+            "timestamp-micros": {"type": "int64"},
+            "time-millis": {"type": "int32"},
+            "time-micros": {"type": "int64"},
+            "date": {"type": "int32"},
+            "duration": {"type": "int64"},
+            "decimal": {"type": "number"},
+            "uuid": {"type": "string"},
         }
-        return mapping.get(logical_type, {"type": "string"})
+        base_props = mapping.get(logical_type)
+        # Helper to convert hyphenated logical types to camelCase field name
+        parts = logical_type.split('-')
+        logical_name = parts[0] + ''.join(p.capitalize() for p in parts[1:])
+        if base_props is not None:
+            # Copy to avoid mutating the mapping
+            props = base_props.copy()
+            # Annotate with JSON-Structure logicalType in camelCase
+            props["logicalType"] = logical_name
+            # Add precision/scale for decimal if provided
+            if logical_type == "decimal":
+                if "precision" in schema and schema.get("precision") is not None:
+                    props["precision"] = schema["precision"]
+                if "scale" in schema and schema.get("scale") is not None:
+                    props["scale"] = schema["scale"]
+            return props
+        # Fallback for unknown logical types: treat as string with logicalType annotation
+        return {"type": "string", "logicalType": logical_name}
 
     def clean_name(self, name: str) -> str:
         return name.replace(".", "_")
@@ -339,7 +386,7 @@ def convert_avro_to_json_structure(
     with open(avro_schema_file, "r", encoding="utf-8") as f:
         avro_schema = json.load(f)
 
-    json_structure = converter.convert(avro_schema)
+    json_structure = converter.convert(avro_schema, naming_mode=naming_mode)
 
     with open(json_structure_file, "w", encoding="utf-8") as f:
         json.dump(json_structure, f, indent=4)

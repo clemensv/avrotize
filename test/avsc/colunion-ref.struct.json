@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/ColUnion",
+  "name": "ColUnion",
+  "$root": "#/definitions/ColUnion",
+  "definitions": {
+    "ColUnion": {
+      "name": "ColUnion",
+      "type": "object",
+      "properties": {
+        "arrOrNull": {"type": "array", "items": {"type": "int32"}, "default": null},
+        "mapOrNull": {"type": "map", "values": {"type": "string"}, "default": null}
+      },
+      "required": []
+    }
+  }
+}

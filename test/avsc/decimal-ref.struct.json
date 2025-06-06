@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/WithDecimal",
+  "name": "WithDecimal",
+  "$root": "#/definitions/WithDecimal",
+  "definitions": {
+    "WithDecimal": {
+      "name": "WithDecimal",
+      "type": "object",
+      "properties": {
+        "d": {
+          "type": "number",
+          "logicalType": "decimal",
+          "precision": 10,
+          "scale": 2
+        }
+      },
+      "required": [
+        "d"
+      ]
+    }
+  }
+}

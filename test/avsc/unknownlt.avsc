@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "UnknownLT",
+  "fields": [
+    {
+      "name": "u",
+      "type": { "type": "int", "logicalType": "foo-bar" }
+    }
+  ]
+}

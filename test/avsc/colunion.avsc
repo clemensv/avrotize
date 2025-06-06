@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "ColUnion",
+  "fields": [
+    {
+      "name": "arrOrNull",
+      "type": ["null", {"type": "array", "items": "int"}],
+      "default": null
+    },
+    {
+      "name": "mapOrNull",
+      "type": ["null", {"type": "map", "values": "string"}],
+      "default": null
+    }
+  ]
+}

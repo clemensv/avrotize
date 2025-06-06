@@ -1,0 +1,26 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/pack",
+    "$root": "#/definitions/AvroPack",
+    "definitions": {
+        "A": {
+            "name": "A",
+            "type": "object",
+            "properties": {"f": {"type": "string"}},
+            "required": ["f"]
+        },
+        "B": {
+            "name": "B",
+            "type": "object",
+            "properties": {"x": {"type": "int32"}},
+            "required": ["x"]
+        },
+        "AvroPack": {
+            "name": "AvroPack",
+            "type": [
+                { "$ref": "#/definitions/A" },
+                { "$ref": "#/definitions/B" }
+            ]
+        }
+    }
+}

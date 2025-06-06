@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import tempfile
 import unittest
 import sys
@@ -117,3 +118,42 @@ class TestAvroToJsonStructure(unittest.TestCase):
 
     def test_typemapunion2(self):
         self._convert_and_validate("typemapunion2.avsc", "typemapunion2.struct.json")
+
+    # Additional tests for corner cases
+    def test_pack_mode_simple_records(self):
+        # Use existing packmode.avsc fixture in pack mode
+        self._convert_and_validate("packmode.avsc", "packmode.struct.json", naming_mode="pack")
+
+    def test_decimal_logical_type(self):
+        self._convert_and_validate("decimal.avsc", "decimal.struct.json")
+
+    def test_unknown_logical_type_fallback(self):
+        self._convert_and_validate("unknownlt.avsc", "unknownlt.struct.json")
+
+    def test_union_null_string_default(self):
+        # Default unwrap behavior for nullable union
+        self._convert_and_validate("unionencoding.avsc", "unionencoding.struct.json")
+
+    def test_collection_unions_unwrap(self):
+        # Array/map with null unions unwrap when avro_encoding=False
+        self._convert_and_validate("colunion.avsc", "colunion.struct.json")
+
+    def test_cli_wrapper_roundtrip(self):
+        # from package-root CLI helper writes correct JSON-Structure
+        import tempfile, json
+        tmp = tempfile.gettempdir()
+        avsc = os.path.join(tmp, "T2.avsc")
+        out = os.path.join(tmp, "T2.struct.json")
+        # write minimal schema file
+        with open(avsc, "w", encoding="utf-8") as f:
+            json.dump({
+                "type": "record",
+                "name": "T2",
+                "fields": [{"name": "v", "type": "long"}]
+            }, f)
+        # import from package root
+        from avrotize import convert_avro_to_json_structure
+        convert_avro_to_json_structure(avsc, out)
+        # verify file exists and content
+        doc = json.loads(open(out, encoding="utf-8").read())
+        self.assertEqual(doc["definitions"]["T2"]["properties"]["v"]["type"], "int64")

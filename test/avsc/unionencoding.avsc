@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "UnionEncoding",
+  "fields": [
+    {
+      "name": "maybe",
+      "type": ["null", "string"],
+      "default": null
+    }
+  ]
+}

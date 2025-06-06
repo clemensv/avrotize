@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "WithDecimal",
+  "fields": [
+    {
+      "name": "d",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/UnionEncoding",
+    "name": "UnionEncoding",
+    "$root": "#/definitions/UnionEncoding",
+    "definitions": {
+        "UnionEncoding": {
+            "name": "UnionEncoding",
+            "type": "object",
+            "properties": {
+                "maybe": {
+                    "type": "string",
+                    "default": null
+                }
+            },
+            "required": []
+        }
+    }
+}

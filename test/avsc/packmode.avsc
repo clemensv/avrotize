@@ -1,0 +1,4 @@
+  [
+  {"type": "record", "name": "A", "fields": [{"name": "f", "type": "string"}]},
+  {"type": "record", "name": "B", "fields": [{"name": "x", "type": "int"}]} 
+]

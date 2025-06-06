@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/UnknownLT",
+  "name": "UnknownLT",
+  "$root": "#/definitions/UnknownLT",
+  "definitions": {
+    "UnknownLT": {
+      "name": "UnknownLT",
+      "type": "object",
+      "properties": {
+        "u": {
+          "type": "string",
+          "logicalType": "fooBar"
+        }
+      },
+      "required": ["u"]
+    }
+  }
+}
