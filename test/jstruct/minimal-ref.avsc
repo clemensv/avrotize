@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "Minimal",
+  "fields": [
+    {
+      "name": "foo",
+      "type": "string"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/mychoice",
+  "type": "choice",
+  "name": "MyChoice",
+  "choices": {
+    "option1": {
+      "type": "string"
+    },
+    "option2": {
+      "type": "int32"
+    }
+  }
+}

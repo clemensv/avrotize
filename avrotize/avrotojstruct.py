@@ -248,9 +248,7 @@ class AvroToJsonStructure:
                 ref_fqn = avro_type_schema.replace(".", "/")
             else:
                 ref_fqn = self.get_fqn(context_namespace, self.clean_name(avro_type_schema))
-            return {"$ref": f"#/definitions/{ref_fqn}"}
-
-        # ------------------ UNION ----------------------------------------
+            return {"$ref": f"#/definitions/{ref_fqn}"}        # ------------------ UNION ----------------------------------------
         if isinstance(avro_type_schema, list):
             if not self.avro_encoding and "null" in avro_type_schema:
                 non_null = [t for t in avro_type_schema if t != "null"]
@@ -275,6 +273,15 @@ class AvroToJsonStructure:
             category = avro_type_schema.get("type")
             inline_ns = avro_type_schema.get("namespace", context_namespace)
 
+            # Check for logical types first, before primitive type handling
+            logical_type = avro_type_schema.get("logicalType")
+            if logical_type:
+                return self.resolve_logical_type(logical_type, avro_type_schema)
+
+            # Handle primitive types in dict form (e.g., {'type': 'string'})
+            if category in self.get_primitive_types():
+                return {"type": self.get_primitive_types()[category]}
+
             if category in ("record", "enum", "fixed"):
                 # Ensure definition exists then reference it
                 self.register_definition(avro_type_schema, inline_ns, definitions)
@@ -297,10 +304,6 @@ class AvroToJsonStructure:
                         avro_type_schema["values"], inline_ns, definitions
                     ),
                 }
-
-            logical_type = avro_type_schema.get("logicalType")
-            if logical_type:
-                return self.resolve_logical_type(logical_type, avro_type_schema)
 
         raise ValueError(f"Unsupported Avro type schema: {avro_type_schema}")
 

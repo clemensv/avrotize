@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-structure.org/core/v0/#",
+  "$id": "https://example.com/schemas/primitivetypes",
+  "type": "object",
+  "name": "PrimitiveTypes",
+  "properties": {
+    "str_field": {
+      "type": "string"
+    },
+    "bool_field": {
+      "type": "boolean"
+    },
+    "int32_field": {
+      "type": "int32"
+    },
+    "int64_field": {
+      "type": "int64"
+    },
+    "float_field": {
+      "type": "float"
+    },
+    "double_field": {
+      "type": "double"
+    },
+    "binary_field": {
+      "type": "binary"
+    },
+    "null_field": {
+      "type": "null"
+    }
+  },
+  "required": [
+    "str_field",
+    "bool_field",
+    "int32_field"
+  ]
+}

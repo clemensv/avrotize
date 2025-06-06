@@ -63,6 +63,8 @@ def dynamic_import(module, func):
 def main():
     """Main function for the command line utility."""
     commands = load_commands()
+    # Sort commands alphabetically by command name for better help organization
+    commands = sorted(commands, key=lambda cmd: cmd['command'])
     parser = argparse.ArgumentParser(description='Convert a variety of schema formats to Avrotize schema and vice versa.')
     parser.add_argument('--version', action='store_true', help='Print the version of Avrotize.')
 

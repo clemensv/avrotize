@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "WithDecimal",
+  "fields": [
+    {
+      "name": "amount",
+      "type": {
+        "type": "double",
+        "logicalType": "decimal",
+        "precision": 10,
+        "scale": 2
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "Invalid_Name_",
+  "fields": [
+    {
+      "name": "field_with_dashes",
+      "type": "string"
+    },
+    {
+      "name": "_123numeric",
+      "type": [
+        "null",
+        "int"
+      ],
+      "default": null
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "CLITest",
+  "fields": [
+    {
+      "name": "value",
+      "type": "string"
+    }
+  ]
+}

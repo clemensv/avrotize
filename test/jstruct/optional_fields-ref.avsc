@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "name": "OptionalFields",
+  "fields": [
+    {
+      "name": "required_field",
+      "type": "string"
+    },
+    {
+      "name": "optional_field",
+      "type": [
+        "null",
+        {
+          "type": "int",
+          "logicalType": "int32"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "field_with_default",
+      "type": "string",
+      "default": "default_value"
+    }
+  ]
+}

@@ -4,8 +4,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 const currentVersionMajor = 2;
-const currentVersionMinor = 1;
-const currentVersionPatch = 3;
+const currentVersionMinor = 8;
+const currentVersionPatch = 0;
 async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {
     try {
         const toolAvailable = await execShellCommand('avrotize --version')
@@ -312,13 +312,11 @@ export function activate(context: vscode.ExtensionContext) {
             const avro_annotation_value_arg = avro_annotation_value ? '--avro-annotation' : '';
             const system_text_json_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use System.Text.Json annotations?' }) === 'Yes';
             const system_text_json_annotation_value_arg = system_text_json_annotation_value ? '--system_text_json_annotation' : '';
-            const system_xml_annotation_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use System.Xml annotations?' }) === 'Yes';
-            const system_xml_annotation_value_arg = system_xml_annotation_value ? '--system_xml_annotation' : '';
             const pascal_properties_value = await vscode.window.showQuickPick(['Yes', 'No'], { title: 'Use PascalCase properties?' }) === 'Yes';
             const pascal_properties_value_arg = pascal_properties_value ? '--pascal-properties' : '';
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'All Files': ['*'] } });
             if (!outputPath) { return; }
-            const command = `avrotize a2cs ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg} ${avro_annotation_value_arg} ${system_text_json_annotation_value_arg} ${system_xml_annotation_value_arg} ${pascal_properties_value_arg}`;
+            const command = `avrotize a2cs ${filePath} --out ${outputPath.fsPath} ${namespace_value_arg} ${avro_annotation_value_arg} ${system_text_json_annotation_value_arg} ${pascal_properties_value_arg}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 
@@ -566,6 +564,26 @@ export function activate(context: vscode.ExtensionContext) {
             const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'json File': ['json'] } });
             if (!outputPath) { return; }
             const command = `avrotize a2hbase ${filePath} --out ${outputPath.fsPath} ${emit_cloudevents_columns_value_arg}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.a2s', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.struct.json');
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'struct.json File': ['struct.json'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize a2s ${filePath} --out ${outputPath.fsPath}`;
+            executeCommand(command, outputPath, outputChannel);
+        }));
+
+        disposables.push(vscode.commands.registerCommand('avrotize.s2a', async (uri: vscode.Uri) => {
+            if (!await checkAvrotizeTool(context, outputChannel)) { return; }
+            const filePath = uri.fsPath;
+            const outputPathSuggestion = getSuggestedOutputPath(filePath, '{input_file_name}.avsc');
+            const outputPath = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(outputPathSuggestion), saveLabel: 'Save Output', filters : { 'avsc File': ['avsc'] } });
+            if (!outputPath) { return; }
+            const command = `avrotize s2a ${filePath} --out ${outputPath.fsPath}`;
             executeCommand(command, outputPath, outputChannel);
         }));
 

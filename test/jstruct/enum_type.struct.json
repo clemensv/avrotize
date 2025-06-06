@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/withenum",
+  "type": "object",
+  "name": "WithEnum",
+  "properties": {
+    "status": {
+      "type": "string",
+      "name": "Status",
+      "enum": [
+        "ACTIVE",
+        "INACTIVE",
+        "PENDING"
+      ]
+    }
+  },
+  "required": [
+    "status"
+  ]
+}

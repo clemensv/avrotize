@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/test/minimal",
+  "type": "object",
+  "name": "Minimal",
+  "properties": {
+    "foo": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "foo"
+  ]
+}

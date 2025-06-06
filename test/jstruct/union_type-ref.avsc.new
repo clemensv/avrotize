@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "UnionType",
+  "fields": [
+    {
+      "name": "value",
+      "type": [
+        "string",
+        "int",
+        "null"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "WithArray",
+  "fields": [
+    {
+      "name": "items",
+      "type": {
+        "type": "array",
+        "items": "string"
+      }
+    }
+  ]
+}

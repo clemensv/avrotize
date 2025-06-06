@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/invalid-name",
+  "type": "object",
+  "name": "Invalid_Name_",
+  "properties": {
+    "field_with_dashes": {
+      "type": "string"
+    },
+    "_123numeric": {
+      "type": "int32"
+    }
+  },
+  "required": [
+    "field_with_dashes"
+  ]
+}

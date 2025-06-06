@@ -315,16 +315,15 @@
         "default": "document",
         "required": false
       }    ]
-  },
-  {
+  },  {
     "command": "s2j",
     "description": "Convert JSON Structure to JSON Schema",
     "group": "1_Schemas",
     "function": {
-      "name": "avrotize.structuretojsons.convert_structure_to_json_schema",
+      "name": "avrotize.chained_converters.convert_structure_to_json_schema",
       "args": {
-        "structure_file_path": "input_file_path",
-        "json_schema_path": "output_file_path"
+        "json_structure_file": "input_file_path",
+        "json_schema_file": "output_file_path"
       }
     },
     "extensions": [".struct.json", ".json"],
@@ -344,6 +343,716 @@
       }
     ],
     "suggested_output_file_path": "{input_file_name}.schema.json",
+    "prompts": []
+  },
+  {
+    "command": "s2p",
+    "description": "Convert JSON Structure to Proto schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_proto",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "proto_file_path": "output_file_path",
+        "naming_mode": "args.naming",
+        "allow_optional": "args.allow_optional"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Proto file",
+        "required": false
+      },
+      {
+        "name": "--naming",
+        "type": "str",
+        "help": "Type naming convention",
+        "choices": ["snake", "camel", "pascal"],
+        "required": false,
+        "default": "pascal"
+      },
+      {
+        "name": "--allow-optional",
+        "type": "bool",
+        "help": "Enable support for 'optional' fields",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.proto",
+    "prompts": []
+  },
+  {
+    "command": "s2x",
+    "description": "Convert JSON Structure to XSD schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_xsd",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "xml_file_path": "output_file_path",
+        "namespace": "args.namespace",
+        "root_name": "args.root_name"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the XSD file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Target namespace for the XSD",
+        "required": false
+      },
+      {
+        "name": "--root-name",
+        "type": "str",
+        "help": "Root element name for the XSD",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.xsd",
+    "prompts": []
+  },
+  {
+    "command": "s2k",
+    "description": "Convert JSON Structure to Kusto schema",
+    "group": "2_Database",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_kusto",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "kusto_file_path": "output_file_path",
+        "table_name": "args.table_name"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Kusto script file",
+        "required": false
+      },
+      {
+        "name": "--table-name",
+        "type": "str",
+        "help": "Table name for Kusto schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.kql",
+    "prompts": []
+  },  {
+    "command": "s2sql",
+    "description": "Convert JSON Structure to SQL schema",
+    "group": "2_Database",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_sql",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "dbscript_file_path": "output_file_path",
+        "db_dialect": "args.dialect",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the SQL script file",
+        "required": false
+      },
+      {
+        "name": "--dialect",
+        "type": "str",
+        "help": "SQL dialect (database type)",
+        "choices": [
+          "mysql",
+          "mariadb",
+          "postgres",
+          "sqlserver",
+          "oracle",
+          "sqlite",
+          "bigquery",
+          "snowflake",
+          "redshift",
+          "db2"
+        ],
+        "required": true
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns to the SQL table",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.sql",
+    "prompts": [
+      {
+        "name": "--dialect",
+        "message": "Select the SQL dialect",
+        "choices": [
+          "mysql",
+          "mariadb",
+          "postgres",
+          "sqlserver",
+          "oracle",
+          "sqlite",
+          "bigquery",
+          "snowflake",
+          "redshift",
+          "db2"
+        ]
+      }
+    ]
+  },  {
+    "command": "s2mongo",
+    "description": "Convert JSON Structure to MongoDB schema",
+    "group": "2_Database",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_nosql",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "nosql_file_path": "output_file_path",
+        "nosql_dialect": "mongodb",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the MongoDB script file",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns to the MongoDB schema",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.json",
+    "prompts": []
+  },
+  {
+    "command": "s2pq",
+    "description": "Convert JSON Structure to Parquet format",
+    "group": "3_Formats",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_parquet",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "parquet_file_path": "output_file_path"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Parquet file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.parquet",
+    "prompts": []
+  },
+  {
+    "command": "s2ib",
+    "description": "Convert JSON Structure to Iceberg schema",
+    "group": "3_Formats",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_iceberg",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "output_path": "output_file_path"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Iceberg schema file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.iceberg.json",
+    "prompts": []
+  },
+  {
+    "command": "s2java",
+    "description": "Convert JSON Structure to Java classes",
+    "group": "4_Code_Generation",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_java",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "java_file_path": "output_file_path",
+        "package_name": "args.package",
+        "avro_annotation": "args.avro_annotation"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Directory path for Java files",
+        "required": false
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "Java package name",
+        "required": false
+      },
+      {
+        "name": "--avro-annotation",
+        "type": "bool",
+        "help": "Include Avro annotations",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}",
+    "prompts": []
+  },
+  {
+    "command": "s2cs",
+    "description": "Convert JSON Structure to C# classes",
+    "group": "4_Code_Generation",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_csharp",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "cs_file_path": "output_file_path",
+        "avro_annotation": "args.avro_annotation",
+        "system_text_json_annotation": "args.system_text_json_annotation",
+        "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
+        "system_xml_annotation": "args.system_xml_annotation",
+        "pascal_properties": "args.pascal_properties",
+        "base_namespace": "args.namespace"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the C# file",
+        "required": false
+      },
+      {
+        "name": "--avro-annotation",
+        "type": "bool",
+        "help": "Include Avro annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--system-text-json-annotation",
+        "type": "bool",
+        "help": "Include System.Text.Json annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--newtonsoft-json-annotation",
+        "type": "bool",
+        "help": "Include Newtonsoft.Json annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--system-xml-annotation",
+        "type": "bool",
+        "help": "Include System.Xml annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--pascal-properties",
+        "type": "bool",
+        "help": "Use Pascal case for properties",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Base namespace for generated classes",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.cs",
+    "prompts": []
+  },
+  {
+    "command": "s2py",
+    "description": "Convert JSON Structure to Python classes",
+    "group": "4_Code_Generation",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_python",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "py_file_path": "output_file_path",
+        "base_namespace": "args.namespace"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Python file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Base namespace for generated classes",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.py",
+    "prompts": []
+  },
+  {
+    "command": "s2ts",
+    "description": "Convert JSON Structure to TypeScript interfaces",
+    "group": "4_Code_Generation",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_typescript",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "js_dir_path": "output_file_path",
+        "base_namespace": "args.namespace"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Directory path for TypeScript files",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Base namespace for generated interfaces",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}",
+    "prompts": []
+  },
+  {
+    "command": "s2js",
+    "description": "Convert JSON Structure to JavaScript classes",
+    "group": "4_Code_Generation",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_javascript",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "js_dir_path": "output_file_path",
+        "base_namespace": "args.namespace"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Directory path for JavaScript files",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Base namespace for generated classes",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}",
+    "prompts": []
+  },
+  {
+    "command": "s2cpp",
+    "description": "Convert JSON Structure to C++ classes",
+    "group": "4_Code_Generation",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_cpp",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "output_dir": "output_file_path",
+        "base_namespace": "args.namespace"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Directory path for C++ files",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Base namespace for generated classes",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}",
+    "prompts": []
+  },
+  {
+    "command": "s2go",
+    "description": "Convert JSON Structure to Go structs",
+    "group": "4_Code_Generation",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_go",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "go_file_path": "output_file_path",
+        "package_name": "args.package",
+        "base_namespace": "args.namespace"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Go file",
+        "required": false
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "Go package name",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Base namespace for generated structs",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.go",
+    "prompts": []
+  },
+  {
+    "command": "s2rust",
+    "description": "Convert JSON Structure to Rust structs",
+    "group": "4_Code_Generation",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_rust",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "rust_file_path": "output_file_path",
+        "base_namespace": "args.namespace"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Rust file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Base namespace for generated structs",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.rs",
+    "prompts": []
+  },
+  {
+    "command": "s2dp",
+    "description": "Convert JSON Structure to Data Package",
+    "group": "3_Formats",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_datapackage",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "datapackage_path": "output_file_path"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Data Package file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.datapackage.json",
+    "prompts": []
+  },
+  {
+    "command": "s2md",
+    "description": "Convert JSON Structure to Markdown documentation",
+    "group": "5_Documentation",
+    "function": {
+      "name": "avrotize.chained_converters.convert_structure_to_markdown",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "markdown_path": "output_file_path"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Markdown file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.md",
     "prompts": []
   },
   {
@@ -1464,12 +2173,9 @@
     ],
     "suggested_output_file_path": "{input_file_name}-cpp",
     "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the root namespace for the C++ classes (optional)",
+      {        "name": "--namespace",
         "type": "str",
-        "required": false,
-        "default": "{input_file_name}",
+        "help": "Base namespace for generated classes",
         "required": false
       },
       {
@@ -2063,7 +2769,7 @@
       {
         "name": "--out",
         "type": "str",
-        "help": "Path to the Firebase schema file",
+        "help": "Path to the Firebase schema",
         "required": true
       },
       {
@@ -2155,7 +2861,7 @@
       {
         "name": "--out",
         "type": "str",
-        "help": "Path to the HBase schema file",
+        "help": "Path to the HBase schema",
         "required": true
       },
       {
@@ -2217,6 +2923,295 @@
         "type": "bool",
         "help": "Enable Avro encoding for unions",
         "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2a",
+    "description": "Convert JSON Structure to Avrotize (Avro) schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jstructtoavro.convert_json_structure_to_avro",
+      "args": {
+        "json_structure_file": "input_file_path",
+        "avro_schema_file": "output_file_path",
+        "naming_mode": "args.naming"
+      }
+    },
+    "extensions": [".json", ".struct.json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avro schema file",
+        "required": false
+      },
+      {
+        "name": "--naming",
+        "type": "str",
+        "help": "Type naming convention",
+        "choices": ["snake", "camel", "pascal", "default"],
+        "required": false,
+        "default": "default"
+      }    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "p2s",
+    "description": "Convert Proto schema to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.chained_converters.convert_proto_to_structure",
+      "args": {
+        "proto_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace",
+        "message_type": "args.message_type"
+      }
+    },
+    "extensions": [".proto"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Proto file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the schema",
+        "required": false
+      },
+      {
+        "name": "--message-type",
+        "type": "str",
+        "help": "Generate the schema for a specific Proto message type",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []  },
+  {
+    "command": "x2s",
+    "description": "Convert XSD schema to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.chained_converters.convert_xsd_to_structure",
+      "args": {
+        "xsd_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace",
+        "top_level_element": "args.top_level_element"
+      }
+    },
+    "extensions": [".xsd"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the XSD file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Target namespace for the schema",
+        "required": false
+      },
+      {
+        "name": "--top-level-element",
+        "type": "str",
+        "help": "Top-level element name",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "pq2s",
+    "description": "Convert Parquet to JSON Structure",
+    "group": "3_Formats",
+    "function": {
+      "name": "avrotize.chained_converters.convert_parquet_to_structure",
+      "args": {
+        "parquet_file_path": "input_file_path",
+        "json_structure_file": "output_file_path"
+      }
+    },
+    "extensions": [".parquet"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Parquet file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "asn2s",
+    "description": "Convert ASN.1 to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.chained_converters.convert_asn1_to_structure",
+      "args": {
+        "asn1_file_path": "input_file_path",
+        "json_structure_file": "output_file_path"
+      }
+    },
+    "extensions": [".asn1", ".asn"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the ASN.1 file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "k2s",
+    "description": "Convert Kusto to JSON Structure",
+    "group": "2_Database",
+    "function": {
+      "name": "avrotize.chained_converters.convert_kusto_to_structure",
+      "args": {
+        "kusto_uri": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "table": "args.table",
+        "database": "args.database"
+      }
+    },
+    "extensions": [".kql"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Kusto cluster URI (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--table",
+        "type": "str",
+        "help": "Table name to analyze",
+        "required": false
+      },
+      {
+        "name": "--database",
+        "type": "str",
+        "help": "Database name",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "csv2s",
+    "description": "Convert CSV to JSON Structure",
+    "group": "3_Formats",
+    "function": {
+      "name": "avrotize.chained_converters.convert_csv_to_structure",
+      "args": {
+        "csv_file_path": "input_file_path",
+        "json_structure_file": "output_file_path"
+      }
+    },
+    "extensions": [".csv"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the CSV file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "kstruct2s",
+    "description": "Convert Kafka Struct to JSON Structure",
+    "group": "3_Formats",
+    "function": {
+      "name": "avrotize.chained_converters.convert_kafka_struct_to_structure",
+      "args": {
+        "kafka_struct_path": "input_file_path",
+        "json_structure_file": "output_file_path"
+      }
+    },
+    "extensions": [".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Kafka Struct file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
         "required": false
       }
     ],

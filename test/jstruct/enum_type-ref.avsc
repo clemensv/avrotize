@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "WithEnum",
+  "fields": [
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "Status",
+        "symbols": [
+          "ACTIVE",
+          "INACTIVE",
+          "PENDING"
+        ]
+      }
+    }
+  ]
+}

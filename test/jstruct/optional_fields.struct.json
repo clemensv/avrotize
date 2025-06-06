@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-structure.org/core/v0/#",
+  "$id": "https://example.com/schemas/optionalfields",
+  "type": "object",
+  "name": "OptionalFields",
+  "properties": {
+    "required_field": {
+      "type": "string"
+    },
+    "optional_field": {
+      "type": "int32"
+    },
+    "field_with_default": {
+      "type": "string",
+      "default": "default_value"
+    }
+  },
+  "required": [
+    "required_field"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "Parent",
+  "fields": [
+    {
+      "name": "child",
+      "type": {
+        "type": "record",
+        "name": "Child",
+        "fields": [
+          {
+            "name": "value",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

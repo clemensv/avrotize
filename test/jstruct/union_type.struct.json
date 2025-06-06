@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-structure.org/core/v0/#",
+  "$id": "https://example.com/schemas/uniontype",
+  "type": "object",
+  "name": "UnionType",
+  "properties": {
+    "value": {
+      "type": "choice",
+      "choices": {
+        "option1": {
+          "type": "string"
+        },
+        "option2": {
+          "type": "int32"
+        },
+        "option3": {
+          "type": "null"
+        }
+      }
+    }
+  }
+}

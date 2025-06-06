@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "WithMap",
+  "fields": [
+    {
+      "name": "mapping",
+      "type": {
+        "type": "map",
+        "values": {
+          "type": "int",
+          "logicalType": "int32"
+        }
+      }
+    }
+  ]
+}

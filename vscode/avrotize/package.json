@@ -12,7 +12,7 @@
         "type": "git",
         "url": "https://github.com/clemensv/avrotize.git"
     },
-    "version": "2.1.3",
+    "version": "2.8.0",
     "engines": {
         "vscode": "^1.89.0"
     },
@@ -83,6 +83,12 @@
                 }
             ],
             "convertSubmenu": [
+                {
+                    "command": "avrotize.s2a",
+                    "group": "1_Schemas",
+                    "when": "resourceExtname == .json || resourceExtname == .struct.json",
+                    "title": "Avrotize (Avro) schema"
+                },
                 {
                     "command": "avrotize.p2a",
                     "group": "1_Schemas",
@@ -216,6 +222,12 @@
                     "title": "JSON schema"
                 },
                 {
+                    "command": "avrotize.a2s",
+                    "group": "1_Schemas",
+                    "when": "resourceExtname == .avsc",
+                    "title": "JSON structure"
+                },
+                {
                     "command": "avrotize.a2java",
                     "group": "2_ProgLanguages",
                     "when": "resourceExtname == .avsc",
@@ -299,7 +311,7 @@
                     "submenu": "convertSubmenu",
                     "title": "Convert",
                     "group": "navigation",
-                    "when": "resourceExtname == .xsd || resourceExtname == .kstruct || resourceExtname == .kusto || resourceExtname == .parquet || resourceExtname == .avsc || resourceExtname == .csv || resourceExtname == .proto || resourceExtname == .asn1 || resourceExtname == .jsons || resourceExtname == .json"
+                    "when": "resourceExtname == .jsons || resourceExtname == .parquet || resourceExtname == .kusto || resourceExtname == .xsd || resourceExtname == .struct.json || resourceExtname == .avsc || resourceExtname == .asn1 || resourceExtname == .csv || resourceExtname == .proto || resourceExtname == .kstruct || resourceExtname == .json"
                 }
             ]
         },
@@ -477,6 +489,16 @@
             {
                 "command": "avrotize.a2hbase",
                 "title": "HBase schema",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.a2s",
+                "title": "JSON structure",
+                "category": "Convert"
+            },
+            {
+                "command": "avrotize.s2a",
+                "title": "Avrotize (Avro) schema",
                 "category": "Convert"
             }
         ]

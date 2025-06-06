@@ -1,0 +1,64 @@
+{
+  "type": "record",
+  "name": "PrimitiveTypes",
+  "fields": [
+    {
+      "name": "str_field",
+      "type": "string"
+    },
+    {
+      "name": "bool_field",
+      "type": "boolean"
+    },
+    {
+      "name": "int32_field",
+      "type": {
+        "type": "int",
+        "logicalType": "int32"
+      }
+    },
+    {
+      "name": "int64_field",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "int64"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "float_field",
+      "type": [
+        "null",
+        "float"
+      ],
+      "default": null
+    },
+    {
+      "name": "double_field",
+      "type": [
+        "null",
+        "double"
+      ],
+      "default": null
+    },
+    {
+      "name": "binary_field",
+      "type": [
+        "null",
+        "bytes"
+      ],
+      "default": null
+    },
+    {
+      "name": "null_field",
+      "type": [
+        "null",
+        "null"
+      ],
+      "default": null
+    }
+  ]
+}

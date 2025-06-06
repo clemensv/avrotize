@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/parent",
+  "type": "object",
+  "name": "Parent",
+  "properties": {
+    "child": {
+      "type": "object",
+      "name": "Child",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ]
+    }
+  },
+  "required": [
+    "child"
+  ]
+}
