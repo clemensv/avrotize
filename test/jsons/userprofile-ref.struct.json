@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "A representation of a user profile",
+  "properties": {
+    "age": {
+      "type": "int32",
+      "minimum": 0
+    },
+    "email": {
+      "type": "string"
+    },
+    "fullName": {
+      "type": "string"
+    },
+    "interests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "location": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "username",
+    "email"
+  ],
+  "$id": "https://example.com/user-profile.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "name": "document"
+}

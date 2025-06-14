@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "property1": {
+        "type": "string"
+      },
+      "property2": {
+        "type": "double"
+      }
+    },
+    "required": [
+      "property1",
+      "property2"
+    ],
+    "name": "document"
+  },
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "name": "document"
+}

@@ -17,6 +17,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+      with:
+        submodules: recursive
     - name: Set up .NET SDK 9.0
       uses: actions/setup-dotnet@v3
       with:
@@ -59,6 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
     - name: Set up Python
       uses: actions/setup-python@v3
       with:

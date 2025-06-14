@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "property1": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "name": "document"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "property2": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "name": "document"
+    }
+  ],
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureConditionalComposition"
+  ]
+}

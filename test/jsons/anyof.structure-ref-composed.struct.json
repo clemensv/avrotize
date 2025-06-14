@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "properties": {
+    "example1": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "double"
+        }
+      ]
+    },
+    "example2": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bar": {
+              "type": "double"
+            },
+            "foo": {
+              "type": "string"
+            }
+          },
+          "name": "document"
+        }
+      ]
+    },
+    "example3": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          },
+          "name": "document"
+        }
+      ]
+    },
+    "example4": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "foo": {
+              "type": "string"
+            }
+          },
+          "name": "document"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bar": {
+              "type": "double"
+            }
+          },
+          "name": "document"
+        }
+      ]
+    },
+    "example5": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "foo": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "foo"
+          ],
+          "name": "document"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bar": {
+              "type": "boolean"
+            },
+            "foo": {
+              "type": "double"
+            }
+          },
+          "required": [
+            "foo",
+            "bar"
+          ],
+          "name": "document"
+        }
+      ]
+    }
+  },
+  "required": [
+    "example1",
+    "example2",
+    "example3",
+    "example4",
+    "example5"
+  ],
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureConditionalComposition",
+    "JSONStructureValidation"
+  ],
+  "name": "document"
+}

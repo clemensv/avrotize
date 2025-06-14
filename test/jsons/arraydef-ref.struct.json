@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "properties": {
+    "testArray": {
+      "type": {
+        "$ref": "#/definitions/StringArray"
+      }
+    }
+  },
+  "$id": "https://example.com/example/com.schema.json",
+  "definitions": {
+    "StringArray": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "name": "StringArray"
+    }
+  },
+  "name": "document"
+}

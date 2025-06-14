@@ -222,10 +222,107 @@
         "choices": ["snake", "camel", "pascal", "default"],
         "required": false,
         "default": "default"
-      }
-    ],
+      }    ],
     "suggested_output_file_path": "{input_file_name}.jsons",
     "prompts": []
+  },
+  {
+    "command": "j2s",
+    "description": "Convert JSON schema to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jsonstostructure.convert_json_schema_to_structure",
+      "args": {
+        "json_schema_file_path": "input_file_path",
+        "structure_schema_path": "output_file_path",
+        "namespace": "args.namespace",
+        "utility_namespace": "args.utility_namespace",
+        "root_class_name": "args.root_class_name",
+        "preserve_composition": "args.preserve_composition",
+        "detect_inheritance": "args.detect_inheritance",
+        "detect_discriminators": "args.detect_discriminators",
+        "convert_empty_objects_to_maps": "args.convert_empty_objects_to_maps"
+      }
+    },
+    "extensions": [".json", ".jsons"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the JSON Structure schema",
+        "required": false
+      },
+      {
+        "name": "--utility-namespace",
+        "type": "str",
+        "help": "Namespace for utility types",
+        "required": false
+      },
+      {
+        "name": "--root-class-name",
+        "type": "str",
+        "help": "Name of the root class",
+        "default": "document",
+        "required": false
+      },
+      {
+        "name": "--preserve-composition",
+        "type": "bool",
+        "help": "Preserve composition keywords (allOf, oneOf, anyOf)",
+        "default": true,
+        "required": false
+      },
+      {
+        "name": "--detect-inheritance",
+        "type": "bool",
+        "help": "Detect inheritance patterns in allOf schemas",
+        "default": true,
+        "required": false
+      },
+      {
+        "name": "--detect-discriminators",
+        "type": "bool",
+        "help": "Detect OpenAPI discriminator patterns",
+        "default": true,
+        "required": false
+      },
+      {
+        "name": "--convert-empty-objects-to-maps",
+        "type": "bool",
+        "help": "Convert objects with only additionalProperties to maps",
+        "default": true,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": [
+      {
+        "name": "--namespace",
+        "message": "Enter the namespace for the JSON Structure schema",
+        "type": "str",
+        "required": false
+      },
+      {
+        "name": "--root-class-name",
+        "message": "Enter the name of the root class",
+        "type": "str",
+        "default": "document",
+        "required": false
+      }
+    ]
   },
   {
     "command": "x2a",

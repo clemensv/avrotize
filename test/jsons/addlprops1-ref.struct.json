@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "map",
+  "description": "Only Additional Properties",
+  "values": {
+    "type": "string"
+  },
+  "$id": "https://example.com/example/com.schema.json",
+  "name": "document"
+}

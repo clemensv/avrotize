@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "properties": {
+    "arrayObject": {
+      "type": "string"
+    },
+    "objectWithAdditionalProperties": {
+      "type": "string"
+    },
+    "objectWithProperties": {
+      "type": "string"
+    },
+    "stringProperty": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "objectWithProperties",
+    "arrayObject",
+    "objectWithAdditionalProperties",
+    "stringProperty"
+  ],
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "definitions": {
+    "additionalPropertiesObject": {
+      "type": "map",
+      "values": {
+        "type": "string"
+      },
+      "name": "additionalPropertiesObject"
+    },
+    "arrayObject": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "name": "arrayObject"
+    },
+    "propertiesObject": {
+      "type": "object",
+      "required": [
+        "property1",
+        "property2"
+      ],
+      "name": "propertiesObject",
+      "properties": {
+        "property1": {
+          "type": "string"
+        },
+        "property2": {
+          "type": "double"
+        }
+      }
+    },
+    "stringType": {
+      "type": "string",
+      "name": "stringType"
+    }
+  },
+  "name": "document"
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "Only Pattern Properties",
+  "properties": {},
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "additionalProperties": {
+    "$ref": "#/definitions/additionalProperty"
+  },
+  "definitions": {
+    "additionalProperty": {
+      "type": "object",
+      "required": [
+        "value",
+        "timestamp"
+      ],
+      "name": "additionalProperty",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "int32"
+        }
+      }
+    }
+  },
+  "name": "document",
+  "propertyNames": {
+    "type": "string",
+    "pattern": "^data_[0-9]+"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Test Discriminated Union",
+  "type": "object",
+  "properties": {
+    "identifier": {
+      "type": "string"
+    },
+    "contact_method": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email"
+            }
+          },
+          "required": ["email"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "phone": {
+              "type": "string"
+            }
+          },
+          "required": ["phone"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string"
+            }
+          },
+          "required": ["address"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": ["identifier", "contact_method"]
+}

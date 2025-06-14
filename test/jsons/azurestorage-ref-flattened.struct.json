@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "definitions": {
+    "StorageBlobCreatedEventData": {
+      "type": "object",
+      "name": "StorageBlobCreatedEventData",
+      "properties": {
+        "api": {
+          "type": "string"
+        },
+        "clientRequestId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "eTag": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "contentLength": {
+          "type": "int64"
+        },
+        "contentOffset": {
+          "type": "int64"
+        },
+        "blobType": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "sequencer": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "storageDiagnostics": {
+          "type": "any"
+        }
+      }
+    },
+    "StorageBlobDeletedEventData": {
+      "type": "object",
+      "name": "StorageBlobDeletedEventData",
+      "properties": {
+        "api": {
+          "type": "string"
+        },
+        "clientRequestId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "blobType": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "sequencer": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "storageDiagnostics": {
+          "type": "any"
+        }
+      }
+    },
+    "StorageDirectoryCreatedEventData": {
+      "type": "object",
+      "name": "StorageDirectoryCreatedEventData",
+      "properties": {
+        "api": {
+          "type": "string"
+        },
+        "clientRequestId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "eTag": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "sequencer": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "storageDiagnostics": {
+          "type": "any"
+        }
+      }
+    },
+    "StorageDirectoryDeletedEventData": {
+      "type": "object",
+      "name": "StorageDirectoryDeletedEventData",
+      "properties": {
+        "api": {
+          "type": "string"
+        },
+        "clientRequestId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "recursive": {
+          "type": "string"
+        },
+        "sequencer": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "storageDiagnostics": {
+          "type": "any"
+        }
+      }
+    },
+    "StorageBlobRenamedEventData": {
+      "type": "object",
+      "name": "StorageBlobRenamedEventData",
+      "properties": {
+        "api": {
+          "type": "string"
+        },
+        "clientRequestId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "sourceUrl": {
+          "type": "string"
+        },
+        "destinationUrl": {
+          "type": "string"
+        },
+        "sequencer": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "storageDiagnostics": {
+          "type": "any"
+        }
+      }
+    },
+    "StorageDirectoryRenamedEventData": {
+      "type": "object",
+      "name": "StorageDirectoryRenamedEventData",
+      "properties": {
+        "api": {
+          "type": "string"
+        },
+        "clientRequestId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "sourceUrl": {
+          "type": "string"
+        },
+        "destinationUrl": {
+          "type": "string"
+        },
+        "sequencer": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "storageDiagnostics": {
+          "type": "any"
+        }
+      }
+    },
+    "StorageLifecyclePolicyCompletedEventData": {
+      "type": "object",
+      "name": "StorageLifecyclePolicyCompletedEventData",
+      "properties": {
+        "scheduleTime": {
+          "type": "string"
+        },
+        "deleteSummary": {
+          "type": {
+            "$ref": "#/definitions/StorageLifecyclePolicyActionSummaryDetail"
+          }
+        },
+        "tierToCoolSummary": {
+          "type": {
+            "$ref": "#/definitions/StorageLifecyclePolicyActionSummaryDetail"
+          }
+        },
+        "tierToArchiveSummary": {
+          "type": {
+            "$ref": "#/definitions/StorageLifecyclePolicyActionSummaryDetail"
+          }
+        }
+      }
+    },
+    "StorageLifecyclePolicyActionSummaryDetail": {
+      "type": "object",
+      "name": "StorageLifecyclePolicyActionSummaryDetail",
+      "properties": {
+        "totalObjectsCount": {
+          "type": "int64"
+        },
+        "successCount": {
+          "type": "int64"
+        },
+        "errorList": {
+          "type": "string"
+        }
+      }
+    },
+    "StorageBlobTierChangedEventData": {
+      "type": "object",
+      "name": "StorageBlobTierChangedEventData",
+      "properties": {
+        "api": {
+          "type": "string"
+        },
+        "clientRequestId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "contentLength": {
+          "type": "int64"
+        },
+        "blobType": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "sequencer": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "storageDiagnostics": {
+          "type": "any"
+        }
+      }
+    },
+    "StorageAsyncOperationInitiatedEventData": {
+      "type": "object",
+      "name": "StorageAsyncOperationInitiatedEventData",
+      "properties": {
+        "api": {
+          "type": "string"
+        },
+        "clientRequestId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "contentType": {
+          "type": "string"
+        },
+        "contentLength": {
+          "type": "int64"
+        },
+        "blobType": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "sequencer": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "storageDiagnostics": {
+          "type": "any"
+        }
+      }
+    },
+    "StorageBlobInventoryPolicyCompletedEventData": {
+      "type": "object",
+      "name": "StorageBlobInventoryPolicyCompletedEventData",
+      "properties": {
+        "scheduleDateTime": {
+          "type": "datetime"
+        },
+        "accountName": {
+          "type": "string"
+        },
+        "ruleName": {
+          "type": "string"
+        },
+        "policyRunStatus": {
+          "type": "string"
+        },
+        "policyRunStatusMessage": {
+          "type": "string"
+        },
+        "policyRunId": {
+          "type": "string"
+        },
+        "manifestBlobUrl": {
+          "type": "string"
+        }
+      }
+    },
+    "StorageTaskQueuedEventData": {
+      "type": "object",
+      "name": "StorageTaskQueuedEventData",
+      "properties": {
+        "queuedDateTime": {
+          "type": "datetime"
+        },
+        "taskExecutionId": {
+          "type": "string"
+        }
+      }
+    },
+    "StorageTaskCompletedEventData": {
+      "type": "object",
+      "name": "StorageTaskCompletedEventData",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "Succeeded",
+            "Failed"
+          ]
+        },
+        "completedDateTime": {
+          "type": "datetime"
+        },
+        "taskExecutionId": {
+          "type": "string"
+        },
+        "taskName": {
+          "type": "string"
+        },
+        "summaryReportBlobUrl": {
+          "type": "string"
+        }
+      }
+    },
+    "StorageTaskAssignmentQueuedEventData": {
+      "type": "object",
+      "name": "StorageTaskAssignmentQueuedEventData",
+      "properties": {
+        "queuedDateTime": {
+          "type": "datetime"
+        },
+        "taskExecutionId": {
+          "type": "string"
+        }
+      }
+    },
+    "StorageTaskAssignmentCompletedEventData": {
+      "type": "object",
+      "name": "StorageTaskAssignmentCompletedEventData",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "Succeeded",
+            "Failed"
+          ]
+        },
+        "completedDateTime": {
+          "type": "datetime"
+        },
+        "taskExecutionId": {
+          "type": "string"
+        },
+        "taskName": {
+          "type": "string"
+        },
+        "summaryReportBlobUrl": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

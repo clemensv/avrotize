@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "A representation of a movie",
+  "properties": {
+    "cast": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "director": {
+      "type": "string"
+    },
+    "duration": {
+      "type": "string"
+    },
+    "genre": {
+      "type": "string",
+      "enum": [
+        "Action",
+        "Comedy",
+        "Drama",
+        "Science Fiction"
+      ]
+    },
+    "releaseDate": {
+      "type": "date"
+    },
+    "title": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "director",
+    "releaseDate"
+  ],
+  "$id": "https://example.com/movie.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "name": "document"
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "properties": {
+    "property1": {
+      "type": "string"
+    },
+    "property2": {
+      "type": "double"
+    },
+    "property3": {
+      "type": "boolean"
+    }
+  },
+  "$id": "https://example.com/example/com.schema.json",
+  "name": "document"
+}

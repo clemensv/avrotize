@@ -1,0 +1,3269 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "JSON schema for Travis CI configuration files",
+  "properties": {
+    "import": {
+      "oneOf": [
+        {
+          "type": "set",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/import"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/import"
+        }
+      ]
+    },
+    "jobs": {
+      "type": "object",
+      "properties": {
+        "allow_failures": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stage": {
+                "type": "string"
+              }
+            },
+            "$extends": "#/definitions/jobBase",
+            "name": "document"
+          }
+        },
+        "fast_finish": {
+          "type": "boolean"
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stage": {
+                "type": "string"
+              }
+            },
+            "$extends": "#/definitions/jobBase",
+            "name": "document"
+          }
+        }
+      },
+      "name": "document"
+    },
+    "matrix": {
+      "type": "object",
+      "properties": {
+        "allow_failures": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "fast_finish": {
+          "type": "boolean"
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        }
+      },
+      "name": "document"
+    },
+    "notifications": {
+      "type": "object",
+      "properties": {
+        "campfire": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_campfire"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_campfire"
+                }
+              }
+            }
+          ]
+        },
+        "email": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_email"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_email"
+                }
+              }
+            }
+          ]
+        },
+        "flowdock": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretString"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_flowdock"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_flowdock"
+                }
+              }
+            }
+          ]
+        },
+        "hipchat": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_hipchat"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_hipchat"
+                }
+              }
+            }
+          ]
+        },
+        "irc": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_irc"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_irc"
+                }
+              }
+            }
+          ]
+        },
+        "pushover": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_pushover"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_pushover"
+                }
+              }
+            }
+          ]
+        },
+        "slack": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/slackRoom"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_slack"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_slack"
+                }
+              }
+            }
+          ]
+        },
+        "webhooks": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_webhooks"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_webhooks"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "name": "document"
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "if": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "name": "document"
+          }
+        ]
+      }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(~>|>|>=|=|<=|<) (\\d+(?:\\.\\d+)?(?:\\.\\d+)?)$"
+    }
+  },
+  "$extends": "#/definitions/jobBase",
+  "$id": "https://json.schemastore.org/travis.json",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureConditionalComposition",
+    "JSONStructureValidation"
+  ],
+  "definitions": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "name": "nonEmptyString"
+    },
+    "notRequiredNonEmptyString": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "name": "notRequiredNonEmptyString"
+    },
+    "arrayOfNonEmptyStrings": {
+      "type": "array",
+      "items": {
+        "type": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      },
+      "name": "arrayOfNonEmptyStrings"
+    },
+    "nonEmptyStringOrArrayOfNonEmptyStrings": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        {
+          "$ref": "#/definitions/arrayOfNonEmptyStrings"
+        }
+      ],
+      "name": "nonEmptyStringOrArrayOfNonEmptyStrings"
+    },
+    "notRequiredNonEmptyStringOrArrayOfNonEmptyStrings": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "name": "notRequiredNonEmptyStringOrArrayOfNonEmptyStrings"
+    },
+    "stringArrayUnique": {
+      "type": "set",
+      "items": {
+        "type": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      },
+      "name": "stringArrayUnique"
+    },
+    "stringOrStringArrayUnique": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        {
+          "$ref": "#/definitions/stringArrayUnique"
+        }
+      ],
+      "name": "stringOrStringArrayUnique"
+    },
+    "stringOrNumber": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        {
+          "type": "double"
+        }
+      ],
+      "name": "stringOrNumber"
+    },
+    "stringOrNumberAndBothAreTypeArrayUnique": {
+      "type": "set",
+      "items": {
+        "type": {
+          "$ref": "#/definitions/stringOrNumber"
+        }
+      },
+      "name": "stringOrNumberAndBothAreTypeArrayUnique"
+    },
+    "stringOrNumberOrAcceptBothTypeAsArrayUnique": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/stringOrNumber"
+        },
+        {
+          "$ref": "#/definitions/stringOrNumberAndBothAreTypeArrayUnique"
+        }
+      ],
+      "name": "stringOrNumberOrAcceptBothTypeAsArrayUnique"
+    },
+    "secretString": {
+      "type": "object",
+      "name": "secretString",
+      "properties": {
+        "secure": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        }
+      }
+    },
+    "possiblySecretString": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "name": "possiblySecretString",
+          "properties": {
+            "secure": {
+              "type": "string"
+            }
+          }
+        }
+      ],
+      "name": "possiblySecretString"
+    },
+    "possiblySecretStringOrPossiblySecretStringTypeArrayUnique": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/possiblySecretString"
+        },
+        {
+          "type": "set",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/possiblySecretString"
+            }
+          }
+        }
+      ],
+      "name": "possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+    },
+    "slackRoom": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": ".+:.+(#.+)?"
+        },
+        {
+          "$ref": "#/definitions/secretString"
+        }
+      ],
+      "name": "slackRoom"
+    },
+    "notificationFrequency": {
+      "type": "string",
+      "enum": [
+        "always",
+        "never",
+        "change"
+      ],
+      "name": "notificationFrequency"
+    },
+    "step": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string",
+          "enum": [
+            "skip",
+            "ignore"
+          ]
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ],
+      "name": "step"
+    },
+    "service": {
+      "type": "string",
+      "enum": [
+        "cassandra",
+        "couchdb",
+        "docker",
+        "elasticsearch",
+        "mariadb",
+        "memcached",
+        "mongodb",
+        "mysql",
+        "neo4j",
+        "postgresql",
+        "rabbitmq",
+        "redis",
+        "redis-server",
+        "rethinkdb",
+        "riak",
+        "xvfb"
+      ],
+      "name": "service"
+    },
+    "cache": {
+      "type": "string",
+      "enum": [
+        "apt",
+        "bundler",
+        "cargo",
+        "ccache",
+        "cocoapods",
+        "packages",
+        "pip",
+        "yarn",
+        "npm"
+      ],
+      "name": "cache"
+    },
+    "xcodeVersions": {
+      "type": "string",
+      "enum": [
+        "xcode6.4",
+        "xcode7.3",
+        "xcode8",
+        "xcode8.3",
+        "xcode9",
+        "xcode9.1",
+        "xcode9.2",
+        "xcode9.3",
+        "xcode9.4",
+        "xcode10",
+        "xcode10.1",
+        "xcode10.2",
+        "xcode10.3",
+        "xcode11",
+        "xcode11.1",
+        "xcode11.2",
+        "xcode11.3",
+        "xcode11.4",
+        "xcode11.4.1",
+        "xcode11.5",
+        "xcode11.6",
+        "xcode12u",
+        "xcode12",
+        "xcode12.2",
+        "xcode12.3",
+        "xcode12.4",
+        "xcode12.5",
+        "xcode13.1",
+        "xcode13.2",
+        "xcode13.3",
+        "xcode13.4",
+        "xcode14",
+        "xcode14.1",
+        "xcode14.2"
+      ],
+      "name": "xcodeVersions"
+    },
+    "envVars": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/envVar"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/envVar"
+            }
+          }
+        }
+      ],
+      "name": "envVars"
+    },
+    "envVar": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "[^=]+=.*"
+        },
+        {
+          "type": "object",
+          "name": "envVar",
+          "properties": {
+            "secure": {
+              "type": "string",
+              "pattern": "[^=]+=.*"
+            }
+          }
+        }
+      ],
+      "name": "envVar"
+    },
+    "job": {
+      "type": "object",
+      "name": "job",
+      "properties": {
+        "language": {
+          "type": "string",
+          "enum": [
+            "android",
+            "bash",
+            "c",
+            "c++",
+            "clojure",
+            "cpp",
+            "crystal",
+            "csharp",
+            "d",
+            "dart",
+            "dartlang",
+            "elixir",
+            "elm",
+            "erlang",
+            "generic",
+            "go",
+            "golang",
+            "groovy",
+            "haskell",
+            "haxe",
+            "java",
+            "javascript",
+            "julia",
+            "jvm",
+            "matlab",
+            "minimal",
+            "nix",
+            "node",
+            "node.js",
+            "node_js",
+            "nodejs",
+            "obj-c",
+            "obj_c",
+            "objective-c",
+            "objective_c",
+            "perl",
+            "perl6",
+            "php",
+            "python",
+            "r",
+            "ruby",
+            "rust",
+            "scala",
+            "sh",
+            "shell",
+            "smalltalk"
+          ]
+        },
+        "matlab": {
+          "type": {
+            "$ref": "#/definitions/stringOrStringArrayUnique"
+          }
+        },
+        "elm": {
+          "type": {
+            "$ref": "#/definitions/stringOrStringArrayUnique"
+          }
+        },
+        "elm_test": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          },
+          "altnames": {
+            "json": "elm-test"
+          }
+        },
+        "elm_format": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          },
+          "altnames": {
+            "json": "elm-format"
+          }
+        },
+        "haxe": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scala": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sbt_args": {
+          "type": "string"
+        },
+        "crystal": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "neko": {
+          "type": "string"
+        },
+        "hxml": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "smalltalk": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "perl": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "perl6": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "d": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dart": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dart_task": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "job",
+            "properties": {
+              "test": {
+                "type": "string"
+              },
+              "install_dartium": {
+                "type": "boolean"
+              },
+              "xvfb": {
+                "type": "boolean"
+              },
+              "dartanalyzer": {
+                "type": "boolean"
+              },
+              "dartfmt": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "ghc": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lein": {
+          "type": "string"
+        },
+        "android": {
+          "type": "object",
+          "name": "job",
+          "properties": {
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "licenses": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "node_js": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "compiler": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "clang",
+                  "gcc"
+                ]
+              }
+            },
+            {
+              "type": "string",
+              "enum": [
+                "clang",
+                "gcc"
+              ]
+            }
+          ]
+        },
+        "php": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "go": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "jdk": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "solution": {
+          "type": "string"
+        },
+        "mono": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "none"
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "xcode_project": {
+          "type": "string"
+        },
+        "xcode_workspace": {
+          "type": "string"
+        },
+        "xcode_scheme": {
+          "type": "string"
+        },
+        "xcode_sdk": {
+          "type": "string"
+        },
+        "podfile": {
+          "type": "string"
+        },
+        "python": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "elixir": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "rust": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "double"
+            }
+          ]
+        },
+        "erlang": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "julia": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "opt_release": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "rvm": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "gemfile": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "bundler_args": {
+          "type": "string"
+        },
+        "r": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "pandoc_version": {
+          "type": "string"
+        },
+        "brew_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_binary_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bioc_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_github_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "apt_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cran": {
+          "type": "string"
+        },
+        "repos": {
+          "type": "map",
+          "values": {
+            "type": "string"
+          }
+        },
+        "arch": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "amd64",
+                "x86_64",
+                "arm64",
+                "ppc64le",
+                "s390x",
+                "arm64-graviton2"
+              ]
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "amd64",
+                  "arm64",
+                  "ppc64le",
+                  "s390x",
+                  "arm64-graviton2"
+                ]
+              }
+            }
+          ]
+        },
+        "os": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "osx",
+                "linux",
+                "linux-ppc64le",
+                "windows"
+              ]
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "osx",
+                  "linux",
+                  "linux-ppc64le",
+                  "windows"
+                ]
+              }
+            }
+          ]
+        },
+        "osx_image": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/xcodeVersions"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/xcodeVersions"
+                }
+              }
+            }
+          ]
+        },
+        "dist": {
+          "type": "string",
+          "enum": [
+            "precise",
+            "trusty",
+            "xenial",
+            "bionic",
+            "focal",
+            "jammy"
+          ]
+        },
+        "sudo": {
+          "type": "string",
+          "enum": [
+            true,
+            false,
+            "",
+            "required",
+            "enabled"
+          ]
+        },
+        "addons": {
+          "type": "object",
+          "name": "job",
+          "properties": {
+            "apt": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "update": {
+                  "type": "boolean"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "sourceline"
+                        ],
+                        "name": "job",
+                        "properties": {
+                          "sourceline": {
+                            "type": "string"
+                          },
+                          "key_url": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "packages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "hosts": {
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "ssh_known_hosts": {
+              "type": {
+                "$ref": "#/definitions/stringOrStringArrayUnique"
+              }
+            },
+            "artifacts": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    true
+                  ]
+                },
+                {
+                  "type": "object",
+                  "name": "job",
+                  "properties": {
+                    "s3_region": {
+                      "type": "string"
+                    },
+                    "paths": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "working_dir": {
+                      "type": "string"
+                    },
+                    "debug": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
+            },
+            "firefox": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "latest",
+                    "latest-esr",
+                    "latest-beta",
+                    "latest-dev",
+                    "latest-nightly",
+                    "latest-unsigned"
+                  ]
+                },
+                {
+                  "$ref": "#/definitions/nonEmptyString"
+                }
+              ]
+            },
+            "chrome": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta"
+              ]
+            },
+            "rethinkdb": {
+              "type": "string"
+            },
+            "postgresql": {
+              "type": "string"
+            },
+            "mariadb": {
+              "type": "string"
+            },
+            "sauce_connect": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "name": "job",
+                  "properties": {
+                    "username": {
+                      "type": "string"
+                    },
+                    "access_key": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "sonarcloud": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "organization": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": {
+                    "$ref": "#/definitions/secretString"
+                  }
+                }
+              }
+            },
+            "coverity_scan": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "project": {
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "name": "job",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "double"
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "notification_email": {
+                  "type": "string"
+                },
+                "build_command_prepend": {
+                  "type": "string"
+                },
+                "build_command": {
+                  "type": "string"
+                },
+                "branch_pattern": {
+                  "type": "string"
+                }
+              }
+            },
+            "homebrew": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "taps": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "packages": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "casks": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "brewfile": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/definitions/nonEmptyString"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "update": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "srcclr": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "object",
+                  "name": "job",
+                  "properties": {
+                    "debug": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
+            },
+            "snaps": {
+              "oneOf": [
+                {
+                  "$ref": "#/definitions/nonEmptyString"
+                },
+                {
+                  "type": "set",
+                  "items": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/definitions/nonEmptyString"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "name"
+                        ],
+                        "name": "job",
+                        "properties": {
+                          "name": {
+                            "type": {
+                              "$ref": "#/definitions/nonEmptyString"
+                            }
+                          },
+                          "channel": {
+                            "type": {
+                              "$ref": "#/definitions/nonEmptyString"
+                            }
+                          },
+                          "classic": {
+                            "type": "boolean"
+                          },
+                          "confinement": {
+                            "type": "string",
+                            "enum": [
+                              "classic",
+                              "devmode"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "browserstack": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "username": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "access_key": {
+                  "type": {
+                    "$ref": "#/definitions/possiblySecretString"
+                  }
+                },
+                "app_path": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyHost": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyPort": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyUser": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyPass": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "forcelocal": {
+                  "type": "boolean"
+                },
+                "only": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "cache": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                false
+              ]
+            },
+            {
+              "$ref": "#/definitions/cache"
+            },
+            {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/definitions/cache"
+                  },
+                  {
+                    "type": "object",
+                    "name": "job",
+                    "properties": {
+                      "directories": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "directories": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "timeout": {
+                  "type": "double"
+                },
+                "apt": {
+                  "type": "boolean"
+                },
+                "bundler": {
+                  "type": "boolean"
+                },
+                "cocoapods": {
+                  "type": "boolean"
+                },
+                "pip": {
+                  "type": "boolean"
+                },
+                "yarn": {
+                  "type": "boolean"
+                },
+                "ccache": {
+                  "type": "boolean"
+                },
+                "packages": {
+                  "type": "boolean"
+                },
+                "cargo": {
+                  "type": "boolean"
+                },
+                "npm": {
+                  "type": "boolean"
+                }
+              }
+            }
+          ]
+        },
+        "services": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/service"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/service"
+                }
+              }
+            }
+          ]
+        },
+        "git": {
+          "type": "object",
+          "name": "job",
+          "properties": {
+            "depth": {
+              "oneOf": [
+                {
+                  "type": "int32"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    false
+                  ]
+                }
+              ]
+            },
+            "quiet": {
+              "type": "boolean"
+            },
+            "submodules": {
+              "type": "boolean"
+            },
+            "lfs_skip_smudge": {
+              "type": "boolean"
+            },
+            "clone": {
+              "type": "boolean"
+            },
+            "sparse_checkout": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            },
+            "autocrlf": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "input"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "branches": {
+          "type": "object",
+          "name": "job",
+          "properties": {
+            "except": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "only": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "env": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/envVars"
+            },
+            {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "global": {
+                  "type": {
+                    "$ref": "#/definitions/envVars"
+                  }
+                },
+                "matrix": {
+                  "type": {
+                    "$ref": "#/definitions/envVars"
+                  }
+                },
+                "jobs": {
+                  "type": {
+                    "$ref": "#/definitions/envVars"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "before_install": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "install": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_cache": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_success": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_failure": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_deploy": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "deploy": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/deployment"
+                }
+              }
+            },
+            {
+              "$ref": "#/definitions/deployment"
+            }
+          ]
+        },
+        "after_deploy": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        }
+      }
+    },
+    "deployment": {
+      "allOf": [
+        {
+          "type": "object",
+          "name": "deployment",
+          "properties": {
+            "on": {
+              "type": "object",
+              "name": "deployment",
+              "properties": {
+                "tags": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "branch": {
+                  "type": "string"
+                },
+                "all_branches": {
+                  "type": "boolean"
+                },
+                "skip_cleanup": {
+                  "type": "boolean"
+                },
+                "repo": {
+                  "type": "string"
+                },
+                "condition": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "provider",
+                "script"
+              ],
+              "name": "deployment",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "script"
+                  ]
+                },
+                "script": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "oneOf": [
+                {
+                  "required": [
+                    "provider",
+                    "email",
+                    "api_key"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "any"
+                    },
+                    "email": {
+                      "type": "any"
+                    },
+                    "api_key": {
+                      "type": "any"
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                {
+                  "required": [
+                    "provider",
+                    "email",
+                    "api_token"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "any"
+                    },
+                    "email": {
+                      "type": "any"
+                    },
+                    "api_token": {
+                      "type": "any"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              ]
+            },
+            {
+              "type": "object",
+              "required": [
+                "provider"
+              ],
+              "name": "deployment",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "surge"
+                  ]
+                },
+                "project": {
+                  "type": "string"
+                },
+                "domain": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": [
+                "provider"
+              ],
+              "name": "deployment",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "releases"
+                  ]
+                },
+                "api_key": {
+                  "type": {
+                    "$ref": "#/definitions/possiblySecretString"
+                  }
+                },
+                "user": {
+                  "type": {
+                    "$ref": "#/definitions/possiblySecretString"
+                  }
+                },
+                "password": {
+                  "type": {
+                    "$ref": "#/definitions/possiblySecretString"
+                  }
+                },
+                "file": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                },
+                "file_glob": {
+                  "type": "boolean"
+                },
+                "overwrite": {
+                  "type": "boolean"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": [
+                "provider",
+                "api_key"
+              ],
+              "name": "deployment",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "heroku"
+                  ]
+                },
+                "api_key": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/possiblySecretString"
+                    },
+                    {
+                      "type": "map",
+                      "values": {
+                        "$ref": "#/definitions/possiblySecretString"
+                      }
+                    }
+                  ]
+                },
+                "app": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "map",
+                      "values": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                },
+                "run": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                },
+                "skip_cleanup": {
+                  "type": "boolean"
+                },
+                "strategy": {
+                  "type": "string",
+                  "enum": [
+                    "api",
+                    "git"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": [
+                "provider",
+                "access_key_id",
+                "secret_access_key",
+                "bucket"
+              ],
+              "name": "deployment",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "s3"
+                  ]
+                },
+                "access_key_id": {
+                  "type": {
+                    "$ref": "#/definitions/possiblySecretString"
+                  }
+                },
+                "secret_access_key": {
+                  "type": {
+                    "$ref": "#/definitions/possiblySecretString"
+                  }
+                },
+                "bucket": {
+                  "type": "string"
+                },
+                "region": {
+                  "type": "string"
+                },
+                "skip_cleanup": {
+                  "type": "boolean"
+                },
+                "acl": {
+                  "type": "string",
+                  "enum": [
+                    "private",
+                    "public_read",
+                    "public_read_write",
+                    "authenticated_read",
+                    "bucket_owner_read",
+                    "bucket_owner_full_control"
+                  ]
+                },
+                "local_dir": {
+                  "type": "string"
+                },
+                "upload_dir": {
+                  "type": "string",
+                  "altnames": {
+                    "json": "upload-dir"
+                  }
+                },
+                "detect_encoding": {
+                  "type": "boolean"
+                },
+                "default_text_charset": {
+                  "type": "string"
+                },
+                "cache_control": {
+                  "type": "string"
+                },
+                "expires": {
+                  "type": "string"
+                },
+                "endpoint": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": [
+                "provider"
+              ],
+              "name": "deployment",
+              "properties": {
+                "provider": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "name": "deployment"
+    },
+    "notificationObject": {
+      "type": "object",
+      "name": "notificationObject",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "import": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "source"
+          ],
+          "name": "import",
+          "properties": {
+            "source": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "merge",
+                "deep_merge",
+                "deep_merge_append",
+                "deep_merge_prepend"
+              ]
+            },
+            "if": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      ],
+      "name": "import"
+    },
+    "jobBase": {
+      "type": "object",
+      "name": "jobBase",
+      "properties": {
+        "language": {
+          "type": "string",
+          "enum": [
+            "android",
+            "bash",
+            "c",
+            "c++",
+            "clojure",
+            "cpp",
+            "crystal",
+            "csharp",
+            "d",
+            "dart",
+            "dartlang",
+            "elixir",
+            "elm",
+            "erlang",
+            "generic",
+            "go",
+            "golang",
+            "groovy",
+            "haskell",
+            "haxe",
+            "java",
+            "javascript",
+            "julia",
+            "jvm",
+            "matlab",
+            "minimal",
+            "nix",
+            "node",
+            "node.js",
+            "node_js",
+            "nodejs",
+            "obj-c",
+            "obj_c",
+            "objective-c",
+            "objective_c",
+            "perl",
+            "perl6",
+            "php",
+            "python",
+            "r",
+            "ruby",
+            "rust",
+            "scala",
+            "sh",
+            "shell",
+            "smalltalk"
+          ]
+        },
+        "matlab": {
+          "type": {
+            "$ref": "#/definitions/stringOrStringArrayUnique"
+          }
+        },
+        "elm": {
+          "type": {
+            "$ref": "#/definitions/stringOrStringArrayUnique"
+          }
+        },
+        "elm_test": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          },
+          "altnames": {
+            "json": "elm-test"
+          }
+        },
+        "elm_format": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          },
+          "altnames": {
+            "json": "elm-format"
+          }
+        },
+        "haxe": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scala": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sbt_args": {
+          "type": "string"
+        },
+        "crystal": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "neko": {
+          "type": "string"
+        },
+        "hxml": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "smalltalk": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "perl": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "perl6": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "d": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dart": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dart_task": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "jobBase",
+            "properties": {
+              "test": {
+                "type": "string"
+              },
+              "install_dartium": {
+                "type": "boolean"
+              },
+              "xvfb": {
+                "type": "boolean"
+              },
+              "dartanalyzer": {
+                "type": "boolean"
+              },
+              "dartfmt": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "ghc": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lein": {
+          "type": "string"
+        },
+        "android": {
+          "type": "object",
+          "name": "jobBase",
+          "properties": {
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "licenses": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "node_js": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "compiler": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "clang",
+              "gcc"
+            ]
+          }
+        },
+        "php": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "go": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jdk": {
+          "type": "string"
+        },
+        "solution": {
+          "type": "string"
+        },
+        "mono": {
+          "type": "string",
+          "enum": [
+            "none"
+          ]
+        },
+        "xcode_project": {
+          "type": "string"
+        },
+        "xcode_workspace": {
+          "type": "string"
+        },
+        "xcode_scheme": {
+          "type": "string"
+        },
+        "xcode_sdk": {
+          "type": "string"
+        },
+        "podfile": {
+          "type": "string"
+        },
+        "python": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "elixir": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rust": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "erlang": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "julia": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "opt_release": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rvm": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "gemfile": {
+          "type": "string"
+        },
+        "bundler_args": {
+          "type": "string"
+        },
+        "r": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pandoc_version": {
+          "type": "string"
+        },
+        "brew_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_binary_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bioc_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_github_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "apt_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cran": {
+          "type": "string"
+        },
+        "repos": {
+          "type": "map",
+          "values": {
+            "type": "string"
+          }
+        },
+        "arch": {
+          "type": "string",
+          "enum": [
+            "amd64",
+            "x86_64",
+            "arm64",
+            "ppc64le",
+            "s390x",
+            "arm64-graviton2"
+          ]
+        },
+        "os": {
+          "type": "string",
+          "enum": [
+            "osx",
+            "linux",
+            "linux-ppc64le",
+            "windows"
+          ]
+        },
+        "osx_image": {
+          "type": {
+            "$ref": "#/definitions/xcodeVersions"
+          }
+        },
+        "dist": {
+          "type": "string",
+          "enum": [
+            "precise",
+            "trusty",
+            "xenial",
+            "bionic",
+            "focal",
+            "jammy"
+          ]
+        },
+        "sudo": {
+          "type": "string",
+          "enum": [
+            true,
+            false,
+            "",
+            "required",
+            "enabled"
+          ]
+        },
+        "addons": {
+          "type": "object",
+          "name": "jobBase",
+          "properties": {
+            "apt": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "update": {
+                  "type": "boolean"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "sourceline"
+                    ],
+                    "name": "jobBase",
+                    "properties": {
+                      "sourceline": {
+                        "type": "string"
+                      },
+                      "key_url": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "packages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "hosts": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "ssh_known_hosts": {
+              "type": {
+                "$ref": "#/definitions/stringOrStringArrayUnique"
+              }
+            },
+            "artifacts": {
+              "type": "string",
+              "enum": [
+                true
+              ]
+            },
+            "firefox": {
+              "type": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "latest",
+                    "latest-esr",
+                    "latest-beta",
+                    "latest-dev",
+                    "latest-nightly",
+                    "latest-unsigned"
+                  ]
+                },
+                {
+                  "$ref": "#/definitions/nonEmptyString"
+                }
+              ]
+            },
+            "chrome": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta"
+              ]
+            },
+            "rethinkdb": {
+              "type": "string"
+            },
+            "postgresql": {
+              "type": "string"
+            },
+            "mariadb": {
+              "type": "string"
+            },
+            "sauce_connect": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "access_key": {
+                  "type": "string"
+                }
+              }
+            },
+            "sonarcloud": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "organization": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": {
+                    "$ref": "#/definitions/secretString"
+                  }
+                }
+              }
+            },
+            "coverity_scan": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "project": {
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "name": "jobBase",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "double"
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "notification_email": {
+                  "type": "string"
+                },
+                "build_command_prepend": {
+                  "type": "string"
+                },
+                "build_command": {
+                  "type": "string"
+                },
+                "branch_pattern": {
+                  "type": "string"
+                }
+              }
+            },
+            "homebrew": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "taps": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "packages": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "casks": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "brewfile": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "update": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "srcclr": {
+              "type": "boolean"
+            },
+            "snaps": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            },
+            "browserstack": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "username": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "access_key": {
+                  "type": {
+                    "$ref": "#/definitions/possiblySecretString"
+                  }
+                },
+                "app_path": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyHost": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyPort": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyUser": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyPass": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "forcelocal": {
+                  "type": "boolean"
+                },
+                "only": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "cache": {
+          "type": "string",
+          "enum": [
+            false
+          ]
+        },
+        "services": {
+          "type": {
+            "$ref": "#/definitions/service"
+          }
+        },
+        "git": {
+          "type": "object",
+          "name": "jobBase",
+          "properties": {
+            "depth": {
+              "type": "int32"
+            },
+            "quiet": {
+              "type": "boolean"
+            },
+            "submodules": {
+              "type": "boolean"
+            },
+            "lfs_skip_smudge": {
+              "type": "boolean"
+            },
+            "clone": {
+              "type": "boolean"
+            },
+            "sparse_checkout": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            },
+            "autocrlf": {
+              "type": "boolean"
+            }
+          }
+        },
+        "branches": {
+          "type": "object",
+          "name": "jobBase",
+          "properties": {
+            "except": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "only": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "env": {
+          "type": {
+            "$ref": "#/definitions/envVars"
+          }
+        },
+        "before_install": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "install": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_cache": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_success": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_failure": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_deploy": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "deploy": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/deployment"
+            }
+          }
+        },
+        "after_deploy": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        }
+      },
+      "abstract": true
+    },
+    "notificationObject_webhooks": {
+      "type": "object",
+      "name": "notificationObject_webhooks",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "urls": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/definitions/secretString"
+            },
+            {
+              "type": "set",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/definitions/secretString"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "on_success": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_failure": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_start": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_cancel": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_error": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        }
+      }
+    },
+    "notificationObject_slack": {
+      "type": "object",
+      "name": "notificationObject_slack",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "rooms": {
+          "type": "set",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/slackRoom"
+            }
+          }
+        },
+        "on_pull_requests": {
+          "type": "boolean"
+        },
+        "template": {
+          "type": {
+            "$ref": "#/definitions/notRequiredNonEmptyStringOrArrayOfNonEmptyStrings"
+          }
+        },
+        "on_success": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_failure": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_start": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_cancel": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_error": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        }
+      }
+    },
+    "notificationObject_email": {
+      "type": "object",
+      "name": "notificationObject_email",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "recipients": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "on_success": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_failure": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_start": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_cancel": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_error": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        }
+      }
+    },
+    "notificationObject_irc": {
+      "type": "object",
+      "name": "notificationObject_irc",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "channels": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "channel_key": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretString"
+          }
+        },
+        "nick": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        },
+        "password": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretString"
+          }
+        },
+        "template": {
+          "type": {
+            "$ref": "#/definitions/notRequiredNonEmptyStringOrArrayOfNonEmptyStrings"
+          }
+        },
+        "on_success": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_failure": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_start": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_cancel": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_error": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "skip_join": {
+          "type": "boolean"
+        },
+        "use_notice": {
+          "type": "boolean"
+        }
+      }
+    },
+    "notificationObject_pushover": {
+      "type": "object",
+      "name": "notificationObject_pushover",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "api_key": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretString"
+          }
+        },
+        "users": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "template": {
+          "type": {
+            "$ref": "#/definitions/notRequiredNonEmptyStringOrArrayOfNonEmptyStrings"
+          }
+        },
+        "on_success": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_failure": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_start": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_cancel": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_error": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        }
+      }
+    },
+    "notificationObject_campfire": {
+      "type": "object",
+      "name": "notificationObject_campfire",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "rooms": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "template": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings"
+          }
+        },
+        "on_success": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_failure": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_start": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_cancel": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_error": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        }
+      }
+    },
+    "notificationObject_flowdock": {
+      "type": "object",
+      "name": "notificationObject_flowdock",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "api_token": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        },
+        "on_success": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_failure": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_start": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_cancel": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_error": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        }
+      }
+    },
+    "notificationObject_hipchat": {
+      "type": "object",
+      "name": "notificationObject_hipchat",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "notify": {
+          "type": "boolean"
+        },
+        "on_pull_requests": {
+          "type": "boolean"
+        },
+        "rooms": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "html",
+            "text"
+          ]
+        },
+        "template": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings"
+          }
+        },
+        "on_success": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_failure": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_start": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_cancel": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        },
+        "on_error": {
+          "type": {
+            "$ref": "#/definitions/notificationFrequency"
+          }
+        }
+      }
+    }
+  },
+  "name": "document"
+}

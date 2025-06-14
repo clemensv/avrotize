@@ -10,7 +10,11 @@ import tempfile
 import sys
 import os
 import json
-from avrotize import _version
+try:
+    from avrotize import _version
+    VERSION = _version.version
+except ImportError:
+    VERSION = "dev"
 
 def load_commands():
     """Load the commands from the commands.json file."""
@@ -68,7 +72,7 @@ def main():
     args = parser.parse_args()
 
     if 'version' in args and args.version:
-        print(f'Avrotize {_version.version}')
+        print(f'Avrotize {VERSION}')
         return
     
     if args.command is None:

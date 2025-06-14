@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "Employee",
+  "properties": {
+    "employmentDetails": {
+      "type": "choice",
+      "choices": {
+        "department_employeeId": {
+          "type": "any",
+          "description": "Choice variant requiring: department, employeeId"
+        },
+        "probationPeriodEndDate": {
+          "type": "any",
+          "description": "Choice variant requiring: probationPeriodEndDate"
+        }
+      },
+      "name": "document"
+    },
+    "personDetails": {
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "age": {
+              "type": "int32",
+              "minimum": 18
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "age"
+          ],
+          "name": "document"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string"
+            },
+            "phoneNumber": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "email",
+            "phoneNumber"
+          ],
+          "name": "document"
+        }
+      ]
+    }
+  },
+  "required": [
+    "personDetails",
+    "employmentDetails"
+  ],
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureConditionalComposition",
+    "JSONStructureValidation"
+  ],
+  "name": "document"
+}

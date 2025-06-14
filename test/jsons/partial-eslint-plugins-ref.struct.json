@@ -1,0 +1,4326 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "properties": {
+    "angular_eslint_component_class_suffix": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/component-class-suffix"
+      }
+    },
+    "angular_eslint_component_max_inline_declarations": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/component-max-inline-declarations"
+      }
+    },
+    "angular_eslint_component_selector": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/component-selector"
+      }
+    },
+    "angular_eslint_contextual_decorator": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/contextual-decorator"
+      }
+    },
+    "angular_eslint_contextual_lifecycle": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/contextual-lifecycle"
+      }
+    },
+    "angular_eslint_directive_class_suffix": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/directive-class-suffix"
+      }
+    },
+    "angular_eslint_directive_selector": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/directive-selector"
+      }
+    },
+    "angular_eslint_no_attribute_decorator": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-attribute-decorator"
+      }
+    },
+    "angular_eslint_no_conflicting_lifecycle": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-conflicting-lifecycle"
+      }
+    },
+    "angular_eslint_no_empty_lifecycle_method": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-empty-lifecycle-method"
+      }
+    },
+    "angular_eslint_no_forward_ref": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-forward-ref"
+      }
+    },
+    "angular_eslint_no_host_metadata_property": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/no-host-metadata-property"
+      }
+    },
+    "angular_eslint_no_input_prefix": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/no-input-prefix"
+      }
+    },
+    "angular_eslint_no_input_rename": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/no-input-rename"
+      }
+    },
+    "angular_eslint_no_inputs_metadata_property": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-inputs-metadata-property"
+      }
+    },
+    "angular_eslint_no_lifecycle_call": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-lifecycle-call"
+      }
+    },
+    "angular_eslint_no_output_native": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-output-native"
+      }
+    },
+    "angular_eslint_no_output_on_prefix": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-output-on-prefix"
+      }
+    },
+    "angular_eslint_no_output_rename": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-output-rename"
+      }
+    },
+    "angular_eslint_no_outputs_metadata_property": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-outputs-metadata-property"
+      }
+    },
+    "angular_eslint_no_pipe_impure": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-pipe-impure"
+      }
+    },
+    "angular_eslint_no_queries_metadata_property": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/no-queries-metadata-property"
+      }
+    },
+    "angular_eslint_pipe_prefix": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/pipe-prefix"
+      }
+    },
+    "angular_eslint_prefer_on_push_component_change_detection": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/prefer-on-push-component-change-detection"
+      }
+    },
+    "angular_eslint_prefer_output_readonly": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/prefer-output-readonly"
+      }
+    },
+    "angular_eslint_prefer_standalone_component": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/prefer-standalone-component"
+      }
+    },
+    "angular_eslint_relative_url_prefix": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/relative-url-prefix"
+      }
+    },
+    "angular_eslint_require_localize_metadata": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/require-localize-metadata"
+      }
+    },
+    "angular_eslint_sort_lifecycle_methods": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/sort-lifecycle-methods"
+      }
+    },
+    "angular_eslint_sort_ngmodule_metadata_arrays": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/sort-ngmodule-metadata-arrays"
+      }
+    },
+    "angular_eslint_use_component_selector": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/use-component-selector"
+      }
+    },
+    "angular_eslint_use_component_view_encapsulation": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/use-component-view-encapsulation"
+      }
+    },
+    "angular_eslint_use_injectable_provided_in": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "angular-eslint/use-injectable-provided-in"
+      }
+    },
+    "angular_eslint_use_lifecycle_interface": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/use-lifecycle-interface"
+      }
+    },
+    "angular_eslint_use_pipe_transform_interface": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "angular-eslint/use-pipe-transform-interface"
+      }
+    },
+    "eslint_plugin_import_consistent_type_specifier_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/consistent-type-specifier-style"
+      }
+    },
+    "eslint_plugin_import_default": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/default"
+      }
+    },
+    "eslint_plugin_import_dynamic_import_chunkname": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/dynamic-import-chunkname"
+      }
+    },
+    "eslint_plugin_import_export": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/export"
+      }
+    },
+    "eslint_plugin_import_exports_last": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/exports-last"
+      }
+    },
+    "eslint_plugin_import_extensions": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/extensions"
+      }
+    },
+    "eslint_plugin_import_first": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/first"
+      }
+    },
+    "eslint_plugin_import_group_exports": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/group-exports"
+      }
+    },
+    "eslint_plugin_import_imports_first": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/imports-first"
+      }
+    },
+    "eslint_plugin_import_max_dependencies": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/max-dependencies"
+      }
+    },
+    "eslint_plugin_import_named": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/named"
+      }
+    },
+    "eslint_plugin_import_namespace": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/namespace"
+      }
+    },
+    "eslint_plugin_import_newline_after_import": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/newline-after-import"
+      }
+    },
+    "eslint_plugin_import_no_absolute_path": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-absolute-path"
+      }
+    },
+    "eslint_plugin_import_no_amd": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-amd"
+      }
+    },
+    "eslint_plugin_import_no_anonymous_default_export": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-anonymous-default-export"
+      }
+    },
+    "eslint_plugin_import_no_commonjs": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-commonjs"
+      }
+    },
+    "eslint_plugin_import_no_cycle": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-cycle"
+      }
+    },
+    "eslint_plugin_import_no_default_export": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-default-export"
+      }
+    },
+    "eslint_plugin_import_no_deprecated": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-deprecated"
+      }
+    },
+    "eslint_plugin_import_no_duplicates": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-duplicates"
+      }
+    },
+    "eslint_plugin_import_no_dynamic_require": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-dynamic-require"
+      }
+    },
+    "eslint_plugin_import_no_empty_named_blocks": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-empty-named-blocks"
+      }
+    },
+    "eslint_plugin_import_no_extraneous_dependencies": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-extraneous-dependencies"
+      }
+    },
+    "eslint_plugin_import_no_import_module_exports": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-import-module-exports"
+      }
+    },
+    "eslint_plugin_import_no_internal_modules": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-internal-modules"
+      }
+    },
+    "eslint_plugin_import_no_mutable_exports": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-mutable-exports"
+      }
+    },
+    "eslint_plugin_import_no_named_as_default": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-named-as-default"
+      }
+    },
+    "eslint_plugin_import_no_named_as_default_member": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-named-as-default-member"
+      }
+    },
+    "eslint_plugin_import_no_named_default": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-named-default"
+      }
+    },
+    "eslint_plugin_import_no_named_export": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-named-export"
+      }
+    },
+    "eslint_plugin_import_no_namespace": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-namespace"
+      }
+    },
+    "eslint_plugin_import_no_nodejs_modules": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-nodejs-modules"
+      }
+    },
+    "eslint_plugin_import_no_relative_packages": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-relative-packages"
+      }
+    },
+    "eslint_plugin_import_no_relative_parent_imports": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-relative-parent-imports"
+      }
+    },
+    "eslint_plugin_import_no_restricted_paths": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-restricted-paths"
+      }
+    },
+    "eslint_plugin_import_no_self_import": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-self-import"
+      }
+    },
+    "eslint_plugin_import_no_unassigned_import": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-unassigned-import"
+      }
+    },
+    "eslint_plugin_import_no_unresolved": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-unresolved"
+      }
+    },
+    "eslint_plugin_import_no_unused_modules": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-unused-modules"
+      }
+    },
+    "eslint_plugin_import_no_useless_path_segments": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/no-useless-path-segments"
+      }
+    },
+    "eslint_plugin_import_no_webpack_loader_syntax": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/no-webpack-loader-syntax"
+      }
+    },
+    "eslint_plugin_import_order": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/order"
+      }
+    },
+    "eslint_plugin_import_prefer_default_export": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-import/prefer-default-export"
+      }
+    },
+    "eslint_plugin_import_unambiguous": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-import/unambiguous"
+      }
+    },
+    "eslint_plugin_unicorn_better_regex": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/better-regex"
+      }
+    },
+    "eslint_plugin_unicorn_catch_error_name": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/catch-error-name"
+      }
+    },
+    "eslint_plugin_unicorn_consistent_destructuring": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/consistent-destructuring"
+      }
+    },
+    "eslint_plugin_unicorn_consistent_function_scoping": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/consistent-function-scoping"
+      }
+    },
+    "eslint_plugin_unicorn_custom_error_definition": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/custom-error-definition"
+      }
+    },
+    "eslint_plugin_unicorn_empty_brace_spaces": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/empty-brace-spaces"
+      }
+    },
+    "eslint_plugin_unicorn_error_message": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/error-message"
+      }
+    },
+    "eslint_plugin_unicorn_escape_case": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/escape-case"
+      }
+    },
+    "eslint_plugin_unicorn_expiring_todo_comments": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/expiring-todo-comments"
+      }
+    },
+    "eslint_plugin_unicorn_explicit_length_check": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/explicit-length-check"
+      }
+    },
+    "eslint_plugin_unicorn_filename_case": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/filename-case"
+      }
+    },
+    "eslint_plugin_unicorn_import_index": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/import-index"
+      }
+    },
+    "eslint_plugin_unicorn_import_style": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/import-style"
+      }
+    },
+    "eslint_plugin_unicorn_new_for_builtins": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/new-for-builtins"
+      }
+    },
+    "eslint_plugin_unicorn_no_abusive_eslint_disable": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-abusive-eslint-disable"
+      }
+    },
+    "eslint_plugin_unicorn_no_array_callback_reference": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-array-callback-reference"
+      }
+    },
+    "eslint_plugin_unicorn_no_array_for_each": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-array-for-each"
+      }
+    },
+    "eslint_plugin_unicorn_no_array_instanceof": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-array-instanceof"
+      }
+    },
+    "eslint_plugin_unicorn_no_array_method_this_argument": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-array-method-this-argument"
+      }
+    },
+    "eslint_plugin_unicorn_no_array_push_push": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-array-push-push"
+      }
+    },
+    "eslint_plugin_unicorn_no_array_reduce": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-array-reduce"
+      }
+    },
+    "eslint_plugin_unicorn_no_await_expression_member": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-await-expression-member"
+      }
+    },
+    "eslint_plugin_unicorn_no_console_spaces": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-console-spaces"
+      }
+    },
+    "eslint_plugin_unicorn_no_document_cookie": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-document-cookie"
+      }
+    },
+    "eslint_plugin_unicorn_no_empty_file": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-empty-file"
+      }
+    },
+    "eslint_plugin_unicorn_no_fn_reference_in_iterator": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-fn-reference-in-iterator"
+      }
+    },
+    "eslint_plugin_unicorn_no_for_loop": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-for-loop"
+      }
+    },
+    "eslint_plugin_unicorn_no_hex_escape": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-hex-escape"
+      }
+    },
+    "eslint_plugin_unicorn_no_instanceof_array": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-instanceof-array"
+      }
+    },
+    "eslint_plugin_unicorn_no_invalid_remove_event_listener": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-invalid-remove-event-listener"
+      }
+    },
+    "eslint_plugin_unicorn_no_keyword_prefix": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-keyword-prefix"
+      }
+    },
+    "eslint_plugin_unicorn_no_lonely_if": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-lonely-if"
+      }
+    },
+    "eslint_plugin_unicorn_no_negated_condition": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-negated-condition"
+      }
+    },
+    "eslint_plugin_unicorn_no_nested_ternary": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-nested-ternary"
+      }
+    },
+    "eslint_plugin_unicorn_no_new_array": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-new-array"
+      }
+    },
+    "eslint_plugin_unicorn_no_new_buffer": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-new-buffer"
+      }
+    },
+    "eslint_plugin_unicorn_no_null": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-null"
+      }
+    },
+    "eslint_plugin_unicorn_no_object_as_default_parameter": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-object-as-default-parameter"
+      }
+    },
+    "eslint_plugin_unicorn_no_process_exit": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-process-exit"
+      }
+    },
+    "eslint_plugin_unicorn_no_reduce": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-reduce"
+      }
+    },
+    "eslint_plugin_unicorn_no_static_only_class": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-static-only-class"
+      }
+    },
+    "eslint_plugin_unicorn_no_thenable": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-thenable"
+      }
+    },
+    "eslint_plugin_unicorn_no_this_assignment": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-this-assignment"
+      }
+    },
+    "eslint_plugin_unicorn_no_typeof_undefined": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-typeof-undefined"
+      }
+    },
+    "eslint_plugin_unicorn_no_unnecessary_await": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-unnecessary-await"
+      }
+    },
+    "eslint_plugin_unicorn_no_unreadable_array_destructuring": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-unreadable-array-destructuring"
+      }
+    },
+    "eslint_plugin_unicorn_no_unreadable_iife": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-unreadable-iife"
+      }
+    },
+    "eslint_plugin_unicorn_no_unsafe_regex": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-unsafe-regex"
+      }
+    },
+    "eslint_plugin_unicorn_no_unused_properties": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-unused-properties"
+      }
+    },
+    "eslint_plugin_unicorn_no_useless_fallback_in_spread": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-useless-fallback-in-spread"
+      }
+    },
+    "eslint_plugin_unicorn_no_useless_length_check": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-useless-length-check"
+      }
+    },
+    "eslint_plugin_unicorn_no_useless_promise_resolve_reject": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-useless-promise-resolve-reject"
+      }
+    },
+    "eslint_plugin_unicorn_no_useless_spread": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-useless-spread"
+      }
+    },
+    "eslint_plugin_unicorn_no_useless_switch_case": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-useless-switch-case"
+      }
+    },
+    "eslint_plugin_unicorn_no_useless_undefined": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-useless-undefined"
+      }
+    },
+    "eslint_plugin_unicorn_no_zero_fractions": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/no-zero-fractions"
+      }
+    },
+    "eslint_plugin_unicorn_number_literal_case": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/number-literal-case"
+      }
+    },
+    "eslint_plugin_unicorn_numeric_separators_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/numeric-separators-style"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_add_event_listener": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-add-event-listener"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_array_find": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-array-find"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_array_flat": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-array-flat"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_array_flat_map": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-array-flat-map"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_array_index_of": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-array-index-of"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_array_some": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-array-some"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_at": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-at"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_blob_reading_methods": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-blob-reading-methods"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_code_point": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-code-point"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_dataset": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-dataset"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_date_now": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-date-now"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_default_parameters": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-default-parameters"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_dom_node_append": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-dom-node-append"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_dom_node_dataset": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-dom-node-dataset"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_dom_node_remove": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-dom-node-remove"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_dom_node_text_content": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-dom-node-text-content"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_event_key": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-event-key"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_event_target": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-event-target"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_exponentiation_operator": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-exponentiation-operator"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_export_from": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-export-from"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_flat_map": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-flat-map"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_includes": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-includes"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_json_parse_buffer": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-json-parse-buffer"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_keyboard_event_key": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-keyboard-event-key"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_logical_operator_over_ternary": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-logical-operator-over-ternary"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_math_trunc": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-math-trunc"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_modern_dom_apis": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-modern-dom-apis"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_modern_math_apis": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-modern-math-apis"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_module": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-module"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_native_coercion_functions": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-native-coercion-functions"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_negative_index": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-negative-index"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_node_append": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-node-append"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_node_protocol": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-node-protocol"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_node_remove": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-node-remove"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_number_properties": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-number-properties"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_object_from_entries": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-object-from-entries"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_object_has_own": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-object-has-own"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_optional_catch_binding": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-optional-catch-binding"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_prototype_methods": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-prototype-methods"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_query_selector": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-query-selector"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_reflect_apply": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-reflect-apply"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_regexp_test": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-regexp-test"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_replace_all": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-replace-all"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_set_has": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-set-has"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_set_size": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-set-size"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_spread": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-spread"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_starts_ends_with": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-starts-ends-with"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_string_replace_all": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-string-replace-all"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_string_slice": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-string-slice"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_string_starts_ends_with": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-string-starts-ends-with"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_string_trim_start_end": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-string-trim-start-end"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_switch": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-switch"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_ternary": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-ternary"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_text_content": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-text-content"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_top_level_await": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-top-level-await"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_trim_start_end": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-trim-start-end"
+      }
+    },
+    "eslint_plugin_unicorn_prefer_type_error": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prefer-type-error"
+      }
+    },
+    "eslint_plugin_unicorn_prevent_abbreviations": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/prevent-abbreviations"
+      }
+    },
+    "eslint_plugin_unicorn_regex_shorthand": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/regex-shorthand"
+      }
+    },
+    "eslint_plugin_unicorn_relative_url_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/relative-url-style"
+      }
+    },
+    "eslint_plugin_unicorn_require_array_join_separator": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/require-array-join-separator"
+      }
+    },
+    "eslint_plugin_unicorn_require_number_to_fixed_digits_argument": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/require-number-to-fixed-digits-argument"
+      }
+    },
+    "eslint_plugin_unicorn_require_post_message_target_origin": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/require-post-message-target-origin"
+      }
+    },
+    "eslint_plugin_unicorn_string_content": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/string-content"
+      }
+    },
+    "eslint_plugin_unicorn_switch_case_braces": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/switch-case-braces"
+      }
+    },
+    "eslint_plugin_unicorn_template_indent": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-unicorn/template-indent"
+      }
+    },
+    "eslint_plugin_unicorn_text_encoding_identifier_case": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/text-encoding-identifier-case"
+      }
+    },
+    "eslint_plugin_unicorn_throw_new_error": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-unicorn/throw-new-error"
+      }
+    },
+    "eslint_plugin_vue_array_bracket_newline": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/array-bracket-newline"
+      }
+    },
+    "eslint_plugin_vue_array_bracket_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/array-bracket-spacing"
+      }
+    },
+    "eslint_plugin_vue_array_element_newline": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/array-element-newline"
+      }
+    },
+    "eslint_plugin_vue_arrow_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/arrow-spacing"
+      }
+    },
+    "eslint_plugin_vue_attribute_hyphenation": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/attribute-hyphenation"
+      }
+    },
+    "eslint_plugin_vue_attributes_order": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/attributes-order"
+      }
+    },
+    "eslint_plugin_vue_block_lang": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/block-lang"
+      }
+    },
+    "eslint_plugin_vue_block_order": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/block-order"
+      }
+    },
+    "eslint_plugin_vue_block_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/block-spacing"
+      }
+    },
+    "eslint_plugin_vue_block_tag_newline": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/block-tag-newline"
+      }
+    },
+    "eslint_plugin_vue_brace_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/brace-style"
+      }
+    },
+    "eslint_plugin_vue_camelcase": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/camelcase"
+      }
+    },
+    "eslint_plugin_vue_comma_dangle": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/comma-dangle"
+      }
+    },
+    "eslint_plugin_vue_comma_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/comma-spacing"
+      }
+    },
+    "eslint_plugin_vue_comma_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/comma-style"
+      }
+    },
+    "eslint_plugin_vue_comment_directive": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/comment-directive"
+      }
+    },
+    "eslint_plugin_vue_component_api_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/component-api-style"
+      }
+    },
+    "eslint_plugin_vue_component_definition_name_casing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/component-definition-name-casing"
+      }
+    },
+    "eslint_plugin_vue_component_name_in_template_casing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/component-name-in-template-casing"
+      }
+    },
+    "eslint_plugin_vue_component_options_name_casing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/component-options-name-casing"
+      }
+    },
+    "eslint_plugin_vue_component_tags_order": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/component-tags-order"
+      }
+    },
+    "eslint_plugin_vue_custom_event_name_casing": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/custom-event-name-casing"
+      }
+    },
+    "eslint_plugin_vue_define_emits_declaration": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/define-emits-declaration"
+      }
+    },
+    "eslint_plugin_vue_define_macros_order": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/define-macros-order"
+      }
+    },
+    "eslint_plugin_vue_define_props_declaration": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/define-props-declaration"
+      }
+    },
+    "eslint_plugin_vue_dot_location": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/dot-location"
+      }
+    },
+    "eslint_plugin_vue_dot_notation": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/dot-notation"
+      }
+    },
+    "eslint_plugin_vue_eqeqeq": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/eqeqeq"
+      }
+    },
+    "eslint_plugin_vue_first_attribute_linebreak": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/first-attribute-linebreak"
+      }
+    },
+    "eslint_plugin_vue_func_call_spacing": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/func-call-spacing"
+      }
+    },
+    "eslint_plugin_vue_html_button_has_type": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/html-button-has-type"
+      }
+    },
+    "eslint_plugin_vue_html_closing_bracket_newline": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/html-closing-bracket-newline"
+      }
+    },
+    "eslint_plugin_vue_html_closing_bracket_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/html-closing-bracket-spacing"
+      }
+    },
+    "eslint_plugin_vue_html_comment_content_newline": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/html-comment-content-newline"
+      }
+    },
+    "eslint_plugin_vue_html_comment_content_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/html-comment-content-spacing"
+      }
+    },
+    "eslint_plugin_vue_html_comment_indent": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/html-comment-indent"
+      }
+    },
+    "eslint_plugin_vue_html_end_tags": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/html-end-tags"
+      }
+    },
+    "eslint_plugin_vue_html_indent": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/html-indent"
+      }
+    },
+    "eslint_plugin_vue_html_quotes": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/html-quotes"
+      }
+    },
+    "eslint_plugin_vue_html_self_closing": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/html-self-closing"
+      }
+    },
+    "eslint_plugin_vue_jsx_uses_vars": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/jsx-uses-vars"
+      }
+    },
+    "eslint_plugin_vue_key_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/key-spacing"
+      }
+    },
+    "eslint_plugin_vue_keyword_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/keyword-spacing"
+      }
+    },
+    "eslint_plugin_vue_match_component_file_name": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/match-component-file-name"
+      }
+    },
+    "eslint_plugin_vue_match_component_import_name": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/match-component-import-name"
+      }
+    },
+    "eslint_plugin_vue_max_attributes_per_line": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/max-attributes-per-line"
+      }
+    },
+    "eslint_plugin_vue_max_len": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/max-len"
+      }
+    },
+    "eslint_plugin_vue_max_lines_per_block": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/max-lines-per-block"
+      }
+    },
+    "eslint_plugin_vue_multi_word_component_names": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/multi-word-component-names"
+      }
+    },
+    "eslint_plugin_vue_multiline_html_element_content_newline": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/multiline-html-element-content-newline"
+      }
+    },
+    "eslint_plugin_vue_multiline_ternary": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/multiline-ternary"
+      }
+    },
+    "eslint_plugin_vue_mustache_interpolation_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/mustache-interpolation-spacing"
+      }
+    },
+    "eslint_plugin_vue_new_line_between_multi_line_property": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/new-line-between-multi-line-property"
+      }
+    },
+    "eslint_plugin_vue_next_tick_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/next-tick-style"
+      }
+    },
+    "eslint_plugin_vue_no_arrow_functions_in_watch": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-arrow-functions-in-watch"
+      }
+    },
+    "eslint_plugin_vue_no_async_in_computed_properties": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-async-in-computed-properties"
+      }
+    },
+    "eslint_plugin_vue_no_bare_strings_in_template": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-bare-strings-in-template"
+      }
+    },
+    "eslint_plugin_vue_no_boolean_default": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-boolean-default"
+      }
+    },
+    "eslint_plugin_vue_no_child_content": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-child-content"
+      }
+    },
+    "eslint_plugin_vue_no_computed_properties_in_data": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-computed-properties-in-data"
+      }
+    },
+    "eslint_plugin_vue_no_console": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-console"
+      }
+    },
+    "eslint_plugin_vue_no_constant_condition": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-constant-condition"
+      }
+    },
+    "eslint_plugin_vue_no_custom_modifiers_on_v_model": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-custom-modifiers-on-v-model"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_data_object_declaration": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-data-object-declaration"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_destroyed_lifecycle": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-destroyed-lifecycle"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_dollar_listeners_api": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-dollar-listeners-api"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_dollar_scopedslots_api": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-dollar-scopedslots-api"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_events_api": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-events-api"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_filter": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-filter"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_functional_template": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-functional-template"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_html_element_is": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-html-element-is"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_inline_template": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-inline-template"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_model_definition": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-model-definition"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_props_default_this": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-props-default-this"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_router_link_tag_prop": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-router-link-tag-prop"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_scope_attribute": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-scope-attribute"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_slot_attribute": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-slot-attribute"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_slot_scope_attribute": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-slot-scope-attribute"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_v_bind_sync": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-v-bind-sync"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_v_is": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-v-is"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_v_on_native_modifier": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-v-on-native-modifier"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_v_on_number_modifiers": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-v-on-number-modifiers"
+      }
+    },
+    "eslint_plugin_vue_no_deprecated_vue_config_keycodes": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-deprecated-vue-config-keycodes"
+      }
+    },
+    "eslint_plugin_vue_no_dupe_keys": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-dupe-keys"
+      }
+    },
+    "eslint_plugin_vue_no_dupe_v_else_if": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-dupe-v-else-if"
+      }
+    },
+    "eslint_plugin_vue_no_duplicate_attr_inheritance": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-duplicate-attr-inheritance"
+      }
+    },
+    "eslint_plugin_vue_no_duplicate_attributes": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-duplicate-attributes"
+      }
+    },
+    "eslint_plugin_vue_no_empty_component_block": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-empty-component-block"
+      }
+    },
+    "eslint_plugin_vue_no_empty_pattern": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-empty-pattern"
+      }
+    },
+    "eslint_plugin_vue_no_export_in_script_setup": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-export-in-script-setup"
+      }
+    },
+    "eslint_plugin_vue_no_expose_after_await": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-expose-after-await"
+      }
+    },
+    "eslint_plugin_vue_no_extra_parens": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-extra-parens"
+      }
+    },
+    "eslint_plugin_vue_no_invalid_model_keys": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-invalid-model-keys"
+      }
+    },
+    "eslint_plugin_vue_no_irregular_whitespace": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-irregular-whitespace"
+      }
+    },
+    "eslint_plugin_vue_no_lifecycle_after_await": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-lifecycle-after-await"
+      }
+    },
+    "eslint_plugin_vue_no_lone_template": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-lone-template"
+      }
+    },
+    "eslint_plugin_vue_no_loss_of_precision": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-loss-of-precision"
+      }
+    },
+    "eslint_plugin_vue_no_multi_spaces": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-multi-spaces"
+      }
+    },
+    "eslint_plugin_vue_no_multiple_objects_in_class": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-multiple-objects-in-class"
+      }
+    },
+    "eslint_plugin_vue_no_multiple_slot_args": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-multiple-slot-args"
+      }
+    },
+    "eslint_plugin_vue_no_multiple_template_root": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-multiple-template-root"
+      }
+    },
+    "eslint_plugin_vue_no_mutating_props": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-mutating-props"
+      }
+    },
+    "eslint_plugin_vue_no_parsing_error": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-parsing-error"
+      }
+    },
+    "eslint_plugin_vue_no_potential_component_option_typo": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-potential-component-option-typo"
+      }
+    },
+    "eslint_plugin_vue_no_ref_as_operand": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-ref-as-operand"
+      }
+    },
+    "eslint_plugin_vue_no_ref_object_destructure": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-ref-object-destructure"
+      }
+    },
+    "eslint_plugin_vue_no_ref_object_reactivity_loss": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-ref-object-reactivity-loss"
+      }
+    },
+    "eslint_plugin_vue_no_required_prop_with_default": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-required-prop-with-default"
+      }
+    },
+    "eslint_plugin_vue_no_reserved_component_names": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-reserved-component-names"
+      }
+    },
+    "eslint_plugin_vue_no_reserved_keys": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-reserved-keys"
+      }
+    },
+    "eslint_plugin_vue_no_reserved_props": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-reserved-props"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_block": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-block"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_call_after_await": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-call-after-await"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_class": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-class"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_component_names": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-component-names"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_component_options": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-component-options"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_custom_event": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-custom-event"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_html_elements": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-html-elements"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_props": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-props"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_static_attribute": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-static-attribute"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_syntax": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-syntax"
+      }
+    },
+    "eslint_plugin_vue_no_restricted_v_bind": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-restricted-v-bind"
+      }
+    },
+    "eslint_plugin_vue_no_root_v_if": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-root-v-if"
+      }
+    },
+    "eslint_plugin_vue_no_setup_props_destructure": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-setup-props-destructure"
+      }
+    },
+    "eslint_plugin_vue_no_setup_props_reactivity_loss": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-setup-props-reactivity-loss"
+      }
+    },
+    "eslint_plugin_vue_no_shared_component_data": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-shared-component-data"
+      }
+    },
+    "eslint_plugin_vue_no_side_effects_in_computed_properties": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-side-effects-in-computed-properties"
+      }
+    },
+    "eslint_plugin_vue_no_spaces_around_equal_signs_in_attribute": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-spaces-around-equal-signs-in-attribute"
+      }
+    },
+    "eslint_plugin_vue_no_sparse_arrays": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-sparse-arrays"
+      }
+    },
+    "eslint_plugin_vue_no_static_inline_styles": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-static-inline-styles"
+      }
+    },
+    "eslint_plugin_vue_no_template_key": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-template-key"
+      }
+    },
+    "eslint_plugin_vue_no_template_shadow": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-template-shadow"
+      }
+    },
+    "eslint_plugin_vue_no_template_target_blank": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-template-target-blank"
+      }
+    },
+    "eslint_plugin_vue_no_textarea_mustache": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-textarea-mustache"
+      }
+    },
+    "eslint_plugin_vue_no_this_in_before_route_enter": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-this-in-before-route-enter"
+      }
+    },
+    "eslint_plugin_vue_no_undef_components": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-undef-components"
+      }
+    },
+    "eslint_plugin_vue_no_undef_properties": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-undef-properties"
+      }
+    },
+    "eslint_plugin_vue_no_unsupported_features": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-unsupported-features"
+      }
+    },
+    "eslint_plugin_vue_no_unused_components": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-unused-components"
+      }
+    },
+    "eslint_plugin_vue_no_unused_properties": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-unused-properties"
+      }
+    },
+    "eslint_plugin_vue_no_unused_refs": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-unused-refs"
+      }
+    },
+    "eslint_plugin_vue_no_unused_vars": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-unused-vars"
+      }
+    },
+    "eslint_plugin_vue_no_use_computed_property_like_method": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-use-computed-property-like-method"
+      }
+    },
+    "eslint_plugin_vue_no_use_v_else_with_v_for": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-use-v-else-with-v-for"
+      }
+    },
+    "eslint_plugin_vue_no_use_v_if_with_v_for": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-use-v-if-with-v-for"
+      }
+    },
+    "eslint_plugin_vue_no_useless_concat": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-useless-concat"
+      }
+    },
+    "eslint_plugin_vue_no_useless_mustaches": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-useless-mustaches"
+      }
+    },
+    "eslint_plugin_vue_no_useless_template_attributes": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-useless-template-attributes"
+      }
+    },
+    "eslint_plugin_vue_no_useless_v_bind": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/no-useless-v-bind"
+      }
+    },
+    "eslint_plugin_vue_no_v_for_template_key": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-v-for-template-key"
+      }
+    },
+    "eslint_plugin_vue_no_v_for_template_key_on_child": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-v-for-template-key-on-child"
+      }
+    },
+    "eslint_plugin_vue_no_v_html": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-v-html"
+      }
+    },
+    "eslint_plugin_vue_no_v_model_argument": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-v-model-argument"
+      }
+    },
+    "eslint_plugin_vue_no_v_text": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-v-text"
+      }
+    },
+    "eslint_plugin_vue_no_v_text_v_html_on_component": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-v-text-v-html-on-component"
+      }
+    },
+    "eslint_plugin_vue_no_watch_after_await": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/no-watch-after-await"
+      }
+    },
+    "eslint_plugin_vue_object_curly_newline": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/object-curly-newline"
+      }
+    },
+    "eslint_plugin_vue_object_curly_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/object-curly-spacing"
+      }
+    },
+    "eslint_plugin_vue_object_property_newline": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/object-property-newline"
+      }
+    },
+    "eslint_plugin_vue_object_shorthand": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/object-shorthand"
+      }
+    },
+    "eslint_plugin_vue_one_component_per_file": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/one-component-per-file"
+      }
+    },
+    "eslint_plugin_vue_operator_linebreak": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/operator-linebreak"
+      }
+    },
+    "eslint_plugin_vue_order_in_components": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/order-in-components"
+      }
+    },
+    "eslint_plugin_vue_padding_line_between_blocks": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/padding-line-between-blocks"
+      }
+    },
+    "eslint_plugin_vue_padding_line_between_tags": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/padding-line-between-tags"
+      }
+    },
+    "eslint_plugin_vue_padding_lines_in_component_definition": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/padding-lines-in-component-definition"
+      }
+    },
+    "eslint_plugin_vue_prefer_define_options": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/prefer-define-options"
+      }
+    },
+    "eslint_plugin_vue_prefer_import_from_vue": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/prefer-import-from-vue"
+      }
+    },
+    "eslint_plugin_vue_prefer_prop_type_boolean_first": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/prefer-prop-type-boolean-first"
+      }
+    },
+    "eslint_plugin_vue_prefer_separate_static_class": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/prefer-separate-static-class"
+      }
+    },
+    "eslint_plugin_vue_prefer_template": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/prefer-template"
+      }
+    },
+    "eslint_plugin_vue_prefer_true_attribute_shorthand": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/prefer-true-attribute-shorthand"
+      }
+    },
+    "eslint_plugin_vue_prop_name_casing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/prop-name-casing"
+      }
+    },
+    "eslint_plugin_vue_quote_props": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/quote-props"
+      }
+    },
+    "eslint_plugin_vue_require_component_is": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-component-is"
+      }
+    },
+    "eslint_plugin_vue_require_default_prop": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-default-prop"
+      }
+    },
+    "eslint_plugin_vue_require_direct_export": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/require-direct-export"
+      }
+    },
+    "eslint_plugin_vue_require_emit_validator": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-emit-validator"
+      }
+    },
+    "eslint_plugin_vue_require_explicit_emits": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/require-explicit-emits"
+      }
+    },
+    "eslint_plugin_vue_require_expose": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-expose"
+      }
+    },
+    "eslint_plugin_vue_require_macro_variable_name": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/require-macro-variable-name"
+      }
+    },
+    "eslint_plugin_vue_require_name_property": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-name-property"
+      }
+    },
+    "eslint_plugin_vue_require_prop_comment": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/require-prop-comment"
+      }
+    },
+    "eslint_plugin_vue_require_prop_type_constructor": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-prop-type-constructor"
+      }
+    },
+    "eslint_plugin_vue_require_prop_types": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-prop-types"
+      }
+    },
+    "eslint_plugin_vue_require_render_return": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-render-return"
+      }
+    },
+    "eslint_plugin_vue_require_slots_as_functions": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-slots-as-functions"
+      }
+    },
+    "eslint_plugin_vue_require_toggle_inside_transition": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-toggle-inside-transition"
+      }
+    },
+    "eslint_plugin_vue_require_typed_object_prop": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-typed-object-prop"
+      }
+    },
+    "eslint_plugin_vue_require_typed_ref": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-typed-ref"
+      }
+    },
+    "eslint_plugin_vue_require_v_for_key": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-v-for-key"
+      }
+    },
+    "eslint_plugin_vue_require_valid_default_prop": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/require-valid-default-prop"
+      }
+    },
+    "eslint_plugin_vue_return_in_computed_property": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/return-in-computed-property"
+      }
+    },
+    "eslint_plugin_vue_return_in_emits_validator": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/return-in-emits-validator"
+      }
+    },
+    "eslint_plugin_vue_script_indent": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/script-indent"
+      }
+    },
+    "eslint_plugin_vue_script_setup_uses_vars": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/script-setup-uses-vars"
+      }
+    },
+    "eslint_plugin_vue_singleline_html_element_content_newline": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/singleline-html-element-content-newline"
+      }
+    },
+    "eslint_plugin_vue_sort_keys": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/sort-keys"
+      }
+    },
+    "eslint_plugin_vue_space_in_parens": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/space-in-parens"
+      }
+    },
+    "eslint_plugin_vue_space_infix_ops": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/space-infix-ops"
+      }
+    },
+    "eslint_plugin_vue_space_unary_ops": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/space-unary-ops"
+      }
+    },
+    "eslint_plugin_vue_static_class_names_order": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/static-class-names-order"
+      }
+    },
+    "eslint_plugin_vue_template_curly_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/template-curly-spacing"
+      }
+    },
+    "eslint_plugin_vue_this_in_template": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/this-in-template"
+      }
+    },
+    "eslint_plugin_vue_use_v_on_exact": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/use-v-on-exact"
+      }
+    },
+    "eslint_plugin_vue_v_bind_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/v-bind-style"
+      }
+    },
+    "eslint_plugin_vue_v_for_delimiter_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/v-for-delimiter-style"
+      }
+    },
+    "eslint_plugin_vue_v_on_event_hyphenation": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/v-on-event-hyphenation"
+      }
+    },
+    "eslint_plugin_vue_v_on_function_call": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/v-on-function-call"
+      }
+    },
+    "eslint_plugin_vue_v_on_handler_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/v-on-handler-style"
+      }
+    },
+    "eslint_plugin_vue_v_on_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/v-on-style"
+      }
+    },
+    "eslint_plugin_vue_v_slot_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/v-slot-style"
+      }
+    },
+    "eslint_plugin_vue_valid_attribute_name": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-attribute-name"
+      }
+    },
+    "eslint_plugin_vue_valid_define_emits": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-define-emits"
+      }
+    },
+    "eslint_plugin_vue_valid_define_options": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-define-options"
+      }
+    },
+    "eslint_plugin_vue_valid_define_props": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-define-props"
+      }
+    },
+    "eslint_plugin_vue_valid_model_definition": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-model-definition"
+      }
+    },
+    "eslint_plugin_vue_valid_next_tick": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-next-tick"
+      }
+    },
+    "eslint_plugin_vue_valid_template_root": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-template-root"
+      }
+    },
+    "eslint_plugin_vue_valid_v_bind": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-bind"
+      }
+    },
+    "eslint_plugin_vue_valid_v_bind_sync": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-bind-sync"
+      }
+    },
+    "eslint_plugin_vue_valid_v_cloak": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-cloak"
+      }
+    },
+    "eslint_plugin_vue_valid_v_else": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-else"
+      }
+    },
+    "eslint_plugin_vue_valid_v_else_if": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-else-if"
+      }
+    },
+    "eslint_plugin_vue_valid_v_for": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-for"
+      }
+    },
+    "eslint_plugin_vue_valid_v_html": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-html"
+      }
+    },
+    "eslint_plugin_vue_valid_v_if": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-if"
+      }
+    },
+    "eslint_plugin_vue_valid_v_is": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-is"
+      }
+    },
+    "eslint_plugin_vue_valid_v_memo": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-memo"
+      }
+    },
+    "eslint_plugin_vue_valid_v_model": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-model"
+      }
+    },
+    "eslint_plugin_vue_valid_v_on": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-on"
+      }
+    },
+    "eslint_plugin_vue_valid_v_once": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-once"
+      }
+    },
+    "eslint_plugin_vue_valid_v_pre": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-pre"
+      }
+    },
+    "eslint_plugin_vue_valid_v_show": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-show"
+      }
+    },
+    "eslint_plugin_vue_valid_v_slot": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-slot"
+      }
+    },
+    "eslint_plugin_vue_valid_v_text": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "eslint-plugin-vue/valid-v-text"
+      }
+    },
+    "typescript_eslint_adjacent_overload_signatures": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/adjacent-overload-signatures"
+      }
+    },
+    "typescript_eslint_array_type": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/array-type"
+      }
+    },
+    "typescript_eslint_await_thenable": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/await-thenable"
+      }
+    },
+    "typescript_eslint_ban_ts_comment": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/ban-ts-comment"
+      }
+    },
+    "typescript_eslint_ban_tslint_comment": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/ban-tslint-comment"
+      }
+    },
+    "typescript_eslint_ban_types": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/ban-types"
+      }
+    },
+    "typescript_eslint_block_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/block-spacing"
+      }
+    },
+    "typescript_eslint_brace_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/brace-style"
+      }
+    },
+    "typescript_eslint_class_literal_property_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/class-literal-property-style"
+      }
+    },
+    "typescript_eslint_class_methods_use_this": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/class-methods-use-this"
+      }
+    },
+    "typescript_eslint_comma_dangle": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/comma-dangle"
+      }
+    },
+    "typescript_eslint_comma_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/comma-spacing"
+      }
+    },
+    "typescript_eslint_consistent_generic_constructors": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/consistent-generic-constructors"
+      }
+    },
+    "typescript_eslint_consistent_indexed_object_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/consistent-indexed-object-style"
+      }
+    },
+    "typescript_eslint_consistent_type_assertions": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/consistent-type-assertions"
+      }
+    },
+    "typescript_eslint_consistent_type_definitions": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/consistent-type-definitions"
+      }
+    },
+    "typescript_eslint_consistent_type_exports": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/consistent-type-exports"
+      }
+    },
+    "typescript_eslint_consistent_type_imports": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/consistent-type-imports"
+      }
+    },
+    "typescript_eslint_default_param_last": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/default-param-last"
+      }
+    },
+    "typescript_eslint_dot_notation": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/dot-notation"
+      }
+    },
+    "typescript_eslint_explicit_function_return_type": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/explicit-function-return-type"
+      }
+    },
+    "typescript_eslint_explicit_member_accessibility": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/explicit-member-accessibility"
+      }
+    },
+    "typescript_eslint_explicit_module_boundary_types": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/explicit-module-boundary-types"
+      }
+    },
+    "typescript_eslint_func_call_spacing": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/func-call-spacing"
+      }
+    },
+    "typescript_eslint_indent": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/indent"
+      }
+    },
+    "typescript_eslint_init_declarations": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/init-declarations"
+      }
+    },
+    "typescript_eslint_key_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/key-spacing"
+      }
+    },
+    "typescript_eslint_keyword_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/keyword-spacing"
+      }
+    },
+    "typescript_eslint_lines_around_comment": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/lines-around-comment"
+      }
+    },
+    "typescript_eslint_lines_between_class_members": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/lines-between-class-members"
+      }
+    },
+    "typescript_eslint_max_params": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/max-params"
+      }
+    },
+    "typescript_eslint_member_delimiter_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/member-delimiter-style"
+      }
+    },
+    "typescript_eslint_member_ordering": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/member-ordering"
+      }
+    },
+    "typescript_eslint_method_signature_style": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/method-signature-style"
+      }
+    },
+    "typescript_eslint_naming_convention": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/naming-convention"
+      }
+    },
+    "typescript_eslint_no_array_constructor": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-array-constructor"
+      }
+    },
+    "typescript_eslint_no_base_to_string": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-base-to-string"
+      }
+    },
+    "typescript_eslint_no_confusing_non_null_assertion": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-confusing-non-null-assertion"
+      }
+    },
+    "typescript_eslint_no_confusing_void_expression": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-confusing-void-expression"
+      }
+    },
+    "typescript_eslint_no_dupe_class_members": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-dupe-class-members"
+      }
+    },
+    "typescript_eslint_no_duplicate_enum_values": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-duplicate-enum-values"
+      }
+    },
+    "typescript_eslint_no_duplicate_type_constituents": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-duplicate-type-constituents"
+      }
+    },
+    "typescript_eslint_no_dynamic_delete": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-dynamic-delete"
+      }
+    },
+    "typescript_eslint_no_empty_function": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-empty-function"
+      }
+    },
+    "typescript_eslint_no_empty_interface": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-empty-interface"
+      }
+    },
+    "typescript_eslint_no_explicit_any": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-explicit-any"
+      }
+    },
+    "typescript_eslint_no_extra_non_null_assertion": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-extra-non-null-assertion"
+      }
+    },
+    "typescript_eslint_no_extra_parens": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-extra-parens"
+      }
+    },
+    "typescript_eslint_no_extra_semi": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-extra-semi"
+      }
+    },
+    "typescript_eslint_no_extraneous_class": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-extraneous-class"
+      }
+    },
+    "typescript_eslint_no_floating_promises": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-floating-promises"
+      }
+    },
+    "typescript_eslint_no_for_in_array": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-for-in-array"
+      }
+    },
+    "typescript_eslint_no_implied_eval": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-implied-eval"
+      }
+    },
+    "typescript_eslint_no_import_type_side_effects": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-import-type-side-effects"
+      }
+    },
+    "typescript_eslint_no_inferrable_types": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-inferrable-types"
+      }
+    },
+    "typescript_eslint_no_invalid_this": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-invalid-this"
+      }
+    },
+    "typescript_eslint_no_invalid_void_type": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-invalid-void-type"
+      }
+    },
+    "typescript_eslint_no_loop_func": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-loop-func"
+      }
+    },
+    "typescript_eslint_no_loss_of_precision": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-loss-of-precision"
+      }
+    },
+    "typescript_eslint_no_magic_numbers": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-magic-numbers"
+      }
+    },
+    "typescript_eslint_no_meaningless_void_operator": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-meaningless-void-operator"
+      }
+    },
+    "typescript_eslint_no_misused_new": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-misused-new"
+      }
+    },
+    "typescript_eslint_no_misused_promises": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-misused-promises"
+      }
+    },
+    "typescript_eslint_no_mixed_enums": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-mixed-enums"
+      }
+    },
+    "typescript_eslint_no_namespace": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-namespace"
+      }
+    },
+    "typescript_eslint_no_non_null_asserted_nullish_coalescing": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-non-null-asserted-nullish-coalescing"
+      }
+    },
+    "typescript_eslint_no_non_null_asserted_optional_chain": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-non-null-asserted-optional-chain"
+      }
+    },
+    "typescript_eslint_no_non_null_assertion": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-non-null-assertion"
+      }
+    },
+    "typescript_eslint_no_redeclare": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-redeclare"
+      }
+    },
+    "typescript_eslint_no_redundant_type_constituents": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-redundant-type-constituents"
+      }
+    },
+    "typescript_eslint_no_require_imports": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-require-imports"
+      }
+    },
+    "typescript_eslint_no_restricted_imports": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-restricted-imports"
+      }
+    },
+    "typescript_eslint_no_shadow": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-shadow"
+      }
+    },
+    "typescript_eslint_no_this_alias": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-this-alias"
+      }
+    },
+    "typescript_eslint_no_throw_literal": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-throw-literal"
+      }
+    },
+    "typescript_eslint_no_type_alias": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-type-alias"
+      }
+    },
+    "typescript_eslint_no_unnecessary_boolean_literal_compare": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-unnecessary-boolean-literal-compare"
+      }
+    },
+    "typescript_eslint_no_unnecessary_condition": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-unnecessary-condition"
+      }
+    },
+    "typescript_eslint_no_unnecessary_qualifier": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unnecessary-qualifier"
+      }
+    },
+    "typescript_eslint_no_unnecessary_type_arguments": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unnecessary-type-arguments"
+      }
+    },
+    "typescript_eslint_no_unnecessary_type_assertion": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-unnecessary-type-assertion"
+      }
+    },
+    "typescript_eslint_no_unnecessary_type_constraint": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unnecessary-type-constraint"
+      }
+    },
+    "typescript_eslint_no_unsafe_argument": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unsafe-argument"
+      }
+    },
+    "typescript_eslint_no_unsafe_assignment": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unsafe-assignment"
+      }
+    },
+    "typescript_eslint_no_unsafe_call": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unsafe-call"
+      }
+    },
+    "typescript_eslint_no_unsafe_declaration_merging": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unsafe-declaration-merging"
+      }
+    },
+    "typescript_eslint_no_unsafe_enum_comparison": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unsafe-enum-comparison"
+      }
+    },
+    "typescript_eslint_no_unsafe_member_access": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unsafe-member-access"
+      }
+    },
+    "typescript_eslint_no_unsafe_return": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unsafe-return"
+      }
+    },
+    "typescript_eslint_no_unsafe_unary_minus": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-unsafe-unary-minus"
+      }
+    },
+    "typescript_eslint_no_unused_expressions": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-unused-expressions"
+      }
+    },
+    "typescript_eslint_no_unused_vars": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-unused-vars"
+      }
+    },
+    "typescript_eslint_no_use_before_define": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/no-use-before-define"
+      }
+    },
+    "typescript_eslint_no_useless_constructor": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-useless-constructor"
+      }
+    },
+    "typescript_eslint_no_useless_empty_export": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-useless-empty-export"
+      }
+    },
+    "typescript_eslint_no_var_requires": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/no-var-requires"
+      }
+    },
+    "typescript_eslint_non_nullable_type_assertion_style": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/non-nullable-type-assertion-style"
+      }
+    },
+    "typescript_eslint_object_curly_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/object-curly-spacing"
+      }
+    },
+    "typescript_eslint_padding_line_between_statements": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/padding-line-between-statements"
+      }
+    },
+    "typescript_eslint_parameter_properties": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/parameter-properties"
+      }
+    },
+    "typescript_eslint_prefer_as_const": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-as-const"
+      }
+    },
+    "typescript_eslint_prefer_destructuring": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/prefer-destructuring"
+      }
+    },
+    "typescript_eslint_prefer_enum_initializers": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-enum-initializers"
+      }
+    },
+    "typescript_eslint_prefer_for_of": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-for-of"
+      }
+    },
+    "typescript_eslint_prefer_function_type": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-function-type"
+      }
+    },
+    "typescript_eslint_prefer_includes": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-includes"
+      }
+    },
+    "typescript_eslint_prefer_literal_enum_member": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/prefer-literal-enum-member"
+      }
+    },
+    "typescript_eslint_prefer_namespace_keyword": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-namespace-keyword"
+      }
+    },
+    "typescript_eslint_prefer_nullish_coalescing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/prefer-nullish-coalescing"
+      }
+    },
+    "typescript_eslint_prefer_optional_chain": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/prefer-optional-chain"
+      }
+    },
+    "typescript_eslint_prefer_readonly": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/prefer-readonly"
+      }
+    },
+    "typescript_eslint_prefer_readonly_parameter_types": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/prefer-readonly-parameter-types"
+      }
+    },
+    "typescript_eslint_prefer_reduce_type_parameter": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-reduce-type-parameter"
+      }
+    },
+    "typescript_eslint_prefer_regexp_exec": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-regexp-exec"
+      }
+    },
+    "typescript_eslint_prefer_return_this_type": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-return-this-type"
+      }
+    },
+    "typescript_eslint_prefer_string_starts_ends_with": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-string-starts-ends-with"
+      }
+    },
+    "typescript_eslint_prefer_ts_expect_error": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/prefer-ts-expect-error"
+      }
+    },
+    "typescript_eslint_promise_function_async": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/promise-function-async"
+      }
+    },
+    "typescript_eslint_quotes": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/quotes"
+      }
+    },
+    "typescript_eslint_require_array_sort_compare": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/require-array-sort-compare"
+      }
+    },
+    "typescript_eslint_require_await": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/require-await"
+      }
+    },
+    "typescript_eslint_restrict_plus_operands": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/restrict-plus-operands"
+      }
+    },
+    "typescript_eslint_restrict_template_expressions": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/restrict-template-expressions"
+      }
+    },
+    "typescript_eslint_return_await": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/return-await"
+      }
+    },
+    "typescript_eslint_semi": {
+      "type": "object",
+      "properties": {},
+      "altnames": {
+        "json": "typescript-eslint/semi"
+      }
+    },
+    "typescript_eslint_sort_type_constituents": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/sort-type-constituents"
+      }
+    },
+    "typescript_eslint_space_before_blocks": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/space-before-blocks"
+      }
+    },
+    "typescript_eslint_space_before_function_paren": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/space-before-function-paren"
+      }
+    },
+    "typescript_eslint_space_infix_ops": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/space-infix-ops"
+      }
+    },
+    "typescript_eslint_strict_boolean_expressions": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/strict-boolean-expressions"
+      }
+    },
+    "typescript_eslint_switch_exhaustiveness_check": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/switch-exhaustiveness-check"
+      }
+    },
+    "typescript_eslint_triple_slash_reference": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/triple-slash-reference"
+      }
+    },
+    "typescript_eslint_type_annotation_spacing": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/type-annotation-spacing"
+      }
+    },
+    "typescript_eslint_typedef": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/typedef"
+      }
+    },
+    "typescript_eslint_unbound_method": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/unbound-method"
+      }
+    },
+    "typescript_eslint_unified_signatures": {
+      "type": {
+        "$ref": "#/definitions/ruleNumber"
+      },
+      "altnames": {
+        "json": "typescript-eslint/unified-signatures"
+      }
+    }
+  },
+  "$id": "https://json.schemastore.org/partial-eslint-plugins.json",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ],
+  "definitions": {
+    "ruleNumber": {
+      "type": "int32",
+      "minimum": 0,
+      "maximum": 2,
+      "name": "ruleNumber"
+    },
+    "ruleString": {
+      "type": "string",
+      "enum": [
+        "off",
+        "warn",
+        "error"
+      ],
+      "name": "ruleString"
+    }
+  },
+  "name": "document"
+}

@@ -1,0 +1,670 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://json.schemastore.org/jfrog-pipelines.json",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ],
+  "definitions": {
+    "additionalProperty": {
+      "type": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "double"
+        },
+        {
+          "type": "int32"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "any"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "name": "additionalProperty"
+    },
+    "JFrog_Pipelines": {
+      "type": "object",
+      "required": [
+        "include",
+        "pipelines",
+        "resources"
+      ],
+      "name": "JFrog_Pipelines",
+      "properties": {
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/Resource"
+            }
+          }
+        },
+        "pipelines": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/Pipeline"
+            }
+          }
+        },
+        "template": {
+          "type": "boolean"
+        },
+        "valuesFilePath": {
+          "type": "string"
+        },
+        "include": {
+          "type": "object",
+          "name": "JFrog_Pipelines",
+          "properties": {
+            "template": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/additionalProperty"
+      },
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^.*$"
+      },
+      "altnames": {
+        "json": "JFrog-Pipelines"
+      }
+    },
+    "Resource": {
+      "type": "object",
+      "name": "Resource",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Aql",
+            "BuildInfo",
+            "CronTrigger",
+            "DistributionRule",
+            "FileSpec",
+            "GitRepo",
+            "HelmChart",
+            "Image",
+            "IncomingWebhook",
+            "OutgoingWebhook",
+            "PropertyBag",
+            "ReleaseBundle",
+            "RemoteFile",
+            "VmCluster"
+          ]
+        }
+      }
+    },
+    "resourceTypes": {
+      "type": "object",
+      "name": "resourceTypes",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "pipelineCommon_execution": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "name": "pipelineCommon_execution"
+    },
+    "Pipeline": {
+      "type": "object",
+      "required": [
+        "name",
+        "steps"
+      ],
+      "name": "Pipeline",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "configuration": {
+          "type": "object",
+          "name": "Pipeline",
+          "properties": {
+            "environmentVariables": {
+              "type": "object",
+              "required": [
+                "readOnly"
+              ],
+              "name": "Pipeline",
+              "properties": {
+                "readOnly": {
+                  "type": "map",
+                  "values": {
+                    "type": [
+                      {
+                        "type": "object",
+                        "properties": {}
+                      },
+                      {
+                        "type": "object",
+                        "properties": {}
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "nodePool": {
+              "type": "string"
+            },
+            "affinityGroup": {
+              "type": "string"
+            },
+            "jfrogCliVersion": {
+              "type": "string"
+            },
+            "runtime": {
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "name": "Pipeline",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "image",
+                    "host"
+                  ]
+                }
+              }
+            },
+            "integrations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "name": "Pipeline",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "inputResources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "name": "Pipeline",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "branch": {
+                    "type": "string"
+                  },
+                  "trigger": {
+                    "type": "boolean"
+                  },
+                  "newVersionOnly": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "outputResources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "name": "Pipeline",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "branch": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "chronological": {
+              "type": "boolean"
+            },
+            "dependencyMode": {
+              "type": "object",
+              "name": "Pipeline",
+              "properties": {
+                "waitOnParentComplete": {
+                  "type": "boolean"
+                },
+                "waitOnParentSuccess": {
+                  "type": "boolean"
+                },
+                "waitOnChildComplete": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "retentionPolicy": {
+              "type": "object",
+              "name": "Pipeline",
+              "properties": {
+                "maxAgeDays": {
+                  "type": "double"
+                },
+                "minRuns": {
+                  "type": "double"
+                }
+              }
+            },
+            "reTriggerOnSyncFailure": {
+              "type": "boolean"
+            }
+          }
+        },
+        "preRun": {
+          "type": "object",
+          "name": "Pipeline",
+          "properties": {
+            "configuration": {
+              "type": "object",
+              "name": "Pipeline",
+              "properties": {
+                "environmentVariables": {
+                  "type": "object",
+                  "required": [
+                    "readOnly"
+                  ],
+                  "name": "Pipeline",
+                  "properties": {
+                    "readOnly": {
+                      "type": "map",
+                      "values": {
+                        "type": [
+                          {
+                            "type": "object",
+                            "properties": {}
+                          },
+                          {
+                            "type": "object",
+                            "properties": {}
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "nodePool": {
+                  "type": "string"
+                },
+                "affinityGroup": {
+                  "type": "string"
+                },
+                "jfrogCliVersion": {
+                  "type": "string"
+                },
+                "runtime": {
+                  "type": "object",
+                  "required": [
+                    "type"
+                  ],
+                  "name": "Pipeline",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "image",
+                        "host"
+                      ]
+                    }
+                  }
+                },
+                "integrations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "name": "Pipeline",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "inputResources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "name": "Pipeline",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "branch": {
+                        "type": "string"
+                      },
+                      "trigger": {
+                        "type": "boolean"
+                      },
+                      "newVersionOnly": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                },
+                "outputResources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "name": "Pipeline",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "branch": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "chronological": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "execution": {
+              "type": "object",
+              "name": "Pipeline",
+              "properties": {
+                "onStart": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onExecute": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onSuccess": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onFailure": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onComplete": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onCancel": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "postRun": {
+          "type": "object",
+          "name": "Pipeline",
+          "properties": {
+            "configuration": {
+              "type": "object",
+              "name": "Pipeline",
+              "properties": {
+                "environmentVariables": {
+                  "type": "object",
+                  "required": [
+                    "readOnly"
+                  ],
+                  "name": "Pipeline",
+                  "properties": {
+                    "readOnly": {
+                      "type": "map",
+                      "values": {
+                        "type": [
+                          {
+                            "type": "object",
+                            "properties": {}
+                          },
+                          {
+                            "type": "object",
+                            "properties": {}
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "nodePool": {
+                  "type": "string"
+                },
+                "affinityGroup": {
+                  "type": "string"
+                },
+                "jfrogCliVersion": {
+                  "type": "string"
+                },
+                "runtime": {
+                  "type": "object",
+                  "required": [
+                    "type"
+                  ],
+                  "name": "Pipeline",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "image",
+                        "host"
+                      ]
+                    }
+                  }
+                },
+                "integrations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "name": "Pipeline",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "inputResources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "name": "Pipeline",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "branch": {
+                        "type": "string"
+                      },
+                      "trigger": {
+                        "type": "boolean"
+                      },
+                      "newVersionOnly": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                },
+                "outputResources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "name": "Pipeline",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "branch": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "chronological": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "execution": {
+              "type": "object",
+              "name": "Pipeline",
+              "properties": {
+                "onStart": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onExecute": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onSuccess": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onFailure": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onComplete": {
+                  "type": {
+                    "$ref": "#/definitions/pipelineCommon_execution"
+                  }
+                },
+                "onCancel": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/Step"
+            }
+          }
+        }
+      }
+    },
+    "pipelineCommon": {
+      "type": "object",
+      "name": "pipelineCommon",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "Step": {
+      "type": "object",
+      "name": "Step",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "Bash",
+            "CreateReleaseBundle",
+            "DistributeReleaseBundle",
+            "DockerBuild",
+            "DockerPush",
+            "GoBuild",
+            "GoPublishBinary",
+            "GoPublishModule",
+            "GradleBuild",
+            "HelmBlueGreenCleanup",
+            "HelmBlueGreenDeploy",
+            "HelmBlueGreenRoleSwitch",
+            "HelmDeploy",
+            "HelmPublish",
+            "Jenkins",
+            "Matrix",
+            "MvnBuild",
+            "NpmBuild",
+            "NpmPublish",
+            "PostMatrix",
+            "PowerShell",
+            "PreMatrix",
+            "PromoteBuild",
+            "PublishBuildInfo",
+            "PushArtifactoryPackage",
+            "SignReleaseBundle",
+            "TriggerPipeline",
+            "XrayScan"
+          ]
+        }
+      }
+    },
+    "stepTypes": {
+      "type": "object",
+      "name": "stepTypes",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "common": {
+      "type": "object",
+      "name": "common",
+      "additionalProperties": true,
+      "properties": {}
+    }
+  }
+}

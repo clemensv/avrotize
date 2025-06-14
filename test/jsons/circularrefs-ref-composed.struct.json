@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "properties": {
+    "def1": {
+      "type": {
+        "$ref": "#/definitions/Definition1"
+      }
+    },
+    "def2": {
+      "type": {
+        "$ref": "#/definitions/Definition2"
+      }
+    },
+    "def3": {
+      "type": {
+        "$ref": "#/definitions/Definition3"
+      }
+    },
+    "def4": {
+      "type": {
+        "$ref": "#/definitions/Definition4"
+      }
+    }
+  },
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureConditionalComposition"
+  ],
+  "definitions": {
+    "Definition1": {
+      "type": "object",
+      "name": "Definition1",
+      "properties": {
+        "prop1": {
+          "type": {
+            "$ref": "#/definitions/Definition1"
+          }
+        }
+      }
+    },
+    "Definition2": {
+      "type": "object",
+      "name": "Definition2",
+      "properties": {
+        "nested": {
+          "type": "object",
+          "name": "Definition2",
+          "properties": {
+            "prop2": {
+              "type": {
+                "$ref": "#/definitions/Definition2"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Definition3": {
+      "type": "object",
+      "name": "Definition3",
+      "properties": {
+        "anyOfProp": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Definition3"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "Definition4": {
+      "type": "object",
+      "name": "Definition4",
+      "properties": {
+        "prop4": {
+          "type": {
+            "$ref": "#/definitions/Definition4a"
+          }
+        }
+      }
+    },
+    "Definition4a": {
+      "type": "object",
+      "name": "Definition4a",
+      "properties": {
+        "nested": {
+          "type": "object",
+          "name": "Definition4a",
+          "properties": {
+            "prop5": {
+              "type": {
+                "$ref": "#/definitions/Definition4"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "name": "document"
+}

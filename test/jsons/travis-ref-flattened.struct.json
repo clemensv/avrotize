@@ -1,0 +1,1944 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "JSON schema for Travis CI configuration files",
+  "properties": {
+    "import": {
+      "type": "set",
+      "items": {
+        "type": {
+          "$ref": "#/definitions/import"
+        }
+      }
+    },
+    "jobs": {
+      "type": "object",
+      "properties": {
+        "allow_failures": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stage": {
+                "type": "string"
+              }
+            },
+            "$extends": "#/definitions/jobBase",
+            "name": "document"
+          }
+        },
+        "fast_finish": {
+          "type": "boolean"
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stage": {
+                "type": "string"
+              }
+            },
+            "$extends": "#/definitions/jobBase",
+            "name": "document"
+          }
+        }
+      },
+      "name": "document"
+    },
+    "matrix": {
+      "type": "object",
+      "properties": {
+        "allow_failures": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "fast_finish": {
+          "type": "boolean"
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        }
+      },
+      "name": "document"
+    },
+    "notifications": {
+      "type": "object",
+      "properties": {
+        "campfire": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "email": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "flowdock": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretString"
+          }
+        },
+        "hipchat": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "irc": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "pushover": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings"
+          }
+        },
+        "slack": {
+          "type": {
+            "$ref": "#/definitions/slackRoom"
+          }
+        },
+        "webhooks": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        }
+      },
+      "name": "document"
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(~>|>|>=|=|<=|<) (\\d+(?:\\.\\d+)?(?:\\.\\d+)?)$"
+    }
+  },
+  "$extends": "#/definitions/jobBase",
+  "$id": "https://json.schemastore.org/travis.json",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureConditionalComposition",
+    "JSONStructureValidation"
+  ],
+  "definitions": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "name": "nonEmptyString"
+    },
+    "notRequiredNonEmptyString": {
+      "$ref": "#/definitions/nonEmptyString",
+      "name": "notRequiredNonEmptyString"
+    },
+    "arrayOfNonEmptyStrings": {
+      "type": "array",
+      "items": {
+        "type": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      },
+      "name": "arrayOfNonEmptyStrings"
+    },
+    "nonEmptyStringOrArrayOfNonEmptyStrings": {
+      "$ref": "#/definitions/nonEmptyString",
+      "name": "nonEmptyStringOrArrayOfNonEmptyStrings"
+    },
+    "notRequiredNonEmptyStringOrArrayOfNonEmptyStrings": {
+      "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings",
+      "name": "notRequiredNonEmptyStringOrArrayOfNonEmptyStrings"
+    },
+    "stringArrayUnique": {
+      "type": "set",
+      "items": {
+        "type": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      },
+      "name": "stringArrayUnique"
+    },
+    "stringOrStringArrayUnique": {
+      "$ref": "#/definitions/nonEmptyString",
+      "name": "stringOrStringArrayUnique"
+    },
+    "stringOrNumber": {
+      "$ref": "#/definitions/nonEmptyString",
+      "name": "stringOrNumber"
+    },
+    "stringOrNumberAndBothAreTypeArrayUnique": {
+      "type": "set",
+      "items": {
+        "type": {
+          "$ref": "#/definitions/stringOrNumber"
+        }
+      },
+      "name": "stringOrNumberAndBothAreTypeArrayUnique"
+    },
+    "stringOrNumberOrAcceptBothTypeAsArrayUnique": {
+      "$ref": "#/definitions/stringOrNumber",
+      "name": "stringOrNumberOrAcceptBothTypeAsArrayUnique"
+    },
+    "secretString": {
+      "type": "object",
+      "name": "secretString",
+      "properties": {
+        "secure": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        }
+      }
+    },
+    "possiblySecretString": {
+      "type": "string",
+      "name": "possiblySecretString"
+    },
+    "possiblySecretStringOrPossiblySecretStringTypeArrayUnique": {
+      "$ref": "#/definitions/possiblySecretString",
+      "name": "possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+    },
+    "slackRoom": {
+      "type": "string",
+      "pattern": ".+:.+(#.+)?",
+      "name": "slackRoom"
+    },
+    "notificationFrequency": {
+      "type": "string",
+      "enum": [
+        "always",
+        "never",
+        "change"
+      ],
+      "name": "notificationFrequency"
+    },
+    "step": {
+      "type": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string",
+          "enum": [
+            "skip",
+            "ignore"
+          ]
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ],
+      "name": "step"
+    },
+    "service": {
+      "type": "string",
+      "enum": [
+        "cassandra",
+        "couchdb",
+        "docker",
+        "elasticsearch",
+        "mariadb",
+        "memcached",
+        "mongodb",
+        "mysql",
+        "neo4j",
+        "postgresql",
+        "rabbitmq",
+        "redis",
+        "redis-server",
+        "rethinkdb",
+        "riak",
+        "xvfb"
+      ],
+      "name": "service"
+    },
+    "cache": {
+      "type": "string",
+      "enum": [
+        "apt",
+        "bundler",
+        "cargo",
+        "ccache",
+        "cocoapods",
+        "packages",
+        "pip",
+        "yarn",
+        "npm"
+      ],
+      "name": "cache"
+    },
+    "xcodeVersions": {
+      "type": "string",
+      "enum": [
+        "xcode6.4",
+        "xcode7.3",
+        "xcode8",
+        "xcode8.3",
+        "xcode9",
+        "xcode9.1",
+        "xcode9.2",
+        "xcode9.3",
+        "xcode9.4",
+        "xcode10",
+        "xcode10.1",
+        "xcode10.2",
+        "xcode10.3",
+        "xcode11",
+        "xcode11.1",
+        "xcode11.2",
+        "xcode11.3",
+        "xcode11.4",
+        "xcode11.4.1",
+        "xcode11.5",
+        "xcode11.6",
+        "xcode12u",
+        "xcode12",
+        "xcode12.2",
+        "xcode12.3",
+        "xcode12.4",
+        "xcode12.5",
+        "xcode13.1",
+        "xcode13.2",
+        "xcode13.3",
+        "xcode13.4",
+        "xcode14",
+        "xcode14.1",
+        "xcode14.2"
+      ],
+      "name": "xcodeVersions"
+    },
+    "envVars": {
+      "$ref": "#/definitions/envVar",
+      "name": "envVars"
+    },
+    "envVar": {
+      "type": "string",
+      "pattern": "[^=]+=.*",
+      "name": "envVar"
+    },
+    "job": {
+      "type": "object",
+      "name": "job",
+      "properties": {
+        "language": {
+          "type": "string",
+          "enum": [
+            "android",
+            "bash",
+            "c",
+            "c++",
+            "clojure",
+            "cpp",
+            "crystal",
+            "csharp",
+            "d",
+            "dart",
+            "dartlang",
+            "elixir",
+            "elm",
+            "erlang",
+            "generic",
+            "go",
+            "golang",
+            "groovy",
+            "haskell",
+            "haxe",
+            "java",
+            "javascript",
+            "julia",
+            "jvm",
+            "matlab",
+            "minimal",
+            "nix",
+            "node",
+            "node.js",
+            "node_js",
+            "nodejs",
+            "obj-c",
+            "obj_c",
+            "objective-c",
+            "objective_c",
+            "perl",
+            "perl6",
+            "php",
+            "python",
+            "r",
+            "ruby",
+            "rust",
+            "scala",
+            "sh",
+            "shell",
+            "smalltalk"
+          ]
+        },
+        "matlab": {
+          "type": {
+            "$ref": "#/definitions/stringOrStringArrayUnique"
+          }
+        },
+        "elm": {
+          "type": {
+            "$ref": "#/definitions/stringOrStringArrayUnique"
+          }
+        },
+        "elm_test": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          },
+          "altnames": {
+            "json": "elm-test"
+          }
+        },
+        "elm_format": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          },
+          "altnames": {
+            "json": "elm-format"
+          }
+        },
+        "haxe": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scala": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sbt_args": {
+          "type": "string"
+        },
+        "crystal": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "neko": {
+          "type": "string"
+        },
+        "hxml": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "smalltalk": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "perl": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "perl6": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "d": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dart": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dart_task": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "job",
+            "properties": {
+              "test": {
+                "type": "string"
+              },
+              "install_dartium": {
+                "type": "boolean"
+              },
+              "xvfb": {
+                "type": "boolean"
+              },
+              "dartanalyzer": {
+                "type": "boolean"
+              },
+              "dartfmt": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "ghc": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lein": {
+          "type": "string"
+        },
+        "android": {
+          "type": "object",
+          "name": "job",
+          "properties": {
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "licenses": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "node_js": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "compiler": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "clang",
+              "gcc"
+            ]
+          }
+        },
+        "php": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "go": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jdk": {
+          "type": "string"
+        },
+        "solution": {
+          "type": "string"
+        },
+        "mono": {
+          "type": "string",
+          "enum": [
+            "none"
+          ]
+        },
+        "xcode_project": {
+          "type": "string"
+        },
+        "xcode_workspace": {
+          "type": "string"
+        },
+        "xcode_scheme": {
+          "type": "string"
+        },
+        "xcode_sdk": {
+          "type": "string"
+        },
+        "podfile": {
+          "type": "string"
+        },
+        "python": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "elixir": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rust": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "erlang": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "julia": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "opt_release": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rvm": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "gemfile": {
+          "type": "string"
+        },
+        "bundler_args": {
+          "type": "string"
+        },
+        "r": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pandoc_version": {
+          "type": "string"
+        },
+        "brew_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_binary_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bioc_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_github_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "apt_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cran": {
+          "type": "string"
+        },
+        "repos": {
+          "type": "map",
+          "values": {
+            "type": "string"
+          }
+        },
+        "arch": {
+          "type": "string",
+          "enum": [
+            "amd64",
+            "x86_64",
+            "arm64",
+            "ppc64le",
+            "s390x",
+            "arm64-graviton2"
+          ]
+        },
+        "os": {
+          "type": "string",
+          "enum": [
+            "osx",
+            "linux",
+            "linux-ppc64le",
+            "windows"
+          ]
+        },
+        "osx_image": {
+          "type": {
+            "$ref": "#/definitions/xcodeVersions"
+          }
+        },
+        "dist": {
+          "type": "string",
+          "enum": [
+            "precise",
+            "trusty",
+            "xenial",
+            "bionic",
+            "focal",
+            "jammy"
+          ]
+        },
+        "sudo": {
+          "type": "string",
+          "enum": [
+            true,
+            false,
+            "",
+            "required",
+            "enabled"
+          ]
+        },
+        "addons": {
+          "type": "object",
+          "name": "job",
+          "properties": {
+            "apt": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "update": {
+                  "type": "boolean"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "sourceline"
+                    ],
+                    "name": "job",
+                    "properties": {
+                      "sourceline": {
+                        "type": "string"
+                      },
+                      "key_url": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "packages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "hosts": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "ssh_known_hosts": {
+              "type": {
+                "$ref": "#/definitions/stringOrStringArrayUnique"
+              }
+            },
+            "artifacts": {
+              "type": "string",
+              "enum": [
+                true
+              ]
+            },
+            "firefox": {
+              "type": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "latest",
+                    "latest-esr",
+                    "latest-beta",
+                    "latest-dev",
+                    "latest-nightly",
+                    "latest-unsigned"
+                  ]
+                },
+                {
+                  "$ref": "#/definitions/nonEmptyString"
+                }
+              ]
+            },
+            "chrome": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta"
+              ]
+            },
+            "rethinkdb": {
+              "type": "string"
+            },
+            "postgresql": {
+              "type": "string"
+            },
+            "mariadb": {
+              "type": "string"
+            },
+            "sauce_connect": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "access_key": {
+                  "type": "string"
+                }
+              }
+            },
+            "sonarcloud": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "organization": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": {
+                    "$ref": "#/definitions/secretString"
+                  }
+                }
+              }
+            },
+            "coverity_scan": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "project": {
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "name": "job",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "double"
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "notification_email": {
+                  "type": "string"
+                },
+                "build_command_prepend": {
+                  "type": "string"
+                },
+                "build_command": {
+                  "type": "string"
+                },
+                "branch_pattern": {
+                  "type": "string"
+                }
+              }
+            },
+            "homebrew": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "taps": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "packages": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "casks": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "brewfile": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "update": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "srcclr": {
+              "type": "boolean"
+            },
+            "snaps": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            },
+            "browserstack": {
+              "type": "object",
+              "name": "job",
+              "properties": {
+                "username": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "access_key": {
+                  "type": {
+                    "$ref": "#/definitions/possiblySecretString"
+                  }
+                },
+                "app_path": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyHost": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyPort": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyUser": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyPass": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "forcelocal": {
+                  "type": "boolean"
+                },
+                "only": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "cache": {
+          "type": "string",
+          "enum": [
+            false
+          ]
+        },
+        "services": {
+          "type": {
+            "$ref": "#/definitions/service"
+          }
+        },
+        "git": {
+          "type": "object",
+          "name": "job",
+          "properties": {
+            "depth": {
+              "type": "int32"
+            },
+            "quiet": {
+              "type": "boolean"
+            },
+            "submodules": {
+              "type": "boolean"
+            },
+            "lfs_skip_smudge": {
+              "type": "boolean"
+            },
+            "clone": {
+              "type": "boolean"
+            },
+            "sparse_checkout": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            },
+            "autocrlf": {
+              "type": "boolean"
+            }
+          }
+        },
+        "branches": {
+          "type": "object",
+          "name": "job",
+          "properties": {
+            "except": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "only": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "env": {
+          "type": {
+            "$ref": "#/definitions/envVars"
+          }
+        },
+        "before_install": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "install": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_cache": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_success": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_failure": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_deploy": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "deploy": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/deployment"
+            }
+          }
+        },
+        "after_deploy": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "name": "deployment",
+      "properties": {
+        "on": {
+          "type": "object",
+          "name": "deployment",
+          "properties": {
+            "tags": {
+              "type": "boolean"
+            },
+            "branch": {
+              "type": "string"
+            },
+            "all_branches": {
+              "type": "boolean"
+            },
+            "skip_cleanup": {
+              "type": "boolean"
+            },
+            "repo": {
+              "type": "string"
+            },
+            "condition": {
+              "type": "string"
+            }
+          }
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "script"
+          ]
+        },
+        "script": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "script"
+      ]
+    },
+    "notificationObject": {
+      "type": "object",
+      "name": "notificationObject",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "import": {
+      "type": [
+        {
+          "type": "object",
+          "required": [
+            "source"
+          ],
+          "name": "import",
+          "properties": {
+            "source": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "merge",
+                "deep_merge",
+                "deep_merge_append",
+                "deep_merge_prepend"
+              ]
+            },
+            "if": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      ],
+      "name": "import"
+    },
+    "jobBase": {
+      "type": "object",
+      "name": "jobBase",
+      "properties": {
+        "language": {
+          "type": "string",
+          "enum": [
+            "android",
+            "bash",
+            "c",
+            "c++",
+            "clojure",
+            "cpp",
+            "crystal",
+            "csharp",
+            "d",
+            "dart",
+            "dartlang",
+            "elixir",
+            "elm",
+            "erlang",
+            "generic",
+            "go",
+            "golang",
+            "groovy",
+            "haskell",
+            "haxe",
+            "java",
+            "javascript",
+            "julia",
+            "jvm",
+            "matlab",
+            "minimal",
+            "nix",
+            "node",
+            "node.js",
+            "node_js",
+            "nodejs",
+            "obj-c",
+            "obj_c",
+            "objective-c",
+            "objective_c",
+            "perl",
+            "perl6",
+            "php",
+            "python",
+            "r",
+            "ruby",
+            "rust",
+            "scala",
+            "sh",
+            "shell",
+            "smalltalk"
+          ]
+        },
+        "matlab": {
+          "type": {
+            "$ref": "#/definitions/stringOrStringArrayUnique"
+          }
+        },
+        "elm": {
+          "type": {
+            "$ref": "#/definitions/stringOrStringArrayUnique"
+          }
+        },
+        "elm_test": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          },
+          "altnames": {
+            "json": "elm-test"
+          }
+        },
+        "elm_format": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          },
+          "altnames": {
+            "json": "elm-format"
+          }
+        },
+        "haxe": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scala": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sbt_args": {
+          "type": "string"
+        },
+        "crystal": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "neko": {
+          "type": "string"
+        },
+        "hxml": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "smalltalk": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "perl": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "perl6": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "d": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dart": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dart_task": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "jobBase",
+            "properties": {
+              "test": {
+                "type": "string"
+              },
+              "install_dartium": {
+                "type": "boolean"
+              },
+              "xvfb": {
+                "type": "boolean"
+              },
+              "dartanalyzer": {
+                "type": "boolean"
+              },
+              "dartfmt": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "ghc": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lein": {
+          "type": "string"
+        },
+        "android": {
+          "type": "object",
+          "name": "jobBase",
+          "properties": {
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "licenses": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "node_js": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "compiler": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "clang",
+              "gcc"
+            ]
+          }
+        },
+        "php": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "go": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jdk": {
+          "type": "string"
+        },
+        "solution": {
+          "type": "string"
+        },
+        "mono": {
+          "type": "string",
+          "enum": [
+            "none"
+          ]
+        },
+        "xcode_project": {
+          "type": "string"
+        },
+        "xcode_workspace": {
+          "type": "string"
+        },
+        "xcode_scheme": {
+          "type": "string"
+        },
+        "xcode_sdk": {
+          "type": "string"
+        },
+        "podfile": {
+          "type": "string"
+        },
+        "python": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "elixir": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rust": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "erlang": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "julia": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "opt_release": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rvm": {
+          "type": {
+            "$ref": "#/definitions/stringOrNumberOrAcceptBothTypeAsArrayUnique"
+          }
+        },
+        "gemfile": {
+          "type": "string"
+        },
+        "bundler_args": {
+          "type": "string"
+        },
+        "r": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pandoc_version": {
+          "type": "string"
+        },
+        "brew_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_binary_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bioc_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "r_github_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "apt_packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cran": {
+          "type": "string"
+        },
+        "repos": {
+          "type": "map",
+          "values": {
+            "type": "string"
+          }
+        },
+        "arch": {
+          "type": "string",
+          "enum": [
+            "amd64",
+            "x86_64",
+            "arm64",
+            "ppc64le",
+            "s390x",
+            "arm64-graviton2"
+          ]
+        },
+        "os": {
+          "type": "string",
+          "enum": [
+            "osx",
+            "linux",
+            "linux-ppc64le",
+            "windows"
+          ]
+        },
+        "osx_image": {
+          "type": {
+            "$ref": "#/definitions/xcodeVersions"
+          }
+        },
+        "dist": {
+          "type": "string",
+          "enum": [
+            "precise",
+            "trusty",
+            "xenial",
+            "bionic",
+            "focal",
+            "jammy"
+          ]
+        },
+        "sudo": {
+          "type": "string",
+          "enum": [
+            true,
+            false,
+            "",
+            "required",
+            "enabled"
+          ]
+        },
+        "addons": {
+          "type": "object",
+          "name": "jobBase",
+          "properties": {
+            "apt": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "update": {
+                  "type": "boolean"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "sourceline"
+                    ],
+                    "name": "jobBase",
+                    "properties": {
+                      "sourceline": {
+                        "type": "string"
+                      },
+                      "key_url": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "packages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "hosts": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "ssh_known_hosts": {
+              "type": {
+                "$ref": "#/definitions/stringOrStringArrayUnique"
+              }
+            },
+            "artifacts": {
+              "type": "string",
+              "enum": [
+                true
+              ]
+            },
+            "firefox": {
+              "type": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "latest",
+                    "latest-esr",
+                    "latest-beta",
+                    "latest-dev",
+                    "latest-nightly",
+                    "latest-unsigned"
+                  ]
+                },
+                {
+                  "$ref": "#/definitions/nonEmptyString"
+                }
+              ]
+            },
+            "chrome": {
+              "type": "string",
+              "enum": [
+                "stable",
+                "beta"
+              ]
+            },
+            "rethinkdb": {
+              "type": "string"
+            },
+            "postgresql": {
+              "type": "string"
+            },
+            "mariadb": {
+              "type": "string"
+            },
+            "sauce_connect": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "access_key": {
+                  "type": "string"
+                }
+              }
+            },
+            "sonarcloud": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "organization": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": {
+                    "$ref": "#/definitions/secretString"
+                  }
+                }
+              }
+            },
+            "coverity_scan": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "project": {
+                  "type": "object",
+                  "required": [
+                    "name"
+                  ],
+                  "name": "jobBase",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "double"
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "notification_email": {
+                  "type": "string"
+                },
+                "build_command_prepend": {
+                  "type": "string"
+                },
+                "build_command": {
+                  "type": "string"
+                },
+                "branch_pattern": {
+                  "type": "string"
+                }
+              }
+            },
+            "homebrew": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "taps": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "packages": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "casks": {
+                  "type": {
+                    "$ref": "#/definitions/stringOrStringArrayUnique"
+                  }
+                },
+                "brewfile": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "update": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "srcclr": {
+              "type": "boolean"
+            },
+            "snaps": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            },
+            "browserstack": {
+              "type": "object",
+              "name": "jobBase",
+              "properties": {
+                "username": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "access_key": {
+                  "type": {
+                    "$ref": "#/definitions/possiblySecretString"
+                  }
+                },
+                "app_path": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyHost": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyPort": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyUser": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "proxyPass": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                },
+                "forcelocal": {
+                  "type": "boolean"
+                },
+                "only": {
+                  "type": {
+                    "$ref": "#/definitions/nonEmptyString"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "cache": {
+          "type": "string",
+          "enum": [
+            false
+          ]
+        },
+        "services": {
+          "type": {
+            "$ref": "#/definitions/service"
+          }
+        },
+        "git": {
+          "type": "object",
+          "name": "jobBase",
+          "properties": {
+            "depth": {
+              "type": "int32"
+            },
+            "quiet": {
+              "type": "boolean"
+            },
+            "submodules": {
+              "type": "boolean"
+            },
+            "lfs_skip_smudge": {
+              "type": "boolean"
+            },
+            "clone": {
+              "type": "boolean"
+            },
+            "sparse_checkout": {
+              "type": {
+                "$ref": "#/definitions/nonEmptyString"
+              }
+            },
+            "autocrlf": {
+              "type": "boolean"
+            }
+          }
+        },
+        "branches": {
+          "type": "object",
+          "name": "jobBase",
+          "properties": {
+            "except": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "only": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "env": {
+          "type": {
+            "$ref": "#/definitions/envVars"
+          }
+        },
+        "before_install": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "install": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_cache": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_success": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_failure": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "before_deploy": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "deploy": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/deployment"
+            }
+          }
+        },
+        "after_deploy": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        },
+        "after_script": {
+          "type": {
+            "$ref": "#/definitions/step"
+          }
+        }
+      },
+      "abstract": true
+    }
+  },
+  "name": "document"
+}

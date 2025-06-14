@@ -7,9 +7,6 @@ from avrotize.avrotojstruct import convert_avro_to_json_structure
 from jsoncomparison import NO_DIFF, Compare
 from tools.json_structure_schema_validator import JSONStructureSchemaCoreValidator
 
-# filepath: d:/avrotize/test/test_avrotojstruct.py
-
-
 
 class TestAvroToJsonStructure(unittest.TestCase):
     """Tests converting Avro schemas to JSON Structure (*.struct.json)"""

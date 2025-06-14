@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "Employee",
+  "properties": {
+    "employmentDetails": {
+      "type": "choice",
+      "choices": {
+        "department_employeeId": {
+          "type": "any",
+          "description": "Choice variant requiring: department, employeeId"
+        },
+        "probationPeriodEndDate": {
+          "type": "any",
+          "description": "Choice variant requiring: probationPeriodEndDate"
+        }
+      },
+      "name": "document"
+    },
+    "personDetails": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": true,
+      "name": "document"
+    }
+  },
+  "required": [
+    "personDetails",
+    "employmentDetails"
+  ],
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "name": "document"
+}

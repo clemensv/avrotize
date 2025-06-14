@@ -1,0 +1,2309 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "description": "venvironment schema",
+  "$ref": "#/definitions/b2d82_full",
+  "$id": "https://json.schemastore.org/venvironment-schema.json",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ],
+  "definitions": {
+    "b2d82": {
+      "type": "object",
+      "name": "b2d82",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "decf8": {
+      "type": "object",
+      "name": "decf8",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "ed3cd": {
+      "type": "object",
+      "name": "ed3cd",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b4889": {
+      "type": "object",
+      "name": "b4889",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a2b96": {
+      "type": "object",
+      "name": "a2b96",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f4a62": {
+      "type": "object",
+      "name": "f4a62",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "e8c0c": {
+      "type": "object",
+      "name": "e8c0c",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "efabb": {
+      "type": "object",
+      "name": "efabb",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b1caa": {
+      "type": "object",
+      "name": "b1caa",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "ac708": {
+      "type": "object",
+      "name": "ac708",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "aad77": {
+      "type": "object",
+      "name": "aad77",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c0dc1": {
+      "type": "object",
+      "name": "c0dc1",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f2cb9": {
+      "type": "object",
+      "name": "f2cb9",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d60a5": {
+      "type": "object",
+      "name": "d60a5",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a665e": {
+      "type": "object",
+      "name": "a665e",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "bf151": {
+      "type": "object",
+      "name": "bf151",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "db003": {
+      "type": "object",
+      "name": "db003",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c139b": {
+      "type": "object",
+      "name": "c139b",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "be294": {
+      "type": "object",
+      "name": "be294",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "bdaa7": {
+      "type": "object",
+      "name": "bdaa7",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "e4b54": {
+      "type": "object",
+      "name": "e4b54",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "bbc08": {
+      "type": "object",
+      "name": "bbc08",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d9f28": {
+      "type": "object",
+      "name": "d9f28",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "cb919": {
+      "type": "object",
+      "name": "cb919",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b3abd": {
+      "type": "object",
+      "name": "b3abd",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "fe291": {
+      "type": "object",
+      "name": "fe291",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d240d": {
+      "type": "object",
+      "name": "d240d",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f5db4": {
+      "type": "object",
+      "name": "f5db4",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f9fcb": {
+      "type": "object",
+      "name": "f9fcb",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f276a": {
+      "type": "object",
+      "name": "f276a",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "e94dc": {
+      "type": "object",
+      "name": "e94dc",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "bf025": {
+      "type": "object",
+      "name": "bf025",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a5fab": {
+      "type": "object",
+      "name": "a5fab",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d1a67": {
+      "type": "object",
+      "name": "d1a67",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "dad40": {
+      "type": "object",
+      "name": "dad40",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c706a": {
+      "type": "object",
+      "name": "c706a",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "faf17": {
+      "type": "object",
+      "name": "faf17",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "ba2d9": {
+      "type": "object",
+      "name": "ba2d9",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "cacc0": {
+      "type": "object",
+      "name": "cacc0",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "dbb1c": {
+      "type": "object",
+      "name": "dbb1c",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "cf195": {
+      "type": "object",
+      "name": "cf195",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a23f7": {
+      "type": "object",
+      "name": "a23f7",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b0301": {
+      "type": "object",
+      "name": "b0301",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "fa0cd": {
+      "type": "object",
+      "name": "fa0cd",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "fbf90": {
+      "type": "object",
+      "name": "fbf90",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b5d87": {
+      "type": "object",
+      "name": "b5d87",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b509f": {
+      "type": "object",
+      "name": "b509f",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "bcf87": {
+      "type": "object",
+      "name": "bcf87",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "bd659": {
+      "type": "object",
+      "name": "bd659",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "adad4": {
+      "type": "object",
+      "name": "adad4",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d5013": {
+      "type": "object",
+      "name": "d5013",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "daa86": {
+      "type": "object",
+      "name": "daa86",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "ce2b5": {
+      "type": "object",
+      "name": "ce2b5",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "cdf60": {
+      "type": "object",
+      "name": "cdf60",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "ce8a4": {
+      "type": "object",
+      "name": "ce8a4",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f1384": {
+      "type": "object",
+      "name": "f1384",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f146b": {
+      "type": "object",
+      "name": "f146b",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "e2323": {
+      "type": "object",
+      "name": "e2323",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a6ab3": {
+      "type": "object",
+      "name": "a6ab3",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b88a6": {
+      "type": "object",
+      "name": "b88a6",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f52d1": {
+      "type": "object",
+      "name": "f52d1",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c3b11": {
+      "type": "object",
+      "name": "c3b11",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "dfa5a": {
+      "type": "object",
+      "name": "dfa5a",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c9f2a": {
+      "type": "object",
+      "name": "c9f2a",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a53a3": {
+      "type": "object",
+      "name": "a53a3",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "aebb7": {
+      "type": "object",
+      "name": "aebb7",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c18ab": {
+      "type": "object",
+      "name": "c18ab",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "fe737": {
+      "type": "object",
+      "name": "fe737",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "fb03e": {
+      "type": "object",
+      "name": "fb03e",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c55d3": {
+      "type": "object",
+      "name": "c55d3",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "fe7b6": {
+      "type": "object",
+      "name": "fe7b6",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d92db": {
+      "type": "object",
+      "name": "d92db",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "cd5c2": {
+      "type": "object",
+      "name": "cd5c2",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b0b65": {
+      "type": "object",
+      "name": "b0b65",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d12ef": {
+      "type": "object",
+      "name": "d12ef",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d1985": {
+      "type": "object",
+      "name": "d1985",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d63e6": {
+      "type": "object",
+      "name": "d63e6",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a9048": {
+      "type": "object",
+      "name": "a9048",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c6ecb": {
+      "type": "object",
+      "name": "c6ecb",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d6fe8": {
+      "type": "object",
+      "name": "d6fe8",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f11ad": {
+      "type": "object",
+      "name": "f11ad",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a51de": {
+      "type": "object",
+      "name": "a51de",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "db0d5": {
+      "type": "object",
+      "name": "db0d5",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c4a92": {
+      "type": "object",
+      "name": "c4a92",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "dd53d": {
+      "type": "object",
+      "name": "dd53d",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c49a5": {
+      "type": "object",
+      "name": "c49a5",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f26f2": {
+      "type": "object",
+      "name": "f26f2",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d5dc9": {
+      "type": "object",
+      "name": "d5dc9",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "dc7e6": {
+      "type": "object",
+      "name": "dc7e6",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "ad271": {
+      "type": "object",
+      "name": "ad271",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "bd6e5": {
+      "type": "object",
+      "name": "bd6e5",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a7419": {
+      "type": "object",
+      "name": "a7419",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a19ff": {
+      "type": "object",
+      "name": "a19ff",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "d0551": {
+      "type": "object",
+      "name": "d0551",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b8a7b": {
+      "type": "object",
+      "name": "b8a7b",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a220f": {
+      "type": "object",
+      "name": "a220f",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b1f6d": {
+      "type": "object",
+      "name": "b1f6d",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b73a4": {
+      "type": "object",
+      "name": "b73a4",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a10be": {
+      "type": "object",
+      "name": "a10be",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f6782": {
+      "type": "object",
+      "name": "f6782",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "dfa4a": {
+      "type": "object",
+      "name": "dfa4a",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b8d33": {
+      "type": "object",
+      "name": "b8d33",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c4168": {
+      "type": "object",
+      "name": "c4168",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a8440": {
+      "type": "object",
+      "name": "a8440",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "ee1ae": {
+      "type": "object",
+      "name": "ee1ae",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "c2452": {
+      "type": "object",
+      "name": "c2452",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "cb1c2": {
+      "type": "object",
+      "name": "cb1c2",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "e391e": {
+      "type": "object",
+      "name": "e391e",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f1175": {
+      "type": "object",
+      "name": "f1175",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b4b72": {
+      "type": "object",
+      "name": "b4b72",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "a0f9c": {
+      "type": "object",
+      "name": "a0f9c",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "e231b": {
+      "type": "object",
+      "name": "e231b",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "af2c7": {
+      "type": "object",
+      "name": "af2c7",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "f06ea": {
+      "type": "object",
+      "name": "f06ea",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "ee197": {
+      "type": "object",
+      "name": "ee197",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "b2479": {
+      "type": "object",
+      "name": "b2479",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "e4921": {
+      "type": "object",
+      "name": "e4921",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "eaee8": {
+      "type": "object",
+      "name": "eaee8",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "ea732": {
+      "type": "object",
+      "name": "ea732",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "bbbd7": {
+      "type": "object",
+      "name": "bbbd7",
+      "additionalProperties": true,
+      "properties": {}
+    },
+    "_170b6": {
+      "type": "object",
+      "name": "_170b6",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "170b6"
+      },
+      "properties": {}
+    },
+    "_26679": {
+      "type": "object",
+      "name": "_26679",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "26679"
+      },
+      "properties": {}
+    },
+    "_91f16": {
+      "type": "object",
+      "name": "_91f16",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "91f16"
+      },
+      "properties": {}
+    },
+    "_8bf53": {
+      "type": "object",
+      "name": "_8bf53",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8bf53"
+      },
+      "properties": {}
+    },
+    "_844f0": {
+      "type": "object",
+      "name": "_844f0",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "844f0"
+      },
+      "properties": {}
+    },
+    "_17e74": {
+      "type": "object",
+      "name": "_17e74",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "17e74"
+      },
+      "properties": {}
+    },
+    "_62d94": {
+      "type": "object",
+      "name": "_62d94",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "62d94"
+      },
+      "properties": {}
+    },
+    "_6d767": {
+      "type": "object",
+      "name": "_6d767",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6d767"
+      },
+      "properties": {}
+    },
+    "_6d907": {
+      "type": "object",
+      "name": "_6d907",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6d907"
+      },
+      "properties": {}
+    },
+    "_0d2f3": {
+      "type": "object",
+      "name": "_0d2f3",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0d2f3"
+      },
+      "properties": {}
+    },
+    "_0d894": {
+      "type": "object",
+      "name": "_0d894",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0d894"
+      },
+      "properties": {}
+    },
+    "_8f64c": {
+      "type": "object",
+      "name": "_8f64c",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8f64c"
+      },
+      "properties": {}
+    },
+    "_0edfe": {
+      "type": "object",
+      "name": "_0edfe",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0edfe"
+      },
+      "properties": {}
+    },
+    "_896d0": {
+      "type": "object",
+      "name": "_896d0",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "896d0"
+      },
+      "properties": {}
+    },
+    "_85495": {
+      "type": "object",
+      "name": "_85495",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "85495"
+      },
+      "properties": {}
+    },
+    "_4fa6d": {
+      "type": "object",
+      "name": "_4fa6d",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "4fa6d"
+      },
+      "properties": {}
+    },
+    "_23009": {
+      "type": "object",
+      "name": "_23009",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "23009"
+      },
+      "properties": {}
+    },
+    "_49dc4": {
+      "type": "object",
+      "name": "_49dc4",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "49dc4"
+      },
+      "properties": {}
+    },
+    "_761e4": {
+      "type": "object",
+      "name": "_761e4",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "761e4"
+      },
+      "properties": {}
+    },
+    "_5d046": {
+      "type": "object",
+      "name": "_5d046",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "5d046"
+      },
+      "properties": {}
+    },
+    "_716b3": {
+      "type": "object",
+      "name": "_716b3",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "716b3"
+      },
+      "properties": {}
+    },
+    "_57928": {
+      "type": "object",
+      "name": "_57928",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "57928"
+      },
+      "properties": {}
+    },
+    "_405a8": {
+      "type": "object",
+      "name": "_405a8",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "405a8"
+      },
+      "properties": {}
+    },
+    "_0fa26": {
+      "type": "object",
+      "name": "_0fa26",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0fa26"
+      },
+      "properties": {}
+    },
+    "_3eaba": {
+      "type": "object",
+      "name": "_3eaba",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "3eaba"
+      },
+      "properties": {}
+    },
+    "_7f50f": {
+      "type": "object",
+      "name": "_7f50f",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "7f50f"
+      },
+      "properties": {}
+    },
+    "_63c85": {
+      "type": "object",
+      "name": "_63c85",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "63c85"
+      },
+      "properties": {}
+    },
+    "_5bc6c": {
+      "type": "object",
+      "name": "_5bc6c",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "5bc6c"
+      },
+      "properties": {}
+    },
+    "_962c1": {
+      "type": "object",
+      "name": "_962c1",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "962c1"
+      },
+      "properties": {}
+    },
+    "_64979": {
+      "type": "object",
+      "name": "_64979",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "64979"
+      },
+      "properties": {}
+    },
+    "_5cec7": {
+      "type": "object",
+      "name": "_5cec7",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "5cec7"
+      },
+      "properties": {}
+    },
+    "_6939d": {
+      "type": "object",
+      "name": "_6939d",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6939d"
+      },
+      "properties": {}
+    },
+    "_22ddc": {
+      "type": "object",
+      "name": "_22ddc",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "22ddc"
+      },
+      "properties": {}
+    },
+    "_8984d": {
+      "type": "object",
+      "name": "_8984d",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8984d"
+      },
+      "properties": {}
+    },
+    "_23778": {
+      "type": "object",
+      "name": "_23778",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "23778"
+      },
+      "properties": {}
+    },
+    "_9b94b": {
+      "type": "object",
+      "name": "_9b94b",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "9b94b"
+      },
+      "properties": {}
+    },
+    "_67ea2": {
+      "type": "object",
+      "name": "_67ea2",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "67ea2"
+      },
+      "properties": {}
+    },
+    "_8d971": {
+      "type": "object",
+      "name": "_8d971",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8d971"
+      },
+      "properties": {}
+    },
+    "_6101e": {
+      "type": "object",
+      "name": "_6101e",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6101e"
+      },
+      "properties": {}
+    },
+    "_46542": {
+      "type": "object",
+      "name": "_46542",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "46542"
+      },
+      "properties": {}
+    },
+    "_0fc9e": {
+      "type": "object",
+      "name": "_0fc9e",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0fc9e"
+      },
+      "properties": {}
+    },
+    "_29b8a": {
+      "type": "object",
+      "name": "_29b8a",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "29b8a"
+      },
+      "properties": {}
+    },
+    "_90d4b": {
+      "type": "object",
+      "name": "_90d4b",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "90d4b"
+      },
+      "properties": {}
+    },
+    "_015cb": {
+      "type": "object",
+      "name": "_015cb",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "015cb"
+      },
+      "properties": {}
+    },
+    "_37df6": {
+      "type": "object",
+      "name": "_37df6",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "37df6"
+      },
+      "properties": {}
+    },
+    "_05c88": {
+      "type": "object",
+      "name": "_05c88",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "05c88"
+      },
+      "properties": {}
+    },
+    "_8ab30": {
+      "type": "object",
+      "name": "_8ab30",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8ab30"
+      },
+      "properties": {}
+    },
+    "_13e53": {
+      "type": "object",
+      "name": "_13e53",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "13e53"
+      },
+      "properties": {}
+    },
+    "_828be": {
+      "type": "object",
+      "name": "_828be",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "828be"
+      },
+      "properties": {}
+    },
+    "_9dce0": {
+      "type": "object",
+      "name": "_9dce0",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "9dce0"
+      },
+      "properties": {}
+    },
+    "_55701": {
+      "type": "object",
+      "name": "_55701",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "55701"
+      },
+      "properties": {}
+    },
+    "_0e921": {
+      "type": "object",
+      "name": "_0e921",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0e921"
+      },
+      "properties": {}
+    },
+    "_6c391": {
+      "type": "object",
+      "name": "_6c391",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6c391"
+      },
+      "properties": {}
+    },
+    "_497d3": {
+      "type": "object",
+      "name": "_497d3",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "497d3"
+      },
+      "properties": {}
+    },
+    "_16f14": {
+      "type": "object",
+      "name": "_16f14",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "16f14"
+      },
+      "properties": {}
+    },
+    "_79d04": {
+      "type": "object",
+      "name": "_79d04",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "79d04"
+      },
+      "properties": {}
+    },
+    "_252f0": {
+      "type": "object",
+      "name": "_252f0",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "252f0"
+      },
+      "properties": {}
+    },
+    "_79a89": {
+      "type": "object",
+      "name": "_79a89",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "79a89"
+      },
+      "properties": {}
+    },
+    "_84972": {
+      "type": "object",
+      "name": "_84972",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "84972"
+      },
+      "properties": {}
+    },
+    "_5d2a8": {
+      "type": "object",
+      "name": "_5d2a8",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "5d2a8"
+      },
+      "properties": {}
+    },
+    "_5e277": {
+      "type": "object",
+      "name": "_5e277",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "5e277"
+      },
+      "properties": {}
+    },
+    "_535fe": {
+      "type": "object",
+      "name": "_535fe",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "535fe"
+      },
+      "properties": {}
+    },
+    "_60f6d": {
+      "type": "object",
+      "name": "_60f6d",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "60f6d"
+      },
+      "properties": {}
+    },
+    "_7ff67": {
+      "type": "object",
+      "name": "_7ff67",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "7ff67"
+      },
+      "properties": {}
+    },
+    "_779cd": {
+      "type": "object",
+      "name": "_779cd",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "779cd"
+      },
+      "properties": {}
+    },
+    "_40d65": {
+      "type": "object",
+      "name": "_40d65",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "40d65"
+      },
+      "properties": {}
+    },
+    "_048e3": {
+      "type": "object",
+      "name": "_048e3",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "048e3"
+      },
+      "properties": {}
+    },
+    "_7c80e": {
+      "type": "object",
+      "name": "_7c80e",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "7c80e"
+      },
+      "properties": {}
+    },
+    "_85c8a": {
+      "type": "object",
+      "name": "_85c8a",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "85c8a"
+      },
+      "properties": {}
+    },
+    "_97baf": {
+      "type": "object",
+      "name": "_97baf",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "97baf"
+      },
+      "properties": {}
+    },
+    "_316e0": {
+      "type": "object",
+      "name": "_316e0",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "316e0"
+      },
+      "properties": {}
+    },
+    "_0b81c": {
+      "type": "object",
+      "name": "_0b81c",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0b81c"
+      },
+      "properties": {}
+    },
+    "_3200b": {
+      "type": "object",
+      "name": "_3200b",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "3200b"
+      },
+      "properties": {}
+    },
+    "_45cf9": {
+      "type": "object",
+      "name": "_45cf9",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "45cf9"
+      },
+      "properties": {}
+    },
+    "_56a0f": {
+      "type": "object",
+      "name": "_56a0f",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "56a0f"
+      },
+      "properties": {}
+    },
+    "_38e8e": {
+      "type": "object",
+      "name": "_38e8e",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "38e8e"
+      },
+      "properties": {}
+    },
+    "_5b3ba": {
+      "type": "object",
+      "name": "_5b3ba",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "5b3ba"
+      },
+      "properties": {}
+    },
+    "_9b42a": {
+      "type": "object",
+      "name": "_9b42a",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "9b42a"
+      },
+      "properties": {}
+    },
+    "_9d23c": {
+      "type": "object",
+      "name": "_9d23c",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "9d23c"
+      },
+      "properties": {}
+    },
+    "_70a7b": {
+      "type": "object",
+      "name": "_70a7b",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "70a7b"
+      },
+      "properties": {}
+    },
+    "_3dd98": {
+      "type": "object",
+      "name": "_3dd98",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "3dd98"
+      },
+      "properties": {}
+    },
+    "_21f87": {
+      "type": "object",
+      "name": "_21f87",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "21f87"
+      },
+      "properties": {}
+    },
+    "_8d374": {
+      "type": "object",
+      "name": "_8d374",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8d374"
+      },
+      "properties": {}
+    },
+    "_3a966": {
+      "type": "object",
+      "name": "_3a966",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "3a966"
+      },
+      "properties": {}
+    },
+    "_09e40": {
+      "type": "object",
+      "name": "_09e40",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "09e40"
+      },
+      "properties": {}
+    },
+    "_4b905": {
+      "type": "object",
+      "name": "_4b905",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "4b905"
+      },
+      "properties": {}
+    },
+    "_4aae7": {
+      "type": "object",
+      "name": "_4aae7",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "4aae7"
+      },
+      "properties": {}
+    },
+    "_375dd": {
+      "type": "object",
+      "name": "_375dd",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "375dd"
+      },
+      "properties": {}
+    },
+    "_42d39": {
+      "type": "object",
+      "name": "_42d39",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "42d39"
+      },
+      "properties": {}
+    },
+    "_799e1": {
+      "type": "object",
+      "name": "_799e1",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "799e1"
+      },
+      "properties": {}
+    },
+    "_1934a": {
+      "type": "object",
+      "name": "_1934a",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "1934a"
+      },
+      "properties": {}
+    },
+    "_5f17a": {
+      "type": "object",
+      "name": "_5f17a",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "5f17a"
+      },
+      "properties": {}
+    },
+    "_00f15": {
+      "type": "object",
+      "name": "_00f15",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "00f15"
+      },
+      "properties": {}
+    },
+    "_077d5": {
+      "type": "object",
+      "name": "_077d5",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "077d5"
+      },
+      "properties": {}
+    },
+    "_974c5": {
+      "type": "object",
+      "name": "_974c5",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "974c5"
+      },
+      "properties": {}
+    },
+    "_843bf": {
+      "type": "object",
+      "name": "_843bf",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "843bf"
+      },
+      "properties": {}
+    },
+    "_03ea7": {
+      "type": "object",
+      "name": "_03ea7",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "03ea7"
+      },
+      "properties": {}
+    },
+    "_8e790": {
+      "type": "object",
+      "name": "_8e790",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8e790"
+      },
+      "properties": {}
+    },
+    "_37850": {
+      "type": "object",
+      "name": "_37850",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "37850"
+      },
+      "properties": {}
+    },
+    "_31be0": {
+      "type": "object",
+      "name": "_31be0",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "31be0"
+      },
+      "properties": {}
+    },
+    "_796db": {
+      "type": "object",
+      "name": "_796db",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "796db"
+      },
+      "properties": {}
+    },
+    "_3071b": {
+      "type": "object",
+      "name": "_3071b",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "3071b"
+      },
+      "properties": {}
+    },
+    "_69b41": {
+      "type": "object",
+      "name": "_69b41",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "69b41"
+      },
+      "properties": {}
+    },
+    "_77df9": {
+      "type": "object",
+      "name": "_77df9",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "77df9"
+      },
+      "properties": {}
+    },
+    "_3cca7": {
+      "type": "object",
+      "name": "_3cca7",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "3cca7"
+      },
+      "properties": {}
+    },
+    "_4909e": {
+      "type": "object",
+      "name": "_4909e",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "4909e"
+      },
+      "properties": {}
+    },
+    "_51b90": {
+      "type": "object",
+      "name": "_51b90",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "51b90"
+      },
+      "properties": {}
+    },
+    "_86b88": {
+      "type": "object",
+      "name": "_86b88",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "86b88"
+      },
+      "properties": {}
+    },
+    "_00571": {
+      "type": "object",
+      "name": "_00571",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "00571"
+      },
+      "properties": {}
+    },
+    "_038dc": {
+      "type": "object",
+      "name": "_038dc",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "038dc"
+      },
+      "properties": {}
+    },
+    "_8ab6a": {
+      "type": "object",
+      "name": "_8ab6a",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8ab6a"
+      },
+      "properties": {}
+    },
+    "_159aa": {
+      "type": "object",
+      "name": "_159aa",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "159aa"
+      },
+      "properties": {}
+    },
+    "_7d7e4": {
+      "type": "object",
+      "name": "_7d7e4",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "7d7e4"
+      },
+      "properties": {}
+    },
+    "_6c62c": {
+      "type": "object",
+      "name": "_6c62c",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6c62c"
+      },
+      "properties": {}
+    },
+    "_60037": {
+      "type": "object",
+      "name": "_60037",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "60037"
+      },
+      "properties": {}
+    },
+    "_3ebec": {
+      "type": "object",
+      "name": "_3ebec",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "3ebec"
+      },
+      "properties": {}
+    },
+    "_47aa6": {
+      "type": "object",
+      "name": "_47aa6",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "47aa6"
+      },
+      "properties": {}
+    },
+    "_1030e": {
+      "type": "object",
+      "name": "_1030e",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "1030e"
+      },
+      "properties": {}
+    },
+    "_960ef": {
+      "type": "object",
+      "name": "_960ef",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "960ef"
+      },
+      "properties": {}
+    },
+    "_58c94": {
+      "type": "object",
+      "name": "_58c94",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "58c94"
+      },
+      "properties": {}
+    },
+    "_863d7": {
+      "type": "object",
+      "name": "_863d7",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "863d7"
+      },
+      "properties": {}
+    },
+    "_39ed5": {
+      "type": "object",
+      "name": "_39ed5",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "39ed5"
+      },
+      "properties": {}
+    },
+    "_56b2f": {
+      "type": "object",
+      "name": "_56b2f",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "56b2f"
+      },
+      "properties": {}
+    },
+    "_5349d": {
+      "type": "object",
+      "name": "_5349d",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "5349d"
+      },
+      "properties": {}
+    },
+    "_17e6a": {
+      "type": "object",
+      "name": "_17e6a",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "17e6a"
+      },
+      "properties": {}
+    },
+    "_172e4": {
+      "type": "object",
+      "name": "_172e4",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "172e4"
+      },
+      "properties": {}
+    },
+    "_6a522": {
+      "type": "object",
+      "name": "_6a522",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6a522"
+      },
+      "properties": {}
+    },
+    "_4de3d": {
+      "type": "object",
+      "name": "_4de3d",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "4de3d"
+      },
+      "properties": {}
+    },
+    "_81bab": {
+      "type": "object",
+      "name": "_81bab",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "81bab"
+      },
+      "properties": {}
+    },
+    "_568cc": {
+      "type": "object",
+      "name": "_568cc",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "568cc"
+      },
+      "properties": {}
+    },
+    "_8af01": {
+      "type": "object",
+      "name": "_8af01",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8af01"
+      },
+      "properties": {}
+    },
+    "_79394": {
+      "type": "object",
+      "name": "_79394",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "79394"
+      },
+      "properties": {}
+    },
+    "_0a52d": {
+      "type": "object",
+      "name": "_0a52d",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0a52d"
+      },
+      "properties": {}
+    },
+    "_8451c": {
+      "type": "object",
+      "name": "_8451c",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8451c"
+      },
+      "properties": {}
+    },
+    "_619f7": {
+      "type": "object",
+      "name": "_619f7",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "619f7"
+      },
+      "properties": {}
+    },
+    "_01ff2": {
+      "type": "object",
+      "name": "_01ff2",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "01ff2"
+      },
+      "properties": {}
+    },
+    "_0f9b3": {
+      "type": "object",
+      "name": "_0f9b3",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0f9b3"
+      },
+      "properties": {}
+    },
+    "_883aa": {
+      "type": "object",
+      "name": "_883aa",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "883aa"
+      },
+      "properties": {}
+    },
+    "_34322": {
+      "type": "object",
+      "name": "_34322",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "34322"
+      },
+      "properties": {}
+    },
+    "_230ce": {
+      "type": "object",
+      "name": "_230ce",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "230ce"
+      },
+      "properties": {}
+    },
+    "_20152": {
+      "type": "object",
+      "name": "_20152",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "20152"
+      },
+      "properties": {}
+    },
+    "_6b85b": {
+      "type": "object",
+      "name": "_6b85b",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6b85b"
+      },
+      "properties": {}
+    },
+    "_4b907": {
+      "type": "object",
+      "name": "_4b907",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "4b907"
+      },
+      "properties": {}
+    },
+    "_00b39": {
+      "type": "object",
+      "name": "_00b39",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "00b39"
+      },
+      "properties": {}
+    },
+    "_698c3": {
+      "type": "object",
+      "name": "_698c3",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "698c3"
+      },
+      "properties": {}
+    },
+    "_6665e": {
+      "type": "object",
+      "name": "_6665e",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6665e"
+      },
+      "properties": {}
+    },
+    "_8b747": {
+      "type": "object",
+      "name": "_8b747",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8b747"
+      },
+      "properties": {}
+    },
+    "_64730": {
+      "type": "object",
+      "name": "_64730",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "64730"
+      },
+      "properties": {}
+    },
+    "_2ffc1": {
+      "type": "object",
+      "name": "_2ffc1",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "2ffc1"
+      },
+      "properties": {}
+    },
+    "_6d6c1": {
+      "type": "object",
+      "name": "_6d6c1",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6d6c1"
+      },
+      "properties": {}
+    },
+    "_04e4b": {
+      "type": "object",
+      "name": "_04e4b",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "04e4b"
+      },
+      "properties": {}
+    },
+    "_952c9": {
+      "type": "object",
+      "name": "_952c9",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "952c9"
+      },
+      "properties": {}
+    },
+    "_0cca7": {
+      "type": "object",
+      "name": "_0cca7",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0cca7"
+      },
+      "properties": {}
+    },
+    "_8d980": {
+      "type": "object",
+      "name": "_8d980",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "8d980"
+      },
+      "properties": {}
+    },
+    "_34d39": {
+      "type": "object",
+      "name": "_34d39",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "34d39"
+      },
+      "properties": {}
+    },
+    "_9a1f9": {
+      "type": "object",
+      "name": "_9a1f9",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "9a1f9"
+      },
+      "properties": {}
+    },
+    "_0cd26": {
+      "type": "object",
+      "name": "_0cd26",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "0cd26"
+      },
+      "properties": {}
+    },
+    "_31725": {
+      "type": "object",
+      "name": "_31725",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "31725"
+      },
+      "properties": {}
+    },
+    "_2ae5f": {
+      "type": "object",
+      "name": "_2ae5f",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "2ae5f"
+      },
+      "properties": {}
+    },
+    "_4f5d5": {
+      "type": "object",
+      "name": "_4f5d5",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "4f5d5"
+      },
+      "properties": {}
+    },
+    "_37aed": {
+      "type": "object",
+      "name": "_37aed",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "37aed"
+      },
+      "properties": {}
+    },
+    "_87cf9": {
+      "type": "object",
+      "name": "_87cf9",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "87cf9"
+      },
+      "properties": {}
+    },
+    "_2d92f": {
+      "type": "object",
+      "name": "_2d92f",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "2d92f"
+      },
+      "properties": {}
+    },
+    "_6f0a1": {
+      "type": "object",
+      "name": "_6f0a1",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6f0a1"
+      },
+      "properties": {}
+    },
+    "_91edd": {
+      "type": "object",
+      "name": "_91edd",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "91edd"
+      },
+      "properties": {}
+    },
+    "_66666": {
+      "type": "object",
+      "name": "_66666",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "66666"
+      },
+      "properties": {}
+    },
+    "_6daff": {
+      "type": "object",
+      "name": "_6daff",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "6daff"
+      },
+      "properties": {}
+    },
+    "_81058": {
+      "type": "object",
+      "name": "_81058",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "81058"
+      },
+      "properties": {}
+    },
+    "_21023": {
+      "type": "object",
+      "name": "_21023",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "21023"
+      },
+      "properties": {}
+    },
+    "_183d9": {
+      "type": "object",
+      "name": "_183d9",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "183d9"
+      },
+      "properties": {}
+    },
+    "_9acfe": {
+      "type": "object",
+      "name": "_9acfe",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "9acfe"
+      },
+      "properties": {}
+    },
+    "_815f9": {
+      "type": "object",
+      "name": "_815f9",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "815f9"
+      },
+      "properties": {}
+    },
+    "_09338": {
+      "type": "object",
+      "name": "_09338",
+      "additionalProperties": true,
+      "altnames": {
+        "json": "09338"
+      },
+      "properties": {}
+    },
+    "b2d82_full": {
+      "type": "object",
+      "required": [
+        "version"
+      ],
+      "name": "b2d82_full",
+      "properties": {
+        "version": {
+          "type": "string",
+          "enum": [
+            "1.0.0",
+            "1.1.0",
+            "1.1.1",
+            "2.1.0",
+            "2.0.0",
+            "2.2.0"
+          ]
+        }
+      }
+    }
+  }
+}

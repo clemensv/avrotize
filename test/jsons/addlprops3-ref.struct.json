@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "Properties with Additional Properties",
+  "properties": {
+    "id": {
+      "type": "int32"
+    },
+    "more": {
+      "type": [
+        {
+          "$ref": "#/definitions/document_PatternMap_foo__02"
+        },
+        {
+          "$ref": "#/definitions/document_PatternMap_bar__12"
+        }
+      ]
+    },
+    "name": {
+      "type": "string"
+    },
+    "other": {
+      "type": "object",
+      "properties": {
+        "prop1": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": "string",
+      "name": "document"
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "prop1": {
+          "type": "string"
+        },
+        "prop2": {
+          "type": "int32"
+        },
+        "prop3": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prop4": {
+          "type": "object",
+          "properties": {
+            "prop5": {
+              "type": "int32"
+            }
+          },
+          "name": "document"
+        },
+        "prop6": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {
+        "type": "string"
+      },
+      "name": "document"
+    },
+    "yetAnother": {
+      "type": [
+        {
+          "$ref": "#/definitions/document_PatternMap_foo__0"
+        },
+        {
+          "$ref": "#/definitions/document_PatternMap_bar__1"
+        },
+        {
+          "$ref": "#/definitions/document_AdditionalMap"
+        }
+      ]
+    }
+  },
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "definitions": {
+    "document_PatternMap_foo__0": {
+      "type": "map",
+      "values": {
+        "type": "int32"
+      },
+      "keyNames": {
+        "type": "string",
+        "pattern": "foo*"
+      },
+      "name": "document_PatternMap_foo__0"
+    },
+    "document_PatternMap_bar__1": {
+      "type": "map",
+      "values": {
+        "type": "string"
+      },
+      "keyNames": {
+        "type": "string",
+        "pattern": "bar*"
+      },
+      "name": "document_PatternMap_bar__1"
+    },
+    "document_AdditionalMap": {
+      "type": "map",
+      "values": {
+        "type": "boolean"
+      },
+      "keyNames": {
+        "type": "string"
+      },
+      "name": "document_AdditionalMap"
+    },
+    "document_PatternMap_foo__02": {
+      "type": "map",
+      "values": {
+        "type": "int32"
+      },
+      "keyNames": {
+        "type": "string",
+        "pattern": "foo*"
+      },
+      "name": "document_PatternMap_foo__02"
+    },
+    "document_PatternMap_bar__12": {
+      "type": "map",
+      "values": {
+        "type": "string"
+      },
+      "keyNames": {
+        "type": "string",
+        "pattern": "bar*"
+      },
+      "name": "document_PatternMap_bar__12"
+    }
+  },
+  "name": "document"
+}

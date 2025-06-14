@@ -19,9 +19,36 @@ def avro_name(name):
     if isinstance(name, int):
         name = '_'+str(name)
     val = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+    # Ensure the name starts with a letter or underscore (required for valid identifiers)
     if re.match(r'^[0-9]', val):
         val = '_' + val
+    # Additional check to ensure we always have a valid identifier
+    if not val or not re.match(r'^[a-zA-Z_]', val):
+        val = '_' + val
     return val
+
+
+def avro_name_with_altname(name):
+    """
+    Convert a name into an Avro name and return both the normalized name and alternate name info.
+    
+    Args:
+        name (str): The original name to convert
+        
+    Returns:
+        tuple: (normalized_name, original_name_if_different_or_None)
+    """
+    if isinstance(name, int):
+        name = str(name)
+    
+    original_name = name
+    normalized_name = avro_name(name)
+    
+    # If the normalized name is different from the original, return the original as alt name
+    if normalized_name != original_name:
+        return normalized_name, original_name
+    else:
+        return normalized_name, None
 
 
 def avro_namespace(name):

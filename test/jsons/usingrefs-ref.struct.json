@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "properties": {
+    "arrayObject": {
+      "type": {
+        "$ref": "#/definitions/arrayObject"
+      }
+    },
+    "objectWithAdditionalProperties": {
+      "type": {
+        "$ref": "#/definitions/additionalPropertiesObject"
+      }
+    },
+    "objectWithProperties": {
+      "type": {
+        "$ref": "#/definitions/propertiesObject"
+      }
+    },
+    "stringProperty": {
+      "type": {
+        "$ref": "#/definitions/stringType"
+      }
+    }
+  },
+  "required": [
+    "objectWithProperties",
+    "arrayObject",
+    "objectWithAdditionalProperties",
+    "stringProperty"
+  ],
+  "$id": "https://example.com/example/com.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "definitions": {
+    "propertiesObject": {
+      "type": "object",
+      "required": [
+        "property1",
+        "property2"
+      ],
+      "name": "propertiesObject",
+      "properties": {
+        "property1": {
+          "type": "string"
+        },
+        "property2": {
+          "type": "double"
+        }
+      }
+    },
+    "arrayObject": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "name": "arrayObject"
+    },
+    "additionalPropertiesObject": {
+      "type": "map",
+      "values": {
+        "type": "string"
+      },
+      "name": "additionalPropertiesObject"
+    },
+    "stringType": {
+      "type": "string",
+      "name": "stringType"
+    }
+  },
+  "name": "document"
+}

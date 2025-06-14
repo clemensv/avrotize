@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "An address similar to http://microformats.org/wiki/h-card",
+  "properties": {
+    "countryName": {
+      "type": "string"
+    },
+    "extendedAddress": {
+      "type": "string"
+    },
+    "locality": {
+      "type": "string"
+    },
+    "postOfficeBox": {
+      "type": "string"
+    },
+    "postalCode": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "streetAddress": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "locality",
+    "region",
+    "countryName"
+  ],
+  "$id": "https://example.com/address.schema.json",
+  "$uses": [
+    "JSONStructureValidation"
+  ],
+  "name": "document"
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "type": "object",
+  "description": "Properties with Additional Properties",
+  "properties": {
+    "id": {
+      "type": "int32"
+    },
+    "name": {
+      "type": "string"
+    }
+  },
+  "$id": "https://example.com/example/com.schema.json",
+  "additionalProperties": {
+    "type": "string"
+  },
+  "name": "document"
+}
