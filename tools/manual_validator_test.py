@@ -19,7 +19,7 @@ sys.path.append(str(validator_path))
 def main():
     """Main function to run validator test."""
     try:
-        from tools.json_structure_schema_validator import JSONStructureSchemaCoreValidator
+        from json_structure_schema_validator import JSONStructureSchemaCoreValidator
         print("✓ JSON Structure validator imported successfully")
         
         # Test with a simple valid JSON Structure

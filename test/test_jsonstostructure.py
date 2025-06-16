@@ -26,7 +26,7 @@ from avrotize.jsonstostructure import JsonToStructureConverter, convert_json_sch
 from jsoncomparison import NO_DIFF, Compare
 
 try:
-    from tools.json_structure_schema_validator import JSONStructureSchemaCoreValidator
+    from json_structure_schema_validator import JSONStructureSchemaCoreValidator
     VALIDATOR_AVAILABLE = True
     validator_class = JSONStructureSchemaCoreValidator
 except ImportError:
