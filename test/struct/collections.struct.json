@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/collections",
+  "type": "object",
+  "name": "Collections",
+  "description": "Test schema for collection types",
+  "properties": {
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "minItems": 1,
+      "maxItems": 10
+    },
+    "numberSet": {
+      "type": "set",
+      "items": {
+        "type": "int32",
+        "minimum": 1,
+        "maximum": 100
+      },
+      "minItems": 0,
+      "maxItems": 20
+    },
+    "stringToNumberMap": {
+      "type": "map",
+      "keys": {
+        "type": "string",
+        "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+      },
+      "values": {
+        "type": "double",
+        "minimum": 0.0
+      }
+    },
+    "nestedArray": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": ["stringArray"]
+}

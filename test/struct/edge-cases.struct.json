@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/edge-cases",
+  "type": "object",
+  "name": "EdgeCases",
+  "description": "Test schema for edge cases and special scenarios",
+  "properties": {
+    "emptyString": {
+      "type": "string",
+      "maxLength": 0
+    },
+    "veryLongString": {
+      "type": "string",
+      "maxLength": 1000000
+    },
+    "preciseDecimal": {
+      "type": "decimal",
+      "precision": 38,
+      "scale": 18
+    },
+    "largeInteger": {
+      "type": "int64",
+      "minimum": -9223372036854775808,
+      "maximum": 9223372036854775807
+    },
+    "emptyArray": {
+      "type": "array",
+      "items": { "type": "string" },
+      "maxItems": 0
+    },      
+    "nullableEverything": {
+      "type": ["string", "int32", "double", "boolean", "array", "object", "null"]
+    },
+    "deeplyNested": {
+      "type": "object",
+      "properties": {
+        "level1": {
+          "type": "object",
+          "properties": {
+            "level2": {
+              "type": "object",
+              "properties": {
+                "level3": {
+                  "type": "object",
+                  "properties": {
+                    "level4": {
+                      "type": "object",
+                      "properties": {
+                        "value": { "type": "string" }
+                      },
+                      "required": ["value"]
+                    }
+                  },
+                  "required": ["level4"]
+                }
+              },
+              "required": ["level3"]
+            }
+          },
+          "required": ["level2"]
+        }
+      },
+      "required": ["level1"]
+    }
+  }
+}

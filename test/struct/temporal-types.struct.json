@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/temporal-types",
+  "type": "object",
+  "name": "TemporalTypes",
+  "description": "Test schema for temporal types",
+  "properties": {
+    "dateField": {
+      "type": "date",
+      "description": "A date field"
+    },
+    "timeField": {
+      "type": "time",
+      "description": "A time field"
+    },
+    "datetimeField": {
+      "type": "datetime",
+      "description": "A datetime field"
+    },
+    "timestampField": {
+      "type": "timestamp",
+      "description": "A timestamp field"
+    },
+    "durationField": {
+      "type": "duration",
+      "description": "A duration field"
+    }
+  },
+  "required": ["datetimeField"]
+}

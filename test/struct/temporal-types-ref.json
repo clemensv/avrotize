@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/temporal-types",
+  "title": "TemporalTypes",
+  "description": "Test schema for temporal types",
+  "type": "object",
+  "properties": {
+    "dateField": {
+      "type": "string",
+      "format": "date"
+    },
+    "timeField": {
+      "type": "string",
+      "format": "time"
+    },
+    "datetimeField": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "timestampField": {
+      "type": "number"
+    },
+    "durationField": {
+      "type": "string",
+      "format": "duration"
+    }
+  },
+  "required": [
+    "datetimeField"
+  ]
+}

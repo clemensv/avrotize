@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/choice-types",
+  "title": "ChoiceTypes",
+  "description": "Test schema for choice types (unions)",
+  "type": "object",
+  "properties": {
+    "taggedChoice": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "textValue": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "textValue"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "numberValue": {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            }
+          },
+          "required": [
+            "numberValue"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "inlineChoice": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "entityType": {
+              "const": "Person"
+            },
+            "age": {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "entityType": {
+              "const": "Company"
+            },
+            "employees": {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            }
+          }
+        }
+      ]
+    },
+    "nullableString": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "taggedChoice"
+  ]
+}

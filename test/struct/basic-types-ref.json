@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/basic-types",
+  "title": "BasicTypes",
+  "description": "Test schema for basic JSON Structure types",
+  "type": "object",
+  "properties": {
+    "stringField": {
+      "type": "string"
+    },
+    "intField": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    },
+    "longField": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "floatField": {
+      "type": "number",
+      "format": "float"
+    },
+    "doubleField": {
+      "type": "number",
+      "format": "double"
+    },
+    "booleanField": {
+      "type": "boolean"
+    },
+    "uuidField": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "bytesField": {
+      "type": "string",
+      "format": "byte"
+    }
+  },
+  "required": [
+    "stringField",
+    "intField"
+  ]
+}

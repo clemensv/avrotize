@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/basic-types",
+  "type": "object",
+  "name": "BasicTypes",
+  "description": "Test schema for basic JSON Structure types",
+  "properties": {
+    "stringField": {
+      "type": "string",
+      "description": "A basic string field"
+    },
+    "intField": {
+      "type": "int32",
+      "description": "A 32-bit integer"
+    },
+    "longField": {
+      "type": "int64",
+      "description": "A 64-bit integer"
+    },
+    "floatField": {
+      "type": "float",
+      "description": "A floating point number"
+    },
+    "doubleField": {
+      "type": "double",
+      "description": "A double precision number"
+    },
+    "booleanField": {
+      "type": "boolean",
+      "description": "A boolean value"
+    },
+    "uuidField": {
+      "type": "uuid",
+      "description": "A UUID value"
+    },
+    "bytesField": {
+      "type": "bytes",
+      "description": "Binary data"
+    }
+  },
+  "required": ["stringField", "intField"]
+}

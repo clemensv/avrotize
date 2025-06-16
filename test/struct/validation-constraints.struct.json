@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/validation-constraints",
+  "type": "object",
+  "name": "ValidationConstraints",
+  "description": "Test schema for validation constraints",
+  "properties": {
+    "constrainedString": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 50,
+      "pattern": "^[A-Z][a-zA-Z0-9]*$"
+    },
+    "enumField": {
+      "type": "string",
+      "enum": ["red", "green", "blue", "yellow"]
+    },
+    "constField": {
+      "type": "string",
+      "const": "fixed-value"
+    },
+    "numberWithConstraints": {
+      "type": "int32",
+      "minimum": 0,
+      "maximum": 100,
+      "multipleOf": 5
+    },
+    "exclusiveRangeNumber": {
+      "type": "double",
+      "exclusiveMinimum": 0.0,
+      "exclusiveMaximum": 10.0
+    }
+  },
+  "required": ["constrainedString", "enumField"]
+}

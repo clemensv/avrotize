@@ -229,19 +229,12 @@
   {
     "command": "j2s",
     "description": "Convert JSON schema to JSON Structure",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.jsonstostructure.convert_json_schema_to_structure",
+    "group": "1_Schemas",    "function": {
+      "name": "avrotize.jsonstostructure.convert_json_schema_to_structure_files",
       "args": {
         "json_schema_file_path": "input_file_path",
         "structure_schema_path": "output_file_path",
-        "namespace": "args.namespace",
-        "utility_namespace": "args.utility_namespace",
-        "root_class_name": "args.root_class_name",
-        "preserve_composition": "args.preserve_composition",
-        "detect_inheritance": "args.detect_inheritance",
-        "detect_discriminators": "args.detect_discriminators",
-        "convert_empty_objects_to_maps": "args.convert_empty_objects_to_maps"
+        "root_namespace": "args.namespace"
       }
     },
     "extensions": [".json", ".jsons"],
@@ -321,8 +314,37 @@
         "type": "str",
         "default": "document",
         "required": false
+      }    ]
+  },
+  {
+    "command": "s2j",
+    "description": "Convert JSON Structure to JSON Schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretojsons.convert_structure_to_json_schema",
+      "args": {
+        "structure_file_path": "input_file_path",
+        "json_schema_path": "output_file_path"
       }
-    ]
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Schema file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.schema.json",
+    "prompts": []
   },
   {
     "command": "x2a",

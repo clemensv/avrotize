@@ -2612,3 +2612,31 @@ def convert_json_schema_to_structure(input_data: str, root_namespace: str = 'exa
     result = converter.jsons_to_structure(json_schema, root_namespace, base_uri)
     
     return json.dumps(result, indent=2)
+
+def convert_json_schema_to_structure_files(
+    json_schema_file_path: str, 
+    structure_schema_path: str,
+    root_namespace = None
+) -> None:
+    """
+    Convert a JSON Schema file to JSON Structure format.
+    
+    Args:
+        json_schema_file_path (str): Path to the input JSON Schema file
+        structure_schema_path (str): Path to the output JSON Structure file
+        root_namespace (str): The namespace for the root schema
+    """
+    # Use default namespace if None provided
+    if root_namespace is None:
+        root_namespace = 'example.com'
+    
+    # Read the JSON Schema file
+    with open(json_schema_file_path, 'r', encoding='utf-8') as f:
+        schema_content = f.read()
+    
+    # Convert to JSON Structure
+    result = convert_json_schema_to_structure(schema_content, root_namespace)
+    
+    # Write the result
+    with open(structure_schema_path, 'w', encoding='utf-8') as f:
+        f.write(result)

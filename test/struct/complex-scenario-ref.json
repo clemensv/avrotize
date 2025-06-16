@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/complex-scenario",
+  "x-uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureUnits",
+    "JSONStructureValidation"
+  ],
+  "title": "ComplexScenario",
+  "description": "Complex test scenario combining multiple JSON Structure features",
+  "type": "object",
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "maxItems": 10
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "created"
+      ]
+    },
+    "data": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "measurement": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "measurement"
+                },
+                "value": {
+                  "type": "string",
+                  "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+                  "x-precision": 15,
+                  "x-scale": 6,
+                  "x-unit": "m/s\u00b2"
+                },
+                "timestamp": {
+                  "type": "number"
+                },
+                "device": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "calibration": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "number",
+                        "format": "double"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                }
+              },
+              "required": [
+                "type",
+                "value",
+                "timestamp"
+              ]
+            }
+          },
+          "required": [
+            "measurement"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "event"
+                },
+                "name": {
+                  "type": "string",
+                  "x-altnames": {
+                    "json": "event_name",
+                    "lang:en": "Event Name"
+                  }
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "critical"
+                  ]
+                },
+                "details": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^-?[0-9]+$"
+                          },
+                          {
+                            "type": "number",
+                            "format": "double"
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "severity"
+              ]
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "signature": {
+      "type": "string",
+      "format": "byte"
+    }
+  },
+  "required": [
+    "metadata",
+    "data"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/validation-constraints",
+  "title": "ValidationConstraints",
+  "description": "Test schema for validation constraints",
+  "type": "object",
+  "properties": {
+    "constrainedString": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 50,
+      "pattern": "^[A-Z][a-zA-Z0-9]*$"
+    },
+    "enumField": {
+      "type": "string",
+      "enum": [
+        "red",
+        "green",
+        "blue",
+        "yellow"
+      ]
+    },
+    "constField": {
+      "type": "string",
+      "const": "fixed-value"
+    },
+    "numberWithConstraints": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "multipleOf": 5
+    },
+    "exclusiveRangeNumber": {
+      "type": "number",
+      "format": "double",
+      "exclusiveMinimum": 0.0,
+      "exclusiveMaximum": 10.0
+    }
+  },
+  "required": [
+    "constrainedString",
+    "enumField"
+  ]
+}

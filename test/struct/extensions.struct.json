@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/extensions",
+  "$uses": ["JSONStructureAlternateNames", "JSONStructureUnits"],
+  "type": "object",
+  "name": "ExtensionsExample",
+  "description": "Test schema for JSON Structure extensions",
+  "properties": {
+    "productName": {
+      "type": "string",
+      "maxLength": 100,
+      "altnames": {
+        "json": "product_name",
+        "lang:en": "Product Name",
+        "lang:de": "Produktname",
+        "lang:fr": "Nom du Produit"
+      },
+      "description": "Product name with alternate names"
+    },
+    "price": {
+      "type": "decimal",
+      "precision": 10,
+      "scale": 2,
+      "currency": "USD",
+      "minimum": 0
+    },
+    "weight": {
+      "type": "double",
+      "unit": "kg",
+      "minimum": 0.0
+    },
+    "temperature": {
+      "type": "double",
+      "unit": "°C",
+      "symbol": "T"
+    },
+    "stockSymbol": {
+      "type": "string",
+      "symbol": "STOCK",
+      "maxLength": 10,
+      "pattern": "^[A-Z]{1,5}$"
+    }
+  },
+  "required": ["productName", "price"]
+}

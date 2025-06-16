@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/extensions",
+  "x-uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureUnits"
+  ],
+  "title": "ExtensionsExample",
+  "description": "Test schema for JSON Structure extensions",
+  "type": "object",
+  "properties": {
+    "productName": {
+      "type": "string",
+      "maxLength": 100,
+      "x-altnames": {
+        "json": "product_name",
+        "lang:en": "Product Name",
+        "lang:de": "Produktname",
+        "lang:fr": "Nom du Produit"
+      }
+    },
+    "price": {
+      "type": "string",
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+      "minimum": 0,
+      "x-precision": 10,
+      "x-scale": 2,
+      "x-currency": "USD"
+    },
+    "weight": {
+      "type": "number",
+      "format": "double",
+      "minimum": 0.0,
+      "x-unit": "kg"
+    },
+    "temperature": {
+      "type": "number",
+      "format": "double",
+      "x-unit": "\u00b0C"
+    },
+    "stockSymbol": {
+      "type": "string",
+      "maxLength": 10,
+      "pattern": "^[A-Z]{1,5}$"
+    }
+  },
+  "required": [
+    "productName",
+    "price"
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/nested-objects",
+  "type": "object",
+  "name": "NestedObjects",
+  "description": "Test schema for nested object structures",
+  "properties": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "firstName": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "lastName": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "address": {
+          "type": "object",
+          "properties": {
+            "street": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "city": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "country": {
+              "type": "string",
+              "maxLength": 50
+            },
+            "coordinates": {
+              "type": "object",
+              "properties": {
+                "latitude": {
+                  "type": "double",
+                  "minimum": -90.0,
+                  "maximum": 90.0
+                },
+                "longitude": {
+                  "type": "double",
+                  "minimum": -180.0,
+                  "maximum": 180.0
+                }
+              },
+              "required": ["latitude", "longitude"]
+            }
+          },
+          "required": ["street", "city", "country"]
+        },
+        "phoneNumbers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["home", "work", "mobile"]
+              },
+              "number": {
+                "type": "string",
+                "pattern": "^\\+?[1-9]\\d{1,14}$"
+              }
+            },
+            "required": ["type", "number"]
+          }
+        }
+      },
+      "required": ["firstName", "lastName", "address"]
+    }
+  },
+  "required": ["person"]
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/choice-types",
+  "type": "object",
+  "name": "ChoiceTypes",
+  "description": "Test schema for choice types (unions)",
+  "properties": {
+    "taggedChoice": {
+      "type": "choice",
+      "name": "TaggedChoice",
+      "choices": {
+        "textValue": { "type": "string" },
+        "numberValue": { "type": "int32" }
+      }
+    },
+    "inlineChoice": {
+      "type": "choice",
+      "name": "EntityChoice",
+      "$extends": "#/definitions/BaseEntity",
+      "selector": "entityType",
+      "choices": {
+        "Person": { "$ref": "#/definitions/Person" },
+        "Company": { "$ref": "#/definitions/Company" }
+      }
+    },
+    "nullableString": {
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["taggedChoice"],
+  "definitions": {
+    "BaseEntity": {
+      "abstract": true,
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "entityType": { "type": "string" }
+      }
+    },
+    "Person": {
+      "type": "object",
+      "$extends": "#/definitions/BaseEntity",
+      "properties": {
+        "age": { "type": "int32" }
+      }
+    },
+    "Company": {
+      "type": "object",
+      "$extends": "#/definitions/BaseEntity",
+      "properties": {
+        "employees": { "type": "int32" }
+      }
+    }
+  }
+}

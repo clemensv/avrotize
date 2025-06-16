@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/complex-scenario",
+  "$uses": ["JSONStructureAlternateNames", "JSONStructureUnits", "JSONStructureValidation"],
+  "type": "object",
+  "name": "ComplexScenario",
+  "description": "Complex test scenario combining multiple JSON Structure features",
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "uuid",
+          "description": "Unique identifier"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semantic version"
+        },
+        "created": {
+          "type": "datetime",
+          "description": "Creation timestamp"
+        },
+        "tags": {
+          "type": "set",
+          "items": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "maxItems": 10
+        }
+      },
+      "required": ["id", "version", "created"]
+    },    "data": {
+      "type": "choice",
+      "choices": {
+        "measurement": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "measurement" },
+            "value": { 
+              "type": "decimal", 
+              "precision": 15, 
+              "scale": 6,
+              "unit": "m/s²"
+            },
+            "timestamp": { "type": "timestamp" },
+            "device": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "calibration": {
+                  "type": "map",
+                  "keys": { "type": "string" },
+                  "values": { "type": "double" }
+                }
+              },
+              "required": ["id"]
+            }
+          },
+          "required": ["type", "value", "timestamp"]
+        },
+        "event": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "event" },
+            "name": { 
+              "type": "string",
+              "altnames": {
+                "json": "event_name",
+                "lang:en": "Event Name"
+              }
+            },
+            "severity": {
+              "type": "string",
+              "enum": ["low", "medium", "high", "critical"]
+            },
+            "details": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string" },
+                  "value": {
+                    "type": ["string", "int64", "double", "boolean"]
+                  }
+                },
+                "required": ["key", "value"]
+              }
+            }
+          },
+          "required": ["type", "name", "severity"]
+        }
+      }
+    },
+    "signature": {
+      "type": "bytes",
+      "description": "Digital signature"
+    }
+  },
+  "required": ["metadata", "data"]
+}

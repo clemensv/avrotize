@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/numeric-types",
+  "type": "object",
+  "name": "NumericTypes",
+  "description": "Test schema for numeric types with precision and scale",
+  "properties": {
+    "int8Field": {
+      "type": "int8",
+      "minimum": -128,
+      "maximum": 127
+    },
+    "int16Field": {
+      "type": "int16",
+      "minimum": -32768,
+      "maximum": 32767
+    },
+    "uint32Field": {
+      "type": "uint32",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "uint64Field": {
+      "type": "uint64",
+      "minimum": 0
+    },
+    "decimalField": {
+      "type": "decimal",
+      "precision": 10,
+      "scale": 2,
+      "minimum": 0,
+      "maximum": 99999999.99
+    },
+    "binaryField": {
+      "type": "binary32",
+      "description": "32-bit binary floating point"
+    },
+    "binary64Field": {
+      "type": "binary64",
+      "description": "64-bit binary floating point"
+    }
+  },
+  "required": ["int8Field", "decimalField"]
+}
