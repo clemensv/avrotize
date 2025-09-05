@@ -315,7 +315,11 @@ class AvroToJava:
         elif isinstance(avro_type, dict):
             if avro_type['type'] in ['record', 'enum']:
                 return self.generate_class_or_enum(avro_type, parent_package, write_file=True)
-            elif avro_type['type'] == 'fixed' or avro_type['type'] == 'bytes' and 'logicalType' in avro_type:
+            elif avro_type['type'] == 'fixed':
+                if 'logicalType' in avro_type and avro_type['logicalType'] == 'decimal':
+                    return AvroToJava.JavaType('BigDecimal')
+                return AvroToJava.JavaType('byte[]')
+            elif avro_type['type'] == 'bytes' and 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'decimal':
                     return AvroToJava.JavaType('BigDecimal')
             elif avro_type['type'] == 'array':
