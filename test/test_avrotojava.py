@@ -157,3 +157,16 @@ class TestAvroToJava(unittest.TestCase):
         convert_avro_to_java(avro_path, java_path, package_name="enumfield.lower.java")
         assert subprocess.check_call(
             "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+    
+    def test_fixed_field_avsc_to_java(self):
+        """ Test converting an avsc file with a fixed field to Java """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "fixed-field.avsc")
+        java_path = os.path.join(tempfile.gettempdir(), "avrotize", "fixed-field-java")
+        if os.path.exists(java_path):
+            shutil.rmtree(java_path, ignore_errors=True)
+        os.makedirs(java_path, exist_ok=True)
+
+        convert_avro_to_java(avro_path, java_path, package_name="fixed.field.java")
+        assert subprocess.check_call(
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0

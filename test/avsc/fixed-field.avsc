@@ -1,0 +1,40 @@
+{
+    "type": "record",
+    "name": "DeviceNetwork",
+    "namespace": "com.example.iot",
+    "fields": [
+        {
+        "name": "macAddress",
+        "type": {
+            "type": "fixed",
+            "name": "MacAddress",
+            "size": 6
+        }
+        },
+        {
+        "name": "location",
+        "type": {
+            "type": "record",
+            "name": "GeoLocation",
+            "fields": [
+            {
+                "name": "lat",
+                "type": "double"
+            },
+            {
+                "name": "lon",
+                "type": "double"
+            },
+            {
+                "name": "altMeters",
+                "type": [
+                "null",
+                "float"
+                ],
+                "default": null
+            }
+            ]
+        }
+        }
+    ]
+}
