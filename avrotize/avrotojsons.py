@@ -231,6 +231,10 @@ class AvroToJsonSchemaConverter:
         required = []
         
         json_schema: Dict[str, Any] = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "title": record_name
+        } if is_root else {
             "type": "object",
             "title": record_name
         }        
