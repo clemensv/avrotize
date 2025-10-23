@@ -70,14 +70,18 @@ class AvroToJsonSchemaConverter:
         """
         json_type = {}
         if isinstance(avro_type, dict):
+            logical_type = avro_type.get('logicalType')
             avro_type = avro_type.get('type', avro_type)
-            if isinstance(avro_type, dict) and 'logicalType' in avro_type:
-                logical_type = avro_type['logicalType']
-                if logical_type in ['date', 'timestamp-millis', 'timestamp-micros']:
+            if logical_type:
+                if logical_type == 'date':
+                    json_type['type'] = 'string'
+                    json_type['format'] = 'date'
+                    return json_type
+                elif logical_type in ['timestamp-millis', 'timestamp-micros']:
                     json_type['type'] = 'string'
                     json_type['format'] = 'date-time'
                     return json_type
-                elif logical_type == 'time-millis' or logical_type == 'time-micros':
+                elif logical_type in ['time-millis', 'time-micros']:
                     json_type['type'] = 'string'
                     json_type['format'] = 'time'
                     return json_type
@@ -192,6 +196,9 @@ class AvroToJsonSchemaConverter:
             elif avro_schema['type'] in self.defined_types:
                 # Type reference
                 return self.convert_reference(avro_schema)
+            elif 'logicalType' in avro_schema:
+                # Pass dict with logicalType directly to primitive mapping
+                return self.avro_primitive_to_json_type(avro_schema)
             else:
                 # Nested type or a direct type definition
                 return self.parse_avro_schema(avro_schema['type'])
