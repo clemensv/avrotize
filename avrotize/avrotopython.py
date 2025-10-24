@@ -474,39 +474,94 @@ class AvroToPython:
 
         def organize_generated_types():
             """
-            Organizes the generated_types into a tree structure
+            Organizes the generated_types into a tree structure.
+            
+            For a fully qualified name like 'address.example.com.record.Record':
+            - The package.module path is 'address.example.com.record'
+            - The class name is 'Record'
+            - The module file is 'record.py' in directory 'address/example/com/'
+            
+            The tree structure should navigate through package parts up to the parent directory,
+            then store the module name (last package part) as the key with class name as value:
+            {
+              'address': {
+                'example': {
+                  'com': {
+                    'record': 'Record'  # module 'record.py' -> class 'Record'
+                  }
+                }
+              }
+            }
             """
             generated_types_tree = {}
             for generated_type, _ in self.generated_types.items():
-                package_parts = generated_type.split('.')
+                parts = generated_type.split('.')
+                if len(parts) < 2:
+                    continue  # Need at least module.Class
+                    
+                class_name = parts[-1]  # Last part is the class name
+                module_name = parts[-2]  # Second-to-last is the module name
+                package_parts = parts[:-2]  # Everything before module and class is the package path
+                
+                # Navigate through the package hierarchy
                 current_node = generated_types_tree
-                count:int = 0
-                for part in package_parts[:-1]:
-                    count += 1
+                for part in package_parts:
                     if part not in current_node:
-                        current_node[part] = {} if count < len(package_parts) - 1 else generated_type
+                        current_node[part] = {}
                     current_node = current_node[part]
-                current_node = package_parts[-1]
+                
+                # Store module -> class mapping at this level
+                current_node[module_name] = class_name
+                
             return generated_types_tree
+
+        def collect_class_names(node):
+            """
+            Recursively collect all class names from a tree node.
+            Returns a list of class names (PascalCase) available in this package level.
+            """
+            class_names = []
+            for key, value in node.items():
+                if isinstance(value, dict):
+                    # Recursively collect from subpackages
+                    class_names.extend(collect_class_names(value))
+                else:
+                    # This is a leaf node with a class name
+                    class_names.append(value)
+            return class_names
 
         def write_init_files_recursive(generated_types_tree, current_package: str):
             """
-            Writes __init__.py files recursively
+            Writes __init__.py files recursively.
+            
+            For each package level:
+            - Import classes from module files (from .modulename import ClassName)
+            - Import classes from subpackages (from .subpackage import ClassName)
+            - Re-export all class names in __all__
             """
             import_statements = []
             all_statement = []
-            for package_name, package_content in generated_types_tree.items():
-                if isinstance(package_content, dict):
-                    import_statements.append(f"from .{package_name} import {', '.join(package_content.keys())}")
-                    all_statement.append(', '.join(['"'+k+'"' for k in package_content.keys()]))
-                    write_init_files_recursive(package_content, current_package + ('.' if current_package else '') + package_name)
+            
+            for package_or_module_name, content in generated_types_tree.items():
+                if isinstance(content, dict):
+                    # This is a subpackage - collect all class names from it
+                    class_names = collect_class_names(content)
+                    if class_names:
+                        import_statements.append(f"from .{package_or_module_name} import {', '.join(class_names)}")
+                        all_statement.extend([f'"{name}"' for name in class_names])
+                    # Recursively write __init__.py for the subpackage
+                    write_init_files_recursive(content, current_package + ('.' if current_package else '') + package_or_module_name)
                 else:
-                    class_name = package_content.split('.')[-1]
-                    import_statements.append(f"from .{package_name} import {class_name}")
-                    all_statement.append('"'+class_name+'"')
-            if current_package:
+                    # This is a module file - import the class from it
+                    class_name = content
+                    import_statements.append(f"from .{package_or_module_name} import {class_name}")
+                    all_statement.append(f'"{class_name}"')
+            
+            if current_package and (import_statements or all_statement):
                 package_path = os.path.join(self.output_dir, 'src', current_package.replace('.', os.sep).lower())
                 init_file_path = os.path.join(package_path, '__init__.py')
+                if not os.path.exists(package_path):
+                    os.makedirs(package_path, exist_ok=True)
                 with open(init_file_path, 'w', encoding='utf-8') as file:
                     file.write('\n'.join(import_statements) + '\n\n__all__ = [' + ', '.join(all_statement) + ']\n')
 
