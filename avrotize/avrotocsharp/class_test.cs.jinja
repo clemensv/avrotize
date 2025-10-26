@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using FluentAssertions;
 
 {% if namespace %}
 namespace {{ namespace }}
@@ -44,12 +43,12 @@ public class {{ test_class_name }}
         {%- endif %}
         {%- if field.is_primitive %}
         {%- if field.field_type.startswith("List<") or field.field_type.startswith("Dictionary<") %}
-        _instance.{{ field.field_name }}.Should().AllBeEquivalentTo(testValue);
+        Assert.That(_instance.{{ field.field_name }}, Is.EquivalentTo(testValue));
         {%- else %}
-        _instance.{{ field.field_name }}.Should().Be(testValue);
+        Assert.That(_instance.{{ field.field_name }}, Is.EqualTo(testValue));
         {%- endif %}
         {%- else %}
-        _instance.{{ field.field_name }}.Should().BeEquivalentTo(testValue);
+        Assert.That(_instance.{{ field.field_name }}, Is.EqualTo(testValue));
         {%- endif %}
     }
     {%- endfor %}
@@ -61,7 +60,7 @@ public class {{ test_class_name }}
         var mediaType = "application/vnd.apache.avro+avro";
         var bytes = _instance.ToByteArray(mediaType);
         var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
-        _instance.Should().BeEquivalentTo(newInstance);
+        Assert.That(newInstance, Is.EqualTo(_instance));
     }
     {%- endif %}
     {%- if system_xml_annotation %}
@@ -72,7 +71,7 @@ public class {{ test_class_name }}
         var mediaType = "application/xml";
         var bytes = _instance.ToByteArray(mediaType);
         var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
-        _instance.Should().BeEquivalentTo(newInstance);
+        Assert.That(newInstance, Is.EqualTo(_instance));
     }
     {%- endif %}
 }
