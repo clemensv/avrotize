@@ -33,6 +33,7 @@ class AvroToCSharp:
 
     def __init__(self, base_namespace: str = '') -> None:
         self.base_namespace = base_namespace
+        self.project_name: str = ''  # Optional explicit project name, separate from namespace
         self.schema_doc: JsonNode = None
         self.output_dir = os.getcwd()
         self.pascal_properties = False
@@ -714,7 +715,25 @@ class AvroToCSharp:
         if not isinstance(schema, list):
             schema = [schema]
 
-        project_name = self.base_namespace
+        # Determine project name: use explicit project_name if set, otherwise derive from base_namespace
+        if self.project_name and self.project_name.strip():
+            # Use explicitly set project name
+            project_name = self.project_name
+        else:
+            # Fall back to using base_namespace as project name
+            project_name = self.base_namespace
+            if not project_name or project_name.strip() == '':
+                # Derive from output directory name as fallback
+                project_name = os.path.basename(os.path.abspath(output_dir))
+                if not project_name or project_name.strip() == '':
+                    project_name = 'Generated'
+                # Clean up the project name
+                project_name = project_name.replace('-', '_').replace(' ', '_')
+                # Update base_namespace to match (only if it was empty)
+                self.base_namespace = project_name
+                import warnings
+                warnings.warn(f"No namespace provided, using '{project_name}' derived from output directory", UserWarning)
+        
         self.schema_doc = schema
         self.type_dict = build_flat_type_dict(self.schema_doc)
         if not os.path.exists(output_dir):
@@ -778,7 +797,8 @@ class AvroToCSharp:
 def convert_avro_to_csharp(
     avro_schema_path, 
     cs_file_path, 
-    base_namespace='', 
+    base_namespace='',
+    project_name='',
     pascal_properties=False, 
     system_text_json_annotation=False, 
     newtonsoft_json_annotation=False, 
@@ -791,6 +811,7 @@ def convert_avro_to_csharp(
         avro_schema_path (str): Avro input schema path
         cs_file_path (str): Output C# file path
         base_namespace (str, optional): Base namespace. Defaults to ''.
+        project_name (str, optional): Explicit project name for .csproj files (separate from namespace). Defaults to ''.
         pascal_properties (bool, optional): Pascal case properties. Defaults to False.
         system_text_json_annotation (bool, optional): Use System.Text.Json annotations. Defaults to False.
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
@@ -801,6 +822,7 @@ def convert_avro_to_csharp(
     if not base_namespace:
         base_namespace = os.path.splitext(os.path.basename(cs_file_path))[0].replace('-', '_')
     avrotocs = AvroToCSharp(base_namespace)
+    avrotocs.project_name = project_name
     avrotocs.pascal_properties = pascal_properties
     avrotocs.system_text_json_annotation = system_text_json_annotation
     avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
@@ -812,7 +834,8 @@ def convert_avro_to_csharp(
 def convert_avro_schema_to_csharp(
     avro_schema: JsonNode, 
     output_dir: str, 
-    base_namespace: str = '', 
+    base_namespace: str = '',
+    project_name: str = '',
     pascal_properties: bool = False, 
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
@@ -825,6 +848,7 @@ def convert_avro_schema_to_csharp(
         avro_schema (JsonNode): Avro schema to convert
         output_dir (str): Output directory
         base_namespace (str, optional): Base namespace for the generated classes. Defaults to ''.
+        project_name (str, optional): Explicit project name for .csproj files (separate from namespace). Defaults to ''.
         pascal_properties (bool, optional): Pascal case properties. Defaults to False.
         system_text_json_annotation (bool, optional): Use System.Text.Json annotations. Defaults to False.
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
@@ -832,6 +856,7 @@ def convert_avro_schema_to_csharp(
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
     """
     avrotocs = AvroToCSharp(base_namespace)
+    avrotocs.project_name = project_name
     avrotocs.pascal_properties = pascal_properties
     avrotocs.system_text_json_annotation = system_text_json_annotation
     avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
