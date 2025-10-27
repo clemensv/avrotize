@@ -32,6 +32,50 @@ public class {{ test_class_name }}
         return instance;
     }
 
+    /// <summary> Testing Equals and GetHashCode - positive case </summary>
+    [Test]
+    public void TestEqualsAndHashCode_PositiveCase()
+    {
+        var instance1 = CreateInstance();
+        var instance2 = CreateInstance();
+        
+        // Test equality
+        Assert.That(instance1.Equals(instance2), Is.True, "Two instances with same values should be equal");
+        Assert.That(instance1 == instance2, Is.False, "Operator == should use reference equality");
+        
+        // Test hash codes
+        Assert.That(instance1.GetHashCode(), Is.EqualTo(instance2.GetHashCode()), 
+            "Equal instances should have equal hash codes");
+    }
+
+    /// <summary> Testing Equals and GetHashCode - negative case </summary>
+    [Test]
+    public void TestEqualsAndHashCode_NegativeCase()
+    {
+        var instance1 = CreateInstance();
+        var instance2 = CreateInstance();
+        
+        {%- for field in fields if not field.is_const %}
+        {%- if loop.first %}
+        // Modify {{ field.field_name }} and verify inequality
+        {%- set base_type = field.field_type.rstrip('?') %}
+        {%- if base_type == "string" %}
+        instance2.{{ field.field_name }} = (instance2.{{ field.field_name }} ?? "test") + "_modified";
+        {%- elif base_type in ["int", "long", "short", "byte", "sbyte", "uint", "ulong", "ushort"] %}
+        instance2.{{ field.field_name }} = ({{ base_type }})({{ "(instance2." + field.field_name + " ?? 0)" if field.field_type.endswith("?") else "instance2." + field.field_name }} + 1);
+        {%- elif base_type in ["float", "double", "decimal"] %}
+        instance2.{{ field.field_name }} = {{ "(instance2." + field.field_name + " ?? 0)" if field.field_type.endswith("?") else "instance2." + field.field_name }} + 1.0{{ "f" if base_type == "float" else "m" if base_type == "decimal" else "" }};
+        {%- elif base_type == "bool" %}
+        instance2.{{ field.field_name }} = !{{ "(instance2." + field.field_name + " ?? false)" if field.field_type.endswith("?") else "instance2." + field.field_name }};
+        {%- else %}
+        instance2.{{ field.field_name }} = {{ field.test_value }};
+        {%- endif %}
+        Assert.That(instance1.Equals(instance2), Is.False, 
+            "Instances with different {{ field.field_name }} should not be equal");
+        {%- endif %}
+        {%- endfor %}
+    }
+
     {%- for field in fields %}
     /// <summary> Testing property {{ field.field_name }}  </summary>
     [Test]

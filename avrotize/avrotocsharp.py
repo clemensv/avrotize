@@ -247,6 +247,9 @@ class AvroToCSharp:
             json_match_clauses=self.create_is_json_match_clauses(avro_schema, avro_namespace, class_name)
         )
 
+        # emit Equals and GetHashCode for value equality
+        class_definition += self.generate_equals_and_gethashcode(avro_schema, class_name, avro_namespace)
+
         class_definition += "\n"+"}"
 
         if write_file:
@@ -337,6 +340,103 @@ class AvroToCSharp:
             if not is_union:
                 class_definition += f"({element_name}.ValueKind == System.Text.Json.JsonValueKind.Object{f' || {element_name}.ValueKind == System.Text.Json.JsonValueKind.Null' if is_optional else ''})"
         return class_definition
+
+    def generate_equals_and_gethashcode(self, avro_schema: Dict, class_name: str, parent_namespace: str) -> str:
+        """ Generates Equals and GetHashCode methods for value equality """
+        code = "\n"
+        fields = avro_schema.get('fields', [])
+        
+        if not fields:
+            # Empty class - simple implementation
+            code += f"{INDENT}/// <summary>\n{INDENT}/// Determines whether the specified object is equal to the current object.\n{INDENT}/// </summary>\n"
+            code += f"{INDENT}public override bool Equals(object? obj)\n{INDENT}{{\n"
+            code += f"{INDENT*2}return obj is {class_name};\n"
+            code += f"{INDENT}}}\n\n"
+            code += f"{INDENT}/// <summary>\n{INDENT}/// Serves as the default hash function.\n{INDENT}/// </summary>\n"
+            code += f"{INDENT}public override int GetHashCode()\n{INDENT}{{\n"
+            code += f"{INDENT*2}return 0;\n"
+            code += f"{INDENT}}}\n"
+            return code
+        
+        # Generate Equals method
+        code += f"{INDENT}/// <summary>\n{INDENT}/// Determines whether the specified object is equal to the current object.\n{INDENT}/// </summary>\n"
+        code += f"{INDENT}public override bool Equals(object? obj)\n{INDENT}{{\n"
+        code += f"{INDENT*2}if (obj is not {class_name} other) return false;\n"
+        
+        # Build equality comparisons for each field
+        equality_checks = []
+        for field in fields:
+            field_name = field['name']
+            if self.is_csharp_reserved_word(field_name):
+                field_name = f"@{field_name}"
+            if self.pascal_properties:
+                field_name = pascal(field_name)
+            if field_name == class_name:
+                field_name += "_"
+            
+            field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], parent_namespace)
+            
+            # Handle different types of comparisons
+            if field_type == 'byte[]':
+                # Byte arrays need special handling
+                equality_checks.append(f"System.Linq.Enumerable.SequenceEqual({field_name} ?? Array.Empty<byte>(), other.{field_name} ?? Array.Empty<byte>())")
+            elif field_type.startswith('List<') or field_type.startswith('Dictionary<'):
+                # Collections need sequence comparison
+                if field_type.endswith('?'):
+                    equality_checks.append(f"(({field_name} == null && other.{field_name} == null) || ({field_name} != null && other.{field_name} != null && {field_name}.SequenceEqual(other.{field_name})))")
+                else:
+                    equality_checks.append(f"{field_name}.SequenceEqual(other.{field_name})")
+            else:
+                # Use Equals for reference types, == for value types
+                if field_type.endswith('?') or not self.is_csharp_primitive_type(field_type):
+                    equality_checks.append(f"Equals({field_name}, other.{field_name})")
+                else:
+                    equality_checks.append(f"{field_name} == other.{field_name}")
+        
+        # Join all checks with &&
+        if len(equality_checks) == 1:
+            code += f"{INDENT*2}return {equality_checks[0]};\n"
+        else:
+            code += f"{INDENT*2}return " + f"\n{INDENT*3}&& ".join(equality_checks) + ";\n"
+        
+        code += f"{INDENT}}}\n\n"
+        
+        # Generate GetHashCode method
+        code += f"{INDENT}/// <summary>\n{INDENT}/// Serves as the default hash function.\n{INDENT}/// </summary>\n"
+        code += f"{INDENT}public override int GetHashCode()\n{INDENT}{{\n"
+        
+        # Collect field names for HashCode.Combine
+        hash_fields = []
+        for field in fields:
+            field_name = field['name']
+            if self.is_csharp_reserved_word(field_name):
+                field_name = f"@{field_name}"
+            if self.pascal_properties:
+                field_name = pascal(field_name)
+            if field_name == class_name:
+                field_name += "_"
+            
+            field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], parent_namespace)
+            
+            # Handle byte arrays specially
+            if field_type == 'byte[]':
+                hash_fields.append(f"({field_name} != null ? string.GetHashCode(System.Convert.ToBase64String({field_name})) : 0)")
+            else:
+                hash_fields.append(field_name)
+        
+        # HashCode.Combine supports up to 8 parameters
+        if len(hash_fields) <= 8:
+            code += f"{INDENT*2}return HashCode.Combine({', '.join(hash_fields)});\n"
+        else:
+            # For more than 8 fields, use HashCode.Add
+            code += f"{INDENT*2}var hash = new HashCode();\n"
+            for field in hash_fields:
+                code += f"{INDENT*2}hash.Add({field});\n"
+            code += f"{INDENT*2}return hash.ToHashCode();\n"
+        
+        code += f"{INDENT}}}\n"
+        
+        return code
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str, write_file: bool) -> str:
         """ Generates an Enum """
