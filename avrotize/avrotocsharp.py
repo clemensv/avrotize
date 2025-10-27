@@ -418,9 +418,15 @@ class AvroToCSharp:
             
             field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], parent_namespace)
             
-            # Handle byte arrays specially
+            # Handle special types that need custom hash code computation
             if field_type == 'byte[]':
-                hash_fields.append(f"({field_name} != null ? string.GetHashCode(System.Convert.ToBase64String({field_name})) : 0)")
+                hash_fields.append(f"({field_name} != null ? System.Convert.ToBase64String({field_name}).GetHashCode() : 0)")
+            elif field_type.startswith('List<') or field_type.startswith('Dictionary<'):
+                # For collections, compute hash from elements
+                if field_type.endswith('?'):
+                    hash_fields.append(f"({field_name} != null ? {field_name}.Aggregate(0, (acc, item) => HashCode.Combine(acc, item)) : 0)")
+                else:
+                    hash_fields.append(f"{field_name}.Aggregate(0, (acc, item) => HashCode.Combine(acc, item))")
             else:
                 hash_fields.append(field_name)
         

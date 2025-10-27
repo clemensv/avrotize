@@ -67,7 +67,11 @@ public class {{ test_class_name }}
         instance2.{{ field.field_name }} = {{ "(instance2." + field.field_name + " ?? 0)" if field.field_type.endswith("?") else "instance2." + field.field_name }} + 1.0{{ "f" if base_type == "float" else "m" if base_type == "decimal" else "" }};
         {%- elif base_type == "bool" %}
         instance2.{{ field.field_name }} = !{{ "(instance2." + field.field_name + " ?? false)" if field.field_type.endswith("?") else "instance2." + field.field_name }};
+        {%- elif base_type.startswith("global::") %}
+        // For enum or complex type, cast to int and increment
+        instance2.{{ field.field_name }} = ({{ base_type }})((int){{ "(instance2." + field.field_name + " ?? 0)" if field.field_type.endswith("?") else "instance2." + field.field_name }} + 1);
         {%- else %}
+        // For other complex types, create a new instance
         instance2.{{ field.field_name }} = {{ field.test_value }};
         {%- endif %}
         Assert.That(instance1.Equals(instance2), Is.False, 
