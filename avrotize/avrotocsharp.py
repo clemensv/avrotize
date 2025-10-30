@@ -262,7 +262,6 @@ class AvroToCSharp:
     def create_is_json_match_clauses(self, avro_schema, parent_namespace, class_name) -> List[str]:
         """ Generates the IsJsonMatch method for System.Text.Json """
         clauses: List[str] = []
-        field_count = 0
         for field in avro_schema.get('fields', []):
             field_name = field['name']
             if self.is_csharp_reserved_word(field_name):
@@ -272,7 +271,7 @@ class AvroToCSharp:
             field_type = self.convert_avro_type_to_csharp(
                     class_name, field_name, field['type'], parent_namespace)
             clauses.append(self.get_is_json_match_clause(class_name, field_name, field_type))
-        if field_count == 0:
+        if len(clauses) == 0:
             clauses.append("true")
         return clauses
 
