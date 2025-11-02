@@ -182,7 +182,7 @@ class AvroToTypeScript:
 
         # Inline the schema
         local_avro_schema = inline_avro_references(avro_schema.copy(), self.type_dict, parent_namespace)
-        avro_schema_json = json.dumps(local_avro_schema).replace('"', '\\"')
+        avro_schema_json = json.dumps(local_avro_schema)
 
         class_definition = process_template(
             "avrotots/class_core.ts.jinja",
@@ -447,6 +447,114 @@ class AvroToTypeScript:
 
         with open(gitignore_path, 'w', encoding='utf-8') as file:
             file.write(gitignore_content)
+
+        # Generate TypeScript type definitions for avro-js when using Avro annotations
+        if self.avro_annotation:
+            self.generate_avro_js_types(output_dir)
+
+    def generate_avro_js_types(self, output_dir: str):
+        """Generate TypeScript type declaration file for avro-js module."""
+        avro_js_types = '''declare module 'avro-js' {
+    /**
+     * Avro Type representation.
+     * Provides methods for encoding, decoding, and validating Avro data.
+     */
+    export class Type {
+        /**
+         * Create a Type instance from an Avro schema.
+         * @param schema - Avro schema object or JSON string
+         * @returns Type instance
+         */
+        static forSchema(schema: any): Type;
+
+        /**
+         * Encode a value to a Buffer.
+         * @param obj - Value to encode
+         * @returns Encoded Buffer
+         */
+        toBuffer(obj: any): Buffer;
+
+        /**
+         * Decode a value from a Buffer.
+         * @param buffer - Buffer to decode
+         * @returns Decoded value
+         */
+        fromBuffer(buffer: Buffer | Uint8Array): any;
+
+        /**
+         * Get string representation of the type or encode a value to JSON string.
+         * @param value - Optional value to encode
+         * @returns String representation
+         */
+        toString(value?: any): string;
+
+        /**
+         * Clone a value using the type's schema.
+         * @param value - Value to clone
+         * @param options - Clone options
+         * @returns Cloned value
+         */
+        clone(value: any, options?: any): any;
+
+        /**
+         * Compare two values according to Avro sort order.
+         * @param a - First value
+         * @param b - Second value
+         * @returns -1, 0, or 1
+         */
+        compare(a: any, b: any): number;
+
+        /**
+         * Check if a value is valid for this type.
+         * @param value - Value to validate
+         * @param options - Validation options
+         * @returns true if valid
+         */
+        isValid(value: any, options?: any): boolean;
+
+        /**
+         * Decode a value from a buffer.
+         * @param buffer - Buffer to decode
+         * @param resolver - Optional resolver for schema evolution
+         * @param noCheck - Skip validation
+         * @returns Decoded value
+         */
+        decode(buffer: Buffer, resolver?: any, noCheck?: boolean): any;
+
+        /**
+         * Encode a value to a buffer.
+         * @param value - Value to encode
+         * @param bufferSize - Optional buffer size
+         * @returns Encoded buffer
+         */
+        encode(value: any, bufferSize?: number): Buffer;
+
+        /**
+         * Create a resolver for schema evolution.
+         * @param writerType - Writer's type
+         * @returns Resolver
+         */
+        createResolver(writerType: Type): any;
+    }
+
+    /**
+     * Parse an Avro schema.
+     * @param schema - Schema as string or object
+     * @param options - Parse options
+     * @returns Type instance
+     */
+    export function parse(schema: string | any, options?: any): Type;
+}
+'''
+        
+        # Place type definitions in src directory so TypeScript can find them
+        src_dir = os.path.join(output_dir, 'src')
+        if not os.path.exists(src_dir):
+            os.makedirs(src_dir, exist_ok=True)
+        
+        types_file_path = os.path.join(src_dir, 'avro-js.d.ts')
+        with open(types_file_path, 'w', encoding='utf-8') as file:
+            file.write(avro_js_types)
 
     def convert_schema(self, schema: Union[List[Dict], Dict], output_dir: str, write_file: bool = True):
         """Convert Avro schema to TypeScript classes with namespace support."""
