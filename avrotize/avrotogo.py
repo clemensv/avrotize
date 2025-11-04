@@ -407,10 +407,10 @@ class AvroToGo:
         """Writes the go.mod file for the Go project"""
         go_mod_content = ""
         go_mod_content += "module " + self.package_site + "/" + self.package_username + "/" + self.base_package + "\n\n"
-        go_mod_content += "go 1.18\n\n"
+        go_mod_content += "go 1.21\n\n"
         if self.avro_annotation:
             go_mod_content += "require (\n"
-            go_mod_content += "    github.com/hamba/avro/v2 v2.0.0\n"
+            go_mod_content += "    github.com/hamba/avro/v2 v2.27.0\n"
             go_mod_content += ")\n"
         
         go_mod_path = os.path.join(self.output_dir, "go.mod")

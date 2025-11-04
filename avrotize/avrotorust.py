@@ -342,19 +342,19 @@ class AvroToRust:
         if self.serde_annotation or self.avro_annotation:
             dependencies.append('serde = { version = "1.0", features = ["derive"] }')
             dependencies.append('serde_json = "1.0"')
-        dependencies.append('chrono = "0.4"')
-        dependencies.append('uuid = { version = "0.8", features = ["serde"] }')
+        dependencies.append('chrono = { version = "0.4", features = ["serde"] }')
+        dependencies.append('uuid = { version = "1.11", features = ["serde", "v4"] }')
         if self.avro_annotation or self.serde_annotation:
             dependencies.append('flate2 = "1.0"')
         if self.avro_annotation:
-            dependencies.append('apache-avro = "0.16.0"')
+            dependencies.append('apache-avro = "0.17"')
             dependencies.append('lazy_static = "1.4"')
         dependencies.append('rand = "0.8"')
 
         cargo_toml_content =  f"[package]\n"
         cargo_toml_content += f"name = \"{self.base_package.replace('/', '_')}\"\n"
         cargo_toml_content += f"version = \"0.1.0\"\n"
-        cargo_toml_content += f"edition = \"2018\"\n\n"
+        cargo_toml_content += f"edition = \"2021\"\n\n"
         cargo_toml_content += f"[dependencies]\n"
         cargo_toml_content += "\n".join(f"{dependency}" for dependency in dependencies)
         cargo_toml_path = os.path.join(self.output_dir, "Cargo.toml")

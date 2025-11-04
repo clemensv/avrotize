@@ -36,7 +36,6 @@ class TestAvroToRust(unittest.TestCase):
         self.run_convert_to_rust("address", False, True)
         self.run_convert_to_rust("address", False, False)
         
-    @pytest.mark.skip(reason="Rust library for Apache Avro has broken suppport for unions")
     def test_convert_twotypeunion_avsc_to_rust(self):
         """ Test converting an twotypeunion.avsc file to Rust """
         self.run_convert_to_rust("twotypeunion", True, True)
@@ -44,7 +43,6 @@ class TestAvroToRust(unittest.TestCase):
         self.run_convert_to_rust("twotypeunion", False, True)
         self.run_convert_to_rust("twotypeunion", False, False)
     
-    @pytest.mark.skip(reason="Rust library for Apache Avro has broken suppport for unions")
     def test_convert_typemapunion_avsc_to_rust(self):
         """ Test converting an twotypeunion.avsc file to Rust """
         self.run_convert_to_rust("typemapunion", True, True)
@@ -60,7 +58,6 @@ class TestAvroToRust(unittest.TestCase):
         self.run_convert_to_rust("telemetry", False, True)
         self.run_convert_to_rust("telemetry", False, False)
 
-    @pytest.mark.skip(reason="Rust library for Apache Avro has broken suppport for unions")
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
         cwd = getcwd()        
@@ -88,7 +85,6 @@ class TestAvroToRust(unittest.TestCase):
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_rust(avro_path, rust_path, package_name="jfrog_pipelines", serde_annotation=True)
 
-    @pytest.mark.skip(reason="Rust library for Apache Avro has broken suppport for unions")        
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust_avro_annotations(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
         cwd = getcwd()        

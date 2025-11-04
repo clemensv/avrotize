@@ -19,7 +19,7 @@ project_root = os.path.dirname(os.path.dirname(current_script_path))
 sys.path.append(project_root)
 
 # Add tools/primer-and-samples to path for validator
-validator_path = path.join(project_root, "tools", "primer-and-samples", "samples", "py")
+validator_path = path.join(project_root, "tools")
 sys.path.append(validator_path)
 
 from avrotize.jsonstostructure import JsonToStructureConverter, convert_json_schema_to_structure

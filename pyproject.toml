@@ -19,20 +19,19 @@ classifiers = [
 dependencies = [
     "jsonschema>=4.23.0",
     "lark>=1.1.9",
-    "pyarrow>=17.0.0",
+    "pyarrow>=22.0.0",
     "asn1tools>=0.167.0",
     "jsonpointer>=3.0.0",
     "jsonpath-ng>=1.6.1",
     "jsoncomparison>=1.1.0",
     "requests>=2.32.3",
-    "azure-kusto-data>=4.5.1",
+    "azure-kusto-data>=5.0.5",
     "azure-identity>=1.17.1",
     "datapackage>=1.15.4",
     "jinja2>=3.1.4",
-    "pyiceberg>=0.7.0",
+    "pyiceberg>=0.10.0",
     "pandas>=2.2.2",
-    "docker>=7.1.0",
-    "requests==2.32.3"
+    "docker>=7.1.0"
 ]
 [project.optional-dependencies]
 dev = [
