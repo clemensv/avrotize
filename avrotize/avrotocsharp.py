@@ -454,7 +454,6 @@ class AvroToCSharp:
         if ref in self.generated_types:
             return ref
 
-        enum_definition += "#pragma warning disable 1591\n\n"
         enum_definition += f"/// <summary>\n/// {avro_schema.get('doc', enum_name )}\n/// </summary>\n"
 
         # Add XML serialization attribute for the enum if enabled
@@ -682,7 +681,17 @@ class AvroToCSharp:
                 prop += f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({field_type}))]\n"
         if self.newtonsoft_json_annotation:
             prop += f"{INDENT}[Newtonsoft.Json.JsonProperty(\"{annotation_name}\")]\n"
-        prop += f"{INDENT}public {field_type} {field_name} {{ get; set; }}" + ((" = "+(f"\"{field_default}\"" if isinstance(field_default,str) else field_default) + ";") if field_default else "")
+        
+        # Determine initialization value
+        initialization = ""
+        if field_default is not None:
+            # Has explicit default value
+            initialization = " = " + (f"\"{field_default}\"" if isinstance(field_default, str) else str(field_default)) + ";"
+        elif field_type == "string":
+            # Non-nullable string without default should be initialized to empty string
+            initialization = " = string.Empty;"
+        
+        prop += f"{INDENT}public {field_type} {field_name} {{ get; set; }}{initialization}"
         return prop
 
     def write_to_file(self, namespace: str, name: str, definition: str):
@@ -695,7 +704,7 @@ class AvroToCSharp:
 
         with open(file_path, 'w', encoding='utf-8') as file:
             # Common using statements (add more as needed)
-            file_content = "#pragma warning disable CS8618\n#pragma warning disable CS8603\n\nusing System;\nusing System.Collections.Generic;\n"
+            file_content = "using System;\nusing System.Collections.Generic;\n"
             file_content += "using System.Linq;\n"
             if self.system_text_json_annotation:
                 file_content += "using System.Text.Json;\n"
