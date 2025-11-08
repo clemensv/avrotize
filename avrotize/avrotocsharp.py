@@ -690,6 +690,15 @@ class AvroToCSharp:
         elif field_type == "string":
             # Non-nullable string without default should be initialized to empty string
             initialization = " = string.Empty;"
+        elif field_type.startswith("List<"):
+            # Non-nullable List should be initialized to empty list
+            initialization = " = new();"
+        elif field_type.startswith("Dictionary<"):
+            # Non-nullable Dictionary should be initialized to empty dictionary
+            initialization = " = new();"
+        elif not field_type.endswith("?") and field_type.startswith("global::") and not self.is_csharp_primitive_type(field_type):
+            # Non-nullable custom reference types should be initialized with new instance
+            initialization = " = new();"
         
         prop += f"{INDENT}public {field_type} {field_name} {{ get; set; }}{initialization}"
         return prop
