@@ -376,7 +376,7 @@ class AvroToCSharp:
             field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], parent_namespace)
             
             # Handle different types of comparisons
-            if field_type == 'byte[]':
+            if field_type == 'byte[]' or field_type == 'byte[]?':
                 # Byte arrays need special handling
                 equality_checks.append(f"System.Linq.Enumerable.SequenceEqual({field_name} ?? Array.Empty<byte>(), other.{field_name} ?? Array.Empty<byte>())")
             elif field_type.startswith('List<') or field_type.startswith('Dictionary<'):
@@ -418,7 +418,7 @@ class AvroToCSharp:
             field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], parent_namespace)
             
             # Handle special types that need custom hash code computation
-            if field_type == 'byte[]':
+            if field_type == 'byte[]' or field_type == 'byte[]?':
                 hash_fields.append(f"({field_name} != null ? System.Convert.ToBase64String({field_name}).GetHashCode() : 0)")
             elif field_type.startswith('List<') or field_type.startswith('Dictionary<'):
                 # For collections, compute hash from elements
@@ -690,10 +690,10 @@ class AvroToCSharp:
         elif field_type == "string":
             # Non-nullable string without default should be initialized to empty string
             initialization = " = string.Empty;"
-        elif field_type.startswith("List<"):
+        elif not field_type.endswith("?") and field_type.startswith("List<"):
             # Non-nullable List should be initialized to empty list
             initialization = " = new();"
-        elif field_type.startswith("Dictionary<"):
+        elif not field_type.endswith("?") and field_type.startswith("Dictionary<"):
             # Non-nullable Dictionary should be initialized to empty dictionary
             initialization = " = new();"
         elif not field_type.endswith("?") and field_type.startswith("global::") and not self.is_csharp_primitive_type(field_type):
@@ -815,6 +815,10 @@ class AvroToCSharp:
 
     def get_test_value(self, csharp_type: str) -> str:
         """Returns a default test value based on the Avro type"""
+        # For nullable object types, return typed null to avoid var issues
+        if csharp_type == "object?":
+            return "(object?)null"
+        
         test_values = {
             'string': '"test_string"',
             'bool': 'true',
@@ -823,7 +827,7 @@ class AvroToCSharp:
             'float': '3.14f',
             'double': '3.14',
             'decimal': '3.14d',
-            'byte[]': '{0x01, 0x02, 0x03}',
+            'byte[]': 'new byte[] { 0x01, 0x02, 0x03 }',
             'null': 'null',
             'Date': 'new Date()',
             'DateTime': 'DateTime.UtcNow()',

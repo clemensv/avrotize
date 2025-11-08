@@ -278,3 +278,15 @@ class TestAvroToCSharp(unittest.TestCase):
         # Verify project builds successfully
         assert subprocess.check_call(
             ['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
+    
+    def test_convert_alltypes_optional_avsc_to_csharp(self):
+        """ Test converting alltypes-optional.avsc file with all Avro types as optional """
+        self.run_convert_avsc_to_csharp("alltypes-optional")
+    
+    def test_convert_alltypes_optional_avsc_to_csharp_annotated(self):
+        """ Test converting alltypes-optional.avsc file with all Avro types as optional with annotations (excluding XML and Avro due to serialization limitations with complex optional types) """
+        for system_text_json_annotation in [True, False]:
+            for newtonsoft_json_annotation in [True, False]:
+                for pascal_properties in [True, False]:
+                    # Skip avro_annotation and system_xml_annotation due to serialization issues with complex optional types
+                    self.run_convert_avsc_to_csharp("alltypes-optional", system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=False, pascal_properties=pascal_properties, system_xml_annotation=False)

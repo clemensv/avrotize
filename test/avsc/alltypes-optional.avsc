@@ -1,0 +1,181 @@
+{
+    "type": "record",
+    "name": "AllTypesOptional",
+    "namespace": "com.example.avro",
+    "doc": "A comprehensive test record with all possible Avro types as optional (nullable)",
+    "fields": [
+        {
+            "name": "optionalBoolean",
+            "type": ["null", "boolean"],
+            "doc": "Optional boolean field"
+        },
+        {
+            "name": "optionalInt",
+            "type": ["null", "int"],
+            "doc": "Optional int (32-bit signed integer) field"
+        },
+        {
+            "name": "optionalLong",
+            "type": ["null", "long"],
+            "doc": "Optional long (64-bit signed integer) field"
+        },
+        {
+            "name": "optionalFloat",
+            "type": ["null", "float"],
+            "doc": "Optional float (single precision) field"
+        },
+        {
+            "name": "optionalDouble",
+            "type": ["null", "double"],
+            "doc": "Optional double (double precision) field"
+        },
+        {
+            "name": "optionalBytes",
+            "type": ["null", "bytes"],
+            "doc": "Optional bytes field"
+        },
+        {
+            "name": "optionalString",
+            "type": ["null", "string"],
+            "doc": "Optional string field"
+        },
+        {
+            "name": "optionalEnum",
+            "type": [
+                "null",
+                {
+                    "type": "enum",
+                    "name": "Color",
+                    "symbols": ["RED", "GREEN", "BLUE"],
+                    "doc": "Color enumeration"
+                }
+            ],
+            "doc": "Optional enum field"
+        },
+        {
+            "name": "optionalFixed",
+            "type": [
+                "null",
+                {
+                    "type": "fixed",
+                    "name": "MD5",
+                    "size": 16,
+                    "doc": "Fixed-size 16-byte field"
+                }
+            ],
+            "doc": "Optional fixed field"
+        },
+        {
+            "name": "optionalArray",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": "string"
+                }
+            ],
+            "doc": "Optional array of strings"
+        },
+        {
+            "name": "optionalArrayInt",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": "int"
+                }
+            ],
+            "doc": "Optional array of integers"
+        },
+        {
+            "name": "optionalMap",
+            "type": [
+                "null",
+                {
+                    "type": "map",
+                    "values": "string"
+                }
+            ],
+            "doc": "Optional map with string values"
+        },
+        {
+            "name": "optionalMapInt",
+            "type": [
+                "null",
+                {
+                    "type": "map",
+                    "values": "int"
+                }
+            ],
+            "doc": "Optional map with int values"
+        },
+        {
+            "name": "optionalRecord",
+            "type": [
+                "null",
+                {
+                    "type": "record",
+                    "name": "NestedRecord",
+                    "fields": [
+                        {
+                            "name": "nestedString",
+                            "type": "string",
+                            "doc": "A string field in the nested record"
+                        },
+                        {
+                            "name": "nestedInt",
+                            "type": "int",
+                            "doc": "An int field in the nested record"
+                        }
+                    ],
+                    "doc": "A nested record type"
+                }
+            ],
+            "doc": "Optional nested record field"
+        },
+        {
+            "name": "requiredString",
+            "type": "string",
+            "doc": "Required (non-optional) string field for comparison"
+        },
+        {
+            "name": "requiredInt",
+            "type": "int",
+            "doc": "Required (non-optional) int field for comparison"
+        },
+        {
+            "name": "requiredArray",
+            "type": {
+                "type": "array",
+                "items": "double"
+            },
+            "doc": "Required (non-optional) array field for comparison"
+        },
+        {
+            "name": "requiredMap",
+            "type": {
+                "type": "map",
+                "values": "long"
+            },
+            "doc": "Required (non-optional) map field for comparison"
+        },
+        {
+            "name": "requiredRecord",
+            "type": {
+                "type": "record",
+                "name": "RequiredNestedRecord",
+                "fields": [
+                    {
+                        "name": "field1",
+                        "type": "string"
+                    },
+                    {
+                        "name": "field2",
+                        "type": ["null", "int"]
+                    }
+                ]
+            },
+            "doc": "Required (non-optional) nested record field for comparison"
+        }
+    ]
+}
