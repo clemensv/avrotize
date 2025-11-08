@@ -376,7 +376,7 @@ class AvroToCSharp:
             field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], parent_namespace)
             
             # Handle different types of comparisons
-            if field_type == 'byte[]':
+            if field_type == 'byte[]' or field_type == 'byte[]?':
                 # Byte arrays need special handling
                 equality_checks.append(f"System.Linq.Enumerable.SequenceEqual({field_name} ?? Array.Empty<byte>(), other.{field_name} ?? Array.Empty<byte>())")
             elif field_type.startswith('List<') or field_type.startswith('Dictionary<'):
@@ -418,7 +418,7 @@ class AvroToCSharp:
             field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], parent_namespace)
             
             # Handle special types that need custom hash code computation
-            if field_type == 'byte[]':
+            if field_type == 'byte[]' or field_type == 'byte[]?':
                 hash_fields.append(f"({field_name} != null ? System.Convert.ToBase64String({field_name}).GetHashCode() : 0)")
             elif field_type.startswith('List<') or field_type.startswith('Dictionary<'):
                 # For collections, compute hash from elements
@@ -454,7 +454,6 @@ class AvroToCSharp:
         if ref in self.generated_types:
             return ref
 
-        enum_definition += "#pragma warning disable 1591\n\n"
         enum_definition += f"/// <summary>\n/// {avro_schema.get('doc', enum_name )}\n/// </summary>\n"
 
         # Add XML serialization attribute for the enum if enabled
@@ -465,9 +464,9 @@ class AvroToCSharp:
                 enum_definition += f"[XmlType(\"{enum_name}\")]\n"
 
         if self.system_xml_annotation:
-            symbols_str = [f"{INDENT}[XmlEnum(Name=\"{symbol}\")]\n{INDENT}{symbol}" for symbol in avro_schema['symbols']]
+            symbols_str = [f"{INDENT}/// <summary>\n{INDENT}/// {symbol}\n{INDENT}/// </summary>\n{INDENT}[XmlEnum(Name=\"{symbol}\")]\n{INDENT}{symbol}" for symbol in avro_schema['symbols']]
         else:
-            symbols_str = [f"{INDENT}{symbol}" for symbol in avro_schema['symbols']]
+            symbols_str = [f"{INDENT}/// <summary>\n{INDENT}/// {symbol}\n{INDENT}/// </summary>\n{INDENT}{symbol}" for symbol in avro_schema['symbols']]
         enum_body = ",\n".join(symbols_str)
         enum_definition += f"public enum {enum_name}\n{{\n{enum_body}\n}}"
 
@@ -682,7 +681,26 @@ class AvroToCSharp:
                 prop += f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({field_type}))]\n"
         if self.newtonsoft_json_annotation:
             prop += f"{INDENT}[Newtonsoft.Json.JsonProperty(\"{annotation_name}\")]\n"
-        prop += f"{INDENT}public {field_type} {field_name} {{ get; set; }}" + ((" = "+(f"\"{field_default}\"" if isinstance(field_default,str) else field_default) + ";") if field_default else "")
+        
+        # Determine initialization value
+        initialization = ""
+        if field_default is not None:
+            # Has explicit default value
+            initialization = " = " + (f"\"{field_default}\"" if isinstance(field_default, str) else str(field_default)) + ";"
+        elif field_type == "string":
+            # Non-nullable string without default should be initialized to empty string
+            initialization = " = string.Empty;"
+        elif not field_type.endswith("?") and field_type.startswith("List<"):
+            # Non-nullable List should be initialized to empty list
+            initialization = " = new();"
+        elif not field_type.endswith("?") and field_type.startswith("Dictionary<"):
+            # Non-nullable Dictionary should be initialized to empty dictionary
+            initialization = " = new();"
+        elif not field_type.endswith("?") and field_type.startswith("global::") and not self.is_csharp_primitive_type(field_type):
+            # Non-nullable custom reference types should be initialized with new instance
+            initialization = " = new();"
+        
+        prop += f"{INDENT}public {field_type} {field_name} {{ get; set; }}{initialization}"
         return prop
 
     def write_to_file(self, namespace: str, name: str, definition: str):
@@ -695,7 +713,7 @@ class AvroToCSharp:
 
         with open(file_path, 'w', encoding='utf-8') as file:
             # Common using statements (add more as needed)
-            file_content = "#pragma warning disable CS8618\n#pragma warning disable CS8603\n\nusing System;\nusing System.Collections.Generic;\n"
+            file_content = "using System;\nusing System.Collections.Generic;\n"
             file_content += "using System.Linq;\n"
             if self.system_text_json_annotation:
                 file_content += "using System.Text.Json;\n"
@@ -797,6 +815,10 @@ class AvroToCSharp:
 
     def get_test_value(self, csharp_type: str) -> str:
         """Returns a default test value based on the Avro type"""
+        # For nullable object types, return typed null to avoid var issues
+        if csharp_type == "object?":
+            return "(object?)null"
+        
         test_values = {
             'string': '"test_string"',
             'bool': 'true',
@@ -805,7 +827,7 @@ class AvroToCSharp:
             'float': '3.14f',
             'double': '3.14',
             'decimal': '3.14d',
-            'byte[]': '{0x01, 0x02, 0x03}',
+            'byte[]': 'new byte[] { 0x01, 0x02, 0x03 }',
             'null': 'null',
             'Date': 'new Date()',
             'DateTime': 'DateTime.UtcNow()',
