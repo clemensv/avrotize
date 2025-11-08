@@ -464,9 +464,9 @@ class AvroToCSharp:
                 enum_definition += f"[XmlType(\"{enum_name}\")]\n"
 
         if self.system_xml_annotation:
-            symbols_str = [f"{INDENT}[XmlEnum(Name=\"{symbol}\")]\n{INDENT}{symbol}" for symbol in avro_schema['symbols']]
+            symbols_str = [f"{INDENT}/// <summary>\n{INDENT}/// {symbol}\n{INDENT}/// </summary>\n{INDENT}[XmlEnum(Name=\"{symbol}\")]\n{INDENT}{symbol}" for symbol in avro_schema['symbols']]
         else:
-            symbols_str = [f"{INDENT}{symbol}" for symbol in avro_schema['symbols']]
+            symbols_str = [f"{INDENT}/// <summary>\n{INDENT}/// {symbol}\n{INDENT}/// </summary>\n{INDENT}{symbol}" for symbol in avro_schema['symbols']]
         enum_body = ",\n".join(symbols_str)
         enum_definition += f"public enum {enum_name}\n{{\n{enum_body}\n}}"
 
