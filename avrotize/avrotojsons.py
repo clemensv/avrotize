@@ -185,6 +185,8 @@ class AvroToJsonSchemaConverter:
                 return self.convert_record(avro_schema, is_root)
             elif avro_schema['type'] == 'enum':
                 return self.convert_enum(avro_schema, is_root)
+            elif avro_schema['type'] == 'fixed':
+                return self.convert_fixed(avro_schema, is_root)
             elif avro_schema['type'] == 'array':
                 return self.convert_array(avro_schema)
             elif avro_schema['type'] == 'map':
@@ -275,6 +277,34 @@ class AvroToJsonSchemaConverter:
         # Add to defined types
         if not is_root:
             self.defined_types[self.get_qualified_name(avro_schema)] = json_schema
+        return json_schema
+
+    def convert_fixed(self, avro_schema: Dict[str, Any], is_root=False) -> Dict[str, Any]:
+        """
+        Convert an Avro fixed type to a JSON schema string with length constraints.
+        Fixed types are represented as strings with base16 (hex) encoding and 
+        minLength and maxLength constraints based on the size.
+        """
+        fixed_name = self.convert_name(avro_schema['name'])
+        size = avro_schema['size']
+        # Fixed types in JSON are represented as hex strings, so length is 2 * size
+        hex_length = size * 2
+        
+        json_schema = {
+            "type": "string",
+            "contentEncoding": "base16",
+            "minLength": hex_length,
+            "maxLength": hex_length,
+            "title": fixed_name
+        }
+
+        if 'doc' in avro_schema:
+            json_schema['description'] = avro_schema['doc']
+
+        # Add to defined types
+        if not is_root:
+            self.defined_types[self.get_qualified_name(avro_schema)] = json_schema
+            return {"$ref": self.get_definition_ref(self.get_qualified_name(avro_schema))}
         return json_schema
 
     def convert_array(self, avro_schema: Dict[str, Any]) -> Dict[str, Any]:
