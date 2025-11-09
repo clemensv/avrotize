@@ -1,0 +1,29 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "UID": {
+            "type": "string",
+            "contentEncoding": "base16",
+            "minLength": 32,
+            "maxLength": 32,
+            "title": "UID"
+        },
+        "Content": {
+            "type": "object",
+            "title": "Content",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "hash": {
+                    "$ref": "#/definitions/UID",
+                    "description": "unique content id"
+                }
+            },
+            "required": [
+                "name",
+                "hash"
+            ]
+        }
+    }
+}

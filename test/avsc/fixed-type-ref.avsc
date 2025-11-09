@@ -1,0 +1,16 @@
+[
+{
+    "name": "UID",
+    "type": "fixed",
+    "size": 16
+},
+{
+    "name": "Content",
+    "type": "record",
+    "fields":
+    [
+        {"name": "name", "type": "string"},
+        {"name": "hash", "type": "UID", "doc": "unique content id" }
+    ]
+}
+]
