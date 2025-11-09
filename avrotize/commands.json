@@ -9,7 +9,8 @@
         "proto_file_path": "input_file_path",
         "avro_schema_path": "output_file_path",
         "namespace": "args.namespace",
-        "message_type": "args.message_type"
+        "message_type": "args.message_type",
+        "proto_root": "args.proto_root"
       }
     },
     "extensions": [".proto"],
@@ -43,6 +44,12 @@
         "name": "--message-type",
         "type": "str",
         "help": "Generate the schema for a specific Proto message type and inline all references",
+        "required": false
+      },
+      {
+        "name": "--proto-root",
+        "type": "str",
+        "help": "Root directory for resolving proto imports (useful for buf-style module roots)",
         "required": false
       }
     ],

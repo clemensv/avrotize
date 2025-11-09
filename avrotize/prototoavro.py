@@ -18,11 +18,17 @@ class ProtoToAvroConverter:
 
     isomorphic_types = ['float', 'double', 'bytes', 'string']
 
-    def __init__(self):
-        """Initialize ProtoToAvroConverter."""
+    def __init__(self, proto_root: str = None):
+        """Initialize ProtoToAvroConverter.
+        
+        Args:
+            proto_root (str): Optional root directory for resolving proto imports. 
+                             When provided, imports are resolved relative to this directory.
+        """
         self.imported_types: Dict[str, str] = {}
         self.generated_types: Dict[str, str] = {}
         self.forward_references: Dict[str, str] = {} # table for resolvbing forward references
+        self.proto_root: str = proto_root
 
     def proto_type_to_avro_primitive(self, proto_type: str)-> Tuple[bool, str]:
         """
@@ -124,12 +130,26 @@ class ProtoToAvroConverter:
                         qualified_name = t["namespace"] + "." + t["name"]
                         self.imported_types[qualified_name] = t
             else:
-                # Find the path relative to the current directory
-                cwd = os.path.join(os.getcwd(), os.path.dirname(proto_file_path))
-                import_path = os.path.join(cwd, import_)
+                # Resolve import path: try proto_root first, then fall back to file-relative path
+                import_path = None
+                
+                if self.proto_root:
+                    # Try resolving relative to proto_root
+                    candidate_path = os.path.join(self.proto_root, import_)
+                    if os.path.exists(candidate_path):
+                        import_path = candidate_path
+                
+                if not import_path:
+                    # Fall back to resolving relative to the directory of the current proto file
+                    cwd = os.path.join(os.getcwd(), os.path.dirname(proto_file_path))
+                    candidate_path = os.path.join(cwd, import_)
+                    if os.path.exists(candidate_path):
+                        import_path = candidate_path
+                
                 # Raise an exception if the imported file does not exist
-                if not os.path.exists(import_path):
-                    raise FileNotFoundError(f'Import file {import_path} does not exist.')
+                if not import_path:
+                    raise FileNotFoundError(f'Import file {import_} does not exist. Searched in proto_root: {self.proto_root}, and relative to: {os.path.dirname(proto_file_path)}')
+                
                 package_name = pascal(import_.replace('.proto', ''))
                 import_namespace = (avro_namespace + '.' + package_name) if avro_namespace else package_name
                 avro_schema.extend(self.convert_proto_to_avro_schema(import_path, import_namespace, message_type))
@@ -332,13 +352,17 @@ class ProtoToAvroConverter:
         return avro_type
 
 
-def convert_proto_to_avro(proto_file_path: str, avro_schema_path: str, namespace: str = None, message_type: str = None):
+def convert_proto_to_avro(proto_file_path: str, avro_schema_path: str, namespace: str = None, message_type: str = None, proto_root: str = None):
     """
     Convert Protobuf .proto file to Avro schema.
 
     Args:
         proto_file_path (str): Path to the Protobuf .proto file.
         avro_schema_path (str): Path to save the Avro schema .avsc file.
+        namespace (str): Optional namespace for the Avro schema.
+        message_type (str): Optional specific message type to extract.
+        proto_root (str): Optional root directory for resolving proto imports.
+                         When provided, imports are resolved relative to this directory.
 
     Raises:
         FileNotFoundError: If the proto file does not exist.
@@ -347,7 +371,7 @@ def convert_proto_to_avro(proto_file_path: str, avro_schema_path: str, namespace
     if not os.path.exists(proto_file_path):
         raise FileNotFoundError(f'Proto file {proto_file_path} does not exist.')
 
-    converter = ProtoToAvroConverter()
+    converter = ProtoToAvroConverter(proto_root=proto_root)
     if not namespace:
         namespace = pascal(os.path.basename(proto_file_path).replace('.proto', ''))
     avro_schema = converter.convert_proto_to_avro_schema(proto_file_path, namespace, message_type)

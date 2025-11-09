@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package foo.bar;
+
+import "bar/fuzz.proto";
+
+message Bizz {
+  string name = 1;
+  Fuzz fuzz = 2;
+}
