@@ -76,5 +76,8 @@ class TestAvroToJsons(unittest.TestCase):
     def test_convert_typemapunion2_avro_to_json(self):
         self.create_json_from_avro("typemapunion2.avsc", "typemapunion2.json")
 
-    def test_convert_fixed_type_ref_avro_to_json(self):
-        self.create_json_from_avro("fixed-type-ref.avsc", "fixed-type-ref.json")
+    def test_convert_fixed_type_avro_to_json(self):
+        self.create_json_from_avro("fixed-type.avsc", "fixed-type.json")
+
+    def test_convert_fixed_type_2_avro_to_json(self):
+        self.create_json_from_avro("fixed-type-2.avsc", "fixed-type-2.json")

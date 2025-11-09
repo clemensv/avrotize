@@ -1,0 +1,20 @@
+{
+    "type": "record",
+    "name": "DeviceRecord",
+    "namespace": "com.example.device",
+    "fields": [
+        {
+            "name": "deviceId",
+            "type": "string"
+        },
+        {
+            "name": "macAddress",
+            "type": {
+                "type": "fixed",
+                "name": "MacAddress",
+                "size": 6
+            },
+            "doc": "MAC address of the device"
+        }
+    ]
+}

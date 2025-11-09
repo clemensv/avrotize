@@ -1,0 +1,26 @@
+{
+    "type": "object",
+    "title": "DeviceRecord",
+    "properties": {
+        "deviceId": {
+            "type": "string"
+        },
+        "macAddress": {
+            "$ref": "#/definitions/MacAddress",
+            "description": "MAC address of the device"
+        }
+    },
+    "required": [
+        "deviceId",
+        "macAddress"
+    ],
+    "definitions": {
+        "MacAddress": {
+            "type": "string",
+            "contentEncoding": "base16",
+            "minLength": 12,
+            "maxLength": 12,
+            "title": "MacAddress"
+        }
+    }
+}
