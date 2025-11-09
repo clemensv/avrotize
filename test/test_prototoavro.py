@@ -41,6 +41,21 @@ class TestProtoToAvro(unittest.TestCase):
             os.makedirs(dir, exist_ok=True)
         
         convert_proto_to_avro(proto_path, avro_path)
+    
+    def test_convert_proto_with_buf_style_import(self):
+        """Test proto conversion with buf-style imports using proto_root parameter."""
+        cwd = getcwd()
+        proto_path = path.join(cwd, "test", "proto_buf_test", "proto", "foo", "bar", "bizz.proto")
+        proto_root = path.join(cwd, "test", "proto_buf_test", "proto", "foo")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "bizz.avsc")
+        dir = os.path.dirname(avro_path)
+        if not os.path.exists(dir):
+            os.makedirs(dir, exist_ok=True)
+        
+        convert_proto_to_avro(proto_path, avro_path, proto_root=proto_root)
+        
+        # Verify the output file was created
+        self.assertTrue(os.path.exists(avro_path))
 
 if __name__ == '__main__':
     unittest.main()
