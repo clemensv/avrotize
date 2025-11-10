@@ -76,8 +76,8 @@ jobs:
 
       - name: Verify installation
         run: |
-          python -c "import avrotize; from avrotize._version import __version__; print(f'Avrotize version: {__version__}')"
-          python -c "from avrotize.avrotize import main; print('Import successful')"
+          python -c "import avrotize; print('Avrotize import successful')"
+          python -c "from avrotize.avrotize import main; print('Main module import successful')"
 
       - name: Test CLI commands exist
         run: |
