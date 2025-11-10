@@ -90,7 +90,7 @@ jobs:
       - name: Run basic functionality test
         run: |
           echo '{"type": "record", "name": "TestRecord", "fields": [{"name": "id", "type": "int"}, {"name": "name", "type": "string"}]}' > test_schema.avsc
-          avrotize a2j --avsc test_schema.avsc --jsons test_schema.json
+          avrotize a2j --avsc test_schema.avsc --out test_schema.json
           cat test_schema.json
           echo "Basic conversion test passed"
 
