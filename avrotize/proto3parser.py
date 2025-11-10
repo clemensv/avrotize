@@ -280,6 +280,8 @@ class ProtoTransformer(Transformer):
         '''Returns a sequence of enum identifiers'''
         enumitems = []
         for tree in tokens:
+            if not isinstance(tree, Tree):
+                continue
             if tree.data != 'enumfield':
                 continue
             comment = Comment("", {})
