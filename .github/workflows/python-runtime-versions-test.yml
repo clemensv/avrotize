@@ -90,17 +90,9 @@ jobs:
       - name: Run basic functionality test
         run: |
           echo '{"type": "record", "name": "TestRecord", "fields": [{"name": "id", "type": "int"}, {"name": "name", "type": "string"}]}' > test_schema.avsc
-          python -c "
-          from avrotize.avrotojsons import avro_to_jsons
-          import json
-          
-          with open('test_schema.avsc', 'r') as f:
-              avro_schema = json.load(f)
-          
-          json_schema = avro_to_jsons(avro_schema)
-          print('Basic conversion test passed')
-          print(f'Converted schema: {json.dumps(json_schema, indent=2)}')
-          "
+          avrotize a2j --avsc test_schema.avsc --jsons test_schema.json
+          cat test_schema.json
+          echo "Basic conversion test passed"
 
       - name: Install test dependencies
         run: |
