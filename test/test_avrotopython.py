@@ -236,3 +236,59 @@ except Exception as e:
             f"Import test failed with code {result.returncode}.\nStdout: {result.stdout}\nStderr: {result.stderr}"
         assert "SUCCESS" in result.stdout, \
             f"Expected success message in output, got: {result.stdout}"
+
+    def test_pyproject_toml_package_name_case_sensitivity(self):
+        """ Test that pyproject.toml package name is lowercase to match directory structure """
+        from avrotize.avrotopython import convert_avro_schema_to_python
+        
+        # Create a test schema
+        test_schema = {
+            'type': 'record',
+            'name': 'TestRecord',
+            'namespace': 'com.example',
+            'fields': [
+                {'name': 'id', 'type': 'string'},
+                {'name': 'value', 'type': 'int'}
+            ]
+        }
+        
+        # Use a package name with mixed case to test the fix
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "case-sensitivity-test")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+        
+        # Generate with mixed case package name
+        convert_avro_schema_to_python(test_schema, py_path, package_name='test_MixedCase_pyData')
+        
+        # Check the generated pyproject.toml
+        pyproject_path = os.path.join(py_path, 'pyproject.toml')
+        assert os.path.exists(pyproject_path), "pyproject.toml should exist"
+        
+        with open(pyproject_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+            # The package name in the packages list should be lowercase
+            assert 'include = "test_mixedcase_pydata"' in content, \
+                f"Package name in pyproject.toml should be lowercase. Content: {content}"
+            
+            # Verify the actual directory matches
+            expected_dir = os.path.join(py_path, 'src', 'test_mixedcase_pydata')
+            assert os.path.exists(expected_dir), \
+                f"Expected directory {expected_dir} should exist"
+            
+        # Verify Poetry can process this (if Poetry is available)
+        try:
+            result = subprocess.run(
+                ['poetry', 'check'],
+                cwd=py_path,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            # If poetry is available, it should validate successfully
+            assert result.returncode == 0, \
+                f"Poetry validation failed: {result.stderr}"
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            # Poetry not available or timeout, skip this check
+            pass

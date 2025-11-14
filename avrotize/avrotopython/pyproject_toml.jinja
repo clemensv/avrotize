@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A package for handling Avro schema data"
 authors = ["Your Name"]
 license = "MIT"
-packages = [ { include = "{{ package_name|replace('-','_') }}", from="src" } ]
+packages = [ { include = "{{ package_name|replace('-','_')|lower }}", from="src" } ]
 
 [tool.poetry.dependencies]
 python = "<4.0,>=3.10"
