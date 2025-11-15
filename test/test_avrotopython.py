@@ -292,3 +292,117 @@ except Exception as e:
         except (FileNotFoundError, subprocess.TimeoutExpired):
             # Poetry not available or timeout, skip this check
             pass
+
+    def test_gzip_compression_json(self):
+        """ Test that gzip compression works correctly with JSON content type """
+        import gzip
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-py-gzip-test")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        # Generate Python code with both JSON and Avro support
+        convert_avro_to_python(avro_path, py_path, dataclasses_json_annotation=True, avro_annotation=True)
+        
+        # Add test directory to Python path
+        new_env = os.environ.copy()
+        new_env['PYTHONPATH'] = os.path.join(py_path, 'src')
+        
+        # Create test script
+        test_script = os.path.join(py_path, "test_compression.py")
+        with open(test_script, 'w', encoding='utf-8') as f:
+            f.write("""
+import gzip
+import io
+from address.example.com import Record
+
+# Create a test record
+record = Record(
+    type='address',
+    postOfficeBox=None,
+    extendedAddress=None,
+    streetAddress='123 Main St',
+    locality='Springfield',
+    region='IL',
+    postalCode='62701',
+    countryName='USA'
+)
+
+# Test 1: JSON serialization without compression
+print("Test 1: JSON serialization without compression")
+json_bytes = record.to_byte_array('application/json')
+assert isinstance(json_bytes, (bytes, str)), "JSON serialization should return bytes or str"
+print(f"  ✓ JSON serialization works: {len(json_bytes)} bytes")
+
+# Test 2: JSON serialization with gzip compression
+print("Test 2: JSON serialization with gzip compression")
+json_gzip_bytes = record.to_byte_array('application/json+gzip')
+assert isinstance(json_gzip_bytes, bytes), "Compressed data should be bytes"
+print(f"  ✓ JSON+gzip serialization works: {len(json_gzip_bytes)} bytes")
+
+# Test 3: Verify compression actually happened
+if isinstance(json_bytes, str):
+    json_bytes_len = len(json_bytes.encode('utf-8'))
+else:
+    json_bytes_len = len(json_bytes)
+print(f"  Uncompressed: {json_bytes_len} bytes, Compressed: {len(json_gzip_bytes)} bytes")
+# Compressed should typically be smaller, but with small data it might be larger due to gzip overhead
+# Just verify the data is actually gzip-compressed by checking the magic number
+assert json_gzip_bytes[:2] == bytes([0x1f, 0x8b]), "Data should be gzip compressed (magic number check)"
+print(f"  ✓ Data is gzip compressed")
+
+# Test 4: Verify we can decompress the data manually
+with gzip.GzipFile(fileobj=io.BytesIO(json_gzip_bytes), mode='rb') as gf:
+    decompressed = gf.read()
+    print(f"  ✓ Manual decompression successful: {len(decompressed)} bytes")
+
+# Test 5: Round-trip test - serialize with compression, deserialize with compression
+print("Test 3: Round-trip with compression")
+record2 = Record.from_data(json_gzip_bytes, 'application/json+gzip')
+assert record2 is not None, "Deserialization should return a record"
+assert record2.locality == 'Springfield', f"Expected locality='Springfield', got '{record2.locality}'"
+assert record2.streetAddress == '123 Main St', f"Expected streetAddress='123 Main St', got '{record2.streetAddress}'"
+print(f"  ✓ Round-trip successful")
+
+# Test 6: Avro binary with gzip compression
+print("Test 4: Avro binary with gzip compression")
+avro_gzip_bytes = record.to_byte_array('avro/binary+gzip')
+assert isinstance(avro_gzip_bytes, bytes), "Compressed Avro should be bytes"
+assert avro_gzip_bytes[:2] == bytes([0x1f, 0x8b]), "Avro data should be gzip compressed"
+print(f"  ✓ Avro+gzip serialization works: {len(avro_gzip_bytes)} bytes")
+
+# Test 7: Round-trip test with Avro + gzip
+print("Test 5: Round-trip with Avro + gzip")
+record3 = Record.from_data(avro_gzip_bytes, 'avro/binary+gzip')
+assert record3 is not None, "Avro deserialization should return a record"
+assert record3.locality == 'Springfield', f"Expected locality='Springfield', got '{record3.locality}'"
+assert record3.streetAddress == '123 Main St', f"Expected streetAddress='123 Main St', got '{record3.streetAddress}'"
+print(f"  ✓ Avro round-trip successful")
+
+# Test 8: Test alternative Avro content type with gzip
+print("Test 6: Alternative Avro content type with gzip")
+avro_alt_gzip_bytes = record.to_byte_array('application/vnd.apache.avro+avro+gzip')
+assert isinstance(avro_alt_gzip_bytes, bytes), "Compressed Avro should be bytes"
+assert avro_alt_gzip_bytes[:2] == bytes([0x1f, 0x8b]), "Avro data should be gzip compressed"
+record4 = Record.from_data(avro_alt_gzip_bytes, 'application/vnd.apache.avro+avro+gzip')
+assert record4.locality == 'Springfield', f"Expected locality='Springfield', got '{record4.locality}'"
+print(f"  ✓ Alternative Avro content type with gzip works")
+
+print("\\nAll compression tests passed! ✓")
+""")
+        
+        # Run the test script
+        result = subprocess.run(
+            [sys.executable, test_script],
+            cwd=py_path,
+            env=new_env,
+            capture_output=True,
+            text=True
+        )
+        
+        assert result.returncode == 0, \
+            f"Compression test failed with code {result.returncode}.\\nStdout: {result.stdout}\\nStderr: {result.stderr}"
+        assert "All compression tests passed" in result.stdout, \
+            f"Expected success message in output, got: {result.stdout}"
