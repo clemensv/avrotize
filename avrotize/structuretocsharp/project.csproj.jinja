@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+    <ItemGroup>
+        {%- if newtonsoft_json_annotation %}
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        {%- endif %}
+        {%- if system_text_json_annotation %}
+        <PackageReference Include="System.Text.Json" Version="9.0.3" />
+        {%- endif %}
+        <PackageReference Include="System.Memory.Data" Version="9.0.3" />
+    </ItemGroup>
+</Project>  

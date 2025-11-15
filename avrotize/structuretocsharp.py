@@ -252,6 +252,16 @@ class StructureToCSharp:
         class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Default constructor\n{INDENT}/// </summary>\n"
         class_definition += f"{INDENT}public {class_name}()\n{INDENT}{{\n{INDENT}}}"
 
+        # Add helper methods from template if any annotations are enabled
+        if self.system_text_json_annotation or self.newtonsoft_json_annotation or self.system_xml_annotation:
+            class_definition += process_template(
+                "structuretocsharp/dataclass_core.jinja",
+                class_name=class_name,
+                system_text_json_annotation=self.system_text_json_annotation,
+                newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                system_xml_annotation=self.system_xml_annotation
+            )
+
         # Generate Equals and GetHashCode
         class_definition += self.generate_equals_and_gethashcode(structure_schema, class_name, schema_namespace)
 
@@ -696,31 +706,35 @@ class StructureToCSharp:
         
         return code
 
-    def write_to_file(self, namespace: str, class_name: str, class_definition: str) -> None:
-        """ Writes the class definition to a file """
-        os.makedirs(os.path.join(self.output_dir, namespace.replace('.', os.sep)), exist_ok=True)
-        file_path = os.path.join(self.output_dir, namespace.replace('.', os.sep), f"{class_name}.cs")
-        
+    def write_to_file(self, namespace: str, name: str, definition: str) -> None:
+        """ Writes the class or enum to a file """
+        directory_path = os.path.join(
+            self.output_dir, os.path.join('src', namespace.replace('.', os.sep)))
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path, exist_ok=True)
+        file_path = os.path.join(directory_path, f"{name}.cs")
+
         with open(file_path, 'w', encoding='utf-8') as file:
-            # Write using statements
-            file.write("using System;\n")
-            file.write("using System.Collections.Generic;\n")
-            file.write("using System.Linq;\n")
-            
+            # Common using statements (add more as needed)
+            file_content = "using System;\nusing System.Collections.Generic;\n"
+            file_content += "using System.Linq;\n"
             if self.system_text_json_annotation:
-                file.write("using System.Text.Json;\n")
-                file.write("using System.Text.Json.Serialization;\n")
-            
+                file_content += "using System.Text.Json;\n"
+                file_content += "using System.Text.Json.Serialization;\n"
             if self.newtonsoft_json_annotation:
-                file.write("using Newtonsoft.Json;\n")
-            
-            if self.system_xml_annotation:
-                file.write("using System.Xml.Serialization;\n")
-            
-            file.write("\n")
-            file.write(f"namespace {namespace}\n{{\n")
-            file.write(class_definition)
-            file.write("\n}\n")
+                file_content += "Newtonsoft.Json;\n"
+            if self.system_xml_annotation:  # Add XML serialization using directive
+                file_content += "using System.Xml.Serialization;\n"
+
+            if namespace:
+                # Namespace declaration with correct indentation for the definition
+                file_content += f"\nnamespace {namespace}\n{{\n"
+                indented_definition = '\n'.join(
+                    [f"{INDENT}{line}" for line in definition.split('\n')])
+                file_content += f"{indented_definition}\n}}"
+            else:
+                file_content += definition
+            file.write(file_content)
 
     def convert(self, structure_schema_path: str, output_dir: str) -> None:
         """ Converts a JSON Structure schema file to C# classes """
@@ -731,30 +745,100 @@ class StructureToCSharp:
         
         self.convert_schema(schema, output_dir)
 
-    def convert_schema(self, schema: Dict, output_dir: str) -> None:
+    def convert_schema(self, schema: JsonNode, output_dir: str) -> None:
         """ Converts a JSON Structure schema to C# classes """
-        self.output_dir = output_dir
+        if not isinstance(schema, list):
+            schema = [schema]
+
+        # Determine project name: use explicit project_name if set, otherwise derive from base_namespace
+        if self.project_name and self.project_name.strip():
+            # Use explicitly set project name
+            project_name = self.project_name
+        else:
+            # Fall back to using base_namespace as project name
+            project_name = self.base_namespace
+            if not project_name or project_name.strip() == '':
+                # Derive from output directory name as fallback
+                project_name = os.path.basename(os.path.abspath(output_dir))
+                if not project_name or project_name.strip() == '':
+                    project_name = 'Generated'
+                # Clean up the project name
+                project_name = project_name.replace('-', '_').replace(' ', '_')
+                # Update base_namespace to match (only if it was empty)
+                self.base_namespace = project_name
+                import warnings
+                warnings.warn(f"No namespace provided, using '{project_name}' derived from output directory", UserWarning)
+        
         self.schema_doc = schema
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
         
-        # Process definitions
-        if 'definitions' in schema:
-            self.definitions = schema['definitions']
-            self.process_definitions(self.definitions, '')
+        # Create solution file if it doesn't exist
+        if not glob.glob(os.path.join(output_dir, "src", "*.sln")):
+            sln_file = os.path.join(output_dir, f"{project_name}.sln")
+            if not os.path.exists(sln_file):
+                if not os.path.exists(os.path.dirname(sln_file)) and os.path.dirname(sln_file):
+                    os.makedirs(os.path.dirname(sln_file))
+                with open(sln_file, 'w', encoding='utf-8') as file:
+                    file.write(process_template(
+                        "structuretocsharp/project.sln.jinja", 
+                        project_name=project_name, 
+                        uuid=lambda:str(uuid.uuid4()),
+                        system_xml_annotation=self.system_xml_annotation,
+                        system_text_json_annotation=self.system_text_json_annotation,
+                        newtonsoft_json_annotation=self.newtonsoft_json_annotation))
         
-        # Process root type
-        if 'type' in schema:
-            self.generate_class_or_choice(schema, '', write_file=True)
-        elif '$root' in schema:
-            root_ref = schema['$root']
-            root_schema = self.resolve_ref(root_ref, schema)
-            if root_schema:
-                ref_path = root_ref.split('/')
-                type_name = ref_path[-1]
-                ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else ''
-                self.generate_class_or_choice(root_schema, ref_namespace, write_file=True, explicit_name=type_name)
+        # Create main project file if it doesn't exist
+        if not glob.glob(os.path.join(output_dir, "src", "*.csproj")):
+            csproj_file = os.path.join(output_dir, "src", f"{pascal(project_name)}.csproj")
+            if not os.path.exists(csproj_file):
+                if not os.path.exists(os.path.dirname(csproj_file)):
+                    os.makedirs(os.path.dirname(csproj_file))
+                with open(csproj_file, 'w', encoding='utf-8') as file:
+                    file.write(process_template(
+                        "structuretocsharp/project.csproj.jinja",
+                        project_name=project_name, 
+                        system_xml_annotation=self.system_xml_annotation,
+                        system_text_json_annotation=self.system_text_json_annotation,
+                        newtonsoft_json_annotation=self.newtonsoft_json_annotation))
         
-        # Generate project file
-        self.generate_project_file()
+        # Create test project file if it doesn't exist
+        if not glob.glob(os.path.join(output_dir, "test", "*.csproj")):
+            csproj_test_file = os.path.join(output_dir, "test", f"{pascal(project_name)}.Test.csproj")
+            if not os.path.exists(csproj_test_file):
+                if not os.path.exists(os.path.dirname(csproj_test_file)):
+                    os.makedirs(os.path.dirname(csproj_test_file))
+                with open(csproj_test_file, 'w', encoding='utf-8') as file:
+                    file.write(process_template(
+                        "structuretocsharp/testproject.csproj.jinja", 
+                        project_name=project_name,
+                        system_xml_annotation=self.system_xml_annotation,
+                        system_text_json_annotation=self.system_text_json_annotation,
+                        newtonsoft_json_annotation=self.newtonsoft_json_annotation))
+
+        self.output_dir = output_dir
+        
+        # Process each schema
+        for structure_schema in (s for s in schema if isinstance(s, dict)):
+            # Process definitions
+            if 'definitions' in structure_schema:
+                self.definitions = structure_schema['definitions']
+                self.process_definitions(self.definitions, '')
+            
+            # Process root type
+            if 'type' in structure_schema:
+                self.generate_class_or_choice(structure_schema, '', write_file=True)
+            elif '$root' in structure_schema:
+                root_ref = structure_schema['$root']
+                root_schema = self.resolve_ref(root_ref, structure_schema)
+                if root_schema:
+                    ref_path = root_ref.split('/')
+                    type_name = ref_path[-1]
+                    ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else ''
+                    self.generate_class_or_choice(root_schema, ref_namespace, write_file=True, explicit_name=type_name)
+        
+        # Generate tests
+        self.generate_tests(output_dir)
 
     def process_definitions(self, definitions: Dict, namespace_path: str) -> None:
         """ Processes the definitions section recursively """
@@ -769,24 +853,138 @@ class StructureToCSharp:
                     new_namespace = self.concat_namespace(namespace_path, name)
                     self.process_definitions(definition, new_namespace)
 
-    def generate_project_file(self) -> None:
-        """ Generates a .csproj file for the generated classes """
-        # Determine project name
-        project_name = self.project_name if self.project_name else pascal(self.base_namespace) if self.base_namespace else "StructureTypes"
-        
-        csproj_content = f"""<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+    def generate_tests(self, output_dir: str) -> None:
+        """ Generates unit tests for all the generated C# classes and enums """
+        test_directory_path = os.path.join(output_dir, "test")
+        if not os.path.exists(test_directory_path):
+            os.makedirs(test_directory_path, exist_ok=True)
 
-</Project>
-"""
+        for class_name, type_kind in self.generated_types.items():
+            if type_kind in ["class", "enum"]:
+                self.generate_test_class(class_name, type_kind, test_directory_path)
+
+    def generate_test_class(self, class_name: str, type_kind: str, test_directory_path: str) -> None:
+        """ Generates a unit test class for a given C# class or enum """
+        structure_schema: Dict[str, JsonNode] = cast(Dict[str, JsonNode], self.generated_structure_types.get(class_name, {}))
+        if class_name.startswith("global::"):
+            class_name = class_name[8:]
+        test_class_name = f"{class_name.split('.')[-1]}Tests"
+        namespace = ".".join(class_name.split('.')[:-1])
+        class_base_name = class_name.split('.')[-1]
+
+        if type_kind == "class":
+            fields = self.get_class_test_fields(structure_schema, class_base_name)
+            test_class_definition = process_template(
+                "structuretocsharp/class_test.cs.jinja",
+                namespace=namespace,
+                test_class_name=test_class_name,
+                class_base_name=class_base_name,
+                fields=fields,
+                system_xml_annotation=self.system_xml_annotation,
+                system_text_json_annotation=self.system_text_json_annotation,
+                newtonsoft_json_annotation=self.newtonsoft_json_annotation
+            )
+        elif type_kind == "enum":
+            # For enums, extract symbols from the enum schema
+            enum_values = structure_schema.get('enum', [])
+            symbols = []
+            if enum_values:
+                for value in enum_values:
+                    if isinstance(value, str):
+                        # Convert to PascalCase enum member name
+                        symbol_name = ''.join(word.capitalize() for word in re.split(r'[_\-\s]+', value))
+                        symbols.append(symbol_name)
+                    else:
+                        # For numeric enums, use Value1, Value2, etc.
+                        symbols.append(f"Value{value}")
+            
+            test_class_definition = process_template(
+                "structuretocsharp/enum_test.cs.jinja",
+                namespace=namespace,
+                test_class_name=test_class_name,
+                enum_base_name=class_base_name,
+                symbols=symbols,
+                system_xml_annotation=self.system_xml_annotation,
+                system_text_json_annotation=self.system_text_json_annotation,
+                newtonsoft_json_annotation=self.newtonsoft_json_annotation
+            )
+        else:
+            return
+
+        test_file_path = os.path.join(test_directory_path, f"{test_class_name}.cs")
+        with open(test_file_path, 'w', encoding='utf-8') as test_file:
+            test_file.write(test_class_definition)
+
+    def get_class_test_fields(self, structure_schema: Dict[str, JsonNode], class_name: str) -> List[Any]:
+        """ Retrieves fields for a given class name """
+
+        class Field:
+            def __init__(self, fn: str, ft: str, tv: Any, ct: bool, pm: bool):
+                self.field_name = fn
+                self.field_type = ft
+                self.test_value = tv
+                self.is_const = ct
+                self.is_primitive = pm
+
+        fields: List[Field] = []
+        if structure_schema and 'properties' in structure_schema:
+            for prop_name, prop_schema in cast(Dict[str, Dict], structure_schema['properties']).items():
+                field_name = prop_name
+                if self.pascal_properties:
+                    field_name = pascal(field_name)
+                if field_name == class_name:
+                    field_name += "_"
+                if self.is_csharp_reserved_word(field_name):
+                    field_name = f"@{field_name}"
+                
+                field_type = self.convert_structure_type_to_csharp(
+                    class_name, field_name, prop_schema, str(structure_schema.get('namespace', '')))
+                is_class = field_type in self.generated_types and self.generated_types[field_type] == "class"
+                
+                # Check if this is a const field
+                is_const = 'const' in prop_schema
+                test_value = self.get_test_value(field_type) if not is_const else self.format_default_value(prop_schema['const'], field_type)
+                
+                f = Field(field_name, field_type, test_value, is_const, not is_class)
+                fields.append(f)
+        return cast(List[Any], fields)
+
+    def get_test_value(self, csharp_type: str) -> str:
+        """Returns a default test value based on the C# type"""
+        # For nullable object types, return typed null to avoid var issues
+        if csharp_type == "object?":
+            return "(object?)null"
         
-        csproj_path = os.path.join(self.output_dir, f"{project_name}.csproj")
-        with open(csproj_path, 'w', encoding='utf-8') as file:
-            file.write(csproj_content)
+        test_values = {
+            'string': '"test_string"',
+            'bool': 'true',
+            'sbyte': '(sbyte)42',
+            'byte': '(byte)42',
+            'short': '(short)42',
+            'ushort': '(ushort)42',
+            'int': '42',
+            'uint': '42U',
+            'long': '42L',
+            'ulong': '42UL',
+            'System.Int128': 'new System.Int128(0, 42)',
+            'System.UInt128': 'new System.UInt128(0, 42)',
+            'float': '3.14f',
+            'double': '3.14',
+            'decimal': '3.14m',
+            'byte[]': 'new byte[] { 0x01, 0x02, 0x03 }',
+            'DateOnly': 'new DateOnly(2024, 1, 1)',
+            'TimeOnly': 'new TimeOnly(12, 0, 0)',
+            'DateTimeOffset': 'new DateTimeOffset(2024, 1, 1, 12, 0, 0, TimeSpan.Zero)',
+            'TimeSpan': 'TimeSpan.FromHours(1)',
+            'Guid': 'new Guid("12345678-1234-1234-1234-123456789012")',
+            'Uri': 'new Uri("https://example.com")',
+            'null': 'null'
+        }
+        if csharp_type.endswith('?'):
+            csharp_type = csharp_type[:-1]
+        return test_values.get(csharp_type, f'new {csharp_type}()')
+
+
 
 
 def convert_structure_to_csharp(

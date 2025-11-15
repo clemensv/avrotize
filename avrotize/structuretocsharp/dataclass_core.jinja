@@ -1,0 +1,151 @@
+    {%- if system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+    /// <summary>
+    /// Creates an object from the data
+    /// </summary>
+    /// <param name="data">The input data to convert</param>
+    /// <param name="contentTypeString">The content type string of the desired encoding</param>
+    /// <returns>The converted object</returns>
+    public static {{ class_name }}? FromData(object? data, string? contentTypeString )
+    {
+        if ( data == null ) return null;
+        if ( data is {{ class_name }}) return ({{ class_name }})data;
+        if ( contentTypeString == null ) contentTypeString = System.Net.Mime.MediaTypeNames.Application.Octet;
+        var contentType = new System.Net.Mime.ContentType(contentTypeString);
+    {%- if system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+        if ( contentType.MediaType.EndsWith("+gzip"))
+        {
+            var stream = data switch
+            {
+                System.IO.Stream s => s, System.BinaryData bd => bd.ToStream(), byte[] bytes => new System.IO.MemoryStream(bytes),
+                _ => throw new NotSupportedException("Data is not of a supported type for gzip decompression")
+            };
+            using (var gzip = new System.IO.Compression.GZipStream(stream, System.IO.Compression.CompressionMode.Decompress))
+            {
+                System.IO.MemoryStream memoryStream = new System.IO.MemoryStream();
+                gzip.CopyTo(memoryStream);
+                memoryStream.Position = 0;
+                data = memoryStream.ToArray();
+            }
+        }
+    {%- endif %}
+    {%- if system_text_json_annotation %}
+        if ( contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {
+            if (data is System.Text.Json.JsonElement)
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>((System.Text.Json.JsonElement)data);
+            }
+            else if ( data is string)
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>((string)data);
+            }
+            else if (data is System.BinaryData)
+            {
+                return ((System.BinaryData)data).ToObjectFromJson<{{ class_name }}>();
+            }
+            else if (data is byte[])
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>(new ReadOnlySpan<byte>((byte[])data));
+            }
+            else if (data is System.IO.Stream)
+            {
+                return System.Text.Json.JsonSerializer.DeserializeAsync<{{ class_name }}>((System.IO.Stream)data).Result;
+            }
+        }
+    {%- endif %}
+    {%- if newtonsoft_json_annotation %}
+        if ( contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {
+            if (data is string)
+            {
+                return Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_name }}>((string)data);
+            }
+            else if (data is System.BinaryData)
+            {
+                return ((System.BinaryData)data).ToObjectFromJson<{{ class_name }}>();
+            }
+        }
+    {%- endif %}
+    {%- if system_xml_annotation %}
+        if ( contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Text.Xml) || contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Xml) || contentType.MediaType.EndsWith("+xml"))
+        {
+            var serializer = new System.Xml.Serialization.XmlSerializer(typeof({{ class_name }}));
+            if (data is string)
+            {
+                using (var reader = new System.IO.StringReader((string)data))
+                {
+                    return ({{ class_name }}?)serializer.Deserialize(reader);
+                }
+            }
+            else if (data is System.IO.Stream)
+            {
+                return ({{ class_name }}?)serializer.Deserialize((System.IO.Stream)data);
+            }
+            else if (data is System.BinaryData)
+            {
+                var memoryStream = new System.IO.MemoryStream(((System.BinaryData)data).ToArray());
+                return ({{ class_name }}?)serializer.Deserialize(memoryStream);
+            }
+            else if (data is byte[])
+            {
+                var memoryStream = new System.IO.MemoryStream((byte[])data);
+                return ({{ class_name }}?)serializer.Deserialize(memoryStream);
+            }
+        }
+    {%- endif %}
+        throw new System.NotSupportedException($"Unsupported media type {contentType.MediaType}");
+    }
+    {%- endif %}
+
+    {%- if system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+    /// <summary>
+    /// Converts the object to a byte array
+    /// </summary>
+    /// <param name="contentTypeString">The content type string of the desired encoding</param>
+    /// <returns>The encoded data</returns>
+    public byte[] ToByteArray(string contentTypeString)
+    {
+        var contentType = new System.Net.Mime.ContentType(contentTypeString);
+        byte[]? result = null;
+    {%- if system_text_json_annotation %}
+        if (contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {
+            result = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(this);
+        }
+    {%- endif %}
+    {%- if newtonsoft_json_annotation %}
+        if (contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {
+            result = System.Text.Encoding.GetEncoding(contentType.CharSet??"utf-8").GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(this));
+        }
+    {%- endif %}
+    {%- if system_xml_annotation %}
+        if (contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Text.Xml) || contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Xml) || contentType.MediaType.EndsWith("+xml"))
+        {
+            var serializer = new System.Xml.Serialization.XmlSerializer(typeof({{ class_name }}));
+            using (var stream = new System.IO.MemoryStream())
+            {
+                using (var writer = new System.IO.StreamWriter(stream))
+                {
+                    serializer.Serialize(writer, this);
+                    writer.Flush();
+                    result = stream.ToArray();
+                }
+            }
+        }
+    {%- endif %}
+        if ( result == null ) throw new System.NotSupportedException($"Unsupported media type {contentType.MediaType}");
+        if ( contentType.MediaType.EndsWith("+gzip"))
+        {
+            using (var output = new System.IO.MemoryStream())
+            {
+                using (var gzip = new System.IO.Compression.GZipStream(output, System.IO.Compression.CompressionMode.Compress))
+                {
+                    gzip.Write(result, 0, result.Length);
+                }
+                result = output.ToArray();
+            }
+        }
+        return result;
+    }
+    {%- endif %}
