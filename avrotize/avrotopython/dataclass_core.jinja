@@ -129,9 +129,12 @@ class {{ class_name }}:
         """
         content_type = content_type_string.split(';')[0].strip()
         result = None
+        
+        # Strip compression suffix for base type matching
+        base_content_type = content_type.replace('+gzip', '')
 
         {%- if avro_annotation %}
-        if content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
+        if base_content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
             stream = io.BytesIO()
             writer = avro.io.DatumWriter(self.AvroType)
             encoder = avro.io.BinaryEncoder(stream)
@@ -140,13 +143,16 @@ class {{ class_name }}:
         {%- endif %}
 
         {%- if dataclasses_json_annotation %}
-        if content_type == 'application/json':
+        if base_content_type == 'application/json':
             #pylint: disable=no-member
             result = self.to_json()
             #pylint: enable=no-member
         {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):
+            # Handle string result from to_json()
+            if isinstance(result, str):
+                result = result.encode('utf-8')
             with io.BytesIO() as stream:
                 with gzip.GzipFile(fileobj=stream, mode='wb') as gzip_file:
                     gzip_file.write(result)
@@ -196,15 +202,18 @@ class {{ class_name }}:
                 raise NotImplementedError('Data is not of a supported type for gzip decompression')
             with gzip.GzipFile(fileobj=stream, mode='rb') as gzip_file:
                 data = gzip_file.read()
+        
+        # Strip compression suffix for base type matching
+        base_content_type = content_type.replace('+gzip', '')
 
         {%- if avro_annotation %}
-        if content_type in ['avro/binary', 'application/vnd.apache.avro+avro', 'avro/json', 'application/vnd.apache.avro+json']:
+        if base_content_type in ['avro/binary', 'application/vnd.apache.avro+avro', 'avro/json', 'application/vnd.apache.avro+json']:
             if isinstance(data, (bytes, io.BytesIO)):
                 stream = io.BytesIO(data) if isinstance(data, bytes) else data
             else:
                 raise NotImplementedError('Data is not of a supported type for conversion to Stream')
             reader = avro.io.DatumReader(cls.AvroType)
-            if content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
+            if base_content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
                 decoder = avro.io.BinaryDecoder(stream)
             else:
                 raise NotImplementedError(f'Unsupported Avro media type {content_type}')
@@ -213,7 +222,7 @@ class {{ class_name }}:
         {%- endif %}
 
         {%- if dataclasses_json_annotation %}
-        if content_type == 'application/json':
+        if base_content_type == 'application/json':
             if isinstance(data, (bytes, str)):
                 data_str = data.decode('utf-8') if isinstance(data, bytes) else data
                 _record = json.loads(data_str)
