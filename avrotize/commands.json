@@ -1126,6 +1126,117 @@
     ]
   },
   {
+    "command": "s2cs",
+    "description": "Convert JSON Structure to C# classes",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretocsharp.convert_structure_to_csharp",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "cs_file_path": "output_file_path",
+        "system_text_json_annotation": "args.system_text_json_annotation",
+        "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
+        "system_xml_annotation": "args.system_xml_annotation",
+        "pascal_properties": "args.pascal_properties",
+        "base_namespace": "args.namespace",
+        "project_name": "args.project_name"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the C# classes",
+        "required": false
+      },
+      {
+        "name": "--struct",
+        "type": "str",
+        "help": "Deprecated: Path to the JSON Structure file (for backcompat)",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "C# root namespace",
+        "required": false
+      },
+      {
+        "name": "--project-name",
+        "type": "str",
+        "help": "C# project name",
+        "required": false
+      },
+      {
+        "name": "--system_text_json_annotation",
+        "type": "bool",
+        "help": "Use System.Text.Json annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--system-xml-annotation",
+        "type": "bool",
+        "help": "Use System.Xml annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--newtonsoft-json-annotation",
+        "type": "bool",
+        "help": "Use Newtonsoft.Json annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--pascal-properties",
+        "type": "bool",
+        "help": "Use PascalCase properties",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-cs",
+    "prompts": [
+      {
+        "name": "--namespace",
+        "message": "Enter the C# root namespace for the project",
+        "type": "str",
+        "default": "{input_file_name}",
+        "required": false
+      },
+      {
+        "name": "--project-name",
+        "message": "Enter the C# project name",
+        "type": "str",
+        "default": "{input_file_name}",
+        "required": false
+      },
+      {
+        "name": "--system_text_json_annotation",
+        "message": "Use System.Text.Json annotations?",
+        "type": "bool",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--pascal-properties",
+        "message": "Use PascalCase properties?",
+        "type": "bool",
+        "default": false,
+        "required": false
+      }
+    ]
+  },
+  {
     "command": "a2java",
     "description": "Convert Avrotize schema to Java classes",
     "group": "2_ProgLanguages",
