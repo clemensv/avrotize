@@ -350,7 +350,7 @@ else:
 print(f"  Uncompressed: {json_bytes_len} bytes, Compressed: {len(json_gzip_bytes)} bytes")
 # Compressed should typically be smaller, but with small data it might be larger due to gzip overhead
 # Just verify the data is actually gzip-compressed by checking the magic number
-assert json_gzip_bytes[:2] == b'\\x1f\\x8b', "Data should be gzip compressed (magic number check)"
+assert json_gzip_bytes[:2] == bytes([0x1f, 0x8b]), "Data should be gzip compressed (magic number check)"
 print(f"  ✓ Data is gzip compressed")
 
 # Test 4: Verify we can decompress the data manually
@@ -370,7 +370,7 @@ print(f"  ✓ Round-trip successful")
 print("Test 4: Avro binary with gzip compression")
 avro_gzip_bytes = record.to_byte_array('avro/binary+gzip')
 assert isinstance(avro_gzip_bytes, bytes), "Compressed Avro should be bytes"
-assert avro_gzip_bytes[:2] == b'\\x1f\\x8b', "Avro data should be gzip compressed"
+assert avro_gzip_bytes[:2] == bytes([0x1f, 0x8b]), "Avro data should be gzip compressed"
 print(f"  ✓ Avro+gzip serialization works: {len(avro_gzip_bytes)} bytes")
 
 # Test 7: Round-trip test with Avro + gzip
@@ -385,7 +385,7 @@ print(f"  ✓ Avro round-trip successful")
 print("Test 6: Alternative Avro content type with gzip")
 avro_alt_gzip_bytes = record.to_byte_array('application/vnd.apache.avro+avro+gzip')
 assert isinstance(avro_alt_gzip_bytes, bytes), "Compressed Avro should be bytes"
-assert avro_alt_gzip_bytes[:2] == b'\\x1f\\x8b', "Avro data should be gzip compressed"
+assert avro_alt_gzip_bytes[:2] == bytes([0x1f, 0x8b]), "Avro data should be gzip compressed"
 record4 = Record.from_data(avro_alt_gzip_bytes, 'application/vnd.apache.avro+avro+gzip')
 assert record4.locality == 'Springfield', f"Expected locality='Springfield', got '{record4.locality}'"
 print(f"  ✓ Alternative Avro content type with gzip works")
