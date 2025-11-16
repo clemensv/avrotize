@@ -236,8 +236,9 @@ class TestJsonStructureToAvro(unittest.TestCase):
 
         result = self.converter.convert(structure)
 
+        # Avrotize Schema: temporal types use string base type with logical type annotation
         timestamp_field = next(f for f in result['fields'] if f['name'] == 'timestamp')
-        self.assertEqual(timestamp_field['type']['type'], 'long')
+        self.assertEqual(timestamp_field['type']['type'], 'string')
         self.assertEqual(timestamp_field['type']['logicalType'], 'timestamp-millis')
 
         uuid_field = next(f for f in result['fields'] if f['name'] == 'uuid')

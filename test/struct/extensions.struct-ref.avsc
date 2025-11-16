@@ -10,7 +10,10 @@
     },
     {
       "name": "price",
-      "type": "bytes",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal"
+      },
       "doc": "[precision: 10, scale: 2, minimum: 0]"
     },
     {

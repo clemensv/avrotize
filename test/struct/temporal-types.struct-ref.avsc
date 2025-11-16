@@ -7,7 +7,10 @@
       "name": "dateField",
       "type": [
         "null",
-        "string"
+        {
+          "type": "string",
+          "logicalType": "date"
+        }
       ],
       "doc": "A date field",
       "default": null
@@ -16,21 +19,30 @@
       "name": "timeField",
       "type": [
         "null",
-        "string"
+        {
+          "type": "string",
+          "logicalType": "time-millis"
+        }
       ],
       "doc": "A time field",
       "default": null
     },
     {
       "name": "datetimeField",
-      "type": "string",
+      "type": {
+        "type": "string",
+        "logicalType": "timestamp-millis"
+      },
       "doc": "A datetime field"
     },
     {
       "name": "timestampField",
       "type": [
         "null",
-        "long"
+        {
+          "type": "string",
+          "logicalType": "timestamp-millis"
+        }
       ],
       "doc": "A timestamp field",
       "default": null
@@ -39,7 +51,10 @@
       "name": "durationField",
       "type": [
         "null",
-        "string"
+        {
+          "type": "string",
+          "logicalType": "duration"
+        }
       ],
       "doc": "A duration field",
       "default": null

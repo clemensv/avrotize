@@ -25,7 +25,10 @@
       "name": "preciseDecimal",
       "type": [
         "null",
-        "bytes"
+        {
+          "type": "string",
+          "logicalType": "decimal"
+        }
       ],
       "doc": "[precision: 38, scale: 18]",
       "default": null

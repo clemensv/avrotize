@@ -710,9 +710,14 @@ class JsonStructureToAvro:
         
         raise ValueError(f"Cannot convert type schema: {schema}")
     
-    def _map_primitive_type(self, struct_type: str) -> str:
-        """Map JSON Structure primitive type to Avro primitive type."""
-        type_mapping = {
+    def _map_primitive_type(self, struct_type: str) -> Union[str, Dict[str, Any]]:
+        """Map JSON Structure primitive type to Avro primitive type.
+        
+        For temporal types, returns Avrotize Schema format with string base type 
+        and logical type annotation (RFC 3339 format).
+        """
+        # Simple types without logical type annotation
+        simple_type_mapping = {
             'null': 'null',
             'boolean': 'boolean',
             # Integer types
@@ -740,29 +745,66 @@ class JsonStructureToAvro:
             'string': 'string',
             'binary': 'bytes',
             'bytes': 'bytes',
-            # Temporal types (as strings with logical type hints)
-            'date': 'string',
-            'datetime': 'string',
-            'time': 'string',
-            'duration': 'string',
-            'timestamp': 'long',  # Typically timestamp-millis
             # Other types
-            'uuid': 'string',
             'uri': 'string',
-            'decimal': 'bytes',  # Will be enhanced with logical type
             'jsonpointer': 'string',
         }
         
-        return type_mapping.get(struct_type, struct_type)
+        # Temporal types with Avrotize Schema string-based logical types (RFC 3339 format)
+        temporal_type_mapping = {
+            'date': {'type': 'string', 'logicalType': 'date'},  # RFC 3339 full-date
+            'datetime': {'type': 'string', 'logicalType': 'timestamp-millis'},  # RFC 3339 date-time
+            'time': {'type': 'string', 'logicalType': 'time-millis'},  # RFC 3339 partial-time
+            'duration': {'type': 'string', 'logicalType': 'duration'},  # RFC 3339 duration
+            'timestamp': {'type': 'string', 'logicalType': 'timestamp-millis'},  # RFC 3339 date-time
+        }
+        
+        # Special types with logical type annotation
+        special_type_mapping = {
+            'uuid': {'type': 'string', 'logicalType': 'uuid'},
+            'decimal': {'type': 'string', 'logicalType': 'decimal'},  # Avrotize extension: decimal on string
+        }
+        
+        # Check in order: temporal, special, simple
+        if struct_type in temporal_type_mapping:
+            return temporal_type_mapping[struct_type]
+        if struct_type in special_type_mapping:
+            return special_type_mapping[struct_type]
+        if struct_type in simple_type_mapping:
+            return simple_type_mapping[struct_type]
+        
+        # Fallback to the type as-is
+        return struct_type
     
     def _map_logical_type(self, logical_type: str, base_type: Optional[str]) -> Dict[str, Any]:
-        """Map JSON Structure logical type to Avro logical type."""
+        """Map JSON Structure logical type to Avro/Avrotize logical type.
+        
+        Uses Avrotize Schema extensions for string-based temporal types (RFC 3339 format).
+        """
+        # Avrotize Schema: temporal types on string (RFC 3339 format)
         logical_mapping = {
-            'timestampMicros': {'type': 'long', 'logicalType': 'timestamp-micros'},
-            'timestampMillis': {'type': 'long', 'logicalType': 'timestamp-millis'},
-            'date': {'type': 'int', 'logicalType': 'date'},
+            # Timestamps
+            'timestampMicros': {'type': 'string', 'logicalType': 'timestamp-micros'},
+            'timestampMillis': {'type': 'string', 'logicalType': 'timestamp-millis'},
+            'timestamp-micros': {'type': 'string', 'logicalType': 'timestamp-micros'},
+            'timestamp-millis': {'type': 'string', 'logicalType': 'timestamp-millis'},
+            # Local timestamps (no timezone)
+            'localTimestampMicros': {'type': 'string', 'logicalType': 'local-timestamp-micros'},
+            'localTimestampMillis': {'type': 'string', 'logicalType': 'local-timestamp-millis'},
+            'local-timestamp-micros': {'type': 'string', 'logicalType': 'local-timestamp-micros'},
+            'local-timestamp-millis': {'type': 'string', 'logicalType': 'local-timestamp-millis'},
+            # Date and time
+            'date': {'type': 'string', 'logicalType': 'date'},
+            'time-millis': {'type': 'string', 'logicalType': 'time-millis'},
+            'time-micros': {'type': 'string', 'logicalType': 'time-micros'},
+            'timeMillis': {'type': 'string', 'logicalType': 'time-millis'},
+            'timeMicros': {'type': 'string', 'logicalType': 'time-micros'},
+            # Duration
+            'duration': {'type': 'string', 'logicalType': 'duration'},
+            # UUID
             'uuid': {'type': 'string', 'logicalType': 'uuid'},
-            'decimal': {'type': 'bytes', 'logicalType': 'decimal'},
+            # Decimal (Avrotize extension: on string)
+            'decimal': {'type': 'string', 'logicalType': 'decimal'},
         }
         
         if logical_type in logical_mapping:
@@ -770,7 +812,10 @@ class JsonStructureToAvro:
         
         # Fallback to base type
         if base_type:
-            return {'type': self._map_primitive_type(base_type)}
+            mapped = self._map_primitive_type(base_type)
+            if isinstance(mapped, dict):
+                return mapped
+            return {'type': mapped}
         
         return {'type': 'string'}
 

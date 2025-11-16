@@ -37,7 +37,10 @@
     },
     {
       "name": "decimalField",
-      "type": "bytes",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal"
+      },
       "doc": "[precision: 10, scale: 2, minimum: 0, maximum: 99999999.99]"
     },
     {
