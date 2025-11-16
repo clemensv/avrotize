@@ -1,0 +1,71 @@
+"""
+Test case for {{ class_name }}
+"""
+
+import os
+import sys
+import unittest
+
+sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), '../src'.replace('/', os.sep))))
+
+from {{ package_name | lower }} import {{ class_name }}
+
+{%- for import_type in import_types if import_type not in ['decimal.Decimal', 'datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta', 'uuid.UUID'] %}
+{%- set import_type_name = 'Test_'+import_type.split('.')[-1] %}
+{%- set import_package_name = 'test_'+'_'.join(import_type.split('.')[:-1]) | lower %}
+
+{%- if import_type.startswith('.') %}
+from .{{ import_package_name }} import {{ import_type_name }}
+{%- else %}
+from {{ import_package_name }} import {{ import_type_name }}
+{%- endif -%}
+{%- endfor %}
+{%- for import_type in import_types if import_type in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta'] %}
+{%- if loop.first %}
+import datetime
+{%- endif %}
+{%- endfor %}
+{%- for import_type in import_types if import_type == 'decimal.Decimal' %}
+{%- if loop.first %}
+import decimal
+{%- endif %}
+{%- endfor %}
+{%- for import_type in import_types if import_type == 'uuid.UUID' %}
+{%- if loop.first %}
+import uuid
+{%- endif %}
+{%- endfor %}
+
+
+class {{ test_class_name }}(unittest.TestCase):
+    """
+    Test case for {{ class_name }}
+    """
+
+    def setUp(self):
+        """
+        Set up test case
+        """
+        self.instance = {{ test_class_name }}.create_instance()
+
+    @staticmethod
+    def create_instance():
+        """
+        Create instance of {{ class_name }} for testing
+        """
+        instance = {{ class_name }}(
+            {%- for field in fields %}
+            {{ field.name }}={{ field.test_value }}{%- if not loop.last %},{%- endif %}
+            {%- endfor %}
+        )
+        return instance
+
+    {% for field in fields %}
+    def test_{{ field.name }}_property(self):
+        """
+        Test {{ field.name }} property
+        """
+        test_value = {{ field.test_value }}
+        self.instance.{{ field.name }} = test_value
+        self.assertEqual(self.instance.{{ field.name }}, test_value)
+    {% endfor %}

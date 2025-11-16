@@ -1,0 +1,34 @@
+import os
+import sys
+import unittest
+
+sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), '../src'.replace('/', os.sep))))
+
+from {{ package_name | lower }} import {{ class_name }}
+
+
+class {{ test_class_name }}(unittest.TestCase):
+    """
+    Test case for {{ class_name }}
+    """
+
+    def setUp(self):
+        """
+        Setup test
+        """
+        self.instance = {{ test_class_name }}.create_instance()
+
+    @staticmethod
+    def create_instance():
+        """
+        Create instance of {{ class_name }}
+        """
+        return {{ class_name }}.{{ symbols[0] }}
+
+    def test_enum_values(self):
+        """
+        Test that all enum values are defined
+        """
+        {%- for symbol in symbols %}
+        self.assertEqual({{ class_name }}.{{ symbol }}.value, "{{ symbol }}")
+        {%- endfor %}
