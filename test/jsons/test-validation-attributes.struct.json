@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/test-validation-attributes",
+  "name": "ValidatedClass",
+  "type": "object",
+  "description": "A class with various validation attributes",
+  "properties": {
+    "username": {
+      "name": "username",
+      "type": "string",
+      "description": "Username with length constraints",
+      "minLength": 3,
+      "maxLength": 20
+    },
+    "email": {
+      "name": "email",
+      "type": "string",
+      "description": "Email with pattern validation",
+      "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    },
+    "age": {
+      "name": "age",
+      "type": "int32",
+      "description": "Age with range validation",
+      "minimum": 0,
+      "maximum": 150
+    },
+    "score": {
+      "name": "score",
+      "type": "double",
+      "description": "Score with range",
+      "minimum": 0.0,
+      "maximum": 100.0
+    },
+    "bio": {
+      "name": "bio",
+      "type": "string",
+      "description": "Biography with max length only",
+      "maxLength": 500
+    },
+    "tags": {
+      "name": "tags",
+      "type": "string",
+      "description": "Tags with min length only",
+      "minLength": 1
+    }
+  },
+  "required": ["username", "email", "age"]
+}

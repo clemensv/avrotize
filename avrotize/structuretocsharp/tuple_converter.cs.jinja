@@ -1,0 +1,121 @@
+using System;
+using System.Linq;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+{% if namespace %}
+namespace {{ namespace }}
+{
+{% endif %}
+{% set ind=4 if namespace else 0 %}
+{% filter indent(width=ind, first=True) %}
+/// <summary>
+/// JSON converter for tuple types that serializes as JSON array per JSON Structure spec
+/// </summary>
+/// <typeparam name="T">The tuple record struct type</typeparam>
+public class TupleJsonConverter<T> : JsonConverter<T> where T : struct
+{
+    private readonly PropertyInfo[] _properties;
+    private readonly ConstructorInfo _constructor;
+    
+    /// <summary>
+    /// Initializes the converter with property order from record struct
+    /// </summary>
+    public TupleJsonConverter()
+    {
+        var type = typeof(T);
+        
+        // Get constructor parameters to determine correct order
+        _constructor = type.GetConstructors().FirstOrDefault() 
+            ?? throw new InvalidOperationException($"No constructor found for tuple type {type.Name}");
+        
+        var parameters = _constructor.GetParameters();
+        _properties = new PropertyInfo[parameters.Length];
+        
+        // Match properties to constructor parameters by name (case-insensitive)
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var param = parameters[i];
+            var property = type.GetProperty(
+                param.Name!, 
+                BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase
+            );
+            
+            if (property == null)
+            {
+                throw new InvalidOperationException(
+                    $"Property not found for constructor parameter '{param.Name}' in tuple type {type.Name}"
+                );
+            }
+            
+            _properties[i] = property;
+        }
+    }
+    
+    /// <summary>
+    /// Reads tuple from JSON array
+    /// </summary>
+    public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.StartArray)
+        {
+            throw new JsonException($"Expected array for tuple type {typeToConvert.Name}, got {reader.TokenType}");
+        }
+        
+        var values = new object?[_properties.Length];
+        var index = 0;
+        
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+            {
+                break;
+            }
+            
+            if (index >= _properties.Length)
+            {
+                throw new JsonException($"Too many elements in array for tuple type {typeToConvert.Name}. Expected {_properties.Length} elements.");
+            }
+            
+            var propertyType = _properties[index].PropertyType;
+            values[index] = JsonSerializer.Deserialize(ref reader, propertyType, options);
+            index++;
+        }
+        
+        if (index < _properties.Length)
+        {
+            throw new JsonException($"Not enough elements in array for tuple type {typeToConvert.Name}. Expected {_properties.Length}, got {index}.");
+        }
+        
+        // Invoke constructor with values in correct order
+        try
+        {
+            return (T)_constructor.Invoke(values);
+        }
+        catch (Exception ex)
+        {
+            throw new JsonException($"Failed to construct tuple type {typeToConvert.Name}", ex);
+        }
+    }
+    
+    /// <summary>
+    /// Writes tuple as JSON array
+    /// </summary>
+    public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
+    {
+        writer.WriteStartArray();
+        
+        foreach (var property in _properties)
+        {
+            var propertyValue = property.GetValue(value);
+            JsonSerializer.Serialize(writer, propertyValue, property.PropertyType, options);
+        }
+        
+        writer.WriteEndArray();
+    }
+}
+{% endfilter %}
+{% if namespace %}
+}
+{% endif %}

@@ -58,11 +58,23 @@ public class {{ test_class_name }}
         var instance2 = CreateInstance();
         
         {%- set test_field = fields | selectattr("is_primitive", "equalto", true) | selectattr("is_const", "equalto", false) | first %}
+        {%- if not test_field %}
+        {%- set test_field = fields | selectattr("is_const", "equalto", false) | first %}
+        {%- endif %}
         {%- if test_field %}
         // Modify a field to make instances different
         {%- if 'Enum' in test_field.field_type %}
         // For enum types, just skip the negative test as we can't easily change enum values
-        {%- elif 'string' in test_field.field_type %}
+        {%- elif test_field.field_type.startswith('List<') %}
+        // For List types, create a list with a different element
+        instance2.{{ test_field.field_name }} = new {{ test_field.field_type.replace('?', '') }} { {%- if 'string' in test_field.field_type %}"modified_value"{% elif 'int' in test_field.field_type %}999{% else %}default{% endif %} };
+        {%- elif test_field.field_type.startswith('Dictionary<') %}
+        // For Dictionary types, create with a different entry
+        instance2.{{ test_field.field_name }} = new {{ test_field.field_type.replace('?', '') }} { ["key"] = {%- if 'string' in test_field.field_type %}"modified_value"{% elif 'int' in test_field.field_type %}999{% else %}default{% endif %} };
+        {%- elif test_field.field_type.startswith('HashSet<') %}
+        // For HashSet types, create with a different element
+        instance2.{{ test_field.field_name }} = new {{ test_field.field_type.replace('?', '') }} { {%- if 'string' in test_field.field_type %}"modified_value"{% elif 'int' in test_field.field_type %}999{% else %}default{% endif %} };
+        {%- elif 'string' in test_field.field_type and not '<' in test_field.field_type %}
         instance2.{{ test_field.field_name }} = "different_value";
         {%- elif 'int' in test_field.field_type or 'long' in test_field.field_type or 'short' in test_field.field_type or 'byte' in test_field.field_type %}
         instance2.{{ test_field.field_name }} = ({{ test_field.field_type.replace('?', '') }})999;
@@ -71,7 +83,16 @@ public class {{ test_class_name }}
         {%- elif 'float' in test_field.field_type or 'double' in test_field.field_type or 'decimal' in test_field.field_type %}
         instance2.{{ test_field.field_name }} = 999.99{{ 'f' if 'float' in test_field.field_type else 'm' if 'decimal' in test_field.field_type else '' }};
         {%- else %}
+        // For complex types (tuples, nested objects), create with different test values
+        {%- if 'Coordinate' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = new {{test_field.field_type.replace('?', '').replace('global::', '')}}(999.0, 999.0);
+        {%- elif 'PersonTuple' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = new {{test_field.field_type.replace('?', '').replace('global::', '')}}("different_person", 999, false);
+        {%- elif 'Payload' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = new {{test_field.field_type.replace('?', '').replace('global::', '')}}("different_value");
+        {%- else %}
         instance2.{{ test_field.field_name }} = {{ test_field.test_value }};
+        {%- endif %}
         {%- endif %}
         
         {%- if 'Enum' not in test_field.field_type %}

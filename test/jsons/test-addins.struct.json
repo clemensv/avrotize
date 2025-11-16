@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/test-addins",
+  "type": "object",
+  "name": "Product",
+  "description": "A product with audit and pricing add-ins",
+  "properties": {
+    "id": {
+      "name": "id",
+      "type": "string",
+      "description": "Product identifier"
+    },
+    "name": {
+      "name": "name",
+      "type": "string",
+      "description": "Product name"
+    }
+  },
+  "required": ["id", "name"],
+  "$offers": {
+    "AuditInfo": {
+      "type": "object",
+      "description": "Audit information for tracking changes",
+      "properties": {
+        "createdBy": {
+          "name": "createdBy",
+          "type": "string",
+          "description": "User who created the entity"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "number",
+          "logicalType": "timestamp-millis",
+          "description": "Creation timestamp"
+        }
+      }
+    },
+    "PricingInfo": {
+      "type": "object",
+      "description": "Pricing information",
+      "properties": {
+        "price": {
+          "name": "price",
+          "type": "number",
+          "logicalType": "decimal",
+          "description": "Product price"
+        },
+        "currency": {
+          "name": "currency",
+          "type": "string",
+          "description": "Currency code"
+        }
+      }
+    }
+  }
+}

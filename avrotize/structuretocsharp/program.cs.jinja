@@ -1,0 +1,44 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
+
+/// <summary>
+/// Program that creates instances using test classes and serializes them to JSON
+/// for validation against JSON Structure schemas
+/// </summary>
+public class InstanceSerializerProgram
+{
+    public static void Main(string[] args)
+    {
+        string outputDir = args.Length > 0 ? args[0] : ".";
+        Directory.CreateDirectory(outputDir);
+        
+        var jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true
+        };
+        
+        Console.WriteLine($"Generating JSON instance files in: {outputDir}");
+        
+        {%- for class_info in classes %}
+        // Generate instance for {{ class_info.class_name }}
+        try
+        {
+            var test_{{ class_info.class_name }} = new {{ class_info.full_qualified_test_name }}();
+            var instance_{{ class_info.class_name }} = test_{{ class_info.class_name }}.CreateInstance();
+            var json_{{ class_info.class_name }} = JsonSerializer.Serialize(instance_{{ class_info.class_name }}, jsonOptions);
+            var filePath_{{ class_info.class_name }} = Path.Combine(outputDir, "{{ class_info.class_name }}.json");
+            File.WriteAllText(filePath_{{ class_info.class_name }}, json_{{ class_info.class_name }});
+            Console.WriteLine($"Created: {filePath_{{ class_info.class_name }}}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating {{ class_info.class_name }}: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+        {% endfor %}
+        
+        Console.WriteLine("JSON instance generation complete.");
+    }
+}
