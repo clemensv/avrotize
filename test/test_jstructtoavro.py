@@ -329,6 +329,77 @@ class TestJsonStructureToAvro(unittest.TestCase):
         self.assertEqual(result['size'], 16)
         self.assertEqual(result['doc'], 'MD5 hash')
 
+    def test_regression_basic_types(self):
+        """Test basic-types.struct.json against reference output."""
+        self._test_against_reference('test/struct/basic-types.struct.json')
+
+    def test_regression_choice_types(self):
+        """Test choice-types.struct.json against reference output."""
+        self._test_against_reference('test/struct/choice-types.struct.json')
+
+    def test_regression_collections(self):
+        """Test collections.struct.json against reference output."""
+        self._test_against_reference('test/struct/collections.struct.json')
+
+    def test_regression_complex_scenario(self):
+        """Test complex-scenario.struct.json against reference output."""
+        self._test_against_reference('test/struct/complex-scenario.struct.json')
+
+    def test_regression_edge_cases(self):
+        """Test edge-cases.struct.json against reference output."""
+        self._test_against_reference('test/struct/edge-cases.struct.json')
+
+    def test_regression_extensions(self):
+        """Test extensions.struct.json against reference output."""
+        self._test_against_reference('test/struct/extensions.struct.json')
+
+    def test_regression_nested_objects(self):
+        """Test nested-objects.struct.json against reference output."""
+        self._test_against_reference('test/struct/nested-objects.struct.json')
+
+    def test_regression_numeric_types(self):
+        """Test numeric-types.struct.json against reference output."""
+        self._test_against_reference('test/struct/numeric-types.struct.json')
+
+    def test_regression_temporal_types(self):
+        """Test temporal-types.struct.json against reference output."""
+        self._test_against_reference('test/struct/temporal-types.struct.json')
+
+    def test_regression_validation_constraints(self):
+        """Test validation-constraints.struct.json against reference output."""
+        self._test_against_reference('test/struct/validation-constraints.struct.json')
+
+    def _test_against_reference(self, struct_file: str):
+        """
+        Helper method to test a struct file against its reference output.
+        
+        Args:
+            struct_file: Path to the .struct.json file
+        """
+        # Determine reference file path
+        ref_file = struct_file.replace('.struct.json', '.struct-ref.avsc')
+        
+        if not os.path.exists(ref_file):
+            self.skipTest(f"Reference file {ref_file} not found")
+        
+        # Load the struct file
+        with open(struct_file, 'r', encoding='utf-8') as f:
+            structure = json.load(f)
+        
+        # Convert using the converter
+        result = self.converter.convert(structure)
+        
+        # Load the reference output
+        with open(ref_file, 'r', encoding='utf-8') as f:
+            expected = json.load(f)
+        
+        # Compare the results
+        self.assertEqual(
+            result, 
+            expected,
+            f"Conversion of {struct_file} does not match reference output in {ref_file}"
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

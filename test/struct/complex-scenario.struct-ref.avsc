@@ -1,0 +1,36 @@
+{
+  "type": "record",
+  "name": "ComplexScenario",
+  "doc": "Complex test scenario combining multiple JSON Structure features",
+  "fields": [
+    {
+      "name": "metadata",
+      "type": "object"
+    },
+    {
+      "name": "data",
+      "type": {
+        "type": "record",
+        "name": "Choice_measurement_event",
+        "fields": [
+          {
+            "name": "value",
+            "type": [
+              "object",
+              "object"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "signature",
+      "type": [
+        "null",
+        "bytes"
+      ],
+      "doc": "Digital signature",
+      "default": null
+    }
+  ]
+}

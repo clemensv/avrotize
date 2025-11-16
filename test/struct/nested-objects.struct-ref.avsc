@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "NestedObjects",
+  "doc": "Test schema for nested object structures",
+  "fields": [
+    {
+      "name": "person",
+      "type": "object"
+    }
+  ]
+}

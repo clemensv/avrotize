@@ -1,0 +1,48 @@
+{
+  "type": "record",
+  "name": "TemporalTypes",
+  "doc": "Test schema for temporal types",
+  "fields": [
+    {
+      "name": "dateField",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "A date field",
+      "default": null
+    },
+    {
+      "name": "timeField",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "A time field",
+      "default": null
+    },
+    {
+      "name": "datetimeField",
+      "type": "string",
+      "doc": "A datetime field"
+    },
+    {
+      "name": "timestampField",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "A timestamp field",
+      "default": null
+    },
+    {
+      "name": "durationField",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "A duration field",
+      "default": null
+    }
+  ]
+}

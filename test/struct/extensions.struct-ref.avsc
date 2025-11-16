@@ -1,0 +1,43 @@
+{
+  "type": "record",
+  "name": "ExtensionsExample",
+  "doc": "Test schema for JSON Structure extensions",
+  "fields": [
+    {
+      "name": "productName",
+      "type": "string",
+      "doc": "Product name with alternate names [maxLength: 100]"
+    },
+    {
+      "name": "price",
+      "type": "bytes",
+      "doc": "[precision: 10, scale: 2, minimum: 0]"
+    },
+    {
+      "name": "weight",
+      "type": [
+        "null",
+        "double"
+      ],
+      "doc": "[minimum: 0.0]",
+      "default": null
+    },
+    {
+      "name": "temperature",
+      "type": [
+        "null",
+        "double"
+      ],
+      "default": null
+    },
+    {
+      "name": "stockSymbol",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "[maxLength: 10, pattern: ^[A-Z]{1,5}$]",
+      "default": null
+    }
+  ]
+}

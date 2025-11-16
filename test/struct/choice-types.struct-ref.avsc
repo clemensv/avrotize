@@ -1,0 +1,115 @@
+[
+  {
+    "type": "record",
+    "name": "ChoiceTypes",
+    "doc": "Test schema for choice types (unions)",
+    "fields": [
+      {
+        "name": "taggedChoice",
+        "type": {
+          "type": "record",
+          "name": "Choice_textValue_numberValue",
+          "fields": [
+            {
+              "name": "value",
+              "type": [
+                "string",
+                "int"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "inlineChoice",
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "Choice_Person_Company",
+            "fields": [
+              {
+                "name": "value",
+                "type": [
+                  "Person",
+                  "Company"
+                ]
+              }
+            ]
+          }
+        ],
+        "default": null
+      },
+      {
+        "name": "nullableString",
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Person",
+    "doc": "Extends abstract BaseEntity",
+    "fields": [
+      {
+        "name": "name",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null
+      },
+      {
+        "name": "entityType",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null
+      },
+      {
+        "name": "age",
+        "type": [
+          "null",
+          "int"
+        ],
+        "default": null
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Company",
+    "doc": "Extends abstract BaseEntity",
+    "fields": [
+      {
+        "name": "name",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null
+      },
+      {
+        "name": "entityType",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null
+      },
+      {
+        "name": "employees",
+        "type": [
+          "null",
+          "int"
+        ],
+        "default": null
+      }
+    ]
+  }
+]

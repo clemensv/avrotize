@@ -1,0 +1,41 @@
+{
+  "type": "record",
+  "name": "ValidationConstraints",
+  "doc": "Test schema for validation constraints",
+  "fields": [
+    {
+      "name": "constrainedString",
+      "type": "string",
+      "doc": "[maxLength: 50, minLength: 5, pattern: ^[A-Z][a-zA-Z0-9]*$]"
+    },
+    {
+      "name": "enumField",
+      "type": "string"
+    },
+    {
+      "name": "constField",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "numberWithConstraints",
+      "type": [
+        "null",
+        "int"
+      ],
+      "doc": "[minimum: 0, maximum: 100]",
+      "default": null
+    },
+    {
+      "name": "exclusiveRangeNumber",
+      "type": [
+        "null",
+        "double"
+      ],
+      "default": null
+    }
+  ]
+}
