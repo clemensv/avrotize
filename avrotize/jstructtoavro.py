@@ -739,8 +739,6 @@ class JsonStructureToAvro:
             'float64': 'double',
             'double': 'double',
             'number': 'double',  # Generic number → double
-            'binary32': 'float',  # IEEE 754 binary32
-            'binary64': 'double',  # IEEE 754 binary64
             # String and binary types
             'string': 'string',
             'binary': 'bytes',

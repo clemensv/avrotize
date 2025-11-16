@@ -44,21 +44,21 @@
       "doc": "[precision: 10, scale: 2, minimum: 0, maximum: 99999999.99]"
     },
     {
-      "name": "binaryField",
+      "name": "float32Field",
       "type": [
         "null",
         "float"
       ],
-      "doc": "32-bit binary floating point",
+      "doc": "32-bit floating point",
       "default": null
     },
     {
-      "name": "binary64Field",
+      "name": "float64Field",
       "type": [
         "null",
         "double"
       ],
-      "doc": "64-bit binary floating point",
+      "doc": "64-bit floating point",
       "default": null
     }
   ]
