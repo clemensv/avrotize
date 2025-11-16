@@ -62,11 +62,9 @@ Schema extensions where appropriate:
 | `uint128` | `string` | Too large for Avro numeric types |
 | `float8` | `float` | 8-bit floating point |
 | `float16` | `float` | 16-bit floating point |
-| `float32`, `float` | `float` | 32-bit floating point |
-| `float64`, `double` | `double` | 64-bit floating point |
+| `float32`, `float` | `float` | Single-precision (32-bit) floating point |
+| `float64`, `double` | `double` | Double-precision (64-bit) floating point |
 | `number` | `double` | Generic number type |
-| `binary32` | `float` | IEEE 754 binary32 |
-| `binary64` | `double` | IEEE 754 binary64 |
 | `string` | `string` | UTF-8 string |
 | `binary`, `bytes` | `bytes` | Binary data |
 | `uri` | `string` | URI string |
