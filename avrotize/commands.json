@@ -2184,6 +2184,36 @@
     ]
   },
   {
+    "command": "s2a",
+    "description": "Convert JSON structure to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jstructtoavro.convert_json_structure_to_avro",
+      "args": {
+        "structure_file": "input_file_path",
+        "avro_file": "output_file_path"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
     "command": "a2s",
     "description": "Convert Avrotize schema to JSON structure",
     "group": "1_Schemas",
