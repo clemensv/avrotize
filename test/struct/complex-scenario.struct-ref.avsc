@@ -12,13 +12,27 @@
       "type": {
         "type": "record",
         "name": "Choice_measurement_event",
+        "doc": "Tagged union with explicit discriminator",
         "fields": [
+          {
+            "name": "choiceType",
+            "type": {
+              "type": "enum",
+              "name": "Choice_measurement_eventType",
+              "symbols": [
+                "measurement",
+                "event"
+              ]
+            },
+            "doc": "Discriminator indicating which type is present in the value field"
+          },
           {
             "name": "value",
             "type": [
               "object",
               "object"
-            ]
+            ],
+            "doc": "The actual value of the selected choice type"
           }
         ]
       }

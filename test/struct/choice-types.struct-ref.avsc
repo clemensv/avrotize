@@ -9,13 +9,27 @@
         "type": {
           "type": "record",
           "name": "Choice_textValue_numberValue",
+          "doc": "Tagged union with explicit discriminator",
           "fields": [
+            {
+              "name": "choiceType",
+              "type": {
+                "type": "enum",
+                "name": "Choice_textValue_numberValueType",
+                "symbols": [
+                  "textValue",
+                  "numberValue"
+                ]
+              },
+              "doc": "Discriminator indicating which type is present in the value field"
+            },
             {
               "name": "value",
               "type": [
                 "string",
                 "int"
-              ]
+              ],
+              "doc": "The actual value of the selected choice type"
             }
           ]
         }
@@ -27,13 +41,15 @@
           {
             "type": "record",
             "name": "Choice_Person_Company",
+            "doc": "Inline union with selector field: entityType",
             "fields": [
               {
                 "name": "value",
                 "type": [
                   "Person",
                   "Company"
-                ]
+                ],
+                "doc": "Union of choice types. Each type includes \"entityType\" field with its discriminator value."
               }
             ]
           }

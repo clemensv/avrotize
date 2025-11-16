@@ -2,26 +2,27 @@
 
 This article explains the handling of JSON Structure in Avrotize in more detail.
 
-- [Conversion from JSON Structure into Avro Schema](#conversion-from-json-structure-into-avro-schema)
-  - [Supported JSON Structure elements](#supported-json-structure-elements)
-    - [Primitive Types](#primitive-types)
-    - [Logical Types and Temporal Types](#logical-types-and-temporal-types)
-    - [Extended Numeric Types](#extended-numeric-types)
-    - [Arrays](#arrays)
-    - [Objects](#objects)
-    - [Maps](#maps)
-    - [Sets](#sets)
-    - [Tuples](#tuples)
-    - [Choice Types](#choice-types)
-    - [Any Type](#any-type)
-    - [`$extends` Inheritance](#extends-inheritance)
-    - [Abstract Types](#abstract-types)
-    - [`$ref` references and `definitions`](#ref-references-and-definitions)
-    - [Validation Constraints](#validation-constraints)
-  - [Unsupported or partially supported JSON Structure elements](#unsupported-or-partially-supported-json-structure-elements)
-- [Conversion of Avro Schema into JSON Structure](#conversion-of-avro-schema-into-json-structure)
+- [JSON Structure Handling in Avrotize](#json-structure-handling-in-avrotize)
+  - [Conversion from JSON Structure into Avro Schema](#conversion-from-json-structure-into-avro-schema)
+    - [Supported JSON Structure elements](#supported-json-structure-elements)
+      - [Primitive Types](#primitive-types)
+      - [Logical Types and Temporal Types](#logical-types-and-temporal-types)
+      - [Extended Numeric Types](#extended-numeric-types)
+      - [Arrays](#arrays)
+      - [Objects](#objects)
+      - [Maps](#maps)
+      - [Sets](#sets)
+      - [Tuples](#tuples)
+      - [Choice Types](#choice-types)
+      - [Any Type](#any-type)
+      - [`$extends` Inheritance](#extends-inheritance)
+      - [Abstract Types](#abstract-types)
+      - [`$ref` references and `definitions`](#ref-references-and-definitions)
+      - [Validation Constraints](#validation-constraints)
+    - [Unsupported or partially supported JSON Structure elements](#unsupported-or-partially-supported-json-structure-elements)
+  - [Conversion of Avro Schema into JSON Structure](#conversion-of-avro-schema-into-json-structure)
     - [Primitive Types](#primitive-types-1)
-    - [Logical Types](#logical-types-1)
+    - [Logical Types](#logical-types)
     - [Records](#records)
     - [Enums](#enums)
     - [Arrays](#arrays-1)
@@ -509,37 +510,117 @@ numbered fields:
 
 #### Choice Types
 
-JSON Structure `choice` types represent discriminated unions. When a choice has
-a `selector` field, it creates an inline union. Otherwise, it creates a union of
-the choice types:
+JSON Structure `choice` types represent discriminated unions. The converter
+handles two variants differently:
+
+**Tagged Unions** (without `selector`): Creates an explicit discriminator enum
+field plus a union field. This preserves the discriminator information that
+indicates which type is present.
+
+**Inline Unions** (with `selector` and `$extends`): Documents that each choice
+type should include the selector field. The wrapper contains a union of the
+choice types.
+
+##### Tagged Union Example
 
 <table width="100%"><tr><th>JSON Structure</th><th>Avrotize Schema</th></tr><tr><td style="vertical-align:top">
 
 ```json
 {
   "type": "choice",
-  "name": "ChoiceTypes",
+  "name": "MessageContent",
   "choices": {
-    "Person": {
-      "$ref": "#/definitions/Person"
+    "textValue": {
+      "type": "string"
     },
-    "Company": {
-      "$ref": "#/definitions/Company"
+    "numberValue": {
+      "type": "int32"
+    }
+  }
+}
+```
+
+</td>
+<td style="vertical-align:top">
+
+```json
+{
+  "type": "record",
+  "name": "MessageContent",
+  "doc": "Tagged union with explicit discriminator",
+  "fields": [
+    {
+      "name": "choiceType",
+      "type": {
+        "type": "enum",
+        "name": "MessageContentType",
+        "symbols": ["textValue", "numberValue"]
+      },
+      "doc": "Discriminator indicating which type is present"
+    },
+    {
+      "name": "value",
+      "type": ["string", "int"],
+      "doc": "The actual value of the selected choice type"
+    }
+  ]
+}
+```
+
+</td></tr></table>
+
+**Key features of tagged unions:**
+- `choiceType` enum field explicitly identifies which type is in the `value`
+  field
+- Type-safe discriminator using Avro enum
+- JSON encoding: `{"choiceType": "textValue", "value": "hello"}`
+- Enables validation that choiceType matches the actual type
+
+##### Inline Union Example
+
+<table width="100%"><tr><th>JSON Structure</th><th>Avrotize Schema</th></tr><tr><td style="vertical-align:top">
+
+```json
+{
+  "type": "choice",
+  "name": "Address",
+  "$extends": {
+    "$ref": "#/definitions/BaseAddress"
+  },
+  "selector": "addressType",
+  "choices": {
+    "StreetAddress": {
+      "$ref": "#/definitions/StreetAddress"
+    },
+    "POBoxAddress": {
+      "$ref": "#/definitions/POBoxAddress"
     }
   },
   "definitions": {
-    "Person": {
+    "BaseAddress": {
       "type": "object",
+      "abstract": true,
       "properties": {
-        "name": {"type": "string"},
-        "age": {"type": "int32"}
+        "city": {"type": "string"},
+        "state": {"type": "string"}
       }
     },
-    "Company": {
+    "StreetAddress": {
       "type": "object",
+      "$extends": {
+        "$ref": "#/definitions/BaseAddress"
+      },
       "properties": {
-        "name": {"type": "string"},
-        "employees": {"type": "int32"}
+        "street": {"type": "string"}
+      }
+    },
+    "POBoxAddress": {
+      "type": "object",
+      "$extends": {
+        "$ref": "#/definitions/BaseAddress"
+      },
+      "properties": {
+        "poBox": {"type": "string"}
       }
     }
   }
@@ -553,43 +634,33 @@ the choice types:
 [
   {
     "type": "record",
-    "name": "Person",
+    "name": "StreetAddress",
+    "doc": "Extends abstract BaseAddress",
     "fields": [
-      {
-        "name": "name",
-        "type": ["null", "string"],
-        "default": null
-      },
-      {
-        "name": "age",
-        "type": ["null", "int"],
-        "default": null
-      }
+      {"name": "city", "type": ["null", "string"], "default": null},
+      {"name": "state", "type": ["null", "string"], "default": null},
+      {"name": "street", "type": ["null", "string"], "default": null}
     ]
   },
   {
     "type": "record",
-    "name": "Company",
+    "name": "POBoxAddress",
+    "doc": "Extends abstract BaseAddress",
     "fields": [
-      {
-        "name": "name",
-        "type": ["null", "string"],
-        "default": null
-      },
-      {
-        "name": "employees",
-        "type": ["null", "int"],
-        "default": null
-      }
+      {"name": "city", "type": ["null", "string"], "default": null},
+      {"name": "state", "type": ["null", "string"], "default": null},
+      {"name": "poBox", "type": ["null", "string"], "default": null}
     ]
   },
   {
     "type": "record",
-    "name": "ChoiceTypes",
+    "name": "Address",
+    "doc": "Inline union with selector field: addressType",
     "fields": [
       {
         "name": "value",
-        "type": ["Person", "Company"]
+        "type": ["StreetAddress", "POBoxAddress"],
+        "doc": "Union of choice types. Each type includes \"addressType\" field with its discriminator value."
       }
     ]
   }
@@ -597,6 +668,14 @@ the choice types:
 ```
 
 </td></tr></table>
+
+**Key features of inline unions:**
+- Selector field (`addressType`) would be included in each choice type in actual
+  usage
+- Each choice type extends the base type and includes inherited properties
+- JSON encoding: `{"value": {"addressType": "StreetAddress", "street": "...",
+  "city": "..."}}`
+- Discriminator is part of the data structure itself
 
 #### Any Type
 
@@ -997,14 +1076,13 @@ are preserved as annotations in the Avro schema's `doc` field:
 The following JSON Structure elements have limitations:
 
 **Not Supported:**
-- **Inline unions with discriminators**: Full discriminated union pattern is not
-  yet implemented
 - **Complex conditional schemas**: `if`/`then`/`else` constructs
 - **Pattern properties**: Regular expression-based property matching
 
 **Partially Supported:**
-- **Choice with selector**: Creates record wrapper with union field (not full
-  discriminated union)
+- **Choice types with inline discriminators**: Creates record wrapper with union 
+  field and documented selector field expectation. The selector field must be 
+  present in each choice type but is not automatically injected.
 - **Validation constraints**: Captured in documentation only, not enforced
 
 ## Conversion of Avro Schema into JSON Structure
