@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://test.example.com/choice-inline",
+  "name": "InlineChoice",
+  "type": "choice",
+  "$extends": "#/definitions/BaseAddress",
+  "selector": "addressType",
+  "description": "Test inline union choice type with $extends",
+  "choices": {
+    "StreetAddress": {
+      "$ref": "#/definitions/StreetAddress"
+    },
+    "POBoxAddress": {
+      "$ref": "#/definitions/POBoxAddress"
+    }
+  },
+  "definitions": {
+    "BaseAddress": {
+      "abstract": true,
+      "type": "object",
+      "name": "BaseAddress",
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "zip": {
+          "type": "string"
+        }
+      },
+      "required": ["city", "state", "zip"]
+    },
+    "StreetAddress": {
+      "type": "object",
+      "name": "StreetAddress",
+      "$extends": "#/definitions/BaseAddress",
+      "properties": {
+        "street": {
+          "type": "string"
+        }
+      },
+      "required": ["street"]
+    },
+    "POBoxAddress": {
+      "type": "object",
+      "name": "POBoxAddress",
+      "$extends": "#/definitions/BaseAddress",
+      "properties": {
+        "poBox": {
+          "type": "string"
+        }
+      },
+      "required": ["poBox"]
+    }
+  }
+}
