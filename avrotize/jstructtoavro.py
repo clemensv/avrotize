@@ -40,7 +40,23 @@ class JsonStructureToAvro:
             # Inline type at root - convert directly
             name = structure_schema.get('name', 'Root')
             namespace = None  # Root level doesn't have namespace
-            return self._convert_type_from_schema(structure_schema, namespace, name)
+            
+            # Also convert any definitions that might be referenced
+            definitions = structure_schema.get('definitions', {})
+            if definitions:
+                for def_path, def_schema in self._flatten_definitions(definitions).items():
+                    self._convert_definition(def_path, def_schema)
+            
+            root_schema = self._convert_type_from_schema(structure_schema, namespace, name)
+            
+            # If there are referenced types, return all as a list
+            if self.converted_types:
+                # Filter out abstract types
+                concrete_types = [schema for schema in self.converted_types.values() 
+                                 if not (schema.get('type') == 'null' and 'Abstract type' in schema.get('doc', ''))]
+                return [root_schema] + concrete_types if concrete_types else root_schema
+            
+            return root_schema
         
         if not root_ref:
             raise ValueError("JSON Structure document must have either 'type' or '$root' property")
@@ -94,6 +110,144 @@ class JsonStructureToAvro:
             
         return flattened
     
+    def _resolve_base_schema(self, ref: str) -> Optional[Dict[str, Any]]:
+        """
+        Resolve a $ref to its schema definition.
+        
+        Args:
+            ref: Reference string like "#/definitions/BaseEntity"
+            
+        Returns:
+            The resolved schema or None if not found
+        """
+        if not ref.startswith('#/definitions/'):
+            return None
+        
+        if not self.structure_doc:
+            return None
+        
+        ref_path = ref.replace('#/definitions/', '')
+        definitions = self.structure_doc.get('definitions', {})
+        
+        # Navigate through nested definitions
+        parts = ref_path.split('/')
+        current = definitions
+        for part in parts:
+            if isinstance(current, dict) and part in current:
+                current = current[part]
+            else:
+                return None
+        
+        return current if isinstance(current, dict) else None
+    
+    def _merge_base_properties(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Merge properties from base type(s) via $extends.
+        
+        Args:
+            schema: Type schema that may have $extends
+            
+        Returns:
+            Schema with merged properties
+        """
+        extends_ref = schema.get('$extends')
+        if not extends_ref:
+            return schema
+        
+        # Resolve the base type
+        base_schema = self._resolve_base_schema(extends_ref)
+        if not base_schema:
+            return schema
+        
+        # Recursively merge base's base
+        base_schema = self._merge_base_properties(base_schema)
+        
+        # Create merged schema
+        merged = dict(schema)
+        
+        # Merge properties - child properties override base
+        base_properties = base_schema.get('properties', {})
+        child_properties = schema.get('properties', {})
+        
+        if base_properties or child_properties:
+            merged['properties'] = {**base_properties, **child_properties}
+        
+        # Merge required fields
+        base_required = base_schema.get('required', [])
+        child_required = schema.get('required', [])
+        
+        if base_required or child_required:
+            # Combine and deduplicate
+            all_required = list(set(base_required + child_required))
+            merged['required'] = all_required
+        
+        # Add note about inheritance in description (only if not already present)
+        if base_schema.get('abstract'):
+            base_name = extends_ref.split('/')[-1]
+            note = f"(extends abstract {base_name})"
+            if 'description' in merged and merged['description']:
+                # Only add if not already in description
+                if "extends abstract" not in merged['description'].lower():
+                    merged['description'] = f"{merged['description']} {note}"
+            else:
+                merged['description'] = f"Extends abstract {base_name}"
+        
+        return merged
+    
+    def _build_doc_with_annotations(self, schema: Dict[str, Any], base_doc: Optional[str] = None) -> Optional[str]:
+        """
+        Build documentation string including constraint annotations.
+        
+        Args:
+            schema: Property schema with possible annotations
+            base_doc: Base documentation from description field
+            
+        Returns:
+            Enhanced documentation string or None
+        """
+        parts = []
+        
+        if base_doc:
+            parts.append(base_doc)
+        
+        # Add constraint annotations
+        annotations = []
+        
+        if 'maxLength' in schema:
+            annotations.append(f"maxLength: {schema['maxLength']}")
+        
+        if 'minLength' in schema:
+            annotations.append(f"minLength: {schema['minLength']}")
+        
+        if 'precision' in schema:
+            annotations.append(f"precision: {schema['precision']}")
+        
+        if 'scale' in schema:
+            annotations.append(f"scale: {schema['scale']}")
+        
+        if 'pattern' in schema:
+            annotations.append(f"pattern: {schema['pattern']}")
+        
+        if 'minimum' in schema:
+            annotations.append(f"minimum: {schema['minimum']}")
+        
+        if 'maximum' in schema:
+            annotations.append(f"maximum: {schema['maximum']}")
+        
+        if 'contentEncoding' in schema:
+            annotations.append(f"encoding: {schema['contentEncoding']}")
+        
+        if 'contentMediaType' in schema:
+            annotations.append(f"mediaType: {schema['contentMediaType']}")
+        
+        if 'contentCompression' in schema:
+            annotations.append(f"compression: {schema['contentCompression']}")
+        
+        if annotations:
+            parts.append(f"[{', '.join(annotations)}]")
+        
+        return ' '.join(parts) if parts else None
+    
     def _convert_definition(self, def_path: str, def_schema: Dict[str, Any]) -> Dict[str, Any]:
         """
         Convert a single type definition from JSON Structure to Avro.
@@ -105,6 +259,14 @@ class JsonStructureToAvro:
         Returns:
             Avro schema for this type
         """
+        # Skip abstract types - they're not directly instantiable
+        if def_schema.get('abstract'):
+            # Store a placeholder but don't convert
+            return {'type': 'null', 'doc': f'Abstract type: {def_path}'}
+        
+        # Merge base type properties if $extends is present
+        merged_schema = self._merge_base_properties(def_schema)
+        
         # Parse namespace and name from path
         if '/' in def_path:
             parts = def_path.split('/')
@@ -114,7 +276,7 @@ class JsonStructureToAvro:
             namespace = None
             name = def_path
         
-        avro_schema = self._convert_type_from_schema(def_schema, namespace, name)
+        avro_schema = self._convert_type_from_schema(merged_schema, namespace, name)
         self.converted_types[def_path] = avro_schema
         return avro_schema
     
@@ -189,6 +351,9 @@ class JsonStructureToAvro:
     
     def _convert_object(self, schema: Dict[str, Any], namespace: Optional[str], name: str) -> Dict[str, Any]:
         """Convert JSON Structure object to Avro record."""
+        # Merge base properties if $extends is present
+        merged_schema = self._merge_base_properties(schema)
+        
         avro_record: Dict[str, Any] = {
             'type': 'record',
             'name': name
@@ -197,12 +362,12 @@ class JsonStructureToAvro:
         if namespace:
             avro_record['namespace'] = namespace
         
-        if 'description' in schema:
-            avro_record['doc'] = schema['description']
+        if 'description' in merged_schema:
+            avro_record['doc'] = merged_schema['description']
         
         # Convert properties to fields
-        properties = schema.get('properties', {})
-        required = schema.get('required', [])
+        properties = merged_schema.get('properties', {})
+        required = merged_schema.get('required', [])
         
         fields = []
         for prop_name, prop_schema in properties.items():
@@ -211,8 +376,13 @@ class JsonStructureToAvro:
                 'type': self._convert_type_reference(prop_schema)
             }
             
-            if 'description' in prop_schema:
-                field['doc'] = prop_schema['description']
+            # Build documentation with annotations
+            doc = self._build_doc_with_annotations(
+                prop_schema, 
+                prop_schema.get('description')
+            )
+            if doc:
+                field['doc'] = doc
             
             # Handle default values
             if 'default' in prop_schema:
