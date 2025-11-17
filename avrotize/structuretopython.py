@@ -316,6 +316,7 @@ class StructureToPython:
             'is_enum': field['is_enum'],
             'docstring': self.generate_field_docstring(field, schema_namespace),
             'test_value': self.generate_test_value(field),
+            'source_type': field.get('source_type', 'string'),
         } for field in fields]
 
         # If avro_annotation is enabled, convert JSON Structure schema to Avro schema
@@ -366,7 +367,8 @@ class StructureToPython:
                 'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
                 'is_enum': False,
                 'is_const': True,
-                'const_value': prop_schema['const']
+                'const_value': prop_schema['const'],
+                'source_type': prop_schema.get('type', 'string')
             }
 
         # Determine if required
@@ -382,12 +384,16 @@ class StructureToPython:
         if not is_required and not prop_type.startswith('typing.Optional['):
             prop_type = f'typing.Optional[{prop_type}]'
 
+        # Get source type from structure schema
+        source_type = prop_schema.get('type', 'string') if isinstance(prop_schema.get('type'), str) else 'object'
+
         return {
             'name': field_name,
             'type': prop_type,
             'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
             'is_enum': prop_type in self.generated_types and self.generated_types[prop_type] == 'enum',
-            'is_const': False
+            'is_const': False,
+            'source_type': source_type
         }
 
     def generate_field_docstring(self, field: Dict, parent_namespace: str) -> str:
@@ -543,7 +549,9 @@ class StructureToPython:
 
     def write_to_file(self, package: str, class_name: str, python_code: str):
         """Writes a Python class to a file"""
-        parent_package_name = '.'.join(package.split('.')[:-1])
+        # Add 'struct' module to the package path
+        full_package = f"{package}.struct"
+        parent_package_name = '.'.join(full_package.split('.')[:-1])
         parent_package_path = os.sep.join(parent_package_name.split('.')).lower()
         directory_path = os.path.join(self.output_dir, "src", parent_package_path)
         if not os.path.exists(directory_path):

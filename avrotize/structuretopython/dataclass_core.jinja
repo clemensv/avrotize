@@ -88,6 +88,60 @@ class {{ class_name }}:
         {%- endfor %}
         return cls(**data)
 
+    {%- if avro_annotation %}
+    @classmethod
+    def from_avro_dict(cls, data: dict) -> '{{ class_name }}':
+        """
+        Converts a dictionary from Avro deserialization to a dataclass instance.
+        Handles conversion of string representations back to Python types for
+        extended logical types.
+        
+        Args:
+            data: The dictionary from Avro deserialization.
+        
+        Returns:
+            The dataclass representation.
+        """
+        # Convert string values back to Python types for Avro string-based logical types
+        converted = data.copy()
+        
+        {%- for field in fields %}
+        {%- set field_key = field.original_name if field.name != field.original_name else field.name %}
+        if '{{ field_key }}' in converted and converted['{{ field_key }}'] is not None:
+            value = converted['{{ field_key }}']
+            {%- if field.source_type in ['date', 'datetime', 'timestamp', 'time', 'duration', 'decimal', 'uuid', 'int128', 'uint128'] %}
+            {%- if field.source_type == 'date' %}
+            if isinstance(value, str):
+                converted['{{ field_key }}'] = datetime.date.fromisoformat(value)
+            {%- elif field.source_type in ['datetime', 'timestamp'] %}
+            if isinstance(value, str):
+                converted['{{ field_key }}'] = datetime.datetime.fromisoformat(value)
+            {%- elif field.source_type == 'time' %}
+            if isinstance(value, str):
+                converted['{{ field_key }}'] = datetime.time.fromisoformat(value)
+            {%- elif field.source_type == 'duration' %}
+            if isinstance(value, str):
+                converted['{{ field_key }}'] = datetime.timedelta(seconds=float(value))
+            {%- elif field.source_type == 'decimal' %}
+            if isinstance(value, str):
+                converted['{{ field_key }}'] = decimal.Decimal(value)
+            {%- elif field.source_type == 'uuid' %}
+            if isinstance(value, str):
+                converted['{{ field_key }}'] = uuid.UUID(value)
+            {%- elif field.source_type in ['int128', 'uint128'] %}
+            if isinstance(value, str):
+                converted['{{ field_key }}'] = int(value)
+            {%- endif %}
+            {%- endif %}
+        {%- if field.name != field.original_name %}
+        if '{{ field.original_name }}' in converted:
+            converted['{{ field.name }}'] = converted.pop('{{ field.original_name }}')
+        {%- endif %}
+        {%- endfor %}
+        
+        return cls(**converted)
+    {%- endif %}
+
     def to_serializer_dict(self) -> dict:
         """
         Converts the dataclass to a dictionary.
@@ -115,6 +169,53 @@ class {{ class_name }}:
         def _fix_key(k):
             return k[:-1] if k.endswith('_') else k
         return {_fix_key(k): _resolve_enum(v) for k, v in iter(data)}
+    {%- if avro_annotation %}
+
+    def to_avro_dict(self) -> dict:
+        """
+        Converts the dataclass to a dictionary suitable for Avro serialization.
+        Handles conversion of Python types to Avro-compatible string representations
+        for extended logical types.
+
+        Returns:
+            The dictionary representation suitable for Avro serialization.
+        """
+        result = self.to_serializer_dict()
+        converted = result.copy()
+        
+        # Convert specific fields based on their source types
+        {%- for field in fields %}
+        {%- set field_key = field.original_name if field.name != field.original_name else field.name %}
+        {%- if field.source_type in ['date', 'datetime', 'timestamp', 'time', 'duration', 'decimal', 'uuid', 'int128', 'uint128'] %}
+        if '{{ field_key }}' in converted and converted['{{ field_key }}'] is not None:
+            value = converted['{{ field_key }}']
+            {%- if field.source_type == 'date' %}
+            if isinstance(value, datetime.date):
+                converted['{{ field_key }}'] = value.isoformat()
+            {%- elif field.source_type in ['datetime', 'timestamp'] %}
+            if isinstance(value, datetime.datetime):
+                converted['{{ field_key }}'] = value.isoformat()
+            {%- elif field.source_type == 'time' %}
+            if isinstance(value, datetime.time):
+                converted['{{ field_key }}'] = value.isoformat()
+            {%- elif field.source_type == 'duration' %}
+            if isinstance(value, datetime.timedelta):
+                converted['{{ field_key }}'] = str(value.total_seconds())
+            {%- elif field.source_type == 'decimal' %}
+            if isinstance(value, decimal.Decimal):
+                converted['{{ field_key }}'] = str(value)
+            {%- elif field.source_type == 'uuid' %}
+            if isinstance(value, uuid.UUID):
+                converted['{{ field_key }}'] = str(value)
+            {%- elif field.source_type in ['int128', 'uint128'] %}
+            if isinstance(value, int):
+                converted['{{ field_key }}'] = str(value)
+            {%- endif %}
+        {%- endif %}
+        {%- endfor %}
+        
+        return converted
+    {%- endif %}
     {%- if avro_annotation or dataclasses_json_annotation %}
 
     def to_byte_array(self, content_type_string: str) -> bytes:
@@ -149,7 +250,7 @@ class {{ class_name }}:
             writer = avro.io.DatumWriter(self.AvroType)
             with io.BytesIO() as stream:
                 encoder = avro.io.BinaryEncoder(stream)
-                writer.write(self.to_serializer_dict(), encoder)
+                writer.write(self.to_avro_dict(), encoder)
                 result = stream.getvalue()
         {%- endif %}
         {%- if dataclasses_json_annotation %}
@@ -222,7 +323,7 @@ class {{ class_name }}:
                 with io.BytesIO(data) as stream:
                     decoder = avro.io.BinaryDecoder(stream)
                     _record = reader.read(decoder)
-                    return {{ class_name }}.from_serializer_dict(_record)
+                    return {{ class_name }}.from_avro_dict(_record)
             else:
                 raise NotImplementedError('Data is not of a supported type for Avro deserialization')
         {%- endif %}
