@@ -1293,7 +1293,8 @@
         "structure_schema_path": "input_file_path",
         "py_file_path": "output_file_path",
         "package_name": "args.package",
-        "dataclasses_json_annotation": "args.dataclasses_json_annotation"
+        "dataclasses_json_annotation": "args.dataclasses_json_annotation",
+        "avro_annotation": "args.avro_annotation"
       }
     },
     "extensions": [".struct.json", ".json"],
@@ -1321,6 +1322,13 @@
         "name": "--dataclasses-json-annotation",
         "type": "bool",
         "help": "Use dataclasses-json annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--avro-annotation",
+        "type": "bool",
+        "help": "Add Avro binary serialization support with embedded Structure schema",
         "default": false,
         "required": false
       }

@@ -2,7 +2,7 @@
 
 # pylint: disable=too-many-lines, too-many-locals, too-many-branches, too-many-statements, too-many-arguments, line-too-long, wildcard-import
 
-{%- if dataclasses_json_annotation %}
+{%- if avro_annotation or dataclasses_json_annotation %}
 import io
 import gzip
 {%- endif %}
@@ -19,6 +19,10 @@ import json
 from marshmallow import fields
 {%- endif %}
 {%- endfor %}
+{%- endif %}
+{%- if avro_annotation %}
+import avro.schema
+import avro.io
 {%- endif %}
 {%- for import_type in import_types if import_type not in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta', 'decimal.Decimal', 'uuid.UUID'] %}
 from {{ '.'.join(import_type.split('.')[:-1]) | lower }} import {{ import_type.split('.')[-1] }}
@@ -53,6 +57,11 @@ class {{ class_name }}:
         {%- endfor -%}
     {% endif %}
     """
+    {% if avro_annotation %}
+    StructureType: typing.ClassVar[dict] = json.loads(
+        "{{ structure_schema_json }}"
+    )
+    {% endif %}
     {% for field in fields %}
     {%- set isdate = field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
     {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: datetime.datetime.isoformat(d) if d else None, decoder=lambda d:datetime.datetime.fromisoformat(d) if d else None, mm_field=fields.DateTime(format='iso'){%- endif -%}){%- endif %})
@@ -104,7 +113,7 @@ class {{ class_name }}:
         def _fix_key(k):
             return k[:-1] if k.endswith('_') else k
         return {_fix_key(k): _resolve_enum(v) for k, v in iter(data)}
-    {%- if dataclasses_json_annotation %}
+    {%- if avro_annotation or dataclasses_json_annotation %}
 
     def to_byte_array(self, content_type_string: str) -> bytes:
         """
@@ -113,7 +122,13 @@ class {{ class_name }}:
         Args:
             content_type_string: The content type string to convert the dataclass to.
                 Supported content types:
+                    {%- if dataclasses_json_annotation %}
                     'application/json': Encodes the data to JSON format.
+                    {%- endif %}
+                    {%- if avro_annotation %}
+                    'avro/binary': Encodes the data to Avro binary format.
+                    'application/vnd.apache.avro+avro': Encodes the data to Avro binary format.
+                    {%- endif %}
                 Supported content type extensions:
                     '+gzip': Compresses the byte array using gzip, e.g. 'application/json+gzip'.
 
@@ -126,10 +141,21 @@ class {{ class_name }}:
         # Strip compression suffix for base type matching
         base_content_type = content_type.replace('+gzip', '')
 
+        {%- if avro_annotation %}
+        if base_content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
+            # Convert to Avro binary format using the embedded schema
+            writer = avro.io.DatumWriter(avro.schema.parse(json.dumps(self.StructureType)))
+            with io.BytesIO() as stream:
+                encoder = avro.io.BinaryEncoder(stream)
+                writer.write(self.to_serializer_dict(), encoder)
+                result = stream.getvalue()
+        {%- endif %}
+        {%- if dataclasses_json_annotation %}
         if base_content_type == 'application/json':
             #pylint: disable=no-member
             result = self.to_json()
             #pylint: enable=no-member
+        {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):
             # Handle string result from to_json()
@@ -154,7 +180,13 @@ class {{ class_name }}:
             data: The data to convert to a dataclass.
             content_type_string: The content type string to convert the data to. 
                 Supported content types:
+                    {%- if dataclasses_json_annotation %}
                     'application/json': Attempts to decode the data from JSON encoded format.
+                    {%- endif %}
+                    {%- if avro_annotation %}
+                    'avro/binary': Attempts to decode the data from Avro binary format.
+                    'application/vnd.apache.avro+avro': Attempts to decode the data from Avro binary format.
+                    {%- endif %}
                 Supported content type extensions:
                     '+gzip': First decompresses the data using gzip, e.g. 'application/json+gzip'.
         Returns:
@@ -180,6 +212,19 @@ class {{ class_name }}:
         # Strip compression suffix for base type matching
         base_content_type = content_type.replace('+gzip', '')
 
+        {%- if avro_annotation %}
+        if base_content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
+            if isinstance(data, bytes):
+                # Decode from Avro binary format using the embedded schema
+                reader = avro.io.DatumReader(avro.schema.parse(json.dumps(cls.StructureType)))
+                with io.BytesIO(data) as stream:
+                    decoder = avro.io.BinaryDecoder(stream)
+                    _record = reader.read(decoder)
+                    return {{ class_name }}.from_serializer_dict(_record)
+            else:
+                raise NotImplementedError('Data is not of a supported type for Avro deserialization')
+        {%- endif %}
+        {%- if dataclasses_json_annotation %}
         if base_content_type == 'application/json':
             if isinstance(data, (bytes, str)):
                 data_str = data.decode('utf-8') if isinstance(data, bytes) else data
@@ -193,7 +238,7 @@ class {{ class_name }}:
                 return {{ class_name }}.from_serializer_dict(_record)
             else:
                 raise NotImplementedError('Data is not of a supported type for JSON deserialization')
-
+        {%- endif %}
         raise NotImplementedError(f'Unsupported media type {content_type}')
     {%- endif %}
 

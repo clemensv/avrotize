@@ -30,9 +30,10 @@ def is_python_reserved_word(word: str) -> bool:
 class StructureToPython:
     """ Converts JSON Structure schema to Python classes """
 
-    def __init__(self, base_package: str = '', dataclasses_json_annotation=False) -> None:
+    def __init__(self, base_package: str = '', dataclasses_json_annotation=False, avro_annotation=False) -> None:
         self.base_package = base_package
         self.dataclasses_json_annotation = dataclasses_json_annotation
+        self.avro_annotation = avro_annotation
         self.output_dir = os.getcwd()
         self.schema_doc: JsonNode = None
         self.generated_types: Dict[str, str] = {}
@@ -316,6 +317,14 @@ class StructureToPython:
             'test_value': self.generate_test_value(field),
         } for field in fields]
 
+        # If avro_annotation is enabled, include a JSON representation of the schema
+        # This is embedded in the generated class for runtime access
+        structure_schema_json = ''
+        if self.avro_annotation:
+            # Create a simplified schema representation for embedding
+            schema_copy = structure_schema.copy()
+            structure_schema_json = json.dumps(schema_copy).replace('\\"', '\'').replace('"', '\\"')
+
         # Process template
         class_definition = process_template(
             "structuretopython/dataclass_core.jinja",
@@ -325,6 +334,8 @@ class StructureToPython:
             import_types=import_types,
             base_package=self.base_package,
             dataclasses_json_annotation=self.dataclasses_json_annotation,
+            avro_annotation=self.avro_annotation,
+            structure_schema_json=structure_schema_json,
             is_abstract=is_abstract,
         )
 
@@ -593,7 +604,9 @@ class StructureToPython:
         """Writes pyproject.toml file to the output directory"""
         pyproject_content = process_template(
             "structuretopython/pyproject_toml.jinja",
-            package_name=self.base_package.replace('_', '-')
+            package_name=self.base_package.replace('_', '-'),
+            dataclasses_json_annotation=self.dataclasses_json_annotation,
+            avro_annotation=self.avro_annotation
         )
         with open(os.path.join(self.output_dir, 'pyproject.toml'), 'w', encoding='utf-8') as file:
             file.write(pyproject_content)
@@ -631,12 +644,12 @@ class StructureToPython:
         return self.convert_schemas(schema, output_dir)
 
 
-def convert_structure_to_python(structure_schema_path, py_file_path, package_name='', dataclasses_json_annotation=False):
+def convert_structure_to_python(structure_schema_path, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False):
     """Converts JSON Structure schema to Python dataclasses"""
     if not package_name:
         package_name = os.path.splitext(os.path.basename(structure_schema_path))[0].lower().replace('-', '_')
 
-    structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation)
+    structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
     structure_to_python.convert(structure_schema_path, py_file_path)
 
 
