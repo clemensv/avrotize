@@ -9,6 +9,7 @@ import random
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
 from avrotize.common import pascal, process_template
+from avrotize.jstructtoavro import JsonStructureToAvro
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -317,13 +318,15 @@ class StructureToPython:
             'test_value': self.generate_test_value(field),
         } for field in fields]
 
-        # If avro_annotation is enabled, include a JSON representation of the schema
-        # This is embedded in the generated class for runtime access
-        structure_schema_json = ''
+        # If avro_annotation is enabled, convert JSON Structure schema to Avro schema
+        # This is embedded in the generated class for runtime Avro serialization
+        avro_schema_json = ''
         if self.avro_annotation:
-            # Create a simplified schema representation for embedding
+            # Use JsonStructureToAvro to convert the schema
+            converter = JsonStructureToAvro()
             schema_copy = structure_schema.copy()
-            structure_schema_json = json.dumps(schema_copy).replace('\\"', '\'').replace('"', '\\"')
+            avro_schema = converter.convert(schema_copy)
+            avro_schema_json = json.dumps(avro_schema).replace('\\"', '\'').replace('"', '\\"')
 
         # Process template
         class_definition = process_template(
@@ -335,7 +338,7 @@ class StructureToPython:
             base_package=self.base_package,
             dataclasses_json_annotation=self.dataclasses_json_annotation,
             avro_annotation=self.avro_annotation,
-            structure_schema_json=structure_schema_json,
+            avro_schema_json=avro_schema_json,
             is_abstract=is_abstract,
         )
 

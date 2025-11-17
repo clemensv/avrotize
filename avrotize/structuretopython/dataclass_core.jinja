@@ -60,8 +60,8 @@ class {{ class_name }}:
     {% endif %}
     """
     {% if avro_annotation %}
-    StructureType: typing.ClassVar[dict] = json.loads(
-        "{{ structure_schema_json }}"
+    AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.parse(
+        "{{ avro_schema_json }}"
     )
     {% endif %}
     {% for field in fields %}
@@ -146,7 +146,7 @@ class {{ class_name }}:
         {%- if avro_annotation %}
         if base_content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
             # Convert to Avro binary format using the embedded schema
-            writer = avro.io.DatumWriter(avro.schema.parse(json.dumps(self.StructureType)))
+            writer = avro.io.DatumWriter(self.AvroType)
             with io.BytesIO() as stream:
                 encoder = avro.io.BinaryEncoder(stream)
                 writer.write(self.to_serializer_dict(), encoder)
@@ -218,7 +218,7 @@ class {{ class_name }}:
         if base_content_type in ['avro/binary', 'application/vnd.apache.avro+avro']:
             if isinstance(data, bytes):
                 # Decode from Avro binary format using the embedded schema
-                reader = avro.io.DatumReader(avro.schema.parse(json.dumps(cls.StructureType)))
+                reader = avro.io.DatumReader(cls.AvroType)
                 with io.BytesIO(data) as stream:
                     decoder = avro.io.BinaryDecoder(stream)
                     _record = reader.read(decoder)
