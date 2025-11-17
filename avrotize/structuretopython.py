@@ -446,6 +446,44 @@ class StructureToPython:
         # For now, return typing.Any as tuples need special handling
         return 'typing.Any'
 
+    def generate_map_alias(self, structure_schema: Dict, parent_namespace: str,
+                          write_file: bool) -> str:
+        """ Generates a Python TypeAlias for a top-level map type """
+        import_types: Set[str] = set()
+        
+        # Get name and namespace
+        class_name = pascal(structure_schema.get('name', 'UnnamedMap'))
+        schema_namespace = structure_schema.get('namespace', parent_namespace)
+        namespace = self.concat_namespace(self.base_package, schema_namespace).lower()
+        python_qualified_name = self.python_fully_qualified_name_from_structure_type(schema_namespace, class_name)
+        
+        if python_qualified_name in self.generated_types:
+            return python_qualified_name
+        
+        # Get the value type
+        values_schema = structure_schema.get('values', {'type': 'any'})
+        values_type = self.convert_structure_type_to_python(
+            class_name, 'Values', values_schema, schema_namespace, import_types)
+        
+        # Get docstring
+        doc = structure_schema.get('description', structure_schema.get('doc', f'A {class_name} map type.'))
+        
+        # Generate the type alias module
+        map_definition = process_template(
+            "structuretopython/map_alias.jinja",
+            class_name=class_name,
+            docstring=doc,
+            values_type=values_type,
+            import_types=import_types,
+            base_package=self.base_package
+        )
+        
+        if write_file:
+            self.write_to_file(namespace, class_name, map_definition)
+        
+        self.generated_types[python_qualified_name] = 'map'
+        return python_qualified_name
+
     def generate_test_value(self, field: Dict) -> Any:
         """Generates a test value for a given field"""
         field_type = field['type']
@@ -644,6 +682,8 @@ class StructureToPython:
                                  structure_schema.get('namespace', ''), write_file=True)
             elif structure_schema.get('type') == 'object':
                 self.generate_class(structure_schema, structure_schema.get('namespace', ''), write_file=True)
+            elif structure_schema.get('type') == 'map':
+                self.generate_map_alias(structure_schema, structure_schema.get('namespace', ''), write_file=True)
 
         self.write_init_files()
         self.write_pyproject_toml()

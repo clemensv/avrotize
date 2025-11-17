@@ -168,8 +168,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
 
     def test_convert_addlprops1_struct_to_python(self):
         """Test converting additionalProperties example to Python"""
-        # Skip: addlprops1 is a top-level map type, not yet fully supported
-        pytest.skip("Top-level map types not yet fully implemented in s2py")
+        self.run_convert_struct_to_python("addlprops1-ref")
 
     def test_convert_addlprops2_struct_to_python(self):
         """Test converting additionalProperties typed example to Python"""
