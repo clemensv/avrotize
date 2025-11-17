@@ -508,7 +508,9 @@ class StructureToPython:
             class_name=class_name,
             test_class_name=test_class_name,
             fields=fields,
-            import_types=import_types
+            import_types=import_types,
+            avro_annotation=self.avro_annotation,
+            dataclasses_json_annotation=self.dataclasses_json_annotation
         )
 
         base_dir = os.path.join(self.output_dir, "tests")
