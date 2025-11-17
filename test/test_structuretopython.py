@@ -220,8 +220,62 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
 
     def test_convert_choice_inline_struct_to_python(self):
         """Test converting inline choice types with $extends to Python"""
-        # Skip: inline choice with $extends not yet fully supported
-        pytest.skip("Inline choice types with $extends not yet fully implemented in s2py")
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "struct", "choice-types.struct.json")
+        py_path = os.path.join(
+            tempfile.gettempdir(), "avrotize", "choice-types-py"
+        )
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        convert_structure_to_python(
+            struct_path,
+            py_path,
+            dataclasses_json_annotation=True,
+            avro_annotation=True,
+        )
+
+        # Verify that the BaseEntity abstract base class was generated
+        base_entity_path = os.path.join(py_path, "src", "choice_types", "struct", "baseentity.py")
+        assert os.path.exists(base_entity_path)
+        
+        with open(base_entity_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            assert "from abc import ABC" in content
+            assert "class BaseEntity(ABC):" in content
+            assert "name: typing.Optional[str]" in content or "name: Optional[str]" in content
+            assert "entityType: typing.Optional[str]" in content or "entityType: Optional[str]" in content
+
+        # Verify that Person extends BaseEntity
+        person_path = os.path.join(py_path, "src", "choice_types", "struct", "person.py")
+        assert os.path.exists(person_path)
+        
+        with open(person_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            assert "from choice_types.struct.baseentity import BaseEntity" in content
+            assert "class Person(BaseEntity):" in content
+            assert "age: typing.Optional[int]" in content or "age: Optional[int]" in content
+
+        # Verify that Company extends BaseEntity
+        company_path = os.path.join(py_path, "src", "choice_types", "struct", "company.py")
+        assert os.path.exists(company_path)
+        
+        with open(company_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            assert "from choice_types.struct.baseentity import BaseEntity" in content
+            assert "class Company(BaseEntity):" in content
+            assert "employees: typing.Optional[int]" in content or "employees: Optional[int]" in content
+
+        # Verify the ChoiceTypes class with Union field
+        choice_types_path = os.path.join(py_path, "src", "choice_types", "struct", "choicetypes.py")
+        assert os.path.exists(choice_types_path)
+        
+        with open(choice_types_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            # Check for Union type for inlineChoice (wrapped in Optional since not required)
+            assert "inlineChoice: typing.Optional[typing.Union[Person, Company]]" in content or \
+                   "inlineChoice: Optional[Union[Person, Company]]" in content
 
     def test_convert_with_package_name(self):
         """Test conversion with custom package name"""

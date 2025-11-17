@@ -10,6 +10,9 @@ import enum
 import typing
 import dataclasses
 from dataclasses import dataclass
+{%- if is_abstract %}
+from abc import ABC
+{%- endif %}
 {%- if dataclasses_json_annotation %}
 import dataclasses_json
 from dataclasses_json import Undefined, dataclass_json
@@ -49,7 +52,7 @@ import uuid
 @dataclass_json(undefined=Undefined.EXCLUDE)
 {%- endif %}
 @dataclass
-class {{ class_name }}:
+class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ base_class.split('.')[-1] }}{% if is_abstract %}, {% endif %}{% endif %}{% if is_abstract %}ABC{% endif %}){% endif %}:
     """
     {{ docstring }}
     {% if fields %}

@@ -254,9 +254,8 @@ class StructureToPython:
                     parent_namespace, import_types)
                 return f"typing.Dict[str, {values_type}]"
             elif struct_type == 'choice':
-                choice_ref = self.generate_choice(structure_type, parent_namespace, write_file=True)
-                import_types.add(choice_ref)
-                return self.strip_package_from_fully_qualified_name(choice_ref)
+                # Generate choice returns a Union type and populates import_types with the choice types
+                return self.generate_choice(structure_type, parent_namespace, write_file=True, import_types=import_types)
             elif struct_type == 'tuple':
                 tuple_ref = self.generate_tuple(structure_type, parent_namespace, write_file=True)
                 import_types.add(tuple_ref)
@@ -293,6 +292,19 @@ class StructureToPython:
 
         # Check if this is an abstract type
         is_abstract = structure_schema.get('abstract', False)
+
+        # Handle inheritance ($extends)
+        base_class = None
+        if '$extends' in structure_schema:
+            base_ref = structure_schema['$extends']
+            if isinstance(self.schema_doc, dict):
+                base_schema = self.resolve_ref(base_ref, self.schema_doc)
+                if base_schema:
+                    ref_path = base_ref.split('/')
+                    base_name = ref_path[-1]
+                    ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else parent_namespace
+                    base_class = self.generate_class(base_schema, ref_namespace, write_file=True, explicit_name=base_name)
+                    import_types.add(base_class)
 
         # Generate properties
         properties = structure_schema.get('properties', {})
@@ -341,6 +353,7 @@ class StructureToPython:
             avro_annotation=self.avro_annotation,
             avro_schema_json=avro_schema_json,
             is_abstract=is_abstract,
+            base_class=base_class,
         )
 
         if write_file:
@@ -435,10 +448,53 @@ class StructureToPython:
         return python_qualified_name
 
     def generate_choice(self, structure_schema: Dict, parent_namespace: str, 
-                       write_file: bool, explicit_name: str = '') -> str:
+                       write_file: bool, explicit_name: str = '', import_types: Optional[Set[str]] = None) -> str:
         """ Generates a Python Union type from JSON Structure choice """
-        # For now, return typing.Any as choices need special handling
-        return 'typing.Any'
+        choice_name = explicit_name if explicit_name else structure_schema.get('name', 'UnnamedChoice')
+        schema_namespace = structure_schema.get('namespace', parent_namespace)
+        if import_types is None:
+            import_types = set()
+        
+        # If the choice extends a base class, generate the base and derived classes first
+        if '$extends' in structure_schema:
+            base_ref = structure_schema['$extends']
+            if isinstance(self.schema_doc, dict):
+                base_schema = self.resolve_ref(base_ref, self.schema_doc)
+                if base_schema:
+                    # Generate the base class
+                    ref_path = base_ref.split('/')
+                    base_name = ref_path[-1]
+                    ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else parent_namespace
+                    self.generate_class(base_schema, ref_namespace, write_file=True, explicit_name=base_name)
+        
+        # Generate types for each choice
+        choice_types = []
+        choices = structure_schema.get('choices', {})
+        
+        for choice_key, choice_schema in choices.items():
+            if isinstance(choice_schema, dict):
+                if '$ref' in choice_schema:
+                    # Resolve reference and generate the type
+                    ref_schema = self.resolve_ref(choice_schema['$ref'], self.schema_doc if isinstance(self.schema_doc, dict) else None)
+                    if ref_schema:
+                        ref_path = choice_schema['$ref'].split('/')
+                        ref_name = ref_path[-1]
+                        ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else parent_namespace
+                        qualified_name = self.generate_class(ref_schema, ref_namespace, write_file=True, explicit_name=ref_name)
+                        import_types.add(qualified_name)
+                        choice_types.append(qualified_name.split('.')[-1])
+                elif 'type' in choice_schema:
+                    # Generate inline type
+                    python_type = self.convert_structure_type_to_python(choice_name, choice_key, choice_schema, schema_namespace, import_types)
+                    choice_types.append(python_type)
+        
+        # Return Union type
+        if len(choice_types) == 0:
+            return 'typing.Any'
+        elif len(choice_types) == 1:
+            return choice_types[0]
+        else:
+            return f"typing.Union[{', '.join(choice_types)}]"
 
     def generate_tuple(self, structure_schema: Dict, parent_namespace: str, 
                       write_file: bool, explicit_name: str = '') -> str:
@@ -682,6 +738,8 @@ class StructureToPython:
                                  structure_schema.get('namespace', ''), write_file=True)
             elif structure_schema.get('type') == 'object':
                 self.generate_class(structure_schema, structure_schema.get('namespace', ''), write_file=True)
+            elif structure_schema.get('type') == 'choice':
+                self.generate_choice(structure_schema, structure_schema.get('namespace', ''), write_file=True)
             elif structure_schema.get('type') == 'map':
                 self.generate_map_alias(structure_schema, structure_schema.get('namespace', ''), write_file=True)
 
