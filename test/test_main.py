@@ -33,6 +33,10 @@ def get_kstruct():
     """Provides the Kafka Struct input file path."""
     return os.path.join(os.path.dirname(__file__), 'kstruct', 'cardata.json')
 
+def get_struct():
+    """Provides the JSON Structure input file path."""
+    return os.path.join(os.path.dirname(__file__), 'jsons', 'address-ref.struct.json')
+
 class TestMain(unittest.TestCase):
 
     @patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(command=None))
@@ -125,6 +129,13 @@ class TestMain(unittest.TestCase):
         """Test main function with kstruct2a command."""
         main()
         assert os.path.exists(tempfile.gettempdir() + '/output.avsc')  # Add assertion for file existence
+
+    @patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(command='s2py', input=get_struct(), out=tempfile.gettempdir() + '/s2py_output', package='test_package', dataclasses_json_annotation=False, avro_annotation=False))
+    def test_main_s2py_command(self, mock_parse_args):
+        """Test main function with s2py command."""
+        main()
+        # Check that the output directory was created
+        assert os.path.exists(tempfile.gettempdir() + '/s2py_output')  # Add assertion for directory existence
 
 if __name__ == '__main__':
     unittest.main()
