@@ -1,0 +1,65 @@
+{
+  "type": "record",
+  "name": "NumericTypes",
+  "doc": "Test schema for numeric types with precision and scale",
+  "fields": [
+    {
+      "name": "int8Field",
+      "type": "int",
+      "doc": "[minimum: -128, maximum: 127]"
+    },
+    {
+      "name": "int16Field",
+      "type": [
+        "null",
+        "int"
+      ],
+      "doc": "[minimum: -32768, maximum: 32767]",
+      "default": null
+    },
+    {
+      "name": "uint32Field",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "[minimum: 0, maximum: 4294967295]",
+      "default": null
+    },
+    {
+      "name": "uint64Field",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "[minimum: 0]",
+      "default": null
+    },
+    {
+      "name": "decimalField",
+      "type": {
+        "type": "string",
+        "logicalType": "decimal"
+      },
+      "doc": "[precision: 10, scale: 2, minimum: 0, maximum: 99999999.99]"
+    },
+    {
+      "name": "float32Field",
+      "type": [
+        "null",
+        "float"
+      ],
+      "doc": "32-bit floating point",
+      "default": null
+    },
+    {
+      "name": "float64Field",
+      "type": [
+        "null",
+        "double"
+      ],
+      "doc": "64-bit floating point",
+      "default": null
+    }
+  ]
+}

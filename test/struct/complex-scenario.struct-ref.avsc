@@ -1,0 +1,50 @@
+{
+  "type": "record",
+  "name": "ComplexScenario",
+  "doc": "Complex test scenario combining multiple JSON Structure features",
+  "fields": [
+    {
+      "name": "metadata",
+      "type": "object"
+    },
+    {
+      "name": "data",
+      "type": {
+        "type": "record",
+        "name": "Choice_measurement_event",
+        "doc": "Tagged union with explicit discriminator",
+        "fields": [
+          {
+            "name": "choiceType",
+            "type": {
+              "type": "enum",
+              "name": "Choice_measurement_eventType",
+              "symbols": [
+                "measurement",
+                "event"
+              ]
+            },
+            "doc": "Discriminator indicating which type is present in the value field"
+          },
+          {
+            "name": "value",
+            "type": [
+              "object",
+              "object"
+            ],
+            "doc": "The actual value of the selected choice type"
+          }
+        ]
+      }
+    },
+    {
+      "name": "signature",
+      "type": [
+        "null",
+        "bytes"
+      ],
+      "doc": "Digital signature",
+      "default": null
+    }
+  ]
+}

@@ -1284,6 +1284,66 @@
     ]
   },
   {
+    "command": "s2py",
+    "description": "Convert JSON Structure to Python classes",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretopython.convert_structure_to_python",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "py_file_path": "output_file_path",
+        "package_name": "args.package",
+        "dataclasses_json_annotation": "args.dataclasses_json_annotation",
+        "avro_annotation": "args.avro_annotation"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the Python classes",
+        "required": true
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "Python package name",
+        "required": false
+      },
+      {
+        "name": "--dataclasses-json-annotation",
+        "type": "bool",
+        "help": "Use dataclasses-json annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--avro-annotation",
+        "type": "bool",
+        "help": "Add Avro binary serialization support with embedded Structure schema",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-py",
+    "prompts": [
+      {
+        "name": "--dataclasses-json-annotation",
+        "message": "Use dataclasses-json annotations?",
+        "type": "bool",
+        "default": false
+      }
+    ]
+  },
+  {
     "command": "a2ts",
     "description": "Convert Avrotize schema to TypeScript classes",
     "group": "2_ProgLanguages",
@@ -1475,7 +1535,6 @@
         "name": "--namespace",
         "message": "Enter the root namespace for the C++ classes (optional)",
         "type": "str",
-        "required": false,
         "default": "{input_file_name}",
         "required": false
       },
@@ -2182,6 +2241,36 @@
         "default": false
       }
     ]
+  },
+  {
+    "command": "s2a",
+    "description": "Convert JSON structure to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jstructtoavro.convert_json_structure_to_avro",
+      "args": {
+        "structure_file": "input_file_path",
+        "avro_file": "output_file_path"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
   },
   {
     "command": "a2s",

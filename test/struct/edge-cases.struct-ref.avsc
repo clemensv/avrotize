@@ -1,0 +1,78 @@
+{
+  "type": "record",
+  "name": "EdgeCases",
+  "doc": "Test schema for edge cases and special scenarios",
+  "fields": [
+    {
+      "name": "emptyString",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "[maxLength: 0]",
+      "default": null
+    },
+    {
+      "name": "veryLongString",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "[maxLength: 1000000]",
+      "default": null
+    },
+    {
+      "name": "preciseDecimal",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "decimal"
+        }
+      ],
+      "doc": "[precision: 38, scale: 18]",
+      "default": null
+    },
+    {
+      "name": "largeInteger",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "[minimum: -9223372036854775808, maximum: 9223372036854775807]",
+      "default": null
+    },
+    {
+      "name": "emptyArray",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "nullableEverything",
+      "type": [
+        "string",
+        "int",
+        "double",
+        "boolean",
+        "array",
+        "object",
+        "null"
+      ],
+      "default": null
+    },
+    {
+      "name": "deeplyNested",
+      "type": [
+        "null",
+        "object"
+      ],
+      "default": null
+    }
+  ]
+}

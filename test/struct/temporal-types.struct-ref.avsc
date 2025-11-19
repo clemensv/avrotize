@@ -1,0 +1,63 @@
+{
+  "type": "record",
+  "name": "TemporalTypes",
+  "doc": "Test schema for temporal types",
+  "fields": [
+    {
+      "name": "dateField",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "date"
+        }
+      ],
+      "doc": "A date field",
+      "default": null
+    },
+    {
+      "name": "timeField",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "time-millis"
+        }
+      ],
+      "doc": "A time field",
+      "default": null
+    },
+    {
+      "name": "datetimeField",
+      "type": {
+        "type": "string",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "A datetime field"
+    },
+    {
+      "name": "timestampField",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "doc": "A timestamp field",
+      "default": null
+    },
+    {
+      "name": "durationField",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "duration"
+        }
+      ],
+      "doc": "A duration field",
+      "default": null
+    }
+  ]
+}

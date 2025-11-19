@@ -1,0 +1,21 @@
+""" {{ class_name }} type alias. """
+
+# pylint: disable=line-too-long
+from typing import TypeAlias
+{%- for import_type in import_types %}
+{%- if import_type.startswith('datetime.') %}
+import datetime
+{%- elif import_type == 'decimal.Decimal' %}
+import decimal
+{%- elif import_type == 'uuid.UUID' %}
+import uuid
+{%- elif import_type.startswith(base_package + '.') %}
+from {{ '.'.join(import_type.split('.')[:-1]) }} import {{ import_type.split('.')[-1] }}
+{%- endif %}
+{%- endfor %}
+
+
+{{ class_name }}: TypeAlias = dict[str, {{ values_type }}]
+"""
+{{ docstring }}
+"""

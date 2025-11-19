@@ -33,11 +33,11 @@
       "x-precision": 10,
       "x-scale": 2
     },
-    "binaryField": {
+    "float32Field": {
       "type": "number",
       "format": "float"
     },
-    "binary64Field": {
+    "float64Field": {
       "type": "number",
       "format": "double"
     }

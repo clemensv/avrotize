@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://test.example.com/all-primitives",
+  "name": "AllPrimitives",
+  "type": "object",
+  "description": "Test all JSON Structure Core primitive and extended primitive types",
+  "properties": {
+    "stringField": {
+      "type": "string",
+      "description": "A simple string field"
+    },
+    "boolField": {
+      "type": "boolean",
+      "description": "A boolean field"
+    },
+    "int8Field": {
+      "type": "int8",
+      "description": "An 8-bit signed integer"
+    },
+    "uint8Field": {
+      "type": "uint8",
+      "description": "An 8-bit unsigned integer"
+    },
+    "int16Field": {
+      "type": "int16",
+      "description": "A 16-bit signed integer"
+    },
+    "uint16Field": {
+      "type": "uint16",
+      "description": "A 16-bit unsigned integer"
+    },
+    "int32Field": {
+      "type": "int32",
+      "description": "A 32-bit signed integer"
+    },
+    "uint32Field": {
+      "type": "uint32",
+      "description": "A 32-bit unsigned integer"
+    },
+    "int64Field": {
+      "type": "int64",
+      "description": "A 64-bit signed integer"
+    },
+    "uint64Field": {
+      "type": "uint64",
+      "description": "A 64-bit unsigned integer"
+    },
+    "int128Field": {
+      "type": "int128",
+      "description": "A 128-bit signed integer"
+    },
+    "uint128Field": {
+      "type": "uint128",
+      "description": "A 128-bit unsigned integer"
+    },
+    "float8Field": {
+      "type": "float8",
+      "description": "An 8-bit float"
+    },
+    "floatField": {
+      "type": "float",
+      "description": "A 32-bit float"
+    },
+    "doubleField": {
+      "type": "double",
+      "description": "A 64-bit double"
+    },
+    "decimalField": {
+      "type": "decimal",
+      "description": "A high-precision decimal"
+    },
+    "binaryField": {
+      "type": "binary",
+      "description": "Binary data"
+    },
+    "dateField": {
+      "type": "date",
+      "description": "A date value"
+    },
+    "timeField": {
+      "type": "time",
+      "description": "A time value"
+    },
+    "datetimeField": {
+      "type": "datetime",
+      "description": "A datetime value with timezone"
+    },
+    "durationField": {
+      "type": "duration",
+      "description": "A duration/timespan value"
+    },
+    "uuidField": {
+      "type": "uuid",
+      "description": "A UUID value"
+    },
+    "uriField": {
+      "type": "uri",
+      "description": "A URI value"
+    },
+    "jsonpointerField": {
+      "type": "jsonpointer",
+      "description": "A JSON Pointer value"
+    }
+  },
+  "required": [
+    "stringField",
+    "int32Field"
+  ]
+}

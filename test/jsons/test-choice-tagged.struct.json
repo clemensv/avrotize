@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://test.example.com/choice-tagged",
+  "name": "TaggedChoice",
+  "type": "object",
+  "description": "Test tagged union choice type",
+  "properties": {
+    "payload": {
+      "type": "choice",
+      "name": "Payload",
+      "description": "A tagged union of different payload types",
+      "choices": {
+        "textPayload": {
+          "type": "string"
+        },
+        "numberPayload": {
+          "type": "int32"
+        },
+        "objectPayload": {
+          "type": "object",
+          "name": "ObjectPayload",
+          "properties": {
+            "data": {
+              "type": "string"
+            },
+            "code": {
+              "type": "int32"
+            }
+          }
+        }
+      }
+    }
+  }
+}

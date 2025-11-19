@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://test.example.com/enum-const",
+  "name": "EnumConst",
+  "type": "object",
+  "description": "Test enum and const keywords",
+  "properties": {
+    "statusEnum": {
+      "type": "string",
+      "enum": ["active", "inactive", "pending"],
+      "description": "Status enum field"
+    },
+    "priorityEnum": {
+      "type": "int32",
+      "enum": [1, 2, 3, 4, 5],
+      "description": "Priority enum field"
+    },
+    "versionConst": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Constant version field"
+    }
+  },
+  "required": ["statusEnum"]
+}

@@ -1,0 +1,74 @@
+{
+  "type": "record",
+  "name": "BasicTypes",
+  "doc": "Test schema for basic JSON Structure types",
+  "fields": [
+    {
+      "name": "stringField",
+      "type": "string",
+      "doc": "A basic string field"
+    },
+    {
+      "name": "intField",
+      "type": "int",
+      "doc": "A 32-bit integer"
+    },
+    {
+      "name": "longField",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "A 64-bit integer",
+      "default": null
+    },
+    {
+      "name": "floatField",
+      "type": [
+        "null",
+        "float"
+      ],
+      "doc": "A floating point number",
+      "default": null
+    },
+    {
+      "name": "doubleField",
+      "type": [
+        "null",
+        "double"
+      ],
+      "doc": "A double precision number",
+      "default": null
+    },
+    {
+      "name": "booleanField",
+      "type": [
+        "null",
+        "boolean"
+      ],
+      "doc": "A boolean value",
+      "default": null
+    },
+    {
+      "name": "uuidField",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "uuid"
+        }
+      ],
+      "doc": "A UUID value",
+      "default": null
+    },
+    {
+      "name": "bytesField",
+      "type": [
+        "null",
+        "bytes"
+      ],
+      "doc": "Binary data",
+      "default": null
+    }
+  ]
+}

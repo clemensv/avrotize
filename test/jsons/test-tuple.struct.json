@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://test.example.com/tuple-test",
+  "name": "TupleTest",
+  "type": "object",
+  "description": "Test tuple types",
+  "properties": {
+    "coordinate": {
+      "type": "tuple",
+      "name": "Coordinate",
+      "description": "An X,Y coordinate tuple",
+      "properties": {
+        "x": {
+          "type": "double"
+        },
+        "y": {
+          "type": "double"
+        }
+      },
+      "tuple": ["x", "y"]
+    },
+    "personTuple": {
+      "type": "tuple",
+      "name": "PersonTuple",
+      "description": "A person as a tuple",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "age": {
+          "type": "int32"
+        },
+        "active": {
+          "type": "boolean"
+        }
+      },
+      "tuple": ["name", "age", "active"]
+    }
+  }
+}

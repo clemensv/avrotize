@@ -1,0 +1,50 @@
+{
+  "type": "record",
+  "name": "Collections",
+  "doc": "Test schema for collection types",
+  "fields": [
+    {
+      "name": "stringArray",
+      "type": {
+        "type": "array",
+        "items": "string"
+      }
+    },
+    {
+      "name": "numberSet",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "int"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "stringToNumberMap",
+      "type": [
+        "null",
+        {
+          "type": "map",
+          "values": "double"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "nestedArray",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": "string"
+          }
+        }
+      ],
+      "default": null
+    }
+  ]
+}

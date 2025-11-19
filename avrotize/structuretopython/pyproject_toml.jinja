@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "{{ package_name }}"
+version = "0.1.0"
+description = "A package for handling JSON Structure schema data"
+authors = ["Your Name"]
+license = "MIT"
+packages = [ { include = "{{ package_name|replace('-','_')|lower }}", from="src" } ]
+
+[tool.poetry.dependencies]
+python = "<4.0,>=3.10"
+{%- if dataclasses_json_annotation %}
+dataclasses-json = "^0.6.7"
+{%- endif %}
+{%- if avro_annotation %}
+avro-python3 = "^1.10.2"
+{%- endif %}
+
+[tool.poetry.dev-dependencies]
+pylint = "^3.2.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

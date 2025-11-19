@@ -1,0 +1,131 @@
+[
+  {
+    "type": "record",
+    "name": "ChoiceTypes",
+    "doc": "Test schema for choice types (unions)",
+    "fields": [
+      {
+        "name": "taggedChoice",
+        "type": {
+          "type": "record",
+          "name": "Choice_textValue_numberValue",
+          "doc": "Tagged union with explicit discriminator",
+          "fields": [
+            {
+              "name": "choiceType",
+              "type": {
+                "type": "enum",
+                "name": "Choice_textValue_numberValueType",
+                "symbols": [
+                  "textValue",
+                  "numberValue"
+                ]
+              },
+              "doc": "Discriminator indicating which type is present in the value field"
+            },
+            {
+              "name": "value",
+              "type": [
+                "string",
+                "int"
+              ],
+              "doc": "The actual value of the selected choice type"
+            }
+          ]
+        }
+      },
+      {
+        "name": "inlineChoice",
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "Choice_Person_Company",
+            "doc": "Inline union with selector field: entityType",
+            "fields": [
+              {
+                "name": "value",
+                "type": [
+                  "Person",
+                  "Company"
+                ],
+                "doc": "Union of choice types. Each type includes \"entityType\" field with its discriminator value."
+              }
+            ]
+          }
+        ],
+        "default": null
+      },
+      {
+        "name": "nullableString",
+        "type": [
+          "string",
+          "null"
+        ],
+        "default": null
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Person",
+    "doc": "Extends abstract BaseEntity",
+    "fields": [
+      {
+        "name": "name",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null
+      },
+      {
+        "name": "entityType",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null
+      },
+      {
+        "name": "age",
+        "type": [
+          "null",
+          "int"
+        ],
+        "default": null
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Company",
+    "doc": "Extends abstract BaseEntity",
+    "fields": [
+      {
+        "name": "name",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null
+      },
+      {
+        "name": "entityType",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null
+      },
+      {
+        "name": "employees",
+        "type": [
+          "null",
+          "int"
+        ],
+        "default": null
+      }
+    ]
+  }
+]

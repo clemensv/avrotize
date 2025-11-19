@@ -31,13 +31,13 @@
       "minimum": 0,
       "maximum": 99999999.99
     },
-    "binaryField": {
-      "type": "binary32",
-      "description": "32-bit binary floating point"
+    "float32Field": {
+      "type": "float32",
+      "description": "32-bit floating point"
     },
-    "binary64Field": {
-      "type": "binary64",
-      "description": "64-bit binary floating point"
+    "float64Field": {
+      "type": "float64",
+      "description": "64-bit floating point"
     }
   },
   "required": ["int8Field", "decimalField"]
