@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/test-sealed",
+  "type": "object",
+  "name": "SealedClass",
+  "description": "A sealed class that disallows additional properties",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name field"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["id", "name"]
+}

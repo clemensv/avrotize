@@ -1,0 +1,180 @@
+using System;
+using System.Collections.Generic;
+using NUnit.Framework;
+
+{% if namespace %}
+namespace {{ namespace }}
+{
+{% endif %}
+{% set ind=4 if namespace else 0 %}
+{% filter indent(width=ind, first=True) %}
+/// <summary> Test class for {{ class_base_name }} </summary> 
+[TestFixture]
+public class {{ test_class_name }}
+{
+    private {{ class_base_name }} _instance;
+
+    /// <summary> Constructor </summary>
+    public {{ test_class_name }}()
+    {
+        _instance = CreateInstance();
+    }
+
+    /// <summary> Create instance of {{ class_base_name }} </summary>
+    public {{ class_base_name }} CreateInstance()
+    {
+        var instance = new {{ class_base_name }}()
+        {
+            {%- for field in fields %}
+            {%- if not field.is_const %}
+            {{ field.field_name }} = {{ field.test_value }},
+            {%- endif %}
+            {%- endfor %}
+        };
+        return instance;
+    }
+
+    /// <summary> Testing Equals and GetHashCode - positive case </summary>
+    [Test]
+    public void TestEqualsAndHashCode_PositiveCase()
+    {
+        var instance1 = CreateInstance();
+        var instance2 = CreateInstance();
+        
+        // Test equality
+        Assert.That(instance1.Equals(instance2), Is.True, "Two instances with same values should be equal");
+        Assert.That(instance1 == instance2, Is.False, "Operator == should use reference equality");
+        
+        // Test hash codes
+        Assert.That(instance1.GetHashCode(), Is.EqualTo(instance2.GetHashCode()), 
+            "Equal instances should have equal hash codes");
+    }
+
+    /// <summary> Testing Equals and GetHashCode - negative case </summary>
+    [Test]
+    public void TestEqualsAndHashCode_NegativeCase()
+    {
+        var instance1 = CreateInstance();
+        var instance2 = CreateInstance();
+        
+        {%- set test_field = fields | selectattr("is_primitive", "equalto", true) | selectattr("is_const", "equalto", false) | first %}
+        {%- if not test_field %}
+        {%- set test_field = fields | selectattr("is_const", "equalto", false) | first %}
+        {%- endif %}
+        {%- if test_field %}
+        // Modify a field to make instances different
+        {%- if 'Enum' in test_field.field_type %}
+        // For enum types, just skip the negative test as we can't easily change enum values
+        {%- elif test_field.field_type.startswith('List<') %}
+        // For List types, create a list with a different element
+        instance2.{{ test_field.field_name }} = new {{ test_field.field_type.replace('?', '') }} { {%- if 'string' in test_field.field_type %}"modified_value"{% elif 'int' in test_field.field_type %}999{% else %}default{% endif %} };
+        {%- elif test_field.field_type.startswith('Dictionary<') %}
+        // For Dictionary types, create with a different entry
+        instance2.{{ test_field.field_name }} = new {{ test_field.field_type.replace('?', '') }} { ["key"] = {%- if 'string' in test_field.field_type %}"modified_value"{% elif 'int' in test_field.field_type %}999{% else %}default{% endif %} };
+        {%- elif test_field.field_type.startswith('HashSet<') %}
+        // For HashSet types, create with a different element
+        instance2.{{ test_field.field_name }} = new {{ test_field.field_type.replace('?', '') }} { {%- if 'string' in test_field.field_type %}"modified_value"{% elif 'int' in test_field.field_type %}999{% else %}default{% endif %} };
+        {%- elif 'string' in test_field.field_type and not '<' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = "different_value";
+        {%- elif 'int' in test_field.field_type or 'long' in test_field.field_type or 'short' in test_field.field_type or 'byte' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = ({{ test_field.field_type.replace('?', '') }})999;
+        {%- elif 'bool' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = false;
+        {%- elif 'float' in test_field.field_type or 'double' in test_field.field_type or 'decimal' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = 999.99{{ 'f' if 'float' in test_field.field_type else 'm' if 'decimal' in test_field.field_type else '' }};
+        {%- else %}
+        // For complex types (tuples, nested objects), create with different test values
+        {%- if 'Coordinate' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = new {{test_field.field_type.replace('?', '').replace('global::', '')}}(999.0, 999.0);
+        {%- elif 'PersonTuple' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = new {{test_field.field_type.replace('?', '').replace('global::', '')}}("different_person", 999, false);
+        {%- elif 'Payload' in test_field.field_type %}
+        instance2.{{ test_field.field_name }} = new {{test_field.field_type.replace('?', '').replace('global::', '')}}("different_value");
+        {%- else %}
+        instance2.{{ test_field.field_name }} = {{ test_field.test_value }};
+        {%- endif %}
+        {%- endif %}
+        
+        {%- if 'Enum' not in test_field.field_type %}
+        // Test inequality
+        Assert.That(instance1.Equals(instance2), Is.False, "Two instances with different values should not be equal");
+        {%- else %}
+        // Skip negative test for enum types
+        Assert.That(true, Is.True);
+        {%- endif %}
+        {%- endif %}
+    }
+
+    /// <summary> Test null equality </summary>
+    [Test]
+    public void TestEquals_Null()
+    {
+        var instance = CreateInstance();
+        Assert.That(instance.Equals(null), Is.False, "Instance should not equal null");
+    }
+
+    /// <summary> Test wrong type equality </summary>
+    [Test]
+    public void TestEquals_WrongType()
+    {
+        var instance = CreateInstance();
+        Assert.That(instance.Equals("wrong type"), Is.False, "Instance should not equal object of different type");
+    }
+
+    {%- if system_text_json_annotation %}
+    /// <summary> Test JSON serialization </summary>
+    [Test]
+    public void TestJsonSerialization()
+    {
+        var instance = CreateInstance();
+        var json = System.Text.Json.JsonSerializer.Serialize(instance);
+        Assert.That(json, Is.Not.Null.And.Not.Empty);
+        
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<{{ class_base_name }}>(json);
+        Assert.That(deserialized, Is.Not.Null);
+        Assert.That(instance.Equals(deserialized), Is.True, "Serialized and deserialized instances should be equal");
+    }
+    {%- endif %}
+
+    {%- if newtonsoft_json_annotation %}
+    /// <summary> Test JSON serialization with Newtonsoft </summary>
+    [Test]
+    public void TestNewtonsoftJsonSerialization()
+    {
+        var instance = CreateInstance();
+        var json = Newtonsoft.Json.JsonConvert.SerializeObject(instance);
+        Assert.That(json, Is.Not.Null.And.Not.Empty);
+        
+        var deserialized = Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_base_name }}>(json);
+        Assert.That(deserialized, Is.Not.Null);
+        Assert.That(instance.Equals(deserialized), Is.True, "Serialized and deserialized instances should be equal");
+    }
+    {%- endif %}
+
+    {%- if system_xml_annotation %}
+    /// <summary> Test XML serialization </summary>
+    [Test]
+    public void TestXmlSerialization()
+    {
+        var instance = CreateInstance();
+        var serializer = new System.Xml.Serialization.XmlSerializer(typeof({{ class_base_name }}));
+        using (var writer = new System.IO.StringWriter())
+        {
+            serializer.Serialize(writer, instance);
+            var xml = writer.ToString();
+            Assert.That(xml, Is.Not.Null.And.Not.Empty);
+            
+            using (var reader = new System.IO.StringReader(xml))
+            {
+                var deserialized = ({{ class_base_name }}?)serializer.Deserialize(reader);
+                Assert.That(deserialized, Is.Not.Null);
+                Assert.That(instance.Equals(deserialized), Is.True, "Serialized and deserialized instances should be equal");
+            }
+        }
+    }
+    {%- endif %}
+}
+{% endfilter %}
+{% if namespace %}
+}
+{% endif %}

@@ -1,0 +1,36 @@
+using System;
+using NUnit.Framework;
+
+namespace {{ namespace }}
+{
+    /// <summary> Test class for {{ enum_base_name }} </summary>
+    [TestFixture]
+    public class {{ test_class_name }}
+    {
+        /// <summary> Test {{ enum_base_name }} Enum </summary>
+        [Test]
+        public void Test_{{ enum_base_name }}_Enum()
+        {
+            var values = Enum.GetValues(typeof({{ enum_base_name }}));
+            {%- for symbol in symbols %}
+            Assert.That(Enum.IsDefined(typeof({{ enum_base_name }}), {{ enum_base_name }}.{{ symbol }}));
+            {%- endfor %}
+        }
+
+        {%- if system_text_json_annotation %}
+        /// <summary> Test JSON serialization of enum </summary>
+        [Test]
+        public void TestEnumJsonSerialization()
+        {
+            {%- if symbols %}
+            var value = {{ enum_base_name }}.{{ symbols[0] }};
+            var json = System.Text.Json.JsonSerializer.Serialize(value);
+            Assert.That(json, Is.Not.Null.And.Not.Empty);
+            
+            var deserialized = System.Text.Json.JsonSerializer.Deserialize<{{ enum_base_name }}>(json);
+            Assert.That(deserialized, Is.EqualTo(value));
+            {%- endif %}
+        }
+        {%- endif %}
+    }
+}

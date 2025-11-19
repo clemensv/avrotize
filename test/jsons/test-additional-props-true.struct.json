@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/test-additional-props-true",
+  "type": "object",
+  "name": "ExtensibleClass",
+  "description": "A class that allows additional properties of any type",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name field"
+    }
+  },
+  "additionalProperties": true,
+  "required": ["id"]
+}
