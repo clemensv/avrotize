@@ -67,17 +67,50 @@ class AvroToJsonSchemaConverter:
     def avro_primitive_to_json_type(self, avro_type: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
         """
         Map Avro primitive types to JSON types with appropriate format annotations.
+        Handles both standard Avro logical types and Avrotize schema extensions.
         """
         json_type = {}
         if isinstance(avro_type, dict):
-            avro_type = avro_type.get('type', avro_type)
-            if isinstance(avro_type, dict) and 'logicalType' in avro_type:
-                logical_type = avro_type['logicalType']
-                if logical_type in ['date', 'timestamp-millis', 'timestamp-micros']:
+            # Check for logical type before unwrapping the base type
+            logical_type = avro_type.get('logicalType')
+            base_type = avro_type.get('type', avro_type)
+            
+            # Handle logical types based on their base type
+            if logical_type and isinstance(base_type, str):
+                # Standard Avro logical types on int/long
+                if base_type == 'int' and logical_type == 'date':
+                    # Standard Avro: int with date logicalType represents days since epoch
+                    json_type['type'] = 'integer'
+                    json_type['format'] = 'int32'
+                    return json_type
+                elif base_type == 'int' and logical_type in ['time-millis']:
+                    # Standard Avro: int with time-millis represents milliseconds since midnight
+                    json_type['type'] = 'integer'
+                    json_type['format'] = 'int32'
+                    return json_type
+                elif base_type == 'long' and logical_type in ['time-micros']:
+                    # Standard Avro: long with time-micros represents microseconds since midnight
+                    json_type['type'] = 'integer'
+                    json_type['format'] = 'int64'
+                    return json_type
+                elif base_type == 'long' and logical_type in ['timestamp-millis', 'timestamp-micros']:
+                    # Standard Avro: long with timestamp represents milliseconds/microseconds since epoch
+                    json_type['type'] = 'integer'
+                    json_type['format'] = 'int64'
+                    return json_type
+                # Avrotize schema extensions: string-based logical types
+                elif base_type == 'string' and logical_type == 'date':
+                    # Avrotize extension: string with date logicalType
+                    json_type['type'] = 'string'
+                    json_type['format'] = 'date'
+                    return json_type
+                elif base_type == 'string' and logical_type in ['timestamp-millis', 'timestamp-micros', 'datetime']:
+                    # Avrotize extension: string with datetime logicalType
                     json_type['type'] = 'string'
                     json_type['format'] = 'date-time'
                     return json_type
-                elif logical_type == 'time-millis' or logical_type == 'time-micros':
+                elif base_type == 'string' and logical_type in ['time-millis', 'time-micros', 'time']:
+                    # Avrotize extension: string with time logicalType
                     json_type['type'] = 'string'
                     json_type['format'] = 'time'
                     return json_type
@@ -88,12 +121,16 @@ class AvroToJsonSchemaConverter:
                     json_type['type'] = 'string'
                     json_type['format'] = 'uuid'
                     return json_type
+            
+            # If base_type is still a dict, recurse
+            if isinstance(base_type, dict):
+                if 'logicalType' in base_type:
+                    return self.avro_primitive_to_json_type(base_type)
                 else:
-                    return self.avro_primitive_to_json_type(avro_type)
-            else:
-                if isinstance(avro_type, dict):
                     raise ValueError(f"Avro schema contains unexpected construct {avro_type}")
-                return self.avro_primitive_to_json_type(avro_type)
+            
+            # No logical type or unhandled combination, process base type
+            return self.avro_primitive_to_json_type(base_type)
             
         mapping = {
             'null': {'type': 'null'},
