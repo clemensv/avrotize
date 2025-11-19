@@ -53,8 +53,10 @@ class StructureToJsonConverter:
             'float8': {'type': 'number'},  # 8-bit float
             'float': {'type': 'number', 'format': 'float'},
             'double': {'type': 'number', 'format': 'double'},
-            'binary32': {'type': 'number', 'format': 'float'},  # IEEE 754 binary32
-            'binary64': {'type': 'number', 'format': 'double'}, # IEEE 754 binary64
+            'float32': {'type': 'number', 'format': 'float'},  # 32-bit float
+            'float64': {'type': 'number', 'format': 'double'},  # 64-bit float
+            'binary32': {'type': 'number', 'format': 'float'},  # IEEE 754 binary32 (alias)
+            'binary64': {'type': 'number', 'format': 'double'}, # IEEE 754 binary64 (alias)
             'decimal': {'type': 'string', 'pattern': '^-?[0-9]+(\\.[0-9]+)?$'},  # Serialized as string
             'binary': {'type': 'string', 'contentEncoding': 'base64'},  # Binary data
             'date': {'type': 'string', 'format': 'date'},
