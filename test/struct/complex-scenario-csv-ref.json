@@ -1,0 +1,18 @@
+{
+  "fields": [
+    {
+      "name": "metadata",
+      "type": "string"
+    },
+    {
+      "name": "data",
+      "type": "string"
+    },
+    {
+      "name": "signature",
+      "type": "string",
+      "description": "Digital signature",
+      "nullable": true
+    }
+  ]
+}
