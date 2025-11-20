@@ -34,6 +34,7 @@ _mappings = {
     "convert_avro_to_kusto_file": (f"{mod}.avrotokusto", "convert_avro_to_kusto_file"),
     "convert_avro_to_kusto_db": (f"{mod}.avrotokusto", "convert_avro_to_kusto_db"),
     "convert_avro_to_parquet": (f"{mod}.avrotoparquet", "convert_avro_to_parquet"),
+    "convert_structure_to_parquet": (f"{mod}.structuretoparquet", "convert_structure_to_parquet"),
     "convert_avro_to_proto": (f"{mod}.avrotoproto", "convert_avro_to_proto"),
     "convert_avro_to_sql": (f"{mod}.avrotodb", "convert_avro_to_sql"),
     "convert_avro_to_xsd": (f"{mod}.avrotoxsd", "convert_avro_to_xsd"),

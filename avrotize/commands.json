@@ -1455,6 +1455,58 @@
     ]
   },
   {
+    "command": "s2parquet",
+    "description": "Convert JSON Structure schema to Parquet or Iceberg schema",
+    "group": "3_Datalake",
+    "function": {
+      "name": "avrotize.structuretoparquet.convert_structure_to_parquet",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "parquet_file_path": "output_file_path",
+        "structure_record_type": "args.record_type",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Parquet file",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Record type in the JSON Structure schema",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns to the Parquet file",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.parquet",
+    "prompts": [
+      {
+        "name": "--emit-cloudevents-columns",
+        "message": "Add CloudEvents columns to the Parquet file?",
+        "type": "bool",
+        "default": false
+      }
+    ]
+  },
+  {
     "command": "a2ts",
     "description": "Convert Avrotize schema to TypeScript classes",
     "group": "2_ProgLanguages",
