@@ -43,25 +43,40 @@ class TestStructureToRust(unittest.TestCase):
         assert os.path.exists(os.path.join(rust_path, 'Cargo.toml'))
         assert os.path.exists(os.path.join(rust_path, 'src', 'lib.rs'))
 
-        # Run cargo test on the generated Rust code to verify correctness
+        # Build the package and run the embedded unit tests
         try:
-            result = subprocess.run(
+            # First build the package
+            build_result = subprocess.run(
+                ['cargo', 'build', '--release'],
+                cwd=rust_path,
+                capture_output=True,
+                text=True,
+                timeout=180
+            )
+            if build_result.returncode != 0:
+                print(f"\nCargo build failed for {struct_name}:")
+                print(build_result.stdout)
+                print(build_result.stderr)
+                self.fail(f"Cargo build failed for {struct_name}")
+            
+            # Then run the unit tests
+            test_result = subprocess.run(
                 ['cargo', 'test', '--release'],
                 cwd=rust_path,
                 capture_output=True,
                 text=True,
                 timeout=180
             )
-            if result.returncode != 0:
+            if test_result.returncode != 0:
                 print(f"\nCargo test output for {struct_name}:")
-                print(result.stdout)
-                print(result.stderr)
-                # Don't fail the test, just warn - some tests might fail due to missing dependencies
-                print(f"Warning: cargo test failed for {struct_name}")
+                print(test_result.stdout)
+                print(test_result.stderr)
+                self.fail(f"Cargo tests failed for {struct_name}")
+                
         except subprocess.TimeoutExpired:
-            print(f"Warning: cargo test timed out for {struct_name}")
+            self.fail(f"Cargo build/test timed out for {struct_name}")
         except FileNotFoundError:
-            print("Warning: cargo not found - skipping Rust tests")
+            self.skipTest("Cargo not found - skipping Rust build and tests")
 
     def test_convert_address_struct_to_rust(self):
         """Test converting an address JSON Structure file to Rust"""

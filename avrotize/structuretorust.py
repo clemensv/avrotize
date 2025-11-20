@@ -511,25 +511,25 @@ class StructureToRust:
         elif rust_type == 'bool' or rust_type == 'Option<bool>':
             return 'rand::Rng::gen::<bool>(&mut rng)'
         elif rust_type in ['i8', 'Option<i8>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100) as i8'
+            return 'rand::Rng::gen_range(&mut rng, 1..101) as i8'
         elif rust_type in ['u8', 'Option<u8>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100) as u8'
+            return 'rand::Rng::gen_range(&mut rng, 1..101) as u8'
         elif rust_type in ['i16', 'Option<i16>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100) as i16'
+            return 'rand::Rng::gen_range(&mut rng, 1..101) as i16'
         elif rust_type in ['u16', 'Option<u16>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100) as u16'
+            return 'rand::Rng::gen_range(&mut rng, 1..101) as u16'
         elif rust_type in ['i32', 'Option<i32>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100)'
+            return 'rand::Rng::gen_range(&mut rng, 1..101)'
         elif rust_type in ['u32', 'Option<u32>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100) as u32'
+            return 'rand::Rng::gen_range(&mut rng, 1..101) as u32'
         elif rust_type in ['i64', 'Option<i64>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100) as i64'
+            return 'rand::Rng::gen_range(&mut rng, 1..101) as i64'
         elif rust_type in ['u64', 'Option<u64>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100) as u64'
+            return 'rand::Rng::gen_range(&mut rng, 1..101) as u64'
         elif rust_type in ['i128', 'Option<i128>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100) as i128'
+            return 'rand::Rng::gen_range(&mut rng, 1..101) as i128'
         elif rust_type in ['u128', 'Option<u128>']:
-            return 'rand::Rng::gen_range(&mut rng, 0..100) as u128'
+            return 'rand::Rng::gen_range(&mut rng, 1..101) as u128'
         elif rust_type in ['f32', 'Option<f32>']:
             return '(rand::Rng::gen::<f32>(&mut rng)*1000.0).round()/1000.0'
         elif rust_type in ['f64', 'Option<f64>']:
