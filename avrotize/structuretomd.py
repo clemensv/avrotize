@@ -78,9 +78,11 @@ class StructureToMarkdownConverter:
             ns = schema.get('namespace', parent_namespace)
             name = schema.get('name', type_name)
             
-            if schema_type == 'object':
+            # Only add named objects and choices to the respective lists
+            # Inline/anonymous objects should not be listed separately
+            if schema_type == 'object' and 'name' in schema:
                 self.objects.setdefault(ns, []).append(schema)
-            elif schema_type == 'choice':
+            elif schema_type == 'choice' and 'name' in schema:
                 self.choices.setdefault(ns, []).append(schema)
             elif 'enum' in schema:
                 # Handle enum constraint
