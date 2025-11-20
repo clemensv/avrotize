@@ -1455,6 +1455,42 @@
     ]
   },
   {
+    "command": "s2proto",
+    "description": "Convert JSON Structure to Protocol Buffers",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretoproto.convert_structure_to_proto",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "proto_file_path": "output_file_path"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the Protocol Buffers .proto file",
+        "required": false
+      },
+      {
+        "name": "--struct",
+        "type": "str",
+        "help": "Deprecated: Path to the JSON Structure file (for backcompat)",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.proto",
+    "prompts": []
+  },
+  {
     "command": "a2ts",
     "description": "Convert Avrotize schema to TypeScript classes",
     "group": "2_ProgLanguages",
