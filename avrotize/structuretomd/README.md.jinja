@@ -8,6 +8,34 @@
 **Schema ID:** `{{ schema_id }}`
 {%- endif %}
 
+{%- if schema_uses %}
+**Uses Extensions:** {{ schema_uses | join(', ') }}
+{%- endif %}
+
+{%- if schema_offers %}
+## Add-in System ($offers)
+
+This schema offers the following add-ins:
+
+{%- for addin_name, addin_def in schema_offers.items() %}
+### {{ addin_name }}
+{%- if addin_def.description %}
+
+{{ addin_def.description }}
+{%- endif %}
+
+{%- if addin_def.properties %}
+**Properties:**
+
+{%- set required_fields = addin_def.required if addin_def.required else [] %}
+{%- for prop_name, prop_schema in addin_def.properties.items() %}
+{{ generate_property_markdown(prop_name, prop_schema, prop_name in required_fields) }}
+{%- endfor %}
+{%- endif %}
+
+{%- endfor %}
+{%- endif %}
+
 {%- if objects %}
 ## Objects
 {%- for namespace, object_list in objects.items() %}
@@ -28,6 +56,10 @@
 
 {%- if obj['$extends'] %}
 **Extends:** {{ obj['$extends'] }}
+{%- endif %}
+
+{%- if obj['$uses'] %}
+**Uses Extensions:** {{ obj['$uses'] | join(', ') }}
 {%- endif %}
 
 {%- if obj.properties %}
@@ -59,6 +91,10 @@
 
 {%- if choice['$extends'] %}
 **Extends:** {{ choice['$extends'] }}
+{%- endif %}
+
+{%- if choice['$uses'] %}
+**Uses Extensions:** {{ choice['$uses'] | join(', ') }}
 {%- endif %}
 
 {%- if choice.selector %}
@@ -103,6 +139,10 @@
 
 {%- if def_schema['$extends'] %}
 **Extends:** {{ def_schema['$extends'] }}
+{%- endif %}
+
+{%- if def_schema['$uses'] %}
+**Uses Extensions:** {{ def_schema['$uses'] | join(', ') }}
 {%- endif %}
 
 {%- if def_schema.type == 'object' and def_schema.properties %}
