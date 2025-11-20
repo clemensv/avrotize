@@ -36,7 +36,7 @@
           }
         ]
       },
-      "description": "An address similar to http://microformats.org/wiki/h-card",
+      "description": "An address similar to http://microformats.org/wiki/h-card (Uses add-ins: JSONStructureValidation)",
       "profile": "data-resource"
     }
   ],

@@ -198,6 +198,8 @@ class StructureToDataPackageConverter:
                 namespace = namespace[len(namespace_prefix):].strip(".")
             
             table_name = f"{namespace}_{name}" if namespace else name
+            # Data Package resource names must be lowercase with hyphens/underscores only
+            table_name = table_name.lower().replace(" ", "-")
             properties = schema.get("properties", {})
 
             # Create the Data Package schema

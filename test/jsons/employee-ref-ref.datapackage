@@ -16,7 +16,7 @@
           }
         ]
       },
-      "description": "Employee",
+      "description": "Employee (Uses add-ins: JSONStructureValidation)",
       "profile": "data-resource"
     }
   ],

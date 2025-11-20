@@ -298,8 +298,8 @@ def test_convert_with_definitions():
     assert 'resources' in result
     assert len(result['resources']) == 2
     resource_names = {r['name'] for r in result['resources']}
-    assert 'Address' in resource_names
-    assert 'Person' in resource_names
+    assert 'address' in resource_names
+    assert 'person' in resource_names
 
 
 def test_convert_with_namespace():
@@ -375,3 +375,288 @@ def convert_case(file_base_name: str):
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
+
+
+def test_convert_comprehensive_features():
+    """Test comprehensive feature coverage including metadata and constraints"""
+    convert_case("comprehensive-features")
+
+
+def test_convert_composition_features():
+    """Test composition features: allOf, oneOf, anyOf, not, if/then/else"""
+    convert_case("composition-features")
+
+
+def test_convert_abstract_extends():
+    """Test abstract types and $extends inheritance"""
+    convert_case("abstract-extends")
+
+
+def test_advanced_constraints():
+    """Test all constraint types"""
+    test_schema = {
+        "type": "object",
+        "name": "AdvancedConstraints",
+        "properties": {
+            "exclusiveRange": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "exclusiveMaximum": 100
+            },
+            "multipleOfField": {
+                "type": "number",
+                "multipleOf": 5
+            },
+            "precisionField": {
+                "type": "decimal",
+                "precision": 10,
+                "scale": 2
+            },
+            "arrayBounds": {
+                "type": "array",
+                "items": {"type": "string"},
+                "minItems": 2,
+                "maxItems": 5,
+                "uniqueItems": True
+            }
+        }
+    }
+    
+    temp_dir = tempfile.gettempdir()
+    test_schema_path = os.path.join(temp_dir, "avrotize", "advanced_constraints.struct.json")
+    datapackage_path = os.path.join(temp_dir, "avrotize", "advanced_constraints.datapackage.json")
+    
+    os.makedirs(os.path.dirname(test_schema_path), exist_ok=True)
+    
+    with open(test_schema_path, 'w', encoding='utf-8') as f:
+        json.dump(test_schema, f, indent=2)
+    
+    convert_structure_to_datapackage(test_schema_path, None, datapackage_path)
+    
+    with open(datapackage_path, 'r', encoding='utf-8') as f:
+        result = json.load(f)
+    
+    # Validate
+    package = Package(result)
+    assert package.valid
+    
+    # Check constraints are present
+    fields = {f['name']: f for f in result['resources'][0]['schema']['fields']}
+    assert 'exclusiveRange' in fields
+    assert 'multipleOfField' in fields
+    assert 'arrayBounds' in fields
+
+
+def test_metadata_fields():
+    """Test metadata fields: title, examples, default, deprecated, const, readOnly, writeOnly"""
+    test_schema = {
+        "type": "object",
+        "name": "MetadataTest",
+        "title": "Metadata Test Schema",
+        "properties": {
+            "titleField": {
+                "type": "string",
+                "title": "Field Title",
+                "description": "Field with title"
+            },
+            "examplesField": {
+                "type": "string",
+                "examples": ["example1", "example2"]
+            },
+            "defaultField": {
+                "type": "integer",
+                "default": 42
+            },
+            "deprecatedField": {
+                "type": "string",
+                "deprecated": True
+            },
+            "constField": {
+                "type": "string",
+                "const": "CONSTANT"
+            },
+            "readOnlyField": {
+                "type": "string",
+                "readOnly": True
+            },
+            "writeOnlyField": {
+                "type": "string",
+                "writeOnly": True
+            },
+            "commentField": {
+                "type": "string",
+                "$comment": "This is a developer comment"
+            }
+        }
+    }
+    
+    temp_dir = tempfile.gettempdir()
+    test_schema_path = os.path.join(temp_dir, "avrotize", "metadata.struct.json")
+    datapackage_path = os.path.join(temp_dir, "avrotize", "metadata.datapackage.json")
+    
+    os.makedirs(os.path.dirname(test_schema_path), exist_ok=True)
+    
+    with open(test_schema_path, 'w', encoding='utf-8') as f:
+        json.dump(test_schema, f, indent=2)
+    
+    convert_structure_to_datapackage(test_schema_path, None, datapackage_path)
+    
+    with open(datapackage_path, 'r', encoding='utf-8') as f:
+        result = json.load(f)
+    
+    # Validate
+    package = Package(result)
+    assert package.valid
+    
+    # Check metadata fields are present
+    fields = {f['name']: f for f in result['resources'][0]['schema']['fields']}
+    assert 'title' in fields['titleField']
+    assert 'examples' in fields['examplesField']
+    assert 'default' in fields['defaultField']
+    assert 'DEPRECATED' in fields['deprecatedField']['description']
+    assert 'Read-only' in fields['readOnlyField']['description']
+    assert 'Write-only' in fields['writeOnlyField']['description']
+    assert 'Comment' in fields['commentField']['description']
+
+
+def test_content_encoding_mediatype():
+    """Test contentEncoding and contentMediaType"""
+    test_schema = {
+        "type": "object",
+        "name": "ContentTest",
+        "properties": {
+            "encodedField": {
+                "type": "string",
+                "contentEncoding": "base64",
+                "contentMediaType": "image/png"
+            }
+        }
+    }
+    
+    temp_dir = tempfile.gettempdir()
+    test_schema_path = os.path.join(temp_dir, "avrotize", "content.struct.json")
+    datapackage_path = os.path.join(temp_dir, "avrotize", "content.datapackage.json")
+    
+    os.makedirs(os.path.dirname(test_schema_path), exist_ok=True)
+    
+    with open(test_schema_path, 'w', encoding='utf-8') as f:
+        json.dump(test_schema, f, indent=2)
+    
+    convert_structure_to_datapackage(test_schema_path, None, datapackage_path)
+    
+    with open(datapackage_path, 'r', encoding='utf-8') as f:
+        result = json.load(f)
+    
+    # Validate
+    package = Package(result)
+    assert package.valid
+    
+    # Check content encoding and media type
+    fields = {f['name']: f for f in result['resources'][0]['schema']['fields']}
+    assert 'contentEncoding' in fields['encodedField']
+    assert fields['encodedField']['contentEncoding'] == 'base64'
+    assert 'contentMediaType' in fields['encodedField']
+    assert fields['encodedField']['contentMediaType'] == 'image/png'
+
+
+def test_string_formats():
+    """Test string format specifications"""
+    test_schema = {
+        "type": "object",
+        "name": "FormatTest",
+        "properties": {
+            "emailField": {
+                "type": "string",
+                "format": "email"
+            },
+            "uriField": {
+                "type": "uri"
+            },
+            "uuidField": {
+                "type": "uuid"
+            },
+            "hostnameField": {
+                "type": "string",
+                "format": "hostname"
+            },
+            "ipv4Field": {
+                "type": "string",
+                "format": "ipv4"
+            }
+        }
+    }
+    
+    temp_dir = tempfile.gettempdir()
+    test_schema_path = os.path.join(temp_dir, "avrotize", "formats.struct.json")
+    datapackage_path = os.path.join(temp_dir, "avrotize", "formats.datapackage.json")
+    
+    os.makedirs(os.path.dirname(test_schema_path), exist_ok=True)
+    
+    with open(test_schema_path, 'w', encoding='utf-8') as f:
+        json.dump(test_schema, f, indent=2)
+    
+    convert_structure_to_datapackage(test_schema_path, None, datapackage_path)
+    
+    with open(datapackage_path, 'r', encoding='utf-8') as f:
+        result = json.load(f)
+    
+    # Validate
+    package = Package(result)
+    assert package.valid
+    
+    # Check formats are present
+    fields = {f['name']: f for f in result['resources'][0]['schema']['fields']}
+    assert fields['emailField']['format'] == 'email'
+    assert fields['uriField']['format'] == 'uri'
+    assert fields['uuidField']['format'] == 'uuid'
+    assert fields['hostnameField']['format'] == 'hostname'
+    assert fields['ipv4Field']['format'] == 'ipv4'
+
+
+def test_defs_alternative():
+    """Test $defs as alternative to definitions"""
+    test_schema = {
+        "$defs": {
+            "TypeA": {
+                "type": "object",
+                "name": "TypeA",
+                "properties": {
+                    "field1": {"type": "string"}
+                }
+            },
+            "TypeB": {
+                "type": "object",
+                "name": "TypeB",
+                "properties": {
+                    "field2": {"type": "integer"}
+                }
+            }
+        }
+    }
+    
+    temp_dir = tempfile.gettempdir()
+    test_schema_path = os.path.join(temp_dir, "avrotize", "defs.struct.json")
+    datapackage_path = os.path.join(temp_dir, "avrotize", "defs.datapackage.json")
+    
+    os.makedirs(os.path.dirname(test_schema_path), exist_ok=True)
+    
+    with open(test_schema_path, 'w', encoding='utf-8') as f:
+        json.dump(test_schema, f, indent=2)
+    
+    convert_structure_to_datapackage(test_schema_path, None, datapackage_path)
+    
+    with open(datapackage_path, 'r', encoding='utf-8') as f:
+        result = json.load(f)
+    
+    # Validate
+    package = Package(result)
+    assert package.valid
+    
+    # Should have extracted both types from $defs
+    assert len(result['resources']) == 2
+    resource_names = {r['name'] for r in result['resources']}
+    assert 'typea' in resource_names
+    assert 'typeb' in resource_names
+
+
+
