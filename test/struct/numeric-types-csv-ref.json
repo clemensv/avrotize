@@ -1,0 +1,50 @@
+{
+  "fields": [
+    {
+      "name": "int8Field",
+      "type": "integer",
+      "minimum": -128,
+      "maximum": 127
+    },
+    {
+      "name": "int16Field",
+      "type": "integer",
+      "nullable": true,
+      "minimum": -32768,
+      "maximum": 32767
+    },
+    {
+      "name": "uint32Field",
+      "type": "integer",
+      "nullable": true,
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    {
+      "name": "uint64Field",
+      "type": "integer",
+      "nullable": true,
+      "minimum": 0
+    },
+    {
+      "name": "decimalField",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 99999999.99,
+      "precision": 10,
+      "scale": 2
+    },
+    {
+      "name": "float32Field",
+      "type": "string",
+      "description": "32-bit floating point",
+      "nullable": true
+    },
+    {
+      "name": "float64Field",
+      "type": "string",
+      "description": "64-bit floating point",
+      "nullable": true
+    }
+  ]
+}

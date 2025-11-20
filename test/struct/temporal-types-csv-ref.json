@@ -1,0 +1,33 @@
+{
+  "fields": [
+    {
+      "name": "dateField",
+      "type": "string",
+      "description": "A date field",
+      "nullable": true
+    },
+    {
+      "name": "timeField",
+      "type": "string",
+      "description": "A time field",
+      "nullable": true
+    },
+    {
+      "name": "datetimeField",
+      "type": "string",
+      "description": "A datetime field"
+    },
+    {
+      "name": "timestampField",
+      "type": "string",
+      "description": "A timestamp field",
+      "nullable": true
+    },
+    {
+      "name": "durationField",
+      "type": "string",
+      "description": "A duration field",
+      "nullable": true
+    }
+  ]
+}

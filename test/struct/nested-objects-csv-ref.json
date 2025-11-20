@@ -1,0 +1,8 @@
+{
+  "fields": [
+    {
+      "name": "person",
+      "type": "string"
+    }
+  ]
+}

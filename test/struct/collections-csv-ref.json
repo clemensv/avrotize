@@ -1,0 +1,23 @@
+{
+  "fields": [
+    {
+      "name": "stringArray",
+      "type": "string"
+    },
+    {
+      "name": "numberSet",
+      "type": "string",
+      "nullable": true
+    },
+    {
+      "name": "stringToNumberMap",
+      "type": "string",
+      "nullable": true
+    },
+    {
+      "name": "nestedArray",
+      "type": "string",
+      "nullable": true
+    }
+  ]
+}
