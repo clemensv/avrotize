@@ -1,0 +1,10 @@
+/**
+ * {{ docstring }}
+ */
+const {{ class_name }} = Object.freeze({
+{%- for symbol in symbols %}
+    {{ symbol }}: "{{ symbol_values[loop.index0] }}",
+{%- endfor %}
+});
+
+module.exports = {{ class_name }};

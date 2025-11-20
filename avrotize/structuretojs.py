@@ -6,7 +6,7 @@ import json
 import os
 from typing import Any, Dict, List, Set, Union, Optional
 
-from avrotize.common import pascal
+from avrotize.common import pascal, process_template
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -266,9 +266,9 @@ class StructureToJavaScript:
         properties = structure_schema.get('properties', {})
         required_props = structure_schema.get('required', [])
 
-        # Generate field definitions
-        constructor_body = ''
-        class_body = ''
+        # Collect fields for template
+        fields = []
+        static_fields = []
 
         for prop_name, prop_schema in properties.items():
             field_name = self.safe_name(prop_name)
@@ -278,9 +278,11 @@ class StructureToJavaScript:
             if 'const' in prop_schema:
                 # Const fields are static properties
                 const_value = self.format_const_value(prop_schema['const'])
-                if field_doc:
-                    class_body += f'\n{INDENT}/** {field_doc} */\n'
-                class_body += f'{INDENT}static {field_name} = {const_value};\n'
+                static_fields.append({
+                    'name': field_name,
+                    'value': const_value,
+                    'docstring': field_doc
+                })
                 continue
 
             # Determine if required
@@ -292,24 +294,26 @@ class StructureToJavaScript:
             prop_type = self.convert_structure_type_to_javascript(
                 class_name, field_name, prop_schema, schema_namespace, import_types)
 
-            # Generate constructor initialization
-            if field_doc:
-                constructor_body += f'{INDENT*2}/** {field_doc} */\n'
-
             # Add default value if present
             if 'default' in prop_schema:
                 default_val = self.format_default_value(prop_schema['default'], prop_type)
-                constructor_body += f'{INDENT*2}this.{field_name} = {default_val};\n'
             elif not is_required:
-                constructor_body += f'{INDENT*2}this.{field_name} = null;\n'
+                default_val = 'null'
             else:
-                constructor_body += f'{INDENT*2}this.{field_name} = undefined;\n'
+                default_val = 'undefined'
+
+            fields.append({
+                'name': field_name,
+                'type': prop_type,
+                'default_value': default_val,
+                'docstring': field_doc
+            })
 
         # Get docstring
         doc = structure_schema.get('description', structure_schema.get('doc', class_name))
 
-        # Generate imports
-        imports = ''
+        # Generate imports dictionary
+        imports = {}
         for import_type in import_types:
             import_type_package = import_type.rsplit('.', 1)[0]
             import_type_type = pascal(import_type.split('.')[-1])
@@ -320,30 +324,20 @@ class StructureToJavaScript:
                 import_type_package = os.path.relpath(import_type_package, namespace_path).replace(os.sep, '/')
                 if not import_type_package.startswith('.'):
                     import_type_package = f'./{import_type_package}'
-                imports += f"const {import_type_type} = require('{import_type_package}/{import_type_type}');\n"
+                imports[import_type_type] = f'{import_type_package}/{import_type_type}'
             else:
-                imports += f"const {import_type_type} = require('./{import_type_type}');\n"
+                imports[import_type_type] = f'./{import_type_type}'
 
-        # Generate class definition
-        class_definition = imports
-        if imports:
-            class_definition += '\n'
-
-        if doc:
-            class_definition += f'/**\n * {doc}\n */\n'
-
-        class_definition += f'class {class_name} {{\n'
-
-        # Add constructor
-        if constructor_body or not is_abstract:
-            class_definition += f'{INDENT}constructor() {{\n{constructor_body}{INDENT}}}\n'
-
-        # Add static members and other class body
-        if class_body:
-            class_definition += class_body
-
-        class_definition += '}\n\n'
-        class_definition += f'module.exports = {class_name};\n'
+        # Generate class definition using template
+        class_definition = process_template(
+            "structuretojs/class_core.js.jinja",
+            class_name=class_name,
+            docstring=doc,
+            fields=fields,
+            static_fields=static_fields,
+            imports=imports,
+            is_abstract=is_abstract
+        )
 
         if write_file:
             self.write_to_file(namespace, class_name, class_definition)
@@ -363,20 +357,20 @@ class StructureToJavaScript:
         if qualified_name in self.generated_types:
             return qualified_name
 
-        symbols = structure_schema.get('enum', [])
+        enum_values = structure_schema.get('enum', [])
+        symbols = [str(symbol) if not is_javascript_reserved_word(str(symbol)) else str(symbol) + "_" 
+                  for symbol in enum_values]
+        symbol_values = [str(val) for val in enum_values]
+
         doc = structure_schema.get('description', structure_schema.get('doc', f'A {class_name} enum.'))
 
-        # Generate enum as frozen object
-        enum_body = ''
-        for symbol in symbols:
-            safe_symbol = self.safe_name(str(symbol))
-            enum_body += f'{INDENT}{safe_symbol}: "{symbol}",\n'
-
-        enum_definition = ''
-        if doc:
-            enum_definition += f'/**\n * {doc}\n */\n'
-        enum_definition += f'const {class_name} = Object.freeze({{\n{enum_body}}});\n\n'
-        enum_definition += f'module.exports = {class_name};\n'
+        enum_definition = process_template(
+            "structuretojs/enum_core.js.jinja",
+            class_name=class_name,
+            docstring=doc,
+            symbols=symbols,
+            symbol_values=symbol_values,
+        )
 
         if write_file:
             self.write_to_file(namespace, class_name, enum_definition)
