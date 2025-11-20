@@ -1,0 +1,49 @@
+/** {{ docstring }} */
+/** JSON Structure tuple type - serializes as JSON array */
+{%- if deprecated %}
+@Deprecated
+{%- endif %}
+{%- if jackson_annotation %}
+@JsonFormat(shape = JsonFormat.Shape.ARRAY)
+{%- endif %}
+public class {{ class_name }} {
+    {%- for element in elements %}
+    
+    /** {{ element.docstring }} */
+    private {{ element.type }} {{ element.name }};
+    {%- endfor %}
+    
+    public {{ class_name }}() {}
+    
+    public {{ class_name }}({% for element in elements %}{{ element.type }} {{ element.name }}{% if not loop.last %}, {% endif %}{% endfor %}) {
+        {%- for element in elements %}
+        this.{{ element.name }} = {{ element.name }};
+        {%- endfor %}
+    }
+    
+    {%- for element in elements %}
+    
+    public {{ element.type }} get{{ element.name|pascal }}() { return {{ element.name }}; }
+    public void set{{ element.name|pascal }}({{ element.type }} {{ element.name }}) { this.{{ element.name }} = {{ element.name }}; }
+    {%- endfor %}
+    
+    {%- if jackson_annotation %}
+    
+    @JsonCreator
+    public static {{ class_name }} fromArray(Object[] array) {
+        if (array == null || array.length != {{ elements|length }}) {
+            throw new IllegalArgumentException("Array must have exactly {{ elements|length }} elements");
+        }
+        {{ class_name }} tuple = new {{ class_name }}();
+        {%- for element in elements %}
+        tuple.{{ element.name }} = ({{ element.type }}) array[{{ loop.index0 }}];
+        {%- endfor %}
+        return tuple;
+    }
+    
+    @JsonValue
+    public Object[] toArray() {
+        return new Object[] { {% for element in elements %}{{ element.name }}{% if not loop.last %}, {% endif %}{% endfor %} };
+    }
+    {%- endif %}
+}
