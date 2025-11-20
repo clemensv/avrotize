@@ -1,0 +1,16 @@
+scalar Binary
+scalar JSON
+
+"""
+A category of products.
+"""
+type Category {
+  """The unique identifier for the category."""
+  CategoryID: Int!
+  """The name of the category."""
+  CategoryName: String!
+  """A description of the category."""
+  Description: String
+  """A picture of the category."""
+  Picture: Binary
+}

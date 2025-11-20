@@ -25,6 +25,41 @@ def test_convert_telemetry_struct_to_graphql():
     convert_case("telemetry")
 
 
+def test_convert_primitives_struct_to_graphql():
+    """Test converting primitives.struct.json to primitives.graphql - tests all JSON primitive types"""
+    convert_case("primitives")
+
+
+def test_convert_extendedprimitives_struct_to_graphql():
+    """Test converting extendedprimitives.struct.json to extendedprimitives.graphql - tests all extended primitive types"""
+    convert_case("extendedprimitives")
+
+
+def test_convert_compounds_struct_to_graphql():
+    """Test converting compounds.struct.json to compounds.graphql - tests compound types (array, set, map, nested objects)"""
+    convert_case("compounds")
+
+
+def test_convert_enums_struct_to_graphql():
+    """Test converting enums.struct.json to enums.graphql - tests enum types"""
+    convert_case("enums")
+
+
+def test_convert_enumfield_struct_to_graphql():
+    """Test converting enumfield.struct.json to enumfield.graphql - tests enum field references"""
+    convert_case("enumfield")
+
+
+def test_convert_complexunion_struct_to_graphql():
+    """Test converting complexunion.struct.json to complexunion.graphql - tests complex union types"""
+    convert_case("complexunion")
+
+
+def test_convert_northwind_struct_to_graphql():
+    """Test converting northwind.struct.json to northwind.graphql - tests real-world complex schema"""
+    convert_case("northwind")
+
+
 def convert_case(file_base_name: str):
     """Convert a JSON Structure schema to GraphQL schema"""
     cwd = os.getcwd()

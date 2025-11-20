@@ -1,0 +1,19 @@
+scalar JSON
+
+"""
+Status enumeration
+"""
+enum Status {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+"""
+Test enum types
+"""
+type EnumTypes {
+  """Status field"""
+  status: Status!
+  """Optional status field"""
+  optionalStatus: Status
+}

@@ -401,6 +401,10 @@ class StructureToGraphQLConverter:
             # Handle type keyword
             struct_type = structure_type.get('type')
             
+            # Handle type unions (e.g., ["string", "null"])
+            if isinstance(struct_type, list):
+                return self.get_graphql_type(struct_type)
+            
             if struct_type == 'array':
                 items_type = self.get_graphql_type(structure_type.get('items', {'type': 'any'}))
                 return f"[{items_type}]"
