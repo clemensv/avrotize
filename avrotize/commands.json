@@ -1455,6 +1455,81 @@
     ]
   },
   {
+    "command": "s2java",
+    "description": "Convert JSON Structure to Java classes",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretojava.convert_structure_to_java",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "java_file_path": "output_file_path",
+        "package_name": "args.package",
+        "jackson_annotation": "args.jackson_annotation",
+        "pascal_properties": "args.pascal_properties"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the Java classes",
+        "required": true
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "Java package name",
+        "required": false
+      },
+      {
+        "name": "--jackson-annotation",
+        "type": "bool",
+        "help": "Use Jackson annotations for JSON serialization",
+        "default": true,
+        "required": false
+      },
+      {
+        "name": "--pascal-properties",
+        "type": "bool",
+        "help": "Use PascalCase properties",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-java",
+    "prompts": [
+      {
+        "name": "--package",
+        "message": "Enter the Java package name for the project",
+        "type": "str",
+        "default": "{input_file_name}",
+        "required": false
+      },
+      {
+        "name": "--jackson-annotation",
+        "message": "Use Jackson annotations for JSON serialization?",
+        "type": "bool",
+        "default": true,
+        "required": false
+      },
+      {
+        "name": "--pascal-properties",
+        "message": "Use PascalCase properties?",
+        "type": "bool",
+        "default": false,
+        "required": false
+      }
+    ]
+  },
+  {
     "command": "a2ts",
     "description": "Convert Avrotize schema to TypeScript classes",
     "group": "2_ProgLanguages",
