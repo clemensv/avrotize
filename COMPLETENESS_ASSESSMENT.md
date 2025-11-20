@@ -59,11 +59,14 @@
 - Could be enhanced to support typed tuples if needed
 - JavaScript doesn't have native tuple types
 
-#### Extensions and Add-ins
-- ⚠️ `$extends` - Not yet implemented
+### ✅ Recently Added
+
+#### Extensions and Inheritance
+- ✅ `$extends` - **Fully implemented** using JavaScript's native `extends` keyword and `super()`
 - ⚠️ `$offers` - Not yet implemented  
 - ⚠️ `$uses` - Not yet implemented
-- These are advanced features that could be added if needed
+
+JavaScript makes inheritance particularly easy with its native `extends` and `super()` keywords, allowing clean implementation of the `$extends` feature.
 
 ### ❌ Not Applicable
 
@@ -103,6 +106,7 @@ All tests pass with embedded JavaScript code execution:
 - ✅ Default values
 - ✅ Const fields
 - ✅ Instance validation against JSON Structure schema
+- ✅ Inheritance with `$extends`
 
 ## Summary
 
@@ -111,11 +115,14 @@ The implementation provides **comprehensive coverage** of the JSON Structure Cor
 - **Core Types**: 100% coverage of primitive, numeric, and temporal types
 - **Compound Types**: Full support for objects, arrays, sets, maps, enums, and choices
 - **Schema Features**: Namespaces, definitions, $ref, required/optional, const, defaults, abstract types
+- **Inheritance**: ✅ `$extends` fully implemented using JavaScript's native class inheritance
 - **Code Quality**: Template-based generation, proper documentation, tested with Node.js execution
 
 The only gaps are:
 1. **Tuple support** - Limited but adequate (could be enhanced if needed)
-2. **Inheritance** ($extends, $offers, $uses) - Not implemented (advanced feature)
+2. **Add-ins** ($offers, $uses) - Not implemented (advanced features)
 3. **Validation constraints** - Not applicable to type definitions in JavaScript
 
-For a JavaScript target, this represents a complete and production-ready implementation.
+JavaScript's native support for class inheritance makes `$extends` particularly easy to implement, with clean `extends` and `super()` keywords providing natural mapping from JSON Structure to JavaScript classes.
+
+For a JavaScript target, this represents a complete and production-ready implementation with full inheritance support.

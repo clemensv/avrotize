@@ -262,6 +262,21 @@ class StructureToJavaScript:
         # Check if this is an abstract type
         is_abstract = structure_schema.get('abstract', False)
 
+        # Handle inheritance ($extends)
+        base_class = None
+        base_class_name = None
+        if '$extends' in structure_schema:
+            base_ref = structure_schema['$extends']
+            if isinstance(self.schema_doc, dict):
+                base_schema = self.resolve_ref(base_ref, self.schema_doc)
+                if base_schema:
+                    ref_path = base_ref.split('/')
+                    base_name = ref_path[-1]
+                    ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else parent_namespace
+                    base_class = self.generate_class(base_schema, ref_namespace, write_file=True, explicit_name=base_name)
+                    import_types.add(base_class)
+                    base_class_name = pascal(base_name)
+
         # Generate properties
         properties = structure_schema.get('properties', {})
         required_props = structure_schema.get('required', [])
@@ -336,7 +351,8 @@ class StructureToJavaScript:
             fields=fields,
             static_fields=static_fields,
             imports=imports,
-            is_abstract=is_abstract
+            is_abstract=is_abstract,
+            base_class_name=base_class_name
         )
 
         if write_file:
