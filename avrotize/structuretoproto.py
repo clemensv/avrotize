@@ -221,6 +221,10 @@ class StructureToProto:
             
             struct_type = field_type['type']
             
+            # If struct_type is an array, it's a union type - handle it recursively
+            if isinstance(struct_type, list):
+                return self.convert_field_type(message, field_name, struct_type, comment, index, context_schema)
+            
             # Handle object type
             if struct_type == 'object':
                 return self.convert_record_type(field_type, comment, context_schema, field_name)
