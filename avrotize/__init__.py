@@ -48,6 +48,7 @@ _mappings = {
     "convert_avro_to_javascript": (f"{mod}.avrotojs", "convert_avro_to_javascript"),
     "convert_avro_schema_to_javascript": (f"{mod}.avrotojs", "convert_avro_schema_to_javascript"),
     "convert_avro_to_markdown": (f"{mod}.avrotomd", "convert_avro_to_markdown"),
+    "convert_structure_to_markdown": (f"{mod}.structuretomd", "convert_structure_to_markdown"),
     "convert_avro_to_cpp": (f"{mod}.avrotocpp", "convert_avro_to_cpp"),
     "convert_avro_schema_to_cpp": (f"{mod}.avrotocpp", "convert_avro_schema_to_cpp"),
     "convert_avro_to_go": (f"{mod}.avrotogo", "convert_avro_to_go"),
