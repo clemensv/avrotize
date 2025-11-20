@@ -40,6 +40,7 @@ Converting from Avrotize Schema:
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
+- [`avrotize s2k`](#convert-json-structure-schema-to-kusto-table-declaration) - Convert JSON Structure Schema to Kusto table definition.
 - [`avrotize a2sql`](#convert-avrotize-schema-to-sql-table-definition) - Convert Avrotize Schema to SQL table definition.
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
@@ -379,6 +380,37 @@ Conversion notes:
 - Only the Avro `record` type can be mapped to a Kusto table. If the Avrotize Schema contains other types (like `enum` or `array`), the tool will ignore them.
 - Only the first `record` type in the Avrotize Schema is converted to a Kusto table. If the Avrotize Schema contains other `record` types, they will be ignored. The `--record-type` option can be used to specify which `record` type to convert.
 - The fields of the record are mapped to columns in the Kusto table. Fields that are records or arrays or maps are mapped to columns of type `dynamic` in the Kusto table.
+
+### Convert JSON Structure Schema to Kusto table declaration
+
+```bash
+avrotize s2k <path_to_structure_schema_file> [--out <path_to_kusto_kql_file>] [--record-type <record_type>] [--emit-cloudevents-columns] [--emit-cloudevents-dispatch]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Kusto KQL file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) The name of the record type to convert to a Kusto table.
+- `--emit-cloudevents-columns`: (optional) If set, the tool will add [CloudEvents](https://cloudevents.io) attribute columns to the table: `___id`, `___source`, `___subject`, `___type`, and `___time`.
+- `--emit-cloudevents-dispatch`: (optional) If set, the tool will add a table named `_cloudevents_dispatch` to the script or database, which serves as an ingestion and dispatch table for CloudEvents. The table has columns for the core CloudEvents attributes and a `data` column that holds the CloudEvents data. For each table in the JSON Structure Schema, the tool will create an update policy that maps events whose `type` attribute matches the type name to the respective table.
+
+Conversion notes:
+
+- Only JSON Structure `object` types can be mapped to a Kusto table. Other types (like `enum`, `array`, `choice`) are not directly convertible to tables.
+- The tool converts the first `object` type found in the schema, or uses the type specified with `--record-type`.
+- Object properties are mapped to columns in the Kusto table. Complex types (objects, arrays, maps, sets, tuples, choices) are mapped to columns of type `dynamic`.
+- JSON Structure primitive types are mapped to appropriate Kusto scalar types:
+  - `string`, `uri`, `jsonpointer` → `string`
+  - `boolean` → `bool`
+  - `integer`, `int8`, `uint8`, `int16`, `uint16`, `int32` → `int`
+  - `uint32`, `int64`, `uint64` → `long`
+  - `int128`, `uint128`, `decimal` → `decimal`
+  - `number`, `float`, `double`, `float8`, `binary32`, `binary64` → `real`
+  - `date`, `datetime`, `timestamp` → `datetime`
+  - `time`, `duration` → `timespan`
+  - `uuid` → `guid`
+  - `binary` → `dynamic`
 
 ### Convert Avrotize Schema to SQL Schema
 
