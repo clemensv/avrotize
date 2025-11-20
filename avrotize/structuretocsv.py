@@ -258,6 +258,16 @@ class StructureToCSVConverter:
                 return 'string'
 
             struct_type = field_schema['type']
+            
+            # Handle union types when type is a list within the dict
+            if isinstance(struct_type, list):
+                non_null_types = [t for t in struct_type if t != 'null']
+                if len(non_null_types) == 1:
+                    # Simple nullable type
+                    return self.map_primitive_type_to_csv(non_null_types[0])
+                else:
+                    # Complex union - use string as fallback
+                    return "string"
 
             # Handle compound types
             if struct_type == 'array':

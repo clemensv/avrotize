@@ -1,0 +1,18 @@
+{
+  "fields": [
+    {
+      "name": "taggedChoice",
+      "type": "string"
+    },
+    {
+      "name": "inlineChoice",
+      "type": "string",
+      "nullable": true
+    },
+    {
+      "name": "nullableString",
+      "type": "string",
+      "nullable": true
+    }
+  ]
+}

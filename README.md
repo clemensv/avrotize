@@ -80,6 +80,7 @@ Generate code from JSON Structure:
 
 Direct JSON Structure conversions:
 
+- [`avrotize s2csv`](#convert-json-structure-to-csv-schema) - Convert JSON Structure schema to CSV schema.
 - [`avrotize s2x`](#convert-json-structure-to-xml-schema-xsd) - Convert JSON Structure to XML Schema (XSD).
 
 Other commands:
@@ -909,6 +910,27 @@ Conversion notes:
 
 - The tool generates Markdown documentation from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Markdown section.
 - The fields of the record are documented in a table in the Markdown section. Nested records are documented in nested sections in the Markdown file.
+
+### Convert JSON Structure to CSV Schema
+
+```bash
+avrotize s2csv <path_to_structure_schema_file> [--out <path_to_csv_schema_file>]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the CSV schema file to write the conversion result to. If omitted, the output is directed to stdout.
+
+Conversion notes:
+
+- The tool converts JSON Structure schemas to CSV Schema format.
+- All JSON Structure Core types are supported including primitives (string, number, boolean, null, integer), extended types (int8-128, uint8-128, float/double, decimal, date, datetime, time, duration, uuid, uri, binary), and compound types (object, array, set, map, tuple, choice).
+- Compound types (arrays, objects, maps) are represented as strings in CSV schema, as CSV format doesn't have native support for complex nested structures.
+- Required/optional properties are preserved with the `nullable` flag.
+- Validation constraints (maxLength, minLength, pattern, minimum, maximum, precision, scale) are preserved in the CSV schema.
+- Enum and const keywords are supported and preserved in the output.
+- JSON Structure-specific features like `$ref`, `$extends`, definitions, and namespaces are resolved during conversion.
 
 ### Convert JSON Structure to Protocol Buffers
 
