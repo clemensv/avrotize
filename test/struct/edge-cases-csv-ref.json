@@ -1,0 +1,45 @@
+{
+  "fields": [
+    {
+      "name": "emptyString",
+      "type": "string",
+      "nullable": true,
+      "maxLength": 0
+    },
+    {
+      "name": "veryLongString",
+      "type": "string",
+      "nullable": true,
+      "maxLength": 1000000
+    },
+    {
+      "name": "preciseDecimal",
+      "type": "number",
+      "nullable": true,
+      "precision": 38,
+      "scale": 18
+    },
+    {
+      "name": "largeInteger",
+      "type": "integer",
+      "nullable": true,
+      "minimum": -9223372036854775808,
+      "maximum": 9223372036854775807
+    },
+    {
+      "name": "emptyArray",
+      "type": "string",
+      "nullable": true
+    },
+    {
+      "name": "nullableEverything",
+      "type": "string",
+      "nullable": true
+    },
+    {
+      "name": "deeplyNested",
+      "type": "string",
+      "nullable": true
+    }
+  ]
+}
