@@ -1,0 +1,17 @@
+package {{ base_package }}
+
+{%- for struct in structs %}
+func random{{ struct.name }}() {{ struct.name }} {
+    return {{ struct.name }}{
+        {%- for field in struct.fields %}
+        {{ field.name }}: {{ field.value }},
+        {%- endfor %}
+    }
+}
+{% endfor %}
+
+{%- for enum in enums %}
+func random{{ enum.name }}() {{ enum.name }} {
+    return {{ enum.name }}_{{ enum.symbols[0] }}
+}
+{% endfor %}
