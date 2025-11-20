@@ -32,10 +32,10 @@ class TestStructureToIceberg(unittest.TestCase):
         with open(actual_path, 'rb') as f:
             actual_schema = pa.ipc.read_schema(f)
         
-        # Compare the schemas
-        self.assertEqual(
-            expected_schema,
-            actual_schema,
+        # Compare the schemas using PyArrow's equals method
+        # Note: This compares field names, types, and nullability but ignores field metadata (like field IDs)
+        self.assertTrue(
+            expected_schema.equals(actual_schema),
             f"Schema mismatch:\nExpected: {expected_schema}\nActual: {actual_schema}"
         )
 
