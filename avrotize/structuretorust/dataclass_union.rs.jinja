@@ -1,0 +1,81 @@
+{%- if serde_annotation %}
+use serde::{self, Serialize, Deserialize};
+{%- endif %}
+
+{% if doc %}
+/// {{ doc }}
+{%- endif %}
+#[derive(Debug, PartialEq, Clone)]
+{%- if serde_annotation %}
+#[serde(untagged)]
+{%- endif %}
+pub enum {{ union_enum_name }} {
+{%- for variant in variants %}
+    {{ variant.variant_name }}({{ variant.type -}})
+    {%- if not loop.last %},{% endif %}
+{%- endfor %}
+}
+
+impl Default for {{ union_enum_name }} {
+    fn default() -> Self {
+        return {{ union_enum_name }}::{{ variants[0].variant_name }}(Default::default())
+    }
+}
+
+{%- if serde_annotation %}
+impl Serialize for {{ union_enum_name }} {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer
+    {
+        match self {
+            {%- for variant in variants %}
+            {{ union_enum_name }}::{{ variant.variant_name}}(value) => value.serialize(serializer),
+            {%- endfor %}
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for {{ union_enum_name }} {
+    fn deserialize<D>(deserializer: D) -> Result<{{ union_enum_name }}, D::Error>
+    where
+        D: serde::de::Deserializer<'de>
+    {
+        let node = serde_json::Value::deserialize(deserializer)?;
+        {%- for variant in variants %}
+        {
+            if let Ok(value) = serde_json::from_value::<{{ variant.type }}>(node.clone()) {
+                return Ok({{ union_enum_name }}::{{ variant.variant_name }}(value));
+            }
+        }
+        {%- endfor %}
+        Err(serde::de::Error::custom("No valid variant found"))
+    }
+}
+{%- endif %}
+
+#[cfg(test)]
+impl {{ union_enum_name }} {
+    pub fn generate_random_instance() -> {{ union_enum_name }} {
+        let mut rng = rand::thread_rng();
+        match rand::Rng::gen_range(&mut rng, 0..{{ variants | length }}) {
+            {%- for variant in variants %}
+            {{ loop.index0 }} => {{ union_enum_name }}::{{ variant.variant_name }}(Default::default()),
+            {%- endfor %}
+            _ => panic!("Invalid random index generated"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_union_variants_{{ union_enum_name.lower() }}() {
+        {%- for variant in variants %}
+        let instance = {{ union_enum_name }}::{{ variant.variant_name }}(Default::default());
+        assert!(matches!(instance, {{ union_enum_name }}::{{ variant.variant_name }}(_)));
+        {%- endfor %}
+    }
+}
