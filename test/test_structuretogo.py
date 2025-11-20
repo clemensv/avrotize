@@ -8,8 +8,6 @@ import sys
 import tempfile
 from os import path
 
-import pytest
-
 current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
 sys.path.append(project_root)
