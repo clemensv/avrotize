@@ -1,0 +1,35 @@
+{
+  "fields": [
+    {
+      "name": "productName",
+      "type": "string",
+      "description": "Product name with alternate names",
+      "maxLength": 100
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "minimum": 0,
+      "precision": 10,
+      "scale": 2
+    },
+    {
+      "name": "weight",
+      "type": "number",
+      "nullable": true,
+      "minimum": 0.0
+    },
+    {
+      "name": "temperature",
+      "type": "number",
+      "nullable": true
+    },
+    {
+      "name": "stockSymbol",
+      "type": "string",
+      "nullable": true,
+      "maxLength": 10,
+      "pattern": "^[A-Z]{1,5}$"
+    }
+  ]
+}

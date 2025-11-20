@@ -1,0 +1,41 @@
+{
+  "fields": [
+    {
+      "name": "constrainedString",
+      "type": "string",
+      "maxLength": 50,
+      "minLength": 5,
+      "pattern": "^[A-Z][a-zA-Z0-9]*$"
+    },
+    {
+      "name": "enumField",
+      "type": "string",
+      "enum": [
+        "red",
+        "green",
+        "blue",
+        "yellow"
+      ]
+    },
+    {
+      "name": "constField",
+      "type": "string",
+      "const": "fixed-value",
+      "nullable": true
+    },
+    {
+      "name": "numberWithConstraints",
+      "type": "integer",
+      "nullable": true,
+      "minimum": 0,
+      "maximum": 100
+    },
+    {
+      "name": "exclusiveRangeNumber",
+      "type": "number",
+      "nullable": true,
+      "exclusiveMinimum": 0.0,
+      "exclusiveMaximum": 10.0
+    }
+  ]
+}
