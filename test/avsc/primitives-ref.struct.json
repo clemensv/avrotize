@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/test/primitives",
+  "name": "PrimitiveTypes",
+  "$root": "#/definitions/test/PrimitiveTypes",
+  "definitions": {
+    "test": {
+      "PrimitiveTypes": {
+        "name": "PrimitiveTypes",
+        "type": "object",
+        "description": "Test all JSON primitive types",
+        "properties": {
+          "stringField": {
+            "type": "string",
+            "description": "A string field"
+          },
+          "numberField": {
+            "type": "number",
+            "description": "A number field"
+          },
+          "integerField": {
+            "type": "integer",
+            "description": "An integer field"
+          },
+          "booleanField": {
+            "type": "boolean",
+            "description": "A boolean field"
+          },
+          "nullableString": {
+            "type": ["string", "null"],
+            "description": "A nullable string"
+          }
+        },
+        "required": ["stringField", "numberField", "integerField", "booleanField"]
+      }
+    }
+  }
+}

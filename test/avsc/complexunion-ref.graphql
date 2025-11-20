@@ -1,0 +1,62 @@
+scalar JSON
+
+type TopLevelType {
+  version: String!
+  document: JSON!
+}
+type RecordType1 {
+  field1: String!
+  field2: Int!
+  field3: String!
+  field4: Float!
+  field5: Int!
+  fieldB: String
+}
+type RecordType2 {
+  field1: String!
+  field2: Int!
+  field3: Boolean!
+  field4: Float
+  field5: Int
+  fieldA: String!
+}
+type RecordType3a {
+  field1: String!
+  field2: Int!
+  field3: Boolean!
+  field4: Float
+  field5: Int
+  fieldA: JSON!
+}
+type RecordType3b {
+  field1: String!
+  field2: Int!
+  field3: Boolean!
+  field4: Float
+  field5: Int
+  fieldA: JSON!
+}
+type RecordType4aMapValue {
+  field1: String!
+  field2: Int!
+}
+type RecordType4a {
+  field1: String!
+  field2: Int!
+  field3: Boolean!
+  field4: Float
+  field5: Int
+  fieldA: JSON!
+}
+type RecordType4bMapValue {
+  field1: Int!
+  field2: String!
+}
+type RecordType4b {
+  field1: String!
+  field2: Int!
+  field3: Boolean!
+  field4: Float
+  field5: Int
+  fieldA: JSON!
+}

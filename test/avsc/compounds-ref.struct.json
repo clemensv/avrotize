@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/test/compounds",
+  "name": "CompoundTypes",
+  "$root": "#/definitions/test/CompoundTypes",
+  "definitions": {
+    "test": {
+      "NestedObject": {
+        "name": "NestedObject",
+        "type": "object",
+        "properties": {
+          "nestedField": {"type": "string", "description": "A nested field"}
+        },
+        "required": ["nestedField"]
+      },
+      "CompoundTypes": {
+        "name": "CompoundTypes",
+        "type": "object",
+        "description": "Test compound types",
+        "properties": {
+          "arrayField": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Array of strings"
+          },
+          "setField": {
+            "type": "set",
+            "items": {"type": "int32"},
+            "description": "Set of integers"
+          },
+          "mapField": {
+            "type": "map",
+            "values": {"type": "string"},
+            "description": "Map with string values"
+          },
+          "nestedObject": {
+            "$ref": "#/definitions/test/NestedObject",
+            "description": "Nested object reference"
+          },
+          "arrayOfObjects": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/test/NestedObject"},
+            "description": "Array of nested objects"
+          },
+          "anyField": {
+            "type": "any",
+            "description": "Any type field"
+          }
+        },
+        "required": ["arrayField", "nestedObject"]
+      }
+    }
+  }
+}

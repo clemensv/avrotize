@@ -1,0 +1,53 @@
+scalar Binary
+scalar Date
+scalar DateTime
+scalar Decimal
+scalar JSON
+scalar URI
+scalar UUID
+
+"""
+Test extended primitive types
+"""
+type ExtendedPrimitives {
+  """8-bit integer"""
+  int8Field: Int
+  """Unsigned 8-bit integer"""
+  uint8Field: Int
+  """16-bit integer"""
+  int16Field: Int
+  """Unsigned 16-bit integer"""
+  uint16Field: Int
+  """32-bit integer"""
+  int32Field: Int!
+  """Unsigned 32-bit integer"""
+  uint32Field: Int
+  """64-bit integer"""
+  int64Field: Int
+  """Unsigned 64-bit integer"""
+  uint64Field: Int
+  """8-bit float"""
+  float8Field: Float
+  """Float"""
+  floatField: Float!
+  """Double"""
+  doubleField: Float
+  """Decimal number"""
+  decimalField: Decimal
+  """Binary data"""
+  binaryField: Binary
+  """Date"""
+  dateField: Date!
+  """Time"""
+  timeField: String
+  """DateTime"""
+  datetimeField: DateTime
+  """Duration"""
+  durationField: String
+  """UUID"""
+  uuidField: UUID!
+  """URI"""
+  uriField: URI
+  """JSON Pointer"""
+  jsonpointerField: String
+}

@@ -1,0 +1,17 @@
+scalar JSON
+
+"""
+Test all JSON primitive types
+"""
+type PrimitiveTypes {
+  """A string field"""
+  stringField: String!
+  """A number field"""
+  numberField: Float!
+  """An integer field"""
+  integerField: Int!
+  """A boolean field"""
+  booleanField: Boolean!
+  """A nullable string"""
+  nullableString: String
+}
