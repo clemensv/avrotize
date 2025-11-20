@@ -454,6 +454,50 @@
     ]
   },
   {
+    "command": "s2x",
+    "description": "Convert JSON Structure schema to XSD schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretoxsd.convert_structure_to_xsd",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "xsd_file_path": "output_file_path",
+        "target_namespace": "args.namespace"
+      }
+    },
+    "extensions": [".struct.json", ".jstruct"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the XSD schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Target namespace for the XSD schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.xsd",
+    "prompts": [
+      {
+        "name": "--namespace",
+        "message": "Enter the target namespace for the XSD schema (optional)",
+        "type": "str",
+        "required": false
+      }
+    ]
+  },
+  {
     "command": "a2k",
     "description": "Convert Avrotize schema to Kusto table schemas",    
     "group": "4_RTDB",
