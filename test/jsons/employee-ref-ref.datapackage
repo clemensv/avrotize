@@ -1,0 +1,23 @@
+{
+  "profile": "data-package",
+  "resources": [
+    {
+      "name": "document",
+      "schema": {
+        "fields": [
+          {
+            "name": "employmentDetails",
+            "type": "string"
+          },
+          {
+            "name": "personDetails",
+            "type": "object"
+          }
+        ]
+      },
+      "description": "Employee",
+      "profile": "data-resource"
+    }
+  ],
+  "name": "datapackage"
+}

@@ -333,6 +333,10 @@ class StructureToDataPackageConverter:
             # Get the type field
             type_name = structure_type.get("type")
             
+            # Handle case where type itself is a dict with $ref
+            if isinstance(type_name, dict):
+                return self.convert_structure_type_to_datapackage_type(type_name, context_schema)
+            
             if type_name == "array":
                 return "array"
             elif type_name == "set":

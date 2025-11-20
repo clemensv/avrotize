@@ -1,0 +1,43 @@
+{
+  "profile": "data-package",
+  "resources": [
+    {
+      "name": "document",
+      "schema": {
+        "fields": [
+          {
+            "name": "countryName",
+            "type": "string"
+          },
+          {
+            "name": "extendedAddress",
+            "type": "string"
+          },
+          {
+            "name": "locality",
+            "type": "string"
+          },
+          {
+            "name": "postOfficeBox",
+            "type": "string"
+          },
+          {
+            "name": "postalCode",
+            "type": "string"
+          },
+          {
+            "name": "region",
+            "type": "string"
+          },
+          {
+            "name": "streetAddress",
+            "type": "string"
+          }
+        ]
+      },
+      "description": "An address similar to http://microformats.org/wiki/h-card",
+      "profile": "data-resource"
+    }
+  ],
+  "name": "datapackage"
+}

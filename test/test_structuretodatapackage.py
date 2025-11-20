@@ -21,6 +21,16 @@ def test_convert_address_struct_to_datapackage():
     convert_case("address-ref")
 
 
+def test_convert_employee_struct_to_datapackage():
+    """Test converting employee JSON Structure to datapackage"""
+    convert_case("employee-ref")
+
+
+def test_convert_arraydef_struct_to_datapackage():
+    """Test converting arraydef JSON Structure to datapackage"""
+    convert_case("arraydef-ref")
+
+
 def test_convert_simple_types_struct_to_datapackage():
     """Test converting schema with various simple types"""
     # Create a test schema with various JSON Structure types
@@ -326,25 +336,33 @@ def convert_case(file_base_name: str):
     cwd = os.getcwd()
     struct_path = os.path.join(cwd, "test", "jsons", file_base_name + ".struct.json")
     datapackage_path = os.path.join(
-        tempfile.gettempdir(), "avrotize", file_base_name + ".datapackage.json")
+        tempfile.gettempdir(), "avrotize", file_base_name + ".datapackage")
+    datapackage_ref_path = os.path.join(cwd, "test", "jsons", file_base_name + "-ref.datapackage")
     dir_name = os.path.dirname(datapackage_path)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name, exist_ok=True)
 
     convert_structure_to_datapackage(struct_path, None, datapackage_path)
     
-    # Just verify file was created
+    # Verify file was created
     assert os.path.exists(datapackage_path)
     
     # Verify it's valid JSON
     with open(datapackage_path, 'r', encoding='utf-8') as f:
         result = json.load(f)
     
-    # Basic structure checks
-    assert 'resources' in result
-    if result['resources']:  # If there are resources
-        assert 'schema' in result['resources'][0]
-        assert 'fields' in result['resources'][0]['schema']
+    # Compare with reference file if it exists
+    if os.path.exists(datapackage_ref_path):
+        with open(datapackage_path, 'r', encoding="utf-8") as file1, open(datapackage_ref_path, 'r', encoding="utf-8") as file2:
+            content1 = file1.read()
+            content2 = file2.read()
+        assert content1 == content2, f"Generated output does not match reference file for {file_base_name}"
+    else:
+        # Basic structure checks if no reference file
+        assert 'resources' in result
+        if result['resources']:  # If there are resources
+            assert 'schema' in result['resources'][0]
+            assert 'fields' in result['resources'][0]['schema']
 
 
 if __name__ == '__main__':
