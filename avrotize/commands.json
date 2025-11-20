@@ -1,2433 +1,2584 @@
 [
-  {
-    "command": "p2a",
-    "description": "Convert Proto schema to Avrotize schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.prototoavro.convert_proto_to_avro",
-      "args": {
-        "proto_file_path": "input_file_path",
-        "avro_schema_path": "output_file_path",
-        "namespace": "args.namespace",
-        "message_type": "args.message_type",
-        "proto_root": "args.proto_root"
-      }
-    },
-    "extensions": [".proto"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path of the proto file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--proto",
-        "type": "str",
-        "help": "Deprecated: Path of the proto file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "Namespace for the Avrotize schema",
-        "required": false
-      },
-      {
-        "name": "--message-type",
-        "type": "str",
-        "help": "Generate the schema for a specific Proto message type and inline all references",
-        "required": false
-      },
-      {
-        "name": "--proto-root",
-        "type": "str",
-        "help": "Root directory for resolving proto imports (useful for buf-style module roots)",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.avsc",
-    "prompts": []
-  },
-  {
-    "command": "a2p",
-    "description": "Convert Avrotize schema to Proto schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.avrotoproto.convert_avro_to_proto",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "proto_file_path": "output_file_path",
-        "naming_mode": "args.naming",
-        "allow_optional": "args.allow_optional"
-      }
-    },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Proto file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Proto file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--naming",
-        "type": "str",
-        "help": "Type naming convention",
-        "choices": ["snake", "camel", "pascal"],
-        "required": false,
-        "default": "pascal"
-      },
-      {
-        "name": "--allow-optional",
-        "type": "bool",
-        "help": "Enable support for 'optional' fields",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-proto",
-    "prompts": [
-      {
-        "name": "--naming",
-        "message": "Select type naming convention",
-        "choices": ["snake", "camel", "pascal"],
-        "default": "pascal",
-        "required": false
-      },
-      {
-        "name": "--allow-optional",
-        "message": "Enable support for 'optional' fields?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "j2a",
-    "description": "Convert JSON schema to Avrotize schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.jsonstoavro.convert_jsons_to_avro",
-      "args": {
-        "json_schema_file_path": "input_file_path",
-        "avro_schema_path": "output_file_path",
-        "namespace": "args.namespace",
-        "split_top_level_records": "args.split_top_level_records"
-      }
-    },
-    "extensions": [".json", ".jsons"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the JSON schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--jsons",
-        "type": "str",
-        "help": "Deprecated: Path to the JSON schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "Namespace for the Avrotize schema",
-        "required": false
-      },
-      {
-        "name": "--split-top-level-records",
-        "type": "bool",
-        "help": "Split top-level records into separate files",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.avsc",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the namespace for the Avro schema",
-        "type": "str",
-        "required": false
-      },
-      {
-        "name": "--split-top-level-records",
-        "message": "Split top-level records into separate files?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "a2j",
-    "description": "Convert Avrotize schema to JSON schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.avrotojsons.convert_avro_to_json_schema",
-      "args": {
-        "avro_schema_file": "input_file_path",
-        "json_schema_file": "output_file_path",
-        "naming_mode": "args.naming"
-      }
-    },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the JSON schema file",
-        "required": false
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--naming",
-        "type": "str",
-        "help": "Type naming convention",
-        "choices": ["snake", "camel", "pascal", "default"],
-        "required": false,
-        "default": "default"
-      }    ],
-    "suggested_output_file_path": "{input_file_name}.jsons",
-    "prompts": []
-  },
-  {
-    "command": "j2s",
-    "description": "Convert JSON schema to JSON Structure",
-    "group": "1_Schemas",    "function": {
-      "name": "avrotize.jsonstostructure.convert_json_schema_to_structure_files",
-      "args": {
-        "json_schema_file_path": "input_file_path",
-        "structure_schema_path": "output_file_path",
-        "root_namespace": "args.namespace"
-      }
-    },
-    "extensions": [".json", ".jsons"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the JSON schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the JSON Structure file",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "Namespace for the JSON Structure schema",
-        "required": false
-      },
-      {
-        "name": "--utility-namespace",
-        "type": "str",
-        "help": "Namespace for utility types",
-        "required": false
-      },
-      {
-        "name": "--root-class-name",
-        "type": "str",
-        "help": "Name of the root class",
-        "default": "document",
-        "required": false
-      },
-      {
-        "name": "--preserve-composition",
-        "type": "bool",
-        "help": "Preserve composition keywords (allOf, oneOf, anyOf)",
-        "default": true,
-        "required": false
-      },
-      {
-        "name": "--detect-inheritance",
-        "type": "bool",
-        "help": "Detect inheritance patterns in allOf schemas",
-        "default": true,
-        "required": false
-      },
-      {
-        "name": "--detect-discriminators",
-        "type": "bool",
-        "help": "Detect OpenAPI discriminator patterns",
-        "default": true,
-        "required": false
-      },
-      {
-        "name": "--convert-empty-objects-to-maps",
-        "type": "bool",
-        "help": "Convert objects with only additionalProperties to maps",
-        "default": true,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.struct.json",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the namespace for the JSON Structure schema",
-        "type": "str",
-        "required": false
-      },
-      {
-        "name": "--root-class-name",
-        "message": "Enter the name of the root class",
-        "type": "str",
-        "default": "document",
-        "required": false
-      }    ]
-  },
-  {
-    "command": "s2j",
-    "description": "Convert JSON Structure to JSON Schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.structuretojsons.convert_structure_to_json_schema",
-      "args": {
-        "structure_file_path": "input_file_path",
-        "json_schema_path": "output_file_path"
-      }
-    },
-    "extensions": [".struct.json", ".json"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the JSON Schema file",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.schema.json",
-    "prompts": []
-  },
-  {
-    "command": "x2a",
-    "description": "Convert XSD schema to Avrotize schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.xsdtoavro.convert_xsd_to_avro",
-      "args": {
-        "xsd_path": "input_file_path",
-        "avro_path": "output_file_path",
-        "namespace": "args.namespace"
-      }
-    },
-    "extensions": [".xsd"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the XSD schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--xsd",
-        "type": "str",
-        "help": "Deprecated: Path to the XSD schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "Namespace for the Avrotize schema",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.avsc",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the namespace for the Avro schema",
-        "type": "str",
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "a2x",
-    "description": "Convert Avrotize schema to XSD schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.avrotoxsd.convert_avro_to_xsd",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "xml_file_path": "output_file_path",
-        "target_namespace": "args.namespace"
-      }
-    },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the XSD schema file",
-        "required": false
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "Target namespace for the XSD schema",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.xsd",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the target namespace for the XSD schema (optional)",
-        "type": "str",
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "a2k",
-    "description": "Convert Avrotize schema to Kusto table schemas",    
-    "group": "4_RTDB",
-    "function": {
-      "name": "avrotize.avrotokusto.convert_avro_to_kusto",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "kusto_file_path": "output_file_path",
-        "kusto_uri": "args.kusto_uri",
-        "kusto_database": "args.kusto_database",
-        "avro_record_type": "args.record_type",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns",
-        "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch"
-      }
-    },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Kusto table",
-        "required": false
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--kusto-uri",
-        "type": "str",
-        "help": "Kusto Cluster URI to apply the generated schema to.",
-        "required": false
-      },
-      {
-        "name": "--kusto-database",
-        "type": "str",
-        "help": "Kusto database name to apply the generated schema to",
-        "required": false
-      },
-      {
-        "name": "--record-type",
-        "type": "str",
-        "help": "Record type in the Avrotize schema",
-        "required": false
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the Kusto table",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--emit-cloudevents-dispatch",
-        "type": "bool",
-        "help": "Emit a _cloudevents_dispatch ingestion table and update policies for each generated table",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.kql",
-    "prompts": [
-      {
-        "name": "--kusto-uri",
-        "message": "Enter the Kusto Cluster URI (optional)",
-        "type": "str",
-        "required": false
-      },
-      {
-        "name": "--kusto-database",
-        "message": "Enter the Kusto database name (optional)",
-        "type": "str",
-        "required": false
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the Kusto table?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--emit-cloudevents-dispatch",
-        "message": "Emit a _cloudevents_dispatch ingestion table and update policies?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "k2a",
-    "description": "Convert Kusto schema to Avrotize schema",    
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.kustotoavro.convert_kusto_to_avro",
-      "args": {
-        "kusto_uri": "args.kusto_uri",
-        "kusto_database": "args.kusto_database",
-        "table_name": "args.table_name",
-        "avro_namespace": "args.namespace",
-        "avro_schema_file": "output_file_path",
-        "emit_cloudevents": "args.emit_cloudevents",
-        "emit_cloudevents_xregistry": "args.emit_xregistry"
-      }
-    },
-    "extensions": [".kusto"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Kusto file",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--kusto-uri",
-        "type": "str",
-        "help": "Kusto Cluster URI",
-        "required": false
-      },
-      {
-        "name": "--kusto-database",
-        "type": "str",
-        "help": "Kusto database",
-        "required": false
-      },
-      {
-        "name": "--table-name",
-        "type": "str",
-        "help": "Kusto table name",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "Namespace for the Avrotize schema",
-        "required": false
-      },
-      {
-        "name": "--emit-cloudevents",
-        "type": "bool",
-        "help": "Emit CloudEvents declarations for each table",
-        "required": false
-      },
-      {
-        "name": "--emit-xregistry",
-        "type": "bool",
-        "help": "Emit an xRegistry manifest with CloudEvents declarations for each table instead of a single Avrotize schema",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{kusto_database}.avsc",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the namespace for the Avro schema",
-        "type": "str",
-        "required": false
-      },
-      {
-        "name": "--emit-cloudevents",
-        "message": "Emit CloudEvents declarations for each table?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--emit-xregistry",
-        "message": "Emit an xRegistry manifest with CloudEvents declarations?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      }
-    ],
-    "skip_input_file_handling": true
-  },
-  {
-    "command": "a2sql",
-    "description": "Convert Avrotize schema to SQL schema",
-    "group": "5_SQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_sql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "dbscript_file_path": "output_file_path",
-        "db_dialect": "args.dialect",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
-    },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the SQL table",
-        "required": false
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--dialect",
-        "type": "str",
-        "help": "SQL dialect (database type)",
-        "choices": [
-          "mysql",
-          "mariadb",
-          "postgres",
-          "sqlserver",
-          "oracle",
-          "sqlite",
-          "bigquery",
-          "snowflake",
-          "redshift",
-          "db2"
+    {
+        "command": "p2a",
+        "description": "Convert Proto schema to Avrotize schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.prototoavro.convert_proto_to_avro",
+            "args": {
+                "proto_file_path": "input_file_path",
+                "avro_schema_path": "output_file_path",
+                "namespace": "args.namespace",
+                "message_type": "args.message_type",
+                "proto_root": "args.proto_root"
+            }
+        },
+        "extensions": [
+            ".proto"
         ],
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the SQL table",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.sql",
-    "prompts": [
-      {
-        "name": "--dialect",
-        "message": "Select the SQL dialect",
-        "choices": [
-          "mysql",
-          "mariadb",
-          "postgres",
-          "sqlserver",
-          "oracle",
-          "sqlite",
-          "bigquery",
-          "snowflake",
-          "redshift",
-          "db2"
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path of the proto file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--proto",
+                "type": "str",
+                "help": "Deprecated: Path of the proto file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Namespace for the Avrotize schema",
+                "required": false
+            },
+            {
+                "name": "--message-type",
+                "type": "str",
+                "help": "Generate the schema for a specific Proto message type and inline all references",
+                "required": false
+            },
+            {
+                "name": "--proto-root",
+                "type": "str",
+                "help": "Root directory for resolving proto imports (useful for buf-style module roots)",
+                "required": false
+            }
         ],
-        "default": "mysql",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the SQL table?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "a2mongo",
-    "description": "Convert Avrotize schema to MongoDB schema",
-    "group": "6_NoSQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_nosql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "nosql_file_path": "output_file_path",
-        "nosql_dialect": "mongodb",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+        "suggested_output_file_path": "{input_file_name}.avsc",
+        "prompts": []
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the MongoDB schemas",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the MongoDB schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.json",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the MongoDB schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2pq",
-    "description": "Convert Avrotize schema to Parquet or Iceberg schema",
-    "group": "3_Datalake",
-    "function": {
-      "name": "avrotize.avrotoparquet.convert_avro_to_parquet",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "parquet_file_path": "output_file_path",
-        "avro_record_type": "args.record_type",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "a2p",
+        "description": "Convert Avrotize schema to Proto schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.avrotoproto.convert_avro_to_proto",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "proto_file_path": "output_file_path",
+                "naming_mode": "args.naming",
+                "allow_optional": "args.allow_optional"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Proto file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Proto file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--naming",
+                "type": "str",
+                "help": "Type naming convention",
+                "choices": [
+                    "snake",
+                    "camel",
+                    "pascal"
+                ],
+                "required": false,
+                "default": "pascal"
+            },
+            {
+                "name": "--allow-optional",
+                "type": "bool",
+                "help": "Enable support for 'optional' fields",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-proto",
+        "prompts": [
+            {
+                "name": "--naming",
+                "message": "Select type naming convention",
+                "choices": [
+                    "snake",
+                    "camel",
+                    "pascal"
+                ],
+                "default": "pascal",
+                "required": false
+            },
+            {
+                "name": "--allow-optional",
+                "message": "Enable support for 'optional' fields?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Parquet file",
-        "required": false
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--record-type",
-        "type": "str",
-        "help": "Record type in the Avrotize schema",
-        "required": false
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the Parquet file",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.parquet",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the Parquet file?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2ib",
-    "description": "Convert Avrotize schema to Iceberg schema",
-    "group": "3_Datalake",    
-    "function": {
-      "name": "avrotize.avrotoiceberg.convert_avro_to_iceberg",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "output_path": "output_file_path",
-        "avro_record_type": "args.record_type",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "j2a",
+        "description": "Convert JSON schema to Avrotize schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.jsonstoavro.convert_jsons_to_avro",
+            "args": {
+                "json_schema_file_path": "input_file_path",
+                "avro_schema_path": "output_file_path",
+                "namespace": "args.namespace",
+                "split_top_level_records": "args.split_top_level_records"
+            }
+        },
+        "extensions": [
+            ".json",
+            ".jsons"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the JSON schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--jsons",
+                "type": "str",
+                "help": "Deprecated: Path to the JSON schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Namespace for the Avrotize schema",
+                "required": false
+            },
+            {
+                "name": "--split-top-level-records",
+                "type": "bool",
+                "help": "Split top-level records into separate files",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the namespace for the Avro schema",
+                "type": "str",
+                "required": false
+            },
+            {
+                "name": "--split-top-level-records",
+                "message": "Split top-level records into separate files?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Iceberg schema",
-        "required": false
-      },
-      {
-        "name": "--record-type",
-        "type": "str",
-        "help": "Record type in the Avrotize schema",
-        "required": false
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the Iceberg schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.iceberg",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the Iceberg schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "pq2a",
-    "description": "Convert Parquet schema to Avrotize schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.parquettoavro.convert_parquet_to_avro",
-      "args": {
-        "parquet_file_path": "input_file_path",
-        "avro_file_path": "output_file_path",
-        "namespace": "args.namespace"
-      }
+    {
+        "command": "a2j",
+        "description": "Convert Avrotize schema to JSON schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.avrotojsons.convert_avro_to_json_schema",
+            "args": {
+                "avro_schema_file": "input_file_path",
+                "json_schema_file": "output_file_path",
+                "naming_mode": "args.naming"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the JSON schema file",
+                "required": false
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--naming",
+                "type": "str",
+                "help": "Type naming convention",
+                "choices": [
+                    "snake",
+                    "camel",
+                    "pascal",
+                    "default"
+                ],
+                "required": false,
+                "default": "default"
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.jsons",
+        "prompts": []
     },
-    "extensions": [".parquet"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Parquet file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--parquet",
-        "type": "str",
-        "help": "Deprecated: Path to the Parquet file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "Namespace for the Avrotize schema",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.avsc",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the namespace for the Avro schema",
-        "type": "str",
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "asn2a",
-    "description": "Convert ASN.1 schema to Avrotize schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.asn1toavro.convert_asn1_to_avro",
-      "args": {
-        "asn1_spec_list": "input_file_path",
-        "avro_file_path": "output_file_path"
-      }
+    {
+        "command": "j2s",
+        "description": "Convert JSON schema to JSON Structure",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.jsonstostructure.convert_json_schema_to_structure_files",
+            "args": {
+                "json_schema_file_path": "input_file_path",
+                "structure_schema_path": "output_file_path",
+                "root_namespace": "args.namespace"
+            }
+        },
+        "extensions": [
+            ".json",
+            ".jsons"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the JSON schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the JSON Structure file",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Namespace for the JSON Structure schema",
+                "required": false
+            },
+            {
+                "name": "--utility-namespace",
+                "type": "str",
+                "help": "Namespace for utility types",
+                "required": false
+            },
+            {
+                "name": "--root-class-name",
+                "type": "str",
+                "help": "Name of the root class",
+                "default": "document",
+                "required": false
+            },
+            {
+                "name": "--preserve-composition",
+                "type": "bool",
+                "help": "Preserve composition keywords (allOf, oneOf, anyOf)",
+                "default": true,
+                "required": false
+            },
+            {
+                "name": "--detect-inheritance",
+                "type": "bool",
+                "help": "Detect inheritance patterns in allOf schemas",
+                "default": true,
+                "required": false
+            },
+            {
+                "name": "--detect-discriminators",
+                "type": "bool",
+                "help": "Detect OpenAPI discriminator patterns",
+                "default": true,
+                "required": false
+            },
+            {
+                "name": "--convert-empty-objects-to-maps",
+                "type": "bool",
+                "help": "Convert objects with only additionalProperties to maps",
+                "default": true,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.struct.json",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the namespace for the JSON Structure schema",
+                "type": "str",
+                "required": false
+            },
+            {
+                "name": "--root-class-name",
+                "message": "Enter the name of the root class",
+                "type": "str",
+                "default": "document",
+                "required": false
+            }
+        ]
     },
-    "extensions": [".asn1"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path(s) to the ASN.1 schema file(s) (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--asn",
-        "type": "str",
-        "nargs": "+",
-        "help": "Deprecated: Path(s) to the ASN.1 schema file(s) (for backcompat)",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.avsc",
-    "prompts": []
-  },
-  {
-    "command": "kstruct2a",
-    "description": "Convert Kafka Struct to Avrotize schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.kstructtoavro.convert_kafka_struct_to_avro_schema",
-      "args": {
-        "kafka_schema_file_path": "input_file_path",
-        "avro_file_path": "output_file_path"
-      }
+    {
+        "command": "s2j",
+        "description": "Convert JSON Structure to JSON Schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.structuretojsons.convert_structure_to_json_schema",
+            "args": {
+                "structure_file_path": "input_file_path",
+                "json_schema_path": "output_file_path"
+            }
+        },
+        "extensions": [
+            ".struct.json",
+            ".json"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the JSON Schema file",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.schema.json",
+        "prompts": []
     },
-    "extensions": [".kstruct"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Kafka Struct file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--kstruct",
-        "type": "str",
-        "help": "Deprecated: Path to the Kafka Struct file (for backcompat)",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.avsc",
-    "prompts": []
-  },
-  {
-    "command": "a2cs",
-    "description": "Convert Avrotize schema to C# classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.avrotocsharp.convert_avro_to_csharp",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "cs_file_path": "output_file_path",
-        "avro_annotation": "args.avro_annotation",
-        "system_text_json_annotation": "args.system_text_json_annotation",
-        "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
-        "system_xml_annotation": "args.system_xml_annotation",
-        "pascal_properties": "args.pascal_properties",
-        "base_namespace": "args.namespace"
-      }
+    {
+        "command": "x2a",
+        "description": "Convert XSD schema to Avrotize schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.xsdtoavro.convert_xsd_to_avro",
+            "args": {
+                "xsd_path": "input_file_path",
+                "avro_path": "output_file_path",
+                "namespace": "args.namespace"
+            }
+        },
+        "extensions": [
+            ".xsd"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the XSD schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--xsd",
+                "type": "str",
+                "help": "Deprecated: Path to the XSD schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Namespace for the Avrotize schema",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the namespace for the Avro schema",
+                "type": "str",
+                "required": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Kafka Struct file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "C# project name",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "type": "bool",
-        "help": "Use Avro annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--system_text_json_annotation",
-        "type": "bool",
-        "help": "Use System.Text.Json annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--system-xml-annotation",
-        "type": "bool",
-        "help": "Use System.Xml annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--newtonsoft-json-annotation",
-        "type": "bool",
-        "help": "Use Newtonsoft.Json annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--pascal-properties",
-        "type": "bool",
-        "help": "Use PascalCase properties",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-cs",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the C# root namespace for the project",
-        "type": "str",
-        "default": "{input_file_name}-cs",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "message": "Use Avro annotations?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--system_text_json_annotation",
-        "message": "Use System.Text.Json annotations?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--pascal-properties",
-        "message": "Use PascalCase properties?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "s2cs",
-    "description": "Convert JSON Structure to C# classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.structuretocsharp.convert_structure_to_csharp",
-      "args": {
-        "structure_schema_path": "input_file_path",
-        "cs_file_path": "output_file_path",
-        "system_text_json_annotation": "args.system_text_json_annotation",
-        "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
-        "system_xml_annotation": "args.system_xml_annotation",
-        "pascal_properties": "args.pascal_properties",
-        "base_namespace": "args.namespace",
-        "project_name": "args.project_name"
-      }
+    {
+        "command": "a2x",
+        "description": "Convert Avrotize schema to XSD schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.avrotoxsd.convert_avro_to_xsd",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "xml_file_path": "output_file_path",
+                "target_namespace": "args.namespace"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the XSD schema file",
+                "required": false
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Target namespace for the XSD schema",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.xsd",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the target namespace for the XSD schema (optional)",
+                "type": "str",
+                "required": false
+            }
+        ]
     },
-    "extensions": [".struct.json", ".json"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the C# classes",
-        "required": false
-      },
-      {
-        "name": "--struct",
-        "type": "str",
-        "help": "Deprecated: Path to the JSON Structure file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "C# root namespace",
-        "required": false
-      },
-      {
-        "name": "--project-name",
-        "type": "str",
-        "help": "C# project name",
-        "required": false
-      },
-      {
-        "name": "--system_text_json_annotation",
-        "type": "bool",
-        "help": "Use System.Text.Json annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--system-xml-annotation",
-        "type": "bool",
-        "help": "Use System.Xml annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--newtonsoft-json-annotation",
-        "type": "bool",
-        "help": "Use Newtonsoft.Json annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--pascal-properties",
-        "type": "bool",
-        "help": "Use PascalCase properties",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-cs",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the C# root namespace for the project",
-        "type": "str",
-        "default": "{input_file_name}",
-        "required": false
-      },
-      {
-        "name": "--project-name",
-        "message": "Enter the C# project name",
-        "type": "str",
-        "default": "{input_file_name}",
-        "required": false
-      },
-      {
-        "name": "--system_text_json_annotation",
-        "message": "Use System.Text.Json annotations?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--pascal-properties",
-        "message": "Use PascalCase properties?",
-        "type": "bool",
-        "default": false,
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "a2java",
-    "description": "Convert Avrotize schema to Java classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.avrotojava.convert_avro_to_java",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "java_file_path": "output_file_path",
-        "package_name": "args.package",
-        "avro_annotation": "args.avro_annotation",
-        "jackson_annotation": "args.jackson_annotation",
-        "pascal_properties": "args.pascal_properties"
-      }
+    {
+        "command": "a2k",
+        "description": "Convert Avrotize schema to Kusto table schemas",
+        "group": "4_RTDB",
+        "function": {
+            "name": "avrotize.avrotokusto.convert_avro_to_kusto",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "kusto_file_path": "output_file_path",
+                "kusto_uri": "args.kusto_uri",
+                "kusto_database": "args.kusto_database",
+                "avro_record_type": "args.record_type",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns",
+                "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Kusto table",
+                "required": false
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--kusto-uri",
+                "type": "str",
+                "help": "Kusto Cluster URI to apply the generated schema to.",
+                "required": false
+            },
+            {
+                "name": "--kusto-database",
+                "type": "str",
+                "help": "Kusto database name to apply the generated schema to",
+                "required": false
+            },
+            {
+                "name": "--record-type",
+                "type": "str",
+                "help": "Record type in the Avrotize schema",
+                "required": false
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the Kusto table",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--emit-cloudevents-dispatch",
+                "type": "bool",
+                "help": "Emit a _cloudevents_dispatch ingestion table and update policies for each generated table",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.kql",
+        "prompts": [
+            {
+                "name": "--kusto-uri",
+                "message": "Enter the Kusto Cluster URI (optional)",
+                "type": "str",
+                "required": false
+            },
+            {
+                "name": "--kusto-database",
+                "message": "Enter the Kusto database name (optional)",
+                "type": "str",
+                "required": false
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the Kusto table?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--emit-cloudevents-dispatch",
+                "message": "Emit a _cloudevents_dispatch ingestion table and update policies?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the Java classes",
-        "required": true
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--package",
-        "type": "str",
-        "help": "Java package name",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "type": "bool",
-        "help": "Use Avro annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--jackson-annotation",
-        "type": "bool",
-        "help": "Use Jackson annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--pascal-properties",
-        "type": "bool",
-        "help": "Use PascalCase properties",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-java",
-    "prompts": [
-      {
-        "name": "--avro-annotation",
-        "message": "Use Avro annotations?",
-        "type": "bool",
-        "default": false
-      },
-      {
-        "name": "--jackson-annotation",
-        "message": "Use Jackson annotations?",
-        "type": "bool",
-        "default": false
-      },
-      {
-        "name": "--pascal-properties",
-        "message": "Use PascalCase properties?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2py",
-    "description": "Convert Avrotize schema to Python classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.avrotopython.convert_avro_to_python",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "py_file_path": "output_file_path",
-        "package_name": "args.package",
-        "dataclasses_json_annotation": "args.dataclasses_json_annotation",
-        "avro_annotation": "args.avro_annotation"
-      }
+    {
+        "command": "k2a",
+        "description": "Convert Kusto schema to Avrotize schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.kustotoavro.convert_kusto_to_avro",
+            "args": {
+                "kusto_uri": "args.kusto_uri",
+                "kusto_database": "args.kusto_database",
+                "table_name": "args.table_name",
+                "avro_namespace": "args.namespace",
+                "avro_schema_file": "output_file_path",
+                "emit_cloudevents": "args.emit_cloudevents",
+                "emit_cloudevents_xregistry": "args.emit_xregistry"
+            }
+        },
+        "extensions": [
+            ".kusto"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Kusto file",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--kusto-uri",
+                "type": "str",
+                "help": "Kusto Cluster URI",
+                "required": false
+            },
+            {
+                "name": "--kusto-database",
+                "type": "str",
+                "help": "Kusto database",
+                "required": false
+            },
+            {
+                "name": "--table-name",
+                "type": "str",
+                "help": "Kusto table name",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Namespace for the Avrotize schema",
+                "required": false
+            },
+            {
+                "name": "--emit-cloudevents",
+                "type": "bool",
+                "help": "Emit CloudEvents declarations for each table",
+                "required": false
+            },
+            {
+                "name": "--emit-xregistry",
+                "type": "bool",
+                "help": "Emit an xRegistry manifest with CloudEvents declarations for each table instead of a single Avrotize schema",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{kusto_database}.avsc",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the namespace for the Avro schema",
+                "type": "str",
+                "required": false
+            },
+            {
+                "name": "--emit-cloudevents",
+                "message": "Emit CloudEvents declarations for each table?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--emit-xregistry",
+                "message": "Emit an xRegistry manifest with CloudEvents declarations?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            }
+        ],
+        "skip_input_file_handling": true
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the Python classes",
-        "required": true
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--package",
-        "type": "str",
-        "help": "Python package name",
-        "required": false
-      },
-      {
-        "name": "--dataclasses-json-annotation",
-        "type": "bool",
-        "help": "Use dataclasses-json annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "type": "bool",
-        "help": "Use Avro annotations",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-py",
-    "prompts": [
-      {
-        "name": "--dataclasses-json-annotation",
-        "message": "Use dataclasses-json annotations?",
-        "type": "bool",
-        "default": false
-      },
-      {
-        "name": "--avro-annotation",
-        "message": "Use apache_avro annotations?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "s2py",
-    "description": "Convert JSON Structure to Python classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.structuretopython.convert_structure_to_python",
-      "args": {
-        "structure_schema_path": "input_file_path",
-        "py_file_path": "output_file_path",
-        "package_name": "args.package",
-        "dataclasses_json_annotation": "args.dataclasses_json_annotation",
-        "avro_annotation": "args.avro_annotation"
-      }
+    {
+        "command": "a2sql",
+        "description": "Convert Avrotize schema to SQL schema",
+        "group": "5_SQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_sql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "dbscript_file_path": "output_file_path",
+                "db_dialect": "args.dialect",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the SQL table",
+                "required": false
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--dialect",
+                "type": "str",
+                "help": "SQL dialect (database type)",
+                "choices": [
+                    "mysql",
+                    "mariadb",
+                    "postgres",
+                    "sqlserver",
+                    "oracle",
+                    "sqlite",
+                    "bigquery",
+                    "snowflake",
+                    "redshift",
+                    "db2"
+                ],
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the SQL table",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.sql",
+        "prompts": [
+            {
+                "name": "--dialect",
+                "message": "Select the SQL dialect",
+                "choices": [
+                    "mysql",
+                    "mariadb",
+                    "postgres",
+                    "sqlserver",
+                    "oracle",
+                    "sqlite",
+                    "bigquery",
+                    "snowflake",
+                    "redshift",
+                    "db2"
+                ],
+                "default": "mysql",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the SQL table?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            }
+        ]
     },
-    "extensions": [".struct.json", ".json"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the Python classes",
-        "required": true
-      },
-      {
-        "name": "--package",
-        "type": "str",
-        "help": "Python package name",
-        "required": false
-      },
-      {
-        "name": "--dataclasses-json-annotation",
-        "type": "bool",
-        "help": "Use dataclasses-json annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "type": "bool",
-        "help": "Add Avro binary serialization support with embedded Structure schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-py",
-    "prompts": [
-      {
-        "name": "--dataclasses-json-annotation",
-        "message": "Use dataclasses-json annotations?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2ts",
-    "description": "Convert Avrotize schema to TypeScript classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.avrotots.convert_avro_to_typescript",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "js_dir_path": "output_file_path",
-        "package_name": "args.package",
-        "avro_annotation": "args.avro_annotation",
-        "typedjson_annotation": "args.typedjson_annotation"
-      }
+    {
+        "command": "a2mongo",
+        "description": "Convert Avrotize schema to MongoDB schema",
+        "group": "6_NoSQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_nosql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "nosql_file_path": "output_file_path",
+                "nosql_dialect": "mongodb",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the MongoDB schemas",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the MongoDB schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.json",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the MongoDB schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the TypeScript classes",
-        "required": true
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--package",
-        "type": "str",
-        "help": "TypeScript package name",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "type": "bool",
-        "help": "Use Avro annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--typedjson-annotation",
-        "type": "bool",
-        "help": "Use TypedJSON annotations",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-ts",
-    "prompts": [
-      {
-        "name": "--avro-annotation",
-        "message": "Use Avro annotations?",
-        "type": "bool",
-        "default": false
-      },
-      {
-        "name": "--typedjson-annotation",
-        "message": "Use TypedJSON annotations?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2js",
-    "description": "Convert Avrotize schema to JavaScript classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.avrotojs.convert_avro_to_javascript",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "js_dir_path": "output_file_path",
-        "package_name": "args.package",
-        "avro_annotation": "args.avro_annotation"
-      }
+    {
+        "command": "a2pq",
+        "description": "Convert Avrotize schema to Parquet or Iceberg schema",
+        "group": "3_Datalake",
+        "function": {
+            "name": "avrotize.avrotoparquet.convert_avro_to_parquet",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "parquet_file_path": "output_file_path",
+                "avro_record_type": "args.record_type",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Parquet file",
+                "required": false
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--record-type",
+                "type": "str",
+                "help": "Record type in the Avrotize schema",
+                "required": false
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the Parquet file",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.parquet",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the Parquet file?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the JavaScript classes",
-        "required": true
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--package",
-        "type": "str",
-        "help": "JavaScript package name",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "type": "bool",
-        "help": "Use Avro annotations",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-js",
-    "prompts": [
-      {
-        "name": "--avro-annotation",
-        "message": "Use Avro annotations?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2cpp",
-    "description": "Convert Avrotize schema to C++ classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.avrotocpp.convert_avro_to_cpp",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "output_dir": "output_file_path",
-        "namespace": "args.namespace",
-        "avro_annotation": "args.avro_annotation",
-        "json_annotation": "args.json_annotation"
-      }
+    {
+        "command": "a2ib",
+        "description": "Convert Avrotize schema to Iceberg schema",
+        "group": "3_Datalake",
+        "function": {
+            "name": "avrotize.avrotoiceberg.convert_avro_to_iceberg",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "output_path": "output_file_path",
+                "avro_record_type": "args.record_type",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Iceberg schema",
+                "required": false
+            },
+            {
+                "name": "--record-type",
+                "type": "str",
+                "help": "Record type in the Avrotize schema",
+                "required": false
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the Iceberg schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.iceberg",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the Iceberg schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the C++ classes",
-        "required": true
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "C++ namespace",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "type": "bool",
-        "help": "Use Avro annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--json-annotation",
-        "type": "bool",
-        "help": "Use JSON annotations",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-cpp",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the root namespace for the C++ classes (optional)",
-        "type": "str",
-        "default": "{input_file_name}",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "message": "Use Avro annotations?",
-        "type": "bool",
-        "default": false
-      },
-      {
-        "name": "--json-annotation",
-        "message": "Use JSON annotations?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2go",
-    "description": "Convert Avrotize schema to Go classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.avrotogo.convert_avro_to_go",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "go_file_path": "output_file_path",
-        "package_name": "args.package",
-        "avro_annotation": "args.avro_annotation",
-        "json_annotation": "args.json_annotation",
-        "package_site": "args.package_site",
-        "package_username": "args.package_username"
-      }
+    {
+        "command": "pq2a",
+        "description": "Convert Parquet schema to Avrotize schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.parquettoavro.convert_parquet_to_avro",
+            "args": {
+                "parquet_file_path": "input_file_path",
+                "avro_file_path": "output_file_path",
+                "namespace": "args.namespace"
+            }
+        },
+        "extensions": [
+            ".parquet"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Parquet file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--parquet",
+                "type": "str",
+                "help": "Deprecated: Path to the Parquet file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Namespace for the Avrotize schema",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the namespace for the Avro schema",
+                "type": "str",
+                "required": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the Go classes",
-        "required": true
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--package",
-        "type": "str",
-        "help": "Go package name",
-        "required": false
-      },
-      {
-        "name": "--package-site",
-        "type": "str",
-        "help": "Go package site",
-        "required": false
-      },
-      {
-        "name": "--package-username",
-        "type": "str",
-        "help": "Go package username",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "type": "bool",
-        "help": "Use Avro annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--json-annotation",
-        "type": "bool",
-        "help": "Use JSON annotations",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-go",
-    "prompts": [
-      {
-        "name": "--avro-annotation",
-        "message": "Use Avro annotations?",
-        "type": "bool",
-        "default": false
-      },
-      {
-        "name": "--json-annotation",
-        "message": "Use JSON annotations?",
-        "type": "bool",
-        "default": false
-      },
-      {
-        "name": "--package",
-        "message": "Enter the Go package name (optional)",
-        "type": "str",
-        "required": false
-      },
-      {
-        "name": "--package-site",
-        "message": "Enter the Go package site (optional)",
-        "type": "str",
-        "required": false
-      },
-      {
-        "name": "--package-username",
-        "message": "Enter the Go package username (optional)",
-        "type": "str",
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "a2rust",
-    "description": "Convert Avrotize schema to Rust classes",
-    "group": "2_ProgLanguages",
-    "function": {
-      "name": "avrotize.avrotorust.convert_avro_to_rust",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "rust_file_path": "output_file_path",
-        "package_name": "args.package",
-        "avro_annotation": "args.avro_annotation",
-        "serde_annotation": "args.json_annotation"
-      }
+    {
+        "command": "asn2a",
+        "description": "Convert ASN.1 schema to Avrotize schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.asn1toavro.convert_asn1_to_avro",
+            "args": {
+                "asn1_spec_list": "input_file_path",
+                "avro_file_path": "output_file_path"
+            }
+        },
+        "extensions": [
+            ".asn1"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path(s) to the ASN.1 schema file(s) (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--asn",
+                "type": "str",
+                "nargs": "+",
+                "help": "Deprecated: Path(s) to the ASN.1 schema file(s) (for backcompat)",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
+        "prompts": []
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the Rust classes",
-        "required": true
-      },
-      {
-        "name": "--avsc",
-        "type": "str",
-        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
-        "required": false
-      },
-      {
-        "name": "--package",
-        "type": "str",
-        "help": "Rust package name",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "type": "bool",
-        "help": "Use Avro annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--json-annotation",
-        "type": "bool",
-        "help": "Use JSON annotations",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}-rust",
-    "prompts": [
-      {
-        "name": "--package",
-        "message": "Enter the Rust package name (optional)",
-        "type": "str",
-        "required": false
-      },
-      {
-        "name": "--avro-annotation",
-        "message": "Use Avro annotations?",
-        "type": "bool",
-        "default": false
-      },
-      {
-        "name": "--json-annotation",
-        "message": "Use JSON annotations?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2dp",
-    "description": "Convert Avrotize schema to Datapackage schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.avrotodatapackage.convert_avro_to_datapackage",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "datapackage_path": "output_file_path",
-        "avro_record_type": "args.record_type"
-      }
+    {
+        "command": "kstruct2a",
+        "description": "Convert Kafka Struct to Avrotize schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.kstructtoavro.convert_kafka_struct_to_avro_schema",
+            "args": {
+                "kafka_schema_file_path": "input_file_path",
+                "avro_file_path": "output_file_path"
+            }
+        },
+        "extensions": [
+            ".kstruct"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Kafka Struct file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--kstruct",
+                "type": "str",
+                "help": "Deprecated: Path to the Kafka Struct file (for backcompat)",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
+        "prompts": []
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the Datapackage schema",
-        "required": false
-      },
-      {
-        "name": "--record-type",
-        "type": "str",
-        "help": "Record type in the Avrotize schema",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.json",
-    "prompts": [
-      {
-        "name": "--record-type",
-        "message": "Enter the record type in the Avro schema (optional)",
-        "type": "str",
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "a2md",
-    "description": "Convert Avrotize schema to Markdown documentation",
-    "group": "7_Utility",
-    "function": {
-      "name": "avrotize.avrotomd.convert_avro_to_markdown",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "markdown_path": "output_file_path"
-      }
+    {
+        "command": "a2cs",
+        "description": "Convert Avrotize schema to C# classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.avrotocsharp.convert_avro_to_csharp",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "cs_file_path": "output_file_path",
+                "avro_annotation": "args.avro_annotation",
+                "system_text_json_annotation": "args.system_text_json_annotation",
+                "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
+                "system_xml_annotation": "args.system_xml_annotation",
+                "pascal_properties": "args.pascal_properties",
+                "base_namespace": "args.namespace"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Kafka Struct file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "C# project name",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "type": "bool",
+                "help": "Use Avro annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--system_text_json_annotation",
+                "type": "bool",
+                "help": "Use System.Text.Json annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--system-xml-annotation",
+                "type": "bool",
+                "help": "Use System.Xml annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--newtonsoft-json-annotation",
+                "type": "bool",
+                "help": "Use Newtonsoft.Json annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--pascal-properties",
+                "type": "bool",
+                "help": "Use PascalCase properties",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-cs",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the C# root namespace for the project",
+                "type": "str",
+                "default": "{input_file_name}-cs",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "message": "Use Avro annotations?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--system_text_json_annotation",
+                "message": "Use System.Text.Json annotations?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--pascal-properties",
+                "message": "Use PascalCase properties?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Output path for the Markdown documentation",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.md",
-    "prompts": []
-  },
-  {
-    "command": "pcf",
-    "description": "Create the Parsing Canonical Form (PCF) of an Avrotize schema",
-    "group": "7_Utility",
-    "function": {
-      "name": "avrotize.avrotools.avsc_to_pcf",
-      "args": {
-        "schema_file": "input_file_path"
-      }
+    {
+        "command": "s2cs",
+        "description": "Convert JSON Structure to C# classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.structuretocsharp.convert_structure_to_csharp",
+            "args": {
+                "structure_schema_path": "input_file_path",
+                "cs_file_path": "output_file_path",
+                "system_text_json_annotation": "args.system_text_json_annotation",
+                "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
+                "system_xml_annotation": "args.system_xml_annotation",
+                "pascal_properties": "args.pascal_properties",
+                "base_namespace": "args.namespace",
+                "project_name": "args.project_name"
+            }
+        },
+        "extensions": [
+            ".struct.json",
+            ".json"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the C# classes",
+                "required": false
+            },
+            {
+                "name": "--struct",
+                "type": "str",
+                "help": "Deprecated: Path to the JSON Structure file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "C# root namespace",
+                "required": false
+            },
+            {
+                "name": "--project-name",
+                "type": "str",
+                "help": "C# project name",
+                "required": false
+            },
+            {
+                "name": "--system_text_json_annotation",
+                "type": "bool",
+                "help": "Use System.Text.Json annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--system-xml-annotation",
+                "type": "bool",
+                "help": "Use System.Xml annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--newtonsoft-json-annotation",
+                "type": "bool",
+                "help": "Use Newtonsoft.Json annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--pascal-properties",
+                "type": "bool",
+                "help": "Use PascalCase properties",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-cs",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the C# root namespace for the project",
+                "type": "str",
+                "default": "{input_file_name}",
+                "required": false
+            },
+            {
+                "name": "--project-name",
+                "message": "Enter the C# project name",
+                "type": "str",
+                "default": "{input_file_name}",
+                "required": false
+            },
+            {
+                "name": "--system_text_json_annotation",
+                "message": "Use System.Text.Json annotations?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--pascal-properties",
+                "message": "Use PascalCase properties?",
+                "type": "bool",
+                "default": false,
+                "required": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      }
-    ],
-    "prompts": []
-  },
-  {
-    "command": "csv2a",
-    "description": "Convert CSV file to Avrotize schema",
-    "group": "1_Schemas",    
-    "function": {
-      "name": "avrotize.csvtoavro.convert_csv_to_avro",
-      "args": {
-        "csv_file_path": "input_file_path",
-        "avro_file_path": "output_file_path",
-        "namespace": "args.namespace"
-      }
+    {
+        "command": "a2java",
+        "description": "Convert Avrotize schema to Java classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.avrotojava.convert_avro_to_java",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "java_file_path": "output_file_path",
+                "package_name": "args.package",
+                "avro_annotation": "args.avro_annotation",
+                "jackson_annotation": "args.jackson_annotation",
+                "pascal_properties": "args.pascal_properties"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the Java classes",
+                "required": true
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--package",
+                "type": "str",
+                "help": "Java package name",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "type": "bool",
+                "help": "Use Avro annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--jackson-annotation",
+                "type": "bool",
+                "help": "Use Jackson annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--pascal-properties",
+                "type": "bool",
+                "help": "Use PascalCase properties",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-java",
+        "prompts": [
+            {
+                "name": "--avro-annotation",
+                "message": "Use Avro annotations?",
+                "type": "bool",
+                "default": false
+            },
+            {
+                "name": "--jackson-annotation",
+                "message": "Use Jackson annotations?",
+                "type": "bool",
+                "default": false
+            },
+            {
+                "name": "--pascal-properties",
+                "message": "Use PascalCase properties?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".csv"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the CSV file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      },
-      {
-        "name": "--namespace",
-        "type": "str",
-        "help": "Namespace for the Avrotize schema",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.avsc",
-    "prompts": [
-      {
-        "name": "--namespace",
-        "message": "Enter the namespace for the Avro schema",
-        "type": "str",
-        "required": false
-      }
-    ]
-  },
-  {
-    "command": "a2cassandra",
-    "description": "Convert Avrotize schema to Cassandra schema",
-    "group": "5_SQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_sql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "dbscript_file_path": "output_file_path",
-        "db_dialect": "cassandra",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "a2py",
+        "description": "Convert Avrotize schema to Python classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.avrotopython.convert_avro_to_python",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "py_file_path": "output_file_path",
+                "package_name": "args.package",
+                "dataclasses_json_annotation": "args.dataclasses_json_annotation",
+                "avro_annotation": "args.avro_annotation"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the Python classes",
+                "required": true
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--package",
+                "type": "str",
+                "help": "Python package name",
+                "required": false
+            },
+            {
+                "name": "--dataclasses-json-annotation",
+                "type": "bool",
+                "help": "Use dataclasses-json annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "type": "bool",
+                "help": "Use Avro annotations",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-py",
+        "prompts": [
+            {
+                "name": "--dataclasses-json-annotation",
+                "message": "Use dataclasses-json annotations?",
+                "type": "bool",
+                "default": false
+            },
+            {
+                "name": "--avro-annotation",
+                "message": "Use apache_avro annotations?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Cassandra schema file",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the Cassandra schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.cql",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the Cassandra schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2dynamodb",
-    "description": "Convert Avrotize schema to DynamoDB schema",
-    "group": "6_NoSQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_nosql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "nosql_file_path": "output_file_path",
-        "nosql_dialect": "dynamodb",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "s2py",
+        "description": "Convert JSON Structure to Python classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.structuretopython.convert_structure_to_python",
+            "args": {
+                "structure_schema_path": "input_file_path",
+                "py_file_path": "output_file_path",
+                "package_name": "args.package",
+                "dataclasses_json_annotation": "args.dataclasses_json_annotation",
+                "avro_annotation": "args.avro_annotation"
+            }
+        },
+        "extensions": [
+            ".struct.json",
+            ".json"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the Python classes",
+                "required": true
+            },
+            {
+                "name": "--package",
+                "type": "str",
+                "help": "Python package name",
+                "required": false
+            },
+            {
+                "name": "--dataclasses-json-annotation",
+                "type": "bool",
+                "help": "Use dataclasses-json annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "type": "bool",
+                "help": "Add Avro binary serialization support with embedded Structure schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-py",
+        "prompts": [
+            {
+                "name": "--dataclasses-json-annotation",
+                "message": "Use dataclasses-json annotations?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the DynamoDB schema file",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the DynamoDB schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.json",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the DynamoDB schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2es",
-    "description": "Convert Avrotize schema to Elasticsearch schema",
-    "group": "6_NoSQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_nosql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "nosql_file_path": "output_file_path",
-        "nosql_dialect": "elasticsearch",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "s2java",
+        "description": "Convert JSON Structure to Java classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.structuretojava.convert_structure_to_java",
+            "args": {
+                "structure_schema_path": "input_file_path",
+                "java_file_path": "output_file_path",
+                "package_name": "args.package",
+                "pascal_properties": "args.pascal_properties"
+            }
+        },
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "help": "Path to JSON Structure schema file",
+                "required": true
+            },
+            {
+                "name": "out",
+                "type": "str",
+                "help": "Path to output Java directory",
+                "required": true
+            },
+            {
+                "name": "package",
+                "type": "str",
+                "help": "Java package name",
+                "default": "",
+                "required": false
+            },
+            {
+                "name": "pascal_properties",
+                "type": "bool",
+                "help": "Use PascalCase for property names",
+                "default": false,
+                "required": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Elasticsearch schema file",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the Elasticsearch schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.json",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the Elasticsearch schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2couchdb",
-    "description": "Convert Avrotize schema to CouchDB schema",
-    "group": "6_NoSQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_nosql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "nosql_file_path": "output_file_path",
-        "nosql_dialect": "couchdb",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "a2ts",
+        "description": "Convert Avrotize schema to TypeScript classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.avrotots.convert_avro_to_typescript",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "js_dir_path": "output_file_path",
+                "package_name": "args.package",
+                "avro_annotation": "args.avro_annotation",
+                "typedjson_annotation": "args.typedjson_annotation"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the TypeScript classes",
+                "required": true
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--package",
+                "type": "str",
+                "help": "TypeScript package name",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "type": "bool",
+                "help": "Use Avro annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--typedjson-annotation",
+                "type": "bool",
+                "help": "Use TypedJSON annotations",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-ts",
+        "prompts": [
+            {
+                "name": "--avro-annotation",
+                "message": "Use Avro annotations?",
+                "type": "bool",
+                "default": false
+            },
+            {
+                "name": "--typedjson-annotation",
+                "message": "Use TypedJSON annotations?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the CouchDB schema file",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the CouchDB schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.json",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the CouchDB schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2neo4j",
-    "description": "Convert Avrotize schema to Neo4j schema",
-    "group": "6_NoSQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_nosql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "nosql_file_path": "output_file_path",
-        "nosql_dialect": "neo4j",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "a2js",
+        "description": "Convert Avrotize schema to JavaScript classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.avrotojs.convert_avro_to_javascript",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "js_dir_path": "output_file_path",
+                "package_name": "args.package",
+                "avro_annotation": "args.avro_annotation"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the JavaScript classes",
+                "required": true
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--package",
+                "type": "str",
+                "help": "JavaScript package name",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "type": "bool",
+                "help": "Use Avro annotations",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-js",
+        "prompts": [
+            {
+                "name": "--avro-annotation",
+                "message": "Use Avro annotations?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Neo4j schema file",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the Neo4j schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.cypher",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the Neo4j schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2firebase",
-    "description": "Convert Avrotize schema to Firebase schema",
-    "group": "6_NoSQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_nosql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "nosql_file_path": "output_file_path",
-        "nosql_dialect": "firebase",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "a2cpp",
+        "description": "Convert Avrotize schema to C++ classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.avrotocpp.convert_avro_to_cpp",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "output_dir": "output_file_path",
+                "namespace": "args.namespace",
+                "avro_annotation": "args.avro_annotation",
+                "json_annotation": "args.json_annotation"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the C++ classes",
+                "required": true
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "C++ namespace",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "type": "bool",
+                "help": "Use Avro annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--json-annotation",
+                "type": "bool",
+                "help": "Use JSON annotations",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-cpp",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the root namespace for the C++ classes (optional)",
+                "type": "str",
+                "default": "{input_file_name}",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "message": "Use Avro annotations?",
+                "type": "bool",
+                "default": false
+            },
+            {
+                "name": "--json-annotation",
+                "message": "Use JSON annotations?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Firebase schema file",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the Firebase schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.json",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the Firebase schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2cosmos",
-    "description": "Convert Avrotize schema to CosmosDB schema",
-    "group": "6_NoSQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_nosql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "nosql_file_path": "output_file_path",
-        "nosql_dialect": "cosmosdb",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "a2go",
+        "description": "Convert Avrotize schema to Go classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.avrotogo.convert_avro_to_go",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "go_file_path": "output_file_path",
+                "package_name": "args.package",
+                "avro_annotation": "args.avro_annotation",
+                "json_annotation": "args.json_annotation",
+                "package_site": "args.package_site",
+                "package_username": "args.package_username"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the Go classes",
+                "required": true
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--package",
+                "type": "str",
+                "help": "Go package name",
+                "required": false
+            },
+            {
+                "name": "--package-site",
+                "type": "str",
+                "help": "Go package site",
+                "required": false
+            },
+            {
+                "name": "--package-username",
+                "type": "str",
+                "help": "Go package username",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "type": "bool",
+                "help": "Use Avro annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--json-annotation",
+                "type": "bool",
+                "help": "Use JSON annotations",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-go",
+        "prompts": [
+            {
+                "name": "--avro-annotation",
+                "message": "Use Avro annotations?",
+                "type": "bool",
+                "default": false
+            },
+            {
+                "name": "--json-annotation",
+                "message": "Use JSON annotations?",
+                "type": "bool",
+                "default": false
+            },
+            {
+                "name": "--package",
+                "message": "Enter the Go package name (optional)",
+                "type": "str",
+                "required": false
+            },
+            {
+                "name": "--package-site",
+                "message": "Enter the Go package site (optional)",
+                "type": "str",
+                "required": false
+            },
+            {
+                "name": "--package-username",
+                "message": "Enter the Go package username (optional)",
+                "type": "str",
+                "required": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the CosmosDB schema file",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the CosmosDB schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.json",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the CosmosDB schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "a2hbase",
-    "description": "Convert Avrotize schema to HBase schema",
-    "group": "6_NoSQL",
-    "function": {
-      "name": "avrotize.avrotodb.convert_avro_to_nosql",
-      "args": {
-        "avro_schema_path": "input_file_path",
-        "nosql_file_path": "output_file_path",
-        "nosql_dialect": "hbase",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
-      }
+    {
+        "command": "a2rust",
+        "description": "Convert Avrotize schema to Rust classes",
+        "group": "2_ProgLanguages",
+        "function": {
+            "name": "avrotize.avrotorust.convert_avro_to_rust",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "rust_file_path": "output_file_path",
+                "package_name": "args.package",
+                "avro_annotation": "args.avro_annotation",
+                "serde_annotation": "args.json_annotation"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the Rust classes",
+                "required": true
+            },
+            {
+                "name": "--avsc",
+                "type": "str",
+                "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+                "required": false
+            },
+            {
+                "name": "--package",
+                "type": "str",
+                "help": "Rust package name",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "type": "bool",
+                "help": "Use Avro annotations",
+                "default": false,
+                "required": false
+            },
+            {
+                "name": "--json-annotation",
+                "type": "bool",
+                "help": "Use JSON annotations",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}-rust",
+        "prompts": [
+            {
+                "name": "--package",
+                "message": "Enter the Rust package name (optional)",
+                "type": "str",
+                "required": false
+            },
+            {
+                "name": "--avro-annotation",
+                "message": "Use Avro annotations?",
+                "type": "bool",
+                "default": false
+            },
+            {
+                "name": "--json-annotation",
+                "message": "Use JSON annotations?",
+                "type": "bool",
+                "default": false
+            }
+        ]
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the HBase schema file",
-        "required": true
-      },
-      {
-        "name": "--emit-cloudevents-columns",
-        "type": "bool",
-        "help": "Add CloudEvents columns to the HBase schema",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.json",
-    "prompts": [
-      {
-        "name": "--emit-cloudevents-columns",
-        "message": "Add CloudEvents columns to the HBase schema?",
-        "type": "bool",
-        "default": false
-      }
-    ]
-  },
-  {
-    "command": "s2a",
-    "description": "Convert JSON structure to Avrotize schema",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.jstructtoavro.convert_json_structure_to_avro",
-      "args": {
-        "structure_file": "input_file_path",
-        "avro_file": "output_file_path"
-      }
+    {
+        "command": "a2dp",
+        "description": "Convert Avrotize schema to Datapackage schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.avrotodatapackage.convert_avro_to_datapackage",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "datapackage_path": "output_file_path",
+                "avro_record_type": "args.record_type"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the Datapackage schema",
+                "required": false
+            },
+            {
+                "name": "--record-type",
+                "type": "str",
+                "help": "Record type in the Avrotize schema",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.json",
+        "prompts": [
+            {
+                "name": "--record-type",
+                "message": "Enter the record type in the Avro schema (optional)",
+                "type": "str",
+                "required": false
+            }
+        ]
     },
-    "extensions": [".struct.json", ".json"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the JSON structure file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the Avrotize schema file",
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.avsc",
-    "prompts": []
-  },
-  {
-    "command": "a2s",
-    "description": "Convert Avrotize schema to JSON structure",
-    "group": "1_Schemas",
-    "function": {
-      "name": "avrotize.avrotojstruct.convert_avro_to_json_structure",
-      "args": {
-        "avro_schema_file": "input_file_path",
-        "json_structure_file": "output_file_path",
-        "naming_mode": "args.naming",
-        "avro_encoding": "args.avro_encoding"
-      }
+    {
+        "command": "a2md",
+        "description": "Convert Avrotize schema to Markdown documentation",
+        "group": "7_Utility",
+        "function": {
+            "name": "avrotize.avrotomd.convert_avro_to_markdown",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "markdown_path": "output_file_path"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Output path for the Markdown documentation",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.md",
+        "prompts": []
     },
-    "extensions": [".avsc"],
-    "args": [
-      {
-        "name": "input",
-        "type": "str",
-        "nargs": "?",
-        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
-        "required": false
-      },
-      {
-        "name": "--out",
-        "type": "str",
-        "help": "Path to the JSON structure file",
-        "required": false
-      },
-      {
-        "name": "--naming",
-        "type": "str",
-        "help": "Type naming convention",
-        "choices": ["snake", "camel", "pascal", "default"],
-        "required": false,
-        "default": "default"
-      },
-      {
-        "name": "--avro-encoding",
-        "type": "bool",
-        "help": "Enable Avro encoding for unions",
-        "default": false,
-        "required": false
-      }
-    ],
-    "suggested_output_file_path": "{input_file_name}.struct.json",
-    "prompts": []
-  }
+    {
+        "command": "pcf",
+        "description": "Create the Parsing Canonical Form (PCF) of an Avrotize schema",
+        "group": "7_Utility",
+        "function": {
+            "name": "avrotize.avrotools.avsc_to_pcf",
+            "args": {
+                "schema_file": "input_file_path"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            }
+        ],
+        "prompts": []
+    },
+    {
+        "command": "csv2a",
+        "description": "Convert CSV file to Avrotize schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.csvtoavro.convert_csv_to_avro",
+            "args": {
+                "csv_file_path": "input_file_path",
+                "avro_file_path": "output_file_path",
+                "namespace": "args.namespace"
+            }
+        },
+        "extensions": [
+            ".csv"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the CSV file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            },
+            {
+                "name": "--namespace",
+                "type": "str",
+                "help": "Namespace for the Avrotize schema",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
+        "prompts": [
+            {
+                "name": "--namespace",
+                "message": "Enter the namespace for the Avro schema",
+                "type": "str",
+                "required": false
+            }
+        ]
+    },
+    {
+        "command": "a2cassandra",
+        "description": "Convert Avrotize schema to Cassandra schema",
+        "group": "5_SQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_sql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "dbscript_file_path": "output_file_path",
+                "db_dialect": "cassandra",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Cassandra schema file",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the Cassandra schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.cql",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the Cassandra schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
+    },
+    {
+        "command": "a2dynamodb",
+        "description": "Convert Avrotize schema to DynamoDB schema",
+        "group": "6_NoSQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_nosql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "nosql_file_path": "output_file_path",
+                "nosql_dialect": "dynamodb",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the DynamoDB schema file",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the DynamoDB schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.json",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the DynamoDB schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
+    },
+    {
+        "command": "a2es",
+        "description": "Convert Avrotize schema to Elasticsearch schema",
+        "group": "6_NoSQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_nosql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "nosql_file_path": "output_file_path",
+                "nosql_dialect": "elasticsearch",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Elasticsearch schema file",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the Elasticsearch schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.json",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the Elasticsearch schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
+    },
+    {
+        "command": "a2couchdb",
+        "description": "Convert Avrotize schema to CouchDB schema",
+        "group": "6_NoSQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_nosql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "nosql_file_path": "output_file_path",
+                "nosql_dialect": "couchdb",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the CouchDB schema file",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the CouchDB schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.json",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the CouchDB schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
+    },
+    {
+        "command": "a2neo4j",
+        "description": "Convert Avrotize schema to Neo4j schema",
+        "group": "6_NoSQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_nosql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "nosql_file_path": "output_file_path",
+                "nosql_dialect": "neo4j",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Neo4j schema file",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the Neo4j schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.cypher",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the Neo4j schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
+    },
+    {
+        "command": "a2firebase",
+        "description": "Convert Avrotize schema to Firebase schema",
+        "group": "6_NoSQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_nosql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "nosql_file_path": "output_file_path",
+                "nosql_dialect": "firebase",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Firebase schema file",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the Firebase schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.json",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the Firebase schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
+    },
+    {
+        "command": "a2cosmos",
+        "description": "Convert Avrotize schema to CosmosDB schema",
+        "group": "6_NoSQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_nosql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "nosql_file_path": "output_file_path",
+                "nosql_dialect": "cosmosdb",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the CosmosDB schema file",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the CosmosDB schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.json",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the CosmosDB schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
+    },
+    {
+        "command": "a2hbase",
+        "description": "Convert Avrotize schema to HBase schema",
+        "group": "6_NoSQL",
+        "function": {
+            "name": "avrotize.avrotodb.convert_avro_to_nosql",
+            "args": {
+                "avro_schema_path": "input_file_path",
+                "nosql_file_path": "output_file_path",
+                "nosql_dialect": "hbase",
+                "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the HBase schema file",
+                "required": true
+            },
+            {
+                "name": "--emit-cloudevents-columns",
+                "type": "bool",
+                "help": "Add CloudEvents columns to the HBase schema",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.json",
+        "prompts": [
+            {
+                "name": "--emit-cloudevents-columns",
+                "message": "Add CloudEvents columns to the HBase schema?",
+                "type": "bool",
+                "default": false
+            }
+        ]
+    },
+    {
+        "command": "s2a",
+        "description": "Convert JSON structure to Avrotize schema",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.jstructtoavro.convert_json_structure_to_avro",
+            "args": {
+                "structure_file": "input_file_path",
+                "avro_file": "output_file_path"
+            }
+        },
+        "extensions": [
+            ".struct.json",
+            ".json"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the JSON structure file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the Avrotize schema file",
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.avsc",
+        "prompts": []
+    },
+    {
+        "command": "a2s",
+        "description": "Convert Avrotize schema to JSON structure",
+        "group": "1_Schemas",
+        "function": {
+            "name": "avrotize.avrotojstruct.convert_avro_to_json_structure",
+            "args": {
+                "avro_schema_file": "input_file_path",
+                "json_structure_file": "output_file_path",
+                "naming_mode": "args.naming",
+                "avro_encoding": "args.avro_encoding"
+            }
+        },
+        "extensions": [
+            ".avsc"
+        ],
+        "args": [
+            {
+                "name": "input",
+                "type": "str",
+                "nargs": "?",
+                "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+                "required": false
+            },
+            {
+                "name": "--out",
+                "type": "str",
+                "help": "Path to the JSON structure file",
+                "required": false
+            },
+            {
+                "name": "--naming",
+                "type": "str",
+                "help": "Type naming convention",
+                "choices": [
+                    "snake",
+                    "camel",
+                    "pascal",
+                    "default"
+                ],
+                "required": false,
+                "default": "default"
+            },
+            {
+                "name": "--avro-encoding",
+                "type": "bool",
+                "help": "Enable Avro encoding for unions",
+                "default": false,
+                "required": false
+            }
+        ],
+        "suggested_output_file_path": "{input_file_name}.struct.json",
+        "prompts": []
+    }
 ]
