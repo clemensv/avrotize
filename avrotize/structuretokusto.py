@@ -13,6 +13,7 @@ class StructureToKusto:
     def __init__(self):
         """Initializes a new instance of the StructureToKusto class."""
         self.schema_registry: Dict[str, Dict] = {}
+        self.processed_types: set = set()  # Track processed types to avoid duplicates
 
     def resolve_ref(self, ref: str, context_schema: Optional[Dict] = None, schema_doc: Optional[Dict] = None) -> Optional[Dict]:
         """Resolves a $ref to the actual schema definition"""
@@ -66,6 +67,112 @@ class StructureToKusto:
             if key in schema and isinstance(schema[key], dict):
                 self.register_schema_ids(schema[key], base_uri)
 
+    def flatten_inheritance(self, schema: Dict, schema_doc: Dict) -> Dict:
+        """
+        Flattens inheritance by merging properties from $extends base type.
+        Returns a new schema with all properties merged.
+        """
+        if '$extends' not in schema:
+            return schema
+        
+        flattened = schema.copy()
+        base_ref = schema['$extends']
+        
+        # Resolve the base schema
+        base_schema = self.resolve_ref(base_ref, schema_doc, schema_doc)
+        if not base_schema:
+            return flattened
+        
+        # Recursively flatten the base (in case it also extends something)
+        flattened_base = self.flatten_inheritance(base_schema, schema_doc)
+        
+        # Merge properties: base properties first, then derived (derived can override)
+        base_props = flattened_base.get('properties', {})
+        derived_props = schema.get('properties', {})
+        
+        merged_props = {}
+        merged_props.update(base_props)
+        merged_props.update(derived_props)
+        
+        flattened['properties'] = merged_props
+        
+        # Merge required fields
+        base_required = flattened_base.get('required', [])
+        derived_required = schema.get('required', [])
+        if base_required or derived_required:
+            flattened['required'] = list(set(base_required + derived_required))
+        
+        # Add comment about flattened inheritance
+        base_name = flattened_base.get('name', 'base type')
+        orig_desc = flattened.get('description', '')
+        if orig_desc:
+            flattened['description'] = f"{orig_desc} (flattened from {base_name})"
+        else:
+            flattened['description'] = f"Flattened from {base_name}"
+        
+        # Remove $extends as it's now flattened
+        if '$extends' in flattened:
+            del flattened['$extends']
+        
+        return flattened
+
+    def is_concrete_type(self, schema: Dict) -> bool:
+        """Check if a type is concrete (not abstract)."""
+        return not schema.get('abstract', False)
+
+    def find_all_object_types(self, schema: Dict, schema_doc: Dict) -> List[Dict]:
+        """
+        Find all concrete object types in the schema, including those in definitions.
+        Filters out abstract types and includes flattened versions of types with inheritance.
+        """
+        object_types = []
+        
+        def process_schema(s: Dict, path: str = ""):
+            if not isinstance(s, dict):
+                return
+            
+            # Check if this is an object type
+            if s.get('type') == 'object':
+                # Only include concrete types
+                if self.is_concrete_type(s):
+                    # Flatten inheritance if present
+                    flattened = self.flatten_inheritance(s, schema_doc)
+                    object_types.append(flattened)
+            
+            # Recursively process definitions
+            if 'definitions' in s:
+                for def_name, def_schema in s['definitions'].items():
+                    if isinstance(def_schema, dict):
+                        # Handle nested definitions
+                        if def_schema.get('type') == 'object':
+                            process_schema(def_schema, f"{path}/{def_name}")
+                        else:
+                            # Recurse into nested namespaces
+                            for nested_key, nested_val in def_schema.items():
+                                if isinstance(nested_val, dict):
+                                    process_schema(nested_val, f"{path}/{def_name}/{nested_key}")
+        
+        # Process top-level schema
+        if isinstance(schema, dict):
+            if '$root' in schema:
+                root_ref = schema['$root']
+                root_schema = self.resolve_ref(root_ref, schema, schema)
+                if root_schema:
+                    process_schema(root_schema)
+            elif 'type' in schema and schema['type'] == 'object':
+                process_schema(schema)
+            
+            # Always process definitions
+            if 'definitions' in schema:
+                process_schema(schema)
+        
+        elif isinstance(schema, list):
+            for s in schema:
+                if isinstance(s, dict):
+                    process_schema(s)
+        
+        return object_types
+
     def convert_record_to_kusto(self, recordschema: dict, schema_doc: dict, emit_cloudevents_columns: bool, emit_cloudevents_dispatch_table: bool) -> List[str]:
         """Converts a JSON Structure object schema to a Kusto table schema."""
         # Get the name and fields of the top-level record
@@ -82,6 +189,9 @@ class StructureToKusto:
         columns = []
         for prop_name, prop_schema in properties.items():
             column_name = prop_name
+            # Skip const fields - they will be documented but not create columns
+            if isinstance(prop_schema, dict) and 'const' in prop_schema:
+                continue
             column_type = self.convert_structure_type_to_kusto_type(prop_schema, schema_doc)
             columns.append(f"   [{column_name}]: {column_type}")
         if emit_cloudevents_columns:
@@ -98,6 +208,17 @@ class StructureToKusto:
         if "description" in recordschema or "doc" in recordschema:
             doc_data = recordschema.get("description", recordschema.get("doc", ""))
             doc_data = (doc_data[:997] + "...") if len(doc_data) > 1000 else doc_data
+            
+            # Add notes about flattened features
+            notes = []
+            if '$extends' in recordschema:
+                notes.append("Note: Properties from base types have been flattened into this table.")
+            if recordschema.get('abstract', False):
+                notes.append("Warning: Abstract type - should not be instantiated directly.")
+            
+            if notes:
+                doc_data = doc_data + " " + " ".join(notes)
+            
             doc_string = json.dumps(json.dumps({
                 "description": doc_data
             }))
@@ -108,6 +229,22 @@ class StructureToKusto:
         doc_string_statement = []
         for prop_name, prop_schema in properties.items():
             column_name = prop_name
+            
+            # Handle const fields - document them but note they're const
+            if isinstance(prop_schema, dict) and 'const' in prop_schema:
+                const_value = prop_schema['const']
+                doc_data = prop_schema.get("description", prop_schema.get("doc", ""))
+                if doc_data:
+                    doc_data = f"{doc_data} (const value: {json.dumps(const_value)})"
+                else:
+                    doc_data = f"Constant field with value: {json.dumps(const_value)}"
+                doc_content = {"description": doc_data}
+                doc = json.dumps(json.dumps(doc_content))
+                # Add as comment - const fields are not stored in table
+                kusto.insert(len(kusto) - (2 if kusto and kusto[-1] == "" else 1), 
+                           f"-- Const field '{column_name}' with value: {json.dumps(const_value)}")
+                continue
+            
             if "description" in prop_schema or "doc" in prop_schema:
                 doc_data = prop_schema.get("description", prop_schema.get("doc", ""))
                 if len(doc_data) > 900:
@@ -149,7 +286,10 @@ class StructureToKusto:
             kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
             kusto.append(
                 "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
-        for prop_name in properties.keys():
+        for prop_name, prop_schema in properties.items():
+            # Skip const fields in JSON mapping since they're not stored as columns
+            if isinstance(prop_schema, dict) and 'const' in prop_schema:
+                continue
             column_name = prop_name
             kusto.append(
                 f"  {{\"column\": \"{column_name}\", \"path\": \"$.{prop_name}\"}},")
@@ -166,7 +306,10 @@ class StructureToKusto:
             kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
             kusto.append(
                 "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
-            for prop_name in properties.keys():
+            for prop_name, prop_schema in properties.items():
+                # Skip const fields in JSON mapping since they're not stored as columns
+                if isinstance(prop_schema, dict) and 'const' in prop_schema:
+                    continue
                 column_name = prop_name
                 kusto.append(
                     f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{prop_name}\"}},")
@@ -234,11 +377,12 @@ class StructureToKusto:
                 if isinstance(s, dict):
                     self.register_schema_ids(s)
         
-        # Find the record to convert
-        record_schema = None
+        # Find the record(s) to convert
+        record_schemas = []
         schema_doc = None
         
         if isinstance(schema, list):
+            schema_doc = schema[0] if schema else {}
             if structure_record_type:
                 record_schema = next(
                     (x for x in schema if isinstance(x, dict) and x.get("name") == structure_record_type), None)
@@ -246,47 +390,67 @@ class StructureToKusto:
                     print(
                         f"No record type {structure_record_type} found in the JSON Structure schema")
                     sys.exit(1)
-                schema_doc = schema[0] if schema else {}
+                # Flatten inheritance if present
+                record_schemas = [self.flatten_inheritance(record_schema, schema_doc)]
             else:
-                # Use first object type in the list
-                record_schema = next(
-                    (x for x in schema if isinstance(x, dict) and x.get("type") == "object"), None)
-                schema_doc = schema[0] if schema else {}
+                # Find all concrete object types
+                all_types = self.find_all_object_types(schema, schema_doc)
+                if all_types:
+                    record_schemas = all_types
+                else:
+                    # Fallback to first object type
+                    record_schema = next(
+                        (x for x in schema if isinstance(x, dict) and x.get("type") == "object"), None)
+                    if record_schema:
+                        record_schemas = [self.flatten_inheritance(record_schema, schema_doc)]
         elif isinstance(schema, dict):
+            schema_doc = schema
             # Check for $root reference
             if '$root' in schema:
                 root_ref = schema['$root']
                 record_schema = self.resolve_ref(root_ref, schema, schema)
-                schema_doc = schema
+                if record_schema:
+                    # Flatten inheritance
+                    record_schemas = [self.flatten_inheritance(record_schema, schema_doc)]
             elif 'type' in schema and schema['type'] == 'object':
-                record_schema = schema
-                schema_doc = schema
-            elif 'definitions' in schema:
-                # Look for object types in definitions
-                defs = schema['definitions']
-                for def_key, def_val in defs.items():
-                    if isinstance(def_val, dict):
-                        # Navigate nested definitions
-                        for nested_key, nested_val in def_val.items():
-                            if isinstance(nested_val, dict) and nested_val.get('type') == 'object':
-                                if structure_record_type and nested_val.get('name') == structure_record_type:
-                                    record_schema = nested_val
-                                    schema_doc = schema
+                # Flatten inheritance
+                record_schemas = [self.flatten_inheritance(schema, schema_doc)]
+            elif not structure_record_type:
+                # Find all concrete object types in definitions
+                all_types = self.find_all_object_types(schema, schema_doc)
+                if all_types:
+                    record_schemas = all_types
+                else:
+                    # Look for object types in definitions (old fallback logic)
+                    if 'definitions' in schema:
+                        defs = schema['definitions']
+                        for def_key, def_val in defs.items():
+                            if isinstance(def_val, dict):
+                                # Navigate nested definitions
+                                for nested_key, nested_val in def_val.items():
+                                    if isinstance(nested_val, dict) and nested_val.get('type') == 'object':
+                                        if structure_record_type and nested_val.get('name') == structure_record_type:
+                                            record_schemas = [self.flatten_inheritance(nested_val, schema_doc)]
+                                            break
+                                        elif not structure_record_type and self.is_concrete_type(nested_val):
+                                            record_schemas.append(self.flatten_inheritance(nested_val, schema_doc))
+                                if record_schemas and structure_record_type:
                                     break
-                                elif not structure_record_type:
-                                    record_schema = nested_val
-                                    schema_doc = schema
+            else:
+                # Look for specific record type in definitions
+                if 'definitions' in schema:
+                    defs = schema['definitions']
+                    for def_key, def_val in defs.items():
+                        if isinstance(def_val, dict):
+                            for nested_key, nested_val in def_val.items():
+                                if isinstance(nested_val, dict) and nested_val.get('name') == structure_record_type:
+                                    record_schemas = [self.flatten_inheritance(nested_val, schema_doc)]
                                     break
-                        if record_schema:
+                        if record_schemas:
                             break
         
-        if not record_schema:
+        if not record_schemas:
             print("Expected a JSON Structure schema with a root object type or a $root reference")
-            sys.exit(1)
-
-        if not isinstance(record_schema, dict) or "type" not in record_schema or record_schema["type"] != "object":
-            print(
-                "Expected a single JSON Structure schema as a JSON object of type 'object'")
             sys.exit(1)
 
         kusto_script = []
@@ -326,9 +490,22 @@ class StructureToKusto:
                 "  {\"column\": \"data\", \"path\": \"$.data\"}")
             kusto_script.append("]\n```\n\n")
 
-        kusto_script.extend(self.convert_record_to_kusto(
-            record_schema, schema_doc, emit_cloudevents_columns, emit_cloudevents_dispatch_table))
-        return "\n".join(kusto_script)
+        # Convert each record schema to Kusto
+        for record_schema in record_schemas:
+            if not isinstance(record_schema, dict) or "type" not in record_schema or record_schema["type"] != "object":
+                continue
+            
+            # Skip abstract types that somehow made it through
+            if not self.is_concrete_type(record_schema):
+                continue
+                
+            kusto_script.extend(self.convert_record_to_kusto(
+                record_schema, schema_doc, emit_cloudevents_columns, emit_cloudevents_dispatch_table))
+        
+        # Join and clean up extra blank lines at the end
+        result = "\n".join(kusto_script)
+        # Remove trailing whitespace while preserving intentional blank lines
+        return result.rstrip() + "\n" if result else ""
 
     def convert_structure_to_kusto_file(self, structure_schema_path, structure_record_type, kusto_file_path, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False):
         """Converts a JSON Structure schema to a Kusto table schema."""

@@ -1,0 +1,65 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/test/inheritance",
+    "name": "InheritanceTest",
+    "definitions": {
+        "test": {
+            "BaseType": {
+                "name": "BaseType",
+                "type": "object",
+                "abstract": true,
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Unique identifier"
+                    },
+                    "created": {
+                        "type": "datetime",
+                        "description": "Creation timestamp"
+                    }
+                },
+                "required": ["id"],
+                "description": "Abstract base type"
+            },
+            "DerivedTypeA": {
+                "name": "DerivedTypeA",
+                "type": "object",
+                "$extends": "#/definitions/test/BaseType",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name field"
+                    },
+                    "value": {
+                        "type": "int32",
+                        "description": "Value field"
+                    }
+                },
+                "required": ["name"],
+                "description": "Derived type A"
+            },
+            "DerivedTypeB": {
+                "name": "DerivedTypeB",
+                "type": "object",
+                "$extends": "#/definitions/test/BaseType",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "description": "Category field"
+                    },
+                    "count": {
+                        "type": "int64",
+                        "description": "Count field"
+                    },
+                    "active": {
+                        "type": "boolean",
+                        "const": true,
+                        "description": "Always active"
+                    }
+                },
+                "required": ["category"],
+                "description": "Derived type B"
+            }
+        }
+    }
+}
