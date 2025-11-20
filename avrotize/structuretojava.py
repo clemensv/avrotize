@@ -6,36 +6,9 @@ import os
 from typing import Dict, List, Tuple, Union, Set, Optional, Any
 from avrotize.constants import JACKSON_VERSION
 
-from avrotize.common import pascal, camel
+from avrotize.common import pascal, camel, process_template
 
 INDENT = '    '
-POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-    <groupId>{groupid}</groupId>
-    <artifactId>{artifactid}</artifactId>
-    <version>1.0-SNAPSHOT</version>
-    <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <jackson.version>{JACKSON_VERSION}</jackson.version>
-    </properties>
-    <dependencies>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${{jackson.version}}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <version>${{jackson.version}}</version>
-        </dependency>
-    </dependencies>
-</project>
-"""
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -341,7 +314,6 @@ class StructureToJava:
 
     def generate_class(self, structure_schema: Dict, parent_package: str, write_file: bool, explicit_name: str = '') -> JavaType:
         """ Generates a Java class from a JSON Structure object schema """
-        class_definition = ''
         
         # Get name and namespace
         class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'))
@@ -361,18 +333,10 @@ class StructureToJava:
         
         # Check if this is an abstract type
         is_abstract = structure_schema.get('abstract', False)
+        deprecated = structure_schema.get('deprecated', False)
         
         # Generate documentation
         doc = structure_schema.get('description', structure_schema.get('doc', class_name))
-        class_definition += f"/** {doc} */\n"
-        
-        if is_abstract:
-            class_definition += f"/** This is an abstract type and cannot be instantiated directly. */\n"
-        
-        # Add deprecation annotation if needed
-        if structure_schema.get('deprecated', False):
-            deprecated_msg = structure_schema.get('description', f'{class_name} is deprecated')
-            class_definition += f"@Deprecated\n"
         
         # Handle inheritance
         base_class = None
@@ -386,58 +350,90 @@ class StructureToJava:
                 base_type = self.generate_class(base_schema, ref_namespace, write_file=True, explicit_name=base_name)
                 base_class = base_type.type_name
         
-        fields_str = [self.generate_property(class_name, field, schema_namespace) for field in structure_schema.get('properties', {}).items()]
-        class_body = "\n".join(fields_str)
+        # Generate field information for template
+        fields = []
+        for prop_name, prop_schema in structure_schema.get('properties', {}).items():
+            field_info = self.generate_field_info(class_name, prop_name, prop_schema, schema_namespace)
+            fields.append(field_info)
         
-        abstract_modifier = "abstract " if is_abstract else ""
-        class_definition += f"public {abstract_modifier}class {class_name}"
-        if base_class:
-            class_definition += f" extends {base_class}"
-        class_definition += " {\n"
+        # Use template for class generation
+        class_definition = process_template(
+            "structuretojava/class_core.jinja",
+            class_name=class_name,
+            docstring=doc,
+            is_abstract=is_abstract,
+            deprecated=deprecated,
+            base_class=base_class,
+            fields=fields,
+            jackson_annotation=self.jackson_annotations
+        )
         
-        # Add default constructor
-        constructor_modifier = "protected" if is_abstract else "public"
-        class_definition += f"{INDENT}public {class_name}() {{}}\n"
-        class_definition += class_body
-
-        # Generate Equals and GetHashCode
-        class_definition += self.generate_equals_and_gethashcode(structure_schema, class_name, schema_namespace)
-
-        class_definition += "\n}"
+        # Generate Equals and GetHashCode using template
+        properties = structure_schema.get('properties', {})
+        non_const_properties = {k: v for k, v in properties.items() if 'const' not in v}
+        field_names = []
+        for prop_name in non_const_properties.keys():
+            field_name_java = pascal(prop_name) if self.pascal_properties else prop_name
+            safe_field_name = self.safe_identifier(field_name_java, class_name)
+            field_names.append(safe_field_name)
+        
+        equals_hashcode = process_template(
+            "structuretojava/equals_hashcode.jinja",
+            class_name=class_name,
+            fields=field_names,
+            field_count=len(field_names)
+        )
+        
+        class_definition = class_definition.rstrip() + equals_hashcode + "\n}\n"
 
         if write_file:
             self.write_to_file(package, class_name, class_definition)
         return StructureToJava.JavaType(qualified_class_name, is_class=True)
 
-    def generate_property(self, class_name: str, field: Tuple[str, Dict], parent_package: str) -> str:
-        """ Generates a Java property definition """
-        field_name, field_schema = field
-        field_name_java = pascal(field_name) if self.pascal_properties else field_name
-        field_type = self.convert_structure_type_to_java(class_name, field_name, field_schema, parent_package)
+    def generate_field_info(self, class_name: str, prop_name: str, prop_schema: Dict, parent_package: str) -> Dict:
+        """ Generates field information for template """
+        field_name_java = pascal(prop_name) if self.pascal_properties else prop_name
+        field_type = self.convert_structure_type_to_java(class_name, prop_name, prop_schema, parent_package)
         safe_field_name = self.safe_identifier(field_name_java, class_name)
-        property_def = ''
         
-        # Add documentation
-        doc = field_schema.get('description', field_schema.get('doc', field_name_java))
-        property_def += f"{INDENT}/** {doc} */\n"
-        
-        # Add JSON property annotation
-        if self.jackson_annotations and field_name != field_name_java:
-            property_def += f'{INDENT}@JsonProperty("{field_name}")\n'
+        # Generate documentation
+        doc = prop_schema.get('description', prop_schema.get('doc', field_name_java))
         
         # Check if this is a const field
-        if 'const' in field_schema:
-            const_value = field_schema['const']
+        is_const = 'const' in prop_schema
+        const_value = None
+        if is_const:
+            const_val = prop_schema['const']
             prop_type = field_type.type_name
             if prop_type.endswith('?'):
                 prop_type = prop_type[:-1]
-            const_val = self.format_const_value(const_value, prop_type)
-            property_def += f"{INDENT}public static final {prop_type} {safe_field_name} = {const_val};\n"
-            return property_def
+            const_value = self.format_const_value(const_val, prop_type)
         
-        property_def += f"{INDENT}private {field_type.type_name} {safe_field_name};\n"
-        property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name_java)}() {{ return {safe_field_name}; }}\n"
-        property_def += f"{INDENT}public void set{pascal(field_name_java)}({field_type.type_name} {safe_field_name}) {{ this.{safe_field_name} = {safe_field_name}; }}\n"
+        return {
+            'name': safe_field_name,
+            'original_name': prop_name,
+            'type': field_type.type_name,
+            'docstring': doc,
+            'is_const': is_const,
+            'const_value': const_value
+        }
+    
+    def generate_property(self, class_name: str, field: Tuple[str, Dict], parent_package: str) -> str:
+        """ Generates a Java property definition (legacy method for compatibility) """
+        field_name, field_schema = field
+        field_info = self.generate_field_info(class_name, field_name, field_schema, parent_package)
+        
+        property_def = f"{INDENT}/** {field_info['docstring']} */\n"
+        
+        if self.jackson_annotations and field_info['original_name'] != field_info['name']:
+            property_def += f'{INDENT}@JsonProperty("{field_info["original_name"]}")\n'
+        
+        if field_info['is_const']:
+            property_def += f"{INDENT}public static final {field_info['type']} {field_info['name']} = {field_info['const_value']};\n"
+        else:
+            property_def += f"{INDENT}private {field_info['type']} {field_info['name']};\n"
+            property_def += f"{INDENT}public {field_info['type']} get{pascal(field_info['name'])}() {{ return {field_info['name']}; }}\n"
+            property_def += f"{INDENT}public void set{pascal(field_info['name'])}({field_info['type']} {field_info['name']}) {{ this.{field_info['name']} = {field_info['name']}; }}\n"
         
         return property_def
 
@@ -461,7 +457,6 @@ class StructureToJava:
 
     def generate_enum(self, structure_schema: Dict, field_name: str, parent_package: str, write_file: bool) -> JavaType:
         """ Generates a Java enum from JSON Structure enum schema """
-        enum_definition = ''
         
         # Determine enum name
         enum_name = pascal(structure_schema.get('name', field_name + 'Enum'))
@@ -480,11 +475,7 @@ class StructureToJava:
         
         # Generate documentation
         doc = structure_schema.get('description', structure_schema.get('doc', enum_name))
-        enum_definition += f"/** {doc} */\n"
-        
-        # Add deprecation if needed
-        if structure_schema.get('deprecated', False):
-            enum_definition += f"@Deprecated\n"
+        deprecated = structure_schema.get('deprecated', False)
         
         # Determine base type
         base_type = structure_schema.get('type', 'string')
@@ -493,25 +484,27 @@ class StructureToJava:
         
         if is_numeric:
             java_base_type = self.map_primitive_to_java(base_type, False).type_name
-            enum_definition += f"public enum {enum_name} {{\n"
-            # Generate numeric enum members
-            for i, value in enumerate(symbols):
-                member_name = f"VALUE_{value}".upper()
-                enum_definition += f"{INDENT}{member_name}({value})"
-                if i < len(symbols) - 1:
-                    enum_definition += ","
-                enum_definition += "\n"
-            enum_definition += f"{INDENT};\n"
-            enum_definition += f"{INDENT}private final {java_base_type} value;\n"
-            enum_definition += f"{INDENT}{enum_name}({java_base_type} value) {{ this.value = value; }}\n"
-            enum_definition += f"{INDENT}public {java_base_type} getValue() {{ return value; }}\n"
+            symbol_list = [{'name': f"VALUE_{value}".upper(), 'value': value} for value in symbols]
+            enum_definition = process_template(
+                "structuretojava/enum_core.jinja",
+                class_name=enum_name,
+                docstring=doc,
+                deprecated=deprecated,
+                is_numeric=True,
+                numeric_type=java_base_type,
+                symbols=symbol_list
+            )
         else:
             # String enum
-            enum_definition += f"public enum {enum_name} {{\n"
-            symbols_str = ', '.join([self.safe_identifier(pascal(str(symbol).replace('-', '_').replace(' ', '_'))) for symbol in symbols])
-            enum_definition += f"{INDENT}{symbols_str};\n"
-        
-        enum_definition += "}\n"
+            safe_symbols = [self.safe_identifier(pascal(str(symbol).replace('-', '_').replace(' ', '_'))) for symbol in symbols]
+            enum_definition = process_template(
+                "structuretojava/enum_core.jinja",
+                class_name=enum_name,
+                docstring=doc,
+                deprecated=deprecated,
+                is_numeric=False,
+                symbols=safe_symbols
+            )
         
         if write_file:
             self.write_to_file(package, enum_name, enum_definition)
@@ -675,8 +668,14 @@ class StructureToJava:
             package_elements = self.base_package.split('.') if self.base_package else ["com", "example"]
             groupid = '.'.join(package_elements[:-1]) if len(package_elements) > 1 else package_elements[0]
             artifactid = package_elements[-1]
+            pom_content = process_template(
+                "structuretojava/pom.xml.jinja",
+                groupid=groupid,
+                artifactid=artifactid,
+                jackson_version=JACKSON_VERSION
+            )
             with open(pom_path, 'w', encoding='utf-8') as file:
-                file.write(POM_CONTENT.format(groupid=groupid, artifactid=artifactid, JACKSON_VERSION=JACKSON_VERSION, PACKAGE=self.base_package))
+                file.write(pom_content)
         output_dir = os.path.join(
             output_dir, "src/main/java".replace('/', os.sep))
         if not os.path.exists(output_dir):
