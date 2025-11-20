@@ -8,7 +8,6 @@ type RecordRange {
   """The end timestamp of the telemetry record."""
   ended: Int!
 }
-
 """
 Represents a telemetry record for a race car.
 """
