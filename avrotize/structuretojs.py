@@ -597,7 +597,12 @@ class StructureToJavaScript:
 def convert_structure_to_javascript(structure_schema_path: str, js_dir_path: str, package_name: str = ''):
     """ Convert JSON Structure schema to JavaScript classes """
     if not package_name:
-        package_name = os.path.splitext(os.path.basename(structure_schema_path))[0].replace('-', '_')
+        basename = os.path.basename(structure_schema_path)
+        # Handle .struct.json extension pattern
+        if basename.endswith('.struct.json'):
+            package_name = basename[:-12].replace('-', '_')  # Remove .struct.json
+        else:
+            package_name = os.path.splitext(basename)[0].replace('-', '_')
 
     converter = StructureToJavaScript(package_name)
     converter.convert(structure_schema_path, js_dir_path)

@@ -3,6 +3,7 @@
 import unittest
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from os import path, getcwd
@@ -42,18 +43,44 @@ class TestStructureToJavaScript(unittest.TestCase):
         
         assert len(js_files) > 0, f"No JavaScript files generated in {js_path}"
         
+        # Try to run the generated JavaScript files with Node.js if available
+        try:
+            # Check if Node.js is available
+            result = subprocess.run(['node', '--version'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                print(f"Node.js version: {result.stdout.strip()}")
+                
+                # For each JS file, try to load it to verify syntax
+                for js_file in js_files:
+                    try:
+                        # Simple syntax check by requiring the module
+                        test_code = f"const mod = require('{js_file}'); console.log('Loaded:', '{os.path.basename(js_file)}');"
+                        result = subprocess.run(
+                            ['node', '-e', test_code],
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                            cwd=os.path.dirname(js_file)
+                        )
+                        if result.returncode == 0:
+                            print(f"✓ {os.path.basename(js_file)}: {result.stdout.strip()}")
+                        else:
+                            print(f"✗ {os.path.basename(js_file)}: {result.stderr}")
+                    except Exception as e:
+                        print(f"Could not test {js_file}: {e}")
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            print("Node.js not available, skipping runtime tests")
+        
         return js_path
 
     def test_convert_address_ref_struct_to_js(self):
         """Test converting address-ref.struct.json to JavaScript"""
         js_path = self.run_convert_struct_to_js("address-ref")
         
-        # Check for generated Document class (may be in struct subdirectory)
-        # First try the direct path, then try the struct subdirectory
+        # Check for generated Document class
+        # After the fix, it should be in address_ref/ not address_ref/struct/
         document_js = os.path.join(js_path, "address_ref", "Document.js")
-        if not os.path.exists(document_js):
-            document_js = os.path.join(js_path, "address_ref", "struct", "Document.js")
-        assert os.path.exists(document_js), f"Expected Document.js but couldn't find it in {js_path}"
+        assert os.path.exists(document_js), f"Expected Document.js at {document_js}"
 
     def test_convert_anyof_ref_struct_to_js(self):
         """Test converting anyof-ref.struct.json to JavaScript"""

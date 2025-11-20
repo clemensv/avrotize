@@ -66,6 +66,10 @@ Generate code from Avrotize Schema:
 - [`avrotize a2go`](#convert-avrotize-schema-to-go-classes) - Generate Go code from Avrotize Schema.
 - [`avrotize a2rust`](#convert-avrotize-schema-to-rust-classes) - Generate Rust code from Avrotize Schema.
 
+Generate code from JSON Structure:
+
+- [`avrotize s2js`](#convert-json-structure-to-javascript-classes) - Generate JavaScript code from JSON Structure schema.
+
 Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
@@ -642,6 +646,27 @@ Conversion notes:
 - The tool generates JavaScript classes from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a JavaScript class.
 - The fields of the record are mapped to properties in the JavaScript class. Nested records are mapped to nested classes in the JavaScript class.
 - The tool supports adding annotations to the properties in the JavaScript class. The `--avro-annotation` option adds Avro annotations.
+
+### Convert JSON Structure to JavaScript classes
+
+```bash
+avrotize s2js <path_to_json_structure_file> --out <path_to_javascript_dir> [--package <javascript_package>]
+```
+
+Parameters:
+
+- `<path_to_json_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the JavaScript classes to. Required.
+- `--package`: (optional) The package name to use in the JavaScript classes.
+
+Conversion notes:
+
+- The tool generates JavaScript classes from JSON Structure schemas, supporting all JSON Structure Core types including primitives, extended types, objects, arrays, sets, maps, tuples, and choice types.
+- Each object type in the JSON Structure schema is converted to a JavaScript class with properties, getters, and setters.
+- The generated classes include type validation in property setters to ensure type safety at runtime.
+- Supports JSON Structure features including namespaces, type references ($ref), extensions ($extends), abstract types, and required/optional properties.
+- Enum types are converted to frozen JavaScript objects.
+- The tool follows the same output patterns as the `a2js` command for consistency.
 
 ### Convert Avrotize Schema to C++ classes
 
