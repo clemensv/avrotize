@@ -1632,6 +1632,58 @@
     ]
   },
   {
+    "command": "s2cpp",
+    "description": "Convert JSON Structure to C++ classes",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretocpp.convert_structure_to_cpp",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "output_dir": "output_file_path",
+        "namespace": "args.namespace",
+        "json_annotation": "args.json_annotation"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the C++ classes",
+        "required": true
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "C++ root namespace",
+        "required": false
+      },
+      {
+        "name": "--json-annotation",
+        "type": "bool",
+        "help": "Include JSON serialization support",
+        "default": true,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-cpp",
+    "prompts": [
+      {
+        "name": "--json-annotation",
+        "message": "Include JSON serialization support?",
+        "type": "bool",
+        "default": true
+      }
+    ]
+  },
+  {
     "command": "s2ts",
     "description": "Convert JSON Structure to TypeScript classes",
     "group": "2_ProgLanguages",
