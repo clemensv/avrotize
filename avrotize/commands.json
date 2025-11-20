@@ -1455,6 +1455,66 @@
     ]
   },
   {
+    "command": "s2ts",
+    "description": "Convert JSON Structure to TypeScript classes",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretots.convert_structure_to_typescript",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "ts_file_path": "output_file_path",
+        "package_name": "args.package",
+        "typedjson_annotation": "args.typedjson_annotation",
+        "avro_annotation": "args.avro_annotation"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the TypeScript classes",
+        "required": true
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "TypeScript package name",
+        "required": false
+      },
+      {
+        "name": "--typedjson-annotation",
+        "type": "bool",
+        "help": "Use TypedJSON annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--avro-annotation",
+        "type": "bool",
+        "help": "Add Avro binary serialization support with embedded Structure schema",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-ts",
+    "prompts": [
+      {
+        "name": "--typedjson-annotation",
+        "message": "Use TypedJSON annotations?",
+        "type": "bool",
+        "default": false
+      }
+    ]
+  },
+  {
     "command": "a2ts",
     "description": "Convert Avrotize schema to TypeScript classes",
     "group": "2_ProgLanguages",

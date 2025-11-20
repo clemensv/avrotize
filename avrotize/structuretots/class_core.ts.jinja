@@ -1,0 +1,66 @@
+/** {{ docstring }} */
+{%- if typedjson_annotation %}
+import 'reflect-metadata';
+{%- if fields | selectattr("is_primitive", "equalto", false) | list | length > 0 %}
+import { jsonObject, jsonMember, TypedJSON } from 'typedjson';
+{%- else %}
+import { jsonObject, jsonMember, TypedJSON } from 'typedjson';
+{%- endif %}
+{%- endif %}
+{%- for import_type, import_path in imports.items() %}
+import { {{ import_type }} } from '{{ import_path }}';
+{%- endfor %}
+
+{%- if typedjson_annotation %}
+@jsonObject
+{%- endif %}
+export {% if is_abstract %}abstract {% endif %}class {{ class_name }}{% if base_class %} extends {{ base_class }}{% endif %} {
+    {%- for field in fields %}
+    /** {{ field.docstring }} */
+    {%- if typedjson_annotation %}
+    {%- set field_type = field.type_no_null %}
+    @jsonMember({{ field_type if not field.is_primitive else 'String' if field_type == 'Date' else field_type | capitalize }})
+    {%- endif %}
+    public {{ field.name }}{% if field.is_optional %}?{% endif %}: {{ field.type_no_null }};
+    {%- endfor %}
+
+    constructor(
+        {%- set required_fields = fields | selectattr("is_required") | list -%}
+        {%- set optional_fields = fields | selectattr("is_optional") | list -%}
+        {%- for field in required_fields %}
+        {{ field.name }}: {{ field.type_no_null }}{% if not loop.last or optional_fields %},{% endif %}
+        {%- endfor %}
+        {%- for field in optional_fields %}
+        {{ field.name }}?: {{ field.type_no_null }}{% if not loop.last %},{% endif %}
+        {%- endfor %}
+    ) {
+        {%- if base_class %}
+        super();
+        {%- endif %}
+        {%- for field in fields %}
+        {%- if field.is_optional %}
+        if ({{ field.name }} !== undefined) {
+            this.{{ field.name }} = {{ field.name }};
+        }
+        {%- else %}
+        this.{{ field.name }} = {{ field.name }};
+        {%- endif %}
+        {%- endfor %}
+    }
+
+    {%- if typedjson_annotation %}
+    public toJSON(): string {
+        const serializer = new TypedJSON({{ class_name }});
+        return serializer.stringify(this) || '';
+    }
+
+    public static fromJSON(json: string): {{ class_name }} {
+        const serializer = new TypedJSON({{ class_name }});
+        const result = serializer.parse(json);
+        if (!result) {
+            throw new Error('Failed to deserialize {{ class_name }}');
+        }
+        return result;
+    }
+    {%- endif %}
+}
