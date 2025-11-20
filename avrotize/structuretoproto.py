@@ -261,6 +261,12 @@ class StructureToProto:
             
             struct_type = field_type_schema['type']
             
+            # Handle type as a list (union type declared inline in "type" field)
+            if isinstance(struct_type, list):
+                # This is a union type specified as "type": ["string", "null"]
+                # Recursively call convert_field_type with the list
+                return self.convert_field_type(message, field_name, struct_type, comment, index, proto_files, context_schema)
+            
             # Handle object type
             if struct_type == 'object':
                 return self.convert_record_type(field_type_schema, comment, proto_files, context_schema)

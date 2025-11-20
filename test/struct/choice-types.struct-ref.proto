@@ -2,49 +2,33 @@ syntax = "proto3";
 
 package choice_types;
 
-message ChoiceTypes {
-  message TaggedChoiceType {
-    oneof taggedChoice {
-      string textValue = 1;
-      int32 numberValue = 2;
-    }
-  }
-  TaggedChoiceType taggedChoice = 1;
-  message EntityChoiceType {
-    oneof inlineChoice {
-      PersonType Person = 1;
-      CompanyType Company = 2;
-    }
-  }
-  EntityChoiceType inlineChoice = 2;
-  string nullableString = 3;
-
-  message PersonType {
-    string name = 1;
-    string entityType = 2;
-    int32 age = 3;
-  }
-
-  message CompanyType {
-    string name = 1;
-    string entityType = 2;
-    int32 employees = 3;
-  }
-}
-
 message BaseEntity {
   string name = 1;
   string entityType = 2;
 }
 
 message Person {
-  string name = 1;
-  string entityType = 2;
-  int32 age = 3;
+  int32 age = 1;
 }
 
 message Company {
-  string name = 1;
-  string entityType = 2;
-  int32 employees = 3;
+  int32 employees = 1;
+}
+
+message ChoiceTypes {
+  message PersonType {
+    int32 age = 1;
+  }
+  message CompanyType {
+    int32 employees = 1;
+  }
+  oneof TaggedChoice {
+    string textValue = 1;
+    int32 numberValue = 2;
+  }
+  oneof EntityChoice {
+    PersonType Person = 3;
+    CompanyType Company = 4;
+  }
+  string nullableString = 5;
 }

@@ -55,6 +55,10 @@ Converting from Avrotize Schema:
 - [`avrotize a2dp`](#convert-avrotize-schema-to-datapackage-schema) - Convert Avrotize Schema to Datapackage schema.
 - [`avrotize a2md`](#convert-avrotize-schema-to-markdown-documentation) - Convert Avrotize Schema to Markdown documentation.
 
+Direct conversions (JSON Structure):
+
+- [`avrotize s2p`](#convert-json-structure-to-protocol-buffers) - Convert JSON Structure to Protocol Buffers (.proto files).
+
 Generate code from Avrotize Schema:
 
 - [`avrotize a2cs`](#convert-avrotize-schema-to-c-classes) - Generate C# code from Avrotize Schema.
