@@ -43,6 +43,7 @@ Converting from Avrotize Schema:
 - [`avrotize a2sql`](#convert-avrotize-schema-to-sql-table-definition) - Convert Avrotize Schema to SQL table definition.
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
+- [`avrotize s2ib`](#convert-json-structure-to-iceberg-schema) - Convert JSON Structure to Iceberg schema.
 - [`avrotize a2mongo`](#convert-avrotize-schema-to-mongodb-schema) - Convert Avrotize Schema to MongoDB schema.
 - [`avrotize a2cassandra`](#convert-avrotize-schema-to-cassandra-schema) - Convert Avrotize Schema to Cassandra schema.
 - [`avrotize a2es`](#convert-avrotize-schema-to-elasticsearch-schema) - Convert Avrotize Schema to Elasticsearch schema.
@@ -493,6 +494,32 @@ Conversion notes:
 - The emitted Iceberg file contains only the schema, no data rows.
 - The tool only supports writing Iceberg files for Avrotize Schema that describe a single `record` type. If the Avrotize Schema contains a top-level union, the `--record-type` option must be used to specify which record type to emit.
 - The fields of the record are mapped to columns in the Iceberg file. Array and record fields are mapped to Iceberg nested types. Avro type unions are mapped to structures, not to Iceberg unions since those are not supported by the PyArrow library used here.
+
+### Convert JSON Structure to Iceberg schema
+
+```bash
+avrotize s2ib <path_to_structure_schema_file> [--out <path_to_iceberg_schema_file>] [--record-type <record-type-from-structure>] [--emit-cloudevents-columns]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Iceberg schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) The name of the record type in definitions to convert to an Iceberg schema.
+- `--emit-cloudevents-columns`: (optional) If set, the tool will add [CloudEvents](https://cloudevents.io) attribute columns to the Iceberg schema: `___id`, `___source`, `___subject`, `___type`, and `___time`.
+
+Conversion notes:
+
+- The emitted Iceberg file contains only the schema, no data rows.
+- The tool supports JSON Structure schemas with `type: "object"` at the top level. If the schema contains a `$ref` or the record type is in definitions, the `--record-type` option can be used to specify which type to emit.
+- JSON Structure types are mapped to Iceberg types as follows:
+  - **Primitive types**: `string` → StringType, `boolean` → BooleanType, numeric types (int8-128, uint8-128, float, double) → appropriate IntegerType/LongType/FloatType/DoubleType
+  - **Extended types**: `binary`/`bytes` → BinaryType, `date` → DateType, `time` → TimeType, `datetime`/`timestamp` → TimestampType, `duration` → LongType (microseconds), `decimal` → DecimalType (with precision/scale), `uuid`/`uri`/`jsonpointer` → StringType
+  - **Compound types**: `object` → StructType, `array`/`set` → ListType, `map` → MapType, `tuple` → StructType with indexed fields
+  - **Choice types**: Mapped to StructType with alternative fields (Iceberg doesn't have native union support)
+- Type annotations such as `precision`, `scale`, and validation constraints are preserved where applicable.
+- The `$extends` feature is supported - base type properties are included in the conversion.
+- Required and optional properties are handled via Iceberg's `required` field flag.
 
 ### Convert Parquet schema to Avrotize Schema
 
