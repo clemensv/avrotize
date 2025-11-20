@@ -223,6 +223,7 @@ class StructureToDataPackageConverter:
 
             resource = {
                 "name": table_name,
+                "data": [],  # Empty data array for schema-only package
                 "schema": resource_schema
             }
             

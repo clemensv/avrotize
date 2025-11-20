@@ -8,6 +8,7 @@ import json
 from os import path, getcwd
 
 import pytest
+from datapackage import Package
 
 from avrotize.structuretodatapackage import convert_structure_to_datapackage
 
@@ -350,6 +351,13 @@ def convert_case(file_base_name: str):
     # Verify it's valid JSON
     with open(datapackage_path, 'r', encoding='utf-8') as f:
         result = json.load(f)
+    
+    # Validate using datapackage library
+    try:
+        package = Package(result)
+        assert package.valid, f"Data Package validation failed: {package.errors if hasattr(package, 'errors') else 'Unknown error'}"
+    except Exception as e:
+        pytest.fail(f"Data Package validation error: {e}")
     
     # Compare with reference file if it exists
     if os.path.exists(datapackage_ref_path):

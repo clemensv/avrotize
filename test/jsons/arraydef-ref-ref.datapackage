@@ -3,6 +3,7 @@
   "resources": [
     {
       "name": "document",
+      "data": [],
       "schema": {
         "fields": [
           {
