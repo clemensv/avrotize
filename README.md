@@ -788,6 +788,29 @@ Conversion notes:
 - The tool generates Markdown documentation from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Markdown section.
 - The fields of the record are documented in a table in the Markdown section. Nested records are documented in nested sections in the Markdown file.
 
+### Convert JSON Structure to Protocol Buffers
+
+```bash
+avrotize s2p <path_to_json_structure_file> --out <path_to_proto_directory> [--naming-mode <naming_mode>] [--allow-optional]
+```
+
+Parameters:
+
+- `<path_to_json_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Protocol Buffers schema directory to write the conversion result to. This parameter is required as proto files need to be written to a directory.
+- `--naming-mode`: (optional) Type naming convention. Choices are `snake`, `camel`, `pascal`. Default is `pascal`.
+- `--allow-optional`: (optional) Enable support for 'optional' keyword for nullable fields (proto3).
+
+Conversion notes:
+
+- The tool converts JSON Structure schemas directly to Protocol Buffers `.proto` files without going through Avrotize Schema.
+- JSON Structure primitive types (string, number, boolean, null) and extended types (int8-128, uint8-128, float32/64, decimal, date, datetime, time, duration, uuid, uri) are mapped to appropriate Protocol Buffers types.
+- Compound types (object, array, set, map, tuple, choice) are converted to Protocol Buffers messages, repeated fields, map fields, and oneof constructs.
+- JSON Structure namespaces are resolved into distinct proto package definitions.
+- Type references (`$ref`) are resolved and converted to appropriate message types.
+- Choice types (unions) are converted to Protocol Buffers `oneof` constructs.
+- Abstract types and extensions (`$extends`) are handled by generating appropriate message hierarchies.
+
 ### Create the Parsing Canonical Form (PCF) of an Avrotize schema
 
 ```bash
