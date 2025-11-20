@@ -1959,6 +1959,51 @@
     ]
   },
   {
+    "command": "s2js",
+    "description": "Convert JSON Structure to JavaScript classes",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretojs.convert_structure_to_javascript",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "js_file_path": "output_file_path",
+        "package_name": "args.package",
+        "avro_annotation": "args.avro_annotation"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the JavaScript classes",
+        "required": true
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "JavaScript package name",
+        "required": false
+      },
+      {
+        "name": "--avro-annotation",
+        "type": "bool",
+        "help": "Add Avro binary serialization support",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-js",
+    "prompts": []
+  },
+  {
     "command": "s2go",
     "description": "Convert JSON Structure to Go structs",
     "group": "2_ProgLanguages",
