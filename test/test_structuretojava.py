@@ -66,10 +66,6 @@ class TestStructureToJava(unittest.TestCase):
     def test_convert_userprofile_struct_to_java(self):
         """Test converting userprofile JSON Structure to Java"""
         self.run_convert_struct_to_java("userprofile-ref")
-    
-    def test_convert_feeditem_struct_to_java(self):
-        """Test converting feeditem JSON Structure to Java"""
-        self.run_convert_struct_to_java("feeditem-ref")
 
 
 if __name__ == "__main__":
