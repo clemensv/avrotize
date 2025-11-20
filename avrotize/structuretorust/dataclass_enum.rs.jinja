@@ -1,0 +1,63 @@
+{%- if serde_annotation %}
+use serde::{self, Serialize, Deserialize};
+{%- endif %}
+
+{% if doc %}
+/// {{ doc }}
+{%- endif %}
+#[derive(Debug{%- if serde_annotation %}, Serialize, Deserialize{%- endif %}, PartialEq, Clone, Default)]
+{%- if serde_annotation %}
+#[serde(rename_all = "snake_case")]
+{%- endif %}
+pub enum {{ enum_name }} {
+    #[default]
+{%- for symbol in symbols %}
+    {%- if serde_annotation and symbol.name != symbol.value %}
+    #[serde(rename = "{{ symbol.value }}")]
+    {%- endif %}
+    {{ symbol.name }},
+{%- endfor %}
+}
+
+{%- if serde_annotation %}
+impl {{ enum_name }} {
+    pub fn is_json_match(node: &serde_json::Value) -> bool {
+        return node.is_string();
+    }
+
+    /// Returns the struct instance itself
+    pub fn to_object(&self) -> &Self {
+        return self;
+    }
+}
+{%- endif %}
+
+#[cfg(test)]
+impl {{ enum_name }} {
+    pub fn generate_random_instance() -> {{ enum_name }} {
+        let mut rng = rand::thread_rng();
+        match rand::Rng::gen_range(&mut rng, 0..{{ symbols | length }}) {
+            {%- for symbol in symbols %}
+            {{ loop.index0 }} => {{ enum_name }}::{{ symbol.name }},
+            {%- endfor %}
+            _ => panic!("Invalid random index generated"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::Rng;
+
+    #[test]
+    fn test_enum_values_{{ enum_name.lower() }}() {
+        {%- for symbol in symbols %}
+        let instance = {{ enum_name }}::{{ symbol.name }};
+        {%- if serde_annotation %}
+        let json = serde_json::to_string(&instance).unwrap();
+        assert!(json.contains("{{ symbol.value }}"));
+        {%- endif %}
+        {%- endfor %}
+    }
+}
