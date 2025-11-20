@@ -77,7 +77,8 @@ public class {{ test_class_name }} {
         // For enum or complex types, set to a different value
         {%- if "." in base_type %}
         // Enum - try to get a different enum value
-        {{ base_type }}[] enumValues = {{ base_type }}.values();
+        {%- set simple_type = base_type.split('.')[-1] %}
+        {{ simple_type }}[] enumValues = {{ simple_type }}.values();
         if (enumValues.length > 1) {
             instance2.set{{ field.field_name | pascal }}(enumValues[(instance2.get{{ field.field_name | pascal }}().ordinal() + 1) % enumValues.length]);
         }
@@ -97,7 +98,8 @@ public class {{ test_class_name }} {
      */
     @Test
     public void test{{ field.field_name | pascal }}Property() {
-        {{ field.field_type }} testValue = {{ field.test_value }};
+        {%- set simple_field_type = field.field_type.split('.')[-1] if '.' in field.field_type else field.field_type %}
+        {{ simple_field_type }} testValue = {{ field.test_value }};
         {%- if not field.is_const %}
         instance.set{{ field.field_name | pascal }}(testValue);
         {%- endif %}

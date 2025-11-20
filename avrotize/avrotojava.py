@@ -1126,6 +1126,14 @@ class AvroToJava:
                     imports.append("import java.util.Map;")
                 if "import java.util.HashMap;" not in imports:
                     imports.append("import java.util.HashMap;")
+            
+            # Add imports for enum and class types
+            if field.field_type in self.generated_types_java_package:
+                # Only import if it's a fully qualified name with a package
+                if '.' in field.field_type:
+                    import_stmt = f"import {field.field_type};"
+                    if import_stmt not in imports:
+                        imports.append(import_stmt)
         return imports
 
     def get_class_test_fields(self, avro_schema: Dict, class_name: str, package: str) -> List:
