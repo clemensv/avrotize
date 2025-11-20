@@ -55,6 +55,10 @@ class StructureToRust:
         """ Concatenates namespace and name with a dot separator """
         return f"{namespace}.{name}" if namespace != '' else name
 
+    def sanitize_namespace(self, namespace: str) -> str:
+        """Converts a namespace to a valid Rust module path by replacing dots with underscores"""
+        return namespace.replace('.', '_')
+
     def concat_namespace(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
         if namespace and name:
@@ -192,7 +196,7 @@ class StructureToRust:
 
     def convert_structure_type_to_rust(self, class_name: str, field_name: str, structure_type: JsonNode, parent_namespace: str, nullable: bool = False) -> str:
         """ Converts JSON Structure type to Rust type """
-        ns = parent_namespace.replace('.', '::').lower()
+        ns = self.sanitize_namespace(parent_namespace).replace('.', '::').lower()
         
         if isinstance(structure_type, str):
             return self.map_primitive_to_rust(structure_type, nullable)
@@ -272,7 +276,7 @@ class StructureToRust:
         # Get name and namespace
         class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'))
         schema_namespace = structure_schema.get('namespace', parent_namespace)
-        namespace = schema_namespace.lower()
+        namespace = self.sanitize_namespace(schema_namespace.lower())
         
         qualified_struct_name = self.safe_package(self.concat_package(namespace, class_name))
         if qualified_struct_name in self.generated_types_rust_package:
@@ -359,7 +363,7 @@ class StructureToRust:
         # Determine enum name from field name
         enum_name = pascal(structure_schema.get('name', field_name + 'Enum'))
         schema_namespace = structure_schema.get('namespace', parent_namespace)
-        namespace = schema_namespace.lower()
+        namespace = self.sanitize_namespace(schema_namespace.lower())
         
         qualified_enum_name = self.safe_package(self.concat_package(namespace, enum_name))
         if qualified_enum_name in self.generated_types_rust_package:
@@ -399,7 +403,7 @@ class StructureToRust:
         """ Generates a discriminated union (choice) type """
         choice_name = explicit_name if explicit_name else structure_schema.get('name', 'UnnamedChoice')
         schema_namespace = structure_schema.get('namespace', parent_namespace)
-        namespace = schema_namespace.lower()
+        namespace = self.sanitize_namespace(schema_namespace.lower())
         
         qualified_name = self.safe_package(self.concat_package(namespace, pascal(choice_name)))
         if qualified_name in self.generated_types_rust_package:
@@ -461,7 +465,7 @@ class StructureToRust:
 
     def generate_union_enum(self, field_name: str, structure_type: List, namespace: str) -> str:
         """Generates a union enum for Rust"""
-        ns = namespace.replace('.', '::').lower()
+        ns = self.sanitize_namespace(namespace.replace('.', '::').lower())
         union_enum_name = pascal(field_name) + 'Union'
         
         non_null_types = [t for t in structure_type if t != 'null']
@@ -558,7 +562,9 @@ class StructureToRust:
 
     def write_mod_rs(self, namespace: str):
         """Writes the mod.rs file for a Rust module"""
-        directories = namespace.split('.')
+        # Sanitize namespace to replace dots with underscores
+        sanitized_namespace = self.sanitize_namespace(namespace)
+        directories = sanitized_namespace.split('.')
         for i in range(len(directories)):
             sub_package = '::'.join(directories[:i + 1])
             directory_path = os.path.join(
@@ -583,6 +589,7 @@ class StructureToRust:
             dependencies.append('serde_json = "1.0"')
         dependencies.append('chrono = { version = "0.4", features = ["serde"] }')
         dependencies.append('uuid = { version = "1.11", features = ["serde", "v4"] }')
+        dependencies.append('flate2 = "1.0"')
         dependencies.append('rand = "0.8"')
 
         cargo_toml_content =  f"[package]\n"
@@ -597,8 +604,8 @@ class StructureToRust:
 
     def write_lib_rs(self):
         """Writes the lib.rs file for the Rust project"""
-        modules = {name[(len('crate::')):].split('::')[0] for name in self.generated_types_rust_package if name.startswith('crate::')}
-        mod_statements = '\n'.join(f'pub mod {module};' for module in modules)
+        modules = {name[(len('crate::')):].split('::')[0].replace('.', '_') for name in self.generated_types_rust_package if name.startswith('crate::')}
+        mod_statements = '\n'.join(f'pub mod {self.escaped_identifier(module)};' for module in sorted(modules))
         
         lib_rs_content = f"""
 // This is the library entry point
@@ -618,7 +625,7 @@ class StructureToRust:
                 if 'type' in definition:
                     # This is a type definition
                     current_namespace = self.concat_namespace(namespace_path, '')
-                    check_namespace = current_namespace.lower()
+                    check_namespace = self.sanitize_namespace(current_namespace.lower())
                     check_name = pascal(name)
                     check_ref = self.safe_package(self.concat_package(check_namespace, check_name))
                     if check_ref not in self.generated_types_rust_package:
