@@ -1,0 +1,18 @@
+/** {{ docstring }} */
+{%- if deprecated %}
+@Deprecated
+{%- endif %}
+public enum {{ class_name }} {
+{%- if is_numeric %}
+{%- for symbol in symbols %}
+    {{ symbol.name }}({{ symbol.value }}){% if not loop.last %},{% else %};{% endif %}
+
+{%- endfor %}
+    
+    private final {{ numeric_type }} value;
+    {{ class_name }}({{ numeric_type }} value) { this.value = value; }
+    public {{ numeric_type }} getValue() { return value; }
+{%- else %}
+    {{ symbols|join(', ') }}
+{%- endif %}
+}
