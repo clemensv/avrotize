@@ -1,0 +1,34 @@
+/** {{ docstring }} */
+/** JSON Structure choice (discriminated union) type */
+{%- if deprecated %}
+@Deprecated
+{%- endif %}
+{%- if jackson_annotation %}
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.WRAPPER_OBJECT, property = "type")
+@JsonSubTypes({
+{%- for choice in choices %}
+    @JsonSubTypes.Type(value = {{ choice.type }}.class, name = "{{ choice.name }}"){% if not loop.last %},{% endif %}
+
+{%- endfor %}
+})
+{%- endif %}
+public abstract class {{ class_name }} {
+    public {{ class_name }}() {}
+    
+    {%- for choice in choices %}
+    
+    /** {{ choice.docstring }} */
+    public static class {{ choice.type }} extends {{ class_name }} {
+        private {{ choice.value_type }} value;
+        
+        public {{ choice.type }}() {}
+        
+        public {{ choice.type }}({{ choice.value_type }} value) {
+            this.value = value;
+        }
+        
+        public {{ choice.value_type }} getValue() { return value; }
+        public void setValue({{ choice.value_type }} value) { this.value = value; }
+    }
+    {%- endfor %}
+}

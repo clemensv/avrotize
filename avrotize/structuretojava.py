@@ -104,7 +104,7 @@ class StructureToJava:
             'int32': 'Integer',
             'uint32': 'Long',  # Java doesn't have unsigned int, use Long
             'int64': 'Long',
-            'uint64': 'Long',  # Java doesn't have unsigned long, use Long (BigInteger would be precise)
+            'uint64': 'BigInteger',  # Use BigInteger for uint64 to handle full range in JSON
             'int128': 'BigInteger',
             'uint128': 'BigInteger',
             'float8': 'Float',
@@ -137,7 +137,7 @@ class StructureToJava:
             'int32': 'int',
             'uint32': 'long',
             'int64': 'long',
-            'uint64': 'long',
+            'uint64': 'BigInteger',  # Use BigInteger for uint64 to handle full range in JSON
             'int128': 'BigInteger',
             'uint128': 'BigInteger',
             'float8': 'float',
@@ -512,15 +512,102 @@ class StructureToJava:
 
     def generate_choice(self, structure_schema: Dict, parent_package: str, write_file: bool, explicit_name: str = '') -> JavaType:
         """ Generates a choice (discriminated union) type """
-        # For simplicity, we'll generate as Object for now
-        # Full implementation would need to handle tagged unions properly
-        return StructureToJava.JavaType('Object')
+        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedChoice'))
+        schema_namespace = structure_schema.get('namespace', parent_package)
+        package = self.join_packages(self.base_package, schema_namespace).replace('.', '/').lower()
+        package = self.safe_package(package)
+        class_name = self.safe_identifier(class_name)
+        namespace_qualified_name = self.qualified_name(schema_namespace, explicit_name or structure_schema.get('name', 'UnnamedChoice'))
+        qualified_class_name = self.qualified_name(package.replace('/', '.'), class_name)
+        
+        if namespace_qualified_name in self.generated_types_structure_namespace:
+            return StructureToJava.JavaType(qualified_class_name, is_class=True)
+        
+        self.generated_types_structure_namespace[namespace_qualified_name] = "class"
+        self.generated_types_java_package[qualified_class_name] = "class"
+        
+        # Get choice definitions
+        choices_dict = structure_schema.get('choices', {})
+        doc = structure_schema.get('description', structure_schema.get('doc', class_name))
+        deprecated = structure_schema.get('deprecated', False)
+        
+        # Build choice information for template
+        choices = []
+        for choice_name, choice_schema in choices_dict.items():
+            choice_type_name = pascal(choice_name)
+            value_type = self.convert_structure_type_to_java(class_name, choice_name, choice_schema, schema_namespace)
+            choices.append({
+                'name': choice_name,
+                'type': choice_type_name,
+                'value_type': value_type.type_name,
+                'docstring': choice_schema.get('description', choice_schema.get('doc', f'{choice_name} variant'))
+            })
+        
+        # Use template for choice generation
+        choice_definition = process_template(
+            "structuretojava/choice_core.jinja",
+            class_name=class_name,
+            docstring=doc,
+            deprecated=deprecated,
+            choices=choices,
+            jackson_annotation=self.jackson_annotations
+        )
+        
+        if write_file:
+            self.write_to_file(package, class_name, choice_definition)
+        
+        return StructureToJava.JavaType(qualified_class_name, is_class=True)
 
     def generate_tuple(self, structure_schema: Dict, parent_package: str, write_file: bool, explicit_name: str = '') -> JavaType:
-        """ Generates a tuple type """
-        # For simplicity, we'll generate as Object for now
-        # Full implementation would generate a proper tuple class
-        return StructureToJava.JavaType('Object')
+        """ Generates a tuple type - Per JSON Structure spec, tuples serialize as JSON arrays """
+        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedTuple'))
+        schema_namespace = structure_schema.get('namespace', parent_package)
+        package = self.join_packages(self.base_package, schema_namespace).replace('.', '/').lower()
+        package = self.safe_package(package)
+        class_name = self.safe_identifier(class_name)
+        namespace_qualified_name = self.qualified_name(schema_namespace, explicit_name or structure_schema.get('name', 'UnnamedTuple'))
+        qualified_class_name = self.qualified_name(package.replace('/', '.'), class_name)
+        
+        if namespace_qualified_name in self.generated_types_structure_namespace:
+            return StructureToJava.JavaType(qualified_class_name, is_class=True)
+        
+        self.generated_types_structure_namespace[namespace_qualified_name] = "class"
+        self.generated_types_java_package[qualified_class_name] = "class"
+        
+        # Get tuple order and properties
+        properties = structure_schema.get('properties', {})
+        tuple_order = structure_schema.get('tuple', [])
+        doc = structure_schema.get('description', structure_schema.get('doc', class_name))
+        deprecated = structure_schema.get('deprecated', False)
+        
+        # Build tuple element information in correct order
+        elements = []
+        for prop_name in tuple_order:
+            if prop_name in properties:
+                prop_schema = properties[prop_name]
+                prop_type = self.convert_structure_type_to_java(class_name, prop_name, prop_schema, schema_namespace)
+                field_name = pascal(prop_name) if self.pascal_properties else prop_name
+                safe_field_name = self.safe_identifier(field_name, class_name)
+                elements.append({
+                    'name': safe_field_name,
+                    'type': prop_type.type_name,
+                    'docstring': prop_schema.get('description', prop_schema.get('doc', prop_name))
+                })
+        
+        # Use template for tuple generation
+        tuple_definition = process_template(
+            "structuretojava/tuple_core.jinja",
+            class_name=class_name,
+            docstring=doc,
+            deprecated=deprecated,
+            elements=elements,
+            jackson_annotation=self.jackson_annotations
+        )
+        
+        if write_file:
+            self.write_to_file(package, class_name, tuple_definition)
+        
+        return StructureToJava.JavaType(qualified_class_name, is_class=True)
 
     def generate_embedded_union_class_jackson(self, class_name: str, field_name: str, structure_types: List, parent_package: str, write_file: bool) -> str:
         """ Generates an embedded Union Class for Java using Jackson """
@@ -651,6 +738,19 @@ class StructureToJava:
                 if 'JsonProcessingException' in definition:
                     file.write("import com.fasterxml.jackson.core.JsonProcessingException;\n")
                 if 'JsonGenerator' in definition:
+                    file.write("import com.fasterxml.jackson.core.JsonGenerator;\n")
+                if 'TypeReference' in definition:
+                    file.write("import com.fasterxml.jackson.core.type.TypeReference;\n")
+                if 'JsonFormat' in definition:
+                    file.write("import com.fasterxml.jackson.annotation.JsonFormat;\n")
+                if 'JsonCreator' in definition:
+                    file.write("import com.fasterxml.jackson.annotation.JsonCreator;\n")
+                if 'JsonValue' in definition:
+                    file.write("import com.fasterxml.jackson.annotation.JsonValue;\n")
+                if 'JsonTypeInfo' in definition:
+                    file.write("import com.fasterxml.jackson.annotation.JsonTypeInfo;\n")
+                if 'JsonSubTypes' in definition:
+                    file.write("import com.fasterxml.jackson.annotation.JsonSubTypes;\n")
                     file.write("import com.fasterxml.jackson.core.JsonGenerator;\n")
                 if 'TypeReference' in definition:
                     file.write("import com.fasterxml.jackson.core.type.TypeReference;\n")
