@@ -66,6 +66,10 @@ Generate code from Avrotize Schema:
 - [`avrotize a2go`](#convert-avrotize-schema-to-go-classes) - Generate Go code from Avrotize Schema.
 - [`avrotize a2rust`](#convert-avrotize-schema-to-rust-classes) - Generate Rust code from Avrotize Schema.
 
+Generate code from JSON Structure:
+
+- [`avrotize s2rust`](#convert-json-structure-to-rust-classes) - Generate Rust code from JSON Structure schema.
+
 Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
@@ -707,6 +711,36 @@ Conversion notes:
 - The tool generates Rust classes from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Rust class.
 - The fields of the record are mapped to properties in the Rust class. Nested records are mapped to nested classes in the Rust class.
 - The tool supports adding annotations to the properties in the Rust class. The `--avro-annotation` option adds Avro annotations, and the `--serde-annotation` option adds Serde annotations.
+
+### Convert JSON Structure to Rust classes
+
+```bash
+avrotize s2rust <path_to_structure_schema_file> [--out <path_to_rust_dir>] [--package <rust_package>] [--json-annotation]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the Rust classes to. Required.
+- `--package`: (optional) The package name to use in the Rust classes.
+- `--json-annotation`: (optional) Use Serde JSON annotations for serialization support.
+
+Conversion notes:
+
+- The tool generates Rust structs and enums from JSON Structure schemas. Each object type in the JSON Structure schema is converted to a Rust struct.
+- The fields of objects are mapped to struct fields with appropriate Rust types. Nested objects are mapped to nested structs.
+- All JSON Structure Core types are supported:
+  - **Primitive types**: string, number, boolean, null
+  - **Extended types**: binary, int8-128, uint8-128, float8/float/double, decimal, date, datetime, time, duration, uuid, uri, jsonpointer
+  - **Compound types**: object, array, set, map, tuple, any, choice (discriminated unions)
+- JSON Structure-specific features are supported:
+  - Namespaces and definitions
+  - Type references ($ref)
+  - Required and optional properties
+  - Abstract types
+  - Extensions ($extends)
+- The `--json-annotation` option adds Serde derive macros for JSON serialization and deserialization.
+- Generated code includes embedded unit tests that verify struct creation and serialization (when annotations are enabled).
 
 ### Convert Avrotize Schema to Datapackage schema
 
