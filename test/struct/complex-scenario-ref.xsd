@@ -134,27 +134,37 @@
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
-  <xs:complexType name="ComplexScenarioOption2">
+  <xs:complexType name="ComplexScenarioOption2_value" abstract="true"/>
+  <xs:complexType name="ComplexScenarioOption2_valueOption1">
     <xs:complexContent>
-      <xs:extension base="ComplexScenario">
+      <xs:extension base="ComplexScenarioOption2_value">
+        <xs:sequence>
+          <xs:element name="value" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ComplexScenarioOption2_valueOption2">
+    <xs:complexContent>
+      <xs:extension base="ComplexScenarioOption2_value">
         <xs:sequence>
           <xs:element name="value" type="xs:long"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
-  <xs:complexType name="ComplexScenarioOption3">
+  <xs:complexType name="ComplexScenarioOption2_valueOption3">
     <xs:complexContent>
-      <xs:extension base="ComplexScenario">
+      <xs:extension base="ComplexScenarioOption2_value">
         <xs:sequence>
           <xs:element name="value" type="xs:double"/>
         </xs:sequence>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
-  <xs:complexType name="ComplexScenarioOption4">
+  <xs:complexType name="ComplexScenarioOption2_valueOption4">
     <xs:complexContent>
-      <xs:extension base="ComplexScenario">
+      <xs:extension base="ComplexScenarioOption2_value">
         <xs:sequence>
           <xs:element name="value" type="xs:boolean"/>
         </xs:sequence>

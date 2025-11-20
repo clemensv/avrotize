@@ -50,12 +50,12 @@
             </xs:restriction>
           </xs:simpleType>
         </xs:element>
-        <xs:element name="float32Field" minOccurs="0" maxOccurs="1" type="float32">
+        <xs:element name="float32Field" minOccurs="0" maxOccurs="1" type="xs:float">
           <xs:annotation>
             <xs:documentation>32-bit floating point</xs:documentation>
           </xs:annotation>
         </xs:element>
-        <xs:element name="float64Field" minOccurs="0" maxOccurs="1" type="float64">
+        <xs:element name="float64Field" minOccurs="0" maxOccurs="1" type="xs:double">
           <xs:annotation>
             <xs:documentation>64-bit floating point</xs:documentation>
           </xs:annotation>

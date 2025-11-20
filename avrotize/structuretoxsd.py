@@ -77,6 +77,8 @@ class StructureToXSD:
             'uint128': 'integer',
             'float8': 'float',
             'float': 'float',
+            'float32': 'float',  # IEEE 754 single precision
+            'float64': 'double',  # IEEE 754 double precision
             'double': 'double',
             'binary32': 'float',
             'binary64': 'double',
@@ -107,7 +109,7 @@ class StructureToXSD:
             'null', 'boolean', 'string', 'integer', 'number',
             'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32',
             'int64', 'uint64', 'int128', 'uint128',
-            'float8', 'float', 'double', 'binary32', 'binary64',
+            'float8', 'float', 'float32', 'float64', 'double', 'binary32', 'binary64',
             'decimal', 'binary', 'bytes', 'date', 'time', 'datetime',
             'timestamp', 'duration', 'uuid', 'uri', 'jsonpointer'
         }
@@ -274,8 +276,9 @@ class StructureToXSD:
                     sequence = self.create_element(extension, "sequence")
                     
                     value_element = self.create_element(sequence, "element", name="value")
-                    self.set_element_type(schema_root, type_name, value_element, choice_type)
+                    # Mark this type as known BEFORE processing to avoid recursion issues
                     self.known_types.append(option_type_name)
+                    self.set_element_type(schema_root, option_type_name, value_element, choice_type)
 
     def set_element_type(self, schema_root: Element, record_name: str, element: Element, type_def: Any):
         """Set the type of an element based on the type definition."""
@@ -291,10 +294,26 @@ class StructureToXSD:
                 self.set_element_type(schema_root, record_name, element, non_null_types[0])
                 if is_nullable and 'minOccurs' not in element.attrib:
                     element.set('minOccurs', '0')
+            elif len(non_null_types) == 0:
+                # Just null - use string
+                element.set('type', 'xs:string')
+                element.set('minOccurs', '0')
             else:
-                # Multiple non-null types - create a choice
-                choice_def = {'type': 'choice', 'choices': non_null_types}
-                self.convert_choice_type(schema_root, record_name, element, choice_def)
+                # Multiple non-null types
+                # Check if all are primitives
+                all_primitives = all(self.is_primitive_type(t) if isinstance(t, str) else False for t in non_null_types)
+                
+                if all_primitives:
+                    # Can create a simple union type - use element name to make it unique
+                    element_name = element.get('name', 'value')
+                    unique_type_name = f"{record_name}_{element_name}" if element_name != record_name else record_name
+                    choice_def = {'type': 'choice', 'choices': non_null_types}
+                    self.convert_choice_type(schema_root, unique_type_name, element, choice_def)
+                else:
+                    # Has complex types - use xs:anyType for now
+                    # XSD doesn't have a good way to represent unions with mixed simple/complex types
+                    element.set('type', 'xs:anyType')
+                
                 if is_nullable and 'minOccurs' not in element.attrib:
                     element.set('minOccurs', '0')
             return

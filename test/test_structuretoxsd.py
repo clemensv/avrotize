@@ -34,7 +34,7 @@ class TestStructureToXsd(xmlunittest.XmlTestCase):
         convert_structure_to_xsd(struct_full_path, xsd_full_path, namespace)
         
         # validate the xsd being correct
-        #xmlschema.XMLSchema(xsd_full_path)
+        xmlschema.XMLSchema(xsd_full_path)
         
         # load both the result and the reference as strings
         with open(xsd_full_path, 'r') as file:
