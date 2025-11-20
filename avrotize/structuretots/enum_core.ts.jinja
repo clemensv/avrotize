@@ -1,0 +1,53 @@
+/**
+ * {{ docstring }}
+ */
+export enum {{ enum_name }} {
+    {%- for symbol in symbols %}
+    {%- if base_type in ['int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'int64', 'uint64'] %}
+    {{ symbol }} = {{ symbol }}{%- if not loop.last %},{%- endif %}
+    {%- else %}
+    {{ symbol }} = "{{ symbol }}"{%- if not loop.last %},{%- endif %}
+    {%- endif %}
+    {%- endfor %}
+}
+
+export class {{ enum_name }}Utils {
+    /**
+     * Converts a {{ enum_name }} enum value to its ordinal.
+     * @param value - The {{ enum_name }} enum value.
+     * @returns The ordinal number corresponding to the enum value.
+     */
+    static toOrdinal(value: {{ enum_name }}): number {
+        switch (value) {
+            {%- for symbol in symbols %}
+            case {{ enum_name }}.{{ symbol }}:
+                return {{ loop.index0 }};
+            {%- endfor %}
+            default:
+                throw new Error("Invalid {{ enum_name }} value");
+        }
+    }
+
+    /**
+     * Converts an ordinal to its corresponding {{ enum_name }} enum value.
+     * @param ordinal - The ordinal number of the enum value.
+     * @returns The corresponding {{ enum_name }} enum value.
+     */
+    static fromOrdinal(ordinal: number): {{ enum_name }} {
+        switch (ordinal) {
+            {%- for symbol in symbols %}
+            case {{ loop.index0 }}:
+                return {{ enum_name }}.{{ symbol }};
+            {%- endfor %}
+            default:
+                throw new Error("Invalid ordinal value");
+        }
+    }
+
+    /**
+     * Check if a value is a valid {{ enum_name }} enum value
+     */
+    static isJsonMatch(value: any): boolean {
+        return Object.values({{ enum_name }}).includes(value as {{ enum_name }});
+    }
+}

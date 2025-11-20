@@ -1,0 +1,95 @@
+/**
+ * {{ docstring }}
+ */
+{%- if typed_json_annotation %}
+import 'reflect-metadata';
+{%- if fields | selectattr("is_array") | list | length > 0 %}
+import { jsonObject, jsonMember, jsonArrayMember, TypedJSON } from 'typedjson';
+{%- else %}
+import { jsonObject, jsonMember, TypedJSON } from 'typedjson';
+{%- endif %}
+{%- endif %}
+{%- for import_type, import_path in imports.items() %}
+import { {{ import_type }} } from '{{ import_path }}';
+{%- endfor %}
+
+{%- if typed_json_annotation %}
+@jsonObject
+{%- endif %}
+export {% if is_abstract %}abstract {% endif %}class {{ class_name }} {
+    {%- for field in fields %}
+
+    /**
+     * {{ field.docstring }}
+     */
+    {%- if typed_json_annotation %}
+    {%- set field_type = field.type_no_null if not field.is_primitive else (field.type_no_null | pascal ) %}
+    {% if field.is_array -%}
+    @jsonArrayMember({{ field_type | replace('[]', '') }})
+    {%- else -%}
+    @jsonMember({%-if not field.is_enum-%}{{ field_type }}{%-else-%}String{%-endif-%})
+    {%- endif %}
+    {%- endif %}
+    public {{ field.name }}{%- if field.is_optional -%}?{%- endif -%}: {{ field.type_no_null }};
+    {%- endfor %}
+
+    constructor({%- for field in fields %}{{ field.name }}{%- if field.is_optional -%}?{%- endif -%}: {{ field.type_no_null }}{% if not loop.last %}, {% endif %}{%- endfor %}) {
+        {%- for field in fields %}
+        {%- if field.is_enum %}
+        if (typeof {{ field.name }} === 'number') {
+            this.{{ field.name }} = {{ field.type_no_null }}Utils.fromOrdinal({{ field.name }});
+        } else {
+            this.{{ field.name }} = {{ field.name }};
+        }
+        {%- else %}
+        this.{{ field.name }} = {{ field.name }};
+        {%- endif %}
+        {%- endfor %}
+    }
+
+    {%- if typed_json_annotation %}
+
+    /**
+     * Serialize this object to JSON
+     */
+    public toJSON(): string {
+        const serializer = new TypedJSON({{ class_name }});
+        return serializer.stringify(this) || '{}';
+    }
+
+    /**
+     * Deserialize from JSON
+     */
+    public static fromJSON(json: string): {{ class_name }} {
+        const serializer = new TypedJSON({{ class_name }});
+        const result = serializer.parse(json);
+        if (!(result instanceof {{ class_name }})) {
+            throw new Error(`Deserialized object is not an instance of {{ class_name }}`);
+        }
+        return result;
+    }
+
+    /**
+     * Check if a JSON element matches this class structure
+     */
+    public static isJsonMatch(element: any): boolean {
+        {%- if fields|length == 0 %}
+        return typeof element === 'object' && element !== null;
+        {%- else %}
+        if (typeof element !== 'object' || element === null) {
+            return false;
+        }
+        return (
+            {%- for field in fields %}
+            {% if field.is_optional -%}
+            (element['{{ field.original_name }}'] === undefined || element['{{ field.original_name }}'] === null || typeof element['{{ field.original_name }}'] !== 'undefined')
+            {%- else -%}
+            (element.hasOwnProperty('{{ field.original_name }}') && typeof element['{{ field.original_name }}'] !== 'undefined')
+            {%- endif %}{%- if not loop.last %} &&
+            {%- endif %}
+            {%- endfor %}
+        );
+        {%- endif %}
+    }
+    {%- endif %}
+}
