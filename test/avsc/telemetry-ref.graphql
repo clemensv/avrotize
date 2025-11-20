@@ -1,0 +1,37 @@
+scalar Date
+scalar DateTime
+scalar JSON
+
+type RecordRange {
+  """The start timestamp of the telemetry record."""
+  started: Int!
+  """The end timestamp of the telemetry record."""
+  ended: Int!
+}
+"""
+Represents a telemetry record for a race car.
+"""
+type TelemetryRecord {
+  """The unique identifier of the telemetry record."""
+  id: String
+  """The version of the telemetry record."""
+  version: Int!
+  """The channel of the telemetry record."""
+  channel: String!
+  """The identifier of the race car."""
+  carId: String
+  """The interval identifier of the telemetry record."""
+  intervalId: String
+  """The sample count of the telemetry record."""
+  sampleCount: Int!
+  """The frequency of the telemetry record."""
+  frequency: Int!
+  """The creation timestamp of the telemetry record."""
+  created: Int
+  """The timespan of the telemetry record."""
+  timespan: RecordRange!
+  """The telemetry data."""
+  data: [Float]!
+  """The identifier of the lap."""
+  lapId: String
+}

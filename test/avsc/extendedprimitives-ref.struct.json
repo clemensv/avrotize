@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/test/extendedprimitives",
+  "name": "ExtendedPrimitives",
+  "$root": "#/definitions/test/ExtendedPrimitives",
+  "definitions": {
+    "test": {
+      "ExtendedPrimitives": {
+        "name": "ExtendedPrimitives",
+        "type": "object",
+        "description": "Test extended primitive types",
+        "properties": {
+          "int8Field": {"type": "int8", "description": "8-bit integer"},
+          "uint8Field": {"type": "uint8", "description": "Unsigned 8-bit integer"},
+          "int16Field": {"type": "int16", "description": "16-bit integer"},
+          "uint16Field": {"type": "uint16", "description": "Unsigned 16-bit integer"},
+          "int32Field": {"type": "int32", "description": "32-bit integer"},
+          "uint32Field": {"type": "uint32", "description": "Unsigned 32-bit integer"},
+          "int64Field": {"type": "int64", "description": "64-bit integer"},
+          "uint64Field": {"type": "uint64", "description": "Unsigned 64-bit integer"},
+          "float8Field": {"type": "float8", "description": "8-bit float"},
+          "floatField": {"type": "float", "description": "Float"},
+          "doubleField": {"type": "double", "description": "Double"},
+          "decimalField": {"type": "decimal", "description": "Decimal number"},
+          "binaryField": {"type": "binary", "description": "Binary data"},
+          "dateField": {"type": "date", "description": "Date"},
+          "timeField": {"type": "time", "description": "Time"},
+          "datetimeField": {"type": "datetime", "description": "DateTime"},
+          "durationField": {"type": "duration", "description": "Duration"},
+          "uuidField": {"type": "uuid", "description": "UUID"},
+          "uriField": {"type": "uri", "description": "URI"},
+          "jsonpointerField": {"type": "jsonpointer", "description": "JSON Pointer"}
+        },
+        "required": ["int32Field", "floatField", "dateField", "uuidField"]
+      }
+    }
+  }
+}

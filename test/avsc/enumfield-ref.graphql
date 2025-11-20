@@ -1,0 +1,10 @@
+scalar JSON
+
+enum MyEnum {
+  SYMBOL1
+  SYMBOL2
+  SYMBOL3
+}
+type MyRecord {
+  enumField: MyEnum!
+}
