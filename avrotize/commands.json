@@ -13,9 +13,7 @@
         "proto_root": "args.proto_root"
       }
     },
-    "extensions": [
-      ".proto"
-    ],
+    "extensions": [".proto"],
     "args": [
       {
         "name": "input",
@@ -71,9 +69,7 @@
         "allow_optional": "args.allow_optional"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -98,11 +94,7 @@
         "name": "--naming",
         "type": "str",
         "help": "Type naming convention",
-        "choices": [
-          "snake",
-          "camel",
-          "pascal"
-        ],
+        "choices": ["snake", "camel", "pascal"],
         "required": false,
         "default": "pascal"
       },
@@ -119,11 +111,7 @@
       {
         "name": "--naming",
         "message": "Select type naming convention",
-        "choices": [
-          "snake",
-          "camel",
-          "pascal"
-        ],
+        "choices": ["snake", "camel", "pascal"],
         "default": "pascal",
         "required": false
       },
@@ -149,10 +137,7 @@
         "split_top_level_records": "args.split_top_level_records"
       }
     },
-    "extensions": [
-      ".json",
-      ".jsons"
-    ],
+    "extensions": [".json", ".jsons"],
     "args": [
       {
         "name": "input",
@@ -216,9 +201,7 @@
         "naming_mode": "args.naming"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -243,24 +226,17 @@
         "name": "--naming",
         "type": "str",
         "help": "Type naming convention",
-        "choices": [
-          "snake",
-          "camel",
-          "pascal",
-          "default"
-        ],
+        "choices": ["snake", "camel", "pascal", "default"],
         "required": false,
         "default": "default"
-      }
-    ],
+      }    ],
     "suggested_output_file_path": "{input_file_name}.jsons",
     "prompts": []
   },
   {
     "command": "j2s",
     "description": "Convert JSON schema to JSON Structure",
-    "group": "1_Schemas",
-    "function": {
+    "group": "1_Schemas",    "function": {
       "name": "avrotize.jsonstostructure.convert_json_schema_to_structure_files",
       "args": {
         "json_schema_file_path": "input_file_path",
@@ -268,10 +244,7 @@
         "root_namespace": "args.namespace"
       }
     },
-    "extensions": [
-      ".json",
-      ".jsons"
-    ],
+    "extensions": [".json", ".jsons"],
     "args": [
       {
         "name": "input",
@@ -348,8 +321,7 @@
         "type": "str",
         "default": "document",
         "required": false
-      }
-    ]
+      }    ]
   },
   {
     "command": "s2j",
@@ -362,10 +334,7 @@
         "json_schema_path": "output_file_path"
       }
     },
-    "extensions": [
-      ".struct.json",
-      ".json"
-    ],
+    "extensions": [".struct.json", ".json"],
     "args": [
       {
         "name": "input",
@@ -396,9 +365,7 @@
         "namespace": "args.namespace"
       }
     },
-    "extensions": [
-      ".xsd"
-    ],
+    "extensions": [".xsd"],
     "args": [
       {
         "name": "input",
@@ -448,9 +415,7 @@
         "target_namespace": "args.namespace"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -490,7 +455,7 @@
   },
   {
     "command": "a2k",
-    "description": "Convert Avrotize schema to Kusto table schemas",
+    "description": "Convert Avrotize schema to Kusto table schemas",    
     "group": "4_RTDB",
     "function": {
       "name": "avrotize.avrotokusto.convert_avro_to_kusto",
@@ -504,9 +469,7 @@
         "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -591,7 +554,7 @@
   },
   {
     "command": "k2a",
-    "description": "Convert Kusto schema to Avrotize schema",
+    "description": "Convert Kusto schema to Avrotize schema",    
     "group": "1_Schemas",
     "function": {
       "name": "avrotize.kustotoavro.convert_kusto_to_avro",
@@ -605,9 +568,7 @@
         "emit_cloudevents_xregistry": "args.emit_xregistry"
       }
     },
-    "extensions": [
-      ".kusto"
-    ],
+    "extensions": [".kusto"],
     "args": [
       {
         "name": "input",
@@ -697,9 +658,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -788,9 +747,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -836,9 +793,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -886,7 +841,7 @@
   {
     "command": "a2ib",
     "description": "Convert Avrotize schema to Iceberg schema",
-    "group": "3_Datalake",
+    "group": "3_Datalake",    
     "function": {
       "name": "avrotize.avrotoiceberg.convert_avro_to_iceberg",
       "args": {
@@ -896,9 +851,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -949,9 +902,7 @@
         "namespace": "args.namespace"
       }
     },
-    "extensions": [
-      ".parquet"
-    ],
+    "extensions": [".parquet"],
     "args": [
       {
         "name": "input",
@@ -1000,9 +951,7 @@
         "avro_file_path": "output_file_path"
       }
     },
-    "extensions": [
-      ".asn1"
-    ],
+    "extensions": [".asn1"],
     "args": [
       {
         "name": "input",
@@ -1039,9 +988,7 @@
         "avro_file_path": "output_file_path"
       }
     },
-    "extensions": [
-      ".kstruct"
-    ],
+    "extensions": [".kstruct"],
     "args": [
       {
         "name": "input",
@@ -1083,9 +1030,7 @@
         "base_namespace": "args.namespace"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -1197,10 +1142,7 @@
         "project_name": "args.project_name"
       }
     },
-    "extensions": [
-      ".struct.json",
-      ".json"
-    ],
+    "extensions": [".struct.json", ".json"],
     "args": [
       {
         "name": "input",
@@ -1309,9 +1251,7 @@
         "pascal_properties": "args.pascal_properties"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -1396,9 +1336,7 @@
         "avro_annotation": "args.avro_annotation"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -1470,10 +1408,7 @@
         "avro_annotation": "args.avro_annotation"
       }
     },
-    "extensions": [
-      ".struct.json",
-      ".json"
-    ],
+    "extensions": [".struct.json", ".json"],
     "args": [
       {
         "name": "input",
@@ -1533,10 +1468,7 @@
         "avro_annotation": "args.avro_annotation"
       }
     },
-    "extensions": [
-      ".struct.json",
-      ".json"
-    ],
+    "extensions": [".struct.json", ".json"],
     "args": [
       {
         "name": "input",
@@ -1596,9 +1528,7 @@
         "typedjson_annotation": "args.typedjson_annotation"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -1669,9 +1599,7 @@
         "avro_annotation": "args.avro_annotation"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -1730,9 +1658,7 @@
         "json_annotation": "args.json_annotation"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -1813,9 +1739,7 @@
         "package_username": "args.package_username"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -1917,9 +1841,7 @@
         "serde_annotation": "args.json_annotation"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -1995,9 +1917,7 @@
         "avro_record_type": "args.record_type"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2040,9 +1960,7 @@
         "markdown_path": "output_file_path"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2071,9 +1989,7 @@
         "schema_file": "input_file_path"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2088,7 +2004,7 @@
   {
     "command": "csv2a",
     "description": "Convert CSV file to Avrotize schema",
-    "group": "1_Schemas",
+    "group": "1_Schemas",    
     "function": {
       "name": "avrotize.csvtoavro.convert_csv_to_avro",
       "args": {
@@ -2097,9 +2013,7 @@
         "namespace": "args.namespace"
       }
     },
-    "extensions": [
-      ".csv"
-    ],
+    "extensions": [".csv"],
     "args": [
       {
         "name": "input",
@@ -2144,9 +2058,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2192,9 +2104,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2240,9 +2150,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2288,9 +2196,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2336,9 +2242,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2384,9 +2288,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2432,9 +2334,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2480,9 +2380,7 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2526,10 +2424,7 @@
         "avro_file": "output_file_path"
       }
     },
-    "extensions": [
-      ".struct.json",
-      ".json"
-    ],
+    "extensions": [".struct.json", ".json"],
     "args": [
       {
         "name": "input",
@@ -2561,9 +2456,7 @@
         "avro_encoding": "args.avro_encoding"
       }
     },
-    "extensions": [
-      ".avsc"
-    ],
+    "extensions": [".avsc"],
     "args": [
       {
         "name": "input",
@@ -2582,12 +2475,7 @@
         "name": "--naming",
         "type": "str",
         "help": "Type naming convention",
-        "choices": [
-          "snake",
-          "camel",
-          "pascal",
-          "default"
-        ],
+        "choices": ["snake", "camel", "pascal", "default"],
         "required": false,
         "default": "default"
       },
