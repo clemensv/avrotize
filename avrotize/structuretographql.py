@@ -165,32 +165,54 @@ class StructureToGraphQLConverter:
         if not isinstance(schema, dict):
             return
 
+    def extract_named_types_from_structure(self, schema: Dict, parent_namespace: str, explicit_name: str = ''):
+        """
+        Extract all named types (objects, enums) from a JSON Structure schema.
+        """
+        if not isinstance(schema, dict):
+            return
+
+        # Handle $ref FIRST before anything else
+        if '$ref' in schema:
+            # Use self.schema_doc as context for resolving refs
+            context = self.schema_doc[0] if isinstance(self.schema_doc, list) and len(self.schema_doc) > 0 else self.schema_doc
+            ref_schema = self.resolve_ref(schema['$ref'], context)
+            if ref_schema:
+                # Extract type name from $ref path for explicit naming
+                ref_path = schema['$ref'].split('/')
+                ref_name = ref_path[-1]
+                self.extract_named_types_from_structure(ref_schema, parent_namespace, explicit_name=ref_name)
+            return
+
         # Use explicit name if provided, otherwise get from schema
         name = explicit_name if explicit_name else schema.get('name', '')
         
         # Handle enum keyword
         if 'enum' in schema:
             qualified = self.qualified_name({**schema, 'name': name, 'namespace': parent_namespace}, parent_namespace)
-            self.enums[qualified] = schema
-            self.enum_names[qualified] = name
-            self.type_order.append(('enum', qualified))
+            if qualified not in self.enums:
+                self.enums[qualified] = schema
+                self.enum_names[qualified] = name
+                self.type_order.append(('enum', qualified))
             return
 
         # Handle type keyword
         struct_type = schema.get('type')
         
         if struct_type == 'object':
-            if name:
-                qualified = self.qualified_name({**schema, 'name': name, 'namespace': parent_namespace}, parent_namespace)
-                self.records[qualified] = schema
-                self.record_names[qualified] = name
-                self.type_order.append(('record', qualified))
-            
-            # Process nested properties
+            # Process nested properties FIRST to ensure dependencies come before this type
             if 'properties' in schema and isinstance(schema['properties'], dict):
                 for prop_name, prop_schema in schema['properties'].items():
                     if isinstance(prop_schema, dict):
                         self.extract_named_types_from_structure(prop_schema, parent_namespace)
+            
+            # NOW add this type after all dependencies have been processed
+            if name:
+                qualified = self.qualified_name({**schema, 'name': name, 'namespace': parent_namespace}, parent_namespace)
+                if qualified not in self.records:
+                    self.records[qualified] = schema
+                    self.record_names[qualified] = name
+                    self.type_order.append(('record', qualified))
         
         elif struct_type == 'array' and 'items' in schema:
             if isinstance(schema['items'], dict):
@@ -215,15 +237,6 @@ class StructureToGraphQLConverter:
                             self.extract_named_types_from_structure(ref_schema, parent_namespace)
                     else:
                         self.extract_named_types_from_structure(choice_schema, parent_namespace)
-        
-        # Handle $ref
-        if '$ref' in schema:
-            ref_schema = self.resolve_ref(schema['$ref'], schema)
-            if ref_schema:
-                # Extract type name from $ref path for explicit naming
-                ref_path = schema['$ref'].split('/')
-                ref_name = ref_path[-1]
-                self.extract_named_types_from_structure(ref_schema, parent_namespace, explicit_name=ref_name)
 
     def generate_graphql(self):
         """
@@ -263,11 +276,12 @@ class StructureToGraphQLConverter:
         if custom_scalars:
             graphql.append('')  # Empty line after scalars
 
-        for enum in self.enums.values():
-            graphql.append(self.generate_graphql_enum(enum))
-
-        for record in self.records.values():
-            graphql.append(self.generate_graphql_record(record))
+        # Generate types in dependency order
+        for type_kind, qualified_name in self.type_order:
+            if type_kind == 'enum' and qualified_name in self.enums:
+                graphql.append(self.generate_graphql_enum(self.enums[qualified_name]))
+            elif type_kind == 'record' and qualified_name in self.records:
+                graphql.append(self.generate_graphql_record(self.records[qualified_name]))
 
         return "\n".join(graphql)
 
@@ -364,7 +378,9 @@ class StructureToGraphQLConverter:
         if isinstance(structure_type, dict):
             # Handle $ref
             if '$ref' in structure_type:
-                ref_schema = self.resolve_ref(structure_type['$ref'], structure_type)
+                # Use self.schema_doc as context for resolving refs
+                context = self.schema_doc[0] if isinstance(self.schema_doc, list) and len(self.schema_doc) > 0 else self.schema_doc
+                ref_schema = self.resolve_ref(structure_type['$ref'], context)
                 if ref_schema:
                     # First try to get the name from the schema
                     ref_name = ref_schema.get('name')
