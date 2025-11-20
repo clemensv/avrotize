@@ -66,6 +66,10 @@ Generate code from Avrotize Schema:
 - [`avrotize a2go`](#convert-avrotize-schema-to-go-classes) - Generate Go code from Avrotize Schema.
 - [`avrotize a2rust`](#convert-avrotize-schema-to-rust-classes) - Generate Rust code from Avrotize Schema.
 
+Generate code from JSON Structure:
+
+- [`avrotize s2js`](#convert-json-structure-to-javascript-classes) - Generate JavaScript code from JSON Structure schema.
+
 Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
@@ -740,6 +744,35 @@ Conversion notes:
 
 - The tool generates Markdown documentation from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Markdown section.
 - The fields of the record are documented in a table in the Markdown section. Nested records are documented in nested sections in the Markdown file.
+
+### Convert JSON Structure to JavaScript classes
+
+```bash
+avrotize s2js <path_to_structure_schema_file> --out <output_directory> [--package <package_name>] [--avro-annotation]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the JavaScript classes to. Required.
+- `--package`: (optional) The package name to use in the JavaScript classes.
+- `--avro-annotation`: (optional) Add Avro binary serialization support with embedded schema.
+
+Conversion notes:
+
+- The tool generates JavaScript classes from the JSON Structure schema. Each object type in the JSON Structure schema is converted to a JavaScript class.
+- The fields of the object are mapped to properties in the JavaScript class. Nested objects are mapped to nested classes.
+- JSON Structure-specific features are supported:
+  - **Primitive types**: All JSON Structure primitive types (string, number, boolean, int8-128, uint8-128, float types, decimal, binary, etc.) are mapped to appropriate JavaScript types.
+  - **Temporal types**: date, time, datetime, timestamp, duration, uuid types are supported.
+  - **Complex types**: object, array, set, map types are fully supported.
+  - **Enums**: Mapped to JavaScript frozen objects.
+  - **Namespaces and definitions**: Properly handled with directory structure.
+  - **Type references ($ref)**: References are resolved and imported.
+  - **Required/optional properties**: Optional properties default to null, required properties to undefined.
+  - **Const fields**: Mapped to static class properties.
+  - **Default values**: Applied in constructors.
+- For full details on JSON Structure handling, see the [JSON Structure documentation](jsonstructure.md).
 
 ### Create the Parsing Canonical Form (PCF) of an Avrotize schema
 
