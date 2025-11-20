@@ -12,6 +12,14 @@
         <xs:element name="productName" minOccurs="1" maxOccurs="1">
           <xs:annotation>
             <xs:documentation>Product name with alternate names</xs:documentation>
+            <xs:appinfo source="json-structure-extensions">{
+  &quot;altnames&quot;: {
+    &quot;json&quot;: &quot;product_name&quot;,
+    &quot;lang:en&quot;: &quot;Product Name&quot;,
+    &quot;lang:de&quot;: &quot;Produktname&quot;,
+    &quot;lang:fr&quot;: &quot;Nom du Produit&quot;
+  }
+}</xs:appinfo>
           </xs:annotation>
           <xs:simpleType>
             <xs:restriction base="xs:string">
@@ -20,6 +28,11 @@
           </xs:simpleType>
         </xs:element>
         <xs:element name="price" minOccurs="1" maxOccurs="1">
+          <xs:annotation>
+            <xs:appinfo source="json-structure-extensions">{
+  &quot;currency&quot;: &quot;USD&quot;
+}</xs:appinfo>
+          </xs:annotation>
           <xs:simpleType>
             <xs:restriction base="xs:decimal">
               <xs:minInclusive value="0"/>
@@ -29,14 +42,31 @@
           </xs:simpleType>
         </xs:element>
         <xs:element name="weight" minOccurs="0" maxOccurs="1">
+          <xs:annotation>
+            <xs:appinfo source="json-structure-extensions">{
+  &quot;unit&quot;: &quot;kg&quot;
+}</xs:appinfo>
+          </xs:annotation>
           <xs:simpleType>
             <xs:restriction base="xs:double">
               <xs:minInclusive value="0.0"/>
             </xs:restriction>
           </xs:simpleType>
         </xs:element>
-        <xs:element name="temperature" minOccurs="0" maxOccurs="1" type="xs:double"/>
+        <xs:element name="temperature" minOccurs="0" maxOccurs="1" type="xs:double">
+          <xs:annotation>
+            <xs:appinfo source="json-structure-extensions">{
+  &quot;unit&quot;: &quot;\u00b0C&quot;,
+  &quot;symbol&quot;: &quot;T&quot;
+}</xs:appinfo>
+          </xs:annotation>
+        </xs:element>
         <xs:element name="stockSymbol" minOccurs="0" maxOccurs="1">
+          <xs:annotation>
+            <xs:appinfo source="json-structure-extensions">{
+  &quot;symbol&quot;: &quot;STOCK&quot;
+}</xs:appinfo>
+          </xs:annotation>
           <xs:simpleType>
             <xs:restriction base="xs:string">
               <xs:maxLength value="10"/>

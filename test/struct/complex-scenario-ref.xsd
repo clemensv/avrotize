@@ -65,8 +65,19 @@
           <xs:element name="value">
             <xs:complexType>
               <xs:sequence>
-                <xs:element name="type" minOccurs="1" maxOccurs="1" type="xs:string"/>
+                <xs:element name="type" minOccurs="1" maxOccurs="1">
+                  <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                      <xs:enumeration value="measurement"/>
+                    </xs:restriction>
+                  </xs:simpleType>
+                </xs:element>
                 <xs:element name="value" minOccurs="1" maxOccurs="1">
+                  <xs:annotation>
+                    <xs:appinfo source="json-structure-extensions">{
+  &quot;unit&quot;: &quot;m/s\u00b2&quot;
+}</xs:appinfo>
+                  </xs:annotation>
                   <xs:simpleType>
                     <xs:restriction base="xs:decimal">
                       <xs:totalDigits value="15"/>
@@ -110,9 +121,33 @@
           <xs:element name="value">
             <xs:complexType>
               <xs:sequence>
-                <xs:element name="type" minOccurs="1" maxOccurs="1" type="xs:string"/>
-                <xs:element name="name" minOccurs="1" maxOccurs="1" type="xs:string"/>
-                <xs:element name="severity" minOccurs="1" maxOccurs="1" type="xs:string"/>
+                <xs:element name="type" minOccurs="1" maxOccurs="1">
+                  <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                      <xs:enumeration value="event"/>
+                    </xs:restriction>
+                  </xs:simpleType>
+                </xs:element>
+                <xs:element name="name" minOccurs="1" maxOccurs="1" type="xs:string">
+                  <xs:annotation>
+                    <xs:appinfo source="json-structure-extensions">{
+  &quot;altnames&quot;: {
+    &quot;json&quot;: &quot;event_name&quot;,
+    &quot;lang:en&quot;: &quot;Event Name&quot;
+  }
+}</xs:appinfo>
+                  </xs:annotation>
+                </xs:element>
+                <xs:element name="severity" minOccurs="1" maxOccurs="1">
+                  <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                      <xs:enumeration value="low"/>
+                      <xs:enumeration value="medium"/>
+                      <xs:enumeration value="high"/>
+                      <xs:enumeration value="critical"/>
+                    </xs:restriction>
+                  </xs:simpleType>
+                </xs:element>
                 <xs:element name="details" minOccurs="0" maxOccurs="1">
                   <xs:complexType>
                     <xs:sequence>

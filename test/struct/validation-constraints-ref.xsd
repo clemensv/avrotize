@@ -18,9 +18,29 @@
             </xs:restriction>
           </xs:simpleType>
         </xs:element>
-        <xs:element name="enumField" minOccurs="1" maxOccurs="1" type="xs:string"/>
-        <xs:element name="constField" minOccurs="0" maxOccurs="1" type="xs:string"/>
+        <xs:element name="enumField" minOccurs="1" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="red"/>
+              <xs:enumeration value="green"/>
+              <xs:enumeration value="blue"/>
+              <xs:enumeration value="yellow"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="constField" minOccurs="0" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="fixed-value"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
         <xs:element name="numberWithConstraints" minOccurs="0" maxOccurs="1">
+          <xs:annotation>
+            <xs:appinfo source="json-structure-extensions">{
+  &quot;multipleOf&quot;: 5
+}</xs:appinfo>
+          </xs:annotation>
           <xs:simpleType>
             <xs:restriction base="xs:int">
               <xs:minInclusive value="0"/>

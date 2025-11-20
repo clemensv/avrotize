@@ -81,7 +81,15 @@
                     <xs:element name="item" minOccurs="0" maxOccurs="unbounded">
                       <xs:complexType>
                         <xs:sequence>
-                          <xs:element name="type" minOccurs="1" maxOccurs="1" type="xs:string"/>
+                          <xs:element name="type" minOccurs="1" maxOccurs="1">
+                            <xs:simpleType>
+                              <xs:restriction base="xs:string">
+                                <xs:enumeration value="home"/>
+                                <xs:enumeration value="work"/>
+                                <xs:enumeration value="mobile"/>
+                              </xs:restriction>
+                            </xs:simpleType>
+                          </xs:element>
                           <xs:element name="number" minOccurs="1" maxOccurs="1">
                             <xs:simpleType>
                               <xs:restriction base="xs:string">

@@ -123,6 +123,32 @@ class StructureToXSD:
         """Create an XML complexType element."""
         return self.create_element(parent, "complexType", **attributes)
 
+    def add_custom_properties_as_appinfo(self, element: Element, type_def: Dict) -> None:
+        """Add custom JSON Structure properties as xs:appinfo annotations."""
+        custom_props = {}
+        
+        # Collect custom properties that should be preserved
+        for key in ['altnames', 'unit', 'currency', 'symbol', 'contentEncoding', 
+                    'contentMediaType', 'multipleOf']:
+            if key in type_def:
+                custom_props[key] = type_def[key]
+        
+        if custom_props:
+            # Find or create annotation element
+            annotation = element.find(f"{{{self.xmlns['xs']}}}annotation")
+            if annotation is None:
+                # Insert annotation as first child
+                annotation = Element(f"{{{self.xmlns['xs']}}}annotation")
+                element.insert(0, annotation)
+            
+            # Add appinfo with custom properties
+            appinfo = self.create_element(annotation, "appinfo")
+            appinfo.set("source", "json-structure-extensions")
+            
+            # Add custom properties as text content (JSON format)
+            import json
+            appinfo.text = json.dumps(custom_props, indent=2)
+
     def create_simple_type_with_restriction(self, parent: Element, name: str, base_type: str, facets: Dict[str, Any]) -> Element:
         """Create a simple type with restrictions (facets)."""
         simple_type = self.create_element(parent, "simpleType", name=name)
@@ -369,12 +395,29 @@ class StructureToXSD:
                     if key in type_def:
                         facets[key] = type_def[key]
                 
-                if facets:
+                # Check for enum or const constraints
+                has_enum = 'enum' in type_def
+                has_const = 'const' in type_def
+                
+                if facets or has_enum or has_const:
                     # Create an anonymous simple type with restriction
                     simple_type = self.create_element(element, "simpleType")
                     restriction = self.create_element(simple_type, "restriction", base=xsd_type)
                     element.attrib.pop('type', None)  # Remove type attribute
                     
+                    # Handle enum constraint
+                    if has_enum:
+                        enum_values = type_def['enum']
+                        if isinstance(enum_values, list):
+                            for enum_value in enum_values:
+                                self.create_element(restriction, "enumeration", value=str(enum_value))
+                    
+                    # Handle const constraint (single enumeration value)
+                    elif has_const:
+                        const_value = type_def['const']
+                        self.create_element(restriction, "enumeration", value=str(const_value))
+                    
+                    # Handle other facets
                     for facet_name, facet_value in facets.items():
                         if facet_name == 'minLength':
                             self.create_element(restriction, "minLength", value=str(facet_value))
@@ -435,6 +478,10 @@ class StructureToXSD:
                 annotation = self.create_element(prop_element, "annotation")
                 documentation = self.create_element(annotation, "documentation")
                 documentation.text = prop_def['description']
+            
+            # Add custom properties as appinfo
+            if isinstance(prop_def, dict):
+                self.add_custom_properties_as_appinfo(prop_element, prop_def)
             
             self.set_element_type(schema_root, type_name, prop_element, prop_def)
 
