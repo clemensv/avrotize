@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package basic_types;
+
+message BasicTypes {
+  string stringField = 1;
+  int32 intField = 2;
+  int64 longField = 3;
+  float floatField = 4;
+  double doubleField = 5;
+  bool booleanField = 6;
+  string uuidField = 7;
+  bytes bytesField = 8;
+}

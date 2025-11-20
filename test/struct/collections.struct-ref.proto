@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package collections;
+
+message Collections {
+  message NestedArrayItemType {
+    repeated string NestedArrayItem = 1;
+  }
+  repeated string stringArray = 1;
+  repeated int32 numberSet = 2;
+  map<string, double> stringToNumberMap = 3;
+  repeated NestedArrayItemType nestedArray = 4;
+}

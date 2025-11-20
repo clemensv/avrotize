@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package temporal_types;
+
+message TemporalTypes {
+  string dateField = 1;
+  string timeField = 2;
+  string datetimeField = 3;
+  string timestampField = 4;
+  string durationField = 5;
+}

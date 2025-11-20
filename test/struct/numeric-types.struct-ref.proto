@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package numeric_types;
+
+message NumericTypes {
+  int32 int8Field = 1;
+  int32 int16Field = 2;
+  uint32 uint32Field = 3;
+  uint64 uint64Field = 4;
+  string decimalField = 5;
+  float float32Field = 6;
+  double float64Field = 7;
+}
