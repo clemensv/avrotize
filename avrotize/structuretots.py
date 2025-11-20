@@ -4,6 +4,7 @@
 
 import json
 import os
+import random
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
@@ -373,6 +374,9 @@ class StructureToTypeScript:
 
         if write_file:
             self.write_to_file(namespace, class_name, class_definition)
+            # Generate test class
+            if not is_abstract:  # Don't generate tests for abstract classes
+                self.generate_test_class(namespace, class_name, fields)
         self.generated_types[typescript_qualified_name] = 'class'
         return typescript_qualified_name
 
@@ -480,6 +484,77 @@ class StructureToTypeScript:
             self.write_to_file(namespace, tuple_name, tuple_definition)
         self.generated_types[typescript_qualified_name] = 'tuple'
         return typescript_qualified_name
+
+    def generate_test_value(self, field: Dict) -> str:
+        """Generates a test value for a given field in TypeScript"""
+        import random
+        field_type = field['type_no_null']
+        
+        # Map TypeScript types to test values
+        test_values = {
+            'string': '"test_string"',
+            'number': str(random.randint(1, 100)),
+            'bigint': 'BigInt(123)',
+            'boolean': str(random.choice(['true', 'false'])).lower(),
+            'Date': 'new Date()',
+            'any': '{ test: "data" }',
+            'null': 'null'
+        }
+        
+        # Handle arrays
+        if field_type.endswith('[]'):
+            inner_type = field_type[:-2]
+            if inner_type in test_values:
+                return f"[{test_values[inner_type]}]"
+            else:
+                # For custom types, create empty array
+                return f"[]"
+        
+        # Handle Set
+        if field_type.startswith('Set<'):
+            inner_type = field_type[4:-1]
+            if inner_type in test_values:
+                return f"new Set([{test_values[inner_type]}])"
+            else:
+                return f"new Set()"
+        
+        # Handle maps (objects with string index signature)
+        if field_type.startswith('{ [key: string]:'):
+            return '{}'
+        
+        # Return test value or construct object for custom types
+        return test_values.get(field_type, f'{{}} as {field_type}')
+
+    def generate_test_class(self, namespace: str, class_name: str, fields: List[Dict[str, Any]]) -> None:
+        """Generates a unit test class for a TypeScript class"""
+        # Get only required fields for the test
+        required_fields = [f for f in fields if f['is_required']]
+        
+        # Generate test values for required fields
+        for field in required_fields:
+            field['test_value'] = self.generate_test_value(field)
+        
+        # Determine relative path from test directory to src
+        namespace_path = namespace.replace('.', '/') if namespace else ''
+        if namespace_path:
+            relative_path = f"{namespace_path}/{class_name}"
+        else:
+            relative_path = class_name
+        
+        test_class_definition = process_template(
+            "structuretots/test_class.ts.jinja",
+            class_name=class_name,
+            required_fields=required_fields,
+            relative_path=relative_path
+        )
+        
+        # Write test file
+        test_dir = os.path.join(self.output_dir, "test")
+        os.makedirs(test_dir, exist_ok=True)
+        
+        test_file_path = os.path.join(test_dir, f"{class_name}.test.ts")
+        with open(test_file_path, 'w', encoding='utf-8') as f:
+            f.write(test_class_definition)
 
     def write_to_file(self, namespace: str, type_name: str, content: str) -> None:
         """ Writes generated content to a TypeScript file """
