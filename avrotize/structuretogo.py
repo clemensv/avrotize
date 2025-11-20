@@ -398,12 +398,30 @@ class StructureToGo:
             v = '"' + ''.join(random.choices(string.ascii_letters + string.digits, k=10)) + '"'
         elif go_type == 'bool':
             v = 'true' if random.choice([True, False]) else 'false'
-        elif go_type in ['int', 'int8', 'int16', 'int32', 'int64']:
+        elif go_type == 'int':
             v = str(random.randint(-100, 100))
-        elif go_type in ['uint', 'uint8', 'uint16', 'uint32', 'uint64']:
-            v = str(random.randint(0, 200))
-        elif go_type in ['float32', 'float64']:
-            v = str(random.uniform(-100, 100))
+        elif go_type == 'int8':
+            v = f'int8({random.randint(-100, 100)})'
+        elif go_type == 'int16':
+            v = f'int16({random.randint(-100, 100)})'
+        elif go_type == 'int32':
+            v = f'int32({random.randint(-100, 100)})'
+        elif go_type == 'int64':
+            v = f'int64({random.randint(-100, 100)})'
+        elif go_type == 'uint':
+            v = f'uint({random.randint(0, 200)})'
+        elif go_type == 'uint8':
+            v = f'uint8({random.randint(0, 200)})'
+        elif go_type == 'uint16':
+            v = f'uint16({random.randint(0, 200)})'
+        elif go_type == 'uint32':
+            v = f'uint32({random.randint(0, 200)})'
+        elif go_type == 'uint64':
+            v = f'uint64({random.randint(0, 200)})'
+        elif go_type == 'float32':
+            v = f'float32({random.uniform(-100, 100)})'
+        elif go_type == 'float64':
+            v = f'float64({random.uniform(-100, 100)})'
         elif go_type == '[]byte':
             v = '[]byte("' + ''.join(random.choices(string.ascii_letters + string.digits, k=10)) + '")'
         elif go_type.startswith('[]'):
@@ -421,11 +439,8 @@ class StructureToGo:
             v = 'nil'
 
         if is_optional and v != 'nil':
-            # Create a helper function to get pointer
-            if go_type in ['string', 'bool', 'int', 'int8', 'int16', 'int32', 'int64', 
-                          'uint', 'uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64']:
-                return f'func() *{go_type} {{ v := {v}; return &v }}()'
-            return v
+            # Create a helper function to get pointer with proper type
+            return f'func() *{go_type} {{ v := {v}; return &v }}()'
         return v
 
     def generate_helpers(self) -> None:
@@ -481,7 +496,7 @@ class StructureToGo:
         modname_go_content += "package " + self.base_package + "\n\n"
         modname_go_content += "const ModName = \"" + self.base_package + "\"\n"
 
-        modname_go_path = os.path.join(self.output_dir, 'pkg', self.base_package, f"{self.base_package}.go")
+        modname_go_path = os.path.join(self.output_dir, 'pkg', self.base_package, "module.go")
         with open(modname_go_path, 'w', encoding='utf-8') as file:
             file.write(modname_go_content)
 
