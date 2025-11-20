@@ -37,6 +37,7 @@ _mappings = {
     "convert_avro_to_proto": (f"{mod}.avrotoproto", "convert_avro_to_proto"),
     "convert_avro_to_sql": (f"{mod}.avrotodb", "convert_avro_to_sql"),
     "convert_avro_to_xsd": (f"{mod}.avrotoxsd", "convert_avro_to_xsd"),
+    "convert_structure_to_xsd": (f"{mod}.structuretoxsd", "convert_structure_to_xsd"),
     "convert_avro_to_java": (f"{mod}.avrotojava", "convert_avro_to_java"),
     "convert_avro_schema_to_java": (f"{mod}.avrotojava", "convert_avro_schema_to_java"),
     "convert_avro_to_csharp": (f"{mod}.avrotocsharp", "convert_avro_to_csharp"),
