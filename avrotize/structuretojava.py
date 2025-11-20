@@ -20,13 +20,18 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        <jackson.version>{JACKSON_VERSION}</jackson.version>
     </properties>
     <dependencies>
         <dependency>
-            <groupId>com.fasterxml.jackson</groupId>
-            <artifactId>jackson-bom</artifactId>
-            <version>{JACKSON_VERSION}</version>
-            <type>pom</type>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${{jackson.version}}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${{jackson.version}}</version>
         </dependency>
     </dependencies>
 </project>
