@@ -66,6 +66,20 @@ class TestStructureToTypeScript(unittest.TestCase):
             # Check that dist directory was created
             assert os.path.exists(os.path.join(ts_path, 'dist'))
             print(f"[OK] {struct_name} compiled successfully")
+            
+            # Run tests if test directory exists
+            test_dir = os.path.join(ts_path, "test")
+            if os.path.exists(test_dir):
+                try:
+                    subprocess.check_call(
+                        ["npm", "test"],
+                        cwd=ts_path,
+                        stdout=sys.stdout,
+                        stderr=sys.stderr
+                    )
+                    print(f"[OK] {struct_name} tests passed")
+                except subprocess.CalledProcessError as e:
+                    print(f"Warning: Tests failed for {struct_name}: {e}")
         except subprocess.CalledProcessError as e:
             print(f"Warning: TypeScript compilation failed for {struct_name}: {e}")
             # Continue anyway - we still want to verify the generation worked
