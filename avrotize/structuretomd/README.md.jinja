@@ -70,10 +70,16 @@
 {%- if choice.choices is mapping %}
 {%- for choice_name, choice_schema in choice.choices.items() %}
 - **{{ choice_name }}**: {{ get_type_string(choice_schema) }}
+{%- if choice_schema is mapping and choice_schema.description %}
+  - Description: {{ choice_schema.description }}
+{%- endif %}
 {%- endfor %}
 {%- elif choice.choices is iterable %}
 {%- for choice_schema in choice.choices %}
 - {{ get_type_string(choice_schema) }}
+{%- if choice_schema is mapping and choice_schema.description %}
+  - Description: {{ choice_schema.description }}
+{%- endif %}
 {%- endfor %}
 {%- endif %}
 
@@ -116,10 +122,16 @@
 {%- if def_schema.choices is mapping %}
 {%- for choice_name, choice_schema in def_schema.choices.items() %}
 - **{{ choice_name }}**: {{ get_type_string(choice_schema) }}
+{%- if choice_schema is mapping and choice_schema.description %}
+  - Description: {{ choice_schema.description }}
+{%- endif %}
 {%- endfor %}
 {%- elif def_schema.choices is iterable %}
 {%- for choice_schema in def_schema.choices %}
 - {{ get_type_string(choice_schema) }}
+{%- if choice_schema is mapping and choice_schema.description %}
+  - Description: {{ choice_schema.description }}
+{%- endif %}
 {%- endfor %}
 {%- endif %}
 {%- elif def_schema.enum %}

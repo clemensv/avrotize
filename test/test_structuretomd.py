@@ -88,6 +88,10 @@ class TestStructureToMarkdown(unittest.TestCase):
         """Test converting validation-constraints.struct.json to Markdown"""
         self._convert_and_validate("validation-constraints.struct.json")
 
+    def test_descriptions_test_conversion(self):
+        """Test converting descriptions-test.struct.json to Markdown - comprehensive description coverage"""
+        self._convert_and_validate("descriptions-test.struct.json")
+
 
 if __name__ == '__main__':
     unittest.main()
