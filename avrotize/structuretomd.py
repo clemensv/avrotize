@@ -131,6 +131,8 @@ class StructureToMarkdownConverter:
             schema_name=schema_name,
             schema_description=root_schema.get('description', ''),
             schema_id=root_schema.get('$id', ''),
+            schema_uses=root_schema.get('$uses', []),
+            schema_offers=root_schema.get('$offers', {}),
             objects=self.objects,
             choices=self.choices,
             enums=self.enums,
@@ -159,6 +161,50 @@ class StructureToMarkdownConverter:
             if 'description' in prop_schema:
                 lines.append(f"  - Description: {prop_schema['description']}")
             
+            # Add extension properties (from various JSON Structure extension specs)
+            extensions = []
+            
+            # Alternate names (JSONStructureAlternateNames extension)
+            if 'altnames' in prop_schema:
+                altnames = prop_schema['altnames']
+                if isinstance(altnames, dict):
+                    altnames_list = [f"{k}: {v}" for k, v in altnames.items()]
+                    extensions.append(f"altnames: {{{', '.join(altnames_list)}}}")
+            
+            # Units (JSONStructureUnits extension)
+            if 'unit' in prop_schema:
+                extensions.append(f"unit: {prop_schema['unit']}")
+            
+            # Currency (for decimal types)
+            if 'currency' in prop_schema:
+                extensions.append(f"currency: {prop_schema['currency']}")
+            
+            # Symbol (from JSONStructureSymbol extension)
+            if 'symbol' in prop_schema:
+                extensions.append(f"symbol: {prop_schema['symbol']}")
+            
+            # Content encoding/media type (JSONStructureContent extension)
+            if 'contentEncoding' in prop_schema:
+                extensions.append(f"contentEncoding: {prop_schema['contentEncoding']}")
+            if 'contentMediaType' in prop_schema:
+                extensions.append(f"contentMediaType: {prop_schema['contentMediaType']}")
+            
+            # Format
+            if 'format' in prop_schema:
+                extensions.append(f"format: {prop_schema['format']}")
+            
+            # Examples
+            if 'examples' in prop_schema:
+                examples_str = ', '.join(str(ex) for ex in prop_schema['examples'])
+                extensions.append(f"examples: [{examples_str}]")
+            
+            # Default value
+            if 'default' in prop_schema:
+                extensions.append(f"default: {prop_schema['default']}")
+            
+            if extensions:
+                lines.append(f"  - Extensions: {', '.join(extensions)}")
+            
             # Add constraints
             constraints = []
             if 'minLength' in prop_schema:
@@ -169,6 +215,12 @@ class StructureToMarkdownConverter:
                 constraints.append(f"minimum: {prop_schema['minimum']}")
             if 'maximum' in prop_schema:
                 constraints.append(f"maximum: {prop_schema['maximum']}")
+            if 'exclusiveMinimum' in prop_schema:
+                constraints.append(f"exclusiveMinimum: {prop_schema['exclusiveMinimum']}")
+            if 'exclusiveMaximum' in prop_schema:
+                constraints.append(f"exclusiveMaximum: {prop_schema['exclusiveMaximum']}")
+            if 'multipleOf' in prop_schema:
+                constraints.append(f"multipleOf: {prop_schema['multipleOf']}")
             if 'pattern' in prop_schema:
                 constraints.append(f"pattern: `{prop_schema['pattern']}`")
             if 'minItems' in prop_schema:

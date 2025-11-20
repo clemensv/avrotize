@@ -14,8 +14,9 @@ Test schema for validation constraints
 - **constField**: `string`
   - Constraints: const: fixed-value
 - **numberWithConstraints**: `int32`
-  - Constraints: minimum: 0, maximum: 100
+  - Constraints: minimum: 0, maximum: 100, multipleOf: 5
 - **exclusiveRangeNumber**: `double`
+  - Constraints: exclusiveMinimum: 0.0, exclusiveMaximum: 10.0
 ## Enumerations
 
 ### enumField
