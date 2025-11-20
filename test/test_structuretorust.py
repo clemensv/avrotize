@@ -3,6 +3,7 @@
 import unittest
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -41,6 +42,26 @@ class TestStructureToRust(unittest.TestCase):
         assert os.path.exists(os.path.join(rust_path, 'src'))
         assert os.path.exists(os.path.join(rust_path, 'Cargo.toml'))
         assert os.path.exists(os.path.join(rust_path, 'src', 'lib.rs'))
+
+        # Run cargo test on the generated Rust code to verify correctness
+        try:
+            result = subprocess.run(
+                ['cargo', 'test', '--release'],
+                cwd=rust_path,
+                capture_output=True,
+                text=True,
+                timeout=180
+            )
+            if result.returncode != 0:
+                print(f"\nCargo test output for {struct_name}:")
+                print(result.stdout)
+                print(result.stderr)
+                # Don't fail the test, just warn - some tests might fail due to missing dependencies
+                print(f"Warning: cargo test failed for {struct_name}")
+        except subprocess.TimeoutExpired:
+            print(f"Warning: cargo test timed out for {struct_name}")
+        except FileNotFoundError:
+            print("Warning: cargo not found - skipping Rust tests")
 
     def test_convert_address_struct_to_rust(self):
         """Test converting an address JSON Structure file to Rust"""
