@@ -1,0 +1,41 @@
+use serde::{Serialize, Deserialize};
+
+{% if doc %}
+/// {{ doc }}
+{%- endif %}
+/// Discriminated union (choice) type with selector: {{ selector }}
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(tag = "{{ selector }}")]
+pub enum {{ choice_name }} {
+{%- for variant in variants %}
+    #[serde(rename = "{{ variant.original_name }}")]
+    {{ variant.name }}({{ variant.type }}),
+{%- endfor %}
+}
+
+impl {{ choice_name }} {
+    /// Serializes the choice to JSON
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    /// Deserializes the choice from JSON string
+    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+ 
+    #[test]
+    fn test_choice_{{ choice_name.lower() }}() {
+        // Test that choice variants can be created and serialized
+        {%- for variant in variants %}
+        let value = {{choice_name}}::{{ variant.name }}(Default::default());
+        let json = value.to_json().unwrap();
+        let _deserialized = {{ choice_name }}::from_json(&json).unwrap();
+        {%- endfor %}
+    }
+}

@@ -1,0 +1,40 @@
+use serde::{Serialize, Deserialize};
+
+{% if doc %}
+/// {{ doc }}
+{%- endif %}
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum {{ enum_name }} {
+{%- for symbol in symbols %}
+    #[serde(rename = "{{ symbol.original }}")]
+    {{ symbol.safe }},
+{%- endfor %}
+}
+
+impl {{ enum_name }} {
+    /// Serializes the enum to JSON
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    /// Deserializes the enum from JSON string
+    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+ 
+    #[test]
+    fn test_enum_{{ enum_name.lower() }}() {
+        {%- for symbol in symbols %}
+        let value = {{enum_name}}::{{ symbol.safe }};
+        let json = value.to_json().unwrap();
+        let deserialized = {{ enum_name }}::from_json(&json).unwrap();
+        assert_eq!(value, deserialized);
+        {%- endfor %}
+    }
+}

@@ -1,0 +1,76 @@
+use serde::{Serialize, Deserialize};
+
+{% if doc %}
+/// {{ doc }}
+{%- endif %}
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+pub struct {{ struct_name }} {
+{%- for field in fields %}
+    {%- if field.doc %}
+    /// {{ field.doc }}
+    {%- endif %}
+    {%- if field.serde_rename %}
+    #[serde(rename = "{{ field.original_name }}")]
+    {%- endif %}
+    pub {{ field.name }}: {{ field.type }},
+{%- endfor %}
+}
+
+impl {{ struct_name }} {
+    /// Serializes the struct to JSON
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    /// Serializes the struct to JSON bytes
+    pub fn to_json_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
+        serde_json::to_vec(self)
+    }
+
+    /// Deserializes the struct from JSON string
+    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json)
+    }
+
+    /// Deserializes the struct from JSON bytes
+    pub fn from_json_bytes(bytes: &[u8]) -> Result<Self, serde_json::Error> {
+        serde_json::from_slice(bytes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+ 
+    #[test]
+    fn test_create_{{ struct_name.lower() }}() {
+        let instance = {{struct_name}} {
+            {%- for field in fields %}
+            {%- if field.type.startswith("Option<") %}
+            {{ field.name }}: None,
+            {%- else %}
+            {{ field.name }}: Default::default(),
+            {%- endif %}
+            {%- endfor %}
+        };
+        // Test that the instance can be created
+        assert_eq!(instance, instance);
+    }
+
+    #[test]
+    fn test_serialize_deserialize_{{ struct_name.lower() }}() {
+        let instance = {{struct_name}} {
+            {%- for field in fields %}
+            {%- if field.type.startswith("Option<") %}
+            {{ field.name }}: None,
+            {%- else %}
+            {{ field.name }}: Default::default(),
+            {%- endif %}
+            {%- endfor %}
+        };
+        // Test JSON serialization and deserialization
+        let json = instance.to_json().unwrap();
+        let deserialized: {{ struct_name }} = {{ struct_name }}::from_json(&json).unwrap();
+        assert_eq!(instance, deserialized);
+    }
+}

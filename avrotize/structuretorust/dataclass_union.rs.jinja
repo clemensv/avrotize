@@ -1,0 +1,47 @@
+use serde::{Serialize, Deserialize};
+
+/// Union type for {{ union_enum_name }}
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(untagged)]
+pub enum {{ union_enum_name }} {
+{%- for field in union_fields %}
+    {{ field.name }}({{ field.type }}),
+{%- endfor %}
+}
+
+impl {{ union_enum_name }} {
+    /// Serializes the union to JSON
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    /// Deserializes the union from JSON string
+    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+ 
+    #[test]
+    fn test_union_{{ union_enum_name.lower() }}() {
+        // Test that union variants can be created and serialized
+        {%- for field in union_fields %}
+        {%- if field.type == "String" %}
+        let value = {{union_enum_name}}::{{ field.name }}("test".to_string());
+        {%- elif field.type == "bool" %}
+        let value = {{union_enum_name}}::{{ field.name }}(true);
+        {%- elif field.type.startswith("i") or field.type.startswith("u") %}
+        let value = {{union_enum_name}}::{{ field.name }}(42);
+        {%- elif field.type.startswith("f") %}
+        let value = {{union_enum_name}}::{{ field.name }}(3.14);
+        {%- else %}
+        let value = {{union_enum_name}}::{{ field.name }}(Default::default());
+        {%- endif %}
+        let json = value.to_json().unwrap();
+        let _deserialized = {{ union_enum_name }}::from_json(&json).unwrap();
+        {%- endfor %}
+    }
+}

@@ -1,0 +1,44 @@
+use serde::{Serialize, Deserialize};
+
+{% if doc %}
+/// {{ doc }}
+{%- endif %}
+/// Tuple type - serializes as JSON array
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+pub struct {{ tuple_name }} {
+{%- for field in fields %}
+    {%- if field.doc %}
+    /// {{ field.doc }}
+    {%- endif %}
+    pub {{ field.name }}: {{ field.type }},
+{%- endfor %}
+}
+
+impl {{ tuple_name }} {
+    /// Serializes the tuple to JSON
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    /// Deserializes the tuple from JSON string
+    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+ 
+    #[test]
+    fn test_tuple_{{ tuple_name.lower() }}() {
+        let instance = {{tuple_name}} {
+            {%- for field in fields %}
+            {{ field.name }}: Default::default(),
+            {%- endfor %}
+        };
+        let json = instance.to_json().unwrap();
+        let deserialized = {{ tuple_name }}::from_json(&json).unwrap();
+        assert_eq!(instance, deserialized);
+    }
+}
