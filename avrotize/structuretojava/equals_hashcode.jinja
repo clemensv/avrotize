@@ -1,0 +1,30 @@
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof {{ class_name }})) return false;
+        {{ class_name }} other = ({{ class_name }}) obj;
+{%- if field_count == 0 %}
+        return true;
+{%- elif field_count == 1 %}
+        return Objects.equals(this.{{ fields[0] }}, other.{{ fields[0] }});
+{%- else %}
+        return {% for field in fields %}Objects.equals(this.{{ field }}, other.{{ field }}){% if not loop.last %}
+            && {% endif %}{% endfor %};
+{%- endif %}
+    }
+
+    @Override
+    public int hashCode() {
+{%- if field_count == 0 %}
+        return 0;
+{%- elif field_count <= 8 %}
+        return Objects.hash({{ fields|join(', ') }});
+{%- else %}
+        int result = Objects.hash({{ fields[:8]|join(', ') }});
+{%- for field in fields[8:] %}
+        result = 31 * result + Objects.hashCode({{ field }});
+{%- endfor %}
+        return result;
+{%- endif %}
+    }
