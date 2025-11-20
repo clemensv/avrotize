@@ -1002,6 +1002,9 @@ Parameters:
 
 Conversion notes:
 
+- The tool generates the Parsing Canonical Form (PCF) of the Avrotize Schema. The PCF is a normalized form of the schema that is used for schema comparison and compatibility checking.
+- The PCF is a JSON object that is written to stdout.
+
 ### Convert JSON Structure schema to GraphQL schema
 
 ```bash
@@ -1036,8 +1039,5 @@ avrotize struct2gql myschema.struct.json --out myschema.graphql
 cat myschema.struct.json | avrotize struct2gql > myschema.graphql
 ```
 
-
-- The tool generates the Parsing Canonical Form (PCF) of the Avrotize Schema. The PCF is a normalized form of the schema that is used for schema comparison and compatibility checking.
-- The PCF is a JSON object that is written to stdout.
 
 This document provides an overview of the usage and functionality of Avrotize. For more detailed information, please refer to the [Avrotize Schema documentation](specs/avrotize-schema.md) and the individual command help messages.

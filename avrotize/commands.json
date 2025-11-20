@@ -1842,7 +1842,10 @@
         "graphql_schema_path": "output_file_path"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
