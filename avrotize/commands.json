@@ -1684,6 +1684,36 @@
     ]
   },
   {
+    "command": "s2csv",
+    "description": "Convert JSON Structure to CSV schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretocsv.convert_structure_to_csv_schema",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "csv_schema_path": "output_file_path"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the CSV schema file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.csv.json",
+    "prompts": []
+  },
+  {
     "command": "s2ts",
     "description": "Convert JSON Structure to TypeScript classes",
     "group": "2_ProgLanguages",
