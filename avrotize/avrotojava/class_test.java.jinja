@@ -74,8 +74,16 @@ public class {{ test_class_name }} {
         {%- elif base_type in ["boolean", "Boolean"] %}
         instance2.set{{ field.field_name | pascal }}(!{{ "(instance2.get" + field.field_name | pascal + "() != null ? instance2.get" + field.field_name | pascal + "() : false)" if base_type == "Boolean" else "instance2.get" + field.field_name | pascal + "()" }});
         {%- else %}
-        // For complex types, create a new instance
+        // For enum or complex types, set to a different value
+        {%- if "." in base_type %}
+        // Enum - try to get a different enum value
+        {{ base_type }}[] enumValues = {{ base_type }}.values();
+        if (enumValues.length > 1) {
+            instance2.set{{ field.field_name | pascal }}(enumValues[(instance2.get{{ field.field_name | pascal }}().ordinal() + 1) % enumValues.length]);
+        }
+        {%- else %}
         instance2.set{{ field.field_name | pascal }}({{ field.test_value }});
+        {%- endif %}
         {%- endif %}
         assertNotEquals(instance1, instance2, 
             "Instances with different {{ field.field_name }} should not be equal");

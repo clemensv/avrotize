@@ -20,6 +20,7 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <properties>
         <maven.compiler.source>{JDK_VERSION}</maven.compiler.source>
         <maven.compiler.target>{JDK_VERSION}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
         <dependency>
@@ -33,7 +34,28 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
             <version>{JACKSON_VERSION}</version>
             <type>pom</type>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.10.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.10.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M9</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>
 """
 
@@ -912,9 +934,19 @@ class AvroToJava:
             property_def += f"{INDENT}/** {field['doc']} */\n"
         if self.jackson_annotations:
             property_def += f"{INDENT}@JsonProperty(\"{field['name']}\")\n"
-        property_def += f"{INDENT}private {field_type.type_name} {safe_field_name};\n"
-        property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
-        property_def += f"{INDENT}public void set{pascal(field_name)}({field_type.type_name} {safe_field_name}) {{ this.{safe_field_name} = {safe_field_name}; }}\n"
+        
+        # Handle const fields
+        if 'const' in field and field['const'] is not None:
+            const_value = field['const']
+            if field_type.type_name == 'String':
+                const_value = f'"{const_value}"'
+            property_def += f"{INDENT}private final {field_type.type_name} {safe_field_name} = {const_value};\n"
+            property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
+        else:
+            property_def += f"{INDENT}private {field_type.type_name} {safe_field_name};\n"
+            property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
+            property_def += f"{INDENT}public void set{pascal(field_name)}({field_type.type_name} {safe_field_name}) {{ this.{safe_field_name} = {safe_field_name}; }}\n"
+        
         if field_type.union_types:
             for union_type in field_type.union_types:
                 if union_type.type_name.startswith("List<") or union_type.type_name.startswith("Map<"):
@@ -1034,22 +1066,6 @@ class AvroToJava:
         test_directory_path = os.path.join(base_output_dir, "src/test/java")
         if not os.path.exists(test_directory_path):
             os.makedirs(test_directory_path, exist_ok=True)
-
-        # Generate test pom.xml if needed
-        test_pom_path = os.path.join(base_output_dir, "test-pom.xml")
-        if not os.path.exists(test_pom_path):
-            package_elements = self.base_package.replace('/', '.').split('.') if self.base_package else ["com", "example"]
-            groupid = '.'.join(package_elements[:-1]) if len(package_elements) > 1 else package_elements[0]
-            artifactid = package_elements[-1]
-            with open(test_pom_path, 'w', encoding='utf-8') as file:
-                file.write(process_template(
-                    "avrotojava/testproject.pom.jinja",
-                    groupid=groupid,
-                    artifactid=artifactid,
-                    AVRO_VERSION=AVRO_VERSION,
-                    JACKSON_VERSION=JACKSON_VERSION,
-                    JDK_VERSION=JDK_VERSION
-                ))
 
         for class_name, type_kind in self.generated_types_java_package.items():
             if type_kind in ["class", "enum"]:
