@@ -1,4 +1,4 @@
-# Avrotize
+# Avrotize & Structurize
 
 Avrotize is a ["Rosetta Stone"](https://en.wikipedia.org/wiki/Rosetta_Stone) for data structure definitions, allowing you to convert between numerous data and database schema formats and to generate code for different programming languages.
 
