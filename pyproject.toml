@@ -41,7 +41,6 @@ dev = [
     "xmlunittest>=1.0.1",
     "pylint>=3.2.6",
     "dataclasses_json>=0.6.7",
-    "dataclasses>=0.8",
     "pydantic>=2.8.2",
     "avro>=1.12.0",
     "testcontainers>=4.7.2",
