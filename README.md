@@ -72,6 +72,10 @@ Generate code from JSON Structure:
 - [`avrotize s2py`](#convert-json-structure-to-python-classes) - Generate Python code from JSON Structure schema.
 - [`avrotize s2ts`](#convert-json-structure-to-typescript-classes) - Generate TypeScript code from JSON Structure schema.
 
+Direct JSON Structure conversions:
+
+- [`avrotize s2x`](#convert-json-structure-to-xml-schema-xsd) - Convert JSON Structure to XML Schema (XSD).
+
 Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
@@ -244,6 +248,45 @@ Conversion notes:
 - Avro unions with complex types are resolved into distinct types for each option that are
 
  then joined with a choice.
+
+### Convert JSON Structure to XML Schema (XSD)
+
+```bash
+avrotize s2x <path_to_structure_file> [--out <path_to_xsd_schema_file>] [--namespace <target_namespace>]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the XML schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Target namespace for the XSD schema.
+
+Conversion notes:
+
+- JSON Structure object types are mapped to XML Schema complex types with elements.
+- JSON Structure primitive types (string, int8-128, uint8-128, float/double, boolean, etc.) are mapped to appropriate XSD simple types.
+- Extended primitive types are mapped as follows:
+  - `binary`/`bytes` → `xs:base64Binary`
+  - `date` → `xs:date`
+  - `time` → `xs:time`
+  - `datetime`/`timestamp` → `xs:dateTime`
+  - `duration` → `xs:duration`
+  - `uuid` → `xs:string`
+  - `uri` → `xs:anyURI`
+  - `decimal` → `xs:decimal`
+- Collection types:
+  - `array` and `set` → complex types with sequences of items
+  - `map` → complex type with entry elements containing key and value
+  - `tuple` → complex type with fixed sequence of typed items
+- Union types (`choice` or type arrays like `["string", "null"]`):
+  - Tagged unions (with discriminator) → `xs:choice` elements
+  - Inline unions → abstract base types with concrete extensions
+  - Nullable types → elements with `minOccurs="0"`
+- Type references (`$ref`) are resolved to named XSD types
+- Type extensions (`$extends`) are mapped to XSD complex type extensions with `xs:complexContent`
+- Abstract types are marked with `abstract="true"` in XSD
+- Validation constraints (minLength, maxLength, pattern, minimum, maximum) are converted to XSD restrictions/facets
+- Required properties become elements with `minOccurs="1"`, optional properties have `minOccurs="0"`
 
 ### Convert ASN.1 schema to Avrotize Schema
 

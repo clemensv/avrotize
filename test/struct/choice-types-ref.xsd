@@ -1,0 +1,54 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:example:schema" targetNamespace="urn:example:schema" elementFormDefault="qualified">
+  <xs:element name="ChoiceTypes">
+    <xs:annotation>
+      <xs:documentation>Test schema for choice types (unions)</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>Test schema for choice types (unions)</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element name="taggedChoice" minOccurs="1" maxOccurs="1" type="TaggedChoice"/>
+        <xs:element name="inlineChoice" minOccurs="0" maxOccurs="1" type="EntityChoice"/>
+        <xs:element name="nullableString" minOccurs="0" maxOccurs="1" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:complexType name="TaggedChoice">
+    <xs:choice>
+      <xs:element name="textValue" type="xs:string"/>
+      <xs:element name="numberValue" type="xs:int"/>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="EntityChoice">
+    <xs:choice>
+      <xs:element name="Person" type="Person"/>
+      <xs:element name="Company" type="Company"/>
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="Person">
+    <xs:complexContent>
+      <xs:extension base="BaseEntity">
+        <xs:sequence>
+          <xs:element name="age" minOccurs="0" maxOccurs="1" type="xs:int"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Company">
+    <xs:complexContent>
+      <xs:extension base="BaseEntity">
+        <xs:sequence>
+          <xs:element name="employees" minOccurs="0" maxOccurs="1" type="xs:int"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="BaseEntity" abstract="true">
+    <xs:sequence>
+      <xs:element name="name" minOccurs="0" maxOccurs="1" type="xs:string"/>
+      <xs:element name="entityType" minOccurs="0" maxOccurs="1" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

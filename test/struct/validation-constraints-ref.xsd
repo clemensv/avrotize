@@ -1,0 +1,42 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:example:schema" targetNamespace="urn:example:schema" elementFormDefault="qualified">
+  <xs:element name="ValidationConstraints">
+    <xs:annotation>
+      <xs:documentation>Test schema for validation constraints</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>Test schema for validation constraints</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element name="constrainedString" minOccurs="1" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:minLength value="5"/>
+              <xs:maxLength value="50"/>
+              <xs:pattern value="^[A-Z][a-zA-Z0-9]*$"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="enumField" minOccurs="1" maxOccurs="1" type="xs:string"/>
+        <xs:element name="constField" minOccurs="0" maxOccurs="1" type="xs:string"/>
+        <xs:element name="numberWithConstraints" minOccurs="0" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:int">
+              <xs:minInclusive value="0"/>
+              <xs:maxInclusive value="100"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="exclusiveRangeNumber" minOccurs="0" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:double">
+              <xs:minExclusive value="0.0"/>
+              <xs:maxExclusive value="10.0"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
