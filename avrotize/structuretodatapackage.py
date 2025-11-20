@@ -112,10 +112,11 @@ class StructureToDataPackageConverter:
             # Single schema - convert it to a list
             if 'type' in schema and schema['type'] == 'object':
                 schemas_to_convert = [schema]
-            elif 'definitions' in schema:
-                # Schema with definitions - extract object types from definitions
+            elif 'definitions' in schema or '$defs' in schema:
+                # Schema with definitions/$defs - extract object types
                 schemas_to_convert = []
-                self._extract_object_schemas(schema.get('definitions', {}), schemas_to_convert)
+                definitions = schema.get('definitions', schema.get('$defs', {}))
+                self._extract_object_schemas(definitions, schemas_to_convert)
                 # Also include root if it's an object
                 if schema.get('type') == 'object':
                     schemas_to_convert.insert(0, schema)
@@ -211,10 +212,60 @@ class StructureToDataPackageConverter:
                 
                 # Add description from doc or description (only if prop_schema is a dict)
                 if isinstance(prop_schema, dict):
+                    # Handle title
+                    if "title" in prop_schema:
+                        field_schema["title"] = prop_schema["title"]
+                    
                     if "description" in prop_schema:
                         field_schema["description"] = prop_schema["description"]
                     elif "doc" in prop_schema:
                         field_schema["description"] = prop_schema["doc"]
+                    
+                    # Handle $comment (add to description)
+                    if "$comment" in prop_schema:
+                        comment = prop_schema["$comment"]
+                        if "description" in field_schema:
+                            field_schema["description"] += f" [Comment: {comment}]"
+                        else:
+                            field_schema["description"] = f"[Comment: {comment}]"
+                    
+                    # Handle examples
+                    if "examples" in prop_schema:
+                        field_schema["examples"] = prop_schema["examples"]
+                    
+                    # Handle default values
+                    if "default" in prop_schema:
+                        field_schema["default"] = prop_schema["default"]
+                    
+                    # Handle const (fixed value)
+                    if "const" in prop_schema:
+                        if 'constraints' not in field_schema:
+                            field_schema['constraints'] = {}
+                        field_schema['constraints']['enum'] = [prop_schema["const"]]
+                        if "description" in field_schema:
+                            field_schema["description"] += f" (constant value)"
+                        else:
+                            field_schema["description"] = "Constant value"
+                    
+                    # Handle readOnly/writeOnly
+                    if "readOnly" in prop_schema and prop_schema["readOnly"]:
+                        if "description" in field_schema:
+                            field_schema["description"] += " (read-only)"
+                        else:
+                            field_schema["description"] = "Read-only field"
+                    
+                    if "writeOnly" in prop_schema and prop_schema["writeOnly"]:
+                        if "description" in field_schema:
+                            field_schema["description"] += " (write-only)"
+                        else:
+                            field_schema["description"] = "Write-only field"
+                    
+                    # Handle deprecated
+                    if "deprecated" in prop_schema and prop_schema["deprecated"]:
+                        if "description" in field_schema:
+                            field_schema["description"] += " (DEPRECATED)"
+                        else:
+                            field_schema["description"] = "DEPRECATED"
                     
                     # Add format constraints if applicable
                     self._add_field_constraints(field_schema, prop_schema)
@@ -227,11 +278,54 @@ class StructureToDataPackageConverter:
                 "schema": resource_schema
             }
             
+            # Add resource title if available
+            if "title" in schema:
+                resource["title"] = schema["title"]
+            
             # Add resource description if available
             if "description" in schema:
                 resource["description"] = schema["description"]
             elif "doc" in schema:
                 resource["description"] = schema["doc"]
+            
+            # Handle abstract types
+            if schema.get("abstract", False):
+                if "description" in resource:
+                    resource["description"] += " (Abstract type - cannot be instantiated directly)"
+                else:
+                    resource["description"] = "Abstract type - cannot be instantiated directly"
+            
+            # Handle $extends (inheritance)
+            if "$extends" in schema:
+                extends_ref = schema["$extends"]
+                if "description" in resource:
+                    resource["description"] += f" (Extends: {extends_ref})"
+                else:
+                    resource["description"] = f"Extends: {extends_ref}"
+            
+            # Handle $offers (add-in system)
+            if "$offers" in schema:
+                offers = schema["$offers"]
+                if "description" in resource:
+                    resource["description"] += f" (Offers: {', '.join(offers.keys()) if isinstance(offers, dict) else str(offers)})"
+                else:
+                    resource["description"] = f"Offers: {', '.join(offers.keys()) if isinstance(offers, dict) else str(offers)}"
+            
+            # Handle $uses (add-in system)
+            if "$uses" in schema:
+                uses = schema["$uses"]
+                uses_str = ', '.join(uses) if isinstance(uses, list) else str(uses)
+                if "description" in resource:
+                    resource["description"] += f" (Uses add-ins: {uses_str})"
+                else:
+                    resource["description"] = f"Uses add-ins: {uses_str}"
+            
+            # Handle deprecated at schema level
+            if schema.get("deprecated", False):
+                if "description" in resource:
+                    resource["description"] += " (DEPRECATED)"
+                else:
+                    resource["description"] = "DEPRECATED"
             
             data_package_resources.append(resource)
 
@@ -267,6 +361,10 @@ class StructureToDataPackageConverter:
         elif prop_type == 'binary':
             field_schema['format'] = 'binary'
         
+        # Handle format keyword for additional string formats
+        if 'format' in prop_schema:
+            field_schema['format'] = prop_schema['format']
+        
         # String constraints
         if 'maxLength' in prop_schema:
             if 'constraints' not in field_schema:
@@ -294,11 +392,83 @@ class StructureToDataPackageConverter:
                 field_schema['constraints'] = {}
             field_schema['constraints']['maximum'] = prop_schema['maximum']
         
+        if 'exclusiveMinimum' in prop_schema:
+            if 'constraints' not in field_schema:
+                field_schema['constraints'] = {}
+            # Data Package doesn't have exclusiveMinimum, so we document it
+            field_schema['constraints']['minimum'] = prop_schema['exclusiveMinimum']
+            if 'description' in field_schema:
+                field_schema['description'] += f" (exclusive minimum: {prop_schema['exclusiveMinimum']})"
+            else:
+                field_schema['description'] = f"Exclusive minimum: {prop_schema['exclusiveMinimum']}"
+        
+        if 'exclusiveMaximum' in prop_schema:
+            if 'constraints' not in field_schema:
+                field_schema['constraints'] = {}
+            # Data Package doesn't have exclusiveMaximum, so we document it
+            field_schema['constraints']['maximum'] = prop_schema['exclusiveMaximum']
+            if 'description' in field_schema:
+                field_schema['description'] += f" (exclusive maximum: {prop_schema['exclusiveMaximum']})"
+            else:
+                field_schema['description'] = f"Exclusive maximum: {prop_schema['exclusiveMaximum']}"
+        
+        if 'multipleOf' in prop_schema:
+            # Data Package doesn't have multipleOf, document in description
+            multiple_of = prop_schema['multipleOf']
+            if 'description' in field_schema:
+                field_schema['description'] += f" (multiple of {multiple_of})"
+            else:
+                field_schema['description'] = f"Must be multiple of {multiple_of}"
+        
+        # Decimal precision/scale
+        if 'precision' in prop_schema or 'scale' in prop_schema:
+            precision = prop_schema.get('precision')
+            scale = prop_schema.get('scale')
+            desc_parts = []
+            if precision:
+                desc_parts.append(f"precision: {precision}")
+            if scale:
+                desc_parts.append(f"scale: {scale}")
+            precision_desc = f" ({', '.join(desc_parts)})"
+            if 'description' in field_schema:
+                field_schema['description'] += precision_desc
+            else:
+                field_schema['description'] = precision_desc.strip('() ')
+        
+        # Array constraints
+        if 'maxItems' in prop_schema:
+            # Data Package doesn't have maxItems, document in description
+            if 'description' in field_schema:
+                field_schema['description'] += f" (max items: {prop_schema['maxItems']})"
+            else:
+                field_schema['description'] = f"Maximum {prop_schema['maxItems']} items"
+        
+        if 'minItems' in prop_schema:
+            # Data Package doesn't have minItems, document in description
+            if 'description' in field_schema:
+                field_schema['description'] += f" (min items: {prop_schema['minItems']})"
+            else:
+                field_schema['description'] = f"Minimum {prop_schema['minItems']} items"
+        
+        if 'uniqueItems' in prop_schema and prop_schema['uniqueItems']:
+            if 'constraints' not in field_schema:
+                field_schema['constraints'] = {}
+            field_schema['constraints']['unique'] = True
+        
         # Enum values
         if 'enum' in prop_schema:
             if 'constraints' not in field_schema:
                 field_schema['constraints'] = {}
             field_schema['constraints']['enum'] = prop_schema['enum']
+        
+        # Content metadata
+        if 'contentEncoding' in prop_schema:
+            # Store as custom property
+            field_schema['contentEncoding'] = prop_schema['contentEncoding']
+        
+        if 'contentMediaType' in prop_schema:
+            # Store as custom property
+            field_schema['contentMediaType'] = prop_schema['contentMediaType']
 
     def convert_structure_type_to_datapackage_type(self, structure_type: JsonNode, 
                                                    context_schema: Optional[Dict] = None) -> str:
@@ -319,6 +489,40 @@ class StructureToDataPackageConverter:
             # Complex union - default to string
             return "string"
         elif isinstance(structure_type, dict):
+            # Handle allOf (merge all schemas)
+            if 'allOf' in structure_type:
+                # For allOf, we typically take the most specific type
+                # In Data Package context, we'll use the first concrete type
+                for sub_schema in structure_type['allOf']:
+                    if isinstance(sub_schema, dict) and 'type' in sub_schema:
+                        return self.convert_structure_type_to_datapackage_type(sub_schema, context_schema)
+                return "object"  # Default to object for allOf
+            
+            # Handle oneOf (one of the schemas must match)
+            if 'oneOf' in structure_type:
+                # For oneOf, we use string as it's the most flexible
+                # Could potentially be a union in more sophisticated implementations
+                return "string"
+            
+            # Handle anyOf (any of the schemas may match)
+            if 'anyOf' in structure_type:
+                # Similar to oneOf, use string for flexibility
+                return "string"
+            
+            # Handle not (negation)
+            if 'not' in structure_type:
+                # Can't directly represent negation, default to string
+                return "string"
+            
+            # Handle if/then/else (conditional schemas)
+            if 'if' in structure_type:
+                # Use 'then' schema if present, else 'else' schema, else string
+                if 'then' in structure_type:
+                    return self.convert_structure_type_to_datapackage_type(structure_type['then'], context_schema)
+                elif 'else' in structure_type:
+                    return self.convert_structure_type_to_datapackage_type(structure_type['else'], context_schema)
+                return "string"
+            
             # Handle $ref
             if '$ref' in structure_type:
                 ref_schema = self.resolve_ref(structure_type['$ref'], context_schema)
