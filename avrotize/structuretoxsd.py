@@ -394,9 +394,18 @@ class StructureToXSD:
                 ref_schema = self.resolve_ref(field_type['$ref'])
                 if ref_schema:
                     ref_name = field_type['$ref'].split('/')[-1]
-                    if 'type' in ref_schema:
+                    
+                    # Check if it's an enum
+                    if 'enum' in ref_schema:
+                        ref_schema['name'] = ref_name
+                        self.create_enum(schema_root, ref_schema)
+                        element.set('type', ref_name)
+                        return
+                    elif 'type' in ref_schema:
+                        # For object types and other types with 'type' property
                         return self.set_field_type(schema_root, record_name, element, ref_schema)
                     else:
+                        # Generic reference
                         element.set('type', ref_name)
                         return
                 element.set('type', 'xs:string')
