@@ -798,17 +798,19 @@ Parameters:
 
 Conversion notes:
 
-- The tool generates Markdown documentation from the JSON Structure schema following the patterns established by the Avrotize Schema to Markdown converter.
+- The tool generates Markdown documentation from JSON Structure Core schemas following the patterns established by the Avrotize Schema to Markdown converter.
 - Supports all JSON Structure Core types including:
   - **JSON Primitive Types**: string, number, boolean, null
   - **Extended Primitive Types**: binary, int8-128, uint8-128, float8/float/double, decimal, date, datetime, time, duration, uuid, uri, jsonpointer
   - **Compound Types**: object, array, set, map, tuple, any, choice (both tagged and inline unions)
-- Supports JSON Structure-specific features:
+- Supports JSON Structure Core features:
   - Namespaces and definitions are documented in separate sections
   - Type references ($ref) are converted to Markdown links
   - Extensions ($extends) and abstract types are clearly marked
   - Required/optional properties are indicated
-  - Type constraints (maxLength, precision, scale, etc.) are documented alongside properties
+- Extended features (when present in schemas):
+  - Validation constraints (minLength, maxLength, minimum, maximum, pattern, etc.) are documented alongside properties
+  - Type-specific annotations (precision, scale for decimals, minItems/maxItems for arrays, etc.)
 - Each object type in the schema is converted to a Markdown section with its properties documented in a structured list format.
 - Choice types (unions) are documented with their selector (if present) and available choices.
 - The definitions section documents all reusable type definitions.
