@@ -40,26 +40,12 @@ def convert_case(file_base_name: str, emit_cloudevents_columns, emit_cloudevents
     convert_structure_to_kusto_file(
         struct_path, None, kql_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table)
     
-    # For now, just verify the file was created and contains expected content
-    assert os.path.exists(kql_path)
-    with open(kql_path, 'r', encoding="utf-8") as file:
-        content = file.read()
-        # Basic validations
-        assert ".create-merge table [record]" in content
-        assert "[type]: string" in content
-        assert "[locality]: string" in content
-        assert "ingestion json mapping" in content
-        
-        if emit_cloudevents_columns:
-            assert "[___type]: string" in content
-            assert "[___source]: string" in content
-            assert "[___id]: string" in content
-            assert "[___time]: datetime" in content
-            assert "[___subject]: string" in content
-        
-        if emit_cloudevents_dispatch_table:
-            assert "_cloudevents_dispatch" in content
-            assert "policy update" in content
+    # Compare with reference file if it exists
+    if os.path.exists(kql_ref_path):
+        with open(kql_path, 'r', encoding="utf-8") as file1, open(kql_ref_path, 'r', encoding="utf-8") as file2:
+            content1 = file1.read()
+            content2 = file2.read()
+        assert content1 == content2
 
 
 if __name__ == '__main__':
