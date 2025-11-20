@@ -8,8 +8,6 @@ import subprocess
 import sys
 import tempfile
 
-import pytest
-
 from avrotize.structuretojava import convert_structure_to_java
 
 current_script_path = os.path.abspath(__file__)
@@ -27,7 +25,7 @@ class TestStructureToJava(unittest.TestCase):
         pascal_properties=False,
         package_name=None,
     ):
-        """Test converting a JSON Structure file to Java"""
+        """Test converting a JSON Structure file to Java and building with Maven"""
         cwd = os.getcwd()
         struct_path = os.path.join(cwd, "test", "jsons", struct_name + ".struct.json")
         java_path = os.path.join(tempfile.gettempdir(), "avrotize", struct_name + "-java")
@@ -64,6 +62,14 @@ class TestStructureToJava(unittest.TestCase):
     def test_convert_address_struct_to_java_pascal_properties(self):
         """Test converting address JSON Structure to Java with PascalCase properties"""
         self.run_convert_struct_to_java("address-ref", pascal_properties=True)
+    
+    def test_convert_userprofile_struct_to_java(self):
+        """Test converting userprofile JSON Structure to Java"""
+        self.run_convert_struct_to_java("userprofile-ref")
+    
+    def test_convert_feeditem_struct_to_java(self):
+        """Test converting feeditem JSON Structure to Java"""
+        self.run_convert_struct_to_java("feeditem-ref")
 
 
 if __name__ == "__main__":

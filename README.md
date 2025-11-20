@@ -1,4 +1,4 @@
-# Avrotize & Structurize
+# Avrotize
 
 Avrotize is a ["Rosetta Stone"](https://en.wikipedia.org/wiki/Rosetta_Stone) for data structure definitions, allowing you to convert between numerous data and database schema formats and to generate code for different programming languages.
 
@@ -45,7 +45,6 @@ Converting from Avrotize Schema:
 - [`avrotize struct2sql`](#convert-json-structure-schema-to-sql-schema) - Convert JSON Structure Schema to SQL table definition.
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
-- [`avrotize s2ib`](#convert-json-structure-to-iceberg-schema) - Convert JSON Structure to Iceberg schema.
 - [`avrotize a2mongo`](#convert-avrotize-schema-to-mongodb-schema) - Convert Avrotize Schema to MongoDB schema.
 - [`avrotize a2cassandra`](#convert-avrotize-schema-to-cassandra-schema) - Convert Avrotize Schema to Cassandra schema.
 - [`avrotize struct2cassandra`](#convert-json-structure-schema-to-cassandra-schema) - Convert JSON Structure Schema to Cassandra schema.
@@ -60,10 +59,6 @@ Converting from Avrotize Schema:
 - [`avrotize a2md`](#convert-avrotize-schema-to-markdown-documentation) - Convert Avrotize Schema to Markdown documentation.
 - [`avrotize struct2md`](#convert-json-structure-schema-to-markdown-documentation) - Convert JSON Structure schema to Markdown documentation.
 
-Direct conversions (JSON Structure):
-
-- [`avrotize s2p`](#convert-json-structure-to-protocol-buffers) - Convert JSON Structure to Protocol Buffers (.proto files).
-
 Generate code from Avrotize Schema:
 
 - [`avrotize a2cs`](#convert-avrotize-schema-to-c-classes) - Generate C# code from Avrotize Schema.
@@ -75,14 +70,15 @@ Generate code from Avrotize Schema:
 - [`avrotize a2go`](#convert-avrotize-schema-to-go-classes) - Generate Go code from Avrotize Schema.
 - [`avrotize a2rust`](#convert-avrotize-schema-to-rust-classes) - Generate Rust code from Avrotize Schema.
 
-Generate code from JSON Structure:
+Generate code from JSON Structure Schema:
 
 - [`avrotize s2cpp`](#convert-json-structure-to-c-classes) - Generate C++ code from JSON Structure schema.
 - [`avrotize s2cs`](#convert-json-structure-to-c-classes) - Generate C# code from JSON Structure schema.
+- [`avrotize s2go`](#convert-json-structure-to-go-classes) - Generate Go code from JSON Structure schema.
+- [`avrotize s2java`](#convert-json-structure-to-java-classes) - Generate Java code from JSON Structure Schema.
 - [`avrotize s2py`](#convert-json-structure-to-python-classes) - Generate Python code from JSON Structure schema.
 - [`avrotize s2rust`](#convert-json-structure-to-rust-classes) - Generate Rust code from JSON Structure schema.
 - [`avrotize s2ts`](#convert-json-structure-to-typescript-classes) - Generate TypeScript code from JSON Structure schema.
-- [`avrotize s2go`](#convert-json-structure-to-go-classes) - Generate Go code from JSON Structure schema.
 
 Direct JSON Structure conversions:
 
@@ -269,45 +265,6 @@ Conversion notes:
 - Avro unions with complex types are resolved into distinct types for each option that are
 
  then joined with a choice.
-
-### Convert JSON Structure to XML Schema (XSD)
-
-```bash
-avrotize s2x <path_to_structure_file> [--out <path_to_xsd_schema_file>] [--namespace <target_namespace>]
-```
-
-Parameters:
-
-- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
-- `--out`: The path to the XML schema file to write the conversion result to. If omitted, the output is directed to stdout.
-- `--namespace`: (optional) Target namespace for the XSD schema.
-
-Conversion notes:
-
-- JSON Structure object types are mapped to XML Schema complex types with elements.
-- JSON Structure primitive types (string, int8-128, uint8-128, float/double, boolean, etc.) are mapped to appropriate XSD simple types.
-- Extended primitive types are mapped as follows:
-  - `binary`/`bytes` → `xs:base64Binary`
-  - `date` → `xs:date`
-  - `time` → `xs:time`
-  - `datetime`/`timestamp` → `xs:dateTime`
-  - `duration` → `xs:duration`
-  - `uuid` → `xs:string`
-  - `uri` → `xs:anyURI`
-  - `decimal` → `xs:decimal`
-- Collection types:
-  - `array` and `set` → complex types with sequences of items
-  - `map` → complex type with entry elements containing key and value
-  - `tuple` → complex type with fixed sequence of typed items
-- Union types (`choice` or type arrays like `["string", "null"]`):
-  - Tagged unions (with discriminator) → `xs:choice` elements
-  - Inline unions → abstract base types with concrete extensions
-  - Nullable types → elements with `minOccurs="0"`
-- Type references (`$ref`) are resolved to named XSD types
-- Type extensions (`$extends`) are mapped to XSD complex type extensions with `xs:complexContent`
-- Abstract types are marked with `abstract="true"` in XSD
-- Validation constraints (minLength, maxLength, pattern, minimum, maximum) are converted to XSD restrictions/facets
-- Required properties become elements with `minOccurs="1"`, optional properties have `minOccurs="0"`
 
 ### Convert ASN.1 schema to Avrotize Schema
 
@@ -635,32 +592,6 @@ Conversion notes:
 - The tool only supports writing Iceberg files for Avrotize Schema that describe a single `record` type. If the Avrotize Schema contains a top-level union, the `--record-type` option must be used to specify which record type to emit.
 - The fields of the record are mapped to columns in the Iceberg file. Array and record fields are mapped to Iceberg nested types. Avro type unions are mapped to structures, not to Iceberg unions since those are not supported by the PyArrow library used here.
 
-### Convert JSON Structure to Iceberg schema
-
-```bash
-avrotize s2ib <path_to_structure_schema_file> [--out <path_to_iceberg_schema_file>] [--record-type <record-type-from-structure>] [--emit-cloudevents-columns]
-```
-
-Parameters:
-
-- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
-- `--out`: The path to the Iceberg schema file to write the conversion result to. If omitted, the output is directed to stdout.
-- `--record-type`: (optional) The name of the record type in definitions to convert to an Iceberg schema.
-- `--emit-cloudevents-columns`: (optional) If set, the tool will add [CloudEvents](https://cloudevents.io) attribute columns to the Iceberg schema: `___id`, `___source`, `___subject`, `___type`, and `___time`.
-
-Conversion notes:
-
-- The emitted Iceberg file contains only the schema, no data rows.
-- The tool supports JSON Structure schemas with `type: "object"` at the top level. If the schema contains a `$ref` or the record type is in definitions, the `--record-type` option can be used to specify which type to emit.
-- JSON Structure types are mapped to Iceberg types as follows:
-  - **Primitive types**: `string` → StringType, `boolean` → BooleanType, numeric types (int8-128, uint8-128, float, double) → appropriate IntegerType/LongType/FloatType/DoubleType
-  - **Extended types**: `binary`/`bytes` → BinaryType, `date` → DateType, `time` → TimeType, `datetime`/`timestamp` → TimestampType, `duration` → LongType (microseconds), `decimal` → DecimalType (with precision/scale), `uuid`/`uri`/`jsonpointer` → StringType
-  - **Compound types**: `object` → StructType, `array`/`set` → ListType, `map` → MapType, `tuple` → StructType with indexed fields
-  - **Choice types**: Mapped to StructType with alternative fields (Iceberg doesn't have native union support)
-- Type annotations such as `precision`, `scale`, and validation constraints are preserved where applicable.
-- The `$extends` feature is supported - base type properties are included in the conversion.
-- Required and optional properties are handled via Iceberg's `required` field flag.
-
 ### Convert Parquet schema to Avrotize Schema
 
 ```bash
@@ -797,43 +728,6 @@ Conversion notes:
 - The fields of the record are mapped to properties in the TypeScript class. Nested records are mapped to nested classes in the TypeScript class.
 - The tool supports adding annotations to the properties in the TypeScript class. The `--avro-annotation` option adds Avro annotations, and the `--typedjson-annotation` option adds TypedJSON annotations.
 
-### Convert JSON Structure to TypeScript classes
-
-```bash
-avrotize s2ts <path_to_structure_schema_file> [--out <path_to_typescript_dir>] [--package <typescript_package>] [--typedjson-annotation] [--avro-annotation]
-```
-
-Parameters:
-
-- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
-- `--out`: The path to the directory to write the TypeScript classes to. Required.
-- `--package`: (optional) The TypeScript package name for the generated project.
-- `--typedjson-annotation`: (optional) Use TypedJSON annotations for JSON serialization support.
-- `--avro-annotation`: (optional) Add Avro binary serialization support with embedded Structure schema.
-
-Conversion notes:
-
-- The tool generates TypeScript classes from JSON Structure schema. Each object type in the JSON Structure schema is converted to a TypeScript class.
-- Supports all JSON Structure Core types including:
-  - **Primitive types**: string, number, boolean, null
-  - **Extended types**: binary, int8-128, uint8-128, float8/float/double, decimal, date, datetime, time, duration, uuid, uri, jsonpointer
-  - **Compound types**: object, array, set, map, tuple, any, choice (unions)
-- JSON Structure features are supported:
-  - **$ref references**: Type references are resolved and generated as separate classes
-  - **$extends inheritance**: Base class properties are included in derived classes
-  - **$offers/$uses add-ins**: Add-in properties are merged into classes that use them
-  - **Abstract types**: Marked with `abstract` keyword in TypeScript
-  - **Required/optional properties**: Required properties are non-nullable, optional properties are nullable
-  - **Choice types**: Converted to TypeScript union types
-- The generated project includes:
-  - TypeScript source files in `src/` directory
-  - `package.json` with dependencies
-  - `tsconfig.json` for TypeScript compilation
-  - `.gitignore` file
-  - `index.ts` for exporting all generated types
-- The TypeScript code can be compiled using `npm run build` (requires `npm install` first)
-- For more details on JSON Structure handling, see [jsonstructure.md](jsonstructure.md)
-
 ### Convert Avrotize Schema to JavaScript classes
 
 ```bash
@@ -918,56 +812,70 @@ Conversion notes:
 - The fields of the record are mapped to properties in the Rust class. Nested records are mapped to nested classes in the Rust class.
 - The tool supports adding annotations to the properties in the Rust class. The `--avro-annotation` option adds Avro annotations, and the `--serde-annotation` option adds Serde annotations.
 
-### Convert JSON Structure to C++ classes
+### Convert JSON Structure to C# classes
 
 ```bash
-avrotize s2cpp <path_to_structure_file> --out <path_to_cpp_dir> [--namespace <cpp_namespace>] [--json-annotation]
+avrotize s2cs <path_to_structure_schema_file> [--out <path_to_csharp_dir>] [--namespace <csharp_namespace>] [--system-text-json-annotation] [--newtonsoft-json-annotation] [--pascal-properties]
 ```
 
 Parameters:
 
-- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
-- `--out`: The path to the directory to write the C++ classes to. Required.
-- `--namespace`: (optional) The namespace to use in the C++ classes.
-- `--json-annotation`: (optional) Include JSON serialization support (default: true).
+- `<path_to_structure_schema_file>`: The path to the JSON Structure Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the C# classes to. Required.
+- `--namespace`: (optional) The namespace to use in the C# classes.
+- `--system-text-json-annotation`: (optional) Use System.Text.Json annotations.
+- `--newtonsoft-json-annotation`: (optional) Use Newtonsoft.Json annotations.
+- `--pascal-properties`: (optional) Use PascalCase properties.
 
 Conversion notes:
 
-- The tool generates C++ classes from JSON Structure schemas. Each object type in the JSON Structure schema is converted to a C++ class.
-- The fields of the object are mapped to properties in the C++ class. Nested objects are mapped to nested classes.
-- The tool supports all JSON Structure Core types including primitives (string, number, boolean), extended types (int8-128, uint8-128, float, double, decimal, binary, date, datetime, time, duration, uuid, uri), and compound types (object, array, set, map, tuple, choice).
-- JSON Structure-specific features are supported including $ref type references, namespaces, definitions, and container type aliases.
-- The generated code includes CMake build files and vcpkg dependency management for easy integration.
+- The tool generates C# classes from JSON Structure Schema. Each object type in the JSON Structure Schema is converted to a C# class.
+- The fields of the object are mapped to properties in the C# class. Nested objects are mapped to nested classes.
+- JSON Structure extended types (date, time, datetime, uuid, binary, etc.) are mapped to appropriate C# types.
+- The tool supports adding JSON serialization annotations for System.Text.Json or Newtonsoft.Json.
 
-### Convert JSON Structure to Rust classes
+### Convert JSON Structure to Java classes
 
 ```bash
-avrotize s2rust <path_to_structure_schema_file> [--out <path_to_rust_dir>] [--package <rust_package>] [--json-annotation]
+avrotize s2java <path_to_structure_schema_file> [--out <path_to_java_dir>] [--package <java_package>] [--jackson-annotation] [--pascal-properties]
 ```
 
 Parameters:
 
-- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
-- `--out`: The path to the directory to write the Rust classes to. Required.
-- `--package`: (optional) The package name to use in the Rust classes.
-- `--json-annotation`: (optional) Use Serde JSON annotations for serialization support.
+- `<path_to_structure_schema_file>`: The path to the JSON Structure Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the Java classes to. Required.
+- `--package`: (optional) The package to use in the Java classes.
+- `--jackson-annotation`: (optional) Use Jackson annotations for JSON serialization (default: true).
+- `--pascal-properties`: (optional) Use PascalCase properties.
 
 Conversion notes:
 
-- The tool generates Rust structs and enums from JSON Structure schemas. Each object type in the JSON Structure schema is converted to a Rust struct.
-- The fields of objects are mapped to struct fields with appropriate Rust types. Nested objects are mapped to nested structs.
-- All JSON Structure Core types are supported:
-  - **Primitive types**: string, number, boolean, null
-  - **Extended types**: binary, int8-128, uint8-128, float8/float/double, decimal, date, datetime, time, duration, uuid, uri, jsonpointer
-  - **Compound types**: object, array, set, map, tuple, any, choice (discriminated unions)
-- JSON Structure-specific features are supported:
-  - Namespaces and definitions
-  - Type references ($ref)
-  - Required and optional properties
-  - Abstract types
-  - Extensions ($extends)
-- The `--json-annotation` option adds Serde derive macros for JSON serialization and deserialization.
-- Generated code includes embedded unit tests that verify struct creation and serialization (when annotations are enabled).
+- The tool generates Java classes from JSON Structure Schema. Each object type in the JSON Structure Schema is converted to a Java class.
+- The fields of the object are mapped to properties in the Java class. Nested objects are mapped to nested classes.
+- JSON Structure extended types (date, time, datetime, uuid, binary, decimal, etc.) are mapped to appropriate Java types (LocalDate, LocalTime, Instant, UUID, byte[], BigDecimal, etc.).
+- The tool supports adding Jackson annotations for JSON serialization.
+- Generated classes include equals() and hashCode() methods for value equality.
+
+### Convert JSON Structure to Python classes
+
+```bash
+avrotize s2py <path_to_structure_schema_file> [--out <path_to_python_dir>] [--package <python_package>] [--dataclasses-json-annotation] [--avro-annotation]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the Python classes to. Required.
+- `--package`: (optional) The package to use in the Python classes.
+- `--dataclasses-json-annotation`: (optional) Use dataclasses-json annotations.
+- `--avro-annotation`: (optional) Add Avro binary serialization support.
+
+Conversion notes:
+
+- The tool generates Python dataclasses from JSON Structure Schema. Each object type in the JSON Structure Schema is converted to a Python dataclass.
+- The fields of the object are mapped to properties in the dataclass. Nested objects are mapped to nested dataclasses.
+- JSON Structure extended types (date, time, datetime, uuid, binary, decimal, etc.) are mapped to appropriate Python types.
+- The tool supports adding dataclasses-json annotations for JSON serialization.
 
 ### Convert JSON Structure to Go classes
 
@@ -1010,32 +918,6 @@ Conversion notes:
 
 - The tool generates a Datapackage schema from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Datapackage resource.
 - The fields of the record are mapped to fields in the Datapackage resource. Nested records are mapped to nested resources in the Datapackage.
-
-### Convert JSON Structure schema to Datapackage schema
-
-```bash
-avrotize s2dp <path_to_structure_schema_file> [--out <path_to_datapackage_file>] [--record-type <record-type-from-structure>]
-```
-
-Parameters:
-
-- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
-- `--out`: The path to the Datapackage schema file to write the conversion result to. If omitted, the output is directed to stdout.
-- `--record-type`: (optional) The name of the JSON Structure record type to convert to a Datapackage schema.
-
-Conversion notes:
-
-- The tool generates a Datapackage schema from the JSON Structure schema. Each object type in the JSON Structure schema is converted to a Datapackage resource.
-- The properties of the object are mapped to fields in the Datapackage resource schema.
-- All JSON Structure Core types are supported, including:
-  - JSON primitive types (string, number, boolean, null)
-  - Extended primitive types (int8-128, uint8-128, float/double, decimal, binary, date, datetime, time, duration, uuid, uri, jsonpointer)
-  - Compound types (object, array, set, map, tuple, choice/union)
-- JSON Structure-specific features are preserved:
-  - Namespaces are used to organize resources
-  - Type references ($ref) are resolved
-  - Type annotations (maxLength, minLength, pattern, minimum, maximum, enum) are converted to Data Package field constraints
-  - Union types (nullable fields) are properly handled
 
 ### Convert Avrotize Schema to Markdown documentation
 
@@ -1126,6 +1008,24 @@ Conversion notes:
 - Type references (`$ref`) are resolved and converted to appropriate message types.
 - Choice types (unions) are converted to Protocol Buffers `oneof` constructs.
 - Abstract types and extensions (`$extends`) are handled by generating appropriate message hierarchies.
+
+### Convert JSON Structure to Java classes
+
+```bash
+avrotize s2java <path_to_structure_schema_file> --out <path_to_java_directory> [--package <package_name>]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory where Java source files will be written.
+- `--package`: (optional) The Java package name to use for generated classes.
+
+Conversion notes:
+
+- Generates Java classes from JSON Structure schemas.
+- Supports all JSON Structure Core types including primitives and extended types.
+- Uses Jackson annotations for JSON serialization.
 
 ### Create the Parsing Canonical Form (PCF) of an Avrotize schema
 
