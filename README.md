@@ -66,6 +66,14 @@ Generate code from Avrotize Schema:
 - [`avrotize a2go`](#convert-avrotize-schema-to-go-classes) - Generate Go code from Avrotize Schema.
 - [`avrotize a2rust`](#convert-avrotize-schema-to-rust-classes) - Generate Rust code from Avrotize Schema.
 
+JSON Structure conversions:
+
+- [`avrotize s2a`](#convert-json-structure-to-avrotize-schema) - Convert JSON Structure to Avrotize Schema.
+- [`avrotize s2j`](#convert-json-structure-to-json-schema) - Convert JSON Structure to JSON Schema.
+- [`avrotize s2cs`](#convert-json-structure-to-c-classes) - Generate C# code from JSON Structure.
+- [`avrotize s2py`](#convert-json-structure-to-python-classes) - Generate Python code from JSON Structure.
+- [`avrotize s2go`](#convert-json-structure-to-go-classes) - Generate Go code from JSON Structure.
+
 Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
@@ -740,6 +748,112 @@ Conversion notes:
 
 - The tool generates Markdown documentation from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Markdown section.
 - The fields of the record are documented in a table in the Markdown section. Nested records are documented in nested sections in the Markdown file.
+
+### Convert JSON Structure to Avrotize Schema
+
+```bash
+avrotize s2a <path_to_structure_file> [--out <path_to_avro_file>]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+
+Conversion notes:
+
+- The tool converts JSON Structure schemas to Avrotize Schema. JSON Structure primitive types are mapped to Avro primitive types with appropriate logical type annotations where needed.
+- Extended types like `date`, `time`, `datetime`, `uuid`, etc., are mapped to Avro string types with corresponding logical type annotations.
+- Object types become Avro records, arrays become Avro arrays, maps become Avro maps.
+- Choice types (discriminated unions) are converted to Avro unions or records with type indicators depending on the structure.
+- The `$ref`, `$extends`, and definitions are resolved and converted appropriately.
+
+### Convert JSON Structure to JSON Schema
+
+```bash
+avrotize s2j <path_to_structure_file> [--out <path_to_json_schema_file>]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+
+Conversion notes:
+
+- The tool converts JSON Structure schemas to JSON Schema format.
+- JSON Structure-specific features like choice types and extended primitive types are mapped to appropriate JSON Schema constructs.
+
+### Convert JSON Structure to C# classes
+
+```bash
+avrotize s2cs <path_to_structure_file> [--out <path_to_csharp_dir>] [--namespace <csharp_namespace>] [--project-name <project_name>] [--system-text-json-annotation] [--newtonsoft-json-annotation] [--system-xml-annotation] [--pascal-properties]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the C# classes to. Required.
+- `--namespace`: (optional) The namespace to use in the C# classes.
+- `--project-name`: (optional) The project name for the C# project files.
+- `--system-text-json-annotation`: (optional) Add System.Text.Json annotations.
+- `--newtonsoft-json-annotation`: (optional) Add Newtonsoft.Json annotations.
+- `--system-xml-annotation`: (optional) Add System.Xml.Serialization annotations.
+- `--pascal-properties`: (optional) Use PascalCase for property names.
+
+Conversion notes:
+
+- The tool generates C# classes from JSON Structure schemas. Each object type is converted to a C# class.
+- JSON Structure primitive types are mapped to C# primitive types. Extended types like `date`, `time`, `datetime` are mapped to appropriate .NET types (DateOnly, TimeOnly, DateTimeOffset, etc.).
+- Choice types are generated as discriminated union classes with a type discriminator property.
+- The `$extends` keyword generates class inheritance hierarchies.
+- Abstract types are generated as abstract classes.
+
+### Convert JSON Structure to Python classes
+
+```bash
+avrotize s2py <path_to_structure_file> --out <path_to_python_dir> [--package <python_package>] [--dataclasses-json-annotation] [--avro-annotation]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the Python classes to. Required.
+- `--package`: (optional) The package name to use in the Python classes.
+- `--dataclasses-json-annotation`: (optional) Add dataclasses-json annotations.
+- `--avro-annotation`: (optional) Add Avro binary serialization support.
+
+Conversion notes:
+
+- The tool generates Python dataclasses from JSON Structure schemas. Each object type is converted to a Python dataclass.
+- JSON Structure primitive types are mapped to Python type hints. Extended types like `date`, `time`, `datetime` are mapped to appropriate Python datetime types.
+- Choice types are generated as Union types.
+- The tool creates a complete Python package structure with __init__.py files and pyproject.toml for dependency management.
+
+### Convert JSON Structure to Go classes
+
+```bash
+avrotize s2go <path_to_structure_file> --out <path_to_go_dir> [--package <go_package>] [--json-annotation] [--avro-annotation] [--package-site <package_site>] [--package-username <username>]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the Go structs to. Required.
+- `--package`: (optional) The package name to use in the Go code.
+- `--json-annotation`: (optional) Add JSON struct tags for encoding/json.
+- `--avro-annotation`: (optional) Add Avro struct tags.
+- `--package-site`: (optional) The package site for the Go module (e.g., github.com).
+- `--package-username`: (optional) The username/organization for the Go module.
+
+Conversion notes:
+
+- The tool generates Go structs from JSON Structure schemas. Each object type is converted to a Go struct.
+- JSON Structure primitive types are mapped to Go types. Extended types like `date`, `time`, `datetime` are mapped to time.Time.
+- Integer types (int8, int16, int32, int64, uint8, etc.) are mapped to corresponding Go integer types.
+- Choice types are generated as interface{} types for flexibility.
+- The tool generates a complete Go module with go.mod file, struct definitions, helper functions, and unit tests.
+- Generated code includes methods for JSON serialization/deserialization when annotations are enabled.
 
 ### Create the Parsing Canonical Form (PCF) of an Avrotize schema
 
