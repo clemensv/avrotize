@@ -1,0 +1,6 @@
+/** {{ docstring }} */
+export enum {{ enum_name }} {
+    {%- for symbol in symbols %}
+    {{ symbol }} = "{{ symbol }}"{%- if not loop.last %},{%- endif %}
+    {%- endfor %}
+}
