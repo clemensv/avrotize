@@ -4,7 +4,7 @@
 import json
 import os
 from typing import Dict, List, Tuple, Union, Set, Optional, Any
-from avrotize.constants import JACKSON_VERSION, JDK_VERSION
+from avrotize.constants import JACKSON_VERSION
 
 from avrotize.common import pascal, camel
 
@@ -18,8 +18,8 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <artifactId>{artifactid}</artifactId>
     <version>1.0-SNAPSHOT</version>
     <properties>
-        <maven.compiler.source>{JDK_VERSION}</maven.compiler.source>
-        <maven.compiler.target>{JDK_VERSION}</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
     </properties>
     <dependencies>
         <dependency>
@@ -671,7 +671,7 @@ class StructureToJava:
             groupid = '.'.join(package_elements[:-1]) if len(package_elements) > 1 else package_elements[0]
             artifactid = package_elements[-1]
             with open(pom_path, 'w', encoding='utf-8') as file:
-                file.write(POM_CONTENT.format(groupid=groupid, artifactid=artifactid, JACKSON_VERSION=JACKSON_VERSION, JDK_VERSION=JDK_VERSION, PACKAGE=self.base_package))
+                file.write(POM_CONTENT.format(groupid=groupid, artifactid=artifactid, JACKSON_VERSION=JACKSON_VERSION, PACKAGE=self.base_package))
         output_dir = os.path.join(
             output_dir, "src/main/java".replace('/', os.sep))
         if not os.path.exists(output_dir):
