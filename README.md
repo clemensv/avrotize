@@ -66,6 +66,12 @@ Generate code from Avrotize Schema:
 - [`avrotize a2go`](#convert-avrotize-schema-to-go-classes) - Generate Go code from Avrotize Schema.
 - [`avrotize a2rust`](#convert-avrotize-schema-to-rust-classes) - Generate Rust code from Avrotize Schema.
 
+Generate code from JSON Structure Schema:
+
+- [`avrotize s2cs`](#convert-json-structure-to-c-classes) - Generate C# code from JSON Structure Schema.
+- [`avrotize s2java`](#convert-json-structure-to-java-classes) - Generate Java code from JSON Structure Schema.
+- [`avrotize s2py`](#convert-json-structure-to-python-classes) - Generate Python code from JSON Structure Schema.
+
 Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
@@ -707,6 +713,71 @@ Conversion notes:
 - The tool generates Rust classes from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Rust class.
 - The fields of the record are mapped to properties in the Rust class. Nested records are mapped to nested classes in the Rust class.
 - The tool supports adding annotations to the properties in the Rust class. The `--avro-annotation` option adds Avro annotations, and the `--serde-annotation` option adds Serde annotations.
+
+### Convert JSON Structure to C# classes
+
+```bash
+avrotize s2cs <path_to_structure_schema_file> [--out <path_to_csharp_dir>] [--namespace <csharp_namespace>] [--system-text-json-annotation] [--newtonsoft-json-annotation] [--pascal-properties]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the C# classes to. Required.
+- `--namespace`: (optional) The namespace to use in the C# classes.
+- `--system-text-json-annotation`: (optional) Use System.Text.Json annotations.
+- `--newtonsoft-json-annotation`: (optional) Use Newtonsoft.Json annotations.
+- `--pascal-properties`: (optional) Use PascalCase properties.
+
+Conversion notes:
+
+- The tool generates C# classes from JSON Structure Schema. Each object type in the JSON Structure Schema is converted to a C# class.
+- The fields of the object are mapped to properties in the C# class. Nested objects are mapped to nested classes.
+- JSON Structure extended types (date, time, datetime, uuid, binary, etc.) are mapped to appropriate C# types.
+- The tool supports adding JSON serialization annotations for System.Text.Json or Newtonsoft.Json.
+
+### Convert JSON Structure to Java classes
+
+```bash
+avrotize s2java <path_to_structure_schema_file> [--out <path_to_java_dir>] [--package <java_package>] [--jackson-annotation] [--pascal-properties]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the Java classes to. Required.
+- `--package`: (optional) The package to use in the Java classes.
+- `--jackson-annotation`: (optional) Use Jackson annotations for JSON serialization (default: true).
+- `--pascal-properties`: (optional) Use PascalCase properties.
+
+Conversion notes:
+
+- The tool generates Java classes from JSON Structure Schema. Each object type in the JSON Structure Schema is converted to a Java class.
+- The fields of the object are mapped to properties in the Java class. Nested objects are mapped to nested classes.
+- JSON Structure extended types (date, time, datetime, uuid, binary, decimal, etc.) are mapped to appropriate Java types (LocalDate, LocalTime, Instant, UUID, byte[], BigDecimal, etc.).
+- The tool supports adding Jackson annotations for JSON serialization.
+- Generated classes include equals() and hashCode() methods for value equality.
+
+### Convert JSON Structure to Python classes
+
+```bash
+avrotize s2py <path_to_structure_schema_file> [--out <path_to_python_dir>] [--package <python_package>] [--dataclasses-json-annotation] [--avro-annotation]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the Python classes to. Required.
+- `--package`: (optional) The package to use in the Python classes.
+- `--dataclasses-json-annotation`: (optional) Use dataclasses-json annotations.
+- `--avro-annotation`: (optional) Add Avro binary serialization support.
+
+Conversion notes:
+
+- The tool generates Python dataclasses from JSON Structure Schema. Each object type in the JSON Structure Schema is converted to a Python dataclass.
+- The fields of the object are mapped to properties in the dataclass. Nested objects are mapped to nested dataclasses.
+- JSON Structure extended types (date, time, datetime, uuid, binary, decimal, etc.) are mapped to appropriate Python types.
+- The tool supports adding dataclasses-json annotations for JSON serialization.
 
 ### Convert Avrotize Schema to Datapackage schema
 
