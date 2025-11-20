@@ -198,6 +198,7 @@ class AvroToJava:
         self.pascal_properties = False
         self.generated_types_avro_namespace: Dict[str,str] = {}
         self.generated_types_java_package: Dict[str,str] = {}
+        self.generated_avro_schemas: Dict[str, Dict] = {}
 
     def qualified_name(self, package: str, name: str) -> str:
         """Concatenates package and name using a dot separator"""
@@ -370,6 +371,7 @@ class AvroToJava:
             return AvroToJava.JavaType(qualified_class_name, is_class=True)
         self.generated_types_avro_namespace[namespace_qualified_name] = "class"
         self.generated_types_java_package[qualified_class_name] = "class"
+        self.generated_avro_schemas[qualified_class_name] = avro_schema
         fields_str = [self.generate_property(class_name, field, namespace) for field in avro_schema.get('fields', [])]
         class_body = "\n".join(fields_str)
         class_definition += f"public class {class_name}"
@@ -440,6 +442,10 @@ class AvroToJava:
         
         if self.jackson_annotations:
             class_definition += self.create_is_json_match_method(avro_schema, avro_schema.get('namespace', namespace), class_name)
+
+        # Add equals() and hashCode() methods
+        class_definition += self.generate_equals_method(class_name, avro_schema.get('fields', []), namespace)
+        class_definition += self.generate_hashcode_method(class_name, avro_schema.get('fields', []), namespace)
 
         class_definition += "\n}"
 
@@ -640,6 +646,67 @@ class AvroToJava:
 
         return class_definition
 
+    def generate_equals_method(self, class_name: str, fields: List[Dict], parent_package: str) -> str:
+        """ Generates the equals method for a class """
+        equals_method = f"\n\n{INDENT}@Override\n{INDENT}public boolean equals(Object obj) {{\n"
+        equals_method += f"{INDENT * 2}if (this == obj) return true;\n"
+        equals_method += f"{INDENT * 2}if (obj == null || getClass() != obj.getClass()) return false;\n"
+        equals_method += f"{INDENT * 2}{class_name} other = ({class_name}) obj;\n"
+        
+        if not fields:
+            equals_method += f"{INDENT * 2}return true;\n"
+        else:
+            for index, field in enumerate(fields):
+                field_name = pascal(field['name']) if self.pascal_properties else field['name']
+                field_name = self.safe_identifier(field_name, class_name)
+                field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
+                
+                if field_type.type_name in ['int', 'long', 'float', 'double', 'boolean', 'byte', 'short', 'char']:
+                    equals_method += f"{INDENT * 2}if (this.{field_name} != other.{field_name}) return false;\n"
+                elif field_type.type_name == 'byte[]':
+                    equals_method += f"{INDENT * 2}if (!java.util.Arrays.equals(this.{field_name}, other.{field_name})) return false;\n"
+                else:
+                    equals_method += f"{INDENT * 2}if (this.{field_name} == null ? other.{field_name} != null : !this.{field_name}.equals(other.{field_name})) return false;\n"
+            
+            equals_method += f"{INDENT * 2}return true;\n"
+        
+        equals_method += f"{INDENT}}}\n"
+        return equals_method
+
+    def generate_hashcode_method(self, class_name: str, fields: List[Dict], parent_package: str) -> str:
+        """ Generates the hashCode method for a class """
+        hashcode_method = f"\n{INDENT}@Override\n{INDENT}public int hashCode() {{\n"
+        
+        if not fields:
+            hashcode_method += f"{INDENT * 2}return 0;\n"
+        else:
+            hashcode_method += f"{INDENT * 2}int result = 1;\n"
+            for field in fields:
+                field_name = pascal(field['name']) if self.pascal_properties else field['name']
+                field_name = self.safe_identifier(field_name, class_name)
+                field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
+                
+                if field_type.type_name == 'boolean':
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + (this.{field_name} ? 1 : 0);\n"
+                elif field_type.type_name in ['byte', 'short', 'char', 'int']:
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + this.{field_name};\n"
+                elif field_type.type_name == 'long':
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + (int)(this.{field_name} ^ (this.{field_name} >>> 32));\n"
+                elif field_type.type_name == 'float':
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + Float.floatToIntBits(this.{field_name});\n"
+                elif field_type.type_name == 'double':
+                    hashcode_method += f"{INDENT * 2}long temp = Double.doubleToLongBits(this.{field_name});\n"
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + (int)(temp ^ (temp >>> 32));\n"
+                elif field_type.type_name == 'byte[]':
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + java.util.Arrays.hashCode(this.{field_name});\n"
+                else:
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + (this.{field_name} != null ? this.{field_name}.hashCode() : 0);\n"
+            
+            hashcode_method += f"{INDENT * 2}return result;\n"
+        
+        hashcode_method += f"{INDENT}}}\n"
+        return hashcode_method
+
     def generate_avro_get_method(self, class_name: str, fields: List[Dict], parent_package: str) -> str:
         """ Generates the get method for SpecificRecord """
         get_method = f"\n{INDENT}@Override\n{INDENT}public Object get(int field$) {{\n"
@@ -690,7 +757,8 @@ class AvroToJava:
         enum_name = self.safe_identifier(avro_schema['name'])
         type_name = self.qualified_name(package.replace('/', '.'), enum_name)
         self.generated_types_avro_namespace[self.qualified_name(avro_schema.get('namespace', parent_package),avro_schema['name'])] = "enum"
-        self.generated_types_java_package[type_name] = "enum"       
+        self.generated_types_java_package[type_name] = "enum"
+        self.generated_avro_schemas[type_name] = avro_schema
         symbols = avro_schema.get('symbols', [])
         symbols_str = ', '.join([symbol.upper() for symbol in symbols])
         enum_definition += f"public enum {enum_name} {{\n"
@@ -959,12 +1027,165 @@ class AvroToJava:
             file.write("\n")
             file.write(definition)
 
+    def generate_tests(self, base_output_dir: str) -> None:
+        """ Generates unit tests for all the generated Java classes and enums """
+        from avrotize.common import process_template
+        
+        test_directory_path = os.path.join(base_output_dir, "src/test/java")
+        if not os.path.exists(test_directory_path):
+            os.makedirs(test_directory_path, exist_ok=True)
+
+        # Generate test pom.xml if needed
+        test_pom_path = os.path.join(base_output_dir, "test-pom.xml")
+        if not os.path.exists(test_pom_path):
+            package_elements = self.base_package.replace('/', '.').split('.') if self.base_package else ["com", "example"]
+            groupid = '.'.join(package_elements[:-1]) if len(package_elements) > 1 else package_elements[0]
+            artifactid = package_elements[-1]
+            with open(test_pom_path, 'w', encoding='utf-8') as file:
+                file.write(process_template(
+                    "avrotojava/testproject.pom.jinja",
+                    groupid=groupid,
+                    artifactid=artifactid,
+                    AVRO_VERSION=AVRO_VERSION,
+                    JACKSON_VERSION=JACKSON_VERSION,
+                    JDK_VERSION=JDK_VERSION
+                ))
+
+        for class_name, type_kind in self.generated_types_java_package.items():
+            if type_kind in ["class", "enum"]:
+                self.generate_test_class(class_name, type_kind, test_directory_path)
+
+    def generate_test_class(self, class_name: str, type_kind: str, test_directory_path: str) -> None:
+        """ Generates a unit test class for a given Java class or enum """
+        from avrotize.common import process_template
+        
+        avro_schema = self.generated_avro_schemas.get(class_name, {})
+        simple_class_name = class_name.split('.')[-1]
+        package = ".".join(class_name.split('.')[:-1])
+        test_class_name = f"{simple_class_name}Test"
+
+        if type_kind == "class":
+            fields = self.get_class_test_fields(avro_schema, simple_class_name, package)
+            imports = self.get_test_imports(fields)
+            test_class_definition = process_template(
+                "avrotojava/class_test.java.jinja",
+                package=package,
+                test_class_name=test_class_name,
+                class_name=simple_class_name,
+                fields=fields,
+                imports=imports,
+                avro_annotation=self.avro_annotation,
+                jackson_annotation=self.jackson_annotations
+            )
+        elif type_kind == "enum":
+            test_class_definition = process_template(
+                "avrotojava/enum_test.java.jinja",
+                package=package,
+                test_class_name=test_class_name,
+                enum_name=simple_class_name,
+                symbols=avro_schema.get('symbols', [])
+            )
+
+        # Write test file
+        package_path = package.replace('.', os.sep)
+        test_file_dir = os.path.join(test_directory_path, package_path)
+        if not os.path.exists(test_file_dir):
+            os.makedirs(test_file_dir, exist_ok=True)
+        test_file_path = os.path.join(test_file_dir, f"{test_class_name}.java")
+        with open(test_file_path, 'w', encoding='utf-8') as test_file:
+            test_file.write(test_class_definition)
+
+    def get_test_imports(self, fields: List) -> List[str]:
+        """ Gets the necessary imports for the test class """
+        imports = []
+        for field in fields:
+            # Add imports for collections if needed
+            if field.field_type.startswith("List<"):
+                if "import java.util.List;" not in imports:
+                    imports.append("import java.util.List;")
+                if "import java.util.ArrayList;" not in imports:
+                    imports.append("import java.util.ArrayList;")
+            elif field.field_type.startswith("Map<"):
+                if "import java.util.Map;" not in imports:
+                    imports.append("import java.util.Map;")
+                if "import java.util.HashMap;" not in imports:
+                    imports.append("import java.util.HashMap;")
+        return imports
+
+    def get_class_test_fields(self, avro_schema: Dict, class_name: str, package: str) -> List:
+        """ Retrieves fields for a given class name """
+        
+        class Field:
+            def __init__(self, fn: str, ft: str, tv: str, ct: bool):
+                self.field_name = fn
+                self.field_type = ft
+                self.test_value = tv
+                self.is_const = ct
+
+        fields: List[Field] = []
+        if avro_schema and 'fields' in avro_schema:
+            for field in avro_schema['fields']:
+                field_name = pascal(field['name']) if self.pascal_properties else field['name']
+                field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], avro_schema.get('namespace', ''))
+                f = Field(
+                    field_name,
+                    field_type.type_name,
+                    self.get_test_value(field_type.type_name, package) if "const" not in field else f'"{field["const"]}"',
+                    "const" in field and field["const"] is not None
+                )
+                fields.append(f)
+        return fields
+
+    def get_test_value(self, java_type: str, package: str) -> str:
+        """Returns a default test value based on the Java type"""
+        test_values = {
+            'String': '"test_string"',
+            'boolean': 'true',
+            'Boolean': 'Boolean.TRUE',
+            'int': '42',
+            'Integer': 'Integer.valueOf(42)',
+            'long': '42L',
+            'Long': 'Long.valueOf(42L)',
+            'float': '3.14f',
+            'Float': 'Float.valueOf(3.14f)',
+            'double': '3.14',
+            'Double': 'Double.valueOf(3.14)',
+            'byte[]': 'new byte[] { 0x01, 0x02, 0x03 }',
+        }
+        
+        # Handle generic types
+        if java_type.startswith("List<"):
+            inner_type = java_type[5:-1]
+            inner_value = self.get_test_value(inner_type, package)
+            return f'new ArrayList<>(java.util.Arrays.asList({inner_value}))'
+        elif java_type.startswith("Map<"):
+            return 'new HashMap<>()'
+        
+        # Check if it's a generated type (enum or class)
+        if java_type in self.generated_types_java_package:
+            type_kind = self.generated_types_java_package[java_type]
+            if type_kind == "enum":
+                # Get the first symbol for the enum
+                avro_schema = self.generated_avro_schemas.get(java_type, {})
+                symbols = avro_schema.get('symbols', [])
+                if symbols:
+                    simple_name = java_type.split('.')[-1]
+                    return f'{simple_name}.{symbols[0].upper()}'
+                return f'{java_type.split(".")[-1]}.values()[0]'
+            elif type_kind == "class":
+                # Use the createInstance method from the test class
+                simple_name = java_type.split('.')[-1]
+                return f'{simple_name}Test.createInstance()'
+        
+        return test_values.get(java_type, f'new {java_type}()')
+
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to Java"""
         if not isinstance(schema, list):
             schema = [schema]
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
+        base_output_dir = output_dir  # Store the base directory before changing it
         pom_path = os.path.join(output_dir, "pom.xml")
         if not os.path.exists(pom_path):
             package_elements = self.base_package.split('.') if self.base_package else ["com", "example"]
@@ -979,6 +1200,7 @@ class AvroToJava:
         self.output_dir = output_dir
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema, '')
+        self.generate_tests(base_output_dir)
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Java"""

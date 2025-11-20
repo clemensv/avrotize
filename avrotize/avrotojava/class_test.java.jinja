@@ -1,0 +1,123 @@
+package {{ package }};
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import static org.junit.jupiter.api.Assertions.*;
+
+{% if imports %}
+{% for import_stmt in imports %}
+{{ import_stmt }}
+{% endfor %}
+{% endif %}
+
+/**
+ * Test class for {{ class_name }}
+ */
+public class {{ test_class_name }} {
+    private {{ class_name }} instance;
+
+    /**
+     * Set up test instance
+     */
+    @BeforeEach
+    public void setUp() {
+        instance = createInstance();
+    }
+
+    /**
+     * Create instance of {{ class_name }}
+     */
+    public static {{ class_name }} createInstance() {
+        {{ class_name }} instance = new {{ class_name }}();
+        {%- for field in fields %}
+        {%- if not field.is_const %}
+        instance.set{{ field.field_name | pascal }}({{ field.test_value }});
+        {%- endif %}
+        {%- endfor %}
+        return instance;
+    }
+
+    /**
+     * Testing Equals and GetHashCode - positive case
+     */
+    @Test
+    public void testEqualsAndHashCode_PositiveCase() {
+        {{ class_name }} instance1 = createInstance();
+        {{ class_name }} instance2 = createInstance();
+        
+        // Test equality
+        assertEquals(instance1, instance2, "Two instances with same values should be equal");
+        
+        // Test hash codes
+        assertEquals(instance1.hashCode(), instance2.hashCode(), 
+            "Equal instances should have equal hash codes");
+    }
+
+    /**
+     * Testing Equals and GetHashCode - negative case
+     */
+    @Test
+    public void testEqualsAndHashCode_NegativeCase() {
+        {{ class_name }} instance1 = createInstance();
+        {{ class_name }} instance2 = createInstance();
+        
+        {%- for field in fields if not field.is_const %}
+        {%- if loop.first %}
+        // Modify {{ field.field_name }} and verify inequality
+        {%- set base_type = field.field_type %}
+        {%- if base_type == "String" %}
+        instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : "test") + "_modified");
+        {%- elif base_type in ["int", "Integer", "long", "Long", "short", "Short", "byte", "Byte"] %}
+        instance2.set{{ field.field_name | pascal }}({{ "(instance2.get" + field.field_name | pascal + "() != null ? instance2.get" + field.field_name | pascal + "() : 0)" if base_type in ["Integer", "Long", "Short", "Byte"] else "instance2.get" + field.field_name | pascal + "()" }} + 1);
+        {%- elif base_type in ["float", "Float", "double", "Double"] %}
+        instance2.set{{ field.field_name | pascal }}({{ "(instance2.get" + field.field_name | pascal + "() != null ? instance2.get" + field.field_name | pascal + "() : 0.0)" if base_type in ["Float", "Double"] else "instance2.get" + field.field_name | pascal + "()" }} + 1.0{{ "f" if base_type in ["float", "Float"] else "" }});
+        {%- elif base_type in ["boolean", "Boolean"] %}
+        instance2.set{{ field.field_name | pascal }}(!{{ "(instance2.get" + field.field_name | pascal + "() != null ? instance2.get" + field.field_name | pascal + "() : false)" if base_type == "Boolean" else "instance2.get" + field.field_name | pascal + "()" }});
+        {%- else %}
+        // For complex types, create a new instance
+        instance2.set{{ field.field_name | pascal }}({{ field.test_value }});
+        {%- endif %}
+        assertNotEquals(instance1, instance2, 
+            "Instances with different {{ field.field_name }} should not be equal");
+        {%- endif %}
+        {%- endfor %}
+    }
+
+    {%- for field in fields %}
+    /**
+     * Testing property {{ field.field_name }}
+     */
+    @Test
+    public void test{{ field.field_name | pascal }}Property() {
+        {{ field.field_type }} testValue = {{ field.test_value }};
+        {%- if not field.is_const %}
+        instance.set{{ field.field_name | pascal }}(testValue);
+        {%- endif %}
+        assertEquals(testValue, instance.get{{ field.field_name | pascal }}());
+    }
+    {%- endfor %}
+    {%- if avro_annotation %}
+    /**
+     * Testing Avro serializer
+     */
+    @Test
+    public void test_ToByteArray_FromData_Avro() throws Exception {
+        String mediaType = "application/vnd.apache.avro+avro";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+    {%- endif %}
+    {%- if jackson_annotation %}
+    /**
+     * Testing JSON serializer
+     */
+    @Test
+    public void test_ToByteArray_FromData_Json() throws Exception {
+        String mediaType = "application/json";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+    {%- endif %}
+}
