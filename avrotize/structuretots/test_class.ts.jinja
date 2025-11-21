@@ -1,0 +1,32 @@
+/**
+ * Test case for {{ class_name }}
+ */
+
+import { {{ class_name }} } from '../src/{{ relative_path }}';
+
+describe('{{ class_name }}', () => {
+    it('should create an instance with required fields', () => {
+        const instance = new {{ class_name }}(
+            {%- for field in required_fields %}
+            {{ field.test_value }}{% if not loop.last %},{% endif %}
+            {%- endfor %}
+        );
+        expect(instance).toBeDefined();
+        expect(instance).toBeInstanceOf({{ class_name }});
+        {%- for field in required_fields %}
+        expect(instance.{{ field.name }}).toBeDefined();
+        {%- endfor %}
+    });
+
+    it('should serialize to JSON', () => {
+        const instance = new {{ class_name }}(
+            {%- for field in required_fields %}
+            {{ field.test_value }}{% if not loop.last %},{% endif %}
+            {%- endfor %}
+        );
+        const json = JSON.stringify(instance);
+        expect(json).toBeDefined();
+        const parsed = JSON.parse(json);
+        expect(parsed).toBeDefined();
+    });
+});
