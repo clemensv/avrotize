@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/advanced-features",
+  "title": "AdvancedFeatures",
+  "description": "Test schema for advanced JSON Structure features",
+  "type": "object",
+  "properties": {
+    "constField": {
+      "type": "string",
+      "const": "FIXED_VALUE"
+    },
+    "deprecatedField": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    },
+    "readOnlyField": {
+      "type": "string"
+    },
+    "writeOnlyField": {
+      "type": "string"
+    },
+    "validatedString": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 50,
+      "pattern": "^[A-Z][a-z]+$"
+    }
+  },
+  "required": [
+    "constField"
+  ]
+}
