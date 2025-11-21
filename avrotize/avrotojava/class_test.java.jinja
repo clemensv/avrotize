@@ -68,11 +68,23 @@ public class {{ test_class_name }} {
         {%- if base_type == "String" %}
         instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : "test") + "_modified");
         {%- elif base_type in ["int", "Integer", "long", "Long", "short", "Short", "byte", "Byte"] %}
-        instance2.set{{ field.field_name | pascal }}({{ "(instance2.get" + field.field_name | pascal + "() != null ? instance2.get" + field.field_name | pascal + "() : 0)" if base_type in ["Integer", "Long", "Short", "Byte"] else "instance2.get" + field.field_name | pascal + "()" }} + 1);
+        {%- if base_type in ["Integer", "Long", "Short", "Byte"] %}
+        instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : 0) + 1);
+        {%- else %}
+        instance2.set{{ field.field_name | pascal }}(instance2.get{{ field.field_name | pascal }}() + 1);
+        {%- endif %}
         {%- elif base_type in ["float", "Float", "double", "Double"] %}
-        instance2.set{{ field.field_name | pascal }}({{ "(instance2.get" + field.field_name | pascal + "() != null ? instance2.get" + field.field_name | pascal + "() : 0.0)" if base_type in ["Float", "Double"] else "instance2.get" + field.field_name | pascal + "()" }} + 1.0{{ "f" if base_type in ["float", "Float"] else "" }});
+        {%- if base_type in ["Float", "Double"] %}
+        instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : 0.0{{ "f" if base_type == "Float" else "" }}) + 1.0{{ "f" if base_type == "Float" else "" }});
+        {%- else %}
+        instance2.set{{ field.field_name | pascal }}(instance2.get{{ field.field_name | pascal }}() + 1.0{{ "f" if base_type == "float" else "" }});
+        {%- endif %}
         {%- elif base_type in ["boolean", "Boolean"] %}
-        instance2.set{{ field.field_name | pascal }}(!{{ "(instance2.get" + field.field_name | pascal + "() != null ? instance2.get" + field.field_name | pascal + "() : false)" if base_type == "Boolean" else "instance2.get" + field.field_name | pascal + "()" }});
+        {%- if base_type == "Boolean" %}
+        instance2.set{{ field.field_name | pascal }}(!(instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : false));
+        {%- else %}
+        instance2.set{{ field.field_name | pascal }}(!instance2.get{{ field.field_name | pascal }}());
+        {%- endif %}
         {%- else %}
         // For enum or complex types, set to a different value
         {%- if "." in base_type %}

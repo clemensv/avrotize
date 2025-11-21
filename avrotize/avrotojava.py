@@ -703,6 +703,7 @@ class AvroToJava:
             hashcode_method += f"{INDENT * 2}return 0;\n"
         else:
             hashcode_method += f"{INDENT * 2}int result = 1;\n"
+            temp_counter = 0
             for field in fields:
                 field_name = pascal(field['name']) if self.pascal_properties else field['name']
                 field_name = self.safe_identifier(field_name, class_name)
@@ -717,8 +718,10 @@ class AvroToJava:
                 elif field_type.type_name == 'float':
                     hashcode_method += f"{INDENT * 2}result = 31 * result + Float.floatToIntBits(this.{field_name});\n"
                 elif field_type.type_name == 'double':
-                    hashcode_method += f"{INDENT * 2}long temp = Double.doubleToLongBits(this.{field_name});\n"
-                    hashcode_method += f"{INDENT * 2}result = 31 * result + (int)(temp ^ (temp >>> 32));\n"
+                    temp_var = f"temp{temp_counter}" if temp_counter > 0 else "temp"
+                    temp_counter += 1
+                    hashcode_method += f"{INDENT * 2}long {temp_var} = Double.doubleToLongBits(this.{field_name});\n"
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + (int)({temp_var} ^ ({temp_var} >>> 32));\n"
                 elif field_type.type_name == 'byte[]':
                     hashcode_method += f"{INDENT * 2}result = 31 * result + java.util.Arrays.hashCode(this.{field_name});\n"
                 else:
@@ -1185,7 +1188,7 @@ class AvroToJava:
         elif java_type.startswith("Map<"):
             return 'new HashMap<>()'
         
-        # Check if it's a generated type (enum or class)
+        # Check if it's a generated type (enum, class, or union)
         if java_type in self.generated_types_java_package:
             type_kind = self.generated_types_java_package[java_type]
             if type_kind == "enum":
@@ -1200,6 +1203,32 @@ class AvroToJava:
                 # Use the createInstance method from the test class
                 simple_name = java_type.split('.')[-1]
                 return f'{simple_name}Test.createInstance()'
+            elif type_kind == "union":
+                # For union types, we need to create an instance with one of the union types set
+                # Get the union's schema to find available types
+                avro_schema = self.generated_avro_schemas.get(java_type, {})
+                if avro_schema and 'types' in avro_schema:
+                    # Use the first non-null type from the union
+                    for union_type in avro_schema['types']:
+                        if union_type != 'null' and isinstance(union_type, dict):
+                            # It's a complex type - use createInstance
+                            if 'name' in union_type:
+                                type_name = union_type['name']
+                                if 'namespace' in union_type:
+                                    qualified_name = f"{union_type['namespace']}.{type_name}".replace('/', '.')
+                                else:
+                                    qualified_name = type_name
+                                simple_union_name = java_type.split('.')[-1]
+                                simple_type_name = qualified_name.split('.')[-1]
+                                return f'new {simple_union_name}({simple_type_name}Test.createInstance())'
+                        elif union_type != 'null' and isinstance(union_type, str):
+                            # It's a simple type
+                            simple_union_name = java_type.split('.')[-1]
+                            simple_value = self.get_test_value(union_type, package)
+                            return f'new {simple_union_name}({simple_value})'
+                # Fallback: create an empty union instance
+                simple_name = java_type.split('.')[-1]
+                return f'new {simple_name}()'
         
         return test_values.get(java_type, f'new {java_type}()')
 
