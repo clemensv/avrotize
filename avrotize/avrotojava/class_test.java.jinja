@@ -67,6 +67,15 @@ public class {{ test_class_name }} {
         {%- set base_type = field.field_type %}
         {%- if base_type == "String" %}
         instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : "test") + "_modified");
+        {%- elif base_type == "byte[]" %}
+        byte[] modifiedBytes = instance2.get{{ field.field_name | pascal }}();
+        if (modifiedBytes != null && modifiedBytes.length > 0) {
+            modifiedBytes = java.util.Arrays.copyOf(modifiedBytes, modifiedBytes.length);
+            modifiedBytes[0] = (byte)(modifiedBytes[0] + 1);
+        } else {
+            modifiedBytes = new byte[] { 0x00, 0x01, 0x02, 0x03 };
+        }
+        instance2.set{{ field.field_name | pascal }}(modifiedBytes);
         {%- elif base_type in ["int", "Integer", "long", "Long", "short", "Short", "byte", "Byte"] %}
         {%- if base_type in ["Integer", "Long", "Short", "Byte"] %}
         instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : 0) + 1);

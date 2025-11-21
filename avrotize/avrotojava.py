@@ -927,8 +927,14 @@ class AvroToJava:
 
         if write_file:
             self.write_to_file(package, union_class_name, class_definition)
+        # Calculate qualified name for the union
+        qualified_union_name = self.qualified_name(package.replace('/', '.'), union_class_name)
         self.generated_types_avro_namespace[union_class_name] = "union"  # Track union types
-        self.generated_types_java_package[union_class_name] = "union"  # Track union types
+        self.generated_types_java_package[union_class_name] = "union"  # Track union types with simple name
+        self.generated_types_java_package[qualified_union_name] = "union"  # Also track with qualified name
+        # Store the union schema with the types information
+        self.generated_avro_schemas[union_class_name] = {"types": avro_type}
+        self.generated_avro_schemas[qualified_union_name] = {"types": avro_type}
         return union_class_name
 
 
