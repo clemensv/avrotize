@@ -129,6 +129,17 @@ public class {{ test_class_name }} {
         {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
         assertEquals(instance, newInstance);
     }
+
+    /**
+     * Testing Avro serializer with gzip compression
+     */
+    @Test
+    public void test_ToByteArray_FromData_Avro_Gzip() throws Exception {
+        String mediaType = "application/vnd.apache.avro+avro+gzip";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
     {%- endif %}
     {%- if jackson_annotation %}
     /**
@@ -137,6 +148,17 @@ public class {{ test_class_name }} {
     @Test
     public void test_ToByteArray_FromData_Json() throws Exception {
         String mediaType = "application/json";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+
+    /**
+     * Testing JSON serializer with gzip compression
+     */
+    @Test
+    public void test_ToByteArray_FromData_Json_Gzip() throws Exception {
+        String mediaType = "application/json+gzip";
         byte[] bytes = instance.toByteArray(mediaType);
         {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
         assertEquals(instance, newInstance);

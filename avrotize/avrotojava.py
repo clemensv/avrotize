@@ -63,12 +63,16 @@ PREAMBLE_TOBYTEARRAY = \
 """
 byte[] result = null;
 String mediaType = contentType.split(";")[0].trim().toLowerCase();
+boolean shouldCompress = mediaType.endsWith("+gzip");
+if (shouldCompress) {
+    mediaType = mediaType.substring(0, mediaType.length() - 5);
+}
 """
 
 
 EPILOGUE_TOBYTEARRAY_COMPRESSION = \
     """
-if (result != null && mediaType.endsWith("+gzip")) {
+if (result != null && shouldCompress) {
     try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
          GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
         gzipOutputStream.write(result);
@@ -88,6 +92,7 @@ throw new UnsupportedOperationException("Unsupported media type + mediaType");
 PREAMBLE_FROMDATA_COMPRESSION = \
 """
 if (mediaType.endsWith("+gzip")) {
+    mediaType = mediaType.substring(0, mediaType.length() - 5);
     InputStream stream = null;
     
     if (data instanceof InputStream) {
@@ -117,7 +122,7 @@ JSON_FROMDATA_THROWS = \
     ",JsonProcessingException, IOException"
 JSON_FROMDATA = \
     """
-if ( mediaType == "application/json") {
+if ( mediaType.equals("application/json")) {
     if (data instanceof byte[]) {
         ByteArrayInputStream stream = new ByteArrayInputStream((byte[]) data);
         return (new ObjectMapper()).readValue(stream, {typeName}.class);
@@ -137,7 +142,7 @@ if ( mediaType == "application/json") {
 JSON_TOBYTEARRAY_THROWS = ",JsonProcessingException"
 JSON_TOBYTEARRAY = \
     """
-if ( mediaType == "application/json") {    
+if ( mediaType.equals("application/json")) {    
     result = new ObjectMapper().writeValueAsBytes(this);
 }
 """
@@ -145,14 +150,14 @@ if ( mediaType == "application/json") {
 AVRO_FROMDATA_THROWS = ",IOException"
 AVRO_FROMDATA = \
     """
-if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avro") {
+if ( mediaType.equals("avro/binary") || mediaType.equals("application/vnd.apache.avro+avro")) {
     if (data instanceof byte[]) {
         return AVROREADER.read(new {typeName}(), DecoderFactory.get().binaryDecoder((byte[])data, null));
     } else if (data instanceof InputStream) {
         return AVROREADER.read(new {typeName}(), DecoderFactory.get().binaryDecoder((InputStream)data, null));
     }
     throw new UnsupportedOperationException("Data is not of a supported type for Avro conversion to {typeName}");
-} else if ( mediaType == "avro/json" || mediaType == "application/vnd.apache.avro+json") {
+} else if ( mediaType.equals("avro/json") || mediaType.equals("application/vnd.apache.avro+json")) {
     if (data instanceof byte[]) {
         return AVROREADER.read(new {typeName}(), DecoderFactory.get().jsonDecoder({typeName}.AVROSCHEMA, new ByteArrayInputStream((byte[])data)));
     } else if (data instanceof InputStream) {
@@ -168,14 +173,14 @@ if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avr
 AVRO_TOBYTEARRAY_THROWS = ",IOException"
 AVRO_TOBYTEARRAY = \
     """
-if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avro") {
+if ( mediaType.equals("avro/binary") || mediaType.equals("application/vnd.apache.avro+avro")) {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     Encoder encoder = EncoderFactory.get().binaryEncoder(out, null);
     AVROWRITER.write(this, encoder);
     encoder.flush();
     result = out.toByteArray();
 }
-else if ( mediaType == "avro/json" || mediaType == "application/vnd.apache.avro+json") {
+else if ( mediaType.equals("avro/json") || mediaType.equals("application/vnd.apache.avro+json")) {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     Encoder encoder = EncoderFactory.get().jsonEncoder({typeName}.AVROSCHEMA, out);
     AVROWRITER.write(this, encoder);
