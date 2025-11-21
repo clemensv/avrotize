@@ -737,6 +737,74 @@ class AvroToJava:
         hashcode_method += f"{INDENT}}}\n"
         return hashcode_method
 
+    def generate_union_equals_method(self, union_class_name: str, union_types: List['AvroToJava.JavaType']) -> str:
+        """ Generates the equals method for a union class """
+        equals_method = f"\n{INDENT}@Override\n{INDENT}public boolean equals(Object obj) {{\n"
+        equals_method += f"{INDENT * 2}if (this == obj) return true;\n"
+        equals_method += f"{INDENT * 2}if (obj == null || getClass() != obj.getClass()) return false;\n"
+        equals_method += f"{INDENT * 2}{union_class_name} other = ({union_class_name}) obj;\n"
+        
+        # Check each union member for equality
+        for union_type in union_types:
+            # we need the nullable version (wrapper) of all primitive types
+            if self.is_java_primitive(union_type):
+                union_type = self.map_primitive_to_java(union_type.type_name, True)
+            
+            union_variable_name = union_type.type_name
+            if union_type.type_name.startswith("Map<"):
+                union_variable_name = flatten_type_name(union_type.type_name)
+            elif union_type.type_name.startswith("List<"):
+                union_variable_name = flatten_type_name(union_type.type_name)
+            elif union_type.type_name == "byte[]":
+                union_variable_name = "Bytes"
+            else:
+                union_variable_name = union_type.type_name.rsplit('.', 1)[-1]
+            
+            field_name = f"_{camel(union_variable_name)}"
+            
+            # Use proper comparison based on type
+            if union_type.type_name == 'byte[]':
+                equals_method += f"{INDENT * 2}if (!java.util.Arrays.equals(this.{field_name}, other.{field_name})) return false;\n"
+            else:
+                equals_method += f"{INDENT * 2}if (this.{field_name} == null ? other.{field_name} != null : !this.{field_name}.equals(other.{field_name})) return false;\n"
+        
+        equals_method += f"{INDENT * 2}return true;\n"
+        equals_method += f"{INDENT}}}\n"
+        return equals_method
+
+    def generate_union_hashcode_method(self, union_class_name: str, union_types: List['AvroToJava.JavaType']) -> str:
+        """ Generates the hashCode method for a union class """
+        hashcode_method = f"\n{INDENT}@Override\n{INDENT}public int hashCode() {{\n"
+        hashcode_method += f"{INDENT * 2}int result = 1;\n"
+        
+        # Include each union member in hash calculation
+        for union_type in union_types:
+            # we need the nullable version (wrapper) of all primitive types
+            if self.is_java_primitive(union_type):
+                union_type = self.map_primitive_to_java(union_type.type_name, True)
+            
+            union_variable_name = union_type.type_name
+            if union_type.type_name.startswith("Map<"):
+                union_variable_name = flatten_type_name(union_type.type_name)
+            elif union_type.type_name.startswith("List<"):
+                union_variable_name = flatten_type_name(union_type.type_name)
+            elif union_type.type_name == "byte[]":
+                union_variable_name = "Bytes"
+            else:
+                union_variable_name = union_type.type_name.rsplit('.', 1)[-1]
+            
+            field_name = f"_{camel(union_variable_name)}"
+            
+            # Use proper hash calculation based on type
+            if union_type.type_name == 'byte[]':
+                hashcode_method += f"{INDENT * 2}result = 31 * result + java.util.Arrays.hashCode(this.{field_name});\n"
+            else:
+                hashcode_method += f"{INDENT * 2}result = 31 * result + (this.{field_name} != null ? this.{field_name}.hashCode() : 0);\n"
+        
+        hashcode_method += f"{INDENT * 2}return result;\n"
+        hashcode_method += f"{INDENT}}}\n"
+        return hashcode_method
+
     def generate_avro_get_method(self, class_name: str, fields: List[Dict], parent_package: str) -> str:
         """ Generates the get method for SpecificRecord """
         get_method = f"\n{INDENT}@Override\n{INDENT}public Object get(int field$) {{\n"
@@ -759,6 +827,11 @@ class AvroToJava:
         put_method = f"\n{INDENT}@Override\n{INDENT}public void put(int field$, Object value$) {{\n"
         put_method += f"{INDENT * 2}switch (field$) {{\n"
         for index, field in enumerate(fields):
+            # Skip const fields as they are final and cannot be reassigned
+            if "const" in field:
+                put_method += f"{INDENT * 3}case {index}: break; // const field, cannot be set\n"
+                continue
+            
             field_name = pascal(field['name']) if self.pascal_properties else field['name']
             field_name = self.safe_identifier(field_name, class_name)
             field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
@@ -923,7 +996,14 @@ class AvroToJava:
         class_definition += f"{INDENT*2}}}\n{INDENT}}}\n"
         class_definition += f"\n{INDENT*1}public static boolean isJsonMatch(JsonNode node) {{\n"
         class_definition += f"{INDENT*2}return " + " || ".join(list_is_json_match) + ";\n"
-        class_definition += f"{INDENT*1}}}\n}}\n"
+        class_definition += f"{INDENT*1}}}\n"
+        
+        # Add equals method for union class
+        class_definition += self.generate_union_equals_method(union_class_name, union_types)
+        
+        # Add hashCode method for union class
+        class_definition += self.generate_union_hashcode_method(union_class_name, union_types)
+        class_definition += "}\n"
 
         if write_file:
             self.write_to_file(package, union_class_name, class_definition)
@@ -1233,9 +1313,11 @@ class AvroToJava:
                                 simple_type_name = qualified_name.split('.')[-1]
                                 return f'new {simple_union_name}({simple_type_name}Test.createInstance())'
                         elif union_type != 'null' and isinstance(union_type, str):
-                            # It's a simple type
+                            # It's a simple type - convert from Avro type to Java type
                             simple_union_name = java_type.split('.')[-1]
-                            simple_value = self.get_test_value(union_type, package)
+                            # Convert Avro primitive type to Java type
+                            java_primitive_type = self.convert_avro_type_to_java('_test', '_field', union_type, package)
+                            simple_value = self.get_test_value(java_primitive_type.type_name, package)
                             return f'new {simple_union_name}({simple_value})'
                 # Fallback: create an empty union instance
                 simple_name = java_type.split('.')[-1]
