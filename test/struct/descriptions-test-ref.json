@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/descriptions-test",
+  "title": "DescriptionsTest",
+  "description": "A comprehensive test schema to verify that descriptions are properly emitted in the generated Markdown documentation for all schema elements including objects, properties, nested structures, definitions, and choice types.",
+  "type": "object",
+  "properties": {
+    "simpleString": {
+      "type": "string"
+    },
+    "numberWithDescription": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    },
+    "nestedObject": {
+      "type": "object",
+      "properties": {
+        "nestedField1": {
+          "type": "string"
+        },
+        "nestedField2": {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        }
+      },
+      "required": [
+        "nestedField1"
+      ]
+    },
+    "arrayField": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mapField": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": -2147483648,
+        "maximum": 2147483647
+      }
+    },
+    "choiceField": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "textData": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "textData"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "numericData": {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            }
+          },
+          "required": [
+            "numericData"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "structuredData": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "value": {
+                  "type": "number",
+                  "format": "double"
+                },
+                "metadata": {
+                  "type": "object",
+                  "properties": {
+                    "created": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "value"
+              ]
+            }
+          },
+          "required": [
+            "structuredData"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "referencedType": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "simpleString",
+    "numberWithDescription"
+  ]
+}
