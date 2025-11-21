@@ -1209,47 +1209,107 @@ class AvroToJava:
         """ Gets the necessary imports for the test class """
         imports = []
         for field in fields:
-            # Add imports for collections if needed
+            # Extract inner types from generic collections
+            inner_types = []
             if field.field_type.startswith("List<"):
                 if "import java.util.List;" not in imports:
                     imports.append("import java.util.List;")
                 if "import java.util.ArrayList;" not in imports:
                     imports.append("import java.util.ArrayList;")
+                # Extract the inner type: List<Type> -> Type
+                inner_type = field.field_type[5:-1]
+                # Check if inner type is also a Map
+                if inner_type.startswith("Map<"):
+                    if "import java.util.Map;" not in imports:
+                        imports.append("import java.util.Map;")
+                    if "import java.util.HashMap;" not in imports:
+                        imports.append("import java.util.HashMap;")
+                    # Extract Map value type
+                    start = inner_type.index('<') + 1
+                    end = inner_type.rindex('>')
+                    map_types = inner_type[start:end].split(',')
+                    if len(map_types) > 1:
+                        inner_types.append(map_types[1].strip())
+                else:
+                    inner_types.append(inner_type)
             elif field.field_type.startswith("Map<"):
                 if "import java.util.Map;" not in imports:
                     imports.append("import java.util.Map;")
                 if "import java.util.HashMap;" not in imports:
                     imports.append("import java.util.HashMap;")
+                # Extract value type from Map<K,V>
+                start = field.field_type.index('<') + 1
+                end = field.field_type.rindex('>')
+                map_types = field.field_type[start:end].split(',')
+                if len(map_types) > 1:
+                    inner_types.append(map_types[1].strip())
             
-            # Add imports for enum and class types
-            if field.field_type in self.generated_types_java_package:
-                # Only import if it's a fully qualified name with a package
-                if '.' in field.field_type:
-                    import_stmt = f"import {field.field_type};"
-                    if import_stmt not in imports:
-                        imports.append(import_stmt)
+            # Add the direct field type for non-generic types
+            if not field.field_type.startswith(("List<", "Map<")):
+                inner_types.append(field.field_type)
+            
+            # Process each type (including inner types from generics)
+            for type_to_check in inner_types:
+                # Add imports for enum and class types
+                if type_to_check in self.generated_types_java_package:
+                    type_kind = self.generated_types_java_package[type_to_check]
+                    # Only import if it's a fully qualified name with a package
+                    if '.' in type_to_check:
+                        import_stmt = f"import {type_to_check};"
+                        if import_stmt not in imports:
+                            imports.append(import_stmt)
+                        # If it's a class type, also import the test class
+                        if type_kind == "class":
+                            test_import_stmt = f"import {type_to_check}Test;"
+                            if test_import_stmt not in imports:
+                                imports.append(test_import_stmt)
+                        # If it's a union type, check if any union members are classes
+                        elif type_kind == "union":
+                            avro_schema = self.generated_avro_schemas.get(type_to_check, {})
+                            if avro_schema and 'types' in avro_schema:
+                                for union_type in avro_schema['types']:
+                                    if isinstance(union_type, dict) and 'name' in union_type:
+                                        # It's a complex type reference
+                                        type_name = union_type['name']
+                                        if 'namespace' in union_type:
+                                            qualified_name = f"{union_type['namespace']}.{type_name}".replace('/', '.')
+                                        else:
+                                            qualified_name = type_name
+                                        if qualified_name in self.generated_types_java_package:
+                                            # Import the class and its test
+                                            class_import = f"import {qualified_name};"
+                                            test_import = f"import {qualified_name}Test;"
+                                            if class_import not in imports:
+                                                imports.append(class_import)
+                                            if test_import not in imports:
+                                                imports.append(test_import)
         return imports
 
     def get_class_test_fields(self, avro_schema: Dict, class_name: str, package: str) -> List:
         """ Retrieves fields for a given class name """
         
         class Field:
-            def __init__(self, fn: str, ft: str, tv: str, ct: bool):
+            def __init__(self, fn: str, ft: str, tv: str, ct: bool, ie: bool = False):
                 self.field_name = fn
                 self.field_type = ft
                 self.test_value = tv
                 self.is_const = ct
+                self.is_enum = ie
 
         fields: List[Field] = []
         if avro_schema and 'fields' in avro_schema:
             for field in avro_schema['fields']:
                 field_name = pascal(field['name']) if self.pascal_properties else field['name']
                 field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], avro_schema.get('namespace', ''))
+                # Check if the field type is an enum
+                is_enum = field_type.type_name in self.generated_types_java_package and \
+                         self.generated_types_java_package[field_type.type_name] == "enum"
                 f = Field(
                     field_name,
                     field_type.type_name,
                     self.get_test_value(field_type.type_name, package) if "const" not in field else f'"{field["const"]}"',
-                    "const" in field and field["const"] is not None
+                    "const" in field and field["const"] is not None,
+                    is_enum
                 )
                 fields.append(f)
         return fields

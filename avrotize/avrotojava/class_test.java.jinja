@@ -99,9 +99,9 @@ public class {{ test_class_name }} {
         {%- if "Union" in base_type %}
         // For union types, set to null to create a different value
         instance2.set{{ field.field_name | pascal }}(null);
-        {%- elif "." in base_type and "<" not in base_type %}
+        {%- elif field.is_enum %}
         // Enum - try to get a different enum value
-        {%- set simple_type = base_type.split('.')[-1] %}
+        {%- set simple_type = base_type.split('.')[-1] if '.' in base_type else base_type %}
         {{ simple_type }}[] enumValues = {{ simple_type }}.values();
         if (enumValues.length > 1) {
             instance2.set{{ field.field_name | pascal }}(enumValues[(instance2.get{{ field.field_name | pascal }}().ordinal() + 1) % enumValues.length]);
