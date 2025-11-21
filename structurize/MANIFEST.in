@@ -1,0 +1,6 @@
+graft ../avrotize
+include ../README.md
+include ../LICENSE
+include ../MANIFEST.in
+global-exclude __pycache__
+global-exclude *.py[co]
