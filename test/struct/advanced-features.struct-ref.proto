@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package advanced_features;
+
+// Test schema for advanced JSON Structure features
+// DEPRECATED
+message AdvancedFeatures {
+  option deprecated = true;
+  // A constant field
+  // Constant value: FIXED_VALUE
+  string constField = 1;
+  // This field is deprecated
+  // DEPRECATED
+  int32 deprecatedField = 2 [deprecated = true];
+  // Read-only field
+  // Read-only
+  string readOnlyField = 3;
+  // Write-only field
+  // Write-only
+  string writeOnlyField = 4;
+  // A validated string field
+  // Max length: 50
+  // Min length: 5
+  // Pattern: ^[A-Z][a-z]+$
+  string validatedString = 5;
+}
+

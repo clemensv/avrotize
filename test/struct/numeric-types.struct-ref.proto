@@ -2,12 +2,27 @@ syntax = "proto3";
 
 package numeric_types;
 
+// Test schema for numeric types with precision and scale
 message NumericTypes {
+  // Minimum: -128
+  // Maximum: 127
   int32 int8Field = 1;
+  // Minimum: -32768
+  // Maximum: 32767
   int32 int16Field = 2;
+  // Minimum: 0
+  // Maximum: 4294967295
   uint32 uint32Field = 3;
+  // Minimum: 0
   uint64 uint64Field = 4;
+  // Minimum: 0
+  // Maximum: 99999999.99
+  // Precision: 10
+  // Scale: 2
   string decimalField = 5;
+  // 32-bit floating point
   float float32Field = 6;
+  // 64-bit floating point
   double float64Field = 7;
 }
+

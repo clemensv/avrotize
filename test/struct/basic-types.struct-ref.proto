@@ -2,13 +2,23 @@ syntax = "proto3";
 
 package basic_types;
 
+// Test schema for basic JSON Structure types
 message BasicTypes {
+  // A basic string field
   string stringField = 1;
+  // A 32-bit integer
   int32 intField = 2;
+  // A 64-bit integer
   int64 longField = 3;
+  // A floating point number
   float floatField = 4;
+  // A double precision number
   double doubleField = 5;
+  // A boolean value
   bool booleanField = 6;
+  // A UUID value
   string uuidField = 7;
+  // Binary data
   bytes bytesField = 8;
 }
+

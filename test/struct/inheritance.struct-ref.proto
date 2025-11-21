@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package inheritance;
+
+// Abstract type - cannot be instantiated directly
+message BaseVehicle {
+  // Unique identifier
+  string id = 1;
+  // Vehicle manufacturer
+  string manufacturer = 2;
+}
+
+message Car {
+  // Unique identifier
+  string id = 1;
+  // Vehicle manufacturer
+  string manufacturer = 2;
+  // Number of doors
+  // Minimum: 2
+  // Maximum: 5
+  int32 numberOfDoors = 3;
+}
+
+message Motorcycle {
+  // Unique identifier
+  string id = 1;
+  // Vehicle manufacturer
+  string manufacturer = 2;
+  // Has sidecar
+  bool hasSidecar = 3;
+}
+
+// Test schema for inheritance with $extends
+message Vehicle {
+}
+

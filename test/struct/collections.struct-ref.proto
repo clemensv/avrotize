@@ -2,12 +2,18 @@ syntax = "proto3";
 
 package collections;
 
+// Test schema for collection types
 message Collections {
   message NestedArrayItemType {
     repeated string NestedArrayItem = 1;
   }
+  // Min items: 1
+  // Max items: 10
   repeated string stringArray = 1;
+  // Min items: 0
+  // Max items: 20
   repeated int32 numberSet = 2;
   map<string, double> stringToNumberMap = 3;
   repeated NestedArrayItemType nestedArray = 4;
 }
+

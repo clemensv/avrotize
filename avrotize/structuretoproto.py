@@ -148,20 +148,190 @@ class StructureToProto:
             if key in schema and isinstance(schema[key], dict):
                 self.register_schema_ids(schema[key], base_uri)
 
+    def build_enhanced_comment(self, field_schema: Dict, base_comment: str = '') -> Comment:
+        """Build an enhanced comment with type annotations and constraints."""
+        annotations = []
+        tags = {}
+        
+        # Add base description
+        if base_comment:
+            annotations.append(base_comment)
+        
+        # Add const value
+        if 'const' in field_schema:
+            const_val = field_schema['const']
+            annotations.append(f"Constant value: {const_val}")
+            tags['const'] = const_val
+        
+        # Add access modifiers
+        if field_schema.get('readOnly'):
+            annotations.append("Read-only")
+            tags['readOnly'] = True
+        if field_schema.get('writeOnly'):
+            annotations.append("Write-only")
+            tags['writeOnly'] = True
+        
+        # Add string constraints
+        if 'maxLength' in field_schema:
+            annotations.append(f"Max length: {field_schema['maxLength']}")
+            tags['maxLength'] = field_schema['maxLength']
+        if 'minLength' in field_schema:
+            annotations.append(f"Min length: {field_schema['minLength']}")
+            tags['minLength'] = field_schema['minLength']
+        if 'pattern' in field_schema:
+            annotations.append(f"Pattern: {field_schema['pattern']}")
+            tags['pattern'] = field_schema['pattern']
+        
+        # Add numeric constraints
+        if 'minimum' in field_schema:
+            annotations.append(f"Minimum: {field_schema['minimum']}")
+            tags['minimum'] = field_schema['minimum']
+        if 'maximum' in field_schema:
+            annotations.append(f"Maximum: {field_schema['maximum']}")
+            tags['maximum'] = field_schema['maximum']
+        if 'exclusiveMinimum' in field_schema:
+            annotations.append(f"Exclusive minimum: {field_schema['exclusiveMinimum']}")
+            tags['exclusiveMinimum'] = field_schema['exclusiveMinimum']
+        if 'exclusiveMaximum' in field_schema:
+            annotations.append(f"Exclusive maximum: {field_schema['exclusiveMaximum']}")
+            tags['exclusiveMaximum'] = field_schema['exclusiveMaximum']
+        
+        # Add decimal precision/scale
+        if 'precision' in field_schema:
+            annotations.append(f"Precision: {field_schema['precision']}")
+            tags['precision'] = field_schema['precision']
+        if 'scale' in field_schema:
+            annotations.append(f"Scale: {field_schema['scale']}")
+            tags['scale'] = field_schema['scale']
+        
+        # Add format and encoding
+        if 'format' in field_schema:
+            annotations.append(f"Format: {field_schema['format']}")
+            tags['format'] = field_schema['format']
+        if 'contentEncoding' in field_schema:
+            annotations.append(f"Encoding: {field_schema['contentEncoding']}")
+            tags['contentEncoding'] = field_schema['contentEncoding']
+        if 'contentMediaType' in field_schema:
+            annotations.append(f"Media type: {field_schema['contentMediaType']}")
+            tags['contentMediaType'] = field_schema['contentMediaType']
+        
+        # Add array constraints
+        if 'minItems' in field_schema:
+            annotations.append(f"Min items: {field_schema['minItems']}")
+            tags['minItems'] = field_schema['minItems']
+        if 'maxItems' in field_schema:
+            annotations.append(f"Max items: {field_schema['maxItems']}")
+            tags['maxItems'] = field_schema['maxItems']
+        if 'uniqueItems' in field_schema:
+            annotations.append("Unique items required")
+            tags['uniqueItems'] = field_schema['uniqueItems']
+        
+        # Add deprecated marker
+        if field_schema.get('deprecated'):
+            annotations.append("DEPRECATED")
+            tags['deprecated'] = True
+            if 'deprecationMessage' in field_schema:
+                annotations.append(f"Deprecation: {field_schema['deprecationMessage']}")
+        
+        # Add abstract marker
+        if field_schema.get('abstract'):
+            annotations.append("Abstract type - cannot be instantiated directly")
+            tags['abstract'] = True
+        
+        comment_text = ' | '.join(annotations) if annotations else ''
+        return Comment(comment_text, tags)
+
+    def resolve_extends(self, structure_schema: Dict, context_schema: Dict) -> Dict:
+        """Resolve $extends inheritance by flattening parent properties."""
+        if '$extends' not in structure_schema:
+            return structure_schema
+        
+        # Resolve the parent schema
+        parent_ref = structure_schema['$extends']
+        parent_schema = self.resolve_ref(parent_ref, context_schema)
+        
+        if not parent_schema:
+            return structure_schema
+        
+        # Recursively resolve parent's extends
+        parent_schema = self.resolve_extends(parent_schema, context_schema)
+        
+        # Create a new schema with flattened properties
+        flattened = structure_schema.copy()
+        
+        # Merge parent properties first (so child can override)
+        parent_props = parent_schema.get('properties', {})
+        current_props = flattened.get('properties', {})
+        merged_props = parent_props.copy()
+        merged_props.update(current_props)
+        flattened['properties'] = merged_props
+        
+        # Merge required fields
+        parent_required = parent_schema.get('required', [])
+        current_required = flattened.get('required', [])
+        merged_required = list(set(parent_required + current_required))
+        if merged_required:
+            flattened['required'] = merged_required
+        
+        # Remove $extends from flattened schema
+        if '$extends' in flattened:
+            del flattened['$extends']
+        
+        return flattened
+
+    def resolve_offers_uses(self, structure_schema: Dict, context_schema: Dict) -> Dict:
+        """Resolve $offers/$uses add-ins by flattening mixin properties."""
+        if '$uses' not in structure_schema:
+            return structure_schema
+        
+        uses = structure_schema['$uses']
+        if not isinstance(uses, list):
+            uses = [uses]
+        
+        # Create a new schema with flattened properties
+        flattened = structure_schema.copy()
+        current_props = flattened.get('properties', {})
+        
+        # Merge properties from each add-in
+        for use_ref in uses:
+            use_schema = self.resolve_ref(use_ref, context_schema)
+            if use_schema and '$offers' in use_schema:
+                offer_props = use_schema['$offers'].get('properties', {})
+                # Add offered properties (current props take precedence)
+                for prop_name, prop_schema in offer_props.items():
+                    if prop_name not in current_props:
+                        current_props[prop_name] = prop_schema
+        
+        flattened['properties'] = current_props
+        
+        # Remove $uses from flattened schema
+        if '$uses' in flattened:
+            del flattened['$uses']
+        
+        return flattened
+
     def convert_field(self, message: Message, structure_field: dict, index: int, proto_files: ProtoFiles, context_schema: Dict) -> Field | Oneof | Enum | Message:
         """Convert a JSON Structure property to a Protobuf field."""
         field_name = structure_field.get('name', f'field{index}')
         
-        if 'doc' in structure_field or 'description' in structure_field:
-            comment = Comment(structure_field.get('description', structure_field.get('doc', '')), {})
-        else:
-            comment = Comment('', {})
+        # Build enhanced comment with annotations
+        base_desc = structure_field.get('description', structure_field.get('doc', ''))
+        comment = self.build_enhanced_comment(structure_field, base_desc)
         
         return self.convert_field_type(message, field_name, structure_field, comment, index, proto_files, context_schema)
         
     def convert_record_type(self, structure_record: dict, comment: Comment, proto_files: ProtoFiles, context_schema: Dict) -> Message:
         """Convert a JSON Structure object to a Protobuf message."""
-        local_message = Message(comment, structure_record.get('name', 'UnnamedMessage'), [], [], {}, {}, [])
+        # Resolve $extends inheritance
+        structure_record = self.resolve_extends(structure_record, context_schema)
+        
+        # Resolve $offers/$uses add-ins
+        structure_record = self.resolve_offers_uses(structure_record, context_schema)
+        
+        # Build enhanced comment with abstract/deprecated markers
+        message_comment = self.build_enhanced_comment(structure_record, comment.content)
+        
+        local_message = Message(message_comment, structure_record.get('name', 'UnnamedMessage'), [], [], {}, {}, [])
         properties = structure_record.get('properties', {})
         required_props = structure_record.get('required', [])
         
@@ -415,7 +585,7 @@ class StructureToProto:
                 # Store definitions for later use
                 if 'definitions' in structure_schema:
                     self.definitions = structure_schema['definitions']
-                    # Process definitions
+                    # Process definitions - pass the full schema as context so $ref can be resolved
                     for def_name, def_schema in structure_schema['definitions'].items():
                         if isinstance(def_schema, dict):
                             def_schema_copy = def_schema.copy()
@@ -423,10 +593,43 @@ class StructureToProto:
                                 def_schema_copy['name'] = def_name
                             if 'namespace' not in def_schema_copy:
                                 def_schema_copy['namespace'] = structure_schema.get('namespace', self.default_namespace)
-                            self.structure_schema_to_proto_message(def_schema_copy, proto_files)
+                            # Pass structure_schema as context for resolving $ref
+                            self.structure_schema_to_proto_message_with_context(def_schema_copy, proto_files, structure_schema)
                 
                 # Process root schema
                 self.structure_schema_to_proto_message(structure_schema, proto_files)
+
+    def structure_schema_to_proto_message_with_context(self, structure_schema: dict, proto_files: ProtoFiles, context_schema: Dict):
+        """Convert a JSON Structure schema to a Protobuf message definition with context for $ref resolution."""
+        comment = Comment('', {})
+        if 'doc' in structure_schema or 'description' in structure_schema:
+            comment = Comment(structure_schema.get('description', structure_schema.get('doc', '')), {})
+        
+        namespace = structure_schema.get("namespace", '')
+        if not namespace:
+            namespace = self.default_namespace
+        
+        struct_type = structure_schema.get('type', 'object')
+        
+        if struct_type == 'object':
+            message = self.convert_record_type(structure_schema, comment, proto_files, context_schema)
+            file = next((f for f in proto_files.files if f.package == namespace), None)
+            if not file:
+                file = ProtoFile({}, {}, {}, [], {}, namespace)
+                proto_files.files.append(file)
+            file.messages[message.name] = message
+        elif struct_type == 'enum' or 'enum' in structure_schema:
+            enum_name = structure_schema.get('name', 'UnnamedEnum')
+            enum_values = structure_schema.get('enum', [])
+            enum_fields = {str(val): Field(comment, '', str(val), '', '', str(val), i, []) for i, val in enumerate(enum_values)}
+            enum = Enum(comment, enum_name, enum_fields)
+            file = next((f for f in proto_files.files if f.package == namespace), None)
+            if not file:
+                file = ProtoFile({}, {}, {}, [], {}, namespace)
+                proto_files.files.append(file)
+            file.enums[enum_name] = enum
+        
+        return structure_schema.get("name", "UnnamedSchema")
 
     def save_proto_to_file(self, proto_files: ProtoFiles, proto_path):
         """Save the Protobuf schema to a file."""
@@ -474,13 +677,31 @@ class StructureToProto:
                 proto_file.write(proto_str)
 
     def render_message(self, message, level=0) -> str:
-        proto_str = f"{indent*level}message {message.name} {{\n"
+        proto_str = ''
+        
+        # Add message-level comment if present
+        if message.comment.content:
+            comment_lines = message.comment.content.split(' | ')
+            for line in comment_lines:
+                proto_str += f"{indent*level}// {line}\n"
+        
+        proto_str += f"{indent*level}message {message.name} {{\n"
+        
+        # Add deprecated option if message is deprecated
+        if message.comment.tags.get('deprecated'):
+            proto_str += f"{indent*level}{indent}option deprecated = true;\n"
         
         # Render nested messages and enums FIRST (protobuf convention)
         for local_message in message.messages.values():
             proto_str += self.render_message(local_message, level+1)
         for enum in message.enums.values():
+            # Add enum-level comment if present
+            if enum.comment.content:
+                for line in enum.comment.content.split(' | '):
+                    proto_str += f"{indent*level}{indent}// {line}\n"
             proto_str += f"{indent*level}{indent}enum {enum.name} {{\n"
+            if enum.comment.tags.get('deprecated'):
+                proto_str += f"{indent*level}{indent}{indent}option deprecated = true;\n"
             for _, field in enum.fields.items():
                 proto_str += f"{indent*level}{indent}{indent}{field.label}{' ' if field.label else ''}{field.name} = {field.number};\n"
             proto_str += f"{indent*level}{indent}}}\n"
@@ -491,17 +712,34 @@ class StructureToProto:
         for fo in fieldsAndOneofs:
             if isinstance(fo, Field):
                 field = fo
+                # Add field-level comment if present
+                if field.comment.content:
+                    for line in field.comment.content.split(' | '):
+                        proto_str += f"{indent*level}{indent}// {line}\n"
+                
+                # Render field with deprecated option if needed
+                deprecated_option = ' [deprecated = true]' if field.comment.tags.get('deprecated') else ''
+                
                 if field.type == "map":
-                    proto_str += f"{indent*level}{indent}{field.label}{' ' if field.label else ''}map<{field.key_type}, {field.val_type}> {field.name} = {field.number};\n"
+                    proto_str += f"{indent*level}{indent}{field.label}{' ' if field.label else ''}map<{field.key_type}, {field.val_type}> {field.name} = {field.number}{deprecated_option};\n"
                 elif field.type == "array":
-                    proto_str += f"{indent*level}{indent}{field.label}{' ' if field.label else ''}{field.val_type} {field.name} = {field.number};\n"
+                    proto_str += f"{indent*level}{indent}{field.label}{' ' if field.label else ''}{field.val_type} {field.name} = {field.number}{deprecated_option};\n"
                 else:
-                    proto_str += f"{indent*level}{indent}{field.label}{' ' if field.label else ''}{field.type} {field.name} = {field.number};\n"
+                    proto_str += f"{indent*level}{indent}{field.label}{' ' if field.label else ''}{field.type} {field.name} = {field.number}{deprecated_option};\n"
             else:
                 oneof = fo
+                # Add oneof-level comment if present
+                if oneof.comment.content:
+                    for line in oneof.comment.content.split(' | '):
+                        proto_str += f"{indent*level}{indent}// {line}\n"
                 proto_str += f"{indent*level}{indent}oneof {oneof.name} {{\n"
                 for field in oneof.fields:
-                    proto_str += f"{indent*level}{indent}{indent}{field.label}{' ' if field.label else ''}{field.type} {field.name} = {field.number};\n"
+                    # Add field comment in oneof
+                    if field.comment.content:
+                        for line in field.comment.content.split(' | '):
+                            proto_str += f"{indent*level}{indent}{indent}// {line}\n"
+                    deprecated_option = ' [deprecated = true]' if field.comment.tags.get('deprecated') else ''
+                    proto_str += f"{indent*level}{indent}{indent}{field.label}{' ' if field.label else ''}{field.type} {field.name} = {field.number}{deprecated_option};\n"
                 proto_str += f"{indent*level}{indent}}}\n"
         
         proto_str += f"{indent*level}}}\n"

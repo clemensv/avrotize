@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/inheritance",
+  "type": "object",
+  "name": "Vehicle",
+  "description": "Test schema for inheritance with $extends",
+  "definitions": {
+    "BaseVehicle": {
+      "type": "object",
+      "abstract": true,
+      "properties": {
+        "id": {
+          "type": "uuid",
+          "description": "Unique identifier"
+        },
+        "manufacturer": {
+          "type": "string",
+          "description": "Vehicle manufacturer"
+        }
+      },
+      "required": ["id", "manufacturer"]
+    },
+    "Car": {
+      "type": "object",
+      "$extends": "#/definitions/BaseVehicle",
+      "properties": {
+        "numberOfDoors": {
+          "type": "int32",
+          "minimum": 2,
+          "maximum": 5,
+          "description": "Number of doors"
+        }
+      },
+      "required": ["numberOfDoors"]
+    },
+    "Motorcycle": {
+      "type": "object",
+      "$extends": "#/definitions/BaseVehicle",
+      "properties": {
+        "hasSidecar": {
+          "type": "boolean",
+          "description": "Has sidecar"
+        }
+      }
+    }
+  }
+}

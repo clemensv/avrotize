@@ -125,6 +125,57 @@ class TestStructureToProto(unittest.TestCase):
         # Check that the generated file matches the reference
         generated_file = os.path.join(proto_path, "choice_types.proto")
         self.compare_proto_files(generated_file, ref_proto_path)
+    
+    def test_convert_advanced_features_struct_to_proto(self):
+        """ Test converting advanced features JSON Structure to Proto"""
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "struct", "advanced-features.struct.json")
+        proto_path = os.path.join(tempfile.gettempdir(), "avrotize", "advanced-features")
+        ref_proto_path = os.path.join(cwd, "test", "struct", "advanced-features.struct-ref.proto")
+        
+        dir_path = os.path.dirname(proto_path)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path, exist_ok=True)
+        
+        convert_structure_to_proto(struct_path, proto_path)
+        
+        # Check that the generated file matches the reference
+        generated_file = os.path.join(proto_path, "advanced_features.proto")
+        self.compare_proto_files(generated_file, ref_proto_path)
+    
+    def test_convert_inheritance_struct_to_proto(self):
+        """ Test converting inheritance JSON Structure to Proto"""
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "struct", "inheritance.struct.json")
+        proto_path = os.path.join(tempfile.gettempdir(), "avrotize", "inheritance")
+        ref_proto_path = os.path.join(cwd, "test", "struct", "inheritance.struct-ref.proto")
+        
+        dir_path = os.path.dirname(proto_path)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path, exist_ok=True)
+        
+        convert_structure_to_proto(struct_path, proto_path)
+        
+        # Check that the generated file matches the reference
+        generated_file = os.path.join(proto_path, "inheritance.proto")
+        self.compare_proto_files(generated_file, ref_proto_path)
+    
+    def test_convert_tuple_test_struct_to_proto(self):
+        """ Test converting tuple test JSON Structure to Proto"""
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "struct", "tuple-test.struct.json")
+        proto_path = os.path.join(tempfile.gettempdir(), "avrotize", "tuple-test")
+        ref_proto_path = os.path.join(cwd, "test", "struct", "tuple-test.struct-ref.proto")
+        
+        dir_path = os.path.dirname(proto_path)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path, exist_ok=True)
+        
+        convert_structure_to_proto(struct_path, proto_path)
+        
+        # Check that the generated file matches the reference
+        generated_file = os.path.join(proto_path, "tuple_test.proto")
+        self.compare_proto_files(generated_file, ref_proto_path)
 
 if __name__ == '__main__':
     unittest.main()

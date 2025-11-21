@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/advanced-features",
+  "type": "object",
+  "name": "AdvancedFeatures",
+  "description": "Test schema for advanced JSON Structure features",
+  "deprecated": true,
+  "properties": {
+    "constField": {
+      "type": "string",
+      "const": "FIXED_VALUE",
+      "description": "A constant field"
+    },
+    "deprecatedField": {
+      "type": "int32",
+      "deprecated": true,
+      "description": "This field is deprecated"
+    },
+    "readOnlyField": {
+      "type": "string",
+      "readOnly": true,
+      "description": "Read-only field"
+    },
+    "writeOnlyField": {
+      "type": "string",
+      "writeOnly": true,
+      "description": "Write-only field"
+    },
+    "validatedString": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 50,
+      "pattern": "^[A-Z][a-z]+$",
+      "description": "A validated string field"
+    }
+  },
+  "required": ["constField"]
+}

@@ -2,25 +2,35 @@ syntax = "proto3";
 
 package choice_types;
 
+// Abstract type - cannot be instantiated directly
 message BaseEntity {
   string name = 1;
   string entityType = 2;
 }
 
 message Person {
-  int32 age = 1;
+  string name = 1;
+  string entityType = 2;
+  int32 age = 3;
 }
 
 message Company {
-  int32 employees = 1;
+  string name = 1;
+  string entityType = 2;
+  int32 employees = 3;
 }
 
+// Test schema for choice types (unions)
 message ChoiceTypes {
   message PersonType {
-    int32 age = 1;
+    string name = 1;
+    string entityType = 2;
+    int32 age = 3;
   }
   message CompanyType {
-    int32 employees = 1;
+    string name = 1;
+    string entityType = 2;
+    int32 employees = 3;
   }
   oneof TaggedChoice {
     string textValue = 1;
@@ -32,3 +42,4 @@ message ChoiceTypes {
   }
   string nullableString = 5;
 }
+
