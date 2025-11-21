@@ -891,6 +891,58 @@
     ]
   },
   {
+    "command": "s2ib",
+    "description": "Convert JSON Structure to Iceberg schema",
+    "group": "3_Datalake",
+    "function": {
+      "name": "avrotize.structuretoiceberg.convert_structure_to_iceberg",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "output_path": "output_file_path",
+        "structure_record_type": "args.record_type",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Iceberg schema",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Record type in the JSON Structure schema",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns to the Iceberg schema",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.iceberg",
+    "prompts": [
+      {
+        "name": "--emit-cloudevents-columns",
+        "message": "Add CloudEvents columns to the Iceberg schema?",
+        "type": "bool",
+        "default": false
+      }
+    ]
+  },
+  {
     "command": "pq2a",
     "description": "Convert Parquet schema to Avrotize schema",
     "group": "1_Schemas",
