@@ -76,10 +76,7 @@ jobs:
     - name: Build structurize package
       run: |
         cd structurize
-        cp ../README.md README.md
-        cp ../LICENSE LICENSE || true
-        cp -r ../avrotize avrotize
-        python -m build
+        bash build.sh
     - name: Update VS Code Extension Code with commands.json
       run: |
         python tools/editvscodeext.py --extension-root ${{ github.workspace }}/vscode/avrotize --commands ${{ github.workspace }}/avrotize/commands.json
