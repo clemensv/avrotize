@@ -33,7 +33,6 @@ try {
     
     # Copy necessary files from parent directory
     Write-Host "Copying source files..." -ForegroundColor Yellow
-    Copy-Item "..\README.md" "README.md" -Force
     Copy-Item "..\LICENSE" "LICENSE" -Force -ErrorAction SilentlyContinue
     Copy-Item "..\avrotize" "avrotize" -Recurse -Force
     
@@ -46,7 +45,6 @@ try {
 finally {
     # Clean up copied files
     Write-Host "Cleaning up..." -ForegroundColor Yellow
-    Remove-Item "README.md" -Force -ErrorAction SilentlyContinue
     Remove-Item "LICENSE" -Force -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force "avrotize" -ErrorAction SilentlyContinue
 }

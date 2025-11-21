@@ -15,7 +15,7 @@ echo "Using version: $VERSION"
 # Cleanup function
 cleanup() {
     echo "Cleaning up..."
-    rm -f README.md LICENSE
+    rm -f LICENSE
     rm -rf avrotize
 }
 
@@ -27,7 +27,6 @@ rm -rf dist build structurize.egg-info avrotize
 
 # Copy necessary files from parent directory
 echo "Copying source files..."
-cp ../README.md README.md
 cp ../LICENSE LICENSE 2>/dev/null || true
 cp -r ../avrotize avrotize
 
