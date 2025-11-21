@@ -5,6 +5,16 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Building structurize package..." -ForegroundColor Green
 
+# Get version from git tag in parent directory
+Push-Location ..
+$version = (git describe --tags --abbrev=0 2>$null) -replace '^v',''
+if (-not $version) {
+    $version = "0.0.0"
+}
+Pop-Location
+$env:SETUPTOOLS_SCM_PRETEND_VERSION = $version
+Write-Host "Using version: $version" -ForegroundColor Cyan
+
 try {
     # Clean previous builds
     Write-Host "Cleaning previous builds..." -ForegroundColor Yellow

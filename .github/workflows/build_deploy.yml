@@ -75,8 +75,11 @@ jobs:
       run: python -m build
     - name: Build structurize package
       run: |
+        export SETUPTOOLS_SCM_PRETEND_VERSION="${GITHUB_REF#refs/tags/v}"
         cd structurize
         bash build.sh
+      env:
+        GITHUB_REF: ${{ github.ref }}
     - name: Update VS Code Extension Code with commands.json
       run: |
         python tools/editvscodeext.py --extension-root ${{ github.workspace }}/vscode/avrotize --commands ${{ github.workspace }}/avrotize/commands.json

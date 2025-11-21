@@ -5,6 +5,13 @@ set -e
 
 echo "Building structurize package..."
 
+# Get version from git tag in parent directory
+cd ..
+VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+cd structurize
+export SETUPTOOLS_SCM_PRETEND_VERSION="$VERSION"
+echo "Using version: $VERSION"
+
 # Cleanup function
 cleanup() {
     echo "Cleaning up..."
