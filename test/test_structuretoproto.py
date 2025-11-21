@@ -9,6 +9,7 @@ import filecmp
 import pytest
 
 from avrotize.structuretoproto import convert_structure_to_proto
+from avrotize import convert_proto_to_avro
 
 current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
@@ -19,6 +20,25 @@ from unittest.mock import patch
 
 class TestStructureToProto(unittest.TestCase):
     """ Test JSON Structure to Proto conversion"""
+    
+    def validate_proto_file(self, proto_file):
+        """Validate a proto file by converting it to Avro (validates proto syntax)"""
+        if not os.path.exists(proto_file):
+            self.fail(f"Proto file does not exist: {proto_file}")
+        
+        # Try to convert proto to avro - if this succeeds, the proto is valid
+        try:
+            avro_output = os.path.join(tempfile.gettempdir(), "avrotize", "validation", os.path.basename(proto_file).replace('.proto', '.avsc'))
+            os.makedirs(os.path.dirname(avro_output), exist_ok=True)
+            
+            # Get the directory containing the proto file for imports
+            proto_root = os.path.dirname(proto_file)
+            convert_proto_to_avro(proto_file, avro_output, proto_root=proto_root)
+            
+            # If we get here, conversion was successful
+            return True
+        except Exception as e:
+            self.fail(f"Proto validation failed for {proto_file}: {str(e)}")
     
     def compare_proto_files(self, generated_file, reference_file):
         """Compare two proto files, ignoring whitespace differences"""
@@ -40,6 +60,9 @@ class TestStructureToProto(unittest.TestCase):
             print(f"\n--- Reference ({reference_file}) ---")
             print(reference_content)
             self.fail("Generated proto file does not match reference")
+        
+        # Validate the proto file by converting to Avro
+        self.validate_proto_file(generated_file)
     
     def test_convert_basic_types_struct_to_proto(self):
         """ Test converting basic types JSON Structure to Proto"""
