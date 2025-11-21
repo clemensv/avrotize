@@ -1,0 +1,66 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:example:schema" targetNamespace="urn:example:schema" elementFormDefault="qualified">
+  <xs:element name="NumericTypes">
+    <xs:annotation>
+      <xs:documentation>Test schema for numeric types with precision and scale</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>Test schema for numeric types with precision and scale</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element name="int8Field" minOccurs="1" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:byte">
+              <xs:minInclusive value="-128"/>
+              <xs:maxInclusive value="127"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="int16Field" minOccurs="0" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:short">
+              <xs:minInclusive value="-32768"/>
+              <xs:maxInclusive value="32767"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="uint32Field" minOccurs="0" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:unsignedInt">
+              <xs:minInclusive value="0"/>
+              <xs:maxInclusive value="4294967295"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="uint64Field" minOccurs="0" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:unsignedLong">
+              <xs:minInclusive value="0"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="decimalField" minOccurs="1" maxOccurs="1">
+          <xs:simpleType>
+            <xs:restriction base="xs:decimal">
+              <xs:minInclusive value="0"/>
+              <xs:maxInclusive value="99999999.99"/>
+              <xs:totalDigits value="10"/>
+              <xs:fractionDigits value="2"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="float32Field" minOccurs="0" maxOccurs="1" type="xs:float">
+          <xs:annotation>
+            <xs:documentation>32-bit floating point</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+        <xs:element name="float64Field" minOccurs="0" maxOccurs="1" type="xs:double">
+          <xs:annotation>
+            <xs:documentation>64-bit floating point</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
