@@ -96,7 +96,10 @@ public class {{ test_class_name }} {
         {%- endif %}
         {%- else %}
         // For enum or complex types, set to a different value
-        {%- if "." in base_type %}
+        {%- if "Union" in base_type %}
+        // For union types, set to null to create a different value
+        instance2.set{{ field.field_name | pascal }}(null);
+        {%- elif "." in base_type and "<" not in base_type %}
         // Enum - try to get a different enum value
         {%- set simple_type = base_type.split('.')[-1] %}
         {{ simple_type }}[] enumValues = {{ simple_type }}.values();
@@ -119,8 +122,12 @@ public class {{ test_class_name }} {
      */
     @Test
     public void test{{ field.field_name | pascal }}Property() {
+        {%- if '<' in field.field_type %}
+        {{ field.field_type }} testValue = {{ field.test_value }};
+        {%- else %}
         {%- set simple_field_type = field.field_type.split('.')[-1] if '.' in field.field_type else field.field_type %}
         {{ simple_field_type }} testValue = {{ field.test_value }};
+        {%- endif %}
         {%- if not field.is_const %}
         instance.set{{ field.field_name | pascal }}(testValue);
         {%- endif %}
