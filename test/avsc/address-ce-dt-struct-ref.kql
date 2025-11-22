@@ -1,0 +1,119 @@
+.create-merge table [_cloudevents_dispatch] (
+    [specversion]: string,
+    [type]: string,
+    [source]: string,
+    [id]: string,
+    [time]: datetime,
+    [subject]: string,
+    [datacontenttype]: string,
+    [dataschema]: string,
+    [data]: dynamic
+);
+
+
+.create-or-alter table [_cloudevents_dispatch] ingestion json mapping "_cloudevents_dispatch_json"
+```
+[
+  {"column": "specversion", "path": "$.specversion"},
+  {"column": "type", "path": "$.type"},
+  {"column": "source", "path": "$.source"},
+  {"column": "id", "path": "$.id"},
+  {"column": "time", "path": "$.time"},
+  {"column": "subject", "path": "$.subject"},
+  {"column": "datacontenttype", "path": "$.datacontenttype"},
+  {"column": "dataschema", "path": "$.dataschema"},
+  {"column": "data", "path": "$.data"}
+]
+```
+
+
+.create-merge table [record] (
+   [type]: string,
+   [postOfficeBox]: string,
+   [extendedAddress]: string,
+   [streetAddress]: string,
+   [locality]: string,
+   [region]: string,
+   [postalCode]: string,
+   [countryName]: string,
+   [___type]: string,
+   [___source]: string,
+   [___id]: string,
+   [___time]: datetime,
+   [___subject]: string
+);
+
+.alter table [record] docstring "{\"description\": \"An address similar to http://microformats.org/wiki/h-card\"}";
+
+.alter table [record] column-docstrings (
+   [type]: "{\"description\": \"The type of the record\"}",
+   [postOfficeBox]: "{\"description\": \"The post office box number\"}",
+   [extendedAddress]: "{\"description\": \"The extended address\"}",
+   [streetAddress]: "{\"description\": \"The street address\"}",
+   [locality]: "{\"description\": \"The locality\"}",
+   [region]: "{\"description\": \"The region\"}",
+   [postalCode]: "{\"description\": \"The postal code\"}",
+   [countryName]: "{\"description\": \"The country name\"}",
+   [___type] : 'Event type',
+   [___source]: 'Context origin/source of the event',
+   [___id]: 'Event identifier',
+   [___time]: 'Event generation time',
+   [___subject]: 'Context subject of the event'
+);
+
+.create-or-alter table [record] ingestion json mapping "record_json_flat"
+```
+[
+  {"column": "___type", "path": "$.type"},
+  {"column": "___source", "path": "$.source"},
+  {"column": "___id", "path": "$.id"},
+  {"column": "___time", "path": "$.time"},
+  {"column": "___subject", "path": "$.subject"},
+  {"column": "type", "path": "$.type"},
+  {"column": "postOfficeBox", "path": "$.postOfficeBox"},
+  {"column": "extendedAddress", "path": "$.extendedAddress"},
+  {"column": "streetAddress", "path": "$.streetAddress"},
+  {"column": "locality", "path": "$.locality"},
+  {"column": "region", "path": "$.region"},
+  {"column": "postalCode", "path": "$.postalCode"},
+  {"column": "countryName", "path": "$.countryName"},
+]
+```
+
+
+.create-or-alter table [record] ingestion json mapping "record_json_ce_structured"
+```
+[
+  {"column": "___type", "path": "$.type"},
+  {"column": "___source", "path": "$.source"},
+  {"column": "___id", "path": "$.id"},
+  {"column": "___time", "path": "$.time"},
+  {"column": "___subject", "path": "$.subject"},
+  {"column": "type", "path": "$.data.type"},
+  {"column": "postOfficeBox", "path": "$.data.postOfficeBox"},
+  {"column": "extendedAddress", "path": "$.data.extendedAddress"},
+  {"column": "streetAddress", "path": "$.data.streetAddress"},
+  {"column": "locality", "path": "$.data.locality"},
+  {"column": "region", "path": "$.data.region"},
+  {"column": "postalCode", "path": "$.data.postalCode"},
+  {"column": "countryName", "path": "$.data.countryName"},
+]
+```
+
+
+.drop materialized-view recordLatest ifexists;
+
+.create materialized-view with (backfill=true) recordLatest on table record {
+    record | summarize arg_max(___time, *) by ___type, ___source, ___subject
+}
+
+.alter table [record] policy update
+```
+[{
+  "IsEnabled": true,
+  "Source": "_cloudevents_dispatch",
+  "Query": "_cloudevents_dispatch | where (specversion == '1.0' and type == 'record') | project['type'] = tostring(data.['type']),['postOfficeBox'] = tostring(data.['postOfficeBox']),['extendedAddress'] = tostring(data.['extendedAddress']),['streetAddress'] = tostring(data.['streetAddress']),['locality'] = tostring(data.['locality']),['region'] = tostring(data.['region']),['postalCode'] = tostring(data.['postalCode']),['countryName'] = tostring(data.['countryName']),___type = type,___source = source,___id = ['id'],___time = ['time'],___subject = subject",
+  "IsTransactional": false,
+  "PropagateIngestionProperties": true,
+}]
+```
