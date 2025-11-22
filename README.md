@@ -902,6 +902,43 @@ Conversion notes:
 - The tool generates a complete Go module with go.mod file, struct definitions, helper functions, and unit tests.
 - Generated code includes methods for JSON serialization/deserialization when annotations are enabled.
 
+### Convert JSON Structure to TypeScript classes
+
+```bash
+avrotize s2ts <path_to_structure_schema_file> [--out <path_to_typescript_dir>] [--package <typescript_package>] [--typedjson-annotation] [--avro-annotation]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the TypeScript classes to. Required.
+- `--package`: (optional) The TypeScript package name for the generated project.
+- `--typedjson-annotation`: (optional) Use TypedJSON annotations for JSON serialization support.
+- `--avro-annotation`: (optional) Add Avro binary serialization support with embedded Structure schema.
+
+Conversion notes:
+
+- The tool generates TypeScript classes from JSON Structure schema. Each object type in the JSON Structure schema is converted to a TypeScript class.
+- Supports all JSON Structure Core types including:
+  - **Primitive types**: string, number, boolean, null
+  - **Extended types**: binary, int8-128, uint8-128, float8/float/double, decimal, date, datetime, time, duration, uuid, uri, jsonpointer
+  - **Compound types**: object, array, set, map, tuple, any, choice (unions)
+- JSON Structure features are supported:
+  - **$ref references**: Type references are resolved and generated as separate classes
+  - **$extends inheritance**: Base class properties are included in derived classes
+  - **$offers/$uses add-ins**: Add-in properties are merged into classes that use them
+  - **Abstract types**: Marked with `abstract` keyword in TypeScript
+  - **Required/optional properties**: Required properties are non-nullable, optional properties are nullable
+  - **Choice types**: Converted to TypeScript union types
+- The generated project includes:
+  - TypeScript source files in `src/` directory
+  - `package.json` with dependencies
+  - `tsconfig.json` for TypeScript compilation
+  - `.gitignore` file
+  - `index.ts` for exporting all generated types
+- The TypeScript code can be compiled using `npm run build` (requires `npm install` first)
+- For more details on JSON Structure handling, see [jsonstructure.md](jsonstructure.md)
+
 ### Convert Avrotize Schema to Datapackage schema
 
 ```bash
