@@ -1512,6 +1512,7 @@ class AvroToJava:
             'double': '3.14',
             'Double': 'Double.valueOf(3.14)',
             'byte[]': 'new byte[] { 0x01, 0x02, 0x03 }',
+            'Object': 'null',  # Use null for Object types (Avro unions) to avoid reference equality issues
         }
         
         # Handle generic types
@@ -1541,10 +1542,10 @@ class AvroToJava:
                     return f'{simple_name}.{first_symbol}'
                 return f'{java_type.split(".")[-1]}.values()[0]'
             elif type_kind == "class":
-                # Use Test.createInstance() to ensure all fields are properly initialized
-                # This is necessary for nested types where simple new() leaves fields null
+                # Create a new instance - fields will be initialized with default/null values
+                # Test classes handle their own field initialization in setUp/createInstance
                 simple_name = java_type.split('.')[-1]
-                return f'{simple_name}Test.createInstance()'
+                return f'new {simple_name}()'
             elif type_kind == "union":
                 # For union types, we need to create an instance with one of the union types set
                 # Get the union's schema to find available types
@@ -1571,9 +1572,9 @@ class AvroToJava:
                                     member_value = self.get_test_value(java_qualified_name, package)
                                     return f'new {simple_union_name}({member_value})'
                                 else:
-                                    # For classes, use Test.createInstance() to properly initialize all fields
+                                    # For classes, create a new instance
                                     simple_member_name = java_qualified_name.split('.')[-1]
-                                    return f'new {simple_union_name}({simple_member_name}Test.createInstance())'
+                                    return f'new {simple_union_name}(new {simple_member_name}())'
                         elif union_type != 'null' and isinstance(union_type, str):
                             # It's a simple type - convert from Avro type to Java type
                             simple_union_name = java_type.split('.')[-1]
