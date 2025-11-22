@@ -64,7 +64,7 @@ public class {{ test_class_name }} {
         {%- for field in fields if not field.is_const %}
         {%- if loop.first %}
         // Modify {{ field.field_name }} and verify inequality
-        {%- set base_type = field.field_type %}
+        {%- set base_type = field.base_type %}
         {%- if base_type == "String" %}
         instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : "test") + "_modified");
         {%- elif base_type == "byte[]" %}
@@ -94,6 +94,22 @@ public class {{ test_class_name }} {
         {%- else %}
         instance2.set{{ field.field_name | pascal }}(!instance2.get{{ field.field_name | pascal }}());
         {%- endif %}
+        {%- elif base_type in ["List", "Set", "ArrayList", "HashSet", "LinkedList"] %}
+        // For collection types, add a dummy element to make them different
+        {%- if base_type in ["Set", "HashSet"] %}
+        java.util.Set tempSet = new java.util.HashSet(instance2.get{{ field.field_name | pascal }}());
+        tempSet.add(new Object());
+        instance2.set{{ field.field_name | pascal }}(tempSet);
+        {%- else %}
+        java.util.List tempList = new java.util.ArrayList(instance2.get{{ field.field_name | pascal }}());
+        tempList.add(new Object());
+        instance2.set{{ field.field_name | pascal }}(tempList);
+        {%- endif %}
+        {%- elif base_type in ["Map", "HashMap", "LinkedHashMap"] %}
+        // For map types, add a dummy entry to make them different
+        java.util.Map tempMap = new java.util.HashMap(instance2.get{{ field.field_name | pascal }}());
+        tempMap.put(new Object(), new Object());
+        instance2.set{{ field.field_name | pascal }}(tempMap);
         {%- else %}
         // For enum or complex types, set to a different value
         {%- if "Union" in base_type %}
@@ -106,6 +122,12 @@ public class {{ test_class_name }} {
         if (enumValues.length > 1) {
             instance2.set{{ field.field_name | pascal }}(enumValues[(instance2.get{{ field.field_name | pascal }}().ordinal() + 1) % enumValues.length]);
         }
+        {%- elif base_type == "Object" %}
+        // For Object type, create a new unique instance using a timestamp-based hash
+        instance2.set{{ field.field_name | pascal }}(new Object());
+        {%- elif '.' in base_type %}
+        // For complex object types, set to null to create a different value
+        instance2.set{{ field.field_name | pascal }}(null);
         {%- else %}
         instance2.set{{ field.field_name | pascal }}({{ field.test_value }});
         {%- endif %}
