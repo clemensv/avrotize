@@ -928,8 +928,10 @@ class AvroToJava:
                 put_method += f"{INDENT * 4}break;\n"
                 put_method += f"{INDENT * 3}}}\n"
             elif type_kind == "union":
-                # Unions can contain primitives or records - use the Object constructor
-                put_method += f"{INDENT * 3}case {index}: this.{field_name} = new {field_type.type_name}(value$); break;\n"
+                # Unions can contain primitives or records - use the appropriate constructor
+                # If Avro passes a GenericData.Record, use the GenericData.Record constructor
+                # Otherwise use the Object constructor for already-constructed types
+                put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.Record ? new {field_type.type_name}((GenericData.Record)value$) : new {field_type.type_name}(value$); break;\n"
             elif type_kind == "class":
                 # Record types need to be converted from GenericData.Record if that's what Avro passes
                 put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.Record ? new {field_type.type_name}((GenericData.Record)value$) : ({field_type.type_name})value$; break;\n"
@@ -1522,10 +1524,10 @@ class AvroToJava:
                     return f'{simple_name}.{first_symbol}'
                 return f'{java_type.split(".")[-1]}.values()[0]'
             elif type_kind == "class":
-                # Directly instantiate the class instead of calling Test.createInstance()
-                # This avoids test-to-test class dependencies and compilation order issues
+                # Use Test.createInstance() to ensure all fields are properly initialized
+                # This is necessary for nested types where simple new() leaves fields null
                 simple_name = java_type.split('.')[-1]
-                return f'new {simple_name}()'
+                return f'{simple_name}Test.createInstance()'
             elif type_kind == "union":
                 # For union types, we need to create an instance with one of the union types set
                 # Get the union's schema to find available types
@@ -1552,8 +1554,9 @@ class AvroToJava:
                                     member_value = self.get_test_value(java_qualified_name, package)
                                     return f'new {simple_union_name}({member_value})'
                                 else:
-                                    # For classes, directly instantiate
-                                    return f'new {simple_union_name}(new {java_qualified_name}())'
+                                    # For classes, use Test.createInstance() to properly initialize all fields
+                                    simple_member_name = java_qualified_name.split('.')[-1]
+                                    return f'new {simple_union_name}({simple_member_name}Test.createInstance())'
                         elif union_type != 'null' and isinstance(union_type, str):
                             # It's a simple type - convert from Avro type to Java type
                             simple_union_name = java_type.split('.')[-1]
