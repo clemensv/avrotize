@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/comprehensive-test",
+  "title": "Comprehensive Feature Test Schema",
+  "description": "Schema covering all JSON Structure Core features",
+  "type": "object",
+  "name": "ComprehensiveTest",
+  "namespace": "test.comprehensive",
+  "abstract": false,
+  "deprecated": false,
+  "properties": {
+    "stringWithFormat": {
+      "type": "string",
+      "format": "email",
+      "title": "Email Address",
+      "description": "User's email address",
+      "examples": ["user@example.com", "test@test.org"]
+    },
+    "constValue": {
+      "type": "string",
+      "const": "FIXED_VALUE",
+      "description": "This field has a constant value"
+    },
+    "readOnlyField": {
+      "type": "integer",
+      "readOnly": true,
+      "description": "Can only be read, not written"
+    },
+    "writeOnlyField": {
+      "type": "string",
+      "writeOnly": true,
+      "description": "Can only be written, not read"
+    },
+    "deprecatedField": {
+      "type": "string",
+      "deprecated": true,
+      "description": "This field is deprecated"
+    },
+    "fieldWithDefault": {
+      "type": "string",
+      "default": "default_value",
+      "description": "Field with default value"
+    },
+    "stringWithConstraints": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z]+$",
+      "$comment": "Only alphabetic characters allowed"
+    },
+    "numberWithRange": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "exclusiveMinimum": -1,
+      "exclusiveMaximum": 101,
+      "multipleOf": 0.5
+    },
+    "decimalWithPrecision": {
+      "type": "decimal",
+      "precision": 10,
+      "scale": 2,
+      "description": "Decimal with precision and scale"
+    },
+    "arrayWithConstraints": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "description": "Array with size and uniqueness constraints"
+    },
+    "binaryWithEncoding": {
+      "type": "binary",
+      "contentEncoding": "base64",
+      "contentMediaType": "image/png",
+      "description": "Binary data with encoding info"
+    },
+    "enumField": {
+      "type": "string",
+      "enum": ["OPTION_A", "OPTION_B", "OPTION_C"],
+      "description": "Enumerated values"
+    }
+  },
+  "required": ["stringWithFormat", "constValue"],
+  "$comment": "Comprehensive test covering multiple features",
+  "$uses": ["TestAddIn"],
+  "examples": [
+    {
+      "stringWithFormat": "test@example.com",
+      "constValue": "FIXED_VALUE"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "profile": "data-package",
+  "resources": [
+    {
+      "name": "compositiontest",
+      "data": [],
+      "schema": {
+        "fields": [
+          {
+            "name": "allOfField",
+            "type": "object"
+          },
+          {
+            "name": "oneOfField",
+            "type": "string"
+          },
+          {
+            "name": "anyOfField",
+            "type": "string"
+          },
+          {
+            "name": "notField",
+            "type": "string"
+          },
+          {
+            "name": "conditionalField",
+            "type": "string"
+          }
+        ]
+      },
+      "title": "Composition Features Test",
+      "profile": "data-resource"
+    }
+  ],
+  "name": "datapackage"
+}

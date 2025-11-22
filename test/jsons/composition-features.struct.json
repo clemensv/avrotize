@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/composition-test",
+  "title": "Composition Features Test",
+  "$defs": {
+    "BaseType": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"}
+      },
+      "required": ["id"]
+    },
+    "ExtendedType": {
+      "allOf": [
+        {"$ref": "#/$defs/BaseType"},
+        {
+          "properties": {
+            "extra": {"type": "string"}
+          }
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "name": "CompositionTest",
+  "properties": {
+    "allOfField": {
+      "allOf": [
+        {"type": "object"},
+        {"properties": {"field1": {"type": "string"}}}
+      ]
+    },
+    "oneOfField": {
+      "oneOf": [
+        {"type": "string"},
+        {"type": "integer"}
+      ]
+    },
+    "anyOfField": {
+      "anyOf": [
+        {"type": "string"},
+        {"type": "number"}
+      ]
+    },
+    "notField": {
+      "not": {"type": "null"}
+    },
+    "conditionalField": {
+      "if": {"properties": {"enabled": {"const": true}}},
+      "then": {"type": "string"},
+      "else": {"type": "integer"}
+    }
+  }
+}

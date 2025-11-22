@@ -1,0 +1,19 @@
+{
+  "profile": "data-package",
+  "resources": [
+    {
+      "name": "document",
+      "data": [],
+      "schema": {
+        "fields": [
+          {
+            "name": "testArray",
+            "type": "array"
+          }
+        ]
+      },
+      "profile": "data-resource"
+    }
+  ],
+  "name": "datapackage"
+}

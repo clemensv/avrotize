@@ -1,0 +1,34 @@
+{
+  "profile": "data-package",
+  "resources": [
+    {
+      "name": "abstractbase",
+      "data": [],
+      "schema": {
+        "fields": [
+          {
+            "name": "baseField",
+            "type": "string"
+          }
+        ]
+      },
+      "description": "Abstract type - cannot be instantiated directly",
+      "profile": "data-resource"
+    },
+    {
+      "name": "concreteimpl",
+      "data": [],
+      "schema": {
+        "fields": [
+          {
+            "name": "implField",
+            "type": "integer"
+          }
+        ]
+      },
+      "description": "Extends: #/definitions/AbstractBase",
+      "profile": "data-resource"
+    }
+  ],
+  "name": "datapackage"
+}

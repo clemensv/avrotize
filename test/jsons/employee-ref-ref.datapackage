@@ -1,0 +1,24 @@
+{
+  "profile": "data-package",
+  "resources": [
+    {
+      "name": "document",
+      "data": [],
+      "schema": {
+        "fields": [
+          {
+            "name": "employmentDetails",
+            "type": "string"
+          },
+          {
+            "name": "personDetails",
+            "type": "object"
+          }
+        ]
+      },
+      "description": "Employee (Uses add-ins: JSONStructureValidation)",
+      "profile": "data-resource"
+    }
+  ],
+  "name": "datapackage"
+}
