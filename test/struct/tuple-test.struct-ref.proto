@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package tuple_test;
+
+// Test schema for tuple types
+message TupleTest {
+  // Geographic coordinates as tuple
+  message CoordinatesType {
+    double latitude = 1;
+    double longitude = 2;
+  }
+  // Geographic coordinates as tuple
+  CoordinatesType coordinates = 1;
+}
+

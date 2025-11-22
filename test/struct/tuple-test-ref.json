@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/tuple-test",
+  "title": "TupleTest",
+  "description": "Test schema for tuple types",
+  "type": "object",
+  "properties": {
+    "coordinates": {
+      "type": "string"
+    }
+  }
+}

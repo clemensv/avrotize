@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package temporal_types;
+
+// Test schema for temporal types
+message TemporalTypes {
+  // A date field
+  string dateField = 1;
+  // A time field
+  string timeField = 2;
+  // A datetime field
+  string datetimeField = 3;
+  // A timestamp field
+  string timestampField = 4;
+  // A duration field
+  string durationField = 5;
+}
+

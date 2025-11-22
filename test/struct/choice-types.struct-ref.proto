@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package choice_types;
+
+// Abstract type - cannot be instantiated directly
+message BaseEntity {
+  string name = 1;
+  string entityType = 2;
+}
+
+message Person {
+  string name = 1;
+  string entityType = 2;
+  int32 age = 3;
+}
+
+message Company {
+  string name = 1;
+  string entityType = 2;
+  int32 employees = 3;
+}
+
+// Test schema for choice types (unions)
+message ChoiceTypes {
+  message PersonType {
+    string name = 1;
+    string entityType = 2;
+    int32 age = 3;
+  }
+  message CompanyType {
+    string name = 1;
+    string entityType = 2;
+    int32 employees = 3;
+  }
+  oneof TaggedChoice {
+    string textValue = 1;
+    int32 numberValue = 2;
+  }
+  oneof EntityChoice {
+    PersonType Person = 3;
+    CompanyType Company = 4;
+  }
+  string nullableString = 5;
+}
+

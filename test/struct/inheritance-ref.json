@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/inheritance",
+  "title": "Vehicle",
+  "description": "Test schema for inheritance with $extends",
+  "type": "object"
+}
