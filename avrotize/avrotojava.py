@@ -964,11 +964,14 @@ class AvroToJava:
         self.generated_avro_schemas[type_name] = avro_schema
         symbols = avro_schema.get('symbols', [])
         # Convert symbols to valid Java identifiers, preserving case
-        # Replace invalid chars and prepend _ if starts with digit
+        # Replace invalid chars, prepend _ if starts with digit or is a reserved word
         java_symbols = []
         for symbol in symbols:
             java_symbol = symbol.replace('-', '_').replace('.', '_')
             if java_symbol and java_symbol[0].isdigit():
+                java_symbol = '_' + java_symbol
+            # Check if the symbol is a Java reserved word and prefix with underscore
+            if is_java_reserved_word(java_symbol):
                 java_symbol = '_' + java_symbol
             java_symbols.append(java_symbol)
         symbols_str = ', '.join(java_symbols)
@@ -1301,12 +1304,23 @@ class AvroToJava:
                 jackson_annotation=self.jackson_annotations
             )
         elif type_kind == "enum":
+            # Convert symbols to Java-safe identifiers (same logic as generate_enum)
+            raw_symbols = avro_schema.get('symbols', [])
+            java_safe_symbols = []
+            for symbol in raw_symbols:
+                java_symbol = symbol.replace('-', '_').replace('.', '_')
+                if java_symbol and java_symbol[0].isdigit():
+                    java_symbol = '_' + java_symbol
+                if is_java_reserved_word(java_symbol):
+                    java_symbol = '_' + java_symbol
+                java_safe_symbols.append(java_symbol)
+            
             test_class_definition = process_template(
                 "avrotojava/enum_test.java.jinja",
                 package=package,
                 test_class_name=test_class_name,
                 enum_name=simple_class_name,
-                symbols=avro_schema.get('symbols', [])
+                symbols=java_safe_symbols  # Pass converted symbols instead of raw
             )
 
         # Write test file
@@ -1519,6 +1533,9 @@ class AvroToJava:
                     # Convert symbol to valid Java identifier (same logic as in generate_enum)
                     first_symbol = symbols[0].replace('-', '_').replace('.', '_')
                     if first_symbol and first_symbol[0].isdigit():
+                        first_symbol = '_' + first_symbol
+                    # Check if the symbol is a Java reserved word and prefix with underscore
+                    if is_java_reserved_word(first_symbol):
                         first_symbol = '_' + first_symbol
                     simple_name = java_type.split('.')[-1]
                     return f'{simple_name}.{first_symbol}'
