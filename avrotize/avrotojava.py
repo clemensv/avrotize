@@ -6,7 +6,7 @@ import os
 from typing import Dict, List, Tuple, Union
 from avrotize.constants import AVRO_VERSION, JACKSON_VERSION, JDK_VERSION
 
-from avrotize.common import pascal, camel, is_generic_avro_type
+from avrotize.common import pascal, camel, is_generic_avro_type, inline_avro_references, build_flat_type_dict
 
 INDENT = '    '
 POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
@@ -20,6 +20,7 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
     <properties>
         <maven.compiler.source>{JDK_VERSION}</maven.compiler.source>
         <maven.compiler.target>{JDK_VERSION}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
         <dependency>
@@ -33,7 +34,28 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
             <version>{JACKSON_VERSION}</version>
             <type>pom</type>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.10.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.10.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M9</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>
 """
 
@@ -41,12 +63,16 @@ PREAMBLE_TOBYTEARRAY = \
 """
 byte[] result = null;
 String mediaType = contentType.split(";")[0].trim().toLowerCase();
+boolean shouldCompress = mediaType.endsWith("+gzip");
+if (shouldCompress) {
+    mediaType = mediaType.substring(0, mediaType.length() - 5);
+}
 """
 
 
 EPILOGUE_TOBYTEARRAY_COMPRESSION = \
     """
-if (result != null && mediaType.endsWith("+gzip")) {
+if (result != null && shouldCompress) {
     try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
          GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
         gzipOutputStream.write(result);
@@ -66,6 +92,7 @@ throw new UnsupportedOperationException("Unsupported media type + mediaType");
 PREAMBLE_FROMDATA_COMPRESSION = \
 """
 if (mediaType.endsWith("+gzip")) {
+    mediaType = mediaType.substring(0, mediaType.length() - 5);
     InputStream stream = null;
     
     if (data instanceof InputStream) {
@@ -95,7 +122,7 @@ JSON_FROMDATA_THROWS = \
     ",JsonProcessingException, IOException"
 JSON_FROMDATA = \
     """
-if ( mediaType == "application/json") {
+if ( mediaType.equals("application/json")) {
     if (data instanceof byte[]) {
         ByteArrayInputStream stream = new ByteArrayInputStream((byte[]) data);
         return (new ObjectMapper()).readValue(stream, {typeName}.class);
@@ -115,7 +142,7 @@ if ( mediaType == "application/json") {
 JSON_TOBYTEARRAY_THROWS = ",JsonProcessingException"
 JSON_TOBYTEARRAY = \
     """
-if ( mediaType == "application/json") {    
+if ( mediaType.equals("application/json")) {    
     result = new ObjectMapper().writeValueAsBytes(this);
 }
 """
@@ -123,14 +150,14 @@ if ( mediaType == "application/json") {
 AVRO_FROMDATA_THROWS = ",IOException"
 AVRO_FROMDATA = \
     """
-if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avro") {
+if ( mediaType.equals("avro/binary") || mediaType.equals("application/vnd.apache.avro+avro")) {
     if (data instanceof byte[]) {
         return AVROREADER.read(new {typeName}(), DecoderFactory.get().binaryDecoder((byte[])data, null));
     } else if (data instanceof InputStream) {
         return AVROREADER.read(new {typeName}(), DecoderFactory.get().binaryDecoder((InputStream)data, null));
     }
     throw new UnsupportedOperationException("Data is not of a supported type for Avro conversion to {typeName}");
-} else if ( mediaType == "avro/json" || mediaType == "application/vnd.apache.avro+json") {
+} else if ( mediaType.equals("avro/json") || mediaType.equals("application/vnd.apache.avro+json")) {
     if (data instanceof byte[]) {
         return AVROREADER.read(new {typeName}(), DecoderFactory.get().jsonDecoder({typeName}.AVROSCHEMA, new ByteArrayInputStream((byte[])data)));
     } else if (data instanceof InputStream) {
@@ -146,14 +173,14 @@ if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avr
 AVRO_TOBYTEARRAY_THROWS = ",IOException"
 AVRO_TOBYTEARRAY = \
     """
-if ( mediaType == "avro/binary" || mediaType == "application/vnd.apache.avro+avro") {
+if ( mediaType.equals("avro/binary") || mediaType.equals("application/vnd.apache.avro+avro")) {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     Encoder encoder = EncoderFactory.get().binaryEncoder(out, null);
     AVROWRITER.write(this, encoder);
     encoder.flush();
     result = out.toByteArray();
 }
-else if ( mediaType == "avro/json" || mediaType == "application/vnd.apache.avro+json") {
+else if ( mediaType.equals("avro/json") || mediaType.equals("application/vnd.apache.avro+json")) {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     Encoder encoder = EncoderFactory.get().jsonEncoder({typeName}.AVROSCHEMA, out);
     AVROWRITER.write(this, encoder);
@@ -198,6 +225,7 @@ class AvroToJava:
         self.pascal_properties = False
         self.generated_types_avro_namespace: Dict[str,str] = {}
         self.generated_types_java_package: Dict[str,str] = {}
+        self.generated_avro_schemas: Dict[str, Dict] = {}
 
     def qualified_name(self, package: str, name: str) -> str:
         """Concatenates package and name using a dot separator"""
@@ -323,10 +351,22 @@ class AvroToJava:
                 if avro_type['logicalType'] == 'decimal':
                     return AvroToJava.JavaType('BigDecimal')
             elif avro_type['type'] == 'array':
-                item_type = self.convert_avro_type_to_java(class_name, field_name, avro_type['items'], parent_package, nullable=True).type_name
+                item_java_type = self.convert_avro_type_to_java(class_name, field_name, avro_type['items'], parent_package, nullable=True)
+                item_type = item_java_type.type_name
+                # Check if item is a union type by name pattern or registered type
+                is_union_item = (item_type.endswith("Union") or 
+                                (item_type in self.generated_types_java_package and self.generated_types_java_package[item_type] == "union"))
+                if is_union_item:
+                    return AvroToJava.JavaType(f"List<{item_type}>", union_types=[AvroToJava.JavaType(item_type)])
                 return AvroToJava.JavaType(f"List<{item_type}>")
             elif avro_type['type'] == 'map':
-                values_type = self.convert_avro_type_to_java(class_name, field_name, avro_type['values'], parent_package, nullable=True).type_name
+                value_java_type = self.convert_avro_type_to_java(class_name, field_name, avro_type['values'], parent_package, nullable=True)
+                values_type = value_java_type.type_name
+                # Check if value is a union type by name pattern or registered type
+                is_union_value = (values_type.endswith("Union") or
+                                 (values_type in self.generated_types_java_package and self.generated_types_java_package[values_type] == "union"))
+                if is_union_value:
+                    return AvroToJava.JavaType(f"Map<String,{values_type}>", union_types=[AvroToJava.JavaType(values_type)])
                 return AvroToJava.JavaType(f"Map<String,{values_type}>")
             elif 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'date':
@@ -370,6 +410,7 @@ class AvroToJava:
             return AvroToJava.JavaType(qualified_class_name, is_class=True)
         self.generated_types_avro_namespace[namespace_qualified_name] = "class"
         self.generated_types_java_package[qualified_class_name] = "class"
+        self.generated_avro_schemas[qualified_class_name] = avro_schema
         fields_str = [self.generate_property(class_name, field, namespace) for field in avro_schema.get('fields', [])]
         class_body = "\n".join(fields_str)
         class_definition += f"public class {class_name}"
@@ -387,11 +428,19 @@ class AvroToJava:
             class_definition += f"{INDENT}}}\n"
 
         if self.avro_annotation:
-            avro_schema_json = json.dumps(avro_schema)
+            # Inline all schema references like C# does - each class has self-contained schema
+            local_avro_schema = inline_avro_references(avro_schema.copy(), self.type_dict, '')
+            avro_schema_json = json.dumps(local_avro_schema)
             avro_schema_json = avro_schema_json.replace('"', '§')
             avro_schema_json = f"\"+\n{INDENT}\"".join(
                 [avro_schema_json[i:i+80] for i in range(0, len(avro_schema_json), 80)])
             avro_schema_json = avro_schema_json.replace('§', '\\"')
+            
+            # Store the schema for tracking
+            avro_namespace = avro_schema.get('namespace', '')
+            schema_full_name = f"{avro_namespace}.{class_name}" if avro_namespace else class_name
+            self.generated_types_avro_namespace[schema_full_name] = "class"
+            
             class_definition += f"\n\n{INDENT}public static final Schema AVROSCHEMA = new Schema.Parser().parse(\n{INDENT}\"{avro_schema_json}\");"
             class_definition += f"\n{INDENT}public static final DatumWriter<{class_name}> AVROWRITER = new SpecificDatumWriter<{class_name}>(AVROSCHEMA);"
             class_definition += f"\n{INDENT}public static final DatumReader<{class_name}> AVROREADER = new SpecificDatumReader<{class_name}>(AVROSCHEMA);\n"
@@ -440,6 +489,10 @@ class AvroToJava:
         
         if self.jackson_annotations:
             class_definition += self.create_is_json_match_method(avro_schema, avro_schema.get('namespace', namespace), class_name)
+
+        # Add equals() and hashCode() methods
+        class_definition += self.generate_equals_method(class_name, avro_schema.get('fields', []), namespace)
+        class_definition += self.generate_hashcode_method(class_name, avro_schema.get('fields', []), namespace)
 
         class_definition += "\n}"
 
@@ -640,6 +693,138 @@ class AvroToJava:
 
         return class_definition
 
+    def generate_equals_method(self, class_name: str, fields: List[Dict], parent_package: str) -> str:
+        """ Generates the equals method for a class """
+        equals_method = f"\n\n{INDENT}@Override\n{INDENT}public boolean equals(Object obj) {{\n"
+        equals_method += f"{INDENT * 2}if (this == obj) return true;\n"
+        equals_method += f"{INDENT * 2}if (obj == null || getClass() != obj.getClass()) return false;\n"
+        equals_method += f"{INDENT * 2}{class_name} other = ({class_name}) obj;\n"
+        
+        if not fields:
+            equals_method += f"{INDENT * 2}return true;\n"
+        else:
+            for index, field in enumerate(fields):
+                field_name = pascal(field['name']) if self.pascal_properties else field['name']
+                field_name = self.safe_identifier(field_name, class_name)
+                field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
+                
+                if field_type.type_name in ['int', 'long', 'float', 'double', 'boolean', 'byte', 'short', 'char']:
+                    equals_method += f"{INDENT * 2}if (this.{field_name} != other.{field_name}) return false;\n"
+                elif field_type.type_name == 'byte[]':
+                    equals_method += f"{INDENT * 2}if (!java.util.Arrays.equals(this.{field_name}, other.{field_name})) return false;\n"
+                else:
+                    equals_method += f"{INDENT * 2}if (this.{field_name} == null ? other.{field_name} != null : !this.{field_name}.equals(other.{field_name})) return false;\n"
+            
+            equals_method += f"{INDENT * 2}return true;\n"
+        
+        equals_method += f"{INDENT}}}\n"
+        return equals_method
+
+    def generate_hashcode_method(self, class_name: str, fields: List[Dict], parent_package: str) -> str:
+        """ Generates the hashCode method for a class """
+        hashcode_method = f"\n{INDENT}@Override\n{INDENT}public int hashCode() {{\n"
+        
+        if not fields:
+            hashcode_method += f"{INDENT * 2}return 0;\n"
+        else:
+            hashcode_method += f"{INDENT * 2}int result = 1;\n"
+            temp_counter = 0
+            for field in fields:
+                field_name = pascal(field['name']) if self.pascal_properties else field['name']
+                field_name = self.safe_identifier(field_name, class_name)
+                field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
+                
+                if field_type.type_name == 'boolean':
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + (this.{field_name} ? 1 : 0);\n"
+                elif field_type.type_name in ['byte', 'short', 'char', 'int']:
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + this.{field_name};\n"
+                elif field_type.type_name == 'long':
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + (int)(this.{field_name} ^ (this.{field_name} >>> 32));\n"
+                elif field_type.type_name == 'float':
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + Float.floatToIntBits(this.{field_name});\n"
+                elif field_type.type_name == 'double':
+                    temp_var = f"temp{temp_counter}" if temp_counter > 0 else "temp"
+                    temp_counter += 1
+                    hashcode_method += f"{INDENT * 2}long {temp_var} = Double.doubleToLongBits(this.{field_name});\n"
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + (int)({temp_var} ^ ({temp_var} >>> 32));\n"
+                elif field_type.type_name == 'byte[]':
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + java.util.Arrays.hashCode(this.{field_name});\n"
+                else:
+                    hashcode_method += f"{INDENT * 2}result = 31 * result + (this.{field_name} != null ? this.{field_name}.hashCode() : 0);\n"
+            
+            hashcode_method += f"{INDENT * 2}return result;\n"
+        
+        hashcode_method += f"{INDENT}}}\n"
+        return hashcode_method
+
+    def generate_union_equals_method(self, union_class_name: str, union_types: List['AvroToJava.JavaType']) -> str:
+        """ Generates the equals method for a union class """
+        equals_method = f"\n{INDENT}@Override\n{INDENT}public boolean equals(Object obj) {{\n"
+        equals_method += f"{INDENT * 2}if (this == obj) return true;\n"
+        equals_method += f"{INDENT * 2}if (obj == null || getClass() != obj.getClass()) return false;\n"
+        equals_method += f"{INDENT * 2}{union_class_name} other = ({union_class_name}) obj;\n"
+        
+        # Check each union member for equality
+        for union_type in union_types:
+            # we need the nullable version (wrapper) of all primitive types
+            if self.is_java_primitive(union_type):
+                union_type = self.map_primitive_to_java(union_type.type_name, True)
+            
+            union_variable_name = union_type.type_name
+            if union_type.type_name.startswith("Map<"):
+                union_variable_name = flatten_type_name(union_type.type_name)
+            elif union_type.type_name.startswith("List<"):
+                union_variable_name = flatten_type_name(union_type.type_name)
+            elif union_type.type_name == "byte[]":
+                union_variable_name = "Bytes"
+            else:
+                union_variable_name = union_type.type_name.rsplit('.', 1)[-1]
+            
+            field_name = f"_{camel(union_variable_name)}"
+            
+            # Use proper comparison based on type
+            if union_type.type_name == 'byte[]':
+                equals_method += f"{INDENT * 2}if (!java.util.Arrays.equals(this.{field_name}, other.{field_name})) return false;\n"
+            else:
+                equals_method += f"{INDENT * 2}if (this.{field_name} == null ? other.{field_name} != null : !this.{field_name}.equals(other.{field_name})) return false;\n"
+        
+        equals_method += f"{INDENT * 2}return true;\n"
+        equals_method += f"{INDENT}}}\n"
+        return equals_method
+
+    def generate_union_hashcode_method(self, union_class_name: str, union_types: List['AvroToJava.JavaType']) -> str:
+        """ Generates the hashCode method for a union class """
+        hashcode_method = f"\n{INDENT}@Override\n{INDENT}public int hashCode() {{\n"
+        hashcode_method += f"{INDENT * 2}int result = 1;\n"
+        
+        # Include each union member in hash calculation
+        for union_type in union_types:
+            # we need the nullable version (wrapper) of all primitive types
+            if self.is_java_primitive(union_type):
+                union_type = self.map_primitive_to_java(union_type.type_name, True)
+            
+            union_variable_name = union_type.type_name
+            if union_type.type_name.startswith("Map<"):
+                union_variable_name = flatten_type_name(union_type.type_name)
+            elif union_type.type_name.startswith("List<"):
+                union_variable_name = flatten_type_name(union_type.type_name)
+            elif union_type.type_name == "byte[]":
+                union_variable_name = "Bytes"
+            else:
+                union_variable_name = union_type.type_name.rsplit('.', 1)[-1]
+            
+            field_name = f"_{camel(union_variable_name)}"
+            
+            # Use proper hash calculation based on type
+            if union_type.type_name == 'byte[]':
+                hashcode_method += f"{INDENT * 2}result = 31 * result + java.util.Arrays.hashCode(this.{field_name});\n"
+            else:
+                hashcode_method += f"{INDENT * 2}result = 31 * result + (this.{field_name} != null ? this.{field_name}.hashCode() : 0);\n"
+        
+        hashcode_method += f"{INDENT * 2}return result;\n"
+        hashcode_method += f"{INDENT}}}\n"
+        return hashcode_method
+
     def generate_avro_get_method(self, class_name: str, fields: List[Dict], parent_package: str) -> str:
         """ Generates the get method for SpecificRecord """
         get_method = f"\n{INDENT}@Override\n{INDENT}public Object get(int field$) {{\n"
@@ -648,9 +833,33 @@ class AvroToJava:
             field_name = pascal(field['name']) if self.pascal_properties else field['name']
             field_name = self.safe_identifier(field_name, class_name)
             field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
-            if field_type.type_name in self.generated_types_avro_namespace and self.generated_types_avro_namespace[field_type.type_name] == "union":
-                get_method += f"{INDENT * 3}case {index}: return this.{field_name}!=null?this.{field_name}.toObject():null;\n"
+            
+            # Check if field type is a union
+            is_union = field_type.type_name in self.generated_types_avro_namespace and self.generated_types_avro_namespace[field_type.type_name] == "union"
+            is_union = is_union or (field_type.type_name in self.generated_types_java_package and self.generated_types_java_package[field_type.type_name] == "union")
+            # Also check if it's an Object with union_types (non-Jackson union)
+            is_union = is_union or (field_type.type_name == "Object" and field_type.union_types is not None and len(field_type.union_types) > 1)
+            
+            # Check if field is List<Union> or Map<String, Union>
+            is_list_of_unions = field_type.type_name.startswith("List<") and field_type.union_types and len(field_type.union_types) > 0
+            is_map_of_unions = field_type.type_name.startswith("Map<") and field_type.union_types and len(field_type.union_types) > 0
+            
+            # For union fields, return the unwrapped object using toObject()
+            # This allows Avro's SpecificDatumWriter to serialize the actual value (String, Integer, etc.)
+            # instead of trying to serialize our custom wrapper class
+            # The put() method will wrap it back using new UnionType(value$)
+            if is_union:
+                get_method += f"{INDENT * 3}case {index}: return this.{field_name} != null ? this.{field_name}.toObject() : null;\n"
+            elif is_list_of_unions:
+                # For List<Union>, unwrap each element by calling toObject() on it
+                # Avro will deserialize this as List<Object> which put() will rewrap
+                get_method += f"{INDENT * 3}case {index}: return this.{field_name} != null ? this.{field_name}.stream().map(u -> u != null ? u.toObject() : null).collect(java.util.stream.Collectors.toList()) : null;\n"
+            elif is_map_of_unions:
+                # For Map<String, Union>, unwrap each value by calling toObject() on it
+                get_method += f"{INDENT * 3}case {index}: return this.{field_name} != null ? this.{field_name}.entrySet().stream().collect(java.util.stream.Collectors.toMap(java.util.Map.Entry::getKey, e -> e.getValue() != null ? e.getValue().toObject() : null)) : null;\n"
             else:
+                # For all other field types, return the field as-is
+                # Avro's SpecificDatumWriter will handle serialization internally
                 get_method += f"{INDENT * 3}case {index}: return this.{field_name};\n"
         get_method += f"{INDENT * 3}default: throw new AvroRuntimeException(\"Bad index: \" + field$);\n"
         get_method += f"{INDENT * 2}}}\n{INDENT}}}\n"
@@ -662,16 +871,77 @@ class AvroToJava:
         put_method = f"\n{INDENT}@Override\n{INDENT}public void put(int field$, Object value$) {{\n"
         put_method += f"{INDENT * 2}switch (field$) {{\n"
         for index, field in enumerate(fields):
+            # Skip const fields as they are final and cannot be reassigned
+            if "const" in field:
+                put_method += f"{INDENT * 3}case {index}: break; // const field, cannot be set\n"
+                continue
+            
             field_name = pascal(field['name']) if self.pascal_properties else field['name']
             field_name = self.safe_identifier(field_name, class_name)
             field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
             if field_type.type_name.startswith("List<") or field_type.type_name.startswith("Map<"):
                 suppress_unchecked = True
-            if field_type.type_name in self.generated_types_avro_namespace and self.generated_types_avro_namespace[field_type.type_name] == "union":
-                put_method += f"{INDENT * 3}case {index}: this.{field_name} = new {field_type.type_name}((GenericData.Record)value$); break;\n"
+
+            # Check if the field type is a generated type (union, class, or enum)
+            type_kind = None
+            if field_type.type_name in self.generated_types_avro_namespace:
+                type_kind = self.generated_types_avro_namespace[field_type.type_name]
+            elif field_type.type_name in self.generated_types_java_package:
+                type_kind = self.generated_types_java_package[field_type.type_name]
+
+            # Check if this is List<Union> or Map<String, Union>
+            is_list_of_unions = field_type.type_name.startswith("List<") and field_type.union_types and len(field_type.union_types) > 0
+            is_map_of_unions = field_type.type_name.startswith("Map<") and field_type.union_types and len(field_type.union_types) > 0
+            
+            if is_list_of_unions:
+                # Extract the union type name from List<UnionType>
+                union_type_match = field_type.type_name[5:-1]  # Remove "List<" and ">"
+                # For List<Union>, handle both wrapped List<UnionWrapper> and unwrapped List<Object>
+                # Avro deserialization provides List<Object>, so we need to wrap each element
+                put_method += f"{INDENT * 3}case {index}: {{\n"
+                put_method += f"{INDENT * 4}if (value$ instanceof List<?>) {{\n"
+                put_method += f"{INDENT * 5}List<?> list = (List<?>)value$;\n"
+                put_method += f"{INDENT * 5}if (list.isEmpty() || !(list.get(0) instanceof {union_type_match})) {{\n"
+                put_method += f"{INDENT * 6}// Unwrapped from Avro - need to wrap, handling nulls\n"
+                put_method += f"{INDENT * 6}this.{field_name} = list.stream().map(v -> v != null ? new {union_type_match}(v) : null).collect(java.util.stream.Collectors.toList());\n"
+                put_method += f"{INDENT * 5}}} else {{\n"
+                put_method += f"{INDENT * 6}// Already wrapped\n"
+                put_method += f"{INDENT * 6}this.{field_name} = ({field_type.type_name})value$;\n"
+                put_method += f"{INDENT * 5}}}\n"
+                put_method += f"{INDENT * 4}}}\n"
+                put_method += f"{INDENT * 4}break;\n"
+                put_method += f"{INDENT * 3}}}\n"
+            elif is_map_of_unions:
+                # Extract the union type name from Map<String, UnionType>
+                union_type_match = field_type.type_name.split(",")[1].strip()[:-1]  # Remove "Map<String, " and ">"
+                put_method += f"{INDENT * 3}case {index}: {{\n"
+                put_method += f"{INDENT * 4}if (value$ instanceof Map<?,?>) {{\n"
+                put_method += f"{INDENT * 5}Map<?,?> map = (Map<?,?>)value$;\n"
+                put_method += f"{INDENT * 5}if (map.isEmpty() || !(map.values().iterator().next() instanceof {union_type_match})) {{\n"
+                put_method += f"{INDENT * 6}// Unwrapped from Avro - need to wrap, handling nulls\n"
+                put_method += f"{INDENT * 6}this.{field_name} = map.entrySet().stream().collect(java.util.stream.Collectors.toMap(e -> (String)e.getKey(), e -> e.getValue() != null ? new {union_type_match}(e.getValue()) : null));\n"
+                put_method += f"{INDENT * 5}}} else {{\n"
+                put_method += f"{INDENT * 6}// Already wrapped\n"
+                put_method += f"{INDENT * 6}this.{field_name} = ({field_type.type_name})value$;\n"
+                put_method += f"{INDENT * 5}}}\n"
+                put_method += f"{INDENT * 4}}}\n"
+                put_method += f"{INDENT * 4}break;\n"
+                put_method += f"{INDENT * 3}}}\n"
+            elif type_kind == "union":
+                # Unions can contain primitives or records - use the appropriate constructor
+                # If Avro passes a GenericData.Record, use the GenericData.Record constructor
+                # Otherwise use the Object constructor for already-constructed types
+                put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.Record ? new {field_type.type_name}((GenericData.Record)value$) : new {field_type.type_name}(value$); break;\n"
+            elif type_kind == "class":
+                # Record types need to be converted from GenericData.Record if that's what Avro passes
+                put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.Record ? new {field_type.type_name}((GenericData.Record)value$) : ({field_type.type_name})value$; break;\n"
+            elif type_kind == "enum":
+                # Enums need to be converted from GenericData.EnumSymbol
+                put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.EnumSymbol ? {field_type.type_name}.valueOf(value$.toString()) : ({field_type.type_name})value$; break;\n"
             else:
                 if field_type.type_name == 'String':
-                    put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$.toString(); break;\n"
+                    # Handle null values for String fields
+                    put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ != null ? value$.toString() : null; break;\n"
                 else:
                     put_method += f"{INDENT * 3}case {index}: this.{field_name} = ({field_type.type_name})value$; break;\n"
         put_method += f"{INDENT * 3}default: throw new AvroRuntimeException(\"Bad index: \" + field$);\n"
@@ -690,9 +960,21 @@ class AvroToJava:
         enum_name = self.safe_identifier(avro_schema['name'])
         type_name = self.qualified_name(package.replace('/', '.'), enum_name)
         self.generated_types_avro_namespace[self.qualified_name(avro_schema.get('namespace', parent_package),avro_schema['name'])] = "enum"
-        self.generated_types_java_package[type_name] = "enum"       
+        self.generated_types_java_package[type_name] = "enum"
+        self.generated_avro_schemas[type_name] = avro_schema
         symbols = avro_schema.get('symbols', [])
-        symbols_str = ', '.join([symbol.upper() for symbol in symbols])
+        # Convert symbols to valid Java identifiers, preserving case
+        # Replace invalid chars, prepend _ if starts with digit or is a reserved word
+        java_symbols = []
+        for symbol in symbols:
+            java_symbol = symbol.replace('-', '_').replace('.', '_')
+            if java_symbol and java_symbol[0].isdigit():
+                java_symbol = '_' + java_symbol
+            # Check if the symbol is a Java reserved word and prefix with underscore
+            if is_java_reserved_word(java_symbol):
+                java_symbol = '_' + java_symbol
+            java_symbols.append(java_symbol)
+        symbols_str = ', '.join(java_symbols)
         enum_definition += f"public enum {enum_name} {{\n"
         enum_definition += f"{INDENT}{symbols_str};\n"
         enum_definition += "}\n"
@@ -801,6 +1083,9 @@ class AvroToJava:
             class_definition += f"{INDENT*2}throw new UnsupportedOperationException(\"No record type is set in the union\");\n"
             class_definition += f"{INDENT}}}\n"
         class_definition += f"\n{INDENT}public {union_class_name}(Object obj) {{\n"
+        class_definition += f"{INDENT*2}if (obj == null) {{\n"
+        class_definition += f"{INDENT*3}return; // null is valid for unions with null type\n"
+        class_definition += f"{INDENT*2}}}\n"
         class_definition += class_definition_fromobjectctor
         class_definition += f"{INDENT*2}throw new UnsupportedOperationException(\"No record type is set in the union\");\n"
         class_definition += f"{INDENT}}}\n"
@@ -825,12 +1110,25 @@ class AvroToJava:
         class_definition += f"{INDENT*2}}}\n{INDENT}}}\n"
         class_definition += f"\n{INDENT*1}public static boolean isJsonMatch(JsonNode node) {{\n"
         class_definition += f"{INDENT*2}return " + " || ".join(list_is_json_match) + ";\n"
-        class_definition += f"{INDENT*1}}}\n}}\n"
+        class_definition += f"{INDENT*1}}}\n"
+        
+        # Add equals method for union class
+        class_definition += self.generate_union_equals_method(union_class_name, union_types)
+        
+        # Add hashCode method for union class
+        class_definition += self.generate_union_hashcode_method(union_class_name, union_types)
+        class_definition += "}\n"
 
         if write_file:
             self.write_to_file(package, union_class_name, class_definition)
+        # Calculate qualified name for the union
+        qualified_union_name = self.qualified_name(package.replace('/', '.'), union_class_name)
         self.generated_types_avro_namespace[union_class_name] = "union"  # Track union types
-        self.generated_types_java_package[union_class_name] = "union"  # Track union types
+        self.generated_types_java_package[union_class_name] = "union"  # Track union types with simple name
+        self.generated_types_java_package[qualified_union_name] = "union"  # Also track with qualified name
+        # Store the union schema with the types information
+        self.generated_avro_schemas[union_class_name] = {"types": avro_type}
+        self.generated_avro_schemas[qualified_union_name] = {"types": avro_type}
         return union_class_name
 
 
@@ -844,10 +1142,22 @@ class AvroToJava:
             property_def += f"{INDENT}/** {field['doc']} */\n"
         if self.jackson_annotations:
             property_def += f"{INDENT}@JsonProperty(\"{field['name']}\")\n"
-        property_def += f"{INDENT}private {field_type.type_name} {safe_field_name};\n"
-        property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
-        property_def += f"{INDENT}public void set{pascal(field_name)}({field_type.type_name} {safe_field_name}) {{ this.{safe_field_name} = {safe_field_name}; }}\n"
-        if field_type.union_types:
+        
+        # Handle const fields
+        if 'const' in field and field['const'] is not None:
+            const_value = field['const']
+            if field_type.type_name == 'String':
+                const_value = f'"{const_value}"'
+            property_def += f"{INDENT}private final {field_type.type_name} {safe_field_name} = {const_value};\n"
+            property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
+        else:
+            property_def += f"{INDENT}private {field_type.type_name} {safe_field_name};\n"
+            property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
+            property_def += f"{INDENT}public void set{pascal(field_name)}({field_type.type_name} {safe_field_name}) {{ this.{safe_field_name} = {safe_field_name}; }}\n"
+        
+        # Generate typed accessors only for direct union fields (not for List/Map<Union>)
+        # For List<Union>, the field IS the list, not a single union value
+        if field_type.union_types and not field_type.type_name.startswith("List<") and not field_type.type_name.startswith("Map<"):
             for union_type in field_type.union_types:
                 if union_type.type_name.startswith("List<") or union_type.type_name.startswith("Map<"):
                     property_def += f"{INDENT}@SuppressWarnings(\"unchecked\")\n"
@@ -959,12 +1269,336 @@ class AvroToJava:
             file.write("\n")
             file.write(definition)
 
+    def generate_tests(self, base_output_dir: str) -> None:
+        """ Generates unit tests for all the generated Java classes and enums """
+        from avrotize.common import process_template
+        
+        test_directory_path = os.path.join(base_output_dir, "src/test/java")
+        if not os.path.exists(test_directory_path):
+            os.makedirs(test_directory_path, exist_ok=True)
+
+        for class_name, type_kind in self.generated_types_java_package.items():
+            if type_kind in ["class", "enum"]:
+                self.generate_test_class(class_name, type_kind, test_directory_path)
+
+    def generate_test_class(self, class_name: str, type_kind: str, test_directory_path: str) -> None:
+        """ Generates a unit test class for a given Java class or enum """
+        from avrotize.common import process_template
+        
+        avro_schema = self.generated_avro_schemas.get(class_name, {})
+        simple_class_name = class_name.split('.')[-1]
+        package = ".".join(class_name.split('.')[:-1])
+        test_class_name = f"{simple_class_name}Test"
+
+        if type_kind == "class":
+            fields = self.get_class_test_fields(avro_schema, simple_class_name, package)
+            imports = self.get_test_imports(fields)
+            test_class_definition = process_template(
+                "avrotojava/class_test.java.jinja",
+                package=package,
+                test_class_name=test_class_name,
+                class_name=simple_class_name,
+                fields=fields,
+                imports=imports,
+                avro_annotation=self.avro_annotation,
+                jackson_annotation=self.jackson_annotations
+            )
+        elif type_kind == "enum":
+            # Convert symbols to Java-safe identifiers (same logic as generate_enum)
+            raw_symbols = avro_schema.get('symbols', [])
+            java_safe_symbols = []
+            for symbol in raw_symbols:
+                java_symbol = symbol.replace('-', '_').replace('.', '_')
+                if java_symbol and java_symbol[0].isdigit():
+                    java_symbol = '_' + java_symbol
+                if is_java_reserved_word(java_symbol):
+                    java_symbol = '_' + java_symbol
+                java_safe_symbols.append(java_symbol)
+            
+            test_class_definition = process_template(
+                "avrotojava/enum_test.java.jinja",
+                package=package,
+                test_class_name=test_class_name,
+                enum_name=simple_class_name,
+                symbols=java_safe_symbols  # Pass converted symbols instead of raw
+            )
+
+        # Write test file
+        package_path = package.replace('.', os.sep)
+        test_file_dir = os.path.join(test_directory_path, package_path)
+        if not os.path.exists(test_file_dir):
+            os.makedirs(test_file_dir, exist_ok=True)
+        test_file_path = os.path.join(test_file_dir, f"{test_class_name}.java")
+        with open(test_file_path, 'w', encoding='utf-8') as test_file:
+            test_file.write(test_class_definition)
+
+    def get_test_imports(self, fields: List) -> List[str]:
+        """ Gets the necessary imports for the test class """
+        imports = []
+        for field in fields:
+            # Extract inner types from generic collections
+            inner_types = []
+            if field.field_type.startswith("List<"):
+                if "import java.util.List;" not in imports:
+                    imports.append("import java.util.List;")
+                if "import java.util.ArrayList;" not in imports:
+                    imports.append("import java.util.ArrayList;")
+                # Extract the inner type: List<Type> -> Type
+                inner_type = field.field_type[5:-1]
+                # Check if inner type is also a Map
+                if inner_type.startswith("Map<"):
+                    if "import java.util.Map;" not in imports:
+                        imports.append("import java.util.Map;")
+                    if "import java.util.HashMap;" not in imports:
+                        imports.append("import java.util.HashMap;")
+                    # Extract Map value type
+                    start = inner_type.index('<') + 1
+                    end = inner_type.rindex('>')
+                    map_types = inner_type[start:end].split(',')
+                    if len(map_types) > 1:
+                        inner_types.append(map_types[1].strip())
+                else:
+                    inner_types.append(inner_type)
+            elif field.field_type.startswith("Map<"):
+                if "import java.util.Map;" not in imports:
+                    imports.append("import java.util.Map;")
+                if "import java.util.HashMap;" not in imports:
+                    imports.append("import java.util.HashMap;")
+                # Extract value type from Map<K,V>
+                start = field.field_type.index('<') + 1
+                end = field.field_type.rindex('>')
+                map_types = field.field_type[start:end].split(',')
+                if len(map_types) > 1:
+                    inner_types.append(map_types[1].strip())
+            
+            # Add the direct field type for non-generic types
+            if not field.field_type.startswith(("List<", "Map<")):
+                inner_types.append(field.field_type)
+            
+            # If field is Object with union_types (Avro-style union), add all union member types for imports
+            if hasattr(field, 'java_type_obj') and field.java_type_obj and field.java_type_obj.union_types:
+                for union_member_type in field.java_type_obj.union_types:
+                    inner_types.append(union_member_type.type_name)
+            
+            # Process each type (including inner types from generics)
+            for type_to_check in inner_types:
+                # Add imports for enum and class types
+                if type_to_check in self.generated_types_java_package:
+                    type_kind = self.generated_types_java_package[type_to_check]
+                    # Only import if it's a fully qualified name with a package
+                    if '.' in type_to_check:
+                        import_stmt = f"import {type_to_check};"
+                        if import_stmt not in imports:
+                            imports.append(import_stmt)
+                        # No longer import test classes - we instantiate classes directly
+                    # Process unions regardless of whether they're fully qualified
+                    # (they might be simple names that need member imports)
+                    if type_kind == "union":
+                            avro_schema = self.generated_avro_schemas.get(type_to_check, {})
+                            if avro_schema and 'types' in avro_schema:
+                                for union_type in avro_schema['types']:
+                                    java_qualified_name = None
+                                    if isinstance(union_type, dict) and 'name' in union_type:
+                                        # It's a complex type reference (inline definition)
+                                        type_name = union_type['name']
+                                        if 'namespace' in union_type:
+                                            avro_namespace = union_type['namespace']
+                                            # Build full Java qualified name with base package
+                                            java_qualified_name = self.join_packages(self.base_package, avro_namespace).replace('/', '.').lower() + '.' + type_name
+                                        else:
+                                            java_qualified_name = type_name
+                                    elif isinstance(union_type, str) and union_type not in ['null', 'string', 'int', 'long', 'float', 'double', 'boolean', 'bytes']:
+                                        # It's a string reference to a named type (could be class or enum)
+                                        # The string is the Avro qualified name, need to convert to Java
+                                        avro_name_parts = union_type.split('.')
+                                        if len(avro_name_parts) > 1:
+                                            # Has namespace
+                                            type_name = avro_name_parts[-1]
+                                            avro_namespace = '.'.join(avro_name_parts[:-1])
+                                            java_qualified_name = self.join_packages(self.base_package, avro_namespace).replace('/', '.').lower() + '.' + type_name
+                                        else:
+                                            # No namespace, just a simple name
+                                            java_qualified_name = union_type
+                                    
+                                    if java_qualified_name:
+                                        if java_qualified_name in self.generated_types_java_package or java_qualified_name.split('.')[-1] in self.generated_types_java_package:
+                                            member_type_kind = self.generated_types_java_package.get(java_qualified_name, self.generated_types_java_package.get(java_qualified_name.split('.')[-1], None))
+                                            # Import the class/enum
+                                            class_import = f"import {java_qualified_name};"
+                                            if class_import not in imports:
+                                                imports.append(class_import)
+                                            # No longer import test classes - we instantiate classes directly
+        return imports
+
+    def get_class_test_fields(self, avro_schema: Dict, class_name: str, package: str) -> List:
+        """ Retrieves fields for a given class name """
+        
+        class Field:
+            def __init__(self, fn: str, ft: str, tv: str, ct: bool, ie: bool = False, java_type_obj: 'AvroToJava.JavaType' = None):
+                self.field_name = fn
+                self.field_type = ft
+                # Extract base type for generic types (e.g., List<Object> -> List)
+                if '<' in ft:
+                    self.base_type = ft.split('<')[0]
+                else:
+                    self.base_type = ft
+                self.test_value = tv
+                self.is_const = ct
+                self.is_enum = ie
+                self.java_type_obj = java_type_obj  # Store the full JavaType object for union access
+
+        fields: List[Field] = []
+        if avro_schema and 'fields' in avro_schema:
+            for field in avro_schema['fields']:
+                field_name = pascal(field['name']) if self.pascal_properties else field['name']
+                field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], avro_schema.get('namespace', ''))
+                # Check if the field type is an enum
+                is_enum = field_type.type_name in self.generated_types_java_package and \
+                         self.generated_types_java_package[field_type.type_name] == "enum"
+                f = Field(
+                    field_name,
+                    field_type.type_name,
+                    self.get_test_value_from_field(field['type'], field_type, package) if "const" not in field else f'"{field["const"]}"',
+                    "const" in field and field["const"] is not None,
+                    is_enum,
+                    field_type  # Pass the full JavaType object
+                )
+                fields.append(f)
+        return fields
+
+    def get_test_value_from_field(self, avro_field_type: Union[str, Dict, List], java_type: JavaType, package: str) -> str:
+        """Returns a default test value based on the Avro field type and Java type"""
+        # If it's an Object with union_types (Avro-style union), pick a member type
+        if java_type.type_name == "Object" and java_type.union_types is not None and len(java_type.union_types) > 0:
+            # Pick the first union type and generate a test value for it
+            first_union_type = java_type.union_types[0]
+            return self.get_test_value(first_union_type.type_name, package)
+        # For List<Object> where Object is a union, we need to handle it specially
+        elif java_type.type_name.startswith("List<Object>"):
+            # avro_field_type could be: ["null", {"type": "array", "items": [union types]}]
+            # or just: {"type": "array", "items": [union types]}
+            array_schema = avro_field_type
+            if isinstance(avro_field_type, list):
+                # It's a union - find the array type
+                for t in avro_field_type:
+                    if isinstance(t, dict) and t.get('type') == 'array':
+                        array_schema = t
+                        break
+           
+            if isinstance(array_schema, dict) and array_schema.get('type') == 'array':
+                items_type = array_schema.get('items')
+                if isinstance(items_type, list):  # Union array
+                    # Pick the first non-null type
+                    non_null_types = [t for t in items_type if t != 'null']
+                    if non_null_types:
+                        inner_java_type = self.convert_avro_type_to_java('_test', '_field', non_null_types[0], package)
+                        inner_value = self.get_test_value(inner_java_type.type_name, package)
+                        return f'new ArrayList<>(java.util.Arrays.asList({inner_value}))'
+        # Default: use type name
+        return self.get_test_value(java_type.type_name, package)
+
+    def get_test_value(self, java_type: str, package: str) -> str:
+        """Returns a default test value based on the Java type"""
+        test_values = {
+            'String': '"test_string"',
+            'boolean': 'true',
+            'Boolean': 'Boolean.TRUE',
+            'int': '42',
+            'Integer': 'Integer.valueOf(42)',
+            'long': '42L',
+            'Long': 'Long.valueOf(42L)',
+            'float': '3.14f',
+            'Float': 'Float.valueOf(3.14f)',
+            'double': '3.14',
+            'Double': 'Double.valueOf(3.14)',
+            'byte[]': 'new byte[] { 0x01, 0x02, 0x03 }',
+            'Object': 'null',  # Use null for Object types (Avro unions) to avoid reference equality issues
+        }
+        
+        # Handle generic types
+        if java_type.startswith("List<"):
+            inner_type = java_type[5:-1]
+            inner_value = self.get_test_value(inner_type, package)
+            return f'new ArrayList<>(java.util.Arrays.asList({inner_value}))'
+        elif java_type.startswith("Map<"):
+            return 'new HashMap<>()'
+        
+        # Check if it's a generated type (enum, class, or union)
+        if java_type in self.generated_types_java_package:
+            type_kind = self.generated_types_java_package[java_type]
+            if type_kind == "enum":
+                # Get the first symbol for the enum
+                avro_schema = self.generated_avro_schemas.get(java_type, {})
+                symbols = avro_schema.get('symbols', [])
+                if symbols:
+                    # Convert symbol to valid Java identifier (same logic as in generate_enum)
+                    first_symbol = symbols[0].replace('-', '_').replace('.', '_')
+                    if first_symbol and first_symbol[0].isdigit():
+                        first_symbol = '_' + first_symbol
+                    # Check if the symbol is a Java reserved word and prefix with underscore
+                    if is_java_reserved_word(first_symbol):
+                        first_symbol = '_' + first_symbol
+                    simple_name = java_type.split('.')[-1]
+                    return f'{simple_name}.{first_symbol}'
+                return f'{java_type.split(".")[-1]}.values()[0]'
+            elif type_kind == "class":
+                # Create a new instance - fields will be initialized with default/null values
+                # Test classes handle their own field initialization in setUp/createInstance
+                simple_name = java_type.split('.')[-1]
+                return f'new {simple_name}()'
+            elif type_kind == "union":
+                # For union types, we need to create an instance with one of the union types set
+                # Get the union's schema to find available types
+                avro_schema = self.generated_avro_schemas.get(java_type, {})
+                if avro_schema and 'types' in avro_schema:
+                    # Use the first non-null type from the union
+                    for union_type in avro_schema['types']:
+                        if union_type != 'null' and isinstance(union_type, dict):
+                            # It's a complex type - check if enum or class
+                            if 'name' in union_type:
+                                type_name = union_type['name']
+                                if 'namespace' in union_type:
+                                    avro_namespace = union_type['namespace']
+                                    # Build full Java qualified name with base package
+                                    java_qualified_name = self.join_packages(self.base_package, avro_namespace).replace('/', '.').lower() + '.' + type_name
+                                else:
+                                    java_qualified_name = type_name
+                                simple_union_name = java_type.split('.')[-1]
+                                
+                                # Check if this union member is an enum or class
+                                member_type_kind = self.generated_types_java_package.get(java_qualified_name)
+                                if member_type_kind == "enum":
+                                    # For enums, use the first enum value
+                                    member_value = self.get_test_value(java_qualified_name, package)
+                                    return f'new {simple_union_name}({member_value})'
+                                else:
+                                    # For classes, create a new instance
+                                    simple_member_name = java_qualified_name.split('.')[-1]
+                                    return f'new {simple_union_name}(new {simple_member_name}())'
+                        elif union_type != 'null' and isinstance(union_type, str):
+                            # It's a simple type - convert from Avro type to Java type
+                            simple_union_name = java_type.split('.')[-1]
+                            # Convert Avro primitive type to Java type
+                            java_primitive_type = self.convert_avro_type_to_java('_test', '_field', union_type, package)
+                            simple_value = self.get_test_value(java_primitive_type.type_name, package)
+                            return f'new {simple_union_name}({simple_value})'
+                # Fallback: create an empty union instance
+                simple_name = java_type.split('.')[-1]
+                return f'new {simple_name}()'
+        
+        return test_values.get(java_type, f'new {java_type}()')
+
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to Java"""
         if not isinstance(schema, list):
             schema = [schema]
+        
+        # Build type dictionary for inline schema resolution (like C# does)
+        self.type_dict = build_flat_type_dict(schema)
+        
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
+        base_output_dir = output_dir  # Store the base directory before changing it
         pom_path = os.path.join(output_dir, "pom.xml")
         if not os.path.exists(pom_path):
             package_elements = self.base_package.split('.') if self.base_package else ["com", "example"]
@@ -979,6 +1613,7 @@ class AvroToJava:
         self.output_dir = output_dir
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema, '')
+        self.generate_tests(base_output_dir)
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Java"""
