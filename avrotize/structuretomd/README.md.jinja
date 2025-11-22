@@ -1,0 +1,204 @@
+# {{ schema_name }}
+
+{%- if schema_description %}
+{{ schema_description }}
+{%- endif %}
+
+{%- if schema_id %}
+**Schema ID:** `{{ schema_id }}`
+{%- endif %}
+
+{%- if schema_uses %}
+**Uses Extensions:** {{ schema_uses | join(', ') }}
+{%- endif %}
+
+{%- if schema_offers %}
+## Add-in System ($offers)
+
+This schema offers the following add-ins:
+
+{%- for addin_name, addin_def in schema_offers.items() %}
+### {{ addin_name }}
+{%- if addin_def.description %}
+
+{{ addin_def.description }}
+{%- endif %}
+
+{%- if addin_def.properties %}
+**Properties:**
+
+{%- set required_fields = addin_def.required if addin_def.required else [] %}
+{%- for prop_name, prop_schema in addin_def.properties.items() %}
+{{ generate_property_markdown(prop_name, prop_schema, prop_name in required_fields) }}
+{%- endfor %}
+{%- endif %}
+
+{%- endfor %}
+{%- endif %}
+
+{%- if objects %}
+## Objects
+{%- for namespace, object_list in objects.items() %}
+{%- if namespace %}
+### Namespace: {{ namespace }}
+{%- endif %}
+{%- for obj in object_list %}
+
+### {{ obj.name }}
+{%- if obj.description %}
+
+{{ obj.description }}
+{%- endif %}
+
+{%- if obj.abstract %}
+**Abstract:** Yes
+{%- endif %}
+
+{%- if obj['$extends'] %}
+**Extends:** {{ obj['$extends'] }}
+{%- endif %}
+
+{%- if obj['$uses'] %}
+**Uses Extensions:** {{ obj['$uses'] | join(', ') }}
+{%- endif %}
+
+{%- if obj.properties %}
+**Properties:**
+
+{%- set required_fields = obj.required if obj.required else [] %}
+{%- for prop_name, prop_schema in obj.properties.items() %}
+{{ generate_property_markdown(prop_name, prop_schema, prop_name in required_fields) }}
+{%- endfor %}
+{%- endif %}
+
+{%- endfor %}
+{%- endfor %}
+{%- endif %}
+
+{%- if choices %}
+## Choice Types (Unions)
+{%- for namespace, choice_list in choices.items() %}
+{%- if namespace %}
+### Namespace: {{ namespace }}
+{%- endif %}
+{%- for choice in choice_list %}
+
+### {{ choice.name }}
+{%- if choice.description %}
+
+{{ choice.description }}
+{%- endif %}
+
+{%- if choice['$extends'] %}
+**Extends:** {{ choice['$extends'] }}
+{%- endif %}
+
+{%- if choice['$uses'] %}
+**Uses Extensions:** {{ choice['$uses'] | join(', ') }}
+{%- endif %}
+
+{%- if choice.selector %}
+**Selector:** `{{ choice.selector }}`
+{%- endif %}
+
+**Choices:**
+
+{%- if choice.choices is mapping %}
+{%- for choice_name, choice_schema in choice.choices.items() %}
+- **{{ choice_name }}**: {{ get_type_string(choice_schema) }}
+{%- if choice_schema is mapping and choice_schema.description %}
+  - Description: {{ choice_schema.description }}
+{%- endif %}
+{%- endfor %}
+{%- elif choice.choices is iterable %}
+{%- for choice_schema in choice.choices %}
+- {{ get_type_string(choice_schema) }}
+{%- if choice_schema is mapping and choice_schema.description %}
+  - Description: {{ choice_schema.description }}
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+
+{%- endfor %}
+{%- endfor %}
+{%- endif %}
+
+{%- if definitions %}
+## Definitions
+{%- for def_name, def_schema in definitions.items() %}
+
+### {{ def_name }}
+{%- if def_schema.description %}
+
+{{ def_schema.description }}
+{%- endif %}
+
+{%- if def_schema.abstract %}
+**Abstract:** Yes
+{%- endif %}
+
+{%- if def_schema['$extends'] %}
+**Extends:** {{ def_schema['$extends'] }}
+{%- endif %}
+
+{%- if def_schema['$uses'] %}
+**Uses Extensions:** {{ def_schema['$uses'] | join(', ') }}
+{%- endif %}
+
+{%- if def_schema.type == 'object' and def_schema.properties %}
+**Properties:**
+
+{%- set required_fields = def_schema.required if def_schema.required else [] %}
+{%- for prop_name, prop_schema in def_schema.properties.items() %}
+{{ generate_property_markdown(prop_name, prop_schema, prop_name in required_fields) }}
+{%- endfor %}
+{%- elif def_schema.type == 'choice' %}
+{%- if def_schema.selector %}
+**Selector:** `{{ def_schema.selector }}`
+{%- endif %}
+
+**Choices:**
+
+{%- if def_schema.choices is mapping %}
+{%- for choice_name, choice_schema in def_schema.choices.items() %}
+- **{{ choice_name }}**: {{ get_type_string(choice_schema) }}
+{%- if choice_schema is mapping and choice_schema.description %}
+  - Description: {{ choice_schema.description }}
+{%- endif %}
+{%- endfor %}
+{%- elif def_schema.choices is iterable %}
+{%- for choice_schema in def_schema.choices %}
+- {{ get_type_string(choice_schema) }}
+{%- if choice_schema is mapping and choice_schema.description %}
+  - Description: {{ choice_schema.description }}
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+{%- elif def_schema.enum %}
+**Enum values:** {{ def_schema.enum | join(', ') }}
+{%- else %}
+**Type:** {{ get_type_string(def_schema) }}
+{%- endif %}
+
+{%- endfor %}
+{%- endif %}
+
+{%- if enums %}
+## Enumerations
+{%- for namespace, enum_list in enums.items() %}
+{%- if namespace %}
+### Namespace: {{ namespace }}
+{%- endif %}
+{%- for enum in enum_list %}
+
+### {{ enum.name }}
+{%- if enum.doc %}
+
+{{ enum.doc }}
+{%- endif %}
+
+**Values:** {{ enum['values'] | join(', ') }}
+
+{%- endfor %}
+{%- endfor %}
+{%- endif %}
