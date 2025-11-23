@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/schemas/tuple-test",
+  "type": "object",
+  "name": "TupleTest",
+  "description": "Test schema for tuple types",
+  "properties": {
+    "coordinates": {
+      "type": "tuple",
+      "tuple": ["latitude", "longitude"],
+      "properties": {
+        "latitude": {
+          "type": "double",
+          "minimum": -90,
+          "maximum": 90,
+          "description": "Latitude"
+        },
+        "longitude": {
+          "type": "double",
+          "minimum": -180,
+          "maximum": 180,
+          "description": "Longitude"
+        }
+      },
+      "description": "Geographic coordinates as tuple"
+    }
+  }
+}
