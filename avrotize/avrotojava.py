@@ -985,9 +985,8 @@ class AvroToJava:
         if 'doc' in avro_schema:
             enum_definition += f"/** {avro_schema['doc']} */\n"
             
-        package = self.join_packages(self.base_package, avro_schema.get('namespace', parent_package)).replace('.', '/').lower()
-        # Pascal case the enum name for Java naming conventions
-        enum_name = pascal(self.safe_identifier(avro_schema['name']))
+        package = self.join_packages(self.base_package, avro_schema.get('namespace', parent_package)).replace('.', '/').lower()       
+        enum_name = self.safe_identifier(avro_schema['name'])
         type_name = self.qualified_name(package.replace('/', '.'), enum_name)
         self.generated_types_avro_namespace[self.qualified_name(avro_schema.get('namespace', parent_package),avro_schema['name'])] = "enum"
         self.generated_types_java_package[type_name] = "enum"
