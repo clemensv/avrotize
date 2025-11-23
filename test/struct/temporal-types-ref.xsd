@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:example:schema" targetNamespace="urn:example:schema" elementFormDefault="qualified">
+  <xs:element name="TemporalTypes">
+    <xs:annotation>
+      <xs:documentation>Test schema for temporal types</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>Test schema for temporal types</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element name="dateField" minOccurs="0" maxOccurs="1" type="xs:date">
+          <xs:annotation>
+            <xs:documentation>A date field</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+        <xs:element name="timeField" minOccurs="0" maxOccurs="1" type="xs:time">
+          <xs:annotation>
+            <xs:documentation>A time field</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+        <xs:element name="datetimeField" minOccurs="1" maxOccurs="1" type="xs:dateTime">
+          <xs:annotation>
+            <xs:documentation>A datetime field</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+        <xs:element name="timestampField" minOccurs="0" maxOccurs="1" type="xs:dateTime">
+          <xs:annotation>
+            <xs:documentation>A timestamp field</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+        <xs:element name="durationField" minOccurs="0" maxOccurs="1" type="xs:duration">
+          <xs:annotation>
+            <xs:documentation>A duration field</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

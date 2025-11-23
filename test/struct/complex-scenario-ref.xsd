@@ -1,0 +1,209 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="urn:example:schema" targetNamespace="urn:example:schema" elementFormDefault="qualified">
+  <xs:element name="ComplexScenario">
+    <xs:annotation>
+      <xs:documentation>Complex test scenario combining multiple JSON Structure features</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>Complex test scenario combining multiple JSON Structure features</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+        <xs:element name="metadata" minOccurs="1" maxOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="id" minOccurs="1" maxOccurs="1" type="xs:string">
+                <xs:annotation>
+                  <xs:documentation>Unique identifier</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="version" minOccurs="1" maxOccurs="1">
+                <xs:annotation>
+                  <xs:documentation>Semantic version</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <xs:pattern value="^\d+\.\d+\.\d+$"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:element>
+              <xs:element name="created" minOccurs="1" maxOccurs="1" type="xs:dateTime">
+                <xs:annotation>
+                  <xs:documentation>Creation timestamp</xs:documentation>
+                </xs:annotation>
+              </xs:element>
+              <xs:element name="tags" minOccurs="0" maxOccurs="1">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="item" minOccurs="0" maxOccurs="10">
+                      <xs:simpleType>
+                        <xs:restriction base="xs:string">
+                          <xs:maxLength value="50"/>
+                        </xs:restriction>
+                      </xs:simpleType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="data" minOccurs="1" maxOccurs="1"/>
+        <xs:element name="signature" minOccurs="0" maxOccurs="1" type="xs:base64Binary">
+          <xs:annotation>
+            <xs:documentation>Digital signature</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:complexType name="ComplexScenario" abstract="true"/>
+  <xs:complexType name="ComplexScenarioOption1">
+    <xs:complexContent>
+      <xs:extension base="ComplexScenario">
+        <xs:sequence>
+          <xs:element name="value">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="type" minOccurs="1" maxOccurs="1">
+                  <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                      <xs:enumeration value="measurement"/>
+                    </xs:restriction>
+                  </xs:simpleType>
+                </xs:element>
+                <xs:element name="value" minOccurs="1" maxOccurs="1">
+                  <xs:annotation>
+                    <xs:appinfo source="json-structure-extensions">{
+  &quot;unit&quot;: &quot;m/s\u00b2&quot;
+}</xs:appinfo>
+                  </xs:annotation>
+                  <xs:simpleType>
+                    <xs:restriction base="xs:decimal">
+                      <xs:totalDigits value="15"/>
+                      <xs:fractionDigits value="6"/>
+                    </xs:restriction>
+                  </xs:simpleType>
+                </xs:element>
+                <xs:element name="timestamp" minOccurs="1" maxOccurs="1" type="xs:dateTime"/>
+                <xs:element name="device" minOccurs="0" maxOccurs="1">
+                  <xs:complexType>
+                    <xs:sequence>
+                      <xs:element name="id" minOccurs="1" maxOccurs="1" type="xs:string"/>
+                      <xs:element name="calibration" minOccurs="0" maxOccurs="1">
+                        <xs:complexType>
+                          <xs:sequence>
+                            <xs:element name="entry" minOccurs="0" maxOccurs="unbounded">
+                              <xs:complexType>
+                                <xs:sequence>
+                                  <xs:element name="key" type="xs:string"/>
+                                  <xs:element name="value" type="xs:double"/>
+                                </xs:sequence>
+                              </xs:complexType>
+                            </xs:element>
+                          </xs:sequence>
+                        </xs:complexType>
+                      </xs:element>
+                    </xs:sequence>
+                  </xs:complexType>
+                </xs:element>
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ComplexScenarioOption2">
+    <xs:complexContent>
+      <xs:extension base="ComplexScenario">
+        <xs:sequence>
+          <xs:element name="value">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="type" minOccurs="1" maxOccurs="1">
+                  <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                      <xs:enumeration value="event"/>
+                    </xs:restriction>
+                  </xs:simpleType>
+                </xs:element>
+                <xs:element name="name" minOccurs="1" maxOccurs="1" type="xs:string">
+                  <xs:annotation>
+                    <xs:appinfo source="json-structure-extensions">{
+  &quot;altnames&quot;: {
+    &quot;json&quot;: &quot;event_name&quot;,
+    &quot;lang:en&quot;: &quot;Event Name&quot;
+  }
+}</xs:appinfo>
+                  </xs:annotation>
+                </xs:element>
+                <xs:element name="severity" minOccurs="1" maxOccurs="1">
+                  <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                      <xs:enumeration value="low"/>
+                      <xs:enumeration value="medium"/>
+                      <xs:enumeration value="high"/>
+                      <xs:enumeration value="critical"/>
+                    </xs:restriction>
+                  </xs:simpleType>
+                </xs:element>
+                <xs:element name="details" minOccurs="0" maxOccurs="1">
+                  <xs:complexType>
+                    <xs:sequence>
+                      <xs:element name="item" minOccurs="0" maxOccurs="unbounded">
+                        <xs:complexType>
+                          <xs:sequence>
+                            <xs:element name="key" minOccurs="1" maxOccurs="1" type="xs:string"/>
+                            <xs:element name="value" minOccurs="1" maxOccurs="1"/>
+                          </xs:sequence>
+                        </xs:complexType>
+                      </xs:element>
+                    </xs:sequence>
+                  </xs:complexType>
+                </xs:element>
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ComplexScenarioOption2_value" abstract="true"/>
+  <xs:complexType name="ComplexScenarioOption2_valueOption1">
+    <xs:complexContent>
+      <xs:extension base="ComplexScenarioOption2_value">
+        <xs:sequence>
+          <xs:element name="value" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ComplexScenarioOption2_valueOption2">
+    <xs:complexContent>
+      <xs:extension base="ComplexScenarioOption2_value">
+        <xs:sequence>
+          <xs:element name="value" type="xs:long"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ComplexScenarioOption2_valueOption3">
+    <xs:complexContent>
+      <xs:extension base="ComplexScenarioOption2_value">
+        <xs:sequence>
+          <xs:element name="value" type="xs:double"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ComplexScenarioOption2_valueOption4">
+    <xs:complexContent>
+      <xs:extension base="ComplexScenarioOption2_value">
+        <xs:sequence>
+          <xs:element name="value" type="xs:boolean"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>

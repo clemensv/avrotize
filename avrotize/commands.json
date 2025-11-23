@@ -2658,5 +2658,48 @@
     ],
     "suggested_output_file_path": "{input_file_name}.struct.json",
     "prompts": []
+  },
+  {
+    "command": "s2x",
+    "description": "Convert JSON Structure to XSD schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretoxsd.convert_structure_to_xsd",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "xml_file_path": "output_file_path",
+        "target_namespace": "args.namespace"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the XSD schema file",
+        "required": false
+      },
+      {
+        "name": "--struct",
+        "type": "str",
+        "help": "Deprecated: Path to the JSON Structure file (for backcompat)",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Target namespace for the XSD schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.xsd",
+    "prompts": []
   }
 ]
