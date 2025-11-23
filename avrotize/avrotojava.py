@@ -985,8 +985,9 @@ class AvroToJava:
         if 'doc' in avro_schema:
             enum_definition += f"/** {avro_schema['doc']} */\n"
             
-        package = self.join_packages(self.base_package, avro_schema.get('namespace', parent_package)).replace('.', '/').lower()       
-        enum_name = self.safe_identifier(avro_schema['name'])
+        package = self.join_packages(self.base_package, avro_schema.get('namespace', parent_package)).replace('.', '/').lower()
+        # Pascal case the enum name for Java naming conventions
+        enum_name = pascal(self.safe_identifier(avro_schema['name']))
         type_name = self.qualified_name(package.replace('/', '.'), enum_name)
         self.generated_types_avro_namespace[self.qualified_name(avro_schema.get('namespace', parent_package),avro_schema['name'])] = "enum"
         self.generated_types_java_package[type_name] = "enum"
@@ -1063,6 +1064,12 @@ class AvroToJava:
             elif is_dict:
                 class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof Map<?,?>) {{\n{INDENT*3}this._{camel(union_variable_name)} = ({union_type.type_name})obj;\n{INDENT*3}return;\n{INDENT*2}}}\n"
             else:
+                # For class types, check for GenericData.Record first (Avro deserialization), then typed instance
+                if self.avro_annotation and union_type.is_class:
+                    class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof GenericData.Record) {{\n"
+                    class_definition_fromobjectctor += f"{INDENT*3}GenericData.Record record = (GenericData.Record)obj;\n"
+                    class_definition_fromobjectctor += f"{INDENT*3}if ( {union_type.type_name}.AVROSCHEMA.getName().equals(record.getSchema().getName()) && {union_type.type_name}.AVROSCHEMA.getNamespace().equals(record.getSchema().getNamespace()) ) {{\n"
+                    class_definition_fromobjectctor += f"{INDENT*4}this._{camel(union_variable_name)} = new {union_type.type_name}(record);\n{INDENT*4}return;\n{INDENT*3}}}\n{INDENT*2}}}\n"
                 class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof {union_type.type_name}) {{\n{INDENT*3}this._{camel(union_variable_name)} = ({union_type.type_name})obj;\n{INDENT*3}return;\n{INDENT*2}}}\n"
 
             # Read method logic
