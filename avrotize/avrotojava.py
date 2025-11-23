@@ -403,16 +403,16 @@ class AvroToJava:
             if "const" in field:
                 continue
                 
-            # Use original field name for setter, not the safe identifier
-            original_field_name = pascal(field['name']) if self.pascal_properties else field['name']
-            field_name = self.safe_identifier(original_field_name, class_name)
-            field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
+            # Match the logic in generate_property: field_name is already Pascal-cased if needed
+            field_name = pascal(field['name']) if self.pascal_properties else field['name']
+            safe_field_name = self.safe_identifier(field_name, class_name)
+            field_type = self.convert_avro_type_to_java(class_name, safe_field_name, field['type'], parent_package)
             
             # Get a test value for this field
             test_value = self.get_test_value(field_type.type_name, parent_package.replace('.', '/'))
             
-            # Use original field name for setter (without safe identifier transformation)
-            method += f"{INDENT*2}instance.set{pascal(original_field_name)}({test_value});\n"
+            # Setter name matches generate_property: set{pascal(field_name)} where field_name is already potentially Pascal-cased
+            method += f"{INDENT*2}instance.set{pascal(field_name)}({test_value});\n"
         
         method += f"{INDENT*2}return instance;\n"
         method += f"{INDENT}}}\n"
