@@ -1608,8 +1608,8 @@ class AvroToJava:
                                     return f'new {simple_union_name}({member_value})'
                                 else:
                                     # For classes, create a new instance using createTestInstance()
-                                    simple_member_name = java_qualified_name.split('.')[-1]
-                                    return f'new {simple_union_name}({simple_member_name}.createTestInstance())'
+                                    # Use fully qualified name to avoid conflicts with field names
+                                    return f'new {simple_union_name}({java_qualified_name}.createTestInstance())'
                         elif union_type != 'null' and isinstance(union_type, str):
                             # It's a simple type - convert from Avro type to Java type
                             simple_union_name = java_type.split('.')[-1]
