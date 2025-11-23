@@ -28,13 +28,7 @@ public class {{ test_class_name }} {
      * Create instance of {{ class_name }}
      */
     public static {{ class_name }} createInstance() {
-        {{ class_name }} instance = new {{ class_name }}();
-        {%- for field in fields %}
-        {%- if not field.is_const %}
-        instance.set{{ field.field_name | pascal }}({{ field.test_value }});
-        {%- endif %}
-        {%- endfor %}
-        return instance;
+        return {{ class_name }}.createTestInstance();
     }
 
     /**

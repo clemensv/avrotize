@@ -392,6 +392,32 @@ class AvroToJava:
             return self.generate_enum(avro_schema, parent_package, write_file)
         return AvroToJava.JavaType('Object')
 
+    def generate_create_test_instance_method(self, class_name: str, fields: List[Dict], parent_package: str) -> str:
+        """ Generates a static createTestInstance method that creates a fully initialized instance """
+        method = f"\n{INDENT}/**\n{INDENT} * Creates a test instance with all required fields populated\n{INDENT} * @return a fully initialized test instance\n{INDENT} */\n"
+        method += f"{INDENT}public static {class_name} createTestInstance() {{\n"
+        method += f"{INDENT*2}{class_name} instance = new {class_name}();\n"
+        
+        for field in fields:
+            # Skip const fields
+            if "const" in field:
+                continue
+                
+            # Use original field name for setter, not the safe identifier
+            original_field_name = pascal(field['name']) if self.pascal_properties else field['name']
+            field_name = self.safe_identifier(original_field_name, class_name)
+            field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
+            
+            # Get a test value for this field
+            test_value = self.get_test_value(field_type.type_name, parent_package.replace('.', '/'))
+            
+            # Use original field name for setter (without safe identifier transformation)
+            method += f"{INDENT*2}instance.set{pascal(original_field_name)}({test_value});\n"
+        
+        method += f"{INDENT*2}return instance;\n"
+        method += f"{INDENT}}}\n"
+        return method
+
     def generate_class(self, avro_schema: Dict, parent_package: str, write_file: bool) -> JavaType:
         """ Generates a Java class from an Avro record schema """
         class_definition = ''
@@ -426,6 +452,9 @@ class AvroToJava:
             class_definition += f"{INDENT*3}this.put(i, record.get(i));\n"
             class_definition += f"{INDENT*2}}}\n"
             class_definition += f"{INDENT}}}\n"
+
+        # Generate createTestInstance() method for testing
+        class_definition += self.generate_create_test_instance_method(class_name, avro_schema.get('fields', []), namespace)
 
         if self.avro_annotation:
             # Inline all schema references like C# does - each class has self-contained schema
@@ -1178,10 +1207,14 @@ class AvroToJava:
         with open(file_path, 'w', encoding='utf-8') as file:
             if package:
                 file.write(f"package {package.replace('/', '.')};\n\n")
-                if "List<" in definition:
+                if "List<" in definition or "ArrayList<" in definition:
                     file.write("import java.util.List;\n")
-                if "Map<" in definition:
+                if "ArrayList<" in definition or "Arrays.asList" in definition:
+                    file.write("import java.util.ArrayList;\n")
+                if "Map<" in definition or "HashMap<" in definition:
                     file.write("import java.util.Map;\n")
+                if "HashMap<" in definition:
+                    file.write("import java.util.HashMap;\n")
                 if "Predicate<" in definition:
                     file.write("import java.util.function.Predicate;\n")
                 if "BigDecimal" in definition:
@@ -1519,6 +1552,9 @@ class AvroToJava:
         if java_type.startswith("List<"):
             inner_type = java_type[5:-1]
             inner_value = self.get_test_value(inner_type, package)
+            # Arrays.asList(null) throws NPE, so create empty list for null values
+            if inner_value == 'null':
+                return 'new ArrayList<>()'
             return f'new ArrayList<>(java.util.Arrays.asList({inner_value}))'
         elif java_type.startswith("Map<"):
             return 'new HashMap<>()'
@@ -1538,14 +1574,13 @@ class AvroToJava:
                     # Check if the symbol is a Java reserved word and prefix with underscore
                     if is_java_reserved_word(first_symbol):
                         first_symbol = '_' + first_symbol
-                    simple_name = java_type.split('.')[-1]
-                    return f'{simple_name}.{first_symbol}'
-                return f'{java_type.split(".")[-1]}.values()[0]'
+                    # Use fully qualified name to avoid conflicts with field names
+                    return f'{java_type}.{first_symbol}'
+                return f'{java_type}.values()[0]'
             elif type_kind == "class":
-                # Create a new instance - fields will be initialized with default/null values
-                # Test classes handle their own field initialization in setUp/createInstance
-                simple_name = java_type.split('.')[-1]
-                return f'new {simple_name}()'
+                # Create a new instance using the createTestInstance() method
+                # Use fully qualified name to avoid conflicts with field names
+                return f'{java_type}.createTestInstance()'
             elif type_kind == "union":
                 # For union types, we need to create an instance with one of the union types set
                 # Get the union's schema to find available types
@@ -1572,9 +1607,9 @@ class AvroToJava:
                                     member_value = self.get_test_value(java_qualified_name, package)
                                     return f'new {simple_union_name}({member_value})'
                                 else:
-                                    # For classes, create a new instance
+                                    # For classes, create a new instance using createTestInstance()
                                     simple_member_name = java_qualified_name.split('.')[-1]
-                                    return f'new {simple_union_name}(new {simple_member_name}())'
+                                    return f'new {simple_union_name}({simple_member_name}.createTestInstance())'
                         elif union_type != 'null' and isinstance(union_type, str):
                             # It's a simple type - convert from Avro type to Java type
                             simple_union_name = java_type.split('.')[-1]
