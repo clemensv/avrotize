@@ -29,10 +29,14 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
             <version>{AVRO_VERSION}</version>
         </dependency>
         <dependency>
-            <groupId>com.fasterxml.jackson</groupId>
-            <artifactId>jackson-bom</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
             <version>{JACKSON_VERSION}</version>
-            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>{JACKSON_VERSION}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -1067,7 +1071,10 @@ class AvroToJava:
                 if self.avro_annotation and union_type.is_class:
                     class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof GenericData.Record) {{\n"
                     class_definition_fromobjectctor += f"{INDENT*3}GenericData.Record record = (GenericData.Record)obj;\n"
-                    class_definition_fromobjectctor += f"{INDENT*3}if ( {union_type.type_name}.AVROSCHEMA.getName().equals(record.getSchema().getName()) && {union_type.type_name}.AVROSCHEMA.getNamespace().equals(record.getSchema().getNamespace()) ) {{\n"
+                    # Use getFullName() for robust schema comparison instead of separate name + namespace
+                    class_definition_fromobjectctor += f"{INDENT*3}String recordFullName = record.getSchema().getFullName();\n"
+                    class_definition_fromobjectctor += f"{INDENT*3}String expectedFullName = {union_type.type_name}.AVROSCHEMA.getFullName();\n"
+                    class_definition_fromobjectctor += f"{INDENT*3}if (recordFullName.equals(expectedFullName)) {{\n"
                     class_definition_fromobjectctor += f"{INDENT*4}this._{camel(union_variable_name)} = new {union_type.type_name}(record);\n{INDENT*4}return;\n{INDENT*3}}}\n{INDENT*2}}}\n"
                 class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof {union_type.type_name}) {{\n{INDENT*3}this._{camel(union_variable_name)} = ({union_type.type_name})obj;\n{INDENT*3}return;\n{INDENT*2}}}\n"
 
