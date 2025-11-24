@@ -33,7 +33,7 @@ def convert_case(file_base_name: str):
     avro_path = os.path.join(cwd, "test", "avsc", file_base_name+".avsc")
     graphql_path = os.path.join(tempfile.gettempdir(
     ), "avrotize", file_base_name+".graphql")
-    graphql_ref_path = os.path.join(cwd, "test", "avsc", file_base_name+"-ref.graphql")
+    graphql_ref_path = os.path.join(cwd, "test", "avsc", file_base_name+"-avro-ref.graphql")
     dir_name = os.path.dirname(graphql_path)
     if not os.path.exists(dir_name):
         os.makedirs(dir_name, exist_ok=True)

@@ -1,0 +1,17 @@
+type TelemetryRecord {
+  id: String
+  version: Int
+  channel: String
+  carId: String
+  intervalId: String
+  sampleCount: Int
+  frequency: Int
+  created: Int
+  timespan: RecordRange
+  data: [Float]
+  lapId: String
+}
+type RecordRange {
+  started: Int
+  ended: Int
+}
