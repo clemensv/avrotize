@@ -1,0 +1,50 @@
+{
+  "fields": [
+    {
+      "name": "stringField",
+      "type": "string",
+      "description": "A basic string field"
+    },
+    {
+      "name": "intField",
+      "type": "integer",
+      "description": "A 32-bit integer"
+    },
+    {
+      "name": "longField",
+      "type": "integer",
+      "description": "A 64-bit integer",
+      "nullable": true
+    },
+    {
+      "name": "floatField",
+      "type": "number",
+      "description": "A floating point number",
+      "nullable": true
+    },
+    {
+      "name": "doubleField",
+      "type": "number",
+      "description": "A double precision number",
+      "nullable": true
+    },
+    {
+      "name": "booleanField",
+      "type": "boolean",
+      "description": "A boolean value",
+      "nullable": true
+    },
+    {
+      "name": "uuidField",
+      "type": "string",
+      "description": "A UUID value",
+      "nullable": true
+    },
+    {
+      "name": "bytesField",
+      "type": "string",
+      "description": "Binary data",
+      "nullable": true
+    }
+  ]
+}
