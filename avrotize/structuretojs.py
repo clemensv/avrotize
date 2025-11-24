@@ -357,6 +357,8 @@ class StructureToJavaScript:
 
         if write_file:
             self.write_to_file(namespace, class_name, class_definition)
+            # Generate test file for this class
+            self.generate_test_class(namespace, class_name, fields, import_types, prop_schema=structure_schema)
 
         self.generated_types[qualified_name] = 'class'
         self.generated_structure_types[qualified_name] = structure_schema
@@ -390,6 +392,8 @@ class StructureToJavaScript:
 
         if write_file:
             self.write_to_file(namespace, class_name, enum_definition)
+            # Generate test file for this enum
+            self.generate_test_enum(namespace, class_name, enum_values)
 
         self.generated_types[qualified_name] = 'enum'
         self.generated_structure_types[qualified_name] = structure_schema
@@ -463,13 +467,100 @@ class StructureToJavaScript:
 
     def write_to_file(self, namespace: str, name: str, content: str):
         """Writes JavaScript class to file"""
-        directory_path = os.path.join(self.output_dir, namespace.replace('.', os.sep))
+        directory_path = os.path.join(self.output_dir, namespace.replace('.', os.sep), 'src')
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)
 
         file_path = os.path.join(directory_path, f"{name}.js")
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(content)
+    
+    def write_test_to_file(self, namespace: str, name: str, content: str):
+        """Writes test content to a file in the test directory"""
+        directory_path = os.path.join(self.output_dir, namespace.replace('.', os.sep), 'test')
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path, exist_ok=True)
+        
+        file_path = os.path.join(directory_path, f'test_{name}.js')
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write(content)
+    
+    def generate_test_value(self, field_type: str, field_name: str) -> str:
+        """Generate appropriate test value based on field type"""
+        if field_type == 'string':
+            return f'"test_{field_name}"'
+        elif field_type in ['number', 'int', 'integer', 'float', 'double']:
+            return '42'
+        elif field_type == 'boolean':
+            return 'true'
+        elif field_type == 'Date':
+            return 'new Date("2024-01-01")'
+        elif field_type == 'null':
+            return 'null'
+        elif field_type.startswith('Array'):
+            return '[]'
+        elif field_type.startswith('Set'):
+            return 'new Set()'
+        elif field_type.startswith('Map') or field_type == 'Object':
+            return '{}'
+        else:
+            return f'new {field_type}()'
+    
+    def generate_test_class(self, namespace: str, class_name: str, fields: List[Dict], 
+                           import_types: Set[str], prop_schema: Dict):
+        """Generate test file for a class"""
+        test_imports = {}
+        for import_type in import_types:
+            import_type_type = pascal(import_type.split('.')[-1])
+            import_type_package = import_type.rsplit('.', 1)[0].replace('.', '/')
+            namespace_path = namespace.replace('.', '/')
+            
+            if import_type_package:
+                rel_path = os.path.relpath(import_type_package, namespace_path).replace(os.sep, '/')
+                if not rel_path.startswith('.'):
+                    rel_path = f'./{rel_path}'
+                test_imports[import_type_type] = f'../{rel_path}/{import_type_type}'
+            else:
+                test_imports[import_type_type] = f'./{import_type_type}'
+        
+        test_fields = []
+        for field in fields:
+            test_value = self.generate_test_value(field['type'], field['name'])
+            test_fields.append({
+                'name': field['name'],
+                'type': field['type'],
+                'test_value': test_value,
+                'docstring': field.get('docstring', '')
+            })
+        
+        # Class path should just be the class name since src/test structure mirrors each other
+        class_path = class_name
+        
+        test_definition = process_template(
+            "structuretojs/test_class.js.jinja",
+            class_name=class_name,
+            class_path=class_path,
+            fields=test_fields,
+            test_imports=test_imports
+        )
+        
+        self.write_test_to_file(namespace, class_name, test_definition)
+    
+    def generate_test_enum(self, namespace: str, enum_name: str, enum_values: List):
+        """Generate test file for an enum"""
+        expected_values = ', '.join([f'"{val}"' for val in enum_values])
+        
+        # Enum path should just be the enum name 
+        enum_path = enum_name
+        
+        test_definition = process_template(
+            "structuretojs/test_enum.js.jinja",
+            enum_name=enum_name,
+            enum_path=enum_path,
+            expected_values=expected_values
+        )
+        
+        self.write_test_to_file(namespace, enum_name, test_definition)
 
     def process_definitions(self, definitions: Dict, namespace_path: str) -> None:
         """Processes the definitions section recursively"""
@@ -521,6 +612,24 @@ class StructureToJavaScript:
             # Process definitions
             if 'definitions' in structure_schema:
                 self.process_definitions(self.definitions, '')
+        
+        # Generate test runner after all classes and enums are generated
+        self.generate_test_runner()
+
+    def generate_test_runner(self):
+        """Generate the test runner script"""
+        test_runner = process_template(
+            "structuretojs/test_runner.js.jinja"
+        )
+        
+        # Write test runner to root test directory
+        test_dir = os.path.join(self.output_dir, self.base_package.replace('.', os.sep), 'test')
+        if not os.path.exists(test_dir):
+            os.makedirs(test_dir, exist_ok=True)
+        
+        test_runner_path = os.path.join(test_dir, 'test_runner.js')
+        with open(test_runner_path, 'w', encoding='utf-8') as file:
+            file.write(test_runner)
 
     def convert(self, structure_schema_path: str, output_dir: str):
         """Converts JSON Structure schema to JavaScript classes"""
