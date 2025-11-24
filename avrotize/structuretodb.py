@@ -5,11 +5,122 @@ Convert JSON Structure schema to SQL schema for various databases.
 import json
 import sys
 import os
-from typing import Dict, List, Optional, Any, cast
+from typing import Dict, List, Optional, Any, cast, Set
 
 from avrotize.common import altname
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | float | None
+
+
+class SchemaConverter:
+    """Helper class to manage schema conversion with support for $ref, $extends, and definitions"""
+    
+    def __init__(self, schema_list: List[Dict[str, JsonNode]]):
+        self.schema_list = schema_list if isinstance(schema_list, list) else [schema_list]
+        self.schema_registry: Dict[str, Dict] = {}
+        self.definitions: Dict[str, Dict] = {}
+        self.generated_tables: Set[str] = set()
+        
+        # Register all schemas with $id
+        for schema in self.schema_list:
+            self.register_schema_ids(schema)
+            # Extract definitions from schema
+            if isinstance(schema, dict) and 'definitions' in schema:
+                self.definitions.update(schema['definitions'])
+    
+    def register_schema_ids(self, schema: Dict, base_uri: str = '') -> None:
+        """Recursively registers schemas with $id keywords"""
+        if not isinstance(schema, dict):
+            return
+        
+        if '$id' in schema:
+            schema_id = schema['$id']
+            if base_uri and not schema_id.startswith(('http://', 'https://', 'urn:')):
+                from urllib.parse import urljoin
+                schema_id = urljoin(base_uri, schema_id)
+            self.schema_registry[schema_id] = schema
+            base_uri = schema_id
+        
+        # Register definitions
+        if 'definitions' in schema:
+            for def_name, def_schema in schema['definitions'].items():
+                if isinstance(def_schema, dict):
+                    self.register_schema_ids(def_schema, base_uri)
+        
+        # Register properties
+        if 'properties' in schema:
+            for prop_name, prop_schema in schema['properties'].items():
+                if isinstance(prop_schema, dict):
+                    self.register_schema_ids(prop_schema, base_uri)
+    
+    def resolve_ref(self, ref: str, context_schema: Optional[Dict] = None) -> Optional[Dict]:
+        """Resolves a $ref to the actual schema definition"""
+        # Check if it's an absolute URI reference
+        if not ref.startswith('#/'):
+            if ref in self.schema_registry:
+                return self.schema_registry[ref]
+            return None
+        
+        # Handle fragment-only references (internal to document)
+        path = ref[2:].split('/')
+        schema = context_schema if context_schema else (self.schema_list[0] if self.schema_list else {})
+        
+        for part in path:
+            if not isinstance(schema, dict) or part not in schema:
+                return None
+            schema = schema[part]
+        
+        return schema
+    
+    def get_all_properties(self, schema: Dict) -> Dict[str, Any]:
+        """Gets all properties including inherited ones from $extends"""
+        properties = {}
+        
+        # First, recursively get base class properties if $extends exists
+        if '$extends' in schema:
+            base_ref = schema['$extends']
+            base_schema = self.resolve_ref(base_ref, schema)
+            if base_schema:
+                # Recursively get base properties
+                properties.update(self.get_all_properties(base_schema))
+        
+        # Then add/override with current schema properties
+        if 'properties' in schema:
+            properties.update(schema['properties'])
+        
+        return properties
+    
+    def get_all_required(self, schema: Dict) -> List[str]:
+        """Gets all required properties including inherited ones from $extends"""
+        required = []
+        
+        # First, recursively get base class required if $extends exists
+        if '$extends' in schema:
+            base_ref = schema['$extends']
+            base_schema = self.resolve_ref(base_ref, schema)
+            if base_schema:
+                required.extend(self.get_all_required(base_schema))
+        
+        # Then add current schema required
+        if 'required' in schema:
+            schema_required = schema['required']
+            if isinstance(schema_required, list):
+                required.extend(schema_required)
+        
+        return list(set(required))  # Remove duplicates
+    
+    def should_generate_table(self, schema: Dict) -> bool:
+        """Determines if a table should be generated for this schema"""
+        # Only generate tables for object and tuple types
+        schema_type = schema.get('type')
+        if schema_type not in ['object', 'tuple']:
+            return False
+        
+        # Don't generate tables for abstract types (they're only for inheritance)
+        if schema.get('abstract', False):
+            return False
+        
+        return True
 
 
 def convert_structure_to_sql(structure_schema_path: str, dbscript_file_path: str, db_dialect: str, 
@@ -44,30 +155,42 @@ def convert_structure_to_sql(structure_schema_path: str, dbscript_file_path: str
         schema_json = f.read()
 
     schema_list = schema = json.loads(schema_json)
-
-    if isinstance(schema, list):
-        tables_sql = []
-        for schema in schema_list:
-            if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "object":
-                continue
+    if not isinstance(schema_list, list):
+        schema_list = [schema_list]
+    
+    # Create converter with support for $ref and $extends
+    converter = SchemaConverter(schema_list)
+    
+    tables_sql = []
+    # Process all schemas and generate tables only for object/tuple types
+    for schema in schema_list:
+        if not isinstance(schema, dict):
+            continue
+        
+        # Only generate tables for object and tuple types (not abstract)
+        if converter.should_generate_table(schema):
             tables_sql.extend(generate_sql(
-                schema, db_dialect, emit_cloudevents_columns, schema_list, schema_name))
-        with open(dbscript_file_path, "w", encoding="utf-8") as sql_file:
-            sql_file.write("\n".join(tables_sql))
-    else:
-        if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "object":
-            raise ValueError("Invalid JSON Structure object schema")
-        tables_sql = generate_sql(
-            schema, db_dialect, emit_cloudevents_columns, schema_list, schema_name)
-        with open(dbscript_file_path, "w", encoding="utf-8") as sql_file:
-            sql_file.write("\n".join(tables_sql))
+                schema, db_dialect, emit_cloudevents_columns, converter, schema_name))
+        
+        # Also process definitions if present
+        if 'definitions' in schema:
+            for def_name, def_schema in schema['definitions'].items():
+                if isinstance(def_schema, dict) and converter.should_generate_table(def_schema):
+                    # Add name if not present
+                    if 'name' not in def_schema:
+                        def_schema['name'] = def_name
+                    tables_sql.extend(generate_sql(
+                        def_schema, db_dialect, emit_cloudevents_columns, converter, schema_name))
+    
+    with open(dbscript_file_path, "w", encoding="utf-8") as sql_file:
+        sql_file.write("\n".join(tables_sql))
 
 
 def generate_sql(
         schema: Dict[str, JsonNode],
         sql_dialect: str,
         emit_cloudevents_columns: bool,
-        schema_list: List[Dict[str, JsonNode]],
+        converter: SchemaConverter,
         schema_name: str = '') -> List[str]:
     """
     Generates SQL schema statements for the given JSON Structure schema.
@@ -76,7 +199,7 @@ def generate_sql(
         schema (dict): JSON Structure schema.
         sql_dialect (str): SQL dialect.
         emit_cloudevents_columns (bool): Whether to include cloud events columns.
-        schema_list (list): List of all schemas.
+        converter (SchemaConverter): Schema converter with $ref/$extends support.
         schema_name (str): Schema name (optional).
 
     Returns:
@@ -84,9 +207,9 @@ def generate_sql(
     """
     if sql_dialect in ["sqlserver", "postgres", "mysql", "mariadb", "sqlite", "oracle", "db2", "sqlanywhere",
                        "bigquery", "snowflake", "redshift"]:
-        return generate_relational_sql(schema, sql_dialect, emit_cloudevents_columns, schema_list, schema_name)
+        return generate_relational_sql(schema, sql_dialect, emit_cloudevents_columns, converter, schema_name)
     elif sql_dialect == "cassandra":
-        return generate_cassandra_schema(schema, emit_cloudevents_columns, schema_name)
+        return generate_cassandra_schema(schema, emit_cloudevents_columns, converter, schema_name)
     else:
         raise ValueError(f"Unsupported SQL dialect: {sql_dialect}")
 
@@ -95,21 +218,30 @@ def generate_relational_sql(
         schema: Dict[str, JsonNode],
         sql_dialect: str,
         emit_cloudevents_columns: bool,
-        schema_list: List[Dict[str, JsonNode]],
+        converter: SchemaConverter,
         schema_name: str = '') -> List[str]:
     """
     Generates relational SQL schema statements for the given JSON Structure schema.
+    Handles inheritance from $extends by including all properties from base types.
     """
     namespace = str(schema.get("namespace", "")).replace('.', '_')
     plain_table_name = altname(schema, 'sql') or f"{namespace}_{schema.get('name', 'table')}"
     table_name = escape_name(plain_table_name, sql_dialect)
-    properties: Dict[str, Any] = cast(Dict[str, Any], schema.get("properties", {}))
-    required_props: List[str] = cast(List[str], schema.get("required", []))
+    
+    # Get all properties including inherited ones
+    properties: Dict[str, Any] = converter.get_all_properties(schema)
+    required_props: List[str] = converter.get_all_required(schema)
 
     table_comments = generate_table_comments_json(schema)
-    column_comments = generate_column_comments_json(properties, schema_list)
+    column_comments = generate_column_comments_json(properties, converter.schema_list)
 
     sql = []
+    
+    # Add comment about inheritance if $extends is present
+    if '$extends' in schema:
+        base_ref = schema['$extends']
+        sql.append(f"-- Inherits from: {base_ref}")
+    
     sql.append(f"CREATE TABLE {table_name} (")
     
     for prop_name, prop_schema in properties.items():
@@ -135,8 +267,8 @@ def generate_relational_sql(
 
     # Handle unique keys from schema
     unique_keys = []
-    for prop_name, prop_schema in properties.items():
-        if isinstance(prop_schema, dict) and prop_name in required_props:
+    for prop_name in properties.keys():
+        if prop_name in required_props:
             unique_keys.append(prop_name)
     
     if unique_keys:
@@ -316,9 +448,10 @@ def structure_type_to_sql_type(structure_type: Any, dialect: str) -> str:
     return type_map.get(dialect, type_map["postgres"])["string"]
 
 
-def generate_cassandra_schema(schema: Dict[str, JsonNode], emit_cloudevents_columns: bool, schema_name: str) -> List[str]:
+def generate_cassandra_schema(schema: Dict[str, JsonNode], emit_cloudevents_columns: bool, converter: SchemaConverter, schema_name: str) -> List[str]:
     """
     Generates Cassandra schema statements for the given JSON Structure schema.
+    Handles inheritance from $extends by including all properties from base types.
     """
     namespace = cast(str, schema.get("namespace", "")).replace(".", "_")
     table_name = altname(schema, 'sql') or schema.get("name", "table")
@@ -327,10 +460,17 @@ def generate_cassandra_schema(schema: Dict[str, JsonNode], emit_cloudevents_colu
     if schema_name:
         table_name = f"{schema_name}.{table_name}"
     
-    properties: Dict[str, Any] = cast(Dict[str, Any], schema.get("properties", {}))
-    required_props: List[str] = cast(List[str], schema.get("required", []))
+    # Get all properties including inherited ones
+    properties: Dict[str, Any] = converter.get_all_properties(schema)
+    required_props: List[str] = converter.get_all_required(schema)
 
     cql = []
+    
+    # Add comment about inheritance if $extends is present
+    if '$extends' in schema:
+        base_ref = schema['$extends']
+        cql.append(f"-- Inherits from: {base_ref}")
+    
     cql.append(f"CREATE TABLE {table_name} (")
     for prop_name, prop_schema in properties.items():
         column_name = escape_name(
@@ -534,6 +674,7 @@ def convert_structure_to_nosql(structure_schema_path: str, nosql_file_path: str,
                               emit_cloudevents_columns: bool = False):
     """
     Converts a JSON Structure schema to NoSQL schema for the specified NoSQL dialect.
+    Only generates schemas for object and tuple types (not abstract types).
     """
     if not structure_schema_path:
         print("Please specify the structure schema file")
@@ -543,15 +684,24 @@ def convert_structure_to_nosql(structure_schema_path: str, nosql_file_path: str,
         schema_json = f.read()
 
     schema_list = schema = json.loads(schema_json)
+    if not isinstance(schema_list, list):
+        schema_list = [schema_list]
+    
+    # Create converter with support for $ref and $extends
+    converter = SchemaConverter(schema_list)
+    
     dirname = nosql_file_path
     if not os.path.exists(dirname):
         os.makedirs(dirname, exist_ok=True)
 
-    if isinstance(schema, list):
-        for schema in schema_list:
-            if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "object":
-                continue
-            model = generate_nosql(schema, nosql_dialect, emit_cloudevents_columns, schema_list)
+    # Process all schemas
+    for schema in schema_list:
+        if not isinstance(schema, dict):
+            continue
+        
+        # Only generate for object and tuple types (not abstract)
+        if converter.should_generate_table(schema):
+            model = generate_nosql(schema, nosql_dialect, emit_cloudevents_columns, converter)
             file_name = os.path.join(
                 nosql_file_path, get_file_name(schema, get_nosql_file_extension(nosql_dialect)))
             with open(file_name, "w", encoding="utf-8") as nosql_file:
@@ -559,14 +709,22 @@ def convert_structure_to_nosql(structure_schema_path: str, nosql_file_path: str,
                     nosql_file.write("\n".join(model))
                 else:
                     nosql_file.write(model)
-    else:
-        if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "object":
-            raise ValueError("Invalid JSON Structure object schema")
-        model = generate_nosql(schema, nosql_dialect, emit_cloudevents_columns, schema_list)
-        file_name = os.path.join(
-            nosql_file_path, get_file_name(schema_list, get_nosql_file_extension(nosql_dialect)))
-        with open(file_name, "w", encoding="utf-8") as nosql_file:
-            nosql_file.write(model)
+        
+        # Also process definitions if present
+        if 'definitions' in schema:
+            for def_name, def_schema in schema['definitions'].items():
+                if isinstance(def_schema, dict) and converter.should_generate_table(def_schema):
+                    # Add name if not present
+                    if 'name' not in def_schema:
+                        def_schema['name'] = def_name
+                    model = generate_nosql(def_schema, nosql_dialect, emit_cloudevents_columns, converter)
+                    file_name = os.path.join(
+                        nosql_file_path, get_file_name(def_schema, get_nosql_file_extension(nosql_dialect)))
+                    with open(file_name, "w", encoding="utf-8") as nosql_file:
+                        if isinstance(model, list):
+                            nosql_file.write("\n".join(model))
+                        else:
+                            nosql_file.write(model)
 
 
 def get_nosql_file_extension(nosql_dialect: str) -> str:
@@ -580,38 +738,38 @@ def get_nosql_file_extension(nosql_dialect: str) -> str:
 
 
 def generate_nosql(schema: Dict[str, Any], nosql_dialect: str, emit_cloudevents_columns: bool, 
-                  schema_list: List[Dict[str, JsonNode]]) -> str:
+                  converter: SchemaConverter) -> str:
     """
     Generates NoSQL schema statements for the given JSON Structure schema.
     """
     if nosql_dialect == "mongodb":
-        return generate_mongodb_schema(schema, emit_cloudevents_columns)
+        return generate_mongodb_schema(schema, emit_cloudevents_columns, converter)
     elif nosql_dialect == "dynamodb":
-        return generate_dynamodb_schema(schema, emit_cloudevents_columns)
+        return generate_dynamodb_schema(schema, emit_cloudevents_columns, converter)
     elif nosql_dialect == "elasticsearch":
-        return generate_elasticsearch_schema(schema, emit_cloudevents_columns)
+        return generate_elasticsearch_schema(schema, emit_cloudevents_columns, converter)
     elif nosql_dialect == "couchdb":
-        return generate_couchdb_schema(schema, emit_cloudevents_columns)
+        return generate_couchdb_schema(schema, emit_cloudevents_columns, converter)
     elif nosql_dialect == "neo4j":
-        return generate_neo4j_schema(schema, emit_cloudevents_columns)
+        return generate_neo4j_schema(schema, emit_cloudevents_columns, converter)
     elif nosql_dialect == "firebase":
-        return generate_firebase_schema(schema, emit_cloudevents_columns)
+        return generate_firebase_schema(schema, emit_cloudevents_columns, converter)
     elif nosql_dialect == "cosmosdb":
-        return generate_cosmosdb_schema(schema, emit_cloudevents_columns)
+        return generate_cosmosdb_schema(schema, emit_cloudevents_columns, converter)
     elif nosql_dialect == "hbase":
-        return generate_hbase_schema(schema, emit_cloudevents_columns)
+        return generate_hbase_schema(schema, emit_cloudevents_columns, converter)
     else:
         raise ValueError(f"Unsupported NoSQL dialect: {nosql_dialect}")
 
 
-def generate_mongodb_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool) -> str:
+def generate_mongodb_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool, converter: SchemaConverter) -> str:
     """
     Generates MongoDB schema statements for the given JSON Structure schema.
     """
     namespace = schema.get("namespace", "")
     collection_name = altname(schema, 'sql') or f"{namespace}_{schema.get('name', 'collection')}"
-    properties = schema.get("properties", {})
-    required_props = schema.get("required", [])
+    properties = converter.get_all_properties(schema)
+    required_props = converter.get_all_required(schema)
 
     mongodb_schema = {
         "$jsonSchema": {
@@ -693,13 +851,13 @@ def structure_type_to_mongodb_type(structure_type: Any) -> Dict[str, str]:
     return {"bsonType": "string"}
 
 
-def generate_dynamodb_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool) -> str:
+def generate_dynamodb_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool, converter: SchemaConverter) -> str:
     """
     Generates DynamoDB schema statements for the given JSON Structure schema.
     """
     namespace = schema.get("namespace", "").replace('.', '_')
     table_name = altname(schema, 'sql') or f"{namespace}_{schema.get('name', 'table')}"
-    properties = schema.get("properties", {})
+    properties = converter.get_all_properties(schema)
 
     dynamodb_schema = {
         "TableName": table_name,
@@ -757,13 +915,13 @@ def structure_type_to_dynamodb_type(structure_type: Any) -> str:
     return "S"
 
 
-def generate_elasticsearch_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool) -> str:
+def generate_elasticsearch_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool, converter: SchemaConverter) -> str:
     """
     Generates Elasticsearch schema.
     """
     namespace = schema.get("namespace", "").replace('.', '_')
     index_name = altname(schema, 'sql') or f"{namespace}_{schema.get('name', 'index')}"
-    properties = schema.get("properties", {})
+    properties = converter.get_all_properties(schema)
 
     es_mapping = {
         "mappings": {
@@ -815,13 +973,13 @@ def structure_type_to_elasticsearch_type(structure_type: Any) -> Dict[str, str]:
     return {"type": "text"}
 
 
-def generate_couchdb_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool) -> str:
+def generate_couchdb_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool, converter: SchemaConverter) -> str:
     """
     Generates CouchDB schema.
     """
     namespace = schema.get("namespace", "").replace('.', '_')
     db_name = altname(schema, 'sql') or f"{namespace}_{schema.get('name', 'db')}"
-    properties = schema.get("properties", {})
+    properties = converter.get_all_properties(schema)
 
     couchdb_schema = {
         "type": "object",
@@ -843,13 +1001,13 @@ def generate_couchdb_schema(schema: Dict[str, Any], emit_cloudevents_columns: bo
     return json.dumps({db_name: couchdb_schema}, indent=4)
 
 
-def generate_neo4j_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool) -> str:
+def generate_neo4j_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool, converter: SchemaConverter) -> str:
     """
     Generates Neo4j schema.
     """
     namespace = schema.get("namespace", "").replace('.', '_')
     label_name = altname(schema, 'sql') or f"{namespace}_{schema.get('name', 'node')}"
-    properties = schema.get("properties", {})
+    properties = converter.get_all_properties(schema)
 
     cypher = []
     cypher.append(f"CREATE (:{label_name} {{")
@@ -872,13 +1030,13 @@ def generate_neo4j_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool
     return "\n".join(cypher)
 
 
-def generate_firebase_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool) -> str:
+def generate_firebase_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool, converter: SchemaConverter) -> str:
     """
     Generates Firebase schema.
     """
     namespace = schema.get("namespace", "").replace('.', '_')
     collection_name = altname(schema, 'sql') or f"{namespace}_{schema.get('name', 'collection')}"
-    properties = schema.get("properties", {})
+    properties = converter.get_all_properties(schema)
 
     firebase_schema = {
         "fields": {}
@@ -899,13 +1057,13 @@ def generate_firebase_schema(schema: Dict[str, Any], emit_cloudevents_columns: b
     return json.dumps({collection_name: firebase_schema}, indent=4)
 
 
-def generate_cosmosdb_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool) -> str:
+def generate_cosmosdb_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool, converter: SchemaConverter) -> str:
     """
     Generates CosmosDB schema.
     """
     namespace = schema.get("namespace", "").replace('.', '_')
     collection_name = altname(schema, 'sql') or f"{namespace}_{schema.get('name', 'collection')}"
-    properties = schema.get("properties", {})
+    properties = converter.get_all_properties(schema)
 
     cosmosdb_schema = {
         "id": collection_name,
@@ -930,13 +1088,13 @@ def generate_cosmosdb_schema(schema: Dict[str, Any], emit_cloudevents_columns: b
     return json.dumps(cosmosdb_schema, indent=4)
 
 
-def generate_hbase_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool) -> str:
+def generate_hbase_schema(schema: Dict[str, Any], emit_cloudevents_columns: bool, converter: SchemaConverter) -> str:
     """
     Generates HBase schema.
     """
     namespace = schema.get("namespace", "").replace('.', '_')
     table_name = altname(schema, 'sql') or f"{namespace}_{schema.get('name', 'table')}"
-    properties = schema.get("properties", {})
+    properties = converter.get_all_properties(schema)
 
     hbase_schema = {
         "table": table_name,

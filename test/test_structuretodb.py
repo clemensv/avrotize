@@ -205,6 +205,143 @@ class TestStructureToDB(unittest.TestCase):
             if os.path.exists(sql_path):
                 os.remove(sql_path)
 
+    def test_inheritance_with_extends(self):
+        """Test that $extends properly merges properties from base types"""
+        inheritance_schema = {
+            "definitions": {
+                "BaseEntity": {
+                    "type": "object",
+                    "abstract": True,
+                    "properties": {
+                        "id": {"type": "int32"},
+                        "createdAt": {"type": "datetime"}
+                    },
+                    "required": ["id"]
+                }
+            },
+            "type": "object",
+            "name": "DerivedEntity",
+            "$extends": "#/definitions/BaseEntity",
+            "properties": {
+                "name": {"type": "string"},
+                "value": {"type": "int32"}
+            },
+            "required": ["name"]
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "inheritance_schema.struct.json")
+        sql_path = os.path.join(tempfile.gettempdir(), "inheritance_test.sql")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(inheritance_schema, f)
+            
+            convert_structure_to_sql(schema_path, sql_path, "postgres", emit_cloudevents_columns=False)
+            
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            
+            # Verify inheritance comment
+            self.assertIn("Inherits from:", sql_content)
+            self.assertIn("#/definitions/BaseEntity", sql_content)
+            
+            # Verify all properties are included (inherited + own)
+            self.assertIn('"id"', sql_content)
+            self.assertIn('"createdAt"', sql_content)
+            self.assertIn('"name"', sql_content)
+            self.assertIn('"value"', sql_content)
+            
+            # Verify all required properties are in PRIMARY KEY
+            self.assertIn("PRIMARY KEY", sql_content)
+            self.assertIn('"id"', sql_content.split("PRIMARY KEY")[1])
+            self.assertIn('"name"', sql_content.split("PRIMARY KEY")[1])
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+            if os.path.exists(sql_path):
+                os.remove(sql_path)
+    
+    def test_abstract_type_not_generated(self):
+        """Test that abstract types don't generate tables"""
+        schema_with_abstract = {
+            "definitions": {
+                "AbstractBase": {
+                    "type": "object",
+                    "name": "AbstractBase",
+                    "abstract": True,
+                    "properties": {
+                        "id": {"type": "int32"}
+                    }
+                }
+            },
+            "type": "object",
+            "name": "ConcreteType",
+            "$extends": "#/definitions/AbstractBase",
+            "properties": {
+                "data": {"type": "string"}
+            }
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "abstract_schema.struct.json")
+        sql_path = os.path.join(tempfile.gettempdir(), "abstract_test.sql")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(schema_with_abstract, f)
+            
+            convert_structure_to_sql(schema_path, sql_path, "mysql", emit_cloudevents_columns=False)
+            
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            
+            # Verify only ConcreteType table is created, not AbstractBase
+            self.assertIn("`ConcreteType`", sql_content)
+            self.assertNotIn("`AbstractBase`", sql_content)
+            
+            # Verify ConcreteType has properties from both base and derived
+            self.assertIn("`id`", sql_content)
+            self.assertIn("`data`", sql_content)
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+            if os.path.exists(sql_path):
+                os.remove(sql_path)
+    
+    def test_tuple_type_generation(self):
+        """Test that tuple types generate tables"""
+        tuple_schema = {
+            "type": "tuple",
+            "name": "CoordinatePair",
+            "properties": {
+                "x": {"type": "double"},
+                "y": {"type": "double"}
+            },
+            "required": ["x", "y"]
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "tuple_schema.struct.json")
+        sql_path = os.path.join(tempfile.gettempdir(), "tuple_test.sql")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(tuple_schema, f)
+            
+            convert_structure_to_sql(schema_path, sql_path, "postgres", emit_cloudevents_columns=False)
+            
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            
+            # Verify tuple generates a table
+            self.assertIn("CREATE TABLE", sql_content)
+            self.assertIn('"CoordinatePair"', sql_content)
+            self.assertIn('"x"', sql_content)
+            self.assertIn('"y"', sql_content)
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+            if os.path.exists(sql_path):
+                os.remove(sql_path)
+
 
 if __name__ == '__main__':
     unittest.main()
