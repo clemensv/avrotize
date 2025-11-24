@@ -1,0 +1,21 @@
+package {{ base_package }}
+
+{%- for struct in structs %}
+
+// CreateInstance{{ struct.name }} creates a new instance of {{ struct.name }} with sample data
+func CreateInstance{{ struct.name }}() {{ struct.name }} {
+    return {{ struct.name }}{
+        {%- for field in struct.fields %}
+        {{ field.name }}: {{ field.value }},
+        {%- endfor %}
+    }
+}
+{% endfor %}
+
+{%- for enum in enums %}
+
+// CreateInstance{{ enum.name }} creates a sample instance of {{ enum.name }}
+func CreateInstance{{ enum.name }}() {{ enum.name }} {
+    return {{ enum.name }}_{{ enum.symbols[0] }}
+}
+{% endfor %}

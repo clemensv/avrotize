@@ -79,6 +79,7 @@ Generate code from JSON Structure:
 - [`avrotize s2py`](#convert-json-structure-to-python-classes) - Generate Python code from JSON Structure schema.
 - [`avrotize s2rust`](#convert-json-structure-to-rust-classes) - Generate Rust code from JSON Structure schema.
 - [`avrotize s2ts`](#convert-json-structure-to-typescript-classes) - Generate TypeScript code from JSON Structure schema.
+- [`avrotize s2go`](#convert-json-structure-to-go-classes) - Generate Go code from JSON Structure schema.
 
 Direct JSON Structure conversions:
 
@@ -883,6 +884,31 @@ Conversion notes:
   - Extensions ($extends)
 - The `--json-annotation` option adds Serde derive macros for JSON serialization and deserialization.
 - Generated code includes embedded unit tests that verify struct creation and serialization (when annotations are enabled).
+
+### Convert JSON Structure to Go classes
+
+```bash
+avrotize s2go <path_to_structure_file> --out <path_to_go_dir> [--package <go_package>] [--json-annotation] [--avro-annotation] [--package-site <package_site>] [--package-username <username>]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the Go structs to. Required.
+- `--package`: (optional) The package name to use in the Go code.
+- `--json-annotation`: (optional) Add JSON struct tags for encoding/json.
+- `--avro-annotation`: (optional) Add Avro struct tags.
+- `--package-site`: (optional) The package site for the Go module (e.g., github.com).
+- `--package-username`: (optional) The username/organization for the Go module.
+
+Conversion notes:
+
+- The tool generates Go structs from JSON Structure schemas. Each object type is converted to a Go struct.
+- JSON Structure primitive types are mapped to Go types. Extended types like `date`, `time`, `datetime` are mapped to time.Time.
+- Integer types (int8, int16, int32, int64, uint8, etc.) are mapped to corresponding Go integer types.
+- Choice types are generated as interface{} types for flexibility.
+- The tool generates a complete Go module with go.mod file, struct definitions, helper functions, and unit tests.
+- Generated code includes methods for JSON serialization/deserialization when annotations are enabled.
 
 ### Convert Avrotize Schema to Datapackage schema
 

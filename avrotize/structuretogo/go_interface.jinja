@@ -1,0 +1,18 @@
+package {{ base_package }}
+
+{%- if doc %}
+// {{ doc }}
+// This is an abstract type - implementations should use concrete types that implement this interface.
+{%- endif %}
+type {{ interface_name }} interface {
+    {%- for method in methods %}
+    {%- if method.doc %}
+    // {{ method.doc }}
+    {%- endif %}
+    {%- if method.return_type %}
+    {{ method.name }}() {{ method.return_type }}
+    {%- else %}
+    {{ method.name }}({{ method.param_name }} {{ method.param_type }})
+    {%- endif %}
+    {%- endfor %}
+}

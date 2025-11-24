@@ -1,0 +1,12 @@
+package {{ base_package }}
+
+{%- if doc %}
+// {{ doc }}
+{%- endif %}
+type {{ enum_name }} {{ base_type }}
+
+const (
+{%- for symbol in symbols %}
+    {{ enum_name }}_{{ symbol }} {{ enum_name }} = {% if base_type == 'string' %}"{{ symbol }}"{% else %}{{ loop.index0 }}{% endif %}
+{%- endfor %}
+)
