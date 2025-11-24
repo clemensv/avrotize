@@ -14,6 +14,31 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group:
+          - name: "Avro to C++/C#"
+            pattern: "test_avrotocpp.py test_avrotocsharp.py"
+          - name: "Avro to Go/Java/JS"
+            pattern: "test_avrotogo.py test_avrotojava.py test_avrotojs.py"
+          - name: "Avro to Python/Rust/TS"
+            pattern: "test_avrotopython.py test_avrotorust.py test_avrotots.py"
+          - name: "Avro to Other Formats"
+            pattern: "test_avrotodatapackage.py test_avrotodb.py test_avrotographql.py test_avrotoiceberg.py test_avrotojsons.py test_avrotojstruct.py test_avrotokusto.py test_avrotomd.py test_avrotoparquet.py test_avrotoproto.py test_avrotoxsd.py"
+          - name: "Structure to C++/C#"
+            pattern: "test_structuretocpp.py test_structuretocsharp.py"
+          - name: "Structure to Go/Python"
+            pattern: "test_structuretogo.py test_structuretopython.py"
+          - name: "Structure to Rust/TS"
+            pattern: "test_structuretorust.py test_structuretots.py"
+          - name: "Structure to Other Formats"
+            pattern: "test_structuretocsv.py test_structuretodatapackage.py test_structuretoiceberg.py test_structuretojsons.py test_structuretomd.py test_structuretoproto.py test_structuretoxsd.py"
+          - name: "Format to Avro"
+            pattern: "test_asn1toavro.py test_jsontoavro.py test_jstructtoavro.py test_kstructtoavro.py test_parquettoavro.py test_prototoavro.py test_xsdtoavro.py"
+          - name: "JSON Structure & Main"
+            pattern: "test_jsonstostructure.py test_main.py test_struct_to_schema_references.py"
+    name: "Tests: ${{ matrix.test-group.name }}"
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -46,14 +71,15 @@ jobs:
         python -m build --sdist --wheel --outdir dist
     - name: Install dependencies
       run: pip install pytest pytest-md pytest-emoji
-    - name: Run pytest
+    - name: Run pytest for ${{ matrix.test-group.name }}
       uses: pavelzw/pytest-action@v2
       with:
         verbose: true
         emoji: true
         job-summary: false
         click-to-expand: true
-        report-title: 'Test Report'
+        report-title: 'Test Report: ${{ matrix.test-group.name }}'
+        custom-pytest: 'pytest ${{ matrix.test-group.pattern }}'
 
   deploy:
     needs: test
