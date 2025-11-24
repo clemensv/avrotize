@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/schemas/test/enums",
+  "name": "EnumTypes",
+  "$root": "#/definitions/test/EnumTypes",
+  "definitions": {
+    "test": {
+      "Status": {
+        "name": "Status",
+        "type": "string",
+        "enum": ["ACTIVE", "INACTIVE", "PENDING"],
+        "description": "Status enumeration"
+      },
+      "EnumTypes": {
+        "name": "EnumTypes",
+        "type": "object",
+        "description": "Test enum types",
+        "properties": {
+          "status": {
+            "$ref": "#/definitions/test/Status",
+            "description": "Status field"
+          },
+          "optionalStatus": {
+            "$ref": "#/definitions/test/Status",
+            "description": "Optional status field"
+          }
+        },
+        "required": ["status"]
+      }
+    }
+  }
+}

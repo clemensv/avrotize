@@ -1892,6 +1892,39 @@
     ]
   },
   {
+    "command": "struct2gql",
+    "description": "Convert JSON Structure schema to GraphQL schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretographql.convert_structure_to_graphql",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "graphql_schema_path": "output_file_path"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the GraphQL schema file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.graphql",
+    "prompts": []
+  },
+  {
     "command": "a2ts",
     "description": "Convert Avrotize schema to TypeScript classes",
     "group": "2_ProgLanguages",

@@ -1,0 +1,23 @@
+scalar JSON
+
+type NestedObject {
+  """A nested field"""
+  nestedField: String!
+}
+"""
+Test compound types
+"""
+type CompoundTypes {
+  """Array of strings"""
+  arrayField: [String]!
+  """Set of integers"""
+  setField: [Int]
+  """Map with string values"""
+  mapField: JSON
+  """Nested object reference"""
+  nestedObject: NestedObject!
+  """Array of nested objects"""
+  arrayOfObjects: [NestedObject]
+  """Any type field"""
+  anyField: JSON
+}

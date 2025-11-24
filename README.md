@@ -97,6 +97,10 @@ JSON Structure conversions:
 
 - [`avrotize s2dp`](#convert-json-structure-schema-to-datapackage-schema) - Convert JSON Structure schema to Datapackage schema.
 
+Direct conversions (not via Avrotize Schema):
+
+- [`avrotize struct2gql`](#convert-json-structure-schema-to-graphql-schema) - Convert JSON Structure schema to GraphQL schema.
+
 ## Overview
 
 You can use Avrotize to convert between Avro/Avrotize Schema and other schema formats like JSON Schema, XML Schema (XSD), Protocol Buffers (Protobuf), ASN.1, and database schema formats like Kusto Data Table Definition (KQL) and SQL Table Definition. That means you can also convert from JSON Schema to Protobuf going via Avrotize Schema.
@@ -1137,5 +1141,40 @@ Conversion notes:
 
 - The tool generates the Parsing Canonical Form (PCF) of the Avrotize Schema. The PCF is a normalized form of the schema that is used for schema comparison and compatibility checking.
 - The PCF is a JSON object that is written to stdout.
+
+### Convert JSON Structure schema to GraphQL schema
+
+```bash
+avrotize struct2gql [input] --out <path_to_graphql_schema_file>
+```
+
+Parameters:
+
+- `[input]`: The path to the JSON Structure schema file. If omitted, the file is read from stdin.
+- `--out <path_to_graphql_schema_file>`: The path to the output GraphQL schema file.
+
+Conversion notes:
+
+- Converts JSON Structure Core schema to GraphQL schema language (SDL)
+- Supports all JSON Structure Core primitive types (string, number, boolean, null)
+- Supports extended primitives (binary, int8-128, uint8-128, float/double, decimal, date, datetime, time, duration, uuid, uri, jsonpointer)
+- Supports compound types (object, array, set, map, tuple, any, choice)
+- Resolves type references ($ref) and maintains proper dependency ordering
+- Maps JSON Structure namespaces to GraphQL types with simple names
+- Generates custom scalars for specialized types (Date, DateTime, UUID, URI, Decimal, Binary, JSON)
+- Required properties are marked with `!` in GraphQL
+- Arrays and sets are represented as GraphQL lists `[Type]`
+- Maps are represented using the JSON scalar type
+
+Example:
+
+```bash
+# Convert a JSON Structure schema to GraphQL
+avrotize struct2gql myschema.struct.json --out myschema.graphql
+
+# Read from stdin and write to stdout
+cat myschema.struct.json | avrotize struct2gql > myschema.graphql
+```
+
 
 This document provides an overview of the usage and functionality of Avrotize. For more detailed information, please refer to the [Avrotize Schema documentation](specs/avrotize-schema.md) and the individual command help messages.

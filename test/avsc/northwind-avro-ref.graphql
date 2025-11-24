@@ -1,0 +1,106 @@
+type Category {
+  CategoryID: Int
+  CategoryName: String
+  Description: String
+  Picture: String
+}
+type Customer {
+  CustomerID: String
+  CompanyName: String
+  ContactName: String
+  ContactTitle: String
+  Address: String
+  City: String
+  Region: String
+  PostalCode: String
+  Country: String
+  Phone: String
+  Fax: String
+}
+type Employee {
+  EmployeeID: Int
+  LastName: String
+  FirstName: String
+  Title: String
+  TitleOfCourtesy: String
+  BirthDate: Int
+  HireDate: Int
+  Address: String
+  City: String
+  Region: String
+  PostalCode: String
+  Country: String
+  HomePhone: String
+  Extension: String
+  Photo: String
+  Notes: String
+  ReportsTo: Int
+  PhotoPath: String
+}
+type Order {
+  OrderID: Int
+  CustomerID: String
+  EmployeeID: Int
+  OrderDate: Int
+  RequiredDate: Int
+  ShippedDate: Int
+  ShipVia: Int
+  Freight: Float
+  ShipName: String
+  ShipAddress: String
+  ShipCity: String
+  ShipRegion: String
+  ShipPostalCode: String
+  ShipCountry: String
+}
+type OrderDetail {
+  OrderID: Int
+  ProductID: Int
+  UnitPrice: Float
+  Quantity: Int
+  Discount: Float
+}
+type Product {
+  ProductID: Int
+  ProductName: String
+  SupplierID: Int
+  CategoryID: Int
+  QuantityPerUnit: String
+  UnitPrice: Float
+  UnitsInStock: Int
+  UnitsOnOrder: Int
+  ReorderLevel: Int
+  Discontinued: Boolean
+}
+type Shipper {
+  ShipperID: Int
+  CompanyName: String
+  Phone: String
+}
+type Supplier {
+  SupplierID: Int
+  CompanyName: String
+  ContactName: String
+  ContactTitle: String
+  Address: String
+  City: String
+  Region: String
+  PostalCode: String
+  Country: String
+  Phone: String
+  Fax: String
+  HomePage: String
+}
+type Region {
+  RegionID: Int
+  RegionDescription: String
+}
+type Territory {
+  TerritoryID: String
+  TerritoryDescription: String
+  RegionID: Int
+}
+type EmployeeTerritory {
+  EmployeeID: Int
+  TerritoryID: String
+}

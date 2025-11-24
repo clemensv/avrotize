@@ -1,0 +1,23 @@
+scalar JSON
+
+"""
+An address similar to http://microformats.org/wiki/h-card
+"""
+type record {
+  """The type of the record"""
+  type: String!
+  """The post office box number"""
+  postOfficeBox: String
+  """The extended address"""
+  extendedAddress: String
+  """The street address"""
+  streetAddress: String
+  """The locality"""
+  locality: String!
+  """The region"""
+  region: String!
+  """The postal code"""
+  postalCode: String
+  """The country name"""
+  countryName: String!
+}

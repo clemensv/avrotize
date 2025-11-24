@@ -1,0 +1,10 @@
+type record {
+  type: String
+  postOfficeBox: String
+  extendedAddress: String
+  streetAddress: String
+  locality: String
+  region: String!
+  postalCode: String
+  countryName: String
+}
