@@ -87,6 +87,41 @@ class JsonToAvroConverter:
                 return True
         return False
 
+    def detect_discriminated_union(self, json_type: dict):
+        """
+        Detect if a JSON schema is a discriminated union pattern using allOf with if/then conditionals.
+        
+        A discriminated union pattern consists of:
+        - A base schema with a discriminator field (usually 'type') with an enum
+        - An allOf array containing if/then conditionals that add fields based on discriminator value
+        
+        Parameters:
+        json_type (dict): The JSON schema object to check
+        
+        Returns:
+        list | None: List of discriminator values if pattern detected, None otherwise
+        """
+        if not isinstance(json_type, dict) or 'allOf' not in json_type:
+            return None
+        
+        # Check for discriminator field with enum values
+        properties = json_type.get('properties', {})
+        if 'type' not in properties or 'enum' not in properties.get('type', {}):
+            return None
+        
+        discriminator_values = properties['type']['enum']
+        
+        # Check if allOf contains if/then conditionals
+        has_if_then = any(
+            isinstance(item, dict) and 'if' in item and 'then' in item 
+            for item in json_type['allOf']
+        )
+        
+        if has_if_then and len(discriminator_values) > 0:
+            return discriminator_values
+        
+        return None
+
     def flatten_union(self, type_list: list) -> list:
         """
         Flatten the list of types in a union into a single list.
@@ -606,20 +641,74 @@ class JsonToAvroConverter:
                 json_types = []
 
                 if 'allOf' in json_type:
-                    # if the json type is an allOf, we merge all types into one
-                    # this may be lossy if aspects of the types overlap but differ
-                    type_list = [copy.deepcopy(base_type)]
-                    for allof_option in json_type['allOf']:
-                        while isinstance(allof_option, dict) and '$ref' in allof_option:
-                            resolved_json_type, resolved_schema = self.resolve_reference(
-                                allof_option, base_uri, json_schema)
-                            del allof_option['$ref']
-                            allof_option = self.merge_json_schemas(
-                                [allof_option, resolved_json_type])
-                        type_list.append(copy.deepcopy(allof_option))
-                    merged_type = self.merge_json_schemas(
-                        type_list, intersect=False)
-                    json_types.append(merged_type)
+                    # Check if this is a discriminated union pattern
+                    discriminated_union_types = self.detect_discriminated_union(json_type)
+                    
+                    if discriminated_union_types:
+                        # Generate separate types for each discriminated variant
+                        base_props = json_type.get('properties', {})
+                        discriminator_field = 'type'  # The discriminator field
+                        discriminator_enum = base_props.get(discriminator_field, {}).get('enum', [])
+                        
+                        for allof_item in json_type['allOf']:
+                            if not (isinstance(allof_item, dict) and 'if' in allof_item and 'then' in allof_item):
+                                continue
+                            
+                            # Extract the discriminator value from the if clause
+                            if_clause = allof_item['if']
+                            discriminator_value = None
+                            if (isinstance(if_clause, dict) and 
+                                'properties' in if_clause and 
+                                discriminator_field in if_clause['properties']):
+                                disc_prop = if_clause['properties'][discriminator_field]
+                                if 'enum' in disc_prop and len(disc_prop['enum']) > 0:
+                                    discriminator_value = disc_prop['enum'][0]
+                            
+                            if not discriminator_value:
+                                continue
+                            
+                            # Resolve the then clause reference
+                            then_clause = allof_item['then']
+                            if isinstance(then_clause, dict) and '$ref' in then_clause:
+                                resolved_type, _ = self.resolve_reference(then_clause, base_uri, json_schema)
+                                
+                                # Create a new type combining base properties and resolved type
+                                variant_type = copy.deepcopy(resolved_type)
+                                
+                                # Merge base properties into the variant
+                                if 'properties' not in variant_type:
+                                    variant_type['properties'] = {}
+                                
+                                for prop_name, prop_def in base_props.items():
+                                    if prop_name not in variant_type['properties']:
+                                        variant_type['properties'][prop_name] = copy.deepcopy(prop_def)
+                                        
+                                        # Mark discriminator field with default and annotation
+                                        if prop_name == discriminator_field:
+                                            variant_type['properties'][prop_name] = {
+                                                'type': 'string',
+                                                'const': discriminator_value,
+                                                'discriminator': True
+                                            }
+                                
+                                # Add union annotation to indicate this is part of a discriminated union
+                                variant_type['union'] = record_name
+                                
+                                json_types.append(variant_type)
+                    else:
+                        # Original allOf merging logic for non-discriminated unions
+                        type_list = [copy.deepcopy(base_type)]
+                        for allof_option in json_type['allOf']:
+                            while isinstance(allof_option, dict) and '$ref' in allof_option:
+                                resolved_json_type, resolved_schema = self.resolve_reference(
+                                    allof_option, base_uri, json_schema)
+                                del allof_option['$ref']
+                                allof_option = self.merge_json_schemas(
+                                    [allof_option, resolved_json_type])
+                            type_list.append(copy.deepcopy(allof_option))
+                        merged_type = self.merge_json_schemas(
+                            type_list, intersect=False)
+                        json_types.append(merged_type)
 
                 if 'oneOf' in json_type:
                     # if the json type is a oneOf, we create a type union of all types
@@ -1206,6 +1295,9 @@ class JsonToAvroConverter:
                 namespace, record_stack[-1] + "_types")
         # at this point we have a record type
         avro_record = self.create_avro_record(record_name, namespace, [])
+        # Check if this record has a 'union' annotation from discriminated union pattern
+        if 'union' in json_object:
+            avro_record['union'] = json_object['union']
         # we need to prevent circular dependencies, so we will maintain a stack of the in-progress
         # records and will resolve the cycle as we go. if this record is already in the stack, we will
         # just return a reference to a record that contains this record
@@ -1236,6 +1328,7 @@ class JsonToAvroConverter:
                     const = None
                     default = None
                     description = None
+                    discriminator = None
                     for json_field_type in json_field_types:
                         # skip fields with an bad or empty type
                         if not isinstance(json_field_type, dict):
@@ -1249,6 +1342,8 @@ class JsonToAvroConverter:
                             default = default_value
                         # get the description from the field type
                         description = json_field_type.get('description', description)
+                        # check for discriminator annotation
+                        discriminator = json_field_type.get('discriminator', discriminator)
                         # convert the JSON-type field to an Avro-type field
                         avro_field_ref_type = avro_field_type = self.ensure_type(self.json_type_to_avro_type(
                             json_field_type, record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack))
@@ -1289,6 +1384,8 @@ class JsonToAvroConverter:
                         avro_field['default'] = default
                     if description:
                         avro_field['doc'] = description
+                    if discriminator:
+                        avro_field['discriminator'] = discriminator
                     field_type_list.append(avro_field_type)
                     avro_field_ref = {
                         'name': avro_name(field_name),
