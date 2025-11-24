@@ -9,7 +9,7 @@ import (
 
 func Test{{ struct_name }}(t *testing.T) {
     {%- if kind == 'struct' %}
-    instance := random{{ struct_name }}()
+    instance := CreateInstance{{ struct_name }}()
     
     {%- if json_annotation %}
     // Test JSON marshaling
@@ -23,6 +23,38 @@ func Test{{ struct_name }}(t *testing.T) {
     err = json.Unmarshal(data, &decoded)
     if err != nil {
         t.Fatalf("Failed to unmarshal {{ struct_name }}: %v", err)
+    }
+    
+    // Test ToByteArray and FromData methods
+    contentType := "application/json"
+    byteArray, err := instance.ToByteArray(contentType)
+    if err != nil {
+        t.Fatalf("Failed to convert to byte array: %v", err)
+    }
+    
+    fromData, err := {{ struct_name }}FromData(byteArray, contentType)
+    if err != nil {
+        t.Fatalf("Failed to create from data: %v", err)
+    }
+    
+    if fromData == nil {
+        t.Fatal("FromData returned nil")
+    }
+    
+    // Test with gzipped data
+    contentTypeGzip := "application/json+gzip"
+    byteArrayGzip, err := instance.ToByteArray(contentTypeGzip)
+    if err != nil {
+        t.Fatalf("Failed to convert to gzipped byte array: %v", err)
+    }
+    
+    fromDataGzip, err := {{ struct_name }}FromData(byteArrayGzip, contentTypeGzip)
+    if err != nil {
+        t.Fatalf("Failed to create from gzipped data: %v", err)
+    }
+    
+    if fromDataGzip == nil {
+        t.Fatal("FromData with gzip returned nil")
     }
     {%- endif %}
     {%- elif kind == 'enum' %}

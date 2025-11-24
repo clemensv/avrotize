@@ -259,12 +259,35 @@ class StructureToGo:
         if go_struct_name in self.generated_types:
             return go_struct_name
 
+        # Check if this is an abstract type
+        is_abstract = structure_schema.get('abstract', False)
+        
+        # If abstract, generate interface instead
+        if is_abstract:
+            return self.generate_interface(structure_schema, parent_namespace, write_file, explicit_name)
+
         self.generated_types[go_struct_name] = "struct"
         self.generated_structure_types[go_struct_name] = structure_schema
 
-        # Generate properties
-        properties = structure_schema.get('properties', {})
-        required_props = structure_schema.get('required', [])
+        # Handle inheritance ($extends)
+        base_interface = None
+        base_properties = {}
+        base_required = []
+        if '$extends' in structure_schema:
+            base_ref = structure_schema['$extends']
+            base_schema = self.resolve_ref(base_ref, self.schema_doc)
+            if base_schema:
+                ref_path = base_ref.split('/')
+                base_name = ref_path[-1]
+                ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else parent_namespace
+                base_interface = self.generate_class(base_schema, ref_namespace, write_file=True, explicit_name=base_name)
+                # Collect base properties to include in the concrete type
+                base_properties = base_schema.get('properties', {})
+                base_required = base_schema.get('required', [])
+
+        # Generate properties - merge base properties with current properties
+        properties = {**base_properties, **structure_schema.get('properties', {})}
+        required_props = base_required + structure_schema.get('required', [])
 
         fields = []
         for prop_name, prop_schema in properties.items():
@@ -287,6 +310,18 @@ class StructureToGo:
 
         # Get imports needed
         imports = self.get_imports_for_fields([f['type'] for f in fields])
+        
+        # Generate Avro schema if avro_annotation is enabled
+        avro_schema_str = None
+        if self.avro_annotation:
+            try:
+                from avrotize.jstructtoavro import JsonStructureToAvro
+                converter = JsonStructureToAvro()
+                avro_schema = converter.convert(structure_schema)
+                avro_schema_str = json.dumps(avro_schema)
+            except Exception as e:
+                # If conversion fails, log but continue without Avro schema
+                print(f"Warning: Failed to generate Avro schema for {go_struct_name}: {e}")
 
         context = {
             'doc': structure_schema.get('description', structure_schema.get('doc', class_name)),
@@ -295,7 +330,9 @@ class StructureToGo:
             'imports': imports,
             'json_annotation': self.json_annotation,
             'avro_annotation': self.avro_annotation,
+            'avro_schema': avro_schema_str,
             'base_package': self.base_package,
+            'base_interface': base_interface,
             'referenced_packages': set(),
         }
 
@@ -355,6 +392,68 @@ class StructureToGo:
         self.generate_unit_test('enum', go_enum_name, symbols)
 
         return go_enum_name
+
+    def generate_interface(self, structure_schema: Dict, parent_namespace: str,
+                          write_file: bool, explicit_name: str = '') -> str:
+        """ Generates a Go interface from JSON Structure abstract type """
+        interface_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedInterface'))
+        schema_namespace = structure_schema.get('namespace', parent_namespace)
+        go_interface_name = self.go_type_name(interface_name, schema_namespace)
+
+        if go_interface_name in self.generated_types:
+            return go_interface_name
+
+        self.generated_types[go_interface_name] = "interface"
+        self.generated_structure_types[go_interface_name] = structure_schema
+
+        # Get properties to define getter methods
+        properties = structure_schema.get('properties', {})
+        required_props = structure_schema.get('required', [])
+        
+        methods = []
+        for prop_name, prop_schema in properties.items():
+            go_prop_name = pascal(prop_name)
+            is_required = prop_name in required_props if not isinstance(required_props, list) or \
+                         len(required_props) == 0 or not isinstance(required_props[0], list) else \
+                         any(prop_name in req_set for req_set in required_props)
+            
+            field_type = self.convert_structure_type_to_go(
+                interface_name, prop_name, prop_schema, schema_namespace, nullable=not is_required)
+            
+            # Add nullable marker if not required and not already nullable
+            if not is_required and not field_type.startswith('*') and not field_type.startswith('[') and not field_type.startswith('map[') and field_type != 'interface{}':
+                field_type = f'*{field_type}'
+            
+            # Generate getter method
+            methods.append({
+                'name': f'Get{go_prop_name}',
+                'return_type': field_type,
+                'doc': f'Get{go_prop_name} returns the {prop_name} field'
+            })
+            
+            # Generate setter method
+            methods.append({
+                'name': f'Set{go_prop_name}',
+                'return_type': '',
+                'param_type': field_type,
+                'param_name': prop_name,
+                'doc': f'Set{go_prop_name} sets the {prop_name} field'
+            })
+
+        context = {
+            'doc': structure_schema.get('description', structure_schema.get('doc', interface_name)),
+            'interface_name': go_interface_name,
+            'methods': methods,
+            'base_package': self.base_package,
+        }
+
+        pkg_dir = os.path.join(self.output_dir, 'pkg', self.base_package)
+        if not os.path.exists(pkg_dir):
+            os.makedirs(pkg_dir, exist_ok=True)
+        file_name = os.path.join(pkg_dir, f"{go_interface_name}.go")
+        render_template('structuretogo/go_interface.jinja', file_name, **context)
+
+        return go_interface_name
 
     def generate_choice(self, structure_schema: Dict, parent_namespace: str, 
                        write_file: bool, explicit_name: str = '') -> str:
@@ -432,7 +531,7 @@ class StructureToGo:
             value_type = go_type.split(']', 1)[1]
             v = f'{go_type}{{"key": {self.random_value(value_type)}}}'
         elif go_type in self.generated_types:
-            v = f'random{go_type}()'
+            v = f'CreateInstance{go_type}()'
         elif go_type == 'interface{}':
             v = 'nil'
         else:
