@@ -55,6 +55,7 @@ Converting from Avrotize Schema:
 - [`avrotize a2neo4j`](#convert-avrotize-schema-to-neo4j-schema) - Convert Avrotize Schema to Neo4j schema.
 - [`avrotize a2dp`](#convert-avrotize-schema-to-datapackage-schema) - Convert Avrotize Schema to Datapackage schema.
 - [`avrotize a2md`](#convert-avrotize-schema-to-markdown-documentation) - Convert Avrotize Schema to Markdown documentation.
+- [`avrotize struct2md`](#convert-json-structure-schema-to-markdown-documentation) - Convert JSON Structure schema to Markdown documentation.
 
 Direct conversions (JSON Structure):
 
@@ -941,6 +942,36 @@ Conversion notes:
 
 - The tool generates Markdown documentation from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Markdown section.
 - The fields of the record are documented in a table in the Markdown section. Nested records are documented in nested sections in the Markdown file.
+
+### Convert JSON Structure schema to Markdown documentation
+
+```bash
+avrotize struct2md <path_to_structure_schema_file> [--out <path_to_markdown_file>]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Markdown file to write the conversion result to. If omitted, the output is directed to stdout.
+
+Conversion notes:
+
+- The tool generates Markdown documentation from JSON Structure Core schemas following the patterns established by the Avrotize Schema to Markdown converter.
+- Supports all JSON Structure Core types including:
+  - **JSON Primitive Types**: string, number, boolean, null
+  - **Extended Primitive Types**: binary, int8-128, uint8-128, float8/float/double, decimal, date, datetime, time, duration, uuid, uri, jsonpointer
+  - **Compound Types**: object, array, set, map, tuple, any, choice (both tagged and inline unions)
+- Supports JSON Structure Core features:
+  - Namespaces and definitions are documented in separate sections
+  - Type references ($ref) are converted to Markdown links
+  - Extensions ($extends) and abstract types are clearly marked
+  - Required/optional properties are indicated
+- Extended features (when present in schemas):
+  - Validation constraints (minLength, maxLength, minimum, maximum, pattern, etc.) are documented alongside properties
+  - Type-specific annotations (precision, scale for decimals, minItems/maxItems for arrays, etc.)
+- Each object type in the schema is converted to a Markdown section with its properties documented in a structured list format.
+- Choice types (unions) are documented with their selector (if present) and available choices.
+- The definitions section documents all reusable type definitions.
 
 ### Convert JSON Structure to CSV Schema
 

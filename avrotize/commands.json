@@ -2940,5 +2940,37 @@
     ],
     "suggested_output_file_path": "{input_file_name}.xsd",
     "prompts": []
+  },
+  {
+    "command": "struct2md",
+    "description": "Convert JSON Structure schema to Markdown documentation",
+    "group": "7_Utility",
+    "function": {
+      "name": "avrotize.structuretomd.convert_structure_to_markdown",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "markdown_path": "output_file_path"
+      }
+    },
+    "extensions": [
+      ".struct.json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the Markdown documentation",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.md",
+    "prompts": []
   }
 ]
