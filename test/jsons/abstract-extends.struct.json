@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "definitions": {
+    "AbstractBase": {
+      "type": "object",
+      "name": "AbstractBase",
+      "abstract": true,
+      "properties": {
+        "baseField": {"type": "string"}
+      }
+    },
+    "ConcreteImpl": {
+      "type": "object",
+      "name": "ConcreteImpl",
+      "$extends": "#/definitions/AbstractBase",
+      "properties": {
+        "implField": {"type": "integer"}
+      }
+    }
+  }
+}

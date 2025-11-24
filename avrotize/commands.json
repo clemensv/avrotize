@@ -2191,6 +2191,53 @@
     ]
   },
   {
+    "command": "s2dp",
+    "description": "Convert JSON Structure schema to Datapackage schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretodatapackage.convert_structure_to_datapackage",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "datapackage_path": "output_file_path",
+        "structure_record_type": "args.record_type"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the Datapackage schema",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Record type in the JSON Structure schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.datapackage.json",
+    "prompts": [
+      {
+        "name": "--record-type",
+        "message": "Enter the record type in the JSON Structure schema (optional)",
+        "type": "str",
+        "required": false
+      }
+    ]
+  },
+  {
     "command": "a2md",
     "description": "Convert Avrotize schema to Markdown documentation",
     "group": "7_Utility",

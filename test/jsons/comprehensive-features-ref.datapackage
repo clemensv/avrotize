@@ -1,0 +1,111 @@
+{
+  "profile": "data-package",
+  "resources": [
+    {
+      "name": "comprehensivetest",
+      "data": [],
+      "schema": {
+        "fields": [
+          {
+            "name": "stringWithFormat",
+            "type": "string",
+            "title": "Email Address",
+            "description": "User's email address",
+            "examples": [
+              "user@example.com",
+              "test@test.org"
+            ],
+            "format": "email"
+          },
+          {
+            "name": "constValue",
+            "type": "string",
+            "description": "This field has a constant value (constant value)",
+            "constraints": {
+              "enum": [
+                "FIXED_VALUE"
+              ]
+            }
+          },
+          {
+            "name": "readOnlyField",
+            "type": "integer",
+            "description": "Can only be read, not written (read-only)"
+          },
+          {
+            "name": "writeOnlyField",
+            "type": "string",
+            "description": "Can only be written, not read (write-only)"
+          },
+          {
+            "name": "deprecatedField",
+            "type": "string",
+            "description": "This field is deprecated (DEPRECATED)"
+          },
+          {
+            "name": "fieldWithDefault",
+            "type": "string",
+            "description": "Field with default value",
+            "default": "default_value"
+          },
+          {
+            "name": "stringWithConstraints",
+            "type": "string",
+            "description": "[Comment: Only alphabetic characters allowed]",
+            "constraints": {
+              "maxLength": 100,
+              "minLength": 5,
+              "pattern": "^[A-Za-z]+$"
+            }
+          },
+          {
+            "name": "numberWithRange",
+            "type": "number",
+            "constraints": {
+              "minimum": -1,
+              "maximum": 101
+            },
+            "description": "Exclusive minimum: -1 (exclusive maximum: 101) (multiple of 0.5)"
+          },
+          {
+            "name": "decimalWithPrecision",
+            "type": "number",
+            "description": "Decimal with precision and scale (precision: 10, scale: 2)"
+          },
+          {
+            "name": "arrayWithConstraints",
+            "type": "array",
+            "description": "Array with size and uniqueness constraints (max items: 10) (min items: 1)",
+            "constraints": {
+              "unique": true
+            }
+          },
+          {
+            "name": "binaryWithEncoding",
+            "type": "string",
+            "description": "Binary data with encoding info",
+            "format": "binary",
+            "contentEncoding": "base64",
+            "contentMediaType": "image/png"
+          },
+          {
+            "name": "enumField",
+            "type": "string",
+            "description": "Enumerated values",
+            "constraints": {
+              "enum": [
+                "OPTION_A",
+                "OPTION_B",
+                "OPTION_C"
+              ]
+            }
+          }
+        ]
+      },
+      "title": "Comprehensive Feature Test Schema",
+      "description": "Schema covering all JSON Structure Core features (Uses add-ins: TestAddIn)",
+      "profile": "data-resource"
+    }
+  ],
+  "name": "test.comprehensive"
+}

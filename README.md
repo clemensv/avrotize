@@ -86,6 +86,10 @@ Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
 
+JSON Structure conversions:
+
+- [`avrotize s2dp`](#convert-json-structure-schema-to-datapackage-schema) - Convert JSON Structure schema to Datapackage schema.
+
 ## Overview
 
 You can use Avrotize to convert between Avro/Avrotize Schema and other schema formats like JSON Schema, XML Schema (XSD), Protocol Buffers (Protobuf), ASN.1, and database schema formats like Kusto Data Table Definition (KQL) and SQL Table Definition. That means you can also convert from JSON Schema to Protobuf going via Avrotize Schema.
@@ -863,6 +867,32 @@ Conversion notes:
 
 - The tool generates a Datapackage schema from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Datapackage resource.
 - The fields of the record are mapped to fields in the Datapackage resource. Nested records are mapped to nested resources in the Datapackage.
+
+### Convert JSON Structure schema to Datapackage schema
+
+```bash
+avrotize s2dp <path_to_structure_schema_file> [--out <path_to_datapackage_file>] [--record-type <record-type-from-structure>]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Datapackage schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) The name of the JSON Structure record type to convert to a Datapackage schema.
+
+Conversion notes:
+
+- The tool generates a Datapackage schema from the JSON Structure schema. Each object type in the JSON Structure schema is converted to a Datapackage resource.
+- The properties of the object are mapped to fields in the Datapackage resource schema.
+- All JSON Structure Core types are supported, including:
+  - JSON primitive types (string, number, boolean, null)
+  - Extended primitive types (int8-128, uint8-128, float/double, decimal, binary, date, datetime, time, duration, uuid, uri, jsonpointer)
+  - Compound types (object, array, set, map, tuple, choice/union)
+- JSON Structure-specific features are preserved:
+  - Namespaces are used to organize resources
+  - Type references ($ref) are resolved
+  - Type annotations (maxLength, minLength, pattern, minimum, maximum, enum) are converted to Data Package field constraints
+  - Union types (nullable fields) are properly handled
 
 ### Convert Avrotize Schema to Markdown documentation
 
