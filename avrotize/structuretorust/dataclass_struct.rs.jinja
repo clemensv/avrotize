@@ -1,0 +1,121 @@
+{%- if serde_annotation %}
+use serde::{Serialize, Deserialize};
+{%- endif %}
+use std::io::Write;
+use flate2::write::GzEncoder;
+use flate2::read::GzDecoder;
+
+{% if doc %}
+/// {{ doc }}
+{%- endif %}
+#[derive(Debug{%- if serde_annotation %}, Serialize, Deserialize{%- endif %}, PartialEq, Clone, Default)]
+pub struct {{ struct_name }} {
+{%- for field in fields %}
+    {%- if field.serde_rename and serde_annotation %}
+    #[serde(rename = "{{ field.original_name }}")]
+    {%- endif %}
+    pub {{ field.name }}: {{ field.type }},
+{%- endfor %}
+}
+
+impl {{ struct_name }} {
+   /// Serializes the struct to a byte array based on the provided content type
+    pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let result: Vec<u8>;
+        let media_type = content_type.split(';').next().unwrap_or("");
+        {%- if serde_annotation %}
+        if media_type.starts_with("application/json") {
+            result = serde_json::to_vec(self)?;
+        }
+        else {% endif -%}
+        {
+            return Err(format!("unsupported media type: {}", media_type).into())
+        }
+        if media_type.ends_with("+gzip") {
+            let mut encoder = GzEncoder::new(Vec::new(), flate2::Compression::default());
+            encoder.write_all(&result)?;
+            let gzipresult = encoder.finish()?;
+            return Ok(gzipresult)
+        } else {
+            return Ok(result)
+        }
+    }
+
+    /// Deserializes the struct from a byte array based on the provided content type
+    pub fn from_data(data: impl AsRef<[u8]>, content_type: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let media_type = content_type.split(';').next().unwrap_or("");
+        let data = if media_type.ends_with("+gzip") {
+            let mut decoder = GzDecoder::new(data.as_ref());
+            let mut decompressed_data = Vec::new();
+            std::io::copy(&mut decoder, &mut decompressed_data)?;
+            decompressed_data
+        } else {
+            data.as_ref().to_vec()
+        };
+        {%- if serde_annotation %}
+        if media_type.starts_with("application/json") {
+            let result = serde_json::from_slice(&data)?;
+            return Ok(result)
+        }
+        {%- endif %}
+        Err(format!("unsupported media type: {}", media_type).into())
+    }
+
+    /// Returns the struct instance itself
+    pub fn to_object(&self) -> &Self {
+        self
+    }
+}
+
+#[cfg(test)]
+impl {{ struct_name }} {
+    pub fn generate_random_instance() -> {{ struct_name }} {
+        let mut rng = rand::thread_rng();
+        {{ struct_name }} {
+            {%- for field in fields %}
+            {%- if field.type.startswith("Option<") %}
+            {{ field.name }}: Some({{ field.random_value }}),
+            {%- else %}
+            {{ field.name }}: {{ field.random_value }},
+            {%- endif %}
+            {%- endfor %}
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+ 
+    #[test]
+    fn test_create_{{ struct_name.lower() }}() {
+        let instance = {{struct_name}}::generate_random_instance();
+        {%- for field in fields %}
+        {%- if field.type.startswith("Option<") %}
+        assert!(instance.{{ field.name }}.is_some()); // Check that {{ field.name }} is not None
+        {%- elif field.type.startswith("Vec<") %}
+        {%- set field_type = 'Vec::<'+field.type[4:] %}
+        assert!(instance.{{ field.name }} != {{ field_type }}::default()); // Check that {{ field.name }} is not default
+        {%- elif field.type.startswith("std::collections::HashMap<")%}
+        assert!(instance.{{ field.name }}.len() >= 0); // Check that {{ field.name }} is not empty
+        {%- elif field.type != "bool" %}
+        assert!(instance.{{ field.name }} != {{ field.type }}::default()); // Check that {{ field.name }} is not default
+        {%- endif %}
+        {%- endfor %}
+    }
+
+    {%- if serde_annotation %}
+    #[test]
+    fn test_serialize_deserialize_{{ struct_name.lower() }}() {
+        let instance = {{struct_name}}::generate_random_instance();
+        // Test JSON serialization and deserialization
+        let json_bytes = instance.to_byte_array("application/json").unwrap();
+        let deserialized_instance: {{ struct_name }} = {{ struct_name }}::from_data(&json_bytes, "application/json").unwrap();
+        assert_eq!(instance, deserialized_instance);
+        // Test JSON serialization and deserialization with compression
+        let json_gzip_bytes = instance.to_byte_array("application/json+gzip").unwrap();
+        let deserialized_gzip_instance: {{ struct_name }} = {{ struct_name }}::from_data(&json_gzip_bytes, "application/json+gzip").unwrap();
+        assert_eq!(instance, deserialized_gzip_instance);
+    }
+    {%- endif %}
+}

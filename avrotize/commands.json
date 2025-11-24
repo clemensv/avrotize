@@ -1714,6 +1714,64 @@
     "prompts": []
   },
   {
+    "command": "s2rust",
+    "description": "Convert JSON Structure to Rust classes",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretorust.convert_structure_to_rust",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "rust_file_path": "output_file_path",
+        "package_name": "args.package",
+        "serde_annotation": "args.json_annotation"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the Rust classes",
+        "required": true
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "Rust package name",
+        "required": false
+      },
+      {
+        "name": "--json-annotation",
+        "type": "bool",
+        "help": "Use Serde JSON annotations",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-rust",
+    "prompts": [
+      {
+        "name": "--package",
+        "message": "Enter the Rust package name (optional)",
+        "type": "str",
+        "required": false
+      },
+      {
+        "name": "--json-annotation",
+        "message": "Use Serde JSON annotations?",
+        "type": "bool",
+        "default": false
+      }
+    ]
+  },
+  {
     "command": "s2ts",
     "description": "Convert JSON Structure to TypeScript classes",
     "group": "2_ProgLanguages",
