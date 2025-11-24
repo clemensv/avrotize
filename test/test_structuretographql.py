@@ -14,6 +14,15 @@ current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
 sys.path.append(project_root)
 
+# Import GraphQL validation library if available
+try:
+    from graphql import parse, build_schema, validate_schema
+    GRAPHQL_VALIDATION_AVAILABLE = True
+except ImportError:
+    GRAPHQL_VALIDATION_AVAILABLE = False
+    print("Warning: graphql-core not installed. GraphQL syntax validation will be skipped.")
+    print("Install with: pip install graphql-core")
+
 
 def test_convert_address_struct_to_graphql():
     """Test converting address.struct.json to address.graphql"""
@@ -60,6 +69,40 @@ def test_convert_northwind_struct_to_graphql():
     convert_case("northwind")
 
 
+def validate_graphql_syntax(graphql_content: str, file_name: str):
+    """
+    Validate that the generated GraphQL is syntactically correct.
+    
+    Args:
+        graphql_content: The GraphQL schema content to validate
+        file_name: Name of the file being validated (for error messages)
+    
+    Raises:
+        AssertionError: If GraphQL syntax is invalid
+    """
+    if not GRAPHQL_VALIDATION_AVAILABLE:
+        return
+    
+    try:
+        # Parse the GraphQL schema to verify syntax
+        # This validates that the SDL (Schema Definition Language) is syntactically correct
+        document = parse(graphql_content)
+        
+        # We don't use build_schema() or validate_schema() because:
+        # 1. Our generated schemas are type definitions only (no Query/Mutation root types)
+        # 2. They're meant to be valid SDL that can be combined/extended, not standalone executable schemas
+        # 3. Parsing alone validates syntax which is what we need
+        
+        # Verify we got a valid document with definitions
+        if not document or not document.definitions:
+            raise AssertionError(f"GraphQL document for {file_name} has no definitions")
+            
+    except Exception as e:
+        if isinstance(e, AssertionError):
+            raise
+        raise AssertionError(f"GraphQL syntax validation failed for {file_name}: {str(e)}")
+
+
 def convert_case(file_base_name: str):
     """Convert a JSON Structure schema to GraphQL schema"""
     cwd = os.getcwd()
@@ -74,8 +117,19 @@ def convert_case(file_base_name: str):
     convert_structure_to_graphql(
         struct_path, graphql_path)
     
+    # Read the generated GraphQL content
+    with open(graphql_path, 'r', encoding="utf-8") as f:
+        generated_content = f.read()
+    
+    # Validate GraphQL syntax
+    validate_graphql_syntax(generated_content, file_base_name + ".graphql")
+    
+    # Compare with reference if it exists
     if os.path.exists(graphql_ref_path):
-        with open(graphql_path, 'r', encoding="utf-8") as file1, open(graphql_ref_path, 'r', encoding="utf-8") as file2:
-            content1 = file1.read()
-            content2 = file2.read()
-        assert content1 == content2, f"Generated GraphQL does not match reference.\nGenerated:\n{content1}\n\nExpected:\n{content2}"
+        with open(graphql_ref_path, 'r', encoding="utf-8") as file2:
+            reference_content = file2.read()
+        
+        # Also validate reference GraphQL
+        validate_graphql_syntax(reference_content, file_base_name + "-ref.graphql")
+        
+        assert generated_content == reference_content, f"Generated GraphQL does not match reference.\nGenerated:\n{generated_content}\n\nExpected:\n{reference_content}"

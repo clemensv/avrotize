@@ -51,7 +51,8 @@ dev = [
     "pymongo>=4.8.0",
     "oracledb>=2.3.0",
     "cassandra-driver>=3.29.1",
-    "sqlalchemy>=2.0.32"
+    "sqlalchemy>=2.0.32",
+    "graphql-core>=3.2.0"
 ]
 
 [project.scripts]
