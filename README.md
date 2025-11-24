@@ -73,6 +73,7 @@ Generate code from Avrotize Schema:
 
 Generate code from JSON Structure:
 
+- [`avrotize s2cpp`](#convert-json-structure-to-c-classes) - Generate C++ code from JSON Structure schema.
 - [`avrotize s2cs`](#convert-json-structure-to-c-classes) - Generate C# code from JSON Structure schema.
 - [`avrotize s2py`](#convert-json-structure-to-python-classes) - Generate Python code from JSON Structure schema.
 - [`avrotize s2ts`](#convert-json-structure-to-typescript-classes) - Generate TypeScript code from JSON Structure schema.
@@ -824,6 +825,27 @@ Conversion notes:
 - The tool generates Rust classes from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a Rust class.
 - The fields of the record are mapped to properties in the Rust class. Nested records are mapped to nested classes in the Rust class.
 - The tool supports adding annotations to the properties in the Rust class. The `--avro-annotation` option adds Avro annotations, and the `--serde-annotation` option adds Serde annotations.
+
+### Convert JSON Structure to C++ classes
+
+```bash
+avrotize s2cpp <path_to_structure_file> --out <path_to_cpp_dir> [--namespace <cpp_namespace>] [--json-annotation]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the C++ classes to. Required.
+- `--namespace`: (optional) The namespace to use in the C++ classes.
+- `--json-annotation`: (optional) Include JSON serialization support (default: true).
+
+Conversion notes:
+
+- The tool generates C++ classes from JSON Structure schemas. Each object type in the JSON Structure schema is converted to a C++ class.
+- The fields of the object are mapped to properties in the C++ class. Nested objects are mapped to nested classes.
+- The tool supports all JSON Structure Core types including primitives (string, number, boolean), extended types (int8-128, uint8-128, float, double, decimal, binary, date, datetime, time, duration, uuid, uri), and compound types (object, array, set, map, tuple, choice).
+- JSON Structure-specific features are supported including $ref type references, namespaces, definitions, and container type aliases.
+- The generated code includes CMake build files and vcpkg dependency management for easy integration.
 
 ### Convert Avrotize Schema to Datapackage schema
 
