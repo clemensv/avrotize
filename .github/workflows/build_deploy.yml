@@ -14,6 +14,31 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group:
+          - name: "Avro to C++/C#"
+            pattern: "test/test_avrotocpp.py test/test_avrotocsharp.py"
+          - name: "Avro to Go/Java/JS"
+            pattern: "test/test_avrotogo.py test/test_avrotojava.py test/test_avrotojs.py"
+          - name: "Avro to Python/Rust/TS"
+            pattern: "test/test_avrotopython.py test/test_avrotorust.py test/test_avrotots.py"
+          - name: "Avro to Other Formats"
+            pattern: "test/test_avrotodatapackage.py test/test_avrotodb.py test/test_avrotographql.py test/test_avrotoiceberg.py test/test_avrotojsons.py test/test_avrotojstruct.py test/test_avrotokusto.py test/test_avrotomd.py test/test_avrotoparquet.py test/test_avrotoproto.py test/test_avrotoxsd.py"
+          - name: "Structure to C++/C#"
+            pattern: "test/test_structuretocpp.py test/test_structuretocsharp.py"
+          - name: "Structure to Go/Python"
+            pattern: "test/test_structuretogo.py test/test_structuretopython.py"
+          - name: "Structure to Rust/TS"
+            pattern: "test/test_structuretorust.py test/test_structuretots.py"
+          - name: "Structure to Other Formats"
+            pattern: "test/test_structuretocsv.py test/test_structuretodatapackage.py test/test_structuretoiceberg.py test/test_structuretojsons.py test/test_structuretomd.py test/test_structuretoproto.py test/test_structuretoxsd.py"
+          - name: "Format to Avro"
+            pattern: "test/test_asn1toavro.py test/test_jsontoavro.py test/test_jstructtoavro.py test/test_kstructtoavro.py test/test_parquettoavro.py test/test_prototoavro.py test/test_xsdtoavro.py"
+          - name: "JSON Structure & Main"
+            pattern: "test/test_jsonstostructure.py test/test_main.py test/test_struct_to_schema_references.py"
+    name: "Tests: ${{ matrix.test-group.name }}"
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -46,14 +71,15 @@ jobs:
         python -m build --sdist --wheel --outdir dist
     - name: Install dependencies
       run: pip install pytest pytest-md pytest-emoji
-    - name: Run pytest
+    - name: Run pytest for ${{ matrix.test-group.name }}
       uses: pavelzw/pytest-action@v2
       with:
         verbose: true
         emoji: true
         job-summary: false
         click-to-expand: true
-        report-title: 'Test Report'
+        report-title: 'Test Report: ${{ matrix.test-group.name }}'
+        custom-pytest: 'pytest ${{ matrix.test-group.pattern }}'
 
   deploy:
     needs: test
