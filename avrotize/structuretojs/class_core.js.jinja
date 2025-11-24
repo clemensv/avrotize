@@ -1,0 +1,33 @@
+{%- for import_type, import_path in imports.items() %}
+const {{ import_type }} = require('{{ import_path }}');
+{%- endfor %}
+{%- if imports %}
+
+{%- endif %}
+/**
+ * {{ docstring }}
+ */
+class {{ class_name }}{%- if base_class_name %} extends {{ base_class_name }}{%- endif %} {
+{%- if static_fields %}
+{%- for field in static_fields %}
+{%- if field.docstring %}
+    /** {{ field.docstring }} */
+{%- endif %}
+    static {{ field.name }} = {{ field.value }};
+{%- endfor %}
+{%- endif %}
+
+    constructor() {
+{%- if base_class_name %}
+        super();
+{%- endif %}
+{%- for field in fields %}
+{%- if field.docstring %}
+        /** {{ field.docstring }} */
+{%- endif %}
+        this.{{ field.name }} = {{ field.default_value }};
+{%- endfor %}
+    }
+}
+
+module.exports = {{ class_name }};

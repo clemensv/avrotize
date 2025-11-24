@@ -79,6 +79,7 @@ Generate code from JSON Structure:
 
 - [`avrotize s2cpp`](#convert-json-structure-to-c-classes) - Generate C++ code from JSON Structure schema.
 - [`avrotize s2cs`](#convert-json-structure-to-c-classes) - Generate C# code from JSON Structure schema.
+- [`avrotize s2js`](#convert-json-structure-to-javascript-classes) - Generate JavaScript code from JSON Structure schema.
 - [`avrotize s2py`](#convert-json-structure-to-python-classes) - Generate Python code from JSON Structure schema.
 - [`avrotize s2rust`](#convert-json-structure-to-rust-classes) - Generate Rust code from JSON Structure schema.
 - [`avrotize s2ts`](#convert-json-structure-to-typescript-classes) - Generate TypeScript code from JSON Structure schema.
@@ -1099,6 +1100,29 @@ Conversion notes:
 - Validation constraints (maxLength, minLength, pattern, minimum, maximum, precision, scale) are preserved in the CSV schema.
 - Enum and const keywords are supported and preserved in the output.
 - JSON Structure-specific features like `$ref`, `$extends`, definitions, and namespaces are resolved during conversion.
+
+### Convert JSON Structure to JavaScript classes
+
+```bash
+avrotize s2js <path_to_structure_schema_file> --out <output_directory> [--package <package_name>] [--avro-annotation]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the JavaScript classes to. Required.
+- `--package`: (optional) The package name to use in the JavaScript classes.
+- `--avro-annotation`: (optional) Add Avro binary serialization support with embedded schema.
+
+Conversion notes:
+
+- The tool generates JavaScript classes from the JSON Structure schema. Each object type in the JSON Structure schema is converted to a JavaScript class.
+- The fields of the object are mapped to properties in the JavaScript class. Nested objects are mapped to nested classes.
+- JSON Structure-specific features are supported:
+  - **Primitive types**: All JSON Structure primitive types (string, number, boolean, int8-128, uint8-128, float types, decimal, binary, etc.) are mapped to appropriate JavaScript types.
+  - **Temporal types**: date, time, datetime, timestamp, duration, uuid types are supported.
+  - **Complex types**: object, array, set, map types are fully supported.
+  - **Enums**: Mapped to JavaScript frozen objects.
 
 ### Convert JSON Structure to Protocol Buffers
 

@@ -56,6 +56,8 @@ _mappings = {
     "convert_avro_to_rust": (f"{mod}.avrotorust", "convert_avro_to_rust"),
     "convert_avro_schema_to_rust": (f"{mod}.avrotorust", "convert_avro_schema_to_rust"),
     "convert_avro_to_datapackage": (f"{mod}.avrotodatapackage", "convert_avro_to_datapackage"),
+    "convert_structure_to_javascript": (f"{mod}.structuretojs", "convert_structure_to_javascript"),
+    "convert_structure_schema_to_javascript": (f"{mod}.structuretojs", "convert_structure_schema_to_javascript"),
 }
 
 _lazy_loader = LazyLoader(_mappings)
