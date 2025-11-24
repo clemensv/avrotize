@@ -836,6 +836,66 @@
     ]
   },
   {
+    "command": "struct2sql",
+    "description": "Convert JSON Structure schema to SQL schema",
+    "group": "5_SQL",
+    "function": {
+      "name": "avrotize.structuretodb.convert_structure_to_sql",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "dbscript_file_path": "output_file_path",
+        "db_dialect": "args.dialect",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+      }
+    },
+    "extensions": [
+      ".jstruct",
+      ".struct.json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the SQL table",
+        "required": false
+      },
+      {
+        "name": "--dialect",
+        "type": "str",
+        "help": "SQL dialect (database type)",
+        "choices": [
+          "mysql",
+          "mariadb",
+          "postgres",
+          "sqlserver",
+          "oracle",
+          "sqlite",
+          "bigquery",
+          "snowflake",
+          "redshift",
+          "db2"
+        ],
+        "required": true
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns to the SQL table",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.sql",
+    "prompts": []
+  },
+  {
     "command": "a2mongo",
     "description": "Convert Avrotize schema to MongoDB schema",
     "group": "6_NoSQL",
@@ -2474,6 +2534,48 @@
         "default": false
       }
     ]
+  },
+  {
+    "command": "struct2cassandra",
+    "description": "Convert JSON Structure schema to Cassandra schema",
+    "group": "5_SQL",
+    "function": {
+      "name": "avrotize.structuretodb.convert_structure_to_sql",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "dbscript_file_path": "output_file_path",
+        "db_dialect": "cassandra",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+      }
+    },
+    "extensions": [
+      ".jstruct",
+      ".struct.json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Cassandra schema file",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.cql",
+    "prompts": []
   },
   {
     "command": "a2dynamodb",

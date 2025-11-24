@@ -42,11 +42,13 @@ Converting from Avrotize Schema:
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
 - [`avrotize s2k`](#convert-json-structure-schema-to-kusto-table-declaration) - Convert JSON Structure Schema to Kusto table definition.
 - [`avrotize a2sql`](#convert-avrotize-schema-to-sql-table-definition) - Convert Avrotize Schema to SQL table definition.
+- [`avrotize struct2sql`](#convert-json-structure-schema-to-sql-schema) - Convert JSON Structure Schema to SQL table definition.
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
 - [`avrotize s2ib`](#convert-json-structure-to-iceberg-schema) - Convert JSON Structure to Iceberg schema.
 - [`avrotize a2mongo`](#convert-avrotize-schema-to-mongodb-schema) - Convert Avrotize Schema to MongoDB schema.
 - [`avrotize a2cassandra`](#convert-avrotize-schema-to-cassandra-schema) - Convert Avrotize Schema to Cassandra schema.
+- [`avrotize struct2cassandra`](#convert-json-structure-schema-to-cassandra-schema) - Convert JSON Structure Schema to Cassandra schema.
 - [`avrotize a2es`](#convert-avrotize-schema-to-elasticsearch-schema) - Convert Avrotize Schema to Elasticsearch schema.
 - [`avrotize a2dynamodb`](#convert-avrotize-schema-to-dynamodb-schema) - Convert Avrotize Schema to DynamoDB schema.
 - [`avrotize a2cosmos`](#convert-avrotize-schema-to-cosmosdb-schema) - Convert Avrotize Schema to CosmosDB schema.
@@ -430,6 +432,31 @@ Parameters:
 
 For detailed conversion rules and type mappings for each SQL dialect, refer to the [SQL Conversion Notes](sqlcodegen.md) document.
 
+### Convert JSON Structure Schema to SQL Schema
+
+```bash
+avrotize struct2sql [input] --out <path_to_sql_script> --dialect <dialect> [--emit-cloudevents-columns]
+```
+
+Parameters:
+
+- `input`: The path to the JSON Structure schema file to be converted (or read from stdin if omitted).
+- `--out`: The path to the SQL script file to write the conversion result to.
+- `--dialect`: The SQL dialect (database type) to target. Supported dialects include:
+  - `mysql`, `mariadb`, `postgres`, `sqlserver`, `oracle`, `sqlite`, `bigquery`, `snowflake`, `redshift`, `db2`
+- `--emit-cloudevents-columns`: (Optional) Add CloudEvents columns to the SQL table.
+
+Conversion notes:
+
+- The tool converts JSON Structure schemas to SQL DDL statements for various database dialects.
+- JSON Structure primitive types (string, int8-128, uint8-128, float, double, decimal, binary, date, datetime, uuid, etc.) are mapped to appropriate SQL types for each dialect.
+- Compound types (array, set, map, object, choice, tuple) are typically mapped to JSON/JSONB columns or equivalent in the target database.
+- Required properties from the JSON Structure schema become non-nullable columns and are used for primary keys.
+- The `namespace` and `name` properties from the JSON Structure schema are used to construct table names.
+- Type annotations like `maxLength`, `precision`, and `scale` are preserved in column comments.
+
+For detailed conversion rules and type mappings for each SQL dialect when converting from JSON Structure, refer to the [SQL Conversion Notes](sqlcodegen.md) document.
+
 ### Convert Avrotize Schema to MongoDB schema
 
 ```bash
@@ -458,6 +485,27 @@ avrotize a2cassandra [input] --out <output_directory> [--emit-cloudevents-column
 - `input`: Path to the Avrotize schema file (or read from stdin if omitted).
 - `--out`: Output path for the Cassandra schema (required).
 - `--emit-cloudevents-columns`: Add CloudEvents columns to the Cassandra schema (optional, default: false).
+
+Refer to the detailed conversion notes for Cassandra in the [NoSQL Conversion Notes](nosqlcodegen.md).
+
+### Convert JSON Structure Schema to Cassandra Schema
+
+```bash
+avrotize struct2cassandra [input] --out <output_file> [--emit-cloudevents-columns]
+```
+
+Parameters:
+
+- `input`: Path to the JSON Structure schema file (or read from stdin if omitted).
+- `--out`: Output path for the Cassandra CQL schema file (required).
+- `--emit-cloudevents-columns`: Add CloudEvents columns to the Cassandra schema (optional, default: false).
+
+Conversion notes:
+
+- The tool converts JSON Structure schemas to Cassandra CQL DDL statements.
+- JSON Structure primitive types are mapped to appropriate Cassandra types (int32 → int, string → text, uuid → uuid, etc.).
+- Required properties are used to construct the PRIMARY KEY for the table.
+- Complex types (array, map, object) are stored as text columns in Cassandra.
 
 Refer to the detailed conversion notes for Cassandra in the [NoSQL Conversion Notes](nosqlcodegen.md).
 
