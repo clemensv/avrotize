@@ -1,0 +1,84 @@
+/**
+ * Test suite for {{ class_name }}
+ */
+
+const {{ class_name }} = require('../src/{{ class_path }}');
+{%- for import_type, import_path in test_imports.items() %}
+const {{ import_type }} = require('{{ import_path }}');
+{%- endfor %}
+
+/**
+ * Create an instance of {{ class_name }} for testing
+ * @returns {​{ class_name }​} Test instance
+ */
+function createInstance() {
+    const instance = new {{ class_name }}();
+    {%- for field in fields %}
+    instance.{{ field.name }} = {{ field.test_value }};
+    {%- endfor %}
+    return instance;
+}
+
+/**
+ * Test instantiation
+ */
+function testInstantiation() {
+    const instance = createInstance();
+    console.log('✓ {{ class_name }} instantiated successfully');
+    return instance;
+}
+
+/**
+ * Test field assignments and getters
+ */
+function testFields() {
+    const instance = createInstance();
+    {%- for field in fields %}
+    if (instance.{{ field.name }} === undefined && {{ field.test_value }} !== undefined) {
+        throw new Error('Field {{ field.name }} should be defined');
+    }
+    {%- endfor %}
+    console.log('✓ All fields in {{ class_name }} are accessible');
+}
+
+/**
+ * Test JSON serialization roundtrip
+ */
+function testJsonRoundtrip() {
+    const instance = createInstance();
+    const json = JSON.stringify(instance);
+    const parsed = JSON.parse(json);
+    
+    // Verify all fields are serialized
+    {%- for field in fields %}
+    if (parsed.{{ field.name }} === undefined && instance.{{ field.name }} !== undefined) {
+        throw new Error('Field {{ field.name }} was not serialized');
+    }
+    {%- endfor %}
+    
+    console.log('✓ {{ class_name }} JSON serialization roundtrip successful');
+}
+
+/**
+ * Run all tests
+ */
+function runTests() {
+    try {
+        testInstantiation();
+        testFields();
+        testJsonRoundtrip();
+        console.log('✓ All tests passed for {{ class_name }}');
+        return true;
+    } catch (error) {
+        console.error('✗ Test failed for {{ class_name }}:', error.message);
+        return false;
+    }
+}
+
+// Run tests if executed directly
+if (require.main === module) {
+    const success = runTests();
+    process.exit(success ? 0 : 1);
+}
+
+module.exports = { createInstance, runTests };
