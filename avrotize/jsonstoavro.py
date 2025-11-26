@@ -87,6 +87,194 @@ class JsonToAvroConverter:
                 return True
         return False
 
+    def detect_discriminated_union(self, json_type: dict):
+        """
+        Detect if a JSON schema is a discriminated union pattern using allOf with if/then conditionals.
+        
+        A discriminated union pattern consists of:
+        - A base schema with a discriminator field (usually 'type') with an enum
+        - An allOf array containing if/then conditionals that add fields based on discriminator value
+        
+        Parameters:
+        json_type (dict): The JSON schema object to check
+        
+        Returns:
+        list | None: List of discriminator values if pattern detected, None otherwise
+        """
+        if not isinstance(json_type, dict) or 'allOf' not in json_type:
+            return None
+        
+        # Check for discriminator field with enum values
+        properties = json_type.get('properties', {})
+        if 'type' not in properties or 'enum' not in properties.get('type', {}):
+            return None
+        
+        discriminator_values = properties['type']['enum']
+        
+        # Check if allOf contains if/then conditionals
+        has_if_then = any(
+            isinstance(item, dict) and 'if' in item and 'then' in item 
+            for item in json_type['allOf']
+        )
+        
+        if has_if_then and len(discriminator_values) > 0:
+            return discriminator_values
+        
+        return None
+
+    def handle_inline_conditional_schema(self, json_type: dict) -> Tuple[bool, dict]:
+        """
+        Handle inline if/then/else conditional schemas by converting them to appropriate structures.
+        
+        Supports the following patterns:
+        1. Type-based conditional: if {properties: {type: {enum: [X]}}}, then {...}, else {...}
+           - Converted to oneOf with discriminated variants
+        2. Field presence conditional: if {properties: {field: {...}}, required: [field]}
+           - Merged into comprehensive type (Avro handles optional fields naturally)
+        
+        Parameters:
+        json_type (dict): The JSON schema object to process
+        
+        Returns:
+        Tuple[bool, dict]: (was_handled, modified_json_type)
+        """
+        if not isinstance(json_type, dict) or 'if' not in json_type:
+            return (False, json_type)
+        
+        if_clause = json_type.get('if', {})
+        then_clause = json_type.get('then', {})
+        else_clause = json_type.get('else', None)
+        
+        # Check for type-based discriminator pattern
+        # if: {properties: {type: {enum: ["X"]}}}
+        if (isinstance(if_clause, dict) and 
+            'properties' in if_clause and
+            'type' in if_clause['properties']):
+            
+            type_prop = if_clause['properties']['type']
+            if isinstance(type_prop, dict) and 'enum' in type_prop:
+                # This is a type-based conditional - convert to oneOf
+                return self._convert_type_conditional_to_oneof(json_type, if_clause, then_clause, else_clause)
+        
+        # Check for field presence pattern
+        # if: {properties: {field: {...}}, required: [field]}
+        if (isinstance(if_clause, dict) and 
+            'properties' in if_clause and
+            'required' in if_clause):
+            # This is a field presence conditional - merge all branches
+            return self._merge_conditional_branches(json_type, then_clause, else_clause)
+        
+        # Unsupported pattern
+        return (False, json_type)
+    
+    def _convert_type_conditional_to_oneof(self, json_type: dict, if_clause: dict, then_clause: dict, else_clause: dict | None) -> Tuple[bool, dict]:
+        """
+        Convert a type-based conditional schema to oneOf structure.
+        
+        Example:
+        Input: {type: object, properties: {type: {enum: [image, host]}}, if: {...}, then: {...}, else: {...}}
+        Output: {oneOf: [then_merged_with_base, else_merged_with_base]}
+        """
+        # Create a base type without the conditional parts
+        base_type = {}
+        for key, value in json_type.items():
+            if key not in ('if', 'then', 'else'):
+                base_type[key] = copy.deepcopy(value)
+        
+        oneof_variants = []
+        
+        # Process then clause
+        if then_clause:
+            then_variant = self._merge_conditional_branch(base_type, then_clause)
+            oneof_variants.append(then_variant)
+        
+        # Process else clause (which may contain nested if/then/else)
+        if else_clause:
+            if 'if' in else_clause:
+                # Recursive handling of nested conditional
+                handled, processed_else = self.handle_inline_conditional_schema(else_clause)
+                if handled and 'oneOf' in processed_else:
+                    # Flatten nested oneOf
+                    for variant in processed_else['oneOf']:
+                        merged = self._merge_conditional_branch(base_type, variant)
+                        oneof_variants.append(merged)
+                else:
+                    else_variant = self._merge_conditional_branch(base_type, else_clause)
+                    oneof_variants.append(else_variant)
+            else:
+                else_variant = self._merge_conditional_branch(base_type, else_clause)
+                oneof_variants.append(else_variant)
+        
+        if len(oneof_variants) > 0:
+            result = copy.deepcopy(base_type)
+            # Remove properties since they'll be in the variants
+            if 'properties' in result:
+                del result['properties']
+            if 'additionalProperties' in result:
+                del result['additionalProperties']
+            if 'required' in result:
+                del result['required']
+            result['oneOf'] = oneof_variants
+            return (True, result)
+        
+        return (False, json_type)
+    
+    def _merge_conditional_branches(self, json_type: dict, then_clause: dict, else_clause: dict | None) -> Tuple[bool, dict]:
+        """
+        Merge conditional branches for field presence patterns.
+        Avro handles optional fields naturally, so we can merge all properties.
+        """
+        result = {}
+        for key, value in json_type.items():
+            if key not in ('if', 'then', 'else'):
+                result[key] = copy.deepcopy(value)
+        
+        # Merge properties from then clause
+        if then_clause and 'properties' in then_clause:
+            if 'properties' not in result:
+                result['properties'] = {}
+            for prop_name, prop_def in then_clause['properties'].items():
+                if prop_name not in result['properties']:
+                    result['properties'][prop_name] = copy.deepcopy(prop_def)
+        
+        # Merge properties from else clause
+        if else_clause and 'properties' in else_clause:
+            if 'properties' not in result:
+                result['properties'] = {}
+            for prop_name, prop_def in else_clause['properties'].items():
+                if prop_name not in result['properties']:
+                    result['properties'][prop_name] = copy.deepcopy(prop_def)
+        
+        return (True, result)
+    
+    def _merge_conditional_branch(self, base: dict, branch: dict) -> dict:
+        """Merge a conditional branch with the base type."""
+        result = copy.deepcopy(base)
+        
+        if not branch:
+            return result
+        
+        # Merge properties
+        if 'properties' in branch:
+            if 'properties' not in result:
+                result['properties'] = {}
+            for prop_name, prop_def in branch['properties'].items():
+                result['properties'][prop_name] = copy.deepcopy(prop_def)
+        
+        # Merge additionalProperties
+        if 'additionalProperties' in branch:
+            result['additionalProperties'] = branch['additionalProperties']
+        
+        # Merge required (union of required fields)
+        if 'required' in branch:
+            if 'required' not in result:
+                result['required'] = []
+            for req in branch['required']:
+                if req not in result['required']:
+                    result['required'].append(req)
+        
+        return result
+
     def flatten_union(self, type_list: list) -> list:
         """
         Flatten the list of types in a union into a single list.
@@ -367,7 +555,13 @@ class JsonToAvroConverter:
         """
         if isinstance(json_primitive, list):
             if enum:
-                json_primitive = 'string'
+                # Handle mixed-type enums properly using the dedicated helper
+                return self.create_enum_for_mixed_types(
+                    field_name + '_1',
+                    self.compose_namespace(namespace, record_name + '_types'),
+                    enum,
+                    json_primitive
+                )
             else:
                 union = []
                 for item in json_primitive:
@@ -558,12 +752,34 @@ class JsonToAvroConverter:
             if isinstance(json_type, dict):
 
                 json_object_type = json_type.get('type')
+                # Check if the type is already an Avro schema (e.g., shared discriminator enum)
+                # This happens when a discriminated union property was pre-set with an Avro type
+                if isinstance(json_object_type, dict) and 'type' in json_object_type and json_object_type.get('type') in ['enum', 'record', 'fixed', 'array', 'map']:
+                    return self.post_check_avro_type(dependencies, json_object_type)
                 if isinstance(json_object_type, list):
                     # if the 'type' is a list, we map it back to a string
                     # if the list has only one item or if the list has two items
                     # and one of them is 'null'
                     # otherwise, we will construct and inject a oneOf type
                     # and split the type
+                    
+                    # Special case: if we have a mixed-type enum (e.g., type: ["string", "integer"] with enum),
+                    # handle it directly here to avoid duplicate processing
+                    if 'enum' in json_type and any(t in json_object_type for t in ['string', 'integer', 'int']):
+                        has_null = 'null' in json_object_type
+                        avro_type = self.create_enum_for_mixed_types(
+                            local_name + '_1',
+                            self.compose_namespace(namespace, record_name + '_types'),
+                            json_type['enum'],
+                            json_object_type
+                        )
+                        if 'description' in json_type and isinstance(avro_type, dict):
+                            avro_type['doc'] = json_type['description']
+                        elif 'description' in json_type and isinstance(avro_type, list):
+                            # For unions, we can't set doc directly - it will be set on the field
+                            pass
+                        return self.post_check_avro_type(dependencies, avro_type)
+                    
                     if len(json_object_type) == 1:
                         json_object_type = json_object_type[0]
                     elif len(json_object_type) == 2 and 'null' in json_object_type:
@@ -583,18 +799,35 @@ class JsonToAvroConverter:
                             json_type['oneOf'] = oneof
 
                 if 'if' in json_type or 'then' in json_type or 'else' in json_type or 'dependentSchemas' in json_type or 'dependentRequired' in json_type:
-                    print(
-                        'WARNING: Conditional schema is not supported and will be ignored.')
+                    # Try to handle the conditional schema pattern
+                    conditional_handled = False
                     if 'if' in json_type:
-                        del json_type['if']
-                    if 'then' in json_type:
-                        del json_type['then']
-                    if 'else' in json_type:
-                        del json_type['else']
-                    if 'dependentSchemas' in json_type:
-                        del json_type['dependentSchemas']
-                    if 'dependentRequired' in json_type:
-                        del json_type['dependentRequired']
+                        conditional_handled, json_type = self.handle_inline_conditional_schema(json_type)
+                    
+                    if not conditional_handled:
+                        # Only warn for patterns we can't handle
+                        remaining_conditionals = []
+                        if 'if' in json_type:
+                            remaining_conditionals.append('if/then/else')
+                        if 'dependentSchemas' in json_type:
+                            remaining_conditionals.append('dependentSchemas')
+                        if 'dependentRequired' in json_type:
+                            remaining_conditionals.append('dependentRequired')
+                        
+                        if remaining_conditionals:
+                            print(
+                                f'WARNING: Conditional schema pattern ({", ".join(remaining_conditionals)}) is not fully supported and will be simplified.')
+                        
+                        if 'if' in json_type:
+                            del json_type['if']
+                        if 'then' in json_type:
+                            del json_type['then']
+                        if 'else' in json_type:
+                            del json_type['else']
+                        if 'dependentSchemas' in json_type:
+                            del json_type['dependentSchemas']
+                        if 'dependentRequired' in json_type:
+                            del json_type['dependentRequired']
 
                 base_type = json_type.copy()
                 if 'oneOf' in base_type:
@@ -606,20 +839,101 @@ class JsonToAvroConverter:
                 json_types = []
 
                 if 'allOf' in json_type:
-                    # if the json type is an allOf, we merge all types into one
-                    # this may be lossy if aspects of the types overlap but differ
-                    type_list = [copy.deepcopy(base_type)]
-                    for allof_option in json_type['allOf']:
-                        while isinstance(allof_option, dict) and '$ref' in allof_option:
-                            resolved_json_type, resolved_schema = self.resolve_reference(
-                                allof_option, base_uri, json_schema)
-                            del allof_option['$ref']
-                            allof_option = self.merge_json_schemas(
-                                [allof_option, resolved_json_type])
-                        type_list.append(copy.deepcopy(allof_option))
-                    merged_type = self.merge_json_schemas(
-                        type_list, intersect=False)
-                    json_types.append(merged_type)
+                    # Check if this is a discriminated union pattern
+                    discriminated_union_types = self.detect_discriminated_union(json_type)
+                    
+                    if discriminated_union_types:
+                        # Generate separate types for each discriminated variant
+                        base_props = json_type.get('properties', {})
+                        discriminator_field = 'type'  # The discriminator field
+                        discriminator_enum = base_props.get(discriminator_field, {}).get('enum', [])
+                        
+                        # Create a shared enum type for the discriminator field that all variants will reference
+                        shared_discriminator_enum = None
+                        if discriminator_enum:
+                            shared_discriminator_enum = self.create_enum_type(
+                                discriminator_field,
+                                self.compose_namespace(namespace, record_name + '_types'),
+                                discriminator_enum
+                            )
+                        
+                        for allof_item in json_type['allOf']:
+                            if not (isinstance(allof_item, dict) and 'if' in allof_item and 'then' in allof_item):
+                                continue
+                            
+                            # Extract the discriminator value from the if clause
+                            if_clause = allof_item['if']
+                            discriminator_value = None
+                            if (isinstance(if_clause, dict) and 
+                                'properties' in if_clause and 
+                                discriminator_field in if_clause['properties']):
+                                disc_prop = if_clause['properties'][discriminator_field]
+                                if 'enum' in disc_prop and len(disc_prop['enum']) > 0:
+                                    discriminator_value = disc_prop['enum'][0]
+                            
+                            if not discriminator_value:
+                                continue
+                            
+                            # Resolve the then clause reference
+                            then_clause = allof_item['then']
+                            if isinstance(then_clause, dict) and '$ref' in then_clause:
+                                resolved_type, _ = self.resolve_reference(then_clause, base_uri, json_schema)
+                                
+                                # Create a new type combining base properties and resolved type
+                                variant_type = copy.deepcopy(resolved_type)
+                                
+                                # Set the variant type name to the discriminator value
+                                variant_type['title'] = discriminator_value
+                                
+                                # Preserve description from base type if variant doesn't have one
+                                if 'description' not in variant_type and 'description' in base_type:
+                                    variant_type['description'] = base_type['description']
+                                
+                                # Merge base properties into the variant
+                                if 'properties' not in variant_type:
+                                    variant_type['properties'] = {}
+                                
+                                for prop_name, prop_def in base_props.items():
+                                    if prop_name not in variant_type['properties']:
+                                        # For non-discriminator fields, copy the property definition
+                                        if prop_name != discriminator_field:
+                                            variant_type['properties'][prop_name] = copy.deepcopy(prop_def)
+                                
+                                # Set discriminator field to reference the shared enum type
+                                if shared_discriminator_enum:
+                                    variant_type['properties'][discriminator_field] = {
+                                        'type': shared_discriminator_enum,
+                                        'default': discriminator_value,
+                                        'const': discriminator_value,
+                                        'discriminator': True
+                                    }
+                                else:
+                                    # Fallback if no enum was found
+                                    variant_type['properties'][discriminator_field] = {
+                                        'type': 'string',
+                                        'default': discriminator_value,
+                                        'const': discriminator_value,
+                                        'discriminator': True
+                                    }
+                                
+                                # Add union annotation to indicate this is part of a discriminated union
+                                variant_type['union'] = record_name
+                                
+                                json_types.append(variant_type)
+                    else:
+                        # Original allOf merging logic for non-discriminated unions
+                        type_list = [copy.deepcopy(base_type)]
+                        for allof_option in json_type['allOf']:
+                            while isinstance(allof_option, dict) and '$ref' in allof_option:
+                                resolved_json_type, resolved_schema = self.resolve_reference(
+                                    allof_option, base_uri, json_schema)
+                                del allof_option['$ref']
+                                allof_option = self.merge_json_schemas(
+                                    [allof_option, resolved_json_type])
+                            type_list.append(copy.deepcopy(allof_option))
+                        merged_type = self.merge_json_schemas(
+                            type_list, intersect=False)
+                        json_types.append(merged_type)
 
                 if 'oneOf' in json_type:
                     # if the json type is a oneOf, we create a type union of all types
@@ -692,8 +1006,13 @@ class JsonToAvroConverter:
                                         continue
 
                                 subtype_deps: List[str] = []
-                                sub_field_name = avro_name(local_name + '_' + str(count)) if not isinstance(
-                                    json_type_option, dict) or not '$ref' in json_type_option else None
+                                # Use title from discriminated union if available, otherwise generate numbered name
+                                if isinstance(json_type_option, dict) and 'title' in json_type_option:
+                                    sub_field_name = avro_name(json_type_option['title'])
+                                elif not isinstance(json_type_option, dict) or not '$ref' in json_type_option:
+                                    sub_field_name = avro_name(local_name + '_' + str(count))
+                                else:
+                                    sub_field_name = None
                                 avro_subtype = self.json_type_to_avro_type(
                                     json_type_option, record_name, sub_field_name, namespace, subtype_deps, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                                 if not avro_subtype:
@@ -949,7 +1268,7 @@ class JsonToAvroConverter:
                                 [avro_type, self.create_array_type(generic_type())], avro_schema, '')
                     elif json_object_type and (json_object_type == 'object' or 'object' in json_object_type):
                         avro_record_type = self.json_schema_object_to_avro_record(
-                            local_name, json_type, namespace, json_schema, base_uri, avro_schema, record_stack)
+                            local_name, json_type, namespace, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                         if isinstance(avro_record_type, list):
                             for record_entry in avro_record_type:
                                 self.lift_dependencies_from_type(
@@ -958,16 +1277,44 @@ class JsonToAvroConverter:
                             'name', local_name) if isinstance(avro_type, dict) else local_name)
                         self.lift_dependencies_from_type(
                             avro_type, dependencies)
-                    elif 'enum' in json_type and (not 'type' in json_type or json_type['type'] == "string"):
-                        # we skip all enums that are not of implicit or explicit type 'string'
-                        enum = [avro_name(e) for e in json_type['enum'] if isinstance(
-                            e, str) and e != '']
-                        if len(enum) > 0:
-                            # if the enum ends up empty (only non-strings in the enum), we will skip it
-                            enum = list(set(enum))
-                            if len(enum) > 0:
-                                avro_type = self.create_enum_type(local_name, self.compose_namespace(
-                                    namespace, record_name + '_types'), enum)
+                    elif 'enum' in json_type:
+                        # Handle enums with proper type handling for mixed string/int enums
+                        enum_values = json_type['enum']
+                        schema_type = json_type.get('type', 'string')
+                        
+                        # For pure string enums with valid symbols, use simple enum without suffix
+                        string_values = [v for v in enum_values if isinstance(v, str) and v]
+                        int_values = [v for v in enum_values if isinstance(v, int)]
+                        
+                        if not int_values and string_values:
+                            # Pure string enum
+                            if not self.enum_symbols_need_string_fallback(string_values):
+                                # Simple case: valid symbols, just create enum
+                                avro_type = self.create_enum_type(
+                                    local_name,
+                                    self.compose_namespace(namespace, record_name + '_types'),
+                                    string_values
+                                )
+                            else:
+                                # Symbols need prefixing, use helper with string fallback
+                                avro_type = self.create_enum_for_mixed_types(
+                                    local_name,
+                                    self.compose_namespace(namespace, record_name + '_types'),
+                                    enum_values,
+                                    schema_type
+                                )
+                                # Register any embedded enum types in the union
+                                self.register_embedded_types_in_union(avro_type, avro_schema, dependencies)
+                        else:
+                            # Mixed or int-only enum, use helper
+                            avro_type = self.create_enum_for_mixed_types(
+                                local_name + '_1',
+                                self.compose_namespace(namespace, record_name + '_types'),
+                                enum_values,
+                                schema_type
+                            )
+                            # Register any embedded enum types in the union
+                            self.register_embedded_types_in_union(avro_type, avro_schema, dependencies)
                     else:
                         avro_type = self.json_schema_primitive_to_avro_type(json_object_type, json_type.get(
                             'format'), json_type.get('enum'), record_name, field_name, namespace, dependencies)
@@ -1027,6 +1374,23 @@ class JsonToAvroConverter:
                 return False
         else:
             return True
+
+    def register_embedded_types_in_union(self, avro_type, avro_schema, dependencies):
+        """
+        Register any embedded named types (enum, record, fixed) found within a union type.
+        This ensures that enum types created by create_enum_for_mixed_types are properly
+        registered in the schema and can be referenced by name.
+        """
+        if isinstance(avro_type, list):
+            for i, member in enumerate(avro_type):
+                if isinstance(member, dict) and 'type' in member and member['type'] in ['enum', 'record', 'fixed']:
+                    # Register the embedded type
+                    if self.register_type(avro_schema, member):
+                        # Replace the inline definition with a reference
+                        full_name = self.get_qualified_name(member)
+                        avro_type[i] = full_name
+                        if full_name not in dependencies:
+                            dependencies.append(full_name)
 
     def has_composition_keywords(self, json_object: dict) -> bool:
         """Check if the JSON object has any of the combining keywords: allOf, oneOf, anyOf."""
@@ -1089,6 +1453,102 @@ class JsonToAvroConverter:
             'symbols': [avro_name(s) for s in symbols]
         }
 
+    def enum_symbols_need_string_fallback(self, symbols: list) -> bool:
+        """
+        Check if any enum symbols will be transformed by avro_name().
+        If symbols are prefixed (e.g., "1" -> "_1"), we need a string fallback
+        in the union to handle original JSON values during deserialization.
+        """
+        for s in symbols:
+            if isinstance(s, str) and s:
+                if avro_name(s) != s:
+                    return True
+        return False
+
+    def create_enum_for_mixed_types(self, name: str, namespace: str, enum_values: list, json_types: list) -> dict | list:
+        """
+        Create an Avro type for enums with mixed or special type requirements.
+        
+        Handles:
+        - Pure string enum with valid symbols -> enum
+        - Pure string enum with prefixed symbols -> [enum, string]
+        - Pure int enum -> int (with doc hint about allowed values)
+        - Mixed string/int enum -> [enum, string, int]
+        
+        Args:
+            name: The enum type name
+            namespace: The namespace for the enum
+            enum_values: The list of enum values from JSON Schema
+            json_types: The JSON Schema type(s), e.g., "string", "integer", or ["string", "integer"]
+        
+        Returns:
+            Avro type: either an enum dict, a primitive string, or a union list
+        """
+        if not isinstance(json_types, list):
+            json_types = [json_types]
+        
+        # Normalize type names
+        has_string = 'string' in json_types
+        has_int = 'integer' in json_types or 'int' in json_types
+        has_null = 'null' in json_types
+        
+        # Separate string and int enum values
+        string_values = [v for v in enum_values if isinstance(v, str) and v]
+        int_values = [v for v in enum_values if isinstance(v, int)]
+        
+        # Pure integer enum case
+        if has_int and not has_string and not string_values:
+            # Just use int - no enum type needed for pure int enums
+            # The doc will contain the allowed values hint
+            result = 'int'
+            if has_null:
+                result = ['null', result]
+            return result
+        
+        # Build the enum from string values (or string representations of all values)
+        if string_values:
+            enum_symbols = list(set(string_values))
+        else:
+            # No string values but has_string type - shouldn't happen normally
+            enum_symbols = []
+        
+        if not enum_symbols:
+            # No valid enum symbols, fall back to primitive types
+            union = []
+            if has_null:
+                union.append('null')
+            if has_string:
+                union.append('string')
+            if has_int:
+                union.append('int')
+            return union if len(union) > 1 else (union[0] if union else 'string')
+        
+        # Create the enum type
+        avro_enum = self.create_enum_type(name, namespace, enum_symbols)
+        
+        # Determine if we need additional types in union
+        needs_string_fallback = self.enum_symbols_need_string_fallback(enum_symbols)
+        
+        # Build the union
+        union = []
+        if has_null:
+            union.append('null')
+        union.append(avro_enum)
+        
+        # Add string fallback if symbols were prefixed OR if this is a mixed type enum
+        if needs_string_fallback or has_int:
+            union.append('string')
+        
+        # Add int if the schema allows integers
+        if has_int:
+            union.append('int')
+        
+        # Return enum directly if no union needed
+        if len(union) == 1:
+            return union[0]
+        
+        return union
+
     def create_array_type(self, items: list | dict | str) -> dict:
         """Create an Avro array type."""
         return {
@@ -1141,7 +1601,7 @@ class JsonToAvroConverter:
         """Get the qualified name of an Avro type."""
         return self.compose_namespace(avro_type.get('namespace', ''), avro_type.get('name', ''))
 
-    def json_schema_object_to_avro_record(self, name: str, json_object: dict, namespace: str, json_schema: dict, base_uri: str, avro_schema: list, record_stack: list) -> dict | list | str | None:
+    def json_schema_object_to_avro_record(self, name: str, json_object: dict, namespace: str, json_schema: dict, base_uri: str, avro_schema: list, record_stack: list, recursion_depth: int = 1) -> dict | list | str | None:
         """Convert a JSON schema object declaration to an Avro record."""
         dependencies: List[str] = []
         avro_type: list | dict | str = {}
@@ -1150,7 +1610,7 @@ class JsonToAvroConverter:
         if self.has_composition_keywords(json_object):
             # we will merge allOf, oneOf, anyOf into a union record type
             type = self.json_type_to_avro_type(
-                json_object, name, '', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)
+                json_object, name, '', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
             if isinstance(type, str):
                 # we are skipping references and primitives
                 return None
@@ -1186,7 +1646,7 @@ class JsonToAvroConverter:
                 f'WARN: Standalone array type {name} will be wrapped in a record')
             deps: List[str] = []
             array_type = self.json_type_to_avro_type(json_object, name, avro_name(
-                name), namespace, deps, json_schema, base_uri, avro_schema, record_stack)
+                name), namespace, deps, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
             avro_array = self.create_wrapper_record(
                 avro_name(name+'_wrapper'), self.utility_namespace, 'items', [], array_type)
             self.merge_description_into_doc(json_object, avro_array)
@@ -1206,6 +1666,9 @@ class JsonToAvroConverter:
                 namespace, record_stack[-1] + "_types")
         # at this point we have a record type
         avro_record = self.create_avro_record(record_name, namespace, [])
+        # Check if this record has a 'union' annotation from discriminated union pattern
+        if 'union' in json_object:
+            avro_record['union'] = json_object['union']
         # we need to prevent circular dependencies, so we will maintain a stack of the in-progress
         # records and will resolve the cycle as we go. if this record is already in the stack, we will
         # just return a reference to a record that contains this record
@@ -1236,6 +1699,7 @@ class JsonToAvroConverter:
                     const = None
                     default = None
                     description = None
+                    discriminator = None
                     for json_field_type in json_field_types:
                         # skip fields with an bad or empty type
                         if not isinstance(json_field_type, dict):
@@ -1249,9 +1713,11 @@ class JsonToAvroConverter:
                             default = default_value
                         # get the description from the field type
                         description = json_field_type.get('description', description)
+                        # check for discriminator annotation
+                        discriminator = json_field_type.get('discriminator', discriminator)
                         # convert the JSON-type field to an Avro-type field
                         avro_field_ref_type = avro_field_type = self.ensure_type(self.json_type_to_avro_type(
-                            json_field_type, record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack))
+                            json_field_type, record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1))
                         if isinstance(avro_field_type, list):
                             avro_field_type = self.flatten_union(
                                 avro_field_type)
@@ -1289,6 +1755,8 @@ class JsonToAvroConverter:
                         avro_field['default'] = default
                     if description:
                         avro_field['doc'] = description
+                    if discriminator:
+                        avro_field['discriminator'] = discriminator
                     field_type_list.append(avro_field_type)
                     avro_field_ref = {
                         'name': avro_name(field_name),
@@ -1310,7 +1778,7 @@ class JsonToAvroConverter:
                     # we don't have any fields, but we have an array type, so we create a record with an 'items' field
                     avro_record = self.create_array_type(
                         self.json_type_to_avro_type(
-                            json_object['items'], record_name, 'values', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)
+                            json_object['items'], record_name, 'values', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                         if 'items' in json_object
                         else generic_type())
                 else:
@@ -1324,7 +1792,7 @@ class JsonToAvroConverter:
                 for pattern_name, props in pattern_props.items():
                     deps = []
                     prop_type = self.ensure_type(self.json_type_to_avro_type(
-                        props, record_name, pattern_name, namespace, deps, json_schema, base_uri, avro_schema, record_stack))
+                        props, record_name, pattern_name, namespace, deps, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1))
                     if self.is_standalone_avro_type(prop_type):
                         self.lift_dependencies_from_type(prop_type, deps)
                         self.set_avro_type_value(
@@ -1350,7 +1818,7 @@ class JsonToAvroConverter:
                 additional_props = json_object['additionalProperties']
                 deps = []
                 values_type = self.json_type_to_avro_type(
-                    additional_props, record_name, record_name + '_extensions', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)
+                    additional_props, record_name, record_name + '_extensions', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                 if self.is_standalone_avro_type(values_type):
                     self.lift_dependencies_from_type(values_type, deps)
                     self.set_avro_type_value(
@@ -1457,11 +1925,12 @@ class JsonToAvroConverter:
                     if 'unmerged_types' in merge_result:
                         del merge_result['unmerged_types']
                 if isinstance(merge_result, list):
-                    # unmerged field containers have fields.
-                    self.set_avro_type_value(
-                        type, 'name', type['name'] + '_item')
+                    # unmerged field containers have fields - wrap the union in a record
+                    # Keep the original name since references expect it
                     self.set_avro_type_value(
                         type, 'fields', [{'name': 'value', 'type': merge_result}])
+                    if 'unmerged_types' in type:
+                        del type['unmerged_types']
                     merge_result = copy.deepcopy(type)
                 set_schema_node(find_fn, merge_result, avro_schema)
 

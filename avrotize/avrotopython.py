@@ -2,6 +2,7 @@
 
 # pylint: disable=line-too-long,too-many-instance-attributes
 
+import copy
 import json
 import os
 import re
@@ -257,8 +258,9 @@ class AvroToPython:
 
         # we are including a copy of the avro schema of this type. Since that may
         # depend on other types, we need to inline all references to other types
-        # into this schema
-        local_avro_schema = inline_avro_references(avro_schema.copy(), self.type_dict, '')
+        # into this schema. We use deepcopy to avoid mutating the original schema
+        # which may be shared with type_dict entries
+        local_avro_schema = inline_avro_references(copy.deepcopy(avro_schema), self.type_dict, '')
         avro_schema_json = json.dumps(local_avro_schema).replace('\\"', '\'').replace('"', '\\"')
         enum_types = []
         for import_type in import_types:

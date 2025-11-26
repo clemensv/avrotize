@@ -5,6 +5,7 @@ Common utility functions for Avrotize.
 # pylint: disable=too-many-arguments, too-many-locals, too-many-branches, too-many-statements, line-too-long
 
 from collections import defaultdict
+import copy
 import os
 import re
 import hashlib
@@ -698,6 +699,9 @@ def inline_avro_references(avro_schema, type_dict, current_namespace, tracker=No
         if 'type' in avro_schema and avro_schema['type'] in ['record', 'enum', 'fixed']:
             namespace = avro_schema.get('namespace', current_namespace)
             qualified_name = (namespace + '.' if namespace else '') + avro_schema['name']
+            # If this named type is already defined, return just the reference string
+            if qualified_name in defined_types:
+                return qualified_name
             defined_types.add(qualified_name)
 
         # Process record types
@@ -731,7 +735,8 @@ def inline_avro_references(avro_schema, type_dict, current_namespace, tracker=No
 
     elif avro_schema in type_dict and avro_schema not in tracker and avro_schema not in defined_types:
         # Inline the referenced schema if not already tracked and not defined in the current schema
-        inlined_schema = type_dict[avro_schema].copy()
+        # Use deepcopy to avoid mutating the original type_dict entries when modifying nested structures
+        inlined_schema = copy.deepcopy(type_dict[avro_schema])
         if isinstance(inlined_schema, dict) and not inlined_schema.get('namespace', None):
             inlined_schema['namespace'] = '.'.join(avro_schema.split('.')[:-1])
         inlined_schema = inline_avro_references(

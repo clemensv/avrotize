@@ -1,0 +1,212 @@
+package {{ package }};
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import static org.junit.jupiter.api.Assertions.*;
+
+{% if imports %}
+{% for import_stmt in imports %}
+{{ import_stmt }}
+{% endfor %}
+{% endif %}
+
+/**
+ * Test class for {{ class_name }}
+ */
+public class {{ test_class_name }} {
+    private {{ class_name }} instance;
+
+    /**
+     * Set up test instance
+     */
+    @BeforeEach
+    public void setUp() {
+        instance = createInstance();
+    }
+
+    /**
+     * Create instance of {{ class_name }}
+     */
+    public static {{ class_name }} createInstance() {
+        return {{ class_name }}.createTestInstance();
+    }
+
+    /**
+     * Testing Equals and GetHashCode - positive case
+     */
+    @Test
+    public void testEqualsAndHashCode_PositiveCase() {
+        {{ class_name }} instance1 = createInstance();
+        {{ class_name }} instance2 = createInstance();
+        
+        // Test equality
+        assertEquals(instance1, instance2, "Two instances with same values should be equal");
+        
+        // Test hash codes
+        assertEquals(instance1.hashCode(), instance2.hashCode(), 
+            "Equal instances should have equal hash codes");
+    }
+
+    /**
+     * Testing Equals and GetHashCode - negative case
+     */
+    @Test
+    public void testEqualsAndHashCode_NegativeCase() {
+        {{ class_name }} instance1 = createInstance();
+        {{ class_name }} instance2 = createInstance();
+        
+        {%- for field in fields if not field.is_const %}
+        {%- if loop.first %}
+        // Modify {{ field.field_name }} and verify inequality
+        {%- set base_type = field.base_type %}
+        {%- if base_type == "String" %}
+        instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : "test") + "_modified");
+        {%- elif base_type == "byte[]" %}
+        byte[] modifiedBytes = instance2.get{{ field.field_name | pascal }}();
+        if (modifiedBytes != null && modifiedBytes.length > 0) {
+            modifiedBytes = java.util.Arrays.copyOf(modifiedBytes, modifiedBytes.length);
+            modifiedBytes[0] = (byte)(modifiedBytes[0] + 1);
+        } else {
+            modifiedBytes = new byte[] { 0x00, 0x01, 0x02, 0x03 };
+        }
+        instance2.set{{ field.field_name | pascal }}(modifiedBytes);
+        {%- elif base_type in ["int", "Integer", "long", "Long", "short", "Short", "byte", "Byte"] %}
+        {%- if base_type in ["Integer", "Long", "Short", "Byte"] %}
+        instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : 0) + 1);
+        {%- else %}
+        instance2.set{{ field.field_name | pascal }}(instance2.get{{ field.field_name | pascal }}() + 1);
+        {%- endif %}
+        {%- elif base_type in ["float", "Float", "double", "Double"] %}
+        {%- if base_type in ["Float", "Double"] %}
+        instance2.set{{ field.field_name | pascal }}((instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : 0.0{{ "f" if base_type == "Float" else "" }}) + 1.0{{ "f" if base_type == "Float" else "" }});
+        {%- else %}
+        instance2.set{{ field.field_name | pascal }}(instance2.get{{ field.field_name | pascal }}() + 1.0{{ "f" if base_type == "float" else "" }});
+        {%- endif %}
+        {%- elif base_type in ["boolean", "Boolean"] %}
+        {%- if base_type == "Boolean" %}
+        instance2.set{{ field.field_name | pascal }}(!(instance2.get{{ field.field_name | pascal }}() != null ? instance2.get{{ field.field_name | pascal }}() : false));
+        {%- else %}
+        instance2.set{{ field.field_name | pascal }}(!instance2.get{{ field.field_name | pascal }}());
+        {%- endif %}
+        {%- elif base_type in ["List", "Set", "ArrayList", "HashSet", "LinkedList"] %}
+        // For collection types, add a dummy element to make them different
+        {%- if base_type in ["Set", "HashSet"] %}
+        java.util.Set tempSet = new java.util.HashSet(instance2.get{{ field.field_name | pascal }}());
+        tempSet.add(new Object());
+        instance2.set{{ field.field_name | pascal }}(tempSet);
+        {%- else %}
+        java.util.List tempList = new java.util.ArrayList(instance2.get{{ field.field_name | pascal }}());
+        tempList.add(new Object());
+        instance2.set{{ field.field_name | pascal }}(tempList);
+        {%- endif %}
+        {%- elif base_type in ["Map", "HashMap", "LinkedHashMap"] %}
+        // For map types, add a dummy entry to make them different
+        java.util.Map tempMap = new java.util.HashMap(instance2.get{{ field.field_name | pascal }}());
+        tempMap.put(new Object(), new Object());
+        instance2.set{{ field.field_name | pascal }}(tempMap);
+        {%- else %}
+        // For enum or complex types, set to a different value
+        {%- if "Union" in base_type %}
+        // For union types, set to null to create a different value
+        instance2.set{{ field.field_name | pascal }}(null);
+        assertNotEquals(instance1, instance2, 
+            "Instances with different {{ field.field_name }} should not be equal");
+        {%- elif field.is_enum %}
+        // Enum - try to get a different enum value if more than one value exists
+        {%- set simple_type = base_type.split('.')[-1] if '.' in base_type else base_type %}
+        {{ simple_type }}[] enumValues = {{ simple_type }}.values();
+        if (enumValues.length > 1) {
+            instance2.set{{ field.field_name | pascal }}(enumValues[(instance2.get{{ field.field_name | pascal }}().ordinal() + 1) % enumValues.length]);
+            assertNotEquals(instance1, instance2, 
+                "Instances with different {{ field.field_name }} should not be equal");
+        }
+        // If enum has only one value, skip the inequality test for this field
+        {%- elif base_type == "Object" %}
+        // For Object type, create a new unique instance using a timestamp-based hash
+        instance2.set{{ field.field_name | pascal }}(new Object());
+        assertNotEquals(instance1, instance2, 
+            "Instances with different {{ field.field_name }} should not be equal");
+        {%- elif '.' in base_type %}
+        // For complex object types, set to null to create a different value
+        instance2.set{{ field.field_name | pascal }}(null);
+        assertNotEquals(instance1, instance2, 
+            "Instances with different {{ field.field_name }} should not be equal");
+        {%- else %}
+        instance2.set{{ field.field_name | pascal }}({{ field.test_value }});
+        assertNotEquals(instance1, instance2, 
+            "Instances with different {{ field.field_name }} should not be equal");
+        {%- endif %}
+        {%- endif %}
+        {%- endif %}
+        {%- endfor %}
+    }
+
+    {%- for field in fields %}
+    /**
+     * Testing property {{ field.field_name }}
+     */
+    @Test
+    public void test{{ field.field_name | pascal }}Property() {
+        {%- if '<' in field.field_type %}
+        {{ field.field_type }} testValue = {{ field.test_value }};
+        {%- else %}
+        {%- set simple_field_type = field.field_type.split('.')[-1] if '.' in field.field_type else field.field_type %}
+        {{ simple_field_type }} testValue = {{ field.test_value }};
+        {%- endif %}
+        {%- if not field.is_const %}
+        instance.set{{ field.field_name | pascal }}(testValue);
+        {%- endif %}
+        {%- if field.is_discriminator %}
+        assertEquals(testValue, instance.get{{ field.field_name | pascal }}Value());
+        {%- else %}
+        assertEquals(testValue, instance.get{{ field.field_name | pascal }}());
+        {%- endif %}
+    }
+    {%- endfor %}
+    {%- if avro_annotation %}
+    /**
+     * Testing Avro serializer
+     */
+    @Test
+    public void test_ToByteArray_FromData_Avro() throws Exception {
+        String mediaType = "application/vnd.apache.avro+avro";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+
+    /**
+     * Testing Avro serializer with gzip compression
+     */
+    @Test
+    public void test_ToByteArray_FromData_Avro_Gzip() throws Exception {
+        String mediaType = "application/vnd.apache.avro+avro+gzip";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+    {%- endif %}
+    {%- if jackson_annotation %}
+    /**
+     * Testing JSON serializer
+     */
+    @Test
+    public void test_ToByteArray_FromData_Json() throws Exception {
+        String mediaType = "application/json";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+
+    /**
+     * Testing JSON serializer with gzip compression
+     */
+    @Test
+    public void test_ToByteArray_FromData_Json_Gzip() throws Exception {
+        String mediaType = "application/json+gzip";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+    {%- endif %}
+}

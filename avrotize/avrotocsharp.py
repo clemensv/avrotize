@@ -567,7 +567,7 @@ class AvroToCSharp:
         class_definition += \
             f"{INDENT}public sealed class {union_class_name}"
         if self.system_text_json_annotation:
-            class_definition += f": System.Text.Json.Serialization.JsonConverter<{union_class_name}>"
+            class_definition += f": System.Text.Json.Serialization.JsonConverter<global::{namespace}.{class_name}.{union_class_name}>"
         class_definition += f"\n{INDENT}{{\n" + \
             f"{INDENT*2}/// <summary>\n{INDENT*2}/// Default constructor\n{INDENT*2}/// </summary>\n" + \
             f"{INDENT*2}public {union_class_name}() {{ }}\n"
@@ -602,7 +602,7 @@ class AvroToCSharp:
         if self.system_text_json_annotation:
             class_definition += \
                 f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Reads the JSON representation of the object.\n{INDENT*2}/// </summary>\n" + \
-                f"{INDENT*2}public override {union_class_name}? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)\n{INDENT*2}{{\n{INDENT*3}var element = JsonElement.ParseValue(ref reader);\n" + \
+                f"{INDENT*2}public override {union_class_name}? Read(ref Utf8JsonReader reader, System.Type typeToConvert, JsonSerializerOptions options)\n{INDENT*2}{{\n{INDENT*3}var element = JsonElement.ParseValue(ref reader);\n" + \
                 class_definition_read + \
                 f"{INDENT*3}throw new NotSupportedException(\"No record type matched the JSON data\");\n{INDENT*2}}}\n" + \
                 f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Writes the JSON representation of the object.\n{INDENT*2}/// </summary>\n" + \
@@ -612,6 +612,51 @@ class AvroToCSharp:
                 f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Checks if the JSON element matches the schema\n{INDENT*2}/// </summary>\n" + \
                 f"{INDENT*2}public static bool IsJsonMatch(System.Text.Json.JsonElement element)\n{INDENT*2}{{" + \
                 f"\n{INDENT*3}return "+f"\n{INDENT*3} || ".join(list_is_json_match)+f";\n{INDENT*2}}}\n"
+        
+        # Generate Equals and GetHashCode for the union class
+        # Build list of property names for comparison
+        union_property_names = []
+        for union_type in union_types:
+            if union_type.startswith("Dictionary<"):
+                match = re.findall(r"Dictionary<(.+)\s*,\s*(.+)>", union_type)
+                union_property_names.append("Map" + pascal(match[0][1].rsplit('.', 1)[-1]))
+            elif union_type.startswith("List<"):
+                match = re.findall(r"List<(.+)>", union_type)
+                union_property_names.append("Array" + pascal(match[0].rsplit('.', 1)[-1]))
+            elif union_type == "byte[]":
+                union_property_names.append("bytes")
+            else:
+                prop_name = union_type.rsplit('.', 1)[-1]
+                if self.is_csharp_reserved_word(prop_name):
+                    prop_name = f"@{prop_name}"
+                union_property_names.append(prop_name)
+        
+        equals_conditions = " && ".join([f"Equals({name}, other.{name})" for name in union_property_names])
+        
+        # HashCode.Combine only accepts up to 8 arguments, so we need to chain calls for larger unions
+        def generate_hashcode_expression(props: list) -> str:
+            if len(props) <= 8:
+                return f"HashCode.Combine({', '.join(props)})"
+            else:
+                # Chain HashCode.Combine calls: Combine(Combine(first 7...), next 7...)
+                first_batch = props[:7]
+                remaining = props[7:]
+                inner = generate_hashcode_expression(remaining)
+                return f"HashCode.Combine({', '.join(first_batch)}, {inner})"
+        
+        hashcode_expression = generate_hashcode_expression(union_property_names)
+        
+        class_definition += \
+            f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Determines whether the specified object is equal to the current object.\n{INDENT*2}/// </summary>\n" + \
+            f"{INDENT*2}public override bool Equals(object? obj)\n{INDENT*2}{{\n" + \
+            f"{INDENT*3}if (obj is not {union_class_name} other) return false;\n" + \
+            f"{INDENT*3}return {equals_conditions};\n" + \
+            f"{INDENT*2}}}\n" + \
+            f"\n{INDENT*2}/// <summary>\n{INDENT*2}/// Serves as the default hash function.\n{INDENT*2}/// </summary>\n" + \
+            f"{INDENT*2}public override int GetHashCode()\n{INDENT*2}{{\n" + \
+            f"{INDENT*3}return {hashcode_expression};\n" + \
+            f"{INDENT*2}}}\n"
+        
         class_definition += f"{INDENT}}}\n}}"
 
         if write_file:
@@ -628,26 +673,34 @@ class AvroToCSharp:
                 if found:
                     return found
         elif isinstance(avro_schema, dict):
-            if avro_schema['type'] == kind and avro_schema['name'] == type_name and avro_schema.get('namespace', parent_namespace) == type_namespace:
+            if avro_schema.get('type') == kind and avro_schema.get('name') == type_name and avro_schema.get('namespace', parent_namespace) == type_namespace:
                 return avro_schema
             parent_namespace = avro_schema.get('namespace', parent_namespace)
             if 'fields' in avro_schema and isinstance(avro_schema['fields'], list):
                 for field in avro_schema['fields']:
-                    if isinstance(field,dict) and 'type' in field and isinstance(field['type'], dict):
-                        return self.find_type(kind, field['type'], type_name, type_namespace, parent_namespace)
+                    if isinstance(field, dict) and 'type' in field:
+                        # Recursively search within field types (including union arrays)
+                        found = self.find_type(kind, field['type'], type_name, type_namespace, parent_namespace)
+                        if found:
+                            return found
         return None
 
     def is_enum_type(self, avro_type: Union[str, Dict, List]) -> bool:
-        """ Checks if a type is an enum """
+        """ Checks if a type is an enum (including nullable enums) """
         if isinstance(avro_type, str):
             schema = self.schema_doc
             name = avro_type.split('.')[-1]
             namespace = ".".join(avro_type.split('.')[:-1])
             return self.find_type('enum', schema, name, namespace) is not None
         elif isinstance(avro_type, list):
+            # Check for nullable enum: ["null", <enum-type>] or [<enum-type>, "null"]
+            non_null_types = [t for t in avro_type if t != 'null']
+            if len(non_null_types) == 1:
+                return self.is_enum_type(non_null_types[0])
             return False
         elif isinstance(avro_type, dict):
-            return avro_type['type'] == 'enum'
+            return avro_type.get('type') == 'enum'
+        return False
 
     def generate_property(self, field: Dict, class_name: str, parent_namespace: str) -> str:
         """ Generates a property """
@@ -686,7 +739,15 @@ class AvroToCSharp:
         initialization = ""
         if field_default is not None:
             # Has explicit default value
-            initialization = " = " + (f"\"{field_default}\"" if isinstance(field_default, str) else str(field_default)) + ";"
+            if is_enum_type:
+                # For enum types, use qualified enum value (e.g., Type.Circle)
+                # Get the base enum type name (strip nullable ? suffix if present)
+                enum_type = field_type.rstrip('?')
+                initialization = f" = {enum_type}.{field_default};"
+            elif isinstance(field_default, str):
+                initialization = f" = \"{field_default}\";"
+            else:
+                initialization = f" = {field_default};"
         elif field_type == "string":
             # Non-nullable string without default should be initialized to empty string
             initialization = " = string.Empty;"
@@ -786,12 +847,13 @@ class AvroToCSharp:
         """ Retrieves fields for a given class name """
 
         class Field:
-            def __init__(self, fn: str, ft:str, tv:Any, ct: bool, pm: bool):
+            def __init__(self, fn: str, ft:str, tv:Any, ct: bool, pm: bool, ie: bool):
                 self.field_name = fn
                 self.field_type = ft
                 self.test_value = tv
                 self.is_const = ct
                 self.is_primitive = pm
+                self.is_enum = ie
 
         fields: List[Field] = []
         if avro_schema and 'fields' in avro_schema:
@@ -805,11 +867,13 @@ class AvroToCSharp:
                     field_name = f"@{field_name}"
                 field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], str(avro_schema.get('namespace', '')))
                 is_class = field_type in self.generated_types and self.generated_types[field_type] == "class"
+                is_enum = self.is_enum_type(field['type'])
                 f = Field(field_name,
                           field_type,
                           (self.get_test_value(field_type) if not "const" in field else '\"'+str(field["const"])+'\"'),
                           "const" in field and field["const"] is not None,
-                          not is_class)
+                          not is_class,
+                          is_enum)
                 fields.append(f)
         return cast(List[Any], fields)
 

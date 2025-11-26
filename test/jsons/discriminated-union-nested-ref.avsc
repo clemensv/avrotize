@@ -1,0 +1,299 @@
+[
+    {
+        "name": "Electric",
+        "type": "record",
+        "namespace": "com.test.example.Engine_types",
+        "fields": [
+            {
+                "name": "batteryCapacity",
+                "type": "float"
+            },
+            {
+                "name": "power",
+                "type": [
+                    "null",
+                    "float"
+                ]
+            },
+            {
+                "name": "type",
+                "type": [
+                    "null",
+                    {
+                        "type": "enum",
+                        "name": "type",
+                        "namespace": "com.test.example.Engine_types",
+                        "symbols": [
+                            "Electric",
+                            "Gasoline",
+                            "Diesel"
+                        ]
+                    }
+                ],
+                "const": "Electric",
+                "default": "Electric",
+                "discriminator": true
+            }
+        ],
+        "union": "Engine"
+    },
+    {
+        "name": "Diesel",
+        "type": "record",
+        "namespace": "com.test.example.Engine_types",
+        "fields": [
+            {
+                "name": "cetaneNumber",
+                "type": "float"
+            },
+            {
+                "name": "power",
+                "type": [
+                    "null",
+                    "float"
+                ]
+            },
+            {
+                "name": "type",
+                "type": [
+                    "null",
+                    "com.test.example.Engine_types.type"
+                ],
+                "const": "Diesel",
+                "default": "Diesel",
+                "discriminator": true
+            }
+        ],
+        "union": "Engine"
+    },
+    {
+        "type": "record",
+        "name": "Electric",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "batteryCapacity",
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Diesel",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "cetaneNumber",
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "name": "Gasoline",
+        "type": "record",
+        "namespace": "com.test.example.Engine_types",
+        "fields": [
+            {
+                "name": "octaneRating",
+                "type": "int"
+            },
+            {
+                "name": "power",
+                "type": [
+                    "null",
+                    "float"
+                ]
+            },
+            {
+                "name": "type",
+                "type": [
+                    "null",
+                    "com.test.example.Engine_types.type"
+                ],
+                "const": "Gasoline",
+                "default": "Gasoline",
+                "discriminator": true
+            }
+        ],
+        "union": "Engine"
+    },
+    {
+        "name": "Boat",
+        "type": "record",
+        "namespace": "com.test.example.Vehicle_types",
+        "fields": [
+            {
+                "name": "engine",
+                "type": [
+                    "com.test.example.Engine_types.Electric",
+                    "com.test.example.Engine_types.Gasoline",
+                    "com.test.example.Engine_types.Diesel"
+                ]
+            },
+            {
+                "name": "hullType",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            {
+                "name": "name",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            {
+                "name": "type",
+                "type": [
+                    "null",
+                    {
+                        "type": "enum",
+                        "name": "type",
+                        "namespace": "com.test.example.Vehicle_types",
+                        "symbols": [
+                            "Car",
+                            "Boat"
+                        ]
+                    }
+                ],
+                "const": "Boat",
+                "default": "Boat",
+                "discriminator": true
+            }
+        ],
+        "union": "Vehicle"
+    },
+    {
+        "type": "record",
+        "name": "Car",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "engine",
+                "type": [
+                    "com.test.example.Engine_types.Electric",
+                    "com.test.example.Engine_types.Gasoline",
+                    "com.test.example.Engine_types.Diesel"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Engine_union",
+        "namespace": "com.test.example.utility",
+        "fields": [
+            {
+                "name": "options",
+                "type": [
+                    "com.test.example.Engine_types.Electric",
+                    "com.test.example.Engine_types.Gasoline",
+                    "com.test.example.Engine_types.Diesel"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Car",
+        "type": "record",
+        "namespace": "com.test.example.Vehicle_types",
+        "fields": [
+            {
+                "name": "engine",
+                "type": [
+                    "com.test.example.Engine_types.Electric",
+                    "com.test.example.Engine_types.Gasoline",
+                    "com.test.example.Engine_types.Diesel"
+                ]
+            },
+            {
+                "name": "name",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            {
+                "name": "type",
+                "type": [
+                    "null",
+                    "com.test.example.Vehicle_types.type"
+                ],
+                "const": "Car",
+                "default": "Car",
+                "discriminator": true
+            }
+        ],
+        "union": "Vehicle"
+    },
+    {
+        "type": "record",
+        "name": "Boat",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "engine",
+                "type": [
+                    "com.test.example.Engine_types.Electric",
+                    "com.test.example.Engine_types.Gasoline",
+                    "com.test.example.Engine_types.Diesel"
+                ]
+            },
+            {
+                "name": "hullType",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "document",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "vehicles",
+                "type": [
+                    "null",
+                    {
+                        "type": "array",
+                        "items": [
+                            "com.test.example.Vehicle_types.Car",
+                            "com.test.example.Vehicle_types.Boat"
+                        ]
+                    }
+                ]
+            }
+        ],
+        "doc": "Test case for discriminated unions containing other discriminated unions"
+    },
+    {
+        "type": "record",
+        "name": "Vehicle_union",
+        "namespace": "com.test.example.utility",
+        "fields": [
+            {
+                "name": "options",
+                "type": [
+                    "com.test.example.Vehicle_types.Car",
+                    "com.test.example.Vehicle_types.Boat"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Gasoline",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "octaneRating",
+                "type": "int"
+            }
+        ]
+    }
+]

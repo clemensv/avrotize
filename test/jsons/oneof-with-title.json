@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OneOfWithTitle",
+  "description": "Test case for oneOf with title-based naming",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "contact": {
+      "type": "object",
+      "oneOf": [
+        {
+          "title": "EmailContact",
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email"
+            }
+          },
+          "required": ["email"],
+          "additionalProperties": false
+        },
+        {
+          "title": "PhoneContact",
+          "properties": {
+            "phoneNumber": {
+              "type": "string"
+            }
+          },
+          "required": ["phoneNumber"],
+          "additionalProperties": false
+        },
+        {
+          "title": "PostalContact",
+          "properties": {
+            "street": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            },
+            "postalCode": {
+              "type": "string"
+            }
+          },
+          "required": ["street", "city", "postalCode"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": ["name", "contact"],
+  "additionalProperties": false
+}

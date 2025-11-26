@@ -1,0 +1,21 @@
+package {{ package }};
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Test class for {{ enum_name }}
+ */
+public class {{ test_class_name }} {
+    /**
+     * Test {{ enum_name }} Enum
+     */
+    @Test
+    public void test_{{ enum_name }}_Enum() {
+        {{ enum_name }}[] values = {{ enum_name }}.values();
+        {%- for symbol in symbols %}
+        assertNotNull({{ enum_name }}.valueOf("{{ symbol }}"));
+        {%- endfor %}
+        assertEquals({{ symbols|length }}, values.length);
+    }
+}

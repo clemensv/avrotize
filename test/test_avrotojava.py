@@ -136,6 +136,86 @@ class TestAvroToJava(unittest.TestCase):
         assert subprocess.check_call(
             "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
     
+    def test_convert_discriminated_union_simple_jsons_to_avro_to_java(self):
+        """ Test converting a simple discriminated union JSON Schema to Java """
+        cwd = getcwd()
+        jsons_path = path.join(cwd, "test", "jsons", "discriminated-union-simple.json")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "discriminated-union-simple.avsc")
+        java_path = path.join(tempfile.gettempdir(), "avrotize", "discriminated-union-simple-java")
+        if os.path.exists(java_path):
+            shutil.rmtree(java_path, ignore_errors=True)
+        os.makedirs(java_path, exist_ok=True)
+
+        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_avro_to_java(avro_path, java_path, pascal_properties=True,
+                             avro_annotation=True, jackson_annotation=True, package_name="discriminated.union.simple")
+        assert subprocess.check_call(
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+    
+    def test_convert_discriminated_union_nested_jsons_to_avro_to_java(self):
+        """ Test converting a nested discriminated union JSON Schema to Java """
+        cwd = getcwd()
+        jsons_path = path.join(cwd, "test", "jsons", "discriminated-union-nested.json")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "discriminated-union-nested.avsc")
+        java_path = path.join(tempfile.gettempdir(), "avrotize", "discriminated-union-nested-java")
+        if os.path.exists(java_path):
+            shutil.rmtree(java_path, ignore_errors=True)
+        os.makedirs(java_path, exist_ok=True)
+
+        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_avro_to_java(avro_path, java_path, pascal_properties=True,
+                             avro_annotation=True, jackson_annotation=True, package_name="discriminated.union.nested")
+        assert subprocess.check_call(
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+    
+    def test_convert_discriminated_union_array_complex_jsons_to_avro_to_java(self):
+        """ Test converting a complex array union (non-discriminated) JSON Schema to Java """
+        cwd = getcwd()
+        jsons_path = path.join(cwd, "test", "jsons", "discriminated-union-array-complex.json")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "discriminated-union-array-complex.avsc")
+        java_path = path.join(tempfile.gettempdir(), "avrotize", "discriminated-union-array-complex-java")
+        if os.path.exists(java_path):
+            shutil.rmtree(java_path, ignore_errors=True)
+        os.makedirs(java_path, exist_ok=True)
+
+        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_avro_to_java(avro_path, java_path, pascal_properties=True,
+                             avro_annotation=True, jackson_annotation=True, package_name="complex.array.union")
+        assert subprocess.check_call(
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+    
+    def test_convert_optional_nested_union_jsons_to_avro_to_java(self):
+        """ Test converting optional nested union JSON Schema to Java """
+        cwd = getcwd()
+        jsons_path = path.join(cwd, "test", "jsons", "optional-nested-union.json")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "optional-nested-union.avsc")
+        java_path = path.join(tempfile.gettempdir(), "avrotize", "optional-nested-union-java")
+        if os.path.exists(java_path):
+            shutil.rmtree(java_path, ignore_errors=True)
+        os.makedirs(java_path, exist_ok=True)
+
+        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_avro_to_java(avro_path, java_path, pascal_properties=True,
+                             avro_annotation=True, jackson_annotation=True, package_name="optional.nested.union")
+        assert subprocess.check_call(
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+    
+    def test_convert_oneof_with_title_jsons_to_avro_to_java(self):
+        """ Test converting a oneOf with title JSON Schema to Java """
+        cwd = getcwd()
+        jsons_path = path.join(cwd, "test", "jsons", "oneof-with-title.json")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "oneof-with-title.avsc")
+        java_path = path.join(tempfile.gettempdir(), "avrotize", "oneof-with-title-java")
+        if os.path.exists(java_path):
+            shutil.rmtree(java_path, ignore_errors=True)
+        os.makedirs(java_path, exist_ok=True)
+
+        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_avro_to_java(avro_path, java_path, pascal_properties=True,
+                             avro_annotation=True, jackson_annotation=True, package_name="oneof.with.title")
+        assert subprocess.check_call(
+            "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+    
     def test_convert_restricted_name_avsc_to_java(self):
         """ Test converting an avsc file with a restricted name in the namespace to Java """
         cwd = os.getcwd()

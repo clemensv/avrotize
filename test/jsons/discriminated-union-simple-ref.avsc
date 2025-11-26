@@ -1,0 +1,188 @@
+[
+    {
+        "name": "Circle",
+        "doc": "A discriminated union of geometric shapes",
+        "type": "record",
+        "namespace": "com.test.example.Shape_types",
+        "fields": [
+            {
+                "name": "radius",
+                "type": "float"
+            },
+            {
+                "name": "color",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            {
+                "name": "type",
+                "type": [
+                    "null",
+                    {
+                        "type": "enum",
+                        "name": "type",
+                        "namespace": "com.test.example.Shape_types",
+                        "symbols": [
+                            "Circle",
+                            "Rectangle",
+                            "Triangle"
+                        ]
+                    }
+                ],
+                "const": "Circle",
+                "default": "Circle",
+                "discriminator": true
+            }
+        ],
+        "union": "Shape"
+    },
+    {
+        "name": "Triangle",
+        "doc": "A discriminated union of geometric shapes",
+        "type": "record",
+        "namespace": "com.test.example.Shape_types",
+        "fields": [
+            {
+                "name": "base",
+                "type": "float"
+            },
+            {
+                "name": "height",
+                "type": "float"
+            },
+            {
+                "name": "color",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            {
+                "name": "type",
+                "type": [
+                    "null",
+                    "com.test.example.Shape_types.type"
+                ],
+                "const": "Triangle",
+                "default": "Triangle",
+                "discriminator": true
+            }
+        ],
+        "union": "Shape"
+    },
+    {
+        "type": "record",
+        "name": "Circle",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "radius",
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Triangle",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "base",
+                "type": "float"
+            },
+            {
+                "name": "height",
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "name": "Rectangle",
+        "doc": "A discriminated union of geometric shapes",
+        "type": "record",
+        "namespace": "com.test.example.Shape_types",
+        "fields": [
+            {
+                "name": "width",
+                "type": "float"
+            },
+            {
+                "name": "height",
+                "type": "float"
+            },
+            {
+                "name": "color",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            {
+                "name": "type",
+                "type": [
+                    "null",
+                    "com.test.example.Shape_types.type"
+                ],
+                "const": "Rectangle",
+                "default": "Rectangle",
+                "discriminator": true
+            }
+        ],
+        "union": "Shape"
+    },
+    {
+        "type": "record",
+        "name": "Rectangle",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "width",
+                "type": "float"
+            },
+            {
+                "name": "height",
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Shape_union",
+        "namespace": "com.test.example.utility",
+        "fields": [
+            {
+                "name": "options",
+                "type": [
+                    "com.test.example.Shape_types.Circle",
+                    "com.test.example.Shape_types.Rectangle",
+                    "com.test.example.Shape_types.Triangle"
+                ]
+            }
+        ],
+        "doc": "A discriminated union of geometric shapes"
+    },
+    {
+        "type": "record",
+        "name": "document",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "items",
+                "type": [
+                    "null",
+                    {
+                        "type": "array",
+                        "items": [
+                            "com.test.example.Shape_types.Circle",
+                            "com.test.example.Shape_types.Rectangle",
+                            "com.test.example.Shape_types.Triangle"
+                        ]
+                    }
+                ]
+            }
+        ],
+        "doc": "Minimal test case for discriminated union with allOf + if/then pattern"
+    }
+]

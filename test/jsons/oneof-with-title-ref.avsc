@@ -8,13 +8,6 @@
             "type": "string"
         },
         {
-            "name": "age",
-            "type": [
-                "null",
-                "int"
-            ]
-        },
-        {
             "name": "contact",
             "type": [
                 {
@@ -44,8 +37,37 @@
                             ]
                         }
                     ]
+                },
+                {
+                    "name": "PostalContact",
+                    "type": "record",
+                    "namespace": "com.test.example.contact_types",
+                    "fields": [
+                        {
+                            "name": "street",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        },
+                        {
+                            "name": "city",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        },
+                        {
+                            "name": "postalCode",
+                            "type": [
+                                "null",
+                                "string"
+                            ]
+                        }
+                    ]
                 }
             ]
         }
-    ]
+    ],
+    "doc": "Test case for oneOf with title-based naming"
 }

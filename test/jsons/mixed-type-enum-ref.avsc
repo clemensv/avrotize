@@ -1,0 +1,81 @@
+{
+    "type": "record",
+    "name": "document",
+    "namespace": "mixed_type_enum",
+    "doc": "Test schema for various enum type combinations",
+    "fields": [
+        {
+            "name": "pureStringEnum",
+            "doc": "A pure string enum with valid identifiers",
+            "type": {
+                "type": "enum",
+                "name": "pureStringEnum",
+                "namespace": "mixed_type_enum.document_types",
+                "symbols": ["Alpha", "Beta", "Gamma"]
+            }
+        },
+        {
+            "name": "pureStringEnumWithInvalidSymbols",
+            "doc": "A pure string enum where symbols need prefixing (start with digits)",
+            "type": [
+                "null",
+                {
+                    "type": "enum",
+                    "name": "pureStringEnumWithInvalidSymbols",
+                    "namespace": "mixed_type_enum.document_types",
+                    "symbols": ["_1_0", "_2_0", "_3_0"]
+                },
+                "string"
+            ]
+        },
+        {
+            "name": "pureIntEnum",
+            "doc": "A pure integer enum - should become int with doc hint",
+            "type": "int"
+        },
+        {
+            "name": "mixedStringIntEnum",
+            "doc": "Mixed string/int enum like jfrogCliVersion - needs string in union for backcompat",
+            "type": [
+                {
+                    "type": "enum",
+                    "name": "mixedStringIntEnum_1",
+                    "namespace": "mixed_type_enum.document_types",
+                    "symbols": ["_1", "_2"]
+                },
+                "string",
+                "int"
+            ]
+        },
+        {
+            "name": "mixedStringIntEnumWithValidSymbols",
+            "doc": "Mixed enum where string values are valid identifiers",
+            "type": [
+                "null",
+                {
+                    "type": "enum",
+                    "name": "mixedStringIntEnumWithValidSymbols_1",
+                    "namespace": "mixed_type_enum.document_types",
+                    "symbols": ["v1", "v2"]
+                },
+                "string",
+                "int"
+            ]
+        },
+        {
+            "name": "nullableMixedEnum",
+            "doc": "Nullable mixed string/int enum",
+            "type": [
+                "null",
+                {
+                    "type": "enum",
+                    "name": "nullableMixedEnum_1",
+                    "namespace": "mixed_type_enum.document_types",
+                    "symbols": ["_1", "_2"]
+                },
+                "string",
+                "int"
+            ]
+        }
+    ]
+}

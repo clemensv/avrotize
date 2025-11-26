@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OptionalNestedUnion",
+  "description": "Test case for optional nested records containing union arrays",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "title": "TypeA",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "valueA": {
+                "type": "number"
+              }
+            },
+            "required": ["id"]
+          },
+          {
+            "type": "object",
+            "title": "TypeB",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "valueB": {
+                "type": "string"
+              }
+            },
+            "required": ["id"]
+          }
+        ]
+      }
+    }
+  },
+  "required": ["name", "items"]
+}
