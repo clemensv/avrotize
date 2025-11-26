@@ -1303,6 +1303,8 @@ class JsonToAvroConverter:
                                     enum_values,
                                     schema_type
                                 )
+                                # Register any embedded enum types in the union
+                                self.register_embedded_types_in_union(avro_type, avro_schema, dependencies)
                         else:
                             # Mixed or int-only enum, use helper
                             avro_type = self.create_enum_for_mixed_types(
@@ -1311,6 +1313,8 @@ class JsonToAvroConverter:
                                 enum_values,
                                 schema_type
                             )
+                            # Register any embedded enum types in the union
+                            self.register_embedded_types_in_union(avro_type, avro_schema, dependencies)
                     else:
                         avro_type = self.json_schema_primitive_to_avro_type(json_object_type, json_type.get(
                             'format'), json_type.get('enum'), record_name, field_name, namespace, dependencies)
@@ -1370,6 +1374,23 @@ class JsonToAvroConverter:
                 return False
         else:
             return True
+
+    def register_embedded_types_in_union(self, avro_type, avro_schema, dependencies):
+        """
+        Register any embedded named types (enum, record, fixed) found within a union type.
+        This ensures that enum types created by create_enum_for_mixed_types are properly
+        registered in the schema and can be referenced by name.
+        """
+        if isinstance(avro_type, list):
+            for i, member in enumerate(avro_type):
+                if isinstance(member, dict) and 'type' in member and member['type'] in ['enum', 'record', 'fixed']:
+                    # Register the embedded type
+                    if self.register_type(avro_schema, member):
+                        # Replace the inline definition with a reference
+                        full_name = self.get_qualified_name(member)
+                        avro_type[i] = full_name
+                        if full_name not in dependencies:
+                            dependencies.append(full_name)
 
     def has_composition_keywords(self, json_object: dict) -> bool:
         """Check if the JSON object has any of the combining keywords: allOf, oneOf, anyOf."""
