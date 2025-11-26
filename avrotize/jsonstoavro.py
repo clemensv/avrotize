@@ -122,6 +122,159 @@ class JsonToAvroConverter:
         
         return None
 
+    def handle_inline_conditional_schema(self, json_type: dict) -> Tuple[bool, dict]:
+        """
+        Handle inline if/then/else conditional schemas by converting them to appropriate structures.
+        
+        Supports the following patterns:
+        1. Type-based conditional: if {properties: {type: {enum: [X]}}}, then {...}, else {...}
+           - Converted to oneOf with discriminated variants
+        2. Field presence conditional: if {properties: {field: {...}}, required: [field]}
+           - Merged into comprehensive type (Avro handles optional fields naturally)
+        
+        Parameters:
+        json_type (dict): The JSON schema object to process
+        
+        Returns:
+        Tuple[bool, dict]: (was_handled, modified_json_type)
+        """
+        if not isinstance(json_type, dict) or 'if' not in json_type:
+            return (False, json_type)
+        
+        if_clause = json_type.get('if', {})
+        then_clause = json_type.get('then', {})
+        else_clause = json_type.get('else', None)
+        
+        # Check for type-based discriminator pattern
+        # if: {properties: {type: {enum: ["X"]}}}
+        if (isinstance(if_clause, dict) and 
+            'properties' in if_clause and
+            'type' in if_clause['properties']):
+            
+            type_prop = if_clause['properties']['type']
+            if isinstance(type_prop, dict) and 'enum' in type_prop:
+                # This is a type-based conditional - convert to oneOf
+                return self._convert_type_conditional_to_oneof(json_type, if_clause, then_clause, else_clause)
+        
+        # Check for field presence pattern
+        # if: {properties: {field: {...}}, required: [field]}
+        if (isinstance(if_clause, dict) and 
+            'properties' in if_clause and
+            'required' in if_clause):
+            # This is a field presence conditional - merge all branches
+            return self._merge_conditional_branches(json_type, then_clause, else_clause)
+        
+        # Unsupported pattern
+        return (False, json_type)
+    
+    def _convert_type_conditional_to_oneof(self, json_type: dict, if_clause: dict, then_clause: dict, else_clause: dict | None) -> Tuple[bool, dict]:
+        """
+        Convert a type-based conditional schema to oneOf structure.
+        
+        Example:
+        Input: {type: object, properties: {type: {enum: [image, host]}}, if: {...}, then: {...}, else: {...}}
+        Output: {oneOf: [then_merged_with_base, else_merged_with_base]}
+        """
+        # Create a base type without the conditional parts
+        base_type = {}
+        for key, value in json_type.items():
+            if key not in ('if', 'then', 'else'):
+                base_type[key] = copy.deepcopy(value)
+        
+        oneof_variants = []
+        
+        # Process then clause
+        if then_clause:
+            then_variant = self._merge_conditional_branch(base_type, then_clause)
+            oneof_variants.append(then_variant)
+        
+        # Process else clause (which may contain nested if/then/else)
+        if else_clause:
+            if 'if' in else_clause:
+                # Recursive handling of nested conditional
+                handled, processed_else = self.handle_inline_conditional_schema(else_clause)
+                if handled and 'oneOf' in processed_else:
+                    # Flatten nested oneOf
+                    for variant in processed_else['oneOf']:
+                        merged = self._merge_conditional_branch(base_type, variant)
+                        oneof_variants.append(merged)
+                else:
+                    else_variant = self._merge_conditional_branch(base_type, else_clause)
+                    oneof_variants.append(else_variant)
+            else:
+                else_variant = self._merge_conditional_branch(base_type, else_clause)
+                oneof_variants.append(else_variant)
+        
+        if len(oneof_variants) > 0:
+            result = copy.deepcopy(base_type)
+            # Remove properties since they'll be in the variants
+            if 'properties' in result:
+                del result['properties']
+            if 'additionalProperties' in result:
+                del result['additionalProperties']
+            if 'required' in result:
+                del result['required']
+            result['oneOf'] = oneof_variants
+            return (True, result)
+        
+        return (False, json_type)
+    
+    def _merge_conditional_branches(self, json_type: dict, then_clause: dict, else_clause: dict | None) -> Tuple[bool, dict]:
+        """
+        Merge conditional branches for field presence patterns.
+        Avro handles optional fields naturally, so we can merge all properties.
+        """
+        result = {}
+        for key, value in json_type.items():
+            if key not in ('if', 'then', 'else'):
+                result[key] = copy.deepcopy(value)
+        
+        # Merge properties from then clause
+        if then_clause and 'properties' in then_clause:
+            if 'properties' not in result:
+                result['properties'] = {}
+            for prop_name, prop_def in then_clause['properties'].items():
+                if prop_name not in result['properties']:
+                    result['properties'][prop_name] = copy.deepcopy(prop_def)
+        
+        # Merge properties from else clause
+        if else_clause and 'properties' in else_clause:
+            if 'properties' not in result:
+                result['properties'] = {}
+            for prop_name, prop_def in else_clause['properties'].items():
+                if prop_name not in result['properties']:
+                    result['properties'][prop_name] = copy.deepcopy(prop_def)
+        
+        return (True, result)
+    
+    def _merge_conditional_branch(self, base: dict, branch: dict) -> dict:
+        """Merge a conditional branch with the base type."""
+        result = copy.deepcopy(base)
+        
+        if not branch:
+            return result
+        
+        # Merge properties
+        if 'properties' in branch:
+            if 'properties' not in result:
+                result['properties'] = {}
+            for prop_name, prop_def in branch['properties'].items():
+                result['properties'][prop_name] = copy.deepcopy(prop_def)
+        
+        # Merge additionalProperties
+        if 'additionalProperties' in branch:
+            result['additionalProperties'] = branch['additionalProperties']
+        
+        # Merge required (union of required fields)
+        if 'required' in branch:
+            if 'required' not in result:
+                result['required'] = []
+            for req in branch['required']:
+                if req not in result['required']:
+                    result['required'].append(req)
+        
+        return result
+
     def flatten_union(self, type_list: list) -> list:
         """
         Flatten the list of types in a union into a single list.
@@ -599,6 +752,10 @@ class JsonToAvroConverter:
             if isinstance(json_type, dict):
 
                 json_object_type = json_type.get('type')
+                # Check if the type is already an Avro schema (e.g., shared discriminator enum)
+                # This happens when a discriminated union property was pre-set with an Avro type
+                if isinstance(json_object_type, dict) and 'type' in json_object_type and json_object_type.get('type') in ['enum', 'record', 'fixed', 'array', 'map']:
+                    return self.post_check_avro_type(dependencies, json_object_type)
                 if isinstance(json_object_type, list):
                     # if the 'type' is a list, we map it back to a string
                     # if the list has only one item or if the list has two items
@@ -642,18 +799,35 @@ class JsonToAvroConverter:
                             json_type['oneOf'] = oneof
 
                 if 'if' in json_type or 'then' in json_type or 'else' in json_type or 'dependentSchemas' in json_type or 'dependentRequired' in json_type:
-                    print(
-                        'WARNING: Conditional schema is not supported and will be ignored.')
+                    # Try to handle the conditional schema pattern
+                    conditional_handled = False
                     if 'if' in json_type:
-                        del json_type['if']
-                    if 'then' in json_type:
-                        del json_type['then']
-                    if 'else' in json_type:
-                        del json_type['else']
-                    if 'dependentSchemas' in json_type:
-                        del json_type['dependentSchemas']
-                    if 'dependentRequired' in json_type:
-                        del json_type['dependentRequired']
+                        conditional_handled, json_type = self.handle_inline_conditional_schema(json_type)
+                    
+                    if not conditional_handled:
+                        # Only warn for patterns we can't handle
+                        remaining_conditionals = []
+                        if 'if' in json_type:
+                            remaining_conditionals.append('if/then/else')
+                        if 'dependentSchemas' in json_type:
+                            remaining_conditionals.append('dependentSchemas')
+                        if 'dependentRequired' in json_type:
+                            remaining_conditionals.append('dependentRequired')
+                        
+                        if remaining_conditionals:
+                            print(
+                                f'WARNING: Conditional schema pattern ({", ".join(remaining_conditionals)}) is not fully supported and will be simplified.')
+                        
+                        if 'if' in json_type:
+                            del json_type['if']
+                        if 'then' in json_type:
+                            del json_type['then']
+                        if 'else' in json_type:
+                            del json_type['else']
+                        if 'dependentSchemas' in json_type:
+                            del json_type['dependentSchemas']
+                        if 'dependentRequired' in json_type:
+                            del json_type['dependentRequired']
 
                 base_type = json_type.copy()
                 if 'oneOf' in base_type:
@@ -1730,11 +1904,12 @@ class JsonToAvroConverter:
                     if 'unmerged_types' in merge_result:
                         del merge_result['unmerged_types']
                 if isinstance(merge_result, list):
-                    # unmerged field containers have fields.
-                    self.set_avro_type_value(
-                        type, 'name', type['name'] + '_item')
+                    # unmerged field containers have fields - wrap the union in a record
+                    # Keep the original name since references expect it
                     self.set_avro_type_value(
                         type, 'fields', [{'name': 'value', 'type': merge_result}])
+                    if 'unmerged_types' in type:
+                        del type['unmerged_types']
                     merge_result = copy.deepcopy(type)
                 set_schema_node(find_fn, merge_result, avro_schema)
 

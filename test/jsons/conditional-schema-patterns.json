@@ -1,0 +1,219 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/conditional-schema-patterns.json",
+  "title": "ConditionalSchemaPatterns",
+  "description": "Test schema for various if/then/else conditional patterns",
+  "type": "object",
+  "definitions": {
+    "TypeBasedConditional": {
+      "title": "TypeBasedConditional",
+      "description": "Pattern B: Type-based conditional with if/then/else - like runtime with type: image vs host",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["image", "host"]
+        }
+      },
+      "required": ["type"],
+      "if": {
+        "properties": {
+          "type": { "enum": ["image"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "type": { "enum": ["image"] },
+          "imageName": { "type": "string" },
+          "imageTag": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "else": {
+        "properties": {
+          "type": { "enum": ["host"] },
+          "hostname": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "FieldPresenceConditional": {
+      "title": "FieldPresenceConditional",
+      "description": "Pattern C: Field presence conditional - different schema based on which optional field is present",
+      "type": "object",
+      "if": {
+        "properties": {
+          "auto": { "type": "object" }
+        },
+        "required": ["auto"]
+      },
+      "then": {
+        "properties": {
+          "auto": {
+            "type": "object",
+            "properties": {
+              "language": { "type": "string" },
+              "version": { "type": "string" }
+            },
+            "required": ["language"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "else": {
+        "properties": {
+          "custom": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "tag": { "type": "string" }
+            },
+            "required": ["name", "tag"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "NestedTypeConditional": {
+      "title": "NestedTypeConditional",
+      "description": "Pattern D: Nested type conditional - chained if/then/else for multiple type values",
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": ["json", "xml", "csv"]
+        }
+      },
+      "required": ["format"],
+      "if": {
+        "properties": {
+          "format": { "enum": ["json"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "format": { "enum": ["json"] },
+          "prettyPrint": { "type": "boolean" },
+          "indent": { "type": "integer" }
+        },
+        "additionalProperties": false
+      },
+      "else": {
+        "if": {
+          "properties": {
+            "format": { "enum": ["xml"] }
+          }
+        },
+        "then": {
+          "properties": {
+            "format": { "enum": ["xml"] },
+            "encoding": { "type": "string" },
+            "namespace": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "else": {
+          "properties": {
+            "format": { "enum": ["csv"] },
+            "delimiter": { "type": "string" },
+            "hasHeader": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "DiscriminatedUnionInAllOf": {
+      "title": "DiscriminatedUnionInAllOf",
+      "description": "Pattern A: Discriminated union using allOf with if/then and $ref",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["circle", "rectangle", "triangle"]
+        }
+      },
+      "required": ["name", "type"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": { "enum": ["circle"] }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/shapeTypes/Circle"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "enum": ["rectangle"] }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/shapeTypes/Rectangle"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "enum": ["triangle"] }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/shapeTypes/Triangle"
+          }
+        }
+      ]
+    },
+    "shapeTypes": {
+      "Circle": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "radius": { "type": "number" }
+        },
+        "required": ["name", "type", "radius"],
+        "additionalProperties": false
+      },
+      "Rectangle": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "width": { "type": "number" },
+          "height": { "type": "number" }
+        },
+        "required": ["name", "type", "width", "height"],
+        "additionalProperties": false
+      },
+      "Triangle": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "base": { "type": "number" },
+          "height": { "type": "number" }
+        },
+        "required": ["name", "type", "base", "height"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "properties": {
+    "typeBasedExample": {
+      "$ref": "#/definitions/TypeBasedConditional"
+    },
+    "fieldPresenceExample": {
+      "$ref": "#/definitions/FieldPresenceConditional"
+    },
+    "nestedConditionalExample": {
+      "$ref": "#/definitions/NestedTypeConditional"
+    },
+    "discriminatedUnionExample": {
+      "$ref": "#/definitions/DiscriminatedUnionInAllOf"
+    }
+  }
+}

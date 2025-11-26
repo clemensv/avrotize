@@ -109,25 +109,34 @@ public class {{ test_class_name }} {
         {%- if "Union" in base_type %}
         // For union types, set to null to create a different value
         instance2.set{{ field.field_name | pascal }}(null);
+        assertNotEquals(instance1, instance2, 
+            "Instances with different {{ field.field_name }} should not be equal");
         {%- elif field.is_enum %}
-        // Enum - try to get a different enum value
+        // Enum - try to get a different enum value if more than one value exists
         {%- set simple_type = base_type.split('.')[-1] if '.' in base_type else base_type %}
         {{ simple_type }}[] enumValues = {{ simple_type }}.values();
         if (enumValues.length > 1) {
             instance2.set{{ field.field_name | pascal }}(enumValues[(instance2.get{{ field.field_name | pascal }}().ordinal() + 1) % enumValues.length]);
+            assertNotEquals(instance1, instance2, 
+                "Instances with different {{ field.field_name }} should not be equal");
         }
+        // If enum has only one value, skip the inequality test for this field
         {%- elif base_type == "Object" %}
         // For Object type, create a new unique instance using a timestamp-based hash
         instance2.set{{ field.field_name | pascal }}(new Object());
+        assertNotEquals(instance1, instance2, 
+            "Instances with different {{ field.field_name }} should not be equal");
         {%- elif '.' in base_type %}
         // For complex object types, set to null to create a different value
         instance2.set{{ field.field_name | pascal }}(null);
-        {%- else %}
-        instance2.set{{ field.field_name | pascal }}({{ field.test_value }});
-        {%- endif %}
-        {%- endif %}
         assertNotEquals(instance1, instance2, 
             "Instances with different {{ field.field_name }} should not be equal");
+        {%- else %}
+        instance2.set{{ field.field_name | pascal }}({{ field.test_value }});
+        assertNotEquals(instance1, instance2, 
+            "Instances with different {{ field.field_name }} should not be equal");
+        {%- endif %}
+        {%- endif %}
         {%- endif %}
         {%- endfor %}
     }

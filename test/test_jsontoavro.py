@@ -145,3 +145,7 @@ class TestJsonsToAvro(unittest.TestCase):
     
     def test_convert_oneof_with_title_to_avro(self):
         self.create_avro_from_jsons("oneof-with-title.json", "oneof-with-title.avsc")
+
+    def test_convert_conditional_schema_patterns_to_avro(self):
+        """Test if/then/else conditional schema patterns conversion."""
+        self.create_avro_from_jsons("conditional-schema-patterns.json", "conditional-schema-patterns.avsc")

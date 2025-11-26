@@ -5,6 +5,7 @@
 {%- if avro_annotation or dataclasses_json_annotation %}
 import io
 import gzip
+import json
 {%- endif %}
 import enum
 import typing
@@ -13,7 +14,6 @@ from dataclasses import dataclass
 {%- if dataclasses_json_annotation %}
 import dataclasses_json
 from dataclasses_json import Undefined, dataclass_json
-import json
 {%- for field in fields if field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
 {%- if loop.first %}
 from marshmallow import fields
@@ -22,6 +22,7 @@ from marshmallow import fields
 {%- endif %}
 {%- if avro_annotation %}
 import avro.schema
+import avro.name
 import avro.io
 {%- endif %}
 {%- for import_type in import_types if import_type not in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta', 'decimal.Decimal'] %}
@@ -50,8 +51,8 @@ class {{ class_name }}:
     {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: datetime.datetime.isoformat(d) if d else None, decoder=lambda d:datetime.datetime.fromisoformat(d) if d else None, mm_field=fields.DateTime(format='iso'){%- endif -%}){%- endif %})
     {%- endfor %}
     {% if avro_annotation %}
-    AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.parse(
-        "{{ avro_schema_json }}"
+    AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.make_avsc_object(
+        json.loads("{{ avro_schema_json }}"), avro.name.Names()
     )
     {%- endif %}
 

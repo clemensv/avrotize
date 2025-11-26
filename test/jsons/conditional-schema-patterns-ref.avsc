@@ -1,0 +1,316 @@
+[
+    {
+        "type": "record",
+        "name": "TypeBasedConditional",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "type",
+                "type": {
+                    "type": "enum",
+                    "name": "type",
+                    "namespace": "com.test.example.TypeBasedConditional_types",
+                    "symbols": [
+                        "image",
+                        "host"
+                    ]
+                }
+            }
+        ],
+        "doc": "Pattern B: Type-based conditional with if/then/else - like runtime with type: image vs host"
+    },
+    {
+        "name": "circle",
+        "doc": "Pattern A: Discriminated union using allOf with if/then and $ref",
+        "type": "record",
+        "namespace": "com.test.example.DiscriminatedUnionInAllOf_types",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "type",
+                "type": {
+                    "type": "enum",
+                    "name": "type",
+                    "namespace": "com.test.example.DiscriminatedUnionInAllOf_types",
+                    "symbols": [
+                        "circle",
+                        "rectangle",
+                        "triangle"
+                    ]
+                },
+                "const": "circle",
+                "default": "circle",
+                "discriminator": true
+            },
+            {
+                "name": "radius",
+                "type": "float"
+            }
+        ],
+        "union": "DiscriminatedUnionInAllOf"
+    },
+    {
+        "name": "triangle",
+        "doc": "Pattern A: Discriminated union using allOf with if/then and $ref",
+        "type": "record",
+        "namespace": "com.test.example.DiscriminatedUnionInAllOf_types",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "type",
+                "type": "com.test.example.DiscriminatedUnionInAllOf_types.type",
+                "const": "triangle",
+                "default": "triangle",
+                "discriminator": true
+            },
+            {
+                "name": "base",
+                "type": "float"
+            },
+            {
+                "name": "height",
+                "type": "float"
+            }
+        ],
+        "union": "DiscriminatedUnionInAllOf"
+    },
+    {
+        "type": "record",
+        "name": "Circle",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "type",
+                "type": "string"
+            },
+            {
+                "name": "radius",
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Triangle",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "type",
+                "type": "string"
+            },
+            {
+                "name": "base",
+                "type": "float"
+            },
+            {
+                "name": "height",
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "name": "FieldPresenceConditional",
+        "doc": "Pattern C: Field presence conditional - different schema based on which optional field is present",
+        "type": "record",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "auto",
+                "type": [
+                    "null",
+                    {
+                        "name": "auto",
+                        "type": "record",
+                        "namespace": "com.test.example.FieldPresenceConditional_types",
+                        "fields": [
+                            {
+                                "name": "language",
+                                "type": "string"
+                            },
+                            {
+                                "name": "version",
+                                "type": [
+                                    "null",
+                                    "string"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "custom",
+                "type": [
+                    "null",
+                    {
+                        "name": "custom",
+                        "type": "record",
+                        "namespace": "com.test.example.FieldPresenceConditional_types",
+                        "fields": [
+                            {
+                                "name": "name",
+                                "type": "string"
+                            },
+                            {
+                                "name": "tag",
+                                "type": "string"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "NestedTypeConditional",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "format",
+                "type": {
+                    "type": "enum",
+                    "name": "format",
+                    "namespace": "com.test.example.NestedTypeConditional_types",
+                    "symbols": [
+                        "json",
+                        "xml",
+                        "csv"
+                    ]
+                }
+            }
+        ],
+        "doc": "Pattern D: Nested type conditional - chained if/then/else for multiple type values"
+    },
+    {
+        "type": "record",
+        "name": "Rectangle",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "type",
+                "type": "string"
+            },
+            {
+                "name": "width",
+                "type": "float"
+            },
+            {
+                "name": "height",
+                "type": "float"
+            }
+        ]
+    },
+    {
+        "name": "rectangle",
+        "doc": "Pattern A: Discriminated union using allOf with if/then and $ref",
+        "type": "record",
+        "namespace": "com.test.example.DiscriminatedUnionInAllOf_types",
+        "fields": [
+            {
+                "name": "name",
+                "type": "string"
+            },
+            {
+                "name": "type",
+                "type": "com.test.example.DiscriminatedUnionInAllOf_types.type",
+                "const": "rectangle",
+                "default": "rectangle",
+                "discriminator": true
+            },
+            {
+                "name": "width",
+                "type": "float"
+            },
+            {
+                "name": "height",
+                "type": "float"
+            }
+        ],
+        "union": "DiscriminatedUnionInAllOf"
+    },
+    {
+        "name": "TypeBasedConditional",
+        "doc": "Pattern B: Type-based conditional with if/then/else - like runtime with type: image vs host",
+        "type": "record",
+        "namespace": "com.test.example.TypeBasedConditional_types",
+        "fields": [
+            {
+                "name": "TypeBasedConditional",
+                "type": "com.test.example.TypeBasedConditional_types.TypeBasedConditional"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "DiscriminatedUnionInAllOf_union",
+        "namespace": "com.test.example.utility",
+        "fields": [
+            {
+                "name": "options",
+                "type": [
+                    "com.test.example.DiscriminatedUnionInAllOf_types.circle",
+                    "com.test.example.DiscriminatedUnionInAllOf_types.rectangle",
+                    "com.test.example.DiscriminatedUnionInAllOf_types.triangle"
+                ]
+            }
+        ],
+        "doc": "Pattern A: Discriminated union using allOf with if/then and $ref"
+    },
+    {
+        "type": "record",
+        "name": "document",
+        "namespace": "com.test.example",
+        "fields": [
+            {
+                "name": "typeBasedExample",
+                "type": [
+                    "null",
+                    "com.test.example.TypeBasedConditional_types.TypeBasedConditional"
+                ]
+            },
+            {
+                "name": "fieldPresenceExample",
+                "type": [
+                    "null",
+                    "com.test.example.FieldPresenceConditional"
+                ]
+            },
+            {
+                "name": "nestedConditionalExample",
+                "type": [
+                    "null",
+                    "com.test.example.NestedTypeConditional"
+                ]
+            },
+            {
+                "name": "discriminatedUnionExample",
+                "type": [
+                    "null",
+                    "com.test.example.DiscriminatedUnionInAllOf_types.circle",
+                    "com.test.example.DiscriminatedUnionInAllOf_types.rectangle",
+                    "com.test.example.DiscriminatedUnionInAllOf_types.triangle"
+                ]
+            }
+        ],
+        "doc": "Test schema for various if/then/else conditional patterns"
+    }
+]
