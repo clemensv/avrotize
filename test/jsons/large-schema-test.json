@@ -1,0 +1,679 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LargeSchemaTest",
+  "description": "Test case that generates a schema larger than 65KB to test Java string constant splitting",
+  "type": "object",
+  "properties": {
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Command"
+      }
+    }
+  },
+  "definitions": {
+    "Command": {
+      "title": "Command",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Type1", "Type2", "Type3", "Type4", "Type5",
+            "Type6", "Type7", "Type8", "Type9", "Type10",
+            "Type11", "Type12", "Type13", "Type14", "Type15",
+            "Type16", "Type17", "Type18", "Type19", "Type20"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["type", "name"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type1"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type1"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type2"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type2"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type3"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type3"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type4"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type4"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type5"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type5"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type6"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type6"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type7"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type7"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type8"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type8"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type9"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type9"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type10"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type10"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type11"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type11"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type12"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type12"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type13"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type13"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type14"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type14"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type15"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type15"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type16"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type16"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type17"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type17"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type18"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type18"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type19"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type19"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Type20"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/commandTypes/Type20"
+          }
+        }
+      ]
+    },
+    "commandTypes": {
+      "Type1": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type2": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type3": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type4": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type5": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type6": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type7": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type8": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type9": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type10": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type11": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type12": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type13": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type14": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type15": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type16": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type17": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type18": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type19": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Type20": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "type": "object",
+            "properties": {
+              "field1": { "type": "string" },
+              "field2": { "type": "string" },
+              "field3": { "type": "string" },
+              "field4": { "type": "string" },
+              "field5": { "type": "string" },
+              "field6": { "type": "string" },
+              "field7": { "type": "string" },
+              "field8": { "type": "string" },
+              "field9": { "type": "string" },
+              "field10": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -628,26 +628,34 @@ class AvroToCSharp:
                 if found:
                     return found
         elif isinstance(avro_schema, dict):
-            if avro_schema['type'] == kind and avro_schema['name'] == type_name and avro_schema.get('namespace', parent_namespace) == type_namespace:
+            if avro_schema.get('type') == kind and avro_schema.get('name') == type_name and avro_schema.get('namespace', parent_namespace) == type_namespace:
                 return avro_schema
             parent_namespace = avro_schema.get('namespace', parent_namespace)
             if 'fields' in avro_schema and isinstance(avro_schema['fields'], list):
                 for field in avro_schema['fields']:
-                    if isinstance(field,dict) and 'type' in field and isinstance(field['type'], dict):
-                        return self.find_type(kind, field['type'], type_name, type_namespace, parent_namespace)
+                    if isinstance(field, dict) and 'type' in field:
+                        # Recursively search within field types (including union arrays)
+                        found = self.find_type(kind, field['type'], type_name, type_namespace, parent_namespace)
+                        if found:
+                            return found
         return None
 
     def is_enum_type(self, avro_type: Union[str, Dict, List]) -> bool:
-        """ Checks if a type is an enum """
+        """ Checks if a type is an enum (including nullable enums) """
         if isinstance(avro_type, str):
             schema = self.schema_doc
             name = avro_type.split('.')[-1]
             namespace = ".".join(avro_type.split('.')[:-1])
             return self.find_type('enum', schema, name, namespace) is not None
         elif isinstance(avro_type, list):
+            # Check for nullable enum: ["null", <enum-type>] or [<enum-type>, "null"]
+            non_null_types = [t for t in avro_type if t != 'null']
+            if len(non_null_types) == 1:
+                return self.is_enum_type(non_null_types[0])
             return False
         elif isinstance(avro_type, dict):
-            return avro_type['type'] == 'enum'
+            return avro_type.get('type') == 'enum'
+        return False
 
     def generate_property(self, field: Dict, class_name: str, parent_namespace: str) -> str:
         """ Generates a property """
@@ -686,7 +694,15 @@ class AvroToCSharp:
         initialization = ""
         if field_default is not None:
             # Has explicit default value
-            initialization = " = " + (f"\"{field_default}\"" if isinstance(field_default, str) else str(field_default)) + ";"
+            if is_enum_type:
+                # For enum types, use qualified enum value (e.g., Type.Circle)
+                # Get the base enum type name (strip nullable ? suffix if present)
+                enum_type = field_type.rstrip('?')
+                initialization = f" = {enum_type}.{field_default};"
+            elif isinstance(field_default, str):
+                initialization = f" = \"{field_default}\";"
+            else:
+                initialization = f" = {field_default};"
         elif field_type == "string":
             # Non-nullable string without default should be initialized to empty string
             initialization = " = string.Empty;"

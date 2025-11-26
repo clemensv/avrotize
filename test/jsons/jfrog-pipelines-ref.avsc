@@ -42,25 +42,27 @@
                 "type": {
                     "type": "enum",
                     "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.BuildInfo_types",
+                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types",
                     "symbols": [
+                        "Aql",
+                        "BuildInfo",
+                        "CronTrigger",
+                        "DistributionRule",
+                        "FileSpec",
                         "GitRepo",
+                        "HelmChart",
+                        "Image",
+                        "IncomingWebhook",
                         "OutgoingWebhook",
                         "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
                         "ReleaseBundle",
-                        "FileSpec"
+                        "RemoteFile",
+                        "VmCluster"
                     ]
                 },
-                "default": "BuildInfo"
+                "const": "BuildInfo",
+                "default": "BuildInfo",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -133,7 +135,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "DistributionRule",
@@ -147,28 +150,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.DistributionRule_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "DistributionRule"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "DistributionRule",
+                "default": "DistributionRule",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -203,7 +188,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "GitRepo",
@@ -217,28 +203,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.GitRepo_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "GitRepo"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "GitRepo",
+                "default": "GitRepo",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -518,7 +486,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "Image",
@@ -532,28 +501,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.Image_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "Image"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "Image",
+                "default": "Image",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -620,7 +571,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "OutgoingWebhook",
@@ -634,28 +586,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.OutgoingWebhook_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "OutgoingWebhook"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "OutgoingWebhook",
+                "default": "OutgoingWebhook",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -677,9 +611,9 @@
                                     "name": "method",
                                     "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.OutgoingWebhook_types.configuration_types",
                                     "symbols": [
-                                        "DELETE",
                                         "PUT",
                                         "GET",
+                                        "DELETE",
                                         "POST",
                                         "PATCH"
                                     ]
@@ -801,7 +735,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "ReleaseBundle",
@@ -815,28 +750,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.ReleaseBundle_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "ReleaseBundle"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "ReleaseBundle",
+                "default": "ReleaseBundle",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -893,7 +810,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "VmCluster",
@@ -907,28 +825,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.VmCluster_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "VmCluster"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "VmCluster",
+                "default": "VmCluster",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -951,7 +851,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "type": "enum",
@@ -1691,16 +1592,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.HelmDeploy_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -1749,16 +1650,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.HelmPublish_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -3091,9 +2992,9 @@
                                     "name": "method",
                                     "namespace": "org.schemastore.json.jfrog_pipelines.OutgoingWebhook_types.configuration_types",
                                     "symbols": [
-                                        "DELETE",
                                         "PUT",
                                         "GET",
+                                        "DELETE",
                                         "POST",
                                         "PATCH"
                                     ]
@@ -3990,16 +3891,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.HelmDeploy_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -4048,16 +3949,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.HelmPublish_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5029,28 +4930,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.Aql_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "Aql"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "Aql",
+                "default": "Aql",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -5094,7 +4977,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "FileSpec",
@@ -5108,28 +4992,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.FileSpec_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "FileSpec"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "FileSpec",
+                "default": "FileSpec",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -5264,7 +5130,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "IncomingWebhook",
@@ -5278,28 +5145,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.IncomingWebhook_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "IncomingWebhook"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "IncomingWebhook",
+                "default": "IncomingWebhook",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -5315,7 +5164,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "RemoteFile",
@@ -5329,28 +5179,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.RemoteFile_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "RemoteFile"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "RemoteFile",
+                "default": "RemoteFile",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -5381,7 +5213,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "integrations",
@@ -5475,16 +5308,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.CreateReleaseBundle_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5510,16 +5343,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.DistributeReleaseBundle_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5545,16 +5378,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.DockerBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5580,16 +5413,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.DockerPush_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5615,16 +5448,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.GoBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5650,16 +5483,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.GoPublishBinary_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5685,16 +5518,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.GoPublishModule_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5720,16 +5553,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.GradleBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5922,16 +5755,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.Matrix_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5957,16 +5790,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PreMatrix_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -5992,16 +5825,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PostMatrix_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6027,16 +5860,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.MvnBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6055,16 +5888,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.NpmBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6090,16 +5923,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.NpmPublish_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6125,16 +5958,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PowerShell_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6160,16 +5993,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PromoteBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6195,16 +6028,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PublishBuildInfo_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6230,16 +6063,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PushArtifactoryPackage_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6265,16 +6098,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.SignReleaseBundle_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6300,16 +6133,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.TriggerPipeline_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6335,16 +6168,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.XrayScan_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6685,16 +6518,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.BashStep_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6720,16 +6553,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.CreateReleaseBundle_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6755,16 +6588,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.DistributeReleaseBundle_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6790,16 +6623,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.DockerBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6825,16 +6658,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.DockerPush_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6860,16 +6693,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.GoBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6895,16 +6728,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.GoPublishBinary_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6930,16 +6763,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.GoPublishModule_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -6965,16 +6798,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.GradleBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7167,16 +7000,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Matrix_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7202,16 +7035,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.PreMatrix_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7237,16 +7070,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.PostMatrix_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7272,16 +7105,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.MvnBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7300,16 +7133,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.NpmBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7335,16 +7168,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.NpmPublish_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7370,16 +7203,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.PowerShell_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7405,16 +7238,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.PromoteBuild_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7440,16 +7273,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.PublishBuildInfo_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7475,16 +7308,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.PushArtifactoryPackage_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7510,16 +7343,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.SignReleaseBundle_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7545,16 +7378,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.TriggerPipeline_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7580,16 +7413,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.XrayScan_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -7660,28 +7493,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.CronTrigger_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "CronTrigger"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "CronTrigger",
+                "default": "CronTrigger",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -7724,7 +7539,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "readOnly_extensions_3",
@@ -7789,16 +7605,16 @@
         "name": "status",
         "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.Bash_types.configuration_types.inputSteps_types",
         "symbols": [
+            "skipped",
             "timeout",
             "unstable",
-            "error",
             "cached",
-            "skipped",
-            "stopped",
-            "success",
+            "cancelled",
             "failure",
             "deleted",
-            "cancelled"
+            "error",
+            "stopped",
+            "success"
         ]
     },
     {
@@ -9130,28 +8946,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.HelmChart_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "HelmChart"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "HelmChart",
+                "default": "HelmChart",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -9200,7 +8998,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "name": "outputResources",
@@ -9235,39 +9034,41 @@
                 "type": {
                     "type": "enum",
                     "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.CreateReleaseBundle_types",
+                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types",
                     "symbols": [
+                        "Bash",
+                        "CreateReleaseBundle",
+                        "DistributeReleaseBundle",
+                        "DockerBuild",
+                        "DockerPush",
                         "GoBuild",
+                        "GoPublishBinary",
+                        "GoPublishModule",
+                        "GradleBuild",
+                        "HelmBlueGreenCleanup",
                         "HelmBlueGreenDeploy",
                         "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
                         "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
+                        "HelmPublish",
+                        "Jenkins",
+                        "Matrix",
+                        "MvnBuild",
+                        "NpmBuild",
+                        "NpmPublish",
+                        "PostMatrix",
+                        "PowerShell",
+                        "PreMatrix",
+                        "PromoteBuild",
                         "PublishBuildInfo",
-                        "NpmPublish"
+                        "PushArtifactoryPackage",
+                        "SignReleaseBundle",
+                        "TriggerPipeline",
+                        "XrayScan"
                     ]
                 },
-                "default": "CreateReleaseBundle"
+                "const": "CreateReleaseBundle",
+                "default": "CreateReleaseBundle",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -9418,9 +9219,9 @@
                                                     "name": "syntax",
                                                     "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.CreateReleaseBundle_types.configuration_types.releaseNotes_types",
                                                     "symbols": [
+                                                        "asciidoc",
                                                         "markdown",
-                                                        "plain_text",
-                                                        "asciidoc"
+                                                        "plain_text"
                                                     ]
                                                 }
                                             ]
@@ -9558,7 +9359,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "DockerBuild",
@@ -9572,42 +9374,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.DockerBuild_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "DockerBuild"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "DockerBuild",
+                "default": "DockerBuild",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -9848,7 +9618,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "GoBuild",
@@ -9862,42 +9633,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.GoBuild_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "GoBuild"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "GoBuild",
+                "default": "GoBuild",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -10170,7 +9909,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "GoPublishModule",
@@ -10184,42 +9924,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.GoPublishModule_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "GoPublishModule"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "GoPublishModule",
+                "default": "GoPublishModule",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -10492,7 +10200,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "HelmBlueGreenCleanup",
@@ -10506,42 +10215,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.HelmBlueGreenCleanup_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "HelmBlueGreenCleanup"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "HelmBlueGreenCleanup",
+                "default": "HelmBlueGreenCleanup",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -10764,7 +10441,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "HelmBlueGreenRoleSwitch",
@@ -10778,42 +10456,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.HelmBlueGreenRoleSwitch_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "HelmBlueGreenRoleSwitch"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "HelmBlueGreenRoleSwitch",
+                "default": "HelmBlueGreenRoleSwitch",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -11029,7 +10675,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "HelmPublish",
@@ -11043,42 +10690,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.HelmPublish_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "HelmPublish"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "HelmPublish",
+                "default": "HelmPublish",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -11437,7 +11052,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "exclude",
@@ -11581,42 +11197,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PreMatrix_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "PreMatrix"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "PreMatrix",
+                "default": "PreMatrix",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -11841,7 +11425,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "MvnBuild",
@@ -11855,42 +11440,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.MvnBuild_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "MvnBuild"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "MvnBuild",
+                "default": "MvnBuild",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -12185,7 +11738,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "NpmPublish",
@@ -12199,42 +11753,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.NpmPublish_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "NpmPublish"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "NpmPublish",
+                "default": "NpmPublish",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -12481,7 +12003,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "PromoteBuild",
@@ -12495,42 +12018,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PromoteBuild_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "PromoteBuild"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "PromoteBuild",
+                "default": "PromoteBuild",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -12784,7 +12275,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "PushArtifactoryPackage",
@@ -12798,42 +12290,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PushArtifactoryPackage_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "PushArtifactoryPackage"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "PushArtifactoryPackage",
+                "default": "PushArtifactoryPackage",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -13070,7 +12530,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "TriggerPipeline",
@@ -13084,42 +12545,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.TriggerPipeline_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "TriggerPipeline"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "TriggerPipeline",
+                "default": "TriggerPipeline",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -13363,7 +12792,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "type": "record",
@@ -17401,42 +16831,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.DistributeReleaseBundle_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "DistributeReleaseBundle"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "DistributeReleaseBundle",
+                "default": "DistributeReleaseBundle",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -17659,7 +17057,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "GoPublishBinary",
@@ -17673,42 +17072,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.GoPublishBinary_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "GoPublishBinary"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "GoPublishBinary",
+                "default": "GoPublishBinary",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -17945,7 +17312,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "HelmBlueGreenDeploy",
@@ -17959,42 +17327,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.HelmBlueGreenDeploy_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "HelmBlueGreenDeploy"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "HelmBlueGreenDeploy",
+                "default": "HelmBlueGreenDeploy",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -18500,7 +17836,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "Jenkins",
@@ -18514,42 +17851,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.Jenkins_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "Jenkins"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "Jenkins",
+                "default": "Jenkins",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -18655,7 +17960,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "PostMatrix",
@@ -18669,42 +17975,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PostMatrix_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "PostMatrix"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "PostMatrix",
+                "default": "PostMatrix",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -18929,7 +18203,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "PowerShell",
@@ -18943,42 +18218,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PowerShell_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "PowerShell"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "PowerShell",
+                "default": "PowerShell",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -19203,7 +18446,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "SignReleaseBundle",
@@ -19217,42 +18461,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.SignReleaseBundle_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "SignReleaseBundle"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "SignReleaseBundle",
+                "default": "SignReleaseBundle",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -19467,7 +18679,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "type": "record",
@@ -19631,9 +18844,9 @@
                                                     "name": "syntax",
                                                     "namespace": "org.schemastore.json.jfrog_pipelines.CreateReleaseBundle_types.configuration_types.releaseNotes_types",
                                                     "symbols": [
+                                                        "asciidoc",
                                                         "markdown",
-                                                        "plain_text",
-                                                        "asciidoc"
+                                                        "plain_text"
                                                     ]
                                                 }
                                             ]
@@ -21383,42 +20596,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.Bash_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "Bash"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "Bash",
+                "default": "Bash",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -21643,7 +20824,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "GradleBuild",
@@ -21657,42 +20839,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.GradleBuild_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "GradleBuild"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "GradleBuild",
+                "default": "GradleBuild",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -21983,7 +21133,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "Matrix",
@@ -21997,42 +21148,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.Matrix_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "Matrix"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "Matrix",
+                "default": "Matrix",
+                "discriminator": true
             },
             {
                 "name": "stepMode",
@@ -22430,7 +21549,8 @@
                     ]
                 }
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "PublishBuildInfo",
@@ -22444,42 +21564,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.PublishBuildInfo_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "PublishBuildInfo"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "PublishBuildInfo",
+                "default": "PublishBuildInfo",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -22718,7 +21806,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "type": "record",
@@ -23707,42 +22796,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.DockerPush_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "DockerPush"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "DockerPush",
+                "default": "DockerPush",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -23985,7 +23042,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "NpmBuild",
@@ -23999,42 +23057,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.NpmBuild_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "NpmBuild"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "NpmBuild",
+                "default": "NpmBuild",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -24277,7 +23303,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "type": "record",
@@ -24829,42 +23856,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.HelmDeploy_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "HelmDeploy"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "HelmDeploy",
+                "default": "HelmDeploy",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -25258,7 +24253,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "name": "exclude",
@@ -25402,42 +24398,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Step_types.XrayScan_types",
-                    "symbols": [
-                        "GoBuild",
-                        "HelmBlueGreenDeploy",
-                        "HelmBlueGreenRoleSwitch",
-                        "PreMatrix",
-                        "Matrix",
-                        "SignReleaseBundle",
-                        "HelmBlueGreenCleanup",
-                        "PowerShell",
-                        "NpmBuild",
-                        "CreateReleaseBundle",
-                        "GoPublishModule",
-                        "DockerBuild",
-                        "MvnBuild",
-                        "Jenkins",
-                        "PromoteBuild",
-                        "HelmPublish",
-                        "DockerPush",
-                        "PostMatrix",
-                        "Bash",
-                        "GradleBuild",
-                        "TriggerPipeline",
-                        "HelmDeploy",
-                        "XrayScan",
-                        "PushArtifactoryPackage",
-                        "GoPublishBinary",
-                        "DistributeReleaseBundle",
-                        "PublishBuildInfo",
-                        "NpmPublish"
-                    ]
-                },
-                "default": "XrayScan"
+                "type": "org.schemastore.json.jfrog_pipelines.Step_types.type",
+                "const": "XrayScan",
+                "default": "XrayScan",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -25660,7 +24624,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Step"
     },
     {
         "type": "record",
@@ -26749,28 +25714,10 @@
             },
             {
                 "name": "type",
-                "type": {
-                    "type": "enum",
-                    "name": "type",
-                    "namespace": "org.schemastore.json.jfrog_pipelines.Resource_types.PropertyBag_types",
-                    "symbols": [
-                        "GitRepo",
-                        "OutgoingWebhook",
-                        "PropertyBag",
-                        "Aql",
-                        "VmCluster",
-                        "IncomingWebhook",
-                        "RemoteFile",
-                        "Image",
-                        "CronTrigger",
-                        "BuildInfo",
-                        "DistributionRule",
-                        "HelmChart",
-                        "ReleaseBundle",
-                        "FileSpec"
-                    ]
-                },
-                "default": "PropertyBag"
+                "type": "org.schemastore.json.jfrog_pipelines.Resource_types.type",
+                "const": "PropertyBag",
+                "default": "PropertyBag",
+                "discriminator": true
             },
             {
                 "name": "configuration",
@@ -27044,7 +25991,8 @@
                     }
                 ]
             }
-        ]
+        ],
+        "union": "Resource"
     },
     {
         "type": "record",

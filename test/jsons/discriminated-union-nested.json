@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NestedDiscriminatedUnions",
+  "description": "Test case for discriminated unions containing other discriminated unions",
+  "type": "object",
+  "properties": {
+    "vehicles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Vehicle"
+      }
+    }
+  },
+  "definitions": {
+    "Vehicle": {
+      "title": "Vehicle",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Car", "Boat"]
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["type", "name"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Car"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/vehicleTypes/Car"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Boat"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/vehicleTypes/Boat"
+          }
+        }
+      ]
+    },
+    "vehicleTypes": {
+      "Car": {
+        "type": "object",
+        "properties": {
+          "engine": {
+            "$ref": "#/definitions/Engine"
+          }
+        },
+        "required": ["engine"]
+      },
+      "Boat": {
+        "type": "object",
+        "properties": {
+          "engine": {
+            "$ref": "#/definitions/Engine"
+          },
+          "hullType": {
+            "type": "string"
+          }
+        },
+        "required": ["engine"]
+      }
+    },
+    "Engine": {
+      "title": "Engine",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Electric", "Gasoline", "Diesel"]
+        },
+        "power": {
+          "type": "number"
+        }
+      },
+      "required": ["type", "power"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Electric"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/engineTypes/Electric"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Gasoline"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/engineTypes/Gasoline"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Diesel"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/engineTypes/Diesel"
+          }
+        }
+      ]
+    },
+    "engineTypes": {
+      "Electric": {
+        "type": "object",
+        "properties": {
+          "batteryCapacity": {
+            "type": "number"
+          }
+        },
+        "required": ["batteryCapacity"]
+      },
+      "Gasoline": {
+        "type": "object",
+        "properties": {
+          "octaneRating": {
+            "type": "integer"
+          }
+        },
+        "required": ["octaneRating"]
+      },
+      "Diesel": {
+        "type": "object",
+        "properties": {
+          "cetaneNumber": {
+            "type": "number"
+          }
+        },
+        "required": ["cetaneNumber"]
+      }
+    }
+  }
+}

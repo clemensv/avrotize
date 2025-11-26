@@ -147,7 +147,11 @@ public class {{ test_class_name }} {
         {%- if not field.is_const %}
         instance.set{{ field.field_name | pascal }}(testValue);
         {%- endif %}
+        {%- if field.is_discriminator %}
+        assertEquals(testValue, instance.get{{ field.field_name | pascal }}Value());
+        {%- else %}
         assertEquals(testValue, instance.get{{ field.field_name | pascal }}());
+        {%- endif %}
     }
     {%- endfor %}
     {%- if avro_annotation %}

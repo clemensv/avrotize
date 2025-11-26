@@ -650,6 +650,15 @@ class JsonToAvroConverter:
                         discriminator_field = 'type'  # The discriminator field
                         discriminator_enum = base_props.get(discriminator_field, {}).get('enum', [])
                         
+                        # Create a shared enum type for the discriminator field that all variants will reference
+                        shared_discriminator_enum = None
+                        if discriminator_enum:
+                            shared_discriminator_enum = self.create_enum_type(
+                                discriminator_field,
+                                self.compose_namespace(namespace, record_name + '_types'),
+                                discriminator_enum
+                            )
+                        
                         for allof_item in json_type['allOf']:
                             if not (isinstance(allof_item, dict) and 'if' in allof_item and 'then' in allof_item):
                                 continue
@@ -675,21 +684,39 @@ class JsonToAvroConverter:
                                 # Create a new type combining base properties and resolved type
                                 variant_type = copy.deepcopy(resolved_type)
                                 
+                                # Set the variant type name to the discriminator value
+                                variant_type['title'] = discriminator_value
+                                
+                                # Preserve description from base type if variant doesn't have one
+                                if 'description' not in variant_type and 'description' in base_type:
+                                    variant_type['description'] = base_type['description']
+                                
                                 # Merge base properties into the variant
                                 if 'properties' not in variant_type:
                                     variant_type['properties'] = {}
                                 
                                 for prop_name, prop_def in base_props.items():
                                     if prop_name not in variant_type['properties']:
-                                        variant_type['properties'][prop_name] = copy.deepcopy(prop_def)
-                                        
-                                        # Mark discriminator field with default and annotation
-                                        if prop_name == discriminator_field:
-                                            variant_type['properties'][prop_name] = {
-                                                'type': 'string',
-                                                'const': discriminator_value,
-                                                'discriminator': True
-                                            }
+                                        # For non-discriminator fields, copy the property definition
+                                        if prop_name != discriminator_field:
+                                            variant_type['properties'][prop_name] = copy.deepcopy(prop_def)
+                                
+                                # Set discriminator field to reference the shared enum type
+                                if shared_discriminator_enum:
+                                    variant_type['properties'][discriminator_field] = {
+                                        'type': shared_discriminator_enum,
+                                        'default': discriminator_value,
+                                        'const': discriminator_value,
+                                        'discriminator': True
+                                    }
+                                else:
+                                    # Fallback if no enum was found
+                                    variant_type['properties'][discriminator_field] = {
+                                        'type': 'string',
+                                        'default': discriminator_value,
+                                        'const': discriminator_value,
+                                        'discriminator': True
+                                    }
                                 
                                 # Add union annotation to indicate this is part of a discriminated union
                                 variant_type['union'] = record_name
@@ -781,8 +808,13 @@ class JsonToAvroConverter:
                                         continue
 
                                 subtype_deps: List[str] = []
-                                sub_field_name = avro_name(local_name + '_' + str(count)) if not isinstance(
-                                    json_type_option, dict) or not '$ref' in json_type_option else None
+                                # Use title from discriminated union if available, otherwise generate numbered name
+                                if isinstance(json_type_option, dict) and 'title' in json_type_option:
+                                    sub_field_name = avro_name(json_type_option['title'])
+                                elif not isinstance(json_type_option, dict) or not '$ref' in json_type_option:
+                                    sub_field_name = avro_name(local_name + '_' + str(count))
+                                else:
+                                    sub_field_name = None
                                 avro_subtype = self.json_type_to_avro_type(
                                     json_type_option, record_name, sub_field_name, namespace, subtype_deps, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                                 if not avro_subtype:
@@ -1038,7 +1070,7 @@ class JsonToAvroConverter:
                                 [avro_type, self.create_array_type(generic_type())], avro_schema, '')
                     elif json_object_type and (json_object_type == 'object' or 'object' in json_object_type):
                         avro_record_type = self.json_schema_object_to_avro_record(
-                            local_name, json_type, namespace, json_schema, base_uri, avro_schema, record_stack)
+                            local_name, json_type, namespace, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                         if isinstance(avro_record_type, list):
                             for record_entry in avro_record_type:
                                 self.lift_dependencies_from_type(
@@ -1230,7 +1262,7 @@ class JsonToAvroConverter:
         """Get the qualified name of an Avro type."""
         return self.compose_namespace(avro_type.get('namespace', ''), avro_type.get('name', ''))
 
-    def json_schema_object_to_avro_record(self, name: str, json_object: dict, namespace: str, json_schema: dict, base_uri: str, avro_schema: list, record_stack: list) -> dict | list | str | None:
+    def json_schema_object_to_avro_record(self, name: str, json_object: dict, namespace: str, json_schema: dict, base_uri: str, avro_schema: list, record_stack: list, recursion_depth: int = 1) -> dict | list | str | None:
         """Convert a JSON schema object declaration to an Avro record."""
         dependencies: List[str] = []
         avro_type: list | dict | str = {}
@@ -1239,7 +1271,7 @@ class JsonToAvroConverter:
         if self.has_composition_keywords(json_object):
             # we will merge allOf, oneOf, anyOf into a union record type
             type = self.json_type_to_avro_type(
-                json_object, name, '', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)
+                json_object, name, '', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
             if isinstance(type, str):
                 # we are skipping references and primitives
                 return None
@@ -1275,7 +1307,7 @@ class JsonToAvroConverter:
                 f'WARN: Standalone array type {name} will be wrapped in a record')
             deps: List[str] = []
             array_type = self.json_type_to_avro_type(json_object, name, avro_name(
-                name), namespace, deps, json_schema, base_uri, avro_schema, record_stack)
+                name), namespace, deps, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
             avro_array = self.create_wrapper_record(
                 avro_name(name+'_wrapper'), self.utility_namespace, 'items', [], array_type)
             self.merge_description_into_doc(json_object, avro_array)
@@ -1346,7 +1378,7 @@ class JsonToAvroConverter:
                         discriminator = json_field_type.get('discriminator', discriminator)
                         # convert the JSON-type field to an Avro-type field
                         avro_field_ref_type = avro_field_type = self.ensure_type(self.json_type_to_avro_type(
-                            json_field_type, record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack))
+                            json_field_type, record_name, field_name, namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1))
                         if isinstance(avro_field_type, list):
                             avro_field_type = self.flatten_union(
                                 avro_field_type)
@@ -1407,7 +1439,7 @@ class JsonToAvroConverter:
                     # we don't have any fields, but we have an array type, so we create a record with an 'items' field
                     avro_record = self.create_array_type(
                         self.json_type_to_avro_type(
-                            json_object['items'], record_name, 'values', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)
+                            json_object['items'], record_name, 'values', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                         if 'items' in json_object
                         else generic_type())
                 else:
@@ -1421,7 +1453,7 @@ class JsonToAvroConverter:
                 for pattern_name, props in pattern_props.items():
                     deps = []
                     prop_type = self.ensure_type(self.json_type_to_avro_type(
-                        props, record_name, pattern_name, namespace, deps, json_schema, base_uri, avro_schema, record_stack))
+                        props, record_name, pattern_name, namespace, deps, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1))
                     if self.is_standalone_avro_type(prop_type):
                         self.lift_dependencies_from_type(prop_type, deps)
                         self.set_avro_type_value(
@@ -1447,7 +1479,7 @@ class JsonToAvroConverter:
                 additional_props = json_object['additionalProperties']
                 deps = []
                 values_type = self.json_type_to_avro_type(
-                    additional_props, record_name, record_name + '_extensions', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack)
+                    additional_props, record_name, record_name + '_extensions', namespace, dependencies, json_schema, base_uri, avro_schema, record_stack, recursion_depth + 1)
                 if self.is_standalone_avro_type(values_type):
                     self.lift_dependencies_from_type(values_type, deps)
                     self.set_avro_type_value(

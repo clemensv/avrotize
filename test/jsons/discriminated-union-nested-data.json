@@ -1,0 +1,32 @@
+{
+  "vehicles": [
+    {
+      "type": "Car",
+      "name": "Tesla Model 3",
+      "engine": {
+        "type": "Electric",
+        "power": 283,
+        "batteryCapacity": 75.0
+      }
+    },
+    {
+      "type": "Boat",
+      "name": "Speedboat",
+      "hullType": "V-hull",
+      "engine": {
+        "type": "Gasoline",
+        "power": 300,
+        "octaneRating": 91
+      }
+    },
+    {
+      "type": "Car",
+      "name": "Diesel Truck",
+      "engine": {
+        "type": "Diesel",
+        "power": 400,
+        "cetaneNumber": 48.0
+      }
+    }
+  ]
+}

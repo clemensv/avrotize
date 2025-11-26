@@ -503,17 +503,47 @@ class AvroToJava:
             # Inline all schema references like C# does - each class has self-contained schema
             local_avro_schema = inline_avro_references(avro_schema.copy(), self.type_dict, '')
             avro_schema_json = json.dumps(local_avro_schema)
-            avro_schema_json = avro_schema_json.replace('"', '§')
-            avro_schema_json = f"\"+\n{INDENT}\"".join(
-                [avro_schema_json[i:i+80] for i in range(0, len(avro_schema_json), 80)])
-            avro_schema_json = avro_schema_json.replace('§', '\\"')
+            
+            # Java has a limit of 65535 bytes for string constants
+            # If the schema is too large, we need to split it into chunks
+            MAX_STRING_CONSTANT_LENGTH = 60000  # Leave some margin for safety
+            
+            if len(avro_schema_json) > MAX_STRING_CONSTANT_LENGTH:
+                # Split into multiple private string methods to avoid the 65535 byte limit
+                # Each method returns a part of the schema, concatenated at runtime
+                chunk_size = MAX_STRING_CONSTANT_LENGTH
+                chunks = [avro_schema_json[i:i+chunk_size] for i in range(0, len(avro_schema_json), chunk_size)]
+                
+                # Generate a method for each chunk
+                for i, chunk in enumerate(chunks):
+                    # Use the same escaping technique as the non-chunked version
+                    escaped_chunk = chunk.replace('"', '§')
+                    escaped_chunk = f"\"+\n{INDENT*2}\"".join(
+                        [escaped_chunk[j:j+80] for j in range(0, len(escaped_chunk), 80)])
+                    escaped_chunk = escaped_chunk.replace('§', '\\"')
+                    class_definition += f"\n\n{INDENT}private static String getAvroSchemaPart{i}() {{\n"
+                    class_definition += f"{INDENT*2}return \"{escaped_chunk}\";\n"
+                    class_definition += f"{INDENT}}}"
+                
+                # Generate the combining method
+                class_definition += f"\n\n{INDENT}private static String getAvroSchemaJson() {{\n"
+                class_definition += f"{INDENT*2}return "
+                class_definition += " + ".join([f"getAvroSchemaPart{i}()" for i in range(len(chunks))])
+                class_definition += ";\n"
+                class_definition += f"{INDENT}}}\n"
+                class_definition += f"\n{INDENT}public static final Schema AVROSCHEMA = new Schema.Parser().parse(getAvroSchemaJson());"
+            else:
+                avro_schema_json = avro_schema_json.replace('"', '§')
+                avro_schema_json = f"\"+\n{INDENT}\"".join(
+                    [avro_schema_json[i:i+80] for i in range(0, len(avro_schema_json), 80)])
+                avro_schema_json = avro_schema_json.replace('§', '\\"')
+                class_definition += f"\n\n{INDENT}public static final Schema AVROSCHEMA = new Schema.Parser().parse(\n{INDENT}\"{avro_schema_json}\");"
             
             # Store the schema for tracking
             avro_namespace = avro_schema.get('namespace', '')
             schema_full_name = f"{avro_namespace}.{class_name}" if avro_namespace else class_name
             self.generated_types_avro_namespace[schema_full_name] = "class"
             
-            class_definition += f"\n\n{INDENT}public static final Schema AVROSCHEMA = new Schema.Parser().parse(\n{INDENT}\"{avro_schema_json}\");"
             class_definition += f"\n{INDENT}public static final DatumWriter<{class_name}> AVROWRITER = new SpecificDatumWriter<{class_name}>(AVROSCHEMA);"
             class_definition += f"\n{INDENT}public static final DatumReader<{class_name}> AVROREADER = new SpecificDatumReader<{class_name}>(AVROSCHEMA);\n"
 
@@ -590,7 +620,7 @@ class AvroToJava:
             if field_name == class_name:
                 field_name += "_"
             field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_namespace)
-            predicate, clause = self.get_is_json_match_clause(class_name, field_name, field_type)
+            predicate, clause = self.get_is_json_match_clause(class_name, field_name, field_type, field)
             field_defs += clause
             if predicate:
                 predicates += predicate + "\n"
@@ -600,12 +630,24 @@ class AvroToJava:
         class_definition += f";\n{INDENT}}}"
         return class_definition
     
-    def get_is_json_match_clause(self, class_name: str, field_name: str, field_type: JavaType) -> Tuple[str, str]:
+    def get_is_json_match_clause(self, class_name: str, field_name: str, field_type: JavaType, field: Dict = None) -> Tuple[str, str]:
         """ Generates the isJsonMatch clause for a field using Jackson """
         class_definition = ''
         predicates = ''
         field_name_js = field_name
-        is_optional = self.is_java_optional_type(field_type)        
+        
+        # Check if field is nullable (Avro union with null)
+        is_nullable = False
+        if field and 'type' in field:
+            avro_type = field['type']
+            if isinstance(avro_type, list) and 'null' in avro_type:
+                is_nullable = True
+        
+        is_optional = is_nullable or self.is_java_optional_type(field_type)
+        
+        # Check if this is a const field (e.g., discriminator)
+        has_const = field and 'const' in field and field['const'] is not None
+        const_value = field['const'] if has_const else None
 
         if is_optional:
             node_check = f"!node.has(\"{field_name_js}\") || node.get(\"{field_name_js}\").isNull() || node.get(\"{field_name_js}\")"
@@ -621,9 +663,9 @@ class AvroToJava:
         elif field_type.type_name == 'long' or field_type.type_name == 'Long':
             class_definition += f"({node_check}.canConvertToLong())"
         elif field_type.type_name == 'float' or field_type.type_name == 'Float':
-            class_definition += f"({node_check}.isFloat())"
+            class_definition += f"({node_check}.isNumber())"
         elif field_type.type_name == 'double' or field_type.type_name == 'Double':
-            class_definition += f"({node_check}.isDouble())"
+            class_definition += f"({node_check}.isNumber())"
         elif field_type.type_name == 'BigDecimal':
             class_definition += f"({node_check}.isBigDecimal())"
         elif field_type.type_name == 'boolean' or field_type.type_name == 'Boolean':
@@ -676,9 +718,19 @@ class AvroToJava:
             predicates += pred + ";"
             class_definition += f"(node.has(\"{field_name_js}\") && val{field_name_js}.test(node.get(\"{field_name_js}\")))"
         elif field_type.is_class:
-            class_definition += f"(node.has(\"{field_name_js}\") && {field_type.type_name}.isJsonMatch(node.get(\"{field_name_js}\")))"
+            if is_optional:
+                class_definition += f"(!node.has(\"{field_name_js}\") || node.get(\"{field_name_js}\").isNull() || {field_type.type_name}.isJsonMatch(node.get(\"{field_name_js}\")))"
+            else:
+                class_definition += f"(node.has(\"{field_name_js}\") && {field_type.type_name}.isJsonMatch(node.get(\"{field_name_js}\")))"
         elif field_type.is_enum:
-            class_definition += f"(node.get(\"{field_name_js}\").isTextual() && Enum.valueOf({field_type.type_name}.class, node.get(\"{field_name_js}\").asText()) != null)"
+            # For const enum fields (discriminators), check the exact value
+            if has_const:
+                # const_value is the string value from the schema, not the enum qualified name
+                # Ensure we use the raw string value for comparison
+                raw_const = const_value if isinstance(const_value, str) else str(const_value)
+                class_definition += f"(node.has(\"{field_name_js}\") && node.get(\"{field_name_js}\").isTextual() && node.get(\"{field_name_js}\").asText().equals(\"{raw_const}\"))"
+            else:
+                class_definition += f"(node.get(\"{field_name_js}\").isTextual() && Enum.valueOf({field_type.type_name}.class, node.get(\"{field_name_js}\").asText()) != null)"
         else:
             is_union = False
             field_union = pascal(field_name) + 'Union'
@@ -1385,16 +1437,40 @@ class AvroToJava:
         property_def = ''
         if 'doc' in field:
             property_def += f"{INDENT}/** {field['doc']} */\n"
-        if self.jackson_annotations:
+        
+        # For discriminator const fields, don't put @JsonProperty on the field
+        # The getter will handle JSON serialization/deserialization
+        is_discriminator_const = field.get('discriminator', False) and 'const' in field
+        if self.jackson_annotations and not is_discriminator_const:
             property_def += f"{INDENT}@JsonProperty(\"{field['name']}\")\n"
         
         # Handle const fields
         if 'const' in field and field['const'] is not None:
             const_value = field['const']
-            if field_type.type_name == 'String':
+            is_discriminator = field.get('discriminator', False)
+            
+            # For enum types, qualify with the enum type name
+            if field_type.type_name not in ('String', 'int', 'Integer', 'long', 'Long', 'double', 'Double', 'boolean', 'Boolean'):
+                const_value = f'{field_type.type_name}.{const_value}'
+            elif field_type.type_name == 'String':
                 const_value = f'"{const_value}"'
+            
             property_def += f"{INDENT}private final {field_type.type_name} {safe_field_name} = {const_value};\n"
-            property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
+            
+            # For discriminator fields, we need both the enum value accessor and String override
+            if is_discriminator:
+                # Provide a typed accessor for the enum value (ignored by Jackson since it's synthetic)
+                if self.jackson_annotations:
+                    property_def += f"{INDENT}@JsonIgnore\n"
+                property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}Value() {{ return {safe_field_name}; }}\n"
+                # Generate the getter that returns String (Jackson will use this for serialization)
+                # Use READ_ONLY since this is a const field that doesn't need deserialization
+                # Note: Not using @Override because not all discriminated union variants extend a base class
+                if self.jackson_annotations:
+                    property_def += f"{INDENT}@JsonProperty(value=\"{field['name']}\", access=JsonProperty.Access.READ_ONLY)\n"
+                property_def += f"{INDENT}public String get{pascal(field_name)}() {{ return {safe_field_name}.name(); }}\n"
+            else:
+                property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
         else:
             property_def += f"{INDENT}private {field_type.type_name} {safe_field_name};\n"
             property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
@@ -1432,11 +1508,15 @@ class AvroToJava:
                     if match:
                         base_class_name = match.group(1)
                         # Check if this base class is a discriminated union we generated
-                        for union_name in self.discriminated_unions.keys():
+                        for union_name, union_subtypes in self.discriminated_unions.items():
                             if union_name == base_class_name:
-                                # Import the base class from its package
-                                base_package = self.base_package.replace('/', '.')
-                                file.write(f"import {base_package}.{union_name};\n")
+                                # Get the package where the union base class is generated
+                                # (it's in the same package as the first subtype)
+                                union_package = union_subtypes[0]['package'] if union_subtypes else self.base_package.replace('/', '.')
+                                # Only import if the union is in a different package
+                                current_package = package.replace('/', '.')
+                                if union_package != current_package:
+                                    file.write(f"import {union_package}.{union_name};\n")
                                 break
                 
                 if "List<" in definition or "ArrayList<" in definition:
@@ -1701,7 +1781,7 @@ class AvroToJava:
         """ Retrieves fields for a given class name """
         
         class Field:
-            def __init__(self, fn: str, ft: str, tv: str, ct: bool, ie: bool = False, java_type_obj: 'AvroToJava.JavaType' = None):
+            def __init__(self, fn: str, ft: str, tv: str, ct: bool, ie: bool = False, java_type_obj: 'AvroToJava.JavaType' = None, is_discrim: bool = False):
                 self.field_name = fn
                 self.field_type = ft
                 # Extract base type for generic types (e.g., List<Object> -> List)
@@ -1712,6 +1792,7 @@ class AvroToJava:
                 self.test_value = tv
                 self.is_const = ct
                 self.is_enum = ie
+                self.is_discriminator = is_discrim
                 self.java_type_obj = java_type_obj  # Store the full JavaType object for union access
 
         fields: List[Field] = []
@@ -1722,13 +1803,27 @@ class AvroToJava:
                 # Check if the field type is an enum
                 is_enum = field_type.type_name in self.generated_types_java_package and \
                          self.generated_types_java_package[field_type.type_name] == "enum"
+                is_discriminator = field.get('discriminator', False)
+                
+                # Generate test value for the field
+                if "const" in field and field["const"] is not None:
+                    const_value = field["const"]
+                    # For enum types, qualify with the enum type name
+                    if is_enum or (field_type.type_name not in ('String', 'int', 'Integer', 'long', 'Long', 'double', 'Double', 'boolean', 'Boolean')):
+                        test_value = f'{field_type.type_name}.{const_value}'
+                    else:
+                        test_value = f'"{const_value}"'
+                else:
+                    test_value = self.get_test_value_from_field(field['type'], field_type, package)
+                
                 f = Field(
                     field_name,
                     field_type.type_name,
-                    self.get_test_value_from_field(field['type'], field_type, package) if "const" not in field else f'"{field["const"]}"',
+                    test_value,
                     "const" in field and field["const"] is not None,
                     is_enum,
-                    field_type  # Pass the full JavaType object
+                    field_type,  # Pass the full JavaType object
+                    is_discriminator
                 )
                 fields.append(f)
         return fields

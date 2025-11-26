@@ -1,0 +1,13 @@
+{
+  "name": "test",
+  "items": [
+    {
+      "id": "a1",
+      "valueA": 42
+    },
+    {
+      "id": "b1",
+      "valueB": "hello"
+    }
+  ]
+}

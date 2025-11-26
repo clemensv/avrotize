@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimpleDiscriminatedUnion",
+  "description": "Minimal test case for discriminated union with allOf + if/then pattern",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Shape"
+      }
+    }
+  },
+  "definitions": {
+    "Shape": {
+      "title": "Shape",
+      "description": "A discriminated union of geometric shapes",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Circle", "Rectangle", "Triangle"]
+        },
+        "color": {
+          "type": "string"
+        }
+      },
+      "required": ["type"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Circle"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/shapeTypes/Circle"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Rectangle"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/shapeTypes/Rectangle"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["Triangle"]
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/definitions/shapeTypes/Triangle"
+          }
+        }
+      ]
+    },
+    "shapeTypes": {
+      "Circle": {
+        "type": "object",
+        "properties": {
+          "radius": {
+            "type": "number"
+          }
+        },
+        "required": ["radius"]
+      },
+      "Rectangle": {
+        "type": "object",
+        "properties": {
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          }
+        },
+        "required": ["width", "height"]
+      },
+      "Triangle": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          }
+        },
+        "required": ["base", "height"]
+      }
+    }
+  }
+}

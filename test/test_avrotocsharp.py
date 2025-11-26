@@ -189,6 +189,21 @@ class TestAvroToCSharp(unittest.TestCase):
                                system_text_json_annotation=True, newtonsoft_json_annotation=True, system_xml_annotation=True)
         assert subprocess.check_call(['dotnet', 'build'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
 
+    def test_convert_discriminated_union_simple_jsons_to_avro_to_csharp(self):
+        """ Test converting a simple discriminated union JSON Schema to C# """
+        cwd = getcwd()
+        jsons_path = path.join(cwd, "test", "jsons", "discriminated-union-simple.json")
+        avro_path = path.join(tempfile.gettempdir(), "avrotize", "discriminated-union-simple.avsc")
+        cs_path = path.join(tempfile.gettempdir(), "avrotize", "discriminated-union-simple-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+
+        convert_jsons_to_avro(jsons_path, avro_path)
+        convert_avro_to_csharp(avro_path, cs_path, pascal_properties=True,
+                               system_text_json_annotation=True)
+        assert subprocess.check_call(['dotnet', 'test'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr) == 0
+
     def test_project_name_parameter(self):
         """ Test the project_name parameter for separating project naming from namespace """
         cwd = os.getcwd()

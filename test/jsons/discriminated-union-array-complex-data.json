@@ -1,0 +1,17 @@
+{
+  "name": "test-data",
+  "items": [
+    {
+      "id": "item1",
+      "value": 42.5,
+      "nested": {
+        "flag": true,
+        "tags": ["tag1", "tag2"]
+      }
+    },
+    {
+      "id": "item2",
+      "value": 100
+    }
+  ]
+}

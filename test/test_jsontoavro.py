@@ -130,3 +130,18 @@ class TestJsonsToAvro(unittest.TestCase):
 
     def test_convert_travis_jsons_to_avro(self):
         self.create_avro_from_jsons("travis.json", "travis.avsc")
+    
+    def test_convert_discriminated_union_simple_to_avro(self):
+        self.create_avro_from_jsons("discriminated-union-simple.json", "discriminated-union-simple.avsc")
+    
+    def test_convert_discriminated_union_nested_to_avro(self):
+        self.create_avro_from_jsons("discriminated-union-nested.json", "discriminated-union-nested.avsc")
+    
+    def test_convert_discriminated_union_array_complex_to_avro(self):
+        self.create_avro_from_jsons("discriminated-union-array-complex.json", "discriminated-union-array-complex.avsc")
+    
+    def test_convert_optional_nested_union_to_avro(self):
+        self.create_avro_from_jsons("optional-nested-union.json", "optional-nested-union.avsc")
+    
+    def test_convert_oneof_with_title_to_avro(self):
+        self.create_avro_from_jsons("oneof-with-title.json", "oneof-with-title.avsc")
