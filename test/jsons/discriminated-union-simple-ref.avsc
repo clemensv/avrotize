@@ -1,6 +1,7 @@
 [
     {
         "name": "Circle",
+        "doc": "A discriminated union of geometric shapes",
         "type": "record",
         "namespace": "com.test.example.Shape_types",
         "fields": [
@@ -39,6 +40,7 @@
     },
     {
         "name": "Triangle",
+        "doc": "A discriminated union of geometric shapes",
         "type": "record",
         "namespace": "com.test.example.Shape_types",
         "fields": [
@@ -98,6 +100,7 @@
     },
     {
         "name": "Rectangle",
+        "doc": "A discriminated union of geometric shapes",
         "type": "record",
         "namespace": "com.test.example.Shape_types",
         "fields": [

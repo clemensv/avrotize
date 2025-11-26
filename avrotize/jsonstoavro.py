@@ -402,7 +402,13 @@ class JsonToAvroConverter:
         """
         if isinstance(json_primitive, list):
             if enum:
-                json_primitive = 'string'
+                # Handle mixed-type enums properly using the dedicated helper
+                return self.create_enum_for_mixed_types(
+                    field_name + '_1',
+                    self.compose_namespace(namespace, record_name + '_types'),
+                    enum,
+                    json_primitive
+                )
             else:
                 union = []
                 for item in json_primitive:
@@ -599,6 +605,24 @@ class JsonToAvroConverter:
                     # and one of them is 'null'
                     # otherwise, we will construct and inject a oneOf type
                     # and split the type
+                    
+                    # Special case: if we have a mixed-type enum (e.g., type: ["string", "integer"] with enum),
+                    # handle it directly here to avoid duplicate processing
+                    if 'enum' in json_type and any(t in json_object_type for t in ['string', 'integer', 'int']):
+                        has_null = 'null' in json_object_type
+                        avro_type = self.create_enum_for_mixed_types(
+                            local_name + '_1',
+                            self.compose_namespace(namespace, record_name + '_types'),
+                            json_type['enum'],
+                            json_object_type
+                        )
+                        if 'description' in json_type and isinstance(avro_type, dict):
+                            avro_type['doc'] = json_type['description']
+                        elif 'description' in json_type and isinstance(avro_type, list):
+                            # For unions, we can't set doc directly - it will be set on the field
+                            pass
+                        return self.post_check_avro_type(dependencies, avro_type)
+                    
                     if len(json_object_type) == 1:
                         json_object_type = json_object_type[0]
                     elif len(json_object_type) == 2 and 'null' in json_object_type:
@@ -1079,16 +1103,40 @@ class JsonToAvroConverter:
                             'name', local_name) if isinstance(avro_type, dict) else local_name)
                         self.lift_dependencies_from_type(
                             avro_type, dependencies)
-                    elif 'enum' in json_type and (not 'type' in json_type or json_type['type'] == "string"):
-                        # we skip all enums that are not of implicit or explicit type 'string'
-                        enum = [avro_name(e) for e in json_type['enum'] if isinstance(
-                            e, str) and e != '']
-                        if len(enum) > 0:
-                            # if the enum ends up empty (only non-strings in the enum), we will skip it
-                            enum = list(set(enum))
-                            if len(enum) > 0:
-                                avro_type = self.create_enum_type(local_name, self.compose_namespace(
-                                    namespace, record_name + '_types'), enum)
+                    elif 'enum' in json_type:
+                        # Handle enums with proper type handling for mixed string/int enums
+                        enum_values = json_type['enum']
+                        schema_type = json_type.get('type', 'string')
+                        
+                        # For pure string enums with valid symbols, use simple enum without suffix
+                        string_values = [v for v in enum_values if isinstance(v, str) and v]
+                        int_values = [v for v in enum_values if isinstance(v, int)]
+                        
+                        if not int_values and string_values:
+                            # Pure string enum
+                            if not self.enum_symbols_need_string_fallback(string_values):
+                                # Simple case: valid symbols, just create enum
+                                avro_type = self.create_enum_type(
+                                    local_name,
+                                    self.compose_namespace(namespace, record_name + '_types'),
+                                    string_values
+                                )
+                            else:
+                                # Symbols need prefixing, use helper with string fallback
+                                avro_type = self.create_enum_for_mixed_types(
+                                    local_name,
+                                    self.compose_namespace(namespace, record_name + '_types'),
+                                    enum_values,
+                                    schema_type
+                                )
+                        else:
+                            # Mixed or int-only enum, use helper
+                            avro_type = self.create_enum_for_mixed_types(
+                                local_name + '_1',
+                                self.compose_namespace(namespace, record_name + '_types'),
+                                enum_values,
+                                schema_type
+                            )
                     else:
                         avro_type = self.json_schema_primitive_to_avro_type(json_object_type, json_type.get(
                             'format'), json_type.get('enum'), record_name, field_name, namespace, dependencies)
@@ -1209,6 +1257,102 @@ class JsonToAvroConverter:
             'namespace': namespace,
             'symbols': [avro_name(s) for s in symbols]
         }
+
+    def enum_symbols_need_string_fallback(self, symbols: list) -> bool:
+        """
+        Check if any enum symbols will be transformed by avro_name().
+        If symbols are prefixed (e.g., "1" -> "_1"), we need a string fallback
+        in the union to handle original JSON values during deserialization.
+        """
+        for s in symbols:
+            if isinstance(s, str) and s:
+                if avro_name(s) != s:
+                    return True
+        return False
+
+    def create_enum_for_mixed_types(self, name: str, namespace: str, enum_values: list, json_types: list) -> dict | list:
+        """
+        Create an Avro type for enums with mixed or special type requirements.
+        
+        Handles:
+        - Pure string enum with valid symbols -> enum
+        - Pure string enum with prefixed symbols -> [enum, string]
+        - Pure int enum -> int (with doc hint about allowed values)
+        - Mixed string/int enum -> [enum, string, int]
+        
+        Args:
+            name: The enum type name
+            namespace: The namespace for the enum
+            enum_values: The list of enum values from JSON Schema
+            json_types: The JSON Schema type(s), e.g., "string", "integer", or ["string", "integer"]
+        
+        Returns:
+            Avro type: either an enum dict, a primitive string, or a union list
+        """
+        if not isinstance(json_types, list):
+            json_types = [json_types]
+        
+        # Normalize type names
+        has_string = 'string' in json_types
+        has_int = 'integer' in json_types or 'int' in json_types
+        has_null = 'null' in json_types
+        
+        # Separate string and int enum values
+        string_values = [v for v in enum_values if isinstance(v, str) and v]
+        int_values = [v for v in enum_values if isinstance(v, int)]
+        
+        # Pure integer enum case
+        if has_int and not has_string and not string_values:
+            # Just use int - no enum type needed for pure int enums
+            # The doc will contain the allowed values hint
+            result = 'int'
+            if has_null:
+                result = ['null', result]
+            return result
+        
+        # Build the enum from string values (or string representations of all values)
+        if string_values:
+            enum_symbols = list(set(string_values))
+        else:
+            # No string values but has_string type - shouldn't happen normally
+            enum_symbols = []
+        
+        if not enum_symbols:
+            # No valid enum symbols, fall back to primitive types
+            union = []
+            if has_null:
+                union.append('null')
+            if has_string:
+                union.append('string')
+            if has_int:
+                union.append('int')
+            return union if len(union) > 1 else (union[0] if union else 'string')
+        
+        # Create the enum type
+        avro_enum = self.create_enum_type(name, namespace, enum_symbols)
+        
+        # Determine if we need additional types in union
+        needs_string_fallback = self.enum_symbols_need_string_fallback(enum_symbols)
+        
+        # Build the union
+        union = []
+        if has_null:
+            union.append('null')
+        union.append(avro_enum)
+        
+        # Add string fallback if symbols were prefixed OR if this is a mixed type enum
+        if needs_string_fallback or has_int:
+            union.append('string')
+        
+        # Add int if the schema allows integers
+        if has_int:
+            union.append('int')
+        
+        # Return enum directly if no union needed
+        if len(union) == 1:
+            return union[0]
+        
+        return union
 
     def create_array_type(self, items: list | dict | str) -> dict:
         """Create an Avro array type."""

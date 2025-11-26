@@ -1,0 +1,39 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "MixedTypeEnumTest",
+    "description": "Test schema for various enum type combinations",
+    "type": "object",
+    "properties": {
+        "pureStringEnum": {
+            "description": "A pure string enum with valid identifiers",
+            "type": "string",
+            "enum": ["Alpha", "Beta", "Gamma"]
+        },
+        "pureStringEnumWithInvalidSymbols": {
+            "description": "A pure string enum where symbols need prefixing (start with digits)",
+            "type": "string",
+            "enum": ["1.0", "2.0", "3.0"]
+        },
+        "pureIntEnum": {
+            "description": "A pure integer enum - should become int with doc hint",
+            "type": "integer",
+            "enum": [1, 2, 3, 4]
+        },
+        "mixedStringIntEnum": {
+            "description": "Mixed string/int enum like jfrogCliVersion - needs string in union for backcompat",
+            "type": ["string", "integer"],
+            "enum": ["1", "2", 1, 2]
+        },
+        "mixedStringIntEnumWithValidSymbols": {
+            "description": "Mixed enum where string values are valid identifiers",
+            "type": ["string", "integer"],
+            "enum": ["v1", "v2", 1, 2]
+        },
+        "nullableMixedEnum": {
+            "description": "Nullable mixed string/int enum",
+            "type": ["string", "integer", "null"],
+            "enum": ["1", "2", 1, 2, null]
+        }
+    },
+    "required": ["pureStringEnum", "pureIntEnum", "mixedStringIntEnum"]
+}
