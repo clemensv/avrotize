@@ -1,0 +1,399 @@
+using System;
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Xml;
+
+{% if namespace %}
+namespace {{ namespace }}
+{
+{% endif %}
+{% set ind=4 if namespace else 0 %}
+{% filter indent(width=ind, first=True) %}
+/// <summary>
+/// JSON converters for JSON Structure types that require string serialization.
+/// Per JSON Structure Core spec, int64, uint64, int128, uint128, and decimal
+/// types use string representation in JSON to preserve precision.
+/// </summary>
+public static class JsonStructureConverters
+{
+    /// <summary>
+    /// Gets default JsonSerializerOptions configured with JSON Structure converters
+    /// </summary>
+    public static JsonSerializerOptions GetOptions()
+    {
+        var options = new JsonSerializerOptions();
+        options.Converters.Add(new Int64StringConverter());
+        options.Converters.Add(new NullableInt64StringConverter());
+        options.Converters.Add(new UInt64StringConverter());
+        options.Converters.Add(new NullableUInt64StringConverter());
+        options.Converters.Add(new Int128StringConverter());
+        options.Converters.Add(new NullableInt128StringConverter());
+        options.Converters.Add(new UInt128StringConverter());
+        options.Converters.Add(new NullableUInt128StringConverter());
+        options.Converters.Add(new DecimalStringConverter());
+        options.Converters.Add(new NullableDecimalStringConverter());
+        options.Converters.Add(new TimeSpanIso8601Converter());
+        options.Converters.Add(new NullableTimeSpanIso8601Converter());
+        return options;
+    }
+}
+
+/// <summary>
+/// Converts Int64 (long) to/from JSON string for precision preservation
+/// </summary>
+public class Int64StringConverter : JsonConverter<long>
+{
+    /// <inheritdoc/>
+    public override long Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return long.Parse(reader.GetString()!, CultureInfo.InvariantCulture);
+        }
+        return reader.GetInt64();
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, long value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString(CultureInfo.InvariantCulture));
+    }
+}
+
+/// <summary>
+/// Converts nullable Int64 (long?) to/from JSON string for precision preservation
+/// </summary>
+public class NullableInt64StringConverter : JsonConverter<long?>
+{
+    /// <inheritdoc/>
+    public override long? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return null;
+        }
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var str = reader.GetString();
+            if (string.IsNullOrEmpty(str)) return null;
+            return long.Parse(str, CultureInfo.InvariantCulture);
+        }
+        return reader.GetInt64();
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, long? value, JsonSerializerOptions options)
+    {
+        if (value.HasValue)
+        {
+            writer.WriteStringValue(value.Value.ToString(CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            writer.WriteNullValue();
+        }
+    }
+}
+
+/// <summary>
+/// Converts UInt64 (ulong) to/from JSON string for precision preservation
+/// </summary>
+public class UInt64StringConverter : JsonConverter<ulong>
+{
+    /// <inheritdoc/>
+    public override ulong Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return ulong.Parse(reader.GetString()!, CultureInfo.InvariantCulture);
+        }
+        return reader.GetUInt64();
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, ulong value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString(CultureInfo.InvariantCulture));
+    }
+}
+
+/// <summary>
+/// Converts nullable UInt64 (ulong?) to/from JSON string for precision preservation
+/// </summary>
+public class NullableUInt64StringConverter : JsonConverter<ulong?>
+{
+    /// <inheritdoc/>
+    public override ulong? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return null;
+        }
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var str = reader.GetString();
+            if (string.IsNullOrEmpty(str)) return null;
+            return ulong.Parse(str, CultureInfo.InvariantCulture);
+        }
+        return reader.GetUInt64();
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, ulong? value, JsonSerializerOptions options)
+    {
+        if (value.HasValue)
+        {
+            writer.WriteStringValue(value.Value.ToString(CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            writer.WriteNullValue();
+        }
+    }
+}
+
+/// <summary>
+/// Converts Int128 to/from JSON string for precision preservation
+/// </summary>
+public class Int128StringConverter : JsonConverter<Int128>
+{
+    /// <inheritdoc/>
+    public override Int128 Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return Int128.Parse(reader.GetString()!, CultureInfo.InvariantCulture);
+        }
+        // Fallback: try to read as number
+        return Int128.Parse(reader.GetInt64().ToString(), CultureInfo.InvariantCulture);
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, Int128 value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString(CultureInfo.InvariantCulture));
+    }
+}
+
+/// <summary>
+/// Converts nullable Int128 to/from JSON string for precision preservation
+/// </summary>
+public class NullableInt128StringConverter : JsonConverter<Int128?>
+{
+    /// <inheritdoc/>
+    public override Int128? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return null;
+        }
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var str = reader.GetString();
+            if (string.IsNullOrEmpty(str)) return null;
+            return Int128.Parse(str, CultureInfo.InvariantCulture);
+        }
+        return Int128.Parse(reader.GetInt64().ToString(), CultureInfo.InvariantCulture);
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, Int128? value, JsonSerializerOptions options)
+    {
+        if (value.HasValue)
+        {
+            writer.WriteStringValue(value.Value.ToString(CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            writer.WriteNullValue();
+        }
+    }
+}
+
+/// <summary>
+/// Converts UInt128 to/from JSON string for precision preservation
+/// </summary>
+public class UInt128StringConverter : JsonConverter<UInt128>
+{
+    /// <inheritdoc/>
+    public override UInt128 Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return UInt128.Parse(reader.GetString()!, CultureInfo.InvariantCulture);
+        }
+        return UInt128.Parse(reader.GetUInt64().ToString(), CultureInfo.InvariantCulture);
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, UInt128 value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString(CultureInfo.InvariantCulture));
+    }
+}
+
+/// <summary>
+/// Converts nullable UInt128 to/from JSON string for precision preservation
+/// </summary>
+public class NullableUInt128StringConverter : JsonConverter<UInt128?>
+{
+    /// <inheritdoc/>
+    public override UInt128? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return null;
+        }
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var str = reader.GetString();
+            if (string.IsNullOrEmpty(str)) return null;
+            return UInt128.Parse(str, CultureInfo.InvariantCulture);
+        }
+        return UInt128.Parse(reader.GetUInt64().ToString(), CultureInfo.InvariantCulture);
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, UInt128? value, JsonSerializerOptions options)
+    {
+        if (value.HasValue)
+        {
+            writer.WriteStringValue(value.Value.ToString(CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            writer.WriteNullValue();
+        }
+    }
+}
+
+/// <summary>
+/// Converts decimal to/from JSON string for precision preservation
+/// </summary>
+public class DecimalStringConverter : JsonConverter<decimal>
+{
+    /// <inheritdoc/>
+    public override decimal Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return decimal.Parse(reader.GetString()!, CultureInfo.InvariantCulture);
+        }
+        return reader.GetDecimal();
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, decimal value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString(CultureInfo.InvariantCulture));
+    }
+}
+
+/// <summary>
+/// Converts nullable decimal to/from JSON string for precision preservation
+/// </summary>
+public class NullableDecimalStringConverter : JsonConverter<decimal?>
+{
+    /// <inheritdoc/>
+    public override decimal? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return null;
+        }
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var str = reader.GetString();
+            if (string.IsNullOrEmpty(str)) return null;
+            return decimal.Parse(str, CultureInfo.InvariantCulture);
+        }
+        return reader.GetDecimal();
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, decimal? value, JsonSerializerOptions options)
+    {
+        if (value.HasValue)
+        {
+            writer.WriteStringValue(value.Value.ToString(CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            writer.WriteNullValue();
+        }
+    }
+}
+
+/// <summary>
+/// Converts TimeSpan to/from ISO 8601 duration format (e.g., "PT1H30M")
+/// </summary>
+public class TimeSpanIso8601Converter : JsonConverter<TimeSpan>
+{
+    /// <inheritdoc/>
+    public override TimeSpan Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var str = reader.GetString();
+        if (string.IsNullOrEmpty(str))
+        {
+            return TimeSpan.Zero;
+        }
+        // Try ISO 8601 duration format first
+        if (str.StartsWith("P", StringComparison.OrdinalIgnoreCase))
+        {
+            return XmlConvert.ToTimeSpan(str);
+        }
+        // Fall back to standard TimeSpan parsing
+        return TimeSpan.Parse(str, CultureInfo.InvariantCulture);
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, TimeSpan value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(XmlConvert.ToString(value));
+    }
+}
+
+/// <summary>
+/// Converts nullable TimeSpan to/from ISO 8601 duration format (e.g., "PT1H30M")
+/// </summary>
+public class NullableTimeSpanIso8601Converter : JsonConverter<TimeSpan?>
+{
+    /// <inheritdoc/>
+    public override TimeSpan? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return null;
+        }
+        var str = reader.GetString();
+        if (string.IsNullOrEmpty(str))
+        {
+            return null;
+        }
+        // Try ISO 8601 duration format first
+        if (str.StartsWith("P", StringComparison.OrdinalIgnoreCase))
+        {
+            return XmlConvert.ToTimeSpan(str);
+        }
+        // Fall back to standard TimeSpan parsing
+        return TimeSpan.Parse(str, CultureInfo.InvariantCulture);
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, TimeSpan? value, JsonSerializerOptions options)
+    {
+        if (value.HasValue)
+        {
+            writer.WriteStringValue(XmlConvert.ToString(value.Value));
+        }
+        else
+        {
+            writer.WriteNullValue();
+        }
+    }
+}
+{% endfilter %}
+{% if namespace %}
+}
+{% endif %}

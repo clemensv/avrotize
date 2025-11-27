@@ -38,7 +38,9 @@ _DATETIME_REGEX = re.compile(
     r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'
 )
 _TIME_REGEX = re.compile(r'^\d{2}:\d{2}:\d{2}(?:\.\d+)?$')
-_JSONPOINTER_REGEX = re.compile(r'^#(\/[^\/]+)*$')
+# JSON Pointer per RFC 6901: empty string or sequence of / followed by reference tokens
+# Reference tokens can contain any character except ~ and / (or escaped as ~0 and ~1)
+_JSONPOINTER_REGEX = re.compile(r'^(\/([^~/]|~[01])*)*$')
 
 
 class JSONStructureInstanceValidator:
@@ -258,11 +260,31 @@ class JSONStructureInstanceValidator:
         elif schema_type == "null":
             if instance is not None:
                 self.errors.append(f"Expected null at {path}, got {type(instance).__name__}")
-        elif schema_type == "int32":
+        elif schema_type == "int8":
             if not isinstance(instance, int):
-                self.errors.append(f"Expected int32 at {path}, got {type(instance).__name__}")
+                self.errors.append(f"Expected int8 at {path}, got {type(instance).__name__}")
+            elif not (-2**7 <= instance <= 2**7 - 1):
+                self.errors.append(f"int8 value at {path} out of range")
+        elif schema_type == "uint8":
+            if not isinstance(instance, int):
+                self.errors.append(f"Expected uint8 at {path}, got {type(instance).__name__}")
+            elif not (0 <= instance <= 2**8 - 1):
+                self.errors.append(f"uint8 value at {path} out of range")
+        elif schema_type == "int16":
+            if not isinstance(instance, int):
+                self.errors.append(f"Expected int16 at {path}, got {type(instance).__name__}")
+            elif not (-2**15 <= instance <= 2**15 - 1):
+                self.errors.append(f"int16 value at {path} out of range")
+        elif schema_type == "uint16":
+            if not isinstance(instance, int):
+                self.errors.append(f"Expected uint16 at {path}, got {type(instance).__name__}")
+            elif not (0 <= instance <= 2**16 - 1):
+                self.errors.append(f"uint16 value at {path} out of range")
+        elif schema_type == "int32" or schema_type == "integer":
+            if not isinstance(instance, int):
+                self.errors.append(f"Expected {schema_type} at {path}, got {type(instance).__name__}")
             elif not (-2**31 <= instance <= 2**31 - 1):
-                self.errors.append(f"int32 value at {path} out of range")
+                self.errors.append(f"{schema_type} value at {path} out of range")
         elif schema_type == "uint32":
             if not isinstance(instance, int):
                 self.errors.append(f"Expected uint32 at {path}, got {type(instance).__name__}")
@@ -288,6 +310,29 @@ class JSONStructureInstanceValidator:
                         self.errors.append(f"uint64 value at {path} out of range")
                 except ValueError:
                     self.errors.append(f"Invalid uint64 format at {path}")
+        elif schema_type == "int128":
+            if not isinstance(instance, str):
+                self.errors.append(f"Expected int128 as string at {path}, got {type(instance).__name__}")
+            else:
+                try:
+                    value = int(instance)
+                    if not (-2**127 <= value <= 2**127 - 1):
+                        self.errors.append(f"int128 value at {path} out of range")
+                except ValueError:
+                    self.errors.append(f"Invalid int128 format at {path}")
+        elif schema_type == "uint128":
+            if not isinstance(instance, str):
+                self.errors.append(f"Expected uint128 as string at {path}, got {type(instance).__name__}")
+            else:
+                try:
+                    value = int(instance)
+                    if not (0 <= value <= 2**128 - 1):
+                        self.errors.append(f"uint128 value at {path} out of range")
+                except ValueError:
+                    self.errors.append(f"Invalid uint128 format at {path}")
+        elif schema_type == "float8":
+            if not isinstance(instance, (int, float)):
+                self.errors.append(f"Expected float8 at {path}, got {type(instance).__name__}")
         elif schema_type in ("float", "double"):
             if not isinstance(instance, (int, float)):
                 self.errors.append(f"Expected {schema_type} at {path}, got {type(instance).__name__}")
@@ -548,7 +593,9 @@ class JSONStructureInstanceValidator:
                     import re
                     if not re.match(schema["pattern"], instance):
                         errors.append(f"String does not match pattern {schema['pattern']}")
-            if t == "number" or t == "int32" or t == "float" or t == "double":
+            if t in ("number", "integer", "float", "double", "float8", "decimal",
+                     "int8", "uint8", "int16", "uint16", "int32", "uint32", 
+                     "int64", "uint64", "int128", "uint128"):
                 if "minimum" in schema and instance < schema["minimum"]:
                     errors.append(f"Number less than minimum {schema['minimum']}")
                 if "maximum" in schema and instance > schema["maximum"]:
@@ -675,7 +722,9 @@ class JSONStructureInstanceValidator:
         [Metaschema: JSON Structure JSONStructureValidation]
         """
         # Numeric constraints.
-        if schema.get("type") in ("number", "integer", "float", "double", "decimal", "int32", "uint32", "int64", "uint64", "int128", "uint128"):
+        if schema.get("type") in ("number", "integer", "float", "double", "decimal", 
+                                   "int8", "uint8", "int16", "uint16", "int32", "uint32", 
+                                   "int64", "uint64", "int128", "uint128", "float8"):
             if "minimum" in schema:
                 try:
                     if instance < schema["minimum"]:

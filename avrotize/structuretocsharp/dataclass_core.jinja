@@ -110,11 +110,16 @@
     {%- if system_text_json_annotation %}
         if (contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
         {
-            result = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(this);
+            // Use runtime type to ensure polymorphic serialization works correctly
+            result = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(this, this.GetType());
         }
     {%- endif %}
     {%- if newtonsoft_json_annotation %}
+        {%- if system_text_json_annotation %}
+        else if (result == null && contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {%- else %}
         if (contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Json))
+        {%- endif %}
         {
             result = System.Text.Encoding.GetEncoding(contentType.CharSet??"utf-8").GetBytes(Newtonsoft.Json.JsonConvert.SerializeObject(this));
         }

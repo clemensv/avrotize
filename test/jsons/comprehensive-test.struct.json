@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://test.example.com/comprehensive-test",
+  "name": "ComprehensiveTest",
+  "type": "object",
+  "description": "Comprehensive test schema covering all serialization corner cases",
+  "properties": {
+    "id": {
+      "type": "uuid",
+      "description": "Unique identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name field for pascal_properties test"
+    },
+    "created_at": {
+      "type": "datetime",
+      "description": "Creation timestamp - tests snake_case to PascalCase"
+    },
+    "big_integer": {
+      "type": "int64",
+      "description": "Large integer - should serialize as string per JSON Structure spec"
+    },
+    "unsigned_big": {
+      "type": "uint64",
+      "description": "Unsigned large integer - should serialize as string"
+    },
+    "huge_number": {
+      "type": "int128",
+      "description": "128-bit integer - should serialize as string"
+    },
+    "unsigned_huge": {
+      "type": "uint128",
+      "description": "Unsigned 128-bit integer - should serialize as string"
+    },
+    "precise_amount": {
+      "type": "decimal",
+      "description": "Decimal value - should serialize as string"
+    },
+    "time_span": {
+      "type": "duration",
+      "description": "Duration value - should serialize as ISO 8601 string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "inactive", "pending", "suspended"],
+      "description": "String enum - tests enum value mapping"
+    },
+    "priority": {
+      "type": "int32",
+      "enum": [1, 2, 3, 4, 5],
+      "description": "Numeric enum - tests numeric enum serialization"
+    },
+    "tags": {
+      "type": "set",
+      "items": { "type": "string" },
+      "description": "Set of strings - tests container wrapper serialization"
+    },
+    "metadata": {
+      "type": "map",
+      "values": { "type": "string" },
+      "description": "String map - tests map wrapper serialization"
+    },
+    "scores": {
+      "type": "array",
+      "items": { "type": "int32" },
+      "description": "Array of integers - tests array wrapper serialization"
+    },
+    "config": {
+      "type": "object",
+      "description": "Extensible config object with additional properties",
+      "properties": {
+        "setting1": { "type": "string" },
+        "setting2": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "payload": {
+      "type": "choice",
+      "description": "Tagged union - tests choice serialization",
+      "choices": {
+        "textContent": { "type": "string" },
+        "numericContent": { "type": "int32" },
+        "binaryContent": { "type": "binary" }
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "tuple": ["latitude", "longitude"],
+      "description": "Tuple type - tests tuple serialization",
+      "properties": {
+        "latitude": { "type": "double" },
+        "longitude": { "type": "double" }
+      }
+    },
+    "reference_pointer": {
+      "type": "jsonpointer",
+      "description": "JSON Pointer - tests jsonpointer format"
+    }
+  },
+  "required": ["id", "name", "status"]
+}
