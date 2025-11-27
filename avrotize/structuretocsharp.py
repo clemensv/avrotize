@@ -35,6 +35,7 @@ class StructureToCSharp:
         self.definitions: Dict[str, Any] = {}
         self.schema_registry: Dict[str, Dict] = {}  # Maps $id URIs to schemas
         self.offers: Dict[str, Any] = {}  # Maps add-in names to property definitions from $offers
+        self.needs_json_structure_converters = False  # Track if any types need JSON Structure converters
 
     def get_qualified_name(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
@@ -90,6 +91,36 @@ class StructureToCSharp:
         else:
             result = mapping.get(structure_type, 'object')
         return result
+
+    def get_json_structure_converter(self, schema_type: str, is_required: bool) -> str | None:
+        """ Returns the appropriate JSON Structure converter type for types requiring string serialization.
+        
+        Per JSON Structure Core spec, int64, uint64, int128, uint128, and decimal types
+        use string representation in JSON to preserve precision. Duration (TimeSpan)
+        uses ISO 8601 format.
+        
+        Args:
+            schema_type: The JSON Structure type name
+            is_required: Whether the property is required (affects nullable converter selection)
+            
+        Returns:
+            The converter class name if needed, or None if no special converter is required
+        """
+        # Map JSON Structure types to their converter class names
+        converter_map = {
+            'int64': ('Int64StringConverter', 'NullableInt64StringConverter'),
+            'uint64': ('UInt64StringConverter', 'NullableUInt64StringConverter'),
+            'int128': ('Int128StringConverter', 'NullableInt128StringConverter'),
+            'uint128': ('UInt128StringConverter', 'NullableUInt128StringConverter'),
+            'decimal': ('DecimalStringConverter', 'NullableDecimalStringConverter'),
+            'duration': ('TimeSpanIso8601Converter', 'NullableTimeSpanIso8601Converter'),
+        }
+        
+        if schema_type in converter_map:
+            required_converter, nullable_converter = converter_map[schema_type]
+            return required_converter if is_required else nullable_converter
+        
+        return None
 
     def is_csharp_reserved_word(self, word: str) -> bool:
         """ Checks if a word is a reserved C# keyword """
@@ -326,15 +357,11 @@ class StructureToCSharp:
         
         # Add dictionary for additional properties if needed
         if additional_props is not False and additional_props is not None:
-            if isinstance(additional_props, dict):
-                # additionalProperties is a schema
-                value_type = self.convert_structure_type_to_csharp(class_name, 'additionalValue', additional_props, schema_namespace)
-                fields_str.append(f"{INDENT}/// <summary>\n{INDENT}/// Additional properties not defined in schema\n{INDENT}/// </summary>\n")
-                fields_str.append(f"{INDENT}public Dictionary<string, {value_type}>? AdditionalProperties {{ get; set; }}\n")
-            elif additional_props is True:
-                # Allow any additional properties
-                fields_str.append(f"{INDENT}/// <summary>\n{INDENT}/// Additional properties not defined in schema\n{INDENT}/// </summary>\n")
-                fields_str.append(f"{INDENT}public Dictionary<string, object>? AdditionalProperties {{ get; set; }}\n")
+            # Use JsonExtensionData to serialize additional properties as direct object properties
+            # JsonExtensionData requires Dictionary<string, JsonElement> or Dictionary<string, object>
+            fields_str.append(f"{INDENT}/// <summary>\n{INDENT}/// Additional properties not defined in schema\n{INDENT}/// </summary>\n")
+            fields_str.append(f"{INDENT}[System.Text.Json.Serialization.JsonExtensionData]\n")
+            fields_str.append(f"{INDENT}public Dictionary<string, System.Text.Json.JsonElement>? AdditionalProperties {{ get; set; }}\n")
         
         class_body = "\n".join(fields_str)
         
@@ -400,8 +427,9 @@ class StructureToCSharp:
             doc = prop_schema.get('description', prop_schema.get('doc', field_name_cs))
             property_definition += f"{INDENT}/// <summary>\n{INDENT}/// {doc}\n{INDENT}/// </summary>\n"
             
-            # Add JSON property name annotation
-            if self.system_text_json_annotation and field_name != field_name_cs:
+            # Add JSON property name annotation when property name differs from schema name
+            # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
+            if field_name != field_name_cs:
                 property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
             if self.newtonsoft_json_annotation and field_name != field_name_cs:
                 property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
@@ -430,8 +458,9 @@ class StructureToCSharp:
         doc = prop_schema.get('description', prop_schema.get('doc', field_name_cs))
         property_definition += f"{INDENT}/// <summary>\n{INDENT}/// {doc}\n{INDENT}/// </summary>\n"
         
-        # Add JSON property name annotation
-        if self.system_text_json_annotation and field_name != field_name_cs:
+        # Add JSON property name annotation when property name differs from schema name
+        # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
+        if field_name != field_name_cs:
             property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
         if self.newtonsoft_json_annotation and field_name != field_name_cs:
             property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
@@ -439,6 +468,14 @@ class StructureToCSharp:
         # Add XML element annotation if enabled
         if self.system_xml_annotation:
             property_definition += f'{INDENT}[System.Xml.Serialization.XmlElement("{prop_name}")]\n'
+        
+        # Add JSON Structure converters for types requiring string serialization
+        if self.system_text_json_annotation:
+            schema_type = prop_schema.get('type', '')
+            converter_type = self.get_json_structure_converter(schema_type, is_required)
+            if converter_type:
+                property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({converter_type}))]\n'
+                self.needs_json_structure_converters = True
         
         # Add validation attributes based on schema constraints
         # StringLength attribute for maxLength
@@ -556,13 +593,16 @@ class StructureToCSharp:
             deprecated_msg = structure_schema.get('description', f'{enum_name} is deprecated')
             enum_definition += f"[System.Obsolete(\"{deprecated_msg}\")]\n"
         
+        # Add converter attributes - always include System.Text.Json since it's the default .NET serializer
+        # This ensures enums serialize correctly with proper value mapping even if system_text_json_annotation is False
+        enum_definition += f"[System.Text.Json.Serialization.JsonConverter(typeof({enum_name}Converter))]\n"
+        if self.newtonsoft_json_annotation:
+            enum_definition += f"[Newtonsoft.Json.JsonConverter(typeof({enum_name}NewtonsoftConverter))]\n"
+        
         if is_numeric:
             cs_base_type = self.map_primitive_to_csharp(base_type)
             enum_definition += f"public enum {enum_name} : {cs_base_type}\n{{\n"
         else:
-            # String enum - for System.Text.Json, use JsonConverter with JsonStringEnumConverter
-            if self.system_text_json_annotation:
-                enum_definition += f"[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]\n"
             enum_definition += f"public enum {enum_name}\n{{\n"
         
         # Generate enum members
@@ -581,7 +621,103 @@ class StructureToCSharp:
             else:
                 enum_definition += "\n"
         
-        enum_definition += "}"
+        enum_definition += "}\n\n"
+        
+        # Always generate System.Text.Json converter since it's the default .NET serializer
+        # This ensures enums serialize correctly even when system_text_json_annotation is False
+        enum_definition += f"/// <summary>\n/// System.Text.Json converter for {enum_name} that maps to schema values\n/// </summary>\n"
+        enum_definition += f"public class {enum_name}Converter : System.Text.Json.Serialization.JsonConverter<{enum_name}>\n{{\n"
+        
+        # Read method
+        enum_definition += f"{INDENT}/// <inheritdoc/>\n"
+        enum_definition += f"{INDENT}public override {enum_name} Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)\n"
+        enum_definition += f"{INDENT}{{\n"
+        
+        if is_numeric:
+            enum_definition += f"{INDENT*2}if (reader.TokenType == System.Text.Json.JsonTokenType.Number)\n"
+            enum_definition += f"{INDENT*2}{{\n"
+            enum_definition += f"{INDENT*3}return ({enum_name})reader.GetInt32();\n"
+            enum_definition += f"{INDENT*2}}}\n"
+            enum_definition += f"{INDENT*2}throw new System.Text.Json.JsonException($\"Expected number for {enum_name}\");\n"
+        else:
+            enum_definition += f"{INDENT*2}var stringValue = reader.GetString();\n"
+            enum_definition += f"{INDENT*2}return stringValue switch\n"
+            enum_definition += f"{INDENT*2}{{\n"
+            for value in enum_values:
+                member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
+                enum_definition += f'{INDENT*3}"{value}" => {enum_name}.{member_name},\n'
+            enum_definition += f'{INDENT*3}_ => throw new System.Text.Json.JsonException($"Unknown value \'{{stringValue}}\' for {enum_name}")\n'
+            enum_definition += f"{INDENT*2}}};\n"
+        
+        enum_definition += f"{INDENT}}}\n\n"
+        
+        # Write method
+        enum_definition += f"{INDENT}/// <inheritdoc/>\n"
+        enum_definition += f"{INDENT}public override void Write(System.Text.Json.Utf8JsonWriter writer, {enum_name} value, System.Text.Json.JsonSerializerOptions options)\n"
+        enum_definition += f"{INDENT}{{\n"
+        
+        if is_numeric:
+            enum_definition += f"{INDENT*2}writer.WriteNumberValue((int)value);\n"
+        else:
+            enum_definition += f"{INDENT*2}var stringValue = value switch\n"
+            enum_definition += f"{INDENT*2}{{\n"
+            for value in enum_values:
+                member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
+                enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{value}",\n'
+            enum_definition += f'{INDENT*3}_ => throw new System.ArgumentOutOfRangeException(nameof(value))\n'
+            enum_definition += f"{INDENT*2}}};\n"
+            enum_definition += f"{INDENT*2}writer.WriteStringValue(stringValue);\n"
+        
+        enum_definition += f"{INDENT}}}\n"
+        enum_definition += "}\n\n"
+        
+        # Generate Newtonsoft.Json converter when enabled
+        if self.newtonsoft_json_annotation:
+            enum_definition += f"/// <summary>\n/// Newtonsoft.Json converter for {enum_name} that maps to schema values\n/// </summary>\n"
+            enum_definition += f"public class {enum_name}NewtonsoftConverter : Newtonsoft.Json.JsonConverter<{enum_name}>\n{{\n"
+            
+            # ReadJson method
+            enum_definition += f"{INDENT}/// <inheritdoc/>\n"
+            enum_definition += f"{INDENT}public override {enum_name} ReadJson(Newtonsoft.Json.JsonReader reader, Type objectType, {enum_name} existingValue, bool hasExistingValue, Newtonsoft.Json.JsonSerializer serializer)\n"
+            enum_definition += f"{INDENT}{{\n"
+            
+            if is_numeric:
+                enum_definition += f"{INDENT*2}if (reader.TokenType == Newtonsoft.Json.JsonToken.Integer)\n"
+                enum_definition += f"{INDENT*2}{{\n"
+                enum_definition += f"{INDENT*3}return ({enum_name})Convert.ToInt32(reader.Value);\n"
+                enum_definition += f"{INDENT*2}}}\n"
+                enum_definition += f"{INDENT*2}throw new Newtonsoft.Json.JsonException($\"Expected number for {enum_name}\");\n"
+            else:
+                enum_definition += f"{INDENT*2}var stringValue = reader.Value?.ToString();\n"
+                enum_definition += f"{INDENT*2}return stringValue switch\n"
+                enum_definition += f"{INDENT*2}{{\n"
+                for value in enum_values:
+                    member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
+                    enum_definition += f'{INDENT*3}"{value}" => {enum_name}.{member_name},\n'
+                enum_definition += f'{INDENT*3}_ => throw new Newtonsoft.Json.JsonException($"Unknown value \'{{stringValue}}\' for {enum_name}")\n'
+                enum_definition += f"{INDENT*2}}};\n"
+            
+            enum_definition += f"{INDENT}}}\n\n"
+            
+            # WriteJson method
+            enum_definition += f"{INDENT}/// <inheritdoc/>\n"
+            enum_definition += f"{INDENT}public override void WriteJson(Newtonsoft.Json.JsonWriter writer, {enum_name} value, Newtonsoft.Json.JsonSerializer serializer)\n"
+            enum_definition += f"{INDENT}{{\n"
+            
+            if is_numeric:
+                enum_definition += f"{INDENT*2}writer.WriteValue((int)value);\n"
+            else:
+                enum_definition += f"{INDENT*2}var stringValue = value switch\n"
+                enum_definition += f"{INDENT*2}{{\n"
+                for value in enum_values:
+                    member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
+                    enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{value}",\n'
+                enum_definition += f'{INDENT*3}_ => throw new System.ArgumentOutOfRangeException(nameof(value))\n'
+                enum_definition += f"{INDENT*2}}};\n"
+                enum_definition += f"{INDENT*2}writer.WriteValue(stringValue);\n"
+            
+            enum_definition += f"{INDENT}}}\n"
+            enum_definition += "}\n"
         
         if write_file:
             self.write_to_file(namespace, enum_name, enum_definition)
@@ -634,6 +770,8 @@ class StructureToCSharp:
         
         # Generate the union class similar to Avro unions
         class_definition = f"/// <summary>\n/// {structure_schema.get('description', class_name)}\n/// </summary>\n"
+        # Add JsonConverter attribute for proper tagged union serialization
+        class_definition += f"[System.Text.Json.Serialization.JsonConverter(typeof({class_name}JsonConverter))]\n"
         class_definition += f"public partial class {class_name}\n{{\n"
         
         # Generate properties for each choice
@@ -687,7 +825,58 @@ class StructureToCSharp:
         
         class_definition += f"{INDENT}}}\n"
         
-        class_definition += "}"
+        class_definition += "}\n\n"
+        
+        # Generate JSON converter for tagged union serialization
+        class_definition += f"/// <summary>\n/// JSON converter for {class_name} tagged union - serializes only the non-null choice\n/// </summary>\n"
+        class_definition += f"public class {class_name}JsonConverter : System.Text.Json.Serialization.JsonConverter<{class_name}>\n{{\n"
+        
+        # Read method
+        class_definition += f"{INDENT}/// <inheritdoc/>\n"
+        class_definition += f"{INDENT}public override {class_name}? Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)\n"
+        class_definition += f"{INDENT}{{\n"
+        class_definition += f"{INDENT*2}if (reader.TokenType == System.Text.Json.JsonTokenType.Null) return null;\n"
+        class_definition += f"{INDENT*2}if (reader.TokenType != System.Text.Json.JsonTokenType.StartObject)\n"
+        class_definition += f"{INDENT*3}throw new System.Text.Json.JsonException(\"Expected object for tagged union\");\n"
+        class_definition += f"{INDENT*2}var result = new {class_name}();\n"
+        class_definition += f"{INDENT*2}while (reader.Read())\n"
+        class_definition += f"{INDENT*2}{{\n"
+        class_definition += f"{INDENT*3}if (reader.TokenType == System.Text.Json.JsonTokenType.EndObject) break;\n"
+        class_definition += f"{INDENT*3}if (reader.TokenType != System.Text.Json.JsonTokenType.PropertyName)\n"
+        class_definition += f"{INDENT*4}throw new System.Text.Json.JsonException(\"Expected property name\");\n"
+        class_definition += f"{INDENT*3}var propName = reader.GetString();\n"
+        class_definition += f"{INDENT*3}reader.Read();\n"
+        class_definition += f"{INDENT*3}switch (propName)\n"
+        class_definition += f"{INDENT*3}{{\n"
+        for choice_name, choice_type in choice_types:
+            # Use original schema property name for matching
+            class_definition += f'{INDENT*4}case "{choice_name}":\n'
+            class_definition += f"{INDENT*5}result.{pascal(choice_name)} = System.Text.Json.JsonSerializer.Deserialize<{choice_type}>(ref reader, options);\n"
+            class_definition += f"{INDENT*5}break;\n"
+        class_definition += f"{INDENT*4}default:\n"
+        class_definition += f"{INDENT*5}reader.Skip();\n"
+        class_definition += f"{INDENT*5}break;\n"
+        class_definition += f"{INDENT*3}}}\n"
+        class_definition += f"{INDENT*2}}}\n"
+        class_definition += f"{INDENT*2}return result;\n"
+        class_definition += f"{INDENT}}}\n\n"
+        
+        # Write method - only write the non-null choice
+        class_definition += f"{INDENT}/// <inheritdoc/>\n"
+        class_definition += f"{INDENT}public override void Write(System.Text.Json.Utf8JsonWriter writer, {class_name} value, System.Text.Json.JsonSerializerOptions options)\n"
+        class_definition += f"{INDENT}{{\n"
+        class_definition += f"{INDENT*2}writer.WriteStartObject();\n"
+        for i, (choice_name, choice_type) in enumerate(choice_types):
+            prop_name = pascal(choice_name)
+            condition = "if" if i == 0 else "else if"
+            class_definition += f"{INDENT*2}{condition} (value.{prop_name} != null)\n"
+            class_definition += f"{INDENT*2}{{\n"
+            class_definition += f'{INDENT*3}writer.WritePropertyName("{choice_name}");\n'
+            class_definition += f"{INDENT*3}System.Text.Json.JsonSerializer.Serialize(writer, value.{prop_name}, options);\n"
+            class_definition += f"{INDENT*2}}}\n"
+        class_definition += f"{INDENT*2}writer.WriteEndObject();\n"
+        class_definition += f"{INDENT}}}\n"
+        class_definition += "}\n"
         
         if write_file:
             self.write_to_file(namespace, class_name, class_definition)
@@ -1011,8 +1200,10 @@ class StructureToCSharp:
         # Generate wrapper class with implicit conversions
         class_definition = f"/// <summary>\n/// {structure_schema.get('description', class_name)}\n/// </summary>\n"
         class_definition += f"/// <remarks>\n/// Wrapper for root-level {struct_type} type\n/// </remarks>\n"
+        # Add JsonConverter attribute to serialize as the underlying collection
+        class_definition += f"[System.Text.Json.Serialization.JsonConverter(typeof({class_name}JsonConverter))]\n"
         class_definition += f"public class {class_name}\n{{\n"
-        class_definition += f"{INDENT}private {underlying_type} _value = new();\n\n"
+        class_definition += f"{INDENT}internal {underlying_type} _value = new();\n\n"
         
         # Add indexer or collection access
         if struct_type == 'map':
@@ -1082,6 +1273,22 @@ class StructureToCSharp:
         # Implicit conversion from underlying type
         class_definition += f"{INDENT}public static implicit operator {class_name}({underlying_type} value) => new() {{ _value = value }};\n"
         
+        class_definition += "}\n\n"
+        
+        # Generate custom JsonConverter for the wrapper class to serialize as the underlying collection
+        class_definition += f"/// <summary>\n/// JSON converter for {class_name} to serialize as the underlying collection\n/// </summary>\n"
+        class_definition += f"public class {class_name}JsonConverter : System.Text.Json.Serialization.JsonConverter<{class_name}>\n{{\n"
+        class_definition += f"{INDENT}/// <inheritdoc/>\n"
+        class_definition += f"{INDENT}public override {class_name}? Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)\n"
+        class_definition += f"{INDENT}{{\n"
+        class_definition += f"{INDENT*2}var value = System.Text.Json.JsonSerializer.Deserialize<{underlying_type}>(ref reader, options);\n"
+        class_definition += f"{INDENT*2}return value == null ? null : new {class_name}() {{ _value = value }};\n"
+        class_definition += f"{INDENT}}}\n\n"
+        class_definition += f"{INDENT}/// <inheritdoc/>\n"
+        class_definition += f"{INDENT}public override void Write(System.Text.Json.Utf8JsonWriter writer, {class_name} value, System.Text.Json.JsonSerializerOptions options)\n"
+        class_definition += f"{INDENT}{{\n"
+        class_definition += f"{INDENT*2}System.Text.Json.JsonSerializer.Serialize(writer, value._value, options);\n"
+        class_definition += f"{INDENT}}}\n"
         class_definition += "}\n"
         
         if write_file:
@@ -1365,6 +1572,7 @@ class StructureToCSharp:
         # Generate tuple converter utility class if needed (after all types processed)
         if self.system_text_json_annotation:
             self.generate_tuple_converter(output_dir)
+            self.generate_json_structure_converters(output_dir)
         
         # Generate tests
         self.generate_tests(output_dir)
@@ -1716,6 +1924,36 @@ class StructureToCSharp:
         with open(converter_file_path, 'w', encoding='utf-8') as converter_file:
             converter_file.write(file_content)
 
+    def generate_json_structure_converters(self, output_dir: str) -> None:
+        """ Generates JSON Structure converters for types requiring string serialization.
+        
+        Per JSON Structure Core spec, int64, uint64, int128, uint128, decimal types
+        use string representation in JSON to preserve precision. Duration (TimeSpan)
+        uses ISO 8601 format.
+        """
+        # Check if any types need converters
+        if not self.needs_json_structure_converters:
+            return  # No types need special converters
+
+        # Convert base namespace to PascalCase for consistency with other generated classes
+        namespace_pascal = pascal(self.base_namespace)
+        
+        # Generate the converter class
+        converter_definition = process_template(
+            "structuretocsharp/json_structure_converters.cs.jinja",
+            namespace=namespace_pascal
+        )
+
+        # Write to the same directory structure as other classes (using PascalCase path)
+        directory_path = os.path.join(
+            output_dir, os.path.join('src', namespace_pascal.replace('.', os.sep)))
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path, exist_ok=True)
+        converter_file_path = os.path.join(directory_path, "JsonStructureConverters.cs")
+        
+        with open(converter_file_path, 'w', encoding='utf-8') as converter_file:
+            converter_file.write(converter_definition)
+
     def generate_instance_serializer(self, output_dir: str) -> None:
         """ Generates InstanceSerializer.cs that creates instances and serializes them to JSON """
         test_directory_path = os.path.join(output_dir, "test")
@@ -1767,9 +2005,13 @@ class StructureToCSharp:
         if not classes:
             return  # No classes to serialize
 
+        # Determine if ToByteArray method is available (requires any serialization annotation)
+        has_to_byte_array = self.system_text_json_annotation or self.newtonsoft_json_annotation or self.system_xml_annotation
+
         program_definition = process_template(
             "structuretocsharp/program.cs.jinja",
-            classes=classes
+            classes=classes,
+            has_to_byte_array=has_to_byte_array
         )
 
         program_file_path = os.path.join(test_directory_path, "InstanceSerializer.cs")
@@ -1860,17 +2102,23 @@ class StructureToCSharp:
                 
                 # Check if this is a const field
                 is_const = 'const' in prop_schema
-                test_value = self.get_test_value(field_type) if not is_const else self.format_default_value(prop_schema['const'], field_type)
+                schema_type = prop_schema.get('type', '') if isinstance(prop_schema, dict) else ''
+                test_value = self.get_test_value(field_type, schema_type) if not is_const else self.format_default_value(prop_schema['const'], field_type)
                 
                 f = Field(field_name, field_type, test_value, is_const, not is_class)
                 fields.append(f)
         return cast(List[Any], fields)
 
-    def get_test_value(self, csharp_type: str) -> str:
-        """Returns a default test value based on the C# type"""
+    def get_test_value(self, csharp_type: str, schema_type: str = '') -> str:
+        """Returns a default test value based on the C# type and schema type"""
         # For nullable object types, return typed null to avoid var issues
         if csharp_type == "object?" or csharp_type == "object":
             return "null"  # Use null for object types (typically unions) to avoid reference inequality
+        
+        # Special test values for JSON Structure types that map to string in C#
+        # but have specific format requirements
+        if schema_type == 'jsonpointer':
+            return '"/example/path"'  # Valid JSON Pointer format
         
         test_values = {
             'string': '"test_string"',
@@ -1933,6 +2181,26 @@ class StructureToCSharp:
                     choice_test_value = self.get_test_value(choice_type)
                     # Use the constructor that takes the first choice
                     return f'new {base_type}({choice_test_value})'
+        
+        # Check if this is an enum type
+        if qualified_ref in self.generated_types and self.generated_types[qualified_ref] == "enum":
+            schema = self.generated_structure_types.get(qualified_ref)
+            if schema:
+                enum_values = schema.get('enum', [])
+                if enum_values:
+                    first_value = enum_values[0]
+                    enum_base_type = schema.get('type', 'string')
+                    numeric_types = ['int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'int64', 'uint64']
+                    is_numeric = enum_base_type in numeric_types
+                    
+                    if is_numeric:
+                        # Numeric enum - use the member name (Value1, Value2, etc.)
+                        member_name = f"Value{first_value}"
+                    else:
+                        # String enum - convert to PascalCase member name
+                        member_name = pascal(str(first_value).replace('-', '_').replace(' ', '_'))
+                    
+                    return f'{base_type}.{member_name}'
         
         return test_values.get(base_type, test_values.get(csharp_type, f'new {csharp_type}()'))
 
