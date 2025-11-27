@@ -1240,12 +1240,15 @@ class AvroToJava:
             enum_constants.append(f'{java_symbol}("{avro_symbol}")')
         enum_definition += f"{INDENT}" + ", ".join(enum_constants)
         
-        # Add avroSymbol field and method
+        # Add avroSymbol field and method with Jackson annotations for proper JSON serialization
         enum_definition += f";\n\n{INDENT}private final String avroSymbol;\n\n"
         enum_definition += f"{INDENT}{enum_name}(String avroSymbol) {{\n{INDENT*2}this.avroSymbol = avroSymbol;\n{INDENT}}}\n\n"
+        # @JsonValue tells Jackson to serialize the enum using avroSymbol() value
+        enum_definition += f"{INDENT}@com.fasterxml.jackson.annotation.JsonValue\n"
         enum_definition += f"{INDENT}public String avroSymbol() {{\n{INDENT*2}return avroSymbol;\n{INDENT}}}\n\n"
         
-        # Add static lookup method to find enum by Avro symbol
+        # Add static lookup method to find enum by Avro symbol with @JsonCreator for deserialization
+        enum_definition += f"{INDENT}@com.fasterxml.jackson.annotation.JsonCreator\n"
         enum_definition += f"{INDENT}public static {enum_name} fromAvroSymbol(String symbol) {{\n"
         enum_definition += f"{INDENT*2}for ({enum_name} e : values()) {{\n"
         enum_definition += f"{INDENT*3}if (e.avroSymbol.equals(symbol)) return e;\n"
