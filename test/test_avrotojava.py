@@ -250,3 +250,81 @@ class TestAvroToJava(unittest.TestCase):
         convert_avro_to_java(avro_path, java_path, package_name="fixed.field.java")
         assert subprocess.check_call(
             "mvn package -B", cwd=java_path, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
+
+    def test_enum_constants_use_screaming_case(self):
+        """ Test that Java enum constants are generated in SCREAMING_CASE """
+        import json
+        
+        # Create test schema with mixed-case symbols
+        schema = {
+            "type": "enum",
+            "name": "SwitchSource",
+            "symbols": ["PhysicalSwitch", "AppSwitch", "VoiceSwitch"]
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.avsc', delete=False) as f:
+            json.dump(schema, f)
+            schema_file = f.name
+        
+        try:
+            java_path = os.path.join(tempfile.gettempdir(), "avrotize", "enum-screaming-case")
+            if os.path.exists(java_path):
+                shutil.rmtree(java_path, ignore_errors=True)
+            os.makedirs(java_path, exist_ok=True)
+            
+            convert_avro_to_java(schema_file, java_path, package_name="test.enums")
+            
+            # Read generated enum file
+            enum_file = os.path.join(java_path, 'src', 'main', 'java', 'test', 'enums', 'SwitchSource.java')
+            with open(enum_file, 'r') as f:
+                content = f.read()
+            
+            # Verify SCREAMING_CASE constants are present
+            assert 'PHYSICALSWITCH' in content, f"Expected 'PHYSICALSWITCH' in enum"
+            assert 'APPSWITCH' in content, f"Expected 'APPSWITCH' in enum"
+            assert 'VOICESWITCH' in content, f"Expected 'VOICESWITCH' in enum"
+            
+            # Read generated test file
+            test_file = os.path.join(java_path, 'src', 'test', 'java', 'test', 'enums', 'SwitchSourceTest.java')
+            with open(test_file, 'r') as f:
+                test_content = f.read()
+            
+            # Verify test uses SCREAMING_CASE
+            assert 'valueOf("PHYSICALSWITCH")' in test_content, "Test should use SCREAMING_CASE"
+        finally:
+            os.unlink(schema_file)
+
+    def test_enum_with_reserved_words_use_screaming_case(self):
+        """ Test that Java reserved word enum symbols are prefixed with underscore and use SCREAMING_CASE """
+        import json
+        
+        # Create test schema with Java reserved words as symbols
+        schema = {
+            "type": "enum",
+            "name": "ReservedEnum",
+            "symbols": ["true", "false", "class"]
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.avsc', delete=False) as f:
+            json.dump(schema, f)
+            schema_file = f.name
+        
+        try:
+            java_path = os.path.join(tempfile.gettempdir(), "avrotize", "enum-reserved-words")
+            if os.path.exists(java_path):
+                shutil.rmtree(java_path, ignore_errors=True)
+            os.makedirs(java_path, exist_ok=True)
+            
+            convert_avro_to_java(schema_file, java_path, package_name="test.reserved")
+            
+            # Read generated enum file
+            enum_file = os.path.join(java_path, 'src', 'main', 'java', 'test', 'reserved', 'ReservedEnum.java')
+            with open(enum_file, 'r') as f:
+                content = f.read()
+            
+            # Verify reserved words are prefixed with underscore and uppercased
+            assert '_TRUE' in content, f"Expected '_TRUE' for reserved word 'true'"
+            assert '_FALSE' in content, f"Expected '_FALSE' for reserved word 'false'"
+            assert '_CLASS' in content, f"Expected '_CLASS' for reserved word 'class'"
+        finally:
+            os.unlink(schema_file)
