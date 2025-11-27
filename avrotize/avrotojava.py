@@ -693,7 +693,7 @@ class AvroToJava:
             elif items_type in self.generated_types_java_package:
                 kind = self.generated_types_java_package[items_type]
                 if kind == "enum":
-                    pred += f"n.elements().next().isTextual() && Enum.valueOf({items_type}.class, n.elements().next().asText()) != null"
+                    pred += f"n.elements().next().isTextual() && Enum.valueOf({items_type}.class, n.elements().next().asText().toUpperCase()) != null"
                 else:
                     pred += f"{items_type}.isJsonMatch(n.elements().next())"
             else:
@@ -710,7 +710,7 @@ class AvroToJava:
             elif values_type in self.generated_types_java_package:
                 kind = self.generated_types_java_package[values_type]
                 if kind == "enum":
-                    pred += f"n.elements().next().isTextual() && Enum.valueOf({values_type}.class, n.elements().next().asText()) != null"
+                    pred += f"n.elements().next().isTextual() && Enum.valueOf({values_type}.class, n.elements().next().asText().toUpperCase()) != null"
                 else:
                     pred += f"{values_type}.isJsonMatch(n.elements().next())"
             else:
@@ -730,7 +730,7 @@ class AvroToJava:
                 raw_const = const_value if isinstance(const_value, str) else str(const_value)
                 class_definition += f"(node.has(\"{field_name_js}\") && node.get(\"{field_name_js}\").isTextual() && node.get(\"{field_name_js}\").asText().equals(\"{raw_const}\"))"
             else:
-                class_definition += f"(node.get(\"{field_name_js}\").isTextual() && Enum.valueOf({field_type.type_name}.class, node.get(\"{field_name_js}\").asText()) != null)"
+                class_definition += f"(node.get(\"{field_name_js}\").isTextual() && Enum.valueOf({field_type.type_name}.class, node.get(\"{field_name_js}\").asText().toUpperCase()) != null)"
         else:
             is_union = False
             field_union = pascal(field_name) + 'Union'
@@ -802,7 +802,7 @@ class AvroToJava:
         elif field_type.is_class:
             class_definition += f"({null_check} || {field_type.type_name}.isJsonMatch({element_name}))"
         elif field_type.is_enum:
-            class_definition += f"({null_check} || ({node_check}.isTextual() && Enum.valueOf({field_type.type_name}.class, {element_name}.asText()) != null))"
+            class_definition += f"({null_check} || ({node_check}.isTextual() && Enum.valueOf({field_type.type_name}.class, {element_name}.asText().toUpperCase()) != null))"
         else:
             is_union = False
             field_union = pascal(element_name) + 'Union'
@@ -1104,7 +1104,8 @@ class AvroToJava:
                 put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.Record ? new {field_type.type_name}((GenericData.Record)value$) : ({field_type.type_name})value$; break;\n"
             elif type_kind == "enum":
                 # Enums need to be converted from GenericData.EnumSymbol
-                put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.EnumSymbol ? {field_type.type_name}.valueOf(value$.toString()) : ({field_type.type_name})value$; break;\n"
+                # Convert to uppercase since Java enum constants use SCREAMING_CASE
+                put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.EnumSymbol ? {field_type.type_name}.valueOf(value$.toString().toUpperCase()) : ({field_type.type_name})value$; break;\n"
             else:
                 # Check if this is a List<RecordType> or Map<String,RecordType>
                 is_list_of_records = False
@@ -1164,10 +1165,11 @@ class AvroToJava:
                     # Check if it's a List of enums
                     if element_type in self.generated_types_java_package and self.generated_types_java_package[element_type] == "enum":
                         # For List<Enum>, convert GenericEnumSymbol to actual enum values
+                        # Convert to uppercase since Java enum constants use SCREAMING_CASE
                         put_method += f"{INDENT * 3}case {index}: {{\n"
                         put_method += f"{INDENT * 4}if (value$ instanceof List<?>) {{\n"
                         put_method += f"{INDENT * 5}List<?> list = (List<?>)value$;\n"
-                        put_method += f"{INDENT * 5}this.{field_name} = list.stream().map(item -> item instanceof GenericData.EnumSymbol ? {element_type}.valueOf(item.toString()) : ({element_type})item).collect(java.util.stream.Collectors.toList());\n"
+                        put_method += f"{INDENT * 5}this.{field_name} = list.stream().map(item -> item instanceof GenericData.EnumSymbol ? {element_type}.valueOf(item.toString().toUpperCase()) : ({element_type})item).collect(java.util.stream.Collectors.toList());\n"
                         put_method += f"{INDENT * 4}}} else {{\n"
                         put_method += f"{INDENT * 5}this.{field_name} = null;\n"
                         put_method += f"{INDENT * 4}}}\n"
@@ -1211,15 +1213,15 @@ class AvroToJava:
         self.generated_types_java_package[type_name] = "enum"
         self.generated_avro_schemas[type_name] = avro_schema
         symbols = avro_schema.get('symbols', [])
-        # Convert symbols to valid Java identifiers, preserving case
+        # Convert symbols to valid Java identifiers in SCREAMING_CASE (uppercase)
         # Replace invalid chars, prepend _ if starts with digit or is a reserved word
         java_symbols = []
         for symbol in symbols:
-            java_symbol = symbol.replace('-', '_').replace('.', '_')
+            java_symbol = symbol.replace('-', '_').replace('.', '_').upper()
             if java_symbol and java_symbol[0].isdigit():
                 java_symbol = '_' + java_symbol
             # Check if the symbol is a Java reserved word and prefix with underscore
-            if is_java_reserved_word(java_symbol):
+            if is_java_reserved_word(java_symbol.lower()):
                 java_symbol = '_' + java_symbol
             java_symbols.append(java_symbol)
         symbols_str = ', '.join(java_symbols)
@@ -1326,8 +1328,9 @@ class AvroToJava:
                     class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof org.apache.avro.util.Utf8) {{\n{INDENT*3}this._{camel(union_variable_name)} = obj.toString();\n{INDENT*3}return;\n{INDENT*2}}}\n"
                 
                 # Handle Avro's GenericEnumSymbol for enum types
+                # Convert to uppercase since Java enum constants use SCREAMING_CASE
                 if self.avro_annotation and union_type.is_enum:
-                    class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof GenericData.EnumSymbol) {{\n{INDENT*3}this._{camel(union_variable_name)} = {union_type.type_name}.valueOf(obj.toString());\n{INDENT*3}return;\n{INDENT*2}}}\n"
+                    class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof GenericData.EnumSymbol) {{\n{INDENT*3}this._{camel(union_variable_name)} = {union_type.type_name}.valueOf(obj.toString().toUpperCase());\n{INDENT*3}return;\n{INDENT*2}}}\n"
                 
                 class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof {union_type.type_name}) {{\n{INDENT*3}this._{camel(union_variable_name)} = ({union_type.type_name})obj;\n{INDENT*3}return;\n{INDENT*2}}}\n"
 
@@ -1356,7 +1359,8 @@ class AvroToJava:
             else:
                 # For classes and enums, use duck typing with isJsonMatch() (C# pattern)
                 if union_type.is_enum:
-                    class_definition_read += f"{INDENT*3}if (node.isTextual()) {{\n{INDENT*4}return new {union_class_name}(Enum.valueOf({union_type.type_name}.class, node.asText()));\n{INDENT*3}}}\n"
+                    # Convert to uppercase since Java enum constants use SCREAMING_CASE
+                    class_definition_read += f"{INDENT*3}if (node.isTextual()) {{\n{INDENT*4}return new {union_class_name}(Enum.valueOf({union_type.type_name}.class, node.asText().toUpperCase()));\n{INDENT*3}}}\n"
                 elif union_type.is_class:
                     # Use isJsonMatch() to test if this type matches, then use fromData() to deserialize
                     class_definition_read += f"{INDENT*3}if ({union_type.type_name}.isJsonMatch(node)) {{\n{INDENT*4}return new {union_class_name}({union_type.type_name}.fromData(node, \"application/json\"));\n{INDENT*3}}}\n"
@@ -1449,9 +1453,15 @@ class AvroToJava:
             const_value = field['const']
             is_discriminator = field.get('discriminator', False)
             
-            # For enum types, qualify with the enum type name
+            # For enum types, qualify with the enum type name and convert to SCREAMING_CASE
             if field_type.type_name not in ('String', 'int', 'Integer', 'long', 'Long', 'double', 'Double', 'boolean', 'Boolean'):
-                const_value = f'{field_type.type_name}.{const_value}'
+                # Convert enum const value to uppercase to match Java enum constant naming convention
+                const_value_upper = str(const_value).replace('-', '_').replace('.', '_').upper()
+                if const_value_upper and const_value_upper[0].isdigit():
+                    const_value_upper = '_' + const_value_upper
+                if is_java_reserved_word(const_value_upper.lower()):
+                    const_value_upper = '_' + const_value_upper
+                const_value = f'{field_type.type_name}.{const_value_upper}'
             elif field_type.type_name == 'String':
                 const_value = f'"{const_value}"'
             
@@ -1651,14 +1661,14 @@ class AvroToJava:
                 jackson_annotation=self.jackson_annotations
             )
         elif type_kind == "enum":
-            # Convert symbols to Java-safe identifiers (same logic as generate_enum)
+            # Convert symbols to Java-safe identifiers in SCREAMING_CASE (same logic as generate_enum)
             raw_symbols = avro_schema.get('symbols', [])
             java_safe_symbols = []
             for symbol in raw_symbols:
-                java_symbol = symbol.replace('-', '_').replace('.', '_')
+                java_symbol = symbol.replace('-', '_').replace('.', '_').upper()
                 if java_symbol and java_symbol[0].isdigit():
                     java_symbol = '_' + java_symbol
-                if is_java_reserved_word(java_symbol):
+                if is_java_reserved_word(java_symbol.lower()):
                     java_symbol = '_' + java_symbol
                 java_safe_symbols.append(java_symbol)
             
@@ -1808,9 +1818,15 @@ class AvroToJava:
                 # Generate test value for the field
                 if "const" in field and field["const"] is not None:
                     const_value = field["const"]
-                    # For enum types, qualify with the enum type name
+                    # For enum types, qualify with the enum type name and convert to SCREAMING_CASE
                     if is_enum or (field_type.type_name not in ('String', 'int', 'Integer', 'long', 'Long', 'double', 'Double', 'boolean', 'Boolean')):
-                        test_value = f'{field_type.type_name}.{const_value}'
+                        # Convert enum const value to uppercase to match Java enum constant naming convention
+                        const_value_upper = str(const_value).replace('-', '_').replace('.', '_').upper()
+                        if const_value_upper and const_value_upper[0].isdigit():
+                            const_value_upper = '_' + const_value_upper
+                        if is_java_reserved_word(const_value_upper.lower()):
+                            const_value_upper = '_' + const_value_upper
+                        test_value = f'{field_type.type_name}.{const_value_upper}'
                     else:
                         test_value = f'"{const_value}"'
                 else:
@@ -1896,12 +1912,12 @@ class AvroToJava:
                 avro_schema = self.generated_avro_schemas.get(java_type, {})
                 symbols = avro_schema.get('symbols', [])
                 if symbols:
-                    # Convert symbol to valid Java identifier (same logic as in generate_enum)
-                    first_symbol = symbols[0].replace('-', '_').replace('.', '_')
+                    # Convert symbol to valid Java identifier in SCREAMING_CASE (same logic as in generate_enum)
+                    first_symbol = symbols[0].replace('-', '_').replace('.', '_').upper()
                     if first_symbol and first_symbol[0].isdigit():
                         first_symbol = '_' + first_symbol
                     # Check if the symbol is a Java reserved word and prefix with underscore
-                    if is_java_reserved_word(first_symbol):
+                    if is_java_reserved_word(first_symbol.lower()):
                         first_symbol = '_' + first_symbol
                     # Use fully qualified name to avoid conflicts with field names
                     return f'{java_type}.{first_symbol}'
