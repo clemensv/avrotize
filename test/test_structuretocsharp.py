@@ -278,10 +278,8 @@ class TestStructureToCSharp(unittest.TestCase):
             content = f.read()
             assert "public partial class ExtensibleClass" in content, "Class should not be sealed when additionalProperties: true"
             assert "sealed" not in content.lower(), "Class should not be sealed"
-            # JsonExtensionData requires Dictionary<string, JsonElement> for proper round-trip serialization
-            # Check for the pattern allowing for fully-qualified or unqualified JsonElement
-            assert ("Dictionary<string, JsonElement>? AdditionalProperties" in content or 
-                    "Dictionary<string, System.Text.Json.JsonElement>? AdditionalProperties" in content), "Should have AdditionalProperties dictionary with JsonElement values"
+            # JsonExtensionData with Dictionary<string, object> for boxed primitive values
+            assert "Dictionary<string, object>? AdditionalProperties" in content, "Should have AdditionalProperties dictionary with object values"
         
         # Verify code compiles
         assert subprocess.check_call(["dotnet", "build"], cwd=cs_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0

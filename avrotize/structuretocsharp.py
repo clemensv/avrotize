@@ -357,11 +357,16 @@ class StructureToCSharp:
         
         # Add dictionary for additional properties if needed
         if additional_props is not False and additional_props is not None:
-            # Use JsonExtensionData to serialize additional properties as direct object properties
-            # JsonExtensionData requires Dictionary<string, JsonElement> or Dictionary<string, object>
             fields_str.append(f"{INDENT}/// <summary>\n{INDENT}/// Additional properties not defined in schema\n{INDENT}/// </summary>\n")
+            # Use JsonExtensionData for automatic capture of unknown properties during deserialization
             fields_str.append(f"{INDENT}[System.Text.Json.Serialization.JsonExtensionData]\n")
-            fields_str.append(f"{INDENT}public Dictionary<string, System.Text.Json.JsonElement>? AdditionalProperties {{ get; set; }}\n")
+            if isinstance(additional_props, dict):
+                # additionalProperties is a schema - use the typed value
+                value_type = self.convert_structure_type_to_csharp(class_name, 'additionalValue', additional_props, schema_namespace)
+                fields_str.append(f"{INDENT}public Dictionary<string, {value_type}>? AdditionalProperties {{ get; set; }}\n")
+            else:
+                # additionalProperties: true - allow any additional properties with boxed values
+                fields_str.append(f"{INDENT}public Dictionary<string, object>? AdditionalProperties {{ get; set; }}\n")
         
         class_body = "\n".join(fields_str)
         
