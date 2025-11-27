@@ -693,7 +693,8 @@ class AvroToJava:
             elif items_type in self.generated_types_java_package:
                 kind = self.generated_types_java_package[items_type]
                 if kind == "enum":
-                    pred += f"n.elements().next().isTextual() && Enum.valueOf({items_type}.class, n.elements().next().asText().toUpperCase()) != null"
+                    # Try to match the incoming text against Avro symbols
+                    pred += f"n.elements().next().isTextual() && java.util.Arrays.stream({items_type}.values()).anyMatch(e -> e.avroSymbol().equals(n.elements().next().asText()))"
                 else:
                     pred += f"{items_type}.isJsonMatch(n.elements().next())"
             else:
@@ -710,7 +711,8 @@ class AvroToJava:
             elif values_type in self.generated_types_java_package:
                 kind = self.generated_types_java_package[values_type]
                 if kind == "enum":
-                    pred += f"n.elements().next().isTextual() && Enum.valueOf({values_type}.class, n.elements().next().asText().toUpperCase()) != null"
+                    # Try to match the incoming text against Avro symbols
+                    pred += f"n.elements().next().isTextual() && java.util.Arrays.stream({values_type}.values()).anyMatch(e -> e.avroSymbol().equals(n.elements().next().asText()))"
                 else:
                     pred += f"{values_type}.isJsonMatch(n.elements().next())"
             else:
@@ -730,7 +732,8 @@ class AvroToJava:
                 raw_const = const_value if isinstance(const_value, str) else str(const_value)
                 class_definition += f"(node.has(\"{field_name_js}\") && node.get(\"{field_name_js}\").isTextual() && node.get(\"{field_name_js}\").asText().equals(\"{raw_const}\"))"
             else:
-                class_definition += f"(node.get(\"{field_name_js}\").isTextual() && Enum.valueOf({field_type.type_name}.class, node.get(\"{field_name_js}\").asText().toUpperCase()) != null)"
+                # Try to match the incoming text against Avro symbols
+                class_definition += f"(node.get(\"{field_name_js}\").isTextual() && java.util.Arrays.stream({field_type.type_name}.values()).anyMatch(e -> e.avroSymbol().equals(node.get(\"{field_name_js}\").asText())))"
         else:
             is_union = False
             field_union = pascal(field_name) + 'Union'
@@ -802,7 +805,8 @@ class AvroToJava:
         elif field_type.is_class:
             class_definition += f"({null_check} || {field_type.type_name}.isJsonMatch({element_name}))"
         elif field_type.is_enum:
-            class_definition += f"({null_check} || ({node_check}.isTextual() && Enum.valueOf({field_type.type_name}.class, {element_name}.asText().toUpperCase()) != null))"
+            # Try to match the incoming text against Avro symbols
+            class_definition += f"({null_check} || ({node_check}.isTextual() && java.util.Arrays.stream({field_type.type_name}.values()).anyMatch(e -> e.avroSymbol().equals({element_name}.asText()))))"
         else:
             is_union = False
             field_union = pascal(element_name) + 'Union'
@@ -1022,8 +1026,8 @@ class AvroToJava:
                 get_method += f"{INDENT * 3}case {index}: return this.{field_name} != null ? this.{field_name}.entrySet().stream().collect(java.util.stream.Collectors.toMap(java.util.Map.Entry::getKey, e -> e.getValue() != null ? e.getValue().toObject() : null)) : null;\n"
             elif field_type.is_enum:
                 # For enum fields, convert to GenericEnumSymbol for Avro serialization
-                # This allows SpecificDatumWriter to serialize enums inside unions correctly
-                get_method += f"{INDENT * 3}case {index}: return this.{field_name} != null ? new GenericData.EnumSymbol({field_type.type_name}.SCHEMA, this.{field_name}.name()) : null;\n"
+                # Use avroSymbol() to get the original Avro symbol name for serialization
+                get_method += f"{INDENT * 3}case {index}: return this.{field_name} != null ? new GenericData.EnumSymbol({field_type.type_name}.SCHEMA, this.{field_name}.avroSymbol()) : null;\n"
             else:
                 # For all other field types, return the field as-is
                 # Avro's SpecificDatumWriter will handle serialization internally
@@ -1104,8 +1108,8 @@ class AvroToJava:
                 put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.Record ? new {field_type.type_name}((GenericData.Record)value$) : ({field_type.type_name})value$; break;\n"
             elif type_kind == "enum":
                 # Enums need to be converted from GenericData.EnumSymbol
-                # Convert to uppercase since Java enum constants use SCREAMING_CASE
-                put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.EnumSymbol ? {field_type.type_name}.valueOf(value$.toString().toUpperCase()) : ({field_type.type_name})value$; break;\n"
+                # Use fromAvroSymbol to match original Avro symbol names
+                put_method += f"{INDENT * 3}case {index}: this.{field_name} = value$ instanceof GenericData.EnumSymbol ? {field_type.type_name}.fromAvroSymbol(value$.toString()) : ({field_type.type_name})value$; break;\n"
             else:
                 # Check if this is a List<RecordType> or Map<String,RecordType>
                 is_list_of_records = False
@@ -1165,11 +1169,11 @@ class AvroToJava:
                     # Check if it's a List of enums
                     if element_type in self.generated_types_java_package and self.generated_types_java_package[element_type] == "enum":
                         # For List<Enum>, convert GenericEnumSymbol to actual enum values
-                        # Convert to uppercase since Java enum constants use SCREAMING_CASE
+                        # Use fromAvroSymbol to match original Avro symbol names
                         put_method += f"{INDENT * 3}case {index}: {{\n"
                         put_method += f"{INDENT * 4}if (value$ instanceof List<?>) {{\n"
                         put_method += f"{INDENT * 5}List<?> list = (List<?>)value$;\n"
-                        put_method += f"{INDENT * 5}this.{field_name} = list.stream().map(item -> item instanceof GenericData.EnumSymbol ? {element_type}.valueOf(item.toString().toUpperCase()) : ({element_type})item).collect(java.util.stream.Collectors.toList());\n"
+                        put_method += f"{INDENT * 5}this.{field_name} = list.stream().map(item -> item instanceof GenericData.EnumSymbol ? {element_type}.fromAvroSymbol(item.toString()) : ({element_type})item).collect(java.util.stream.Collectors.toList());\n"
                         put_method += f"{INDENT * 4}}} else {{\n"
                         put_method += f"{INDENT * 5}this.{field_name} = null;\n"
                         put_method += f"{INDENT * 4}}}\n"
@@ -1215,7 +1219,9 @@ class AvroToJava:
         symbols = avro_schema.get('symbols', [])
         # Convert symbols to valid Java identifiers in SCREAMING_CASE (uppercase)
         # Replace invalid chars, prepend _ if starts with digit or is a reserved word
+        # Keep track of mapping from Java symbol to original Avro symbol for serialization
         java_symbols = []
+        symbol_pairs = []  # (java_symbol, avro_symbol) pairs
         for symbol in symbols:
             java_symbol = symbol.replace('-', '_').replace('.', '_').upper()
             if java_symbol and java_symbol[0].isdigit():
@@ -1224,9 +1230,28 @@ class AvroToJava:
             if is_java_reserved_word(java_symbol.lower()):
                 java_symbol = '_' + java_symbol
             java_symbols.append(java_symbol)
-        symbols_str = ', '.join(java_symbols)
+            symbol_pairs.append((java_symbol, symbol))
+        
+        # Build enum with avroSymbol field for proper Avro serialization
         enum_definition += f"public enum {enum_name} {{\n"
-        enum_definition += f"{INDENT}{symbols_str}"
+        # Each enum constant has its original Avro symbol stored
+        enum_constants = []
+        for java_symbol, avro_symbol in symbol_pairs:
+            enum_constants.append(f'{java_symbol}("{avro_symbol}")')
+        enum_definition += f"{INDENT}" + ", ".join(enum_constants)
+        
+        # Add avroSymbol field and method
+        enum_definition += f";\n\n{INDENT}private final String avroSymbol;\n\n"
+        enum_definition += f"{INDENT}{enum_name}(String avroSymbol) {{\n{INDENT*2}this.avroSymbol = avroSymbol;\n{INDENT}}}\n\n"
+        enum_definition += f"{INDENT}public String avroSymbol() {{\n{INDENT*2}return avroSymbol;\n{INDENT}}}\n\n"
+        
+        # Add static lookup method to find enum by Avro symbol
+        enum_definition += f"{INDENT}public static {enum_name} fromAvroSymbol(String symbol) {{\n"
+        enum_definition += f"{INDENT*2}for ({enum_name} e : values()) {{\n"
+        enum_definition += f"{INDENT*3}if (e.avroSymbol.equals(symbol)) return e;\n"
+        enum_definition += f"{INDENT*2}}}\n"
+        enum_definition += f"{INDENT*2}throw new IllegalArgumentException(\"Unknown symbol: \" + symbol);\n"
+        enum_definition += f"{INDENT}}}\n"
         
         # Add Avro schema if annotations are enabled
         if self.avro_annotation:
@@ -1247,9 +1272,7 @@ class AvroToJava:
                 [enum_schema_json[i:i+80] for i in range(0, len(enum_schema_json), 80)])
             enum_schema_json = enum_schema_json.replace('§', '\\"')
             
-            enum_definition += f";\n\n{INDENT}public static final Schema SCHEMA = new Schema.Parser().parse(\n{INDENT}\"{enum_schema_json}\");\n"
-        else:
-            enum_definition += f";\n"
+            enum_definition += f"\n{INDENT}public static final Schema SCHEMA = new Schema.Parser().parse(\n{INDENT}\"{enum_schema_json}\");\n"
         
         enum_definition += "}\n"
         if write_file:
@@ -1297,8 +1320,9 @@ class AvroToJava:
                 f"{INDENT*1}public {union_type.type_name} get{union_variable_name}() {{ return _{camel(union_variable_name)}; }}\n";
                 
             # For toObject(), wrap enums in GenericData.EnumSymbol so Avro can serialize them
+            # Use avroSymbol() to get the original Avro symbol name for serialization
             if union_type.is_enum:
-                class_definition_toobject += f"{INDENT*2}if (_{camel(union_variable_name)} != null) {{\n{INDENT*3}return new GenericData.EnumSymbol({union_type.type_name}.SCHEMA, _{camel(union_variable_name)}.name());\n{INDENT*2}}}\n"
+                class_definition_toobject += f"{INDENT*2}if (_{camel(union_variable_name)} != null) {{\n{INDENT*3}return new GenericData.EnumSymbol({union_type.type_name}.SCHEMA, _{camel(union_variable_name)}.avroSymbol());\n{INDENT*2}}}\n"
             else:
                 class_definition_toobject += f"{INDENT*2}if (_{camel(union_variable_name)} != null) {{\n{INDENT*3}return _{camel(union_variable_name)};\n{INDENT*2}}}\n"
             
@@ -1328,9 +1352,9 @@ class AvroToJava:
                     class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof org.apache.avro.util.Utf8) {{\n{INDENT*3}this._{camel(union_variable_name)} = obj.toString();\n{INDENT*3}return;\n{INDENT*2}}}\n"
                 
                 # Handle Avro's GenericEnumSymbol for enum types
-                # Convert to uppercase since Java enum constants use SCREAMING_CASE
+                # Use fromAvroSymbol to match original Avro symbol names
                 if self.avro_annotation and union_type.is_enum:
-                    class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof GenericData.EnumSymbol) {{\n{INDENT*3}this._{camel(union_variable_name)} = {union_type.type_name}.valueOf(obj.toString().toUpperCase());\n{INDENT*3}return;\n{INDENT*2}}}\n"
+                    class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof GenericData.EnumSymbol) {{\n{INDENT*3}this._{camel(union_variable_name)} = {union_type.type_name}.fromAvroSymbol(obj.toString());\n{INDENT*3}return;\n{INDENT*2}}}\n"
                 
                 class_definition_fromobjectctor += f"{INDENT*2}if (obj instanceof {union_type.type_name}) {{\n{INDENT*3}this._{camel(union_variable_name)} = ({union_type.type_name})obj;\n{INDENT*3}return;\n{INDENT*2}}}\n"
 
@@ -1359,8 +1383,8 @@ class AvroToJava:
             else:
                 # For classes and enums, use duck typing with isJsonMatch() (C# pattern)
                 if union_type.is_enum:
-                    # Convert to uppercase since Java enum constants use SCREAMING_CASE
-                    class_definition_read += f"{INDENT*3}if (node.isTextual()) {{\n{INDENT*4}return new {union_class_name}(Enum.valueOf({union_type.type_name}.class, node.asText().toUpperCase()));\n{INDENT*3}}}\n"
+                    # Use fromAvroSymbol to match original Avro symbol names
+                    class_definition_read += f"{INDENT*3}if (node.isTextual()) {{\n{INDENT*4}return new {union_class_name}({union_type.type_name}.fromAvroSymbol(node.asText()));\n{INDENT*3}}}\n"
                 elif union_type.is_class:
                     # Use isJsonMatch() to test if this type matches, then use fromData() to deserialize
                     class_definition_read += f"{INDENT*3}if ({union_type.type_name}.isJsonMatch(node)) {{\n{INDENT*4}return new {union_class_name}({union_type.type_name}.fromData(node, \"application/json\"));\n{INDENT*3}}}\n"
@@ -1474,11 +1498,12 @@ class AvroToJava:
                     property_def += f"{INDENT}@JsonIgnore\n"
                 property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}Value() {{ return {safe_field_name}; }}\n"
                 # Generate the getter that returns String (Jackson will use this for serialization)
+                # Use avroSymbol() to get the original Avro symbol name for serialization
                 # Use READ_ONLY since this is a const field that doesn't need deserialization
                 # Note: Not using @Override because not all discriminated union variants extend a base class
                 if self.jackson_annotations:
                     property_def += f"{INDENT}@JsonProperty(value=\"{field['name']}\", access=JsonProperty.Access.READ_ONLY)\n"
-                property_def += f"{INDENT}public String get{pascal(field_name)}() {{ return {safe_field_name}.name(); }}\n"
+                property_def += f"{INDENT}public String get{pascal(field_name)}() {{ return {safe_field_name}.avroSymbol(); }}\n"
             else:
                 property_def += f"{INDENT}public {field_type.type_name} get{pascal(field_name)}() {{ return {safe_field_name}; }}\n"
         else:
