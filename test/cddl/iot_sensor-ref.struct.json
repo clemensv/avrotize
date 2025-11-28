@@ -2,17 +2,6 @@
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example/com/schema.json",
   "definitions": {
-    "optional": {
-      "type": [
-        {
-          "$ref": "#/definitions/T"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "name": "optional"
-    },
     "timestamp": {
       "type": "int64",
       "name": "timestamp"
@@ -39,40 +28,6 @@
         "longitude"
       ],
       "name": "coordinates"
-    },
-    "sensor_reading": {
-      "type": "object",
-      "properties": {
-        "sensor_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64,
-          "altnames": {
-            "cddl": "sensor-id"
-          }
-        },
-        "timestamp": {
-          "$ref": "#/definitions/timestamp"
-        },
-        "value": {
-          "$ref": "#/definitions/T"
-        },
-        "unit": {
-          "type": "string"
-        },
-        "quality": {
-          "$ref": "#/definitions/quality_indicator"
-        }
-      },
-      "required": [
-        "sensor_id",
-        "timestamp",
-        "value"
-      ],
-      "name": "sensor_reading",
-      "altnames": {
-        "cddl": "sensor-reading"
-      }
     },
     "quality_indicator": {
       "type": [
@@ -551,15 +506,8 @@
       }
     }
   },
-  "type": [
-    {
-      "$ref": "#/definitions/T"
-    },
-    {
-      "type": "null"
-    }
-  ],
-  "name": "optional",
+  "type": "int64",
+  "name": "timestamp",
   "$uses": [
     "JSONStructureAlternateNames",
     "JSONStructureUnits",

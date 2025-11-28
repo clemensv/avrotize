@@ -43,20 +43,23 @@
       }
     },
     "fixed_tuple": {
-      "type": "array",
-      "items": {
-        "type": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "int64"
-          },
-          {
-            "type": "boolean"
-          }
-        ]
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "string"
+        },
+        "_1": {
+          "type": "int64"
+        },
+        "_2": {
+          "type": "boolean"
+        }
       },
+      "tuple": [
+        "_0",
+        "_1",
+        "_2"
+      ],
       "name": "fixed_tuple",
       "altnames": {
         "cddl": "fixed-tuple"
@@ -105,17 +108,19 @@
     "nested_array": {
       "type": "array",
       "items": {
-        "type": "array",
-        "items": {
-          "type": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "int64"
-            }
-          ]
-        }
+        "type": "tuple",
+        "properties": {
+          "_0": {
+            "type": "string"
+          },
+          "_1": {
+            "type": "int64"
+          }
+        },
+        "tuple": [
+          "_0",
+          "_1"
+        ]
       },
       "name": "nested_array",
       "altnames": {

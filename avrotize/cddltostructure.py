@@ -45,7 +45,7 @@ Notes on Type Mapping:
 
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from cddlparser import parse as cddl_parse
 from cddlparser.ast import (
     CDDLTree, Rule, Type, Typename, Map, Array, Group, GroupChoice, 
@@ -105,6 +105,7 @@ class CddlToStructureConverter:
         self.definitions: Dict[str, Dict[str, Any]] = {}
         self.generic_types: Dict[str, Dict[str, Any]] = {}  # Maps type name to generic info
         self.current_generic_bindings: Dict[str, Dict[str, Any]] = {}  # Current type parameter bindings
+        self.generic_template_names: Set[str] = set()  # Names of generic templates (not concrete types)
 
     def convert_cddl_to_structure(self, cddl_content: str, namespace: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -128,6 +129,7 @@ class CddlToStructureConverter:
         self.definitions.clear()
         self.generic_types.clear()
         self.current_generic_bindings.clear()
+        self.generic_template_names.clear()
         
         # First pass: collect all type names and generic definitions
         for rule in ast.rules:
@@ -144,6 +146,8 @@ class CddlToStructureConverter:
                                 'params': generic_params,
                                 'type_node': children[1] if len(children) > 1 else None
                             }
+                            # Mark this as a generic template (not a concrete type)
+                            self.generic_template_names.add(avro_name(typename_node.name))
         
         # Second pass: process all rules
         for rule in ast.rules:
@@ -155,15 +159,24 @@ class CddlToStructureConverter:
             "$id": f"https://{self.root_namespace.replace('.', '/')}/schema.json"
         }
         
-        # Add definitions if any
-        if self.definitions:
-            structure_schema['definitions'] = self.definitions
+        # Add definitions if any (excluding generic templates)
+        concrete_definitions = {
+            name: defn for name, defn in self.definitions.items()
+            if name not in self.generic_template_names
+        }
+        if concrete_definitions:
+            structure_schema['definitions'] = concrete_definitions
         
-        # If there's a root type (first rule), add it to the schema
-        if ast.rules and self.definitions:
+        # If there's a root type (first rule that's not a generic template), add it to the schema
+        if ast.rules and concrete_definitions:
             first_rule_name = self._get_rule_name(ast.rules[0])
-            if first_rule_name and first_rule_name in self.definitions:
-                root_def = self.definitions[first_rule_name]
+            # Skip generic templates to find first concrete type
+            for rule in ast.rules:
+                first_rule_name = self._get_rule_name(rule)
+                if first_rule_name and first_rule_name not in self.generic_template_names:
+                    break
+            if first_rule_name and first_rule_name in concrete_definitions:
+                root_def = concrete_definitions[first_rule_name]
                 # Copy root type properties to schema root
                 for key, value in root_def.items():
                     if key not in structure_schema:
@@ -362,24 +375,45 @@ class CddlToStructureConverter:
                             params.append(pc.name)
         return params
     
-    def _extract_generic_arguments(self, typename_node: Any) -> List[Dict[str, Any]]:
-        """Extract generic type arguments from a typename node (e.g., optional<tstr> -> [{'type': 'string'}])."""
+    def _extract_generic_arguments(self, typename_node: Any) -> List[Any]:
+        """Extract generic type arguments from a typename node.
+        
+        Returns AST nodes for the arguments so they can be properly converted
+        with current bindings in _convert_typename.
+        """
         args = []
         if hasattr(typename_node, 'getChildren'):
             for child in typename_node.getChildren():
                 if type(child).__name__ == 'GenericArguments':
                     for ac in child.getChildren():
-                        if type(ac).__name__ == 'Typename':
-                            # Don't recurse through generic bindings - convert directly
-                            if hasattr(ac, 'name') and ac.name in CDDL_PRIMITIVE_TYPES:
-                                args.append(dict(CDDL_PRIMITIVE_TYPES[ac.name]))
-                            elif hasattr(ac, 'name'):
-                                normalized_name = avro_name(ac.name)
-                                args.append({'$ref': f'#/definitions/{normalized_name}'})
+                        # Return the AST node itself for proper conversion
+                        args.append(ac)
         return args
     
-    def _instantiate_generic_type(self, type_name: str, type_args: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Instantiate a generic type with concrete type arguments."""
+    def _resolve_generic_argument(self, arg_node: Any) -> Dict[str, Any]:
+        """Resolve a generic argument node to a JSON Structure type."""
+        if type(arg_node).__name__ == 'Typename':
+            if hasattr(arg_node, 'name'):
+                arg_name = arg_node.name
+                # Check if it's a bound type parameter
+                if arg_name in self.current_generic_bindings:
+                    return dict(self.current_generic_bindings[arg_name])
+                # Check for primitives
+                if arg_name in CDDL_PRIMITIVE_TYPES:
+                    return dict(CDDL_PRIMITIVE_TYPES[arg_name])
+                # Otherwise it's a reference to a defined type
+                normalized_name = avro_name(arg_name)
+                return {'$ref': f'#/definitions/{normalized_name}'}
+        # Fallback: try to convert it
+        return self._convert_type(arg_node, '')
+    
+    def _instantiate_generic_type(self, type_name: str, type_arg_nodes: List[Any]) -> Dict[str, Any]:
+        """Instantiate a generic type with concrete type arguments.
+        
+        Args:
+            type_name: Name of the generic type (e.g., 'optional', 'pair')
+            type_arg_nodes: AST nodes for the type arguments
+        """
         generic_info = self.generic_types.get(type_name)
         if not generic_info:
             return {'type': 'any'}
@@ -387,14 +421,17 @@ class CddlToStructureConverter:
         params = generic_info.get('params', [])
         type_node = generic_info.get('type_node')
         
-        if not type_node or len(params) != len(type_args):
+        if not type_node or len(params) != len(type_arg_nodes):
             # Parameter count mismatch - return reference
             normalized_name = avro_name(type_name)
             return {'$ref': f'#/definitions/{normalized_name}'}
         
+        # Resolve type arguments with current bindings before creating new bindings
+        resolved_args = [self._resolve_generic_argument(arg) for arg in type_arg_nodes]
+        
         # Create bindings for type parameters
         old_bindings = self.current_generic_bindings.copy()
-        for param, arg in zip(params, type_args):
+        for param, arg in zip(params, resolved_args):
             self.current_generic_bindings[param] = arg
         
         try:
@@ -604,56 +641,92 @@ class CddlToStructureConverter:
         return result if result else None
 
     def _convert_array(self, array_node: Array, context_name: str = '') -> Dict[str, Any]:
-        """Convert an Array node to JSON Structure array."""
-        result: Dict[str, Any] = {
-            'type': 'array'
-        }
-        
-        items_type: Optional[Dict[str, Any]] = None
+        """Convert an Array node to JSON Structure array or tuple."""
+        items_types: List[Dict[str, Any]] = []
+        is_tuple = False
         
         if hasattr(array_node, 'getChildren'):
             for child in array_node.getChildren():
                 child_type = type(child).__name__
                 if child_type == 'GroupChoice':
-                    # Get the items type from the group
-                    items_type = self._get_array_items_type(child, context_name)
+                    # Get the items types from the group
+                    items_types, is_tuple = self._get_array_items_types(child, context_name)
                 elif child_type in ('Type', 'Typename'):
-                    items_type = self._convert_type(child, context_name)
+                    items_types = [self._convert_type(child, context_name)]
         
-        if items_type:
-            result['items'] = items_type
+        if is_tuple and len(items_types) > 1:
+            # Fixed-length array with different types = tuple
+            # Use the JSON Structure tuple format
+            properties: Dict[str, Any] = {}
+            tuple_order: List[str] = []
+            for idx, item_type in enumerate(items_types):
+                prop_name = f"_{idx}"
+                properties[prop_name] = item_type
+                tuple_order.append(prop_name)
+            return {
+                'type': 'tuple',
+                'properties': properties,
+                'tuple': tuple_order
+            }
+        elif items_types:
+            # Regular array
+            if len(items_types) == 1:
+                items_type = items_types[0]
+            else:
+                # Multiple types that aren't a tuple - use union for items
+                items_type = {'type': items_types}
+            return {
+                'type': 'array',
+                'items': items_type
+            }
         else:
-            result['items'] = {'type': 'any'}
-            
-        return result
+            return {
+                'type': 'array',
+                'items': {'type': 'any'}
+            }
 
-    def _get_array_items_type(self, group_choice: GroupChoice, context_name: str) -> Dict[str, Any]:
-        """Extract items type from a GroupChoice in an array context."""
+    def _get_array_items_types(self, group_choice: GroupChoice, context_name: str) -> Tuple[List[Dict[str, Any]], bool]:
+        """Extract items types from a GroupChoice in an array context.
+        
+        Returns:
+            Tuple of (list of item types, is_tuple flag)
+            is_tuple is True if this looks like a fixed-size tuple definition
+        """
         if not hasattr(group_choice, 'getChildren'):
-            return {'type': 'any'}
+            return [{'type': 'any'}], False
             
         children = group_choice.getChildren()
         if not children:
-            return {'type': 'any'}
+            return [{'type': 'any'}], False
         
-        # Handle tuple types (multiple different types)
+        # Collect all types from group entries
         types = []
+        all_entries_are_single = True
+        
         for child in children:
             child_type = type(child).__name__
             if child_type == 'GroupEntry':
                 entry_type = self._get_group_entry_type(child, context_name)
                 if entry_type:
                     types.append(entry_type)
+                # Check if entry has occurrence markers (*, +, ?)
+                if self._has_occurrence_marker(child):
+                    all_entries_are_single = False
             elif child_type in ('Type', 'Typename'):
                 types.append(self._convert_type(child, context_name))
         
-        if len(types) == 0:
-            return {'type': 'any'}
-        elif len(types) == 1:
-            return types[0]
-        else:
-            # Multiple types - could be a tuple
-            return {'type': types}
+        # It's a tuple if we have multiple distinct types AND no occurrence markers
+        is_tuple = len(types) > 1 and all_entries_are_single
+        
+        return types, is_tuple
+    
+    def _has_occurrence_marker(self, entry: GroupEntry) -> bool:
+        """Check if a GroupEntry has occurrence markers (*, +, ?)."""
+        if hasattr(entry, 'getChildren'):
+            for child in entry.getChildren():
+                if type(child).__name__ == 'Occurrence':
+                    return True
+        return False
 
     def _get_group_entry_type(self, entry: GroupEntry, context_name: str) -> Optional[Dict[str, Any]]:
         """Get the type from a GroupEntry."""
@@ -778,33 +851,50 @@ class CddlToStructureConverter:
         return None
     
     def _convert_to_tuple(self, entries: List[Tuple[int, bool, Any]], context_name: str) -> Dict[str, Any]:
-        """Convert integer-keyed entries to a tuple type."""
+        """Convert integer-keyed entries to a tuple type per JSON Structure spec.
+        
+        JSON Structure tuples use:
+        - 'properties': named properties with schemas
+        - 'tuple': array of property names defining the order
+        - All declared properties are implicitly REQUIRED
+        
+        For optional elements, we omit them from the 'tuple' array but keep them in properties,
+        or we can include them and note that JSON Structure tuples don't support optional elements directly.
+        """
         # Sort entries by key
         entries.sort(key=lambda x: x[0])
         
-        # Build tuple items array
-        items = []
+        # Build properties map and tuple order array
+        properties: Dict[str, Any] = {}
+        tuple_order: List[str] = []
+        
         for key, is_optional, type_node in entries:
+            # Generate property name from the integer key
+            prop_name = f"_{key}"
             item_type = self._convert_type(type_node, context_name)
             
-            # If optional, wrap in a union with null
-            if is_optional:
-                if isinstance(item_type, dict):
-                    if 'type' in item_type and isinstance(item_type['type'], list):
-                        # Already a union, add null if not present
-                        types = item_type['type']
-                        if not any(t.get('type') == 'null' for t in types if isinstance(t, dict)):
-                            types.append({'type': 'null'})
-                    else:
-                        # Wrap in union with null
-                        item_type = {'type': [item_type, {'type': 'null'}]}
+            # Store the original CDDL key as altname
+            if isinstance(item_type, dict):
+                item_type['altnames'] = {'cddl': str(key)}
             
-            items.append(item_type)
+            properties[prop_name] = item_type
+            
+            # Only include non-optional items in tuple order
+            # (optional items can still be present but are not required)
+            if not is_optional:
+                tuple_order.append(prop_name)
         
-        return {
+        result: Dict[str, Any] = {
             'type': 'tuple',
-            'items': items
+            'properties': properties,
+            'tuple': [f"_{e[0]}" for e in entries]  # Include all in order for the tuple layout
         }
+        
+        # If some items are optional, add required to indicate which are mandatory
+        if tuple_order and len(tuple_order) < len(entries):
+            result['required'] = tuple_order
+        
+        return result
 
     def _convert_map_like(self, node: Any, context_name: str = '') -> Dict[str, Any]:
         """Convert a map-like structure to object."""

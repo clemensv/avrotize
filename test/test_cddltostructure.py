@@ -331,11 +331,15 @@ class TestCddlToStructure(unittest.TestCase):
         '''
         result = json.loads(convert_cddl_to_structure(cddl))
         
-        # The string-int-pair should be an array
+        # The string-int-pair should be a tuple (fixed-size array with different types)
         self.assertIn('definitions', result)
         self.assertIn('string_int_pair', result['definitions'])
+        # Generic template 'pair' should NOT be in definitions
+        self.assertNotIn('pair', result['definitions'])
         pair = result['definitions']['string_int_pair']
-        self.assertEqual(pair['type'], 'array')
+        self.assertEqual(pair['type'], 'tuple')
+        self.assertIn('properties', pair)
+        self.assertIn('tuple', pair)
 
     def test_range_constraint(self):
         """Test range constraints on numeric types."""
@@ -420,9 +424,13 @@ class TestCddlSchemaFiles(unittest.TestCase):
         result = json.loads(convert_cddl_to_structure(cddl))
         
         self.assertIn('definitions', result)
-        self.assertIn('optional', result['definitions'])
-        self.assertIn('pair', result['definitions'])
+        # Generic templates should NOT be in definitions (they are processing hints)
+        self.assertNotIn('optional', result['definitions'])
+        self.assertNotIn('pair', result['definitions'])
+        # Concrete instantiated types should be present
         self.assertIn('person_name', result['definitions'])
+        self.assertIn('string_int_pair', result['definitions'])
+        self.assertIn('api_result', result['definitions'])
     
     def test_arrays_maps_schema(self):
         """Test arrays and maps CDDL schema."""

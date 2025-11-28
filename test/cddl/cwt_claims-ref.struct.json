@@ -68,66 +68,77 @@
       "name": "CWT"
     },
     "COSE_Sign1_CWT": {
-      "type": "array",
-      "items": {
-        "type": [
-          {
-            "type": "bytes"
-          },
-          {
-            "type": "object"
-          },
-          {
-            "type": "bytes"
-          },
-          {
-            "type": "bytes"
-          }
-        ]
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "bytes"
+        },
+        "_1": {
+          "type": "object"
+        },
+        "_2": {
+          "type": "bytes"
+        },
+        "_3": {
+          "type": "bytes"
+        }
       },
+      "tuple": [
+        "_0",
+        "_1",
+        "_2",
+        "_3"
+      ],
       "name": "COSE_Sign1_CWT",
       "altnames": {
         "cddl": "COSE-Sign1-CWT"
       }
     },
     "COSE_Mac0_CWT": {
-      "type": "array",
-      "items": {
-        "type": [
-          {
-            "type": "bytes"
-          },
-          {
-            "type": "object"
-          },
-          {
-            "type": "bytes"
-          },
-          {
-            "type": "bytes"
-          }
-        ]
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "bytes"
+        },
+        "_1": {
+          "type": "object"
+        },
+        "_2": {
+          "type": "bytes"
+        },
+        "_3": {
+          "type": "bytes"
+        }
       },
+      "tuple": [
+        "_0",
+        "_1",
+        "_2",
+        "_3"
+      ],
       "name": "COSE_Mac0_CWT",
       "altnames": {
         "cddl": "COSE-Mac0-CWT"
       }
     },
     "COSE_Encrypt0_CWT": {
-      "type": "array",
-      "items": {
-        "type": [
-          {
-            "type": "bytes"
-          },
-          {
-            "type": "object"
-          },
-          {
-            "type": "bytes"
-          }
-        ]
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "bytes"
+        },
+        "_1": {
+          "type": "object"
+        },
+        "_2": {
+          "type": "bytes"
+        }
       },
+      "tuple": [
+        "_0",
+        "_1",
+        "_2"
+      ],
       "name": "COSE_Encrypt0_CWT",
       "altnames": {
         "cddl": "COSE-Encrypt0-CWT"

@@ -2,102 +2,6 @@
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example/com/schema.json",
   "definitions": {
-    "optional": {
-      "type": [
-        {
-          "$ref": "#/definitions/T"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "name": "optional"
-    },
-    "pair": {
-      "type": "array",
-      "items": {
-        "type": [
-          {
-            "$ref": "#/definitions/K"
-          },
-          {
-            "$ref": "#/definitions/V"
-          }
-        ]
-      },
-      "name": "pair"
-    },
-    "result": {
-      "type": [
-        {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "const": "ok"
-            },
-            "value": {
-              "$ref": "#/definitions/T"
-            }
-          },
-          "required": [
-            "status",
-            "value"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "const": "error"
-            },
-            "error": {
-              "$ref": "#/definitions/E"
-            }
-          },
-          "required": [
-            "status",
-            "error"
-          ]
-        }
-      ],
-      "name": "result"
-    },
-    "success": {
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string",
-          "const": "ok"
-        },
-        "value": {
-          "$ref": "#/definitions/T"
-        }
-      },
-      "required": [
-        "status",
-        "value"
-      ],
-      "name": "success"
-    },
-    "error": {
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string",
-          "const": "error"
-        },
-        "error": {
-          "$ref": "#/definitions/E"
-        }
-      },
-      "required": [
-        "status",
-        "error"
-      ],
-      "name": "error"
-    },
     "person_name": {
       "type": [
         {
@@ -113,17 +17,19 @@
       }
     },
     "string_int_pair": {
-      "type": "array",
-      "items": {
-        "type": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "int64"
-          }
-        ]
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "string"
+        },
+        "_1": {
+          "type": "int64"
+        }
       },
+      "tuple": [
+        "_0",
+        "_1"
+      ],
       "name": "string_int_pair",
       "altnames": {
         "cddl": "string-int-pair"
@@ -139,7 +45,7 @@
               "const": "ok"
             },
             "value": {
-              "$ref": "#/definitions/T"
+              "$ref": "#/definitions/response_data"
             }
           },
           "required": [
@@ -155,7 +61,7 @@
               "const": "error"
             },
             "error": {
-              "$ref": "#/definitions/E"
+              "$ref": "#/definitions/error_info"
             }
           },
           "required": [
@@ -210,13 +116,16 @@
   },
   "type": [
     {
-      "$ref": "#/definitions/T"
+      "type": "string"
     },
     {
       "type": "null"
     }
   ],
-  "name": "optional",
+  "name": "person_name",
+  "altnames": {
+    "cddl": "person-name"
+  },
   "$uses": [
     "JSONStructureAlternateNames",
     "JSONStructureValidation"
