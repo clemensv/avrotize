@@ -1,0 +1,15 @@
+// Kusto table schema for telemetry data
+// Used to demonstrate k2a (Kusto to Avro) conversion
+
+.create table TelemetryReading (
+    DeviceId: string,
+    SensorType: string,
+    Timestamp: datetime,
+    Temperature: real,
+    Humidity: real,
+    Pressure: real,
+    Location: dynamic,
+    Metadata: dynamic
+)
+
+.create table-ingestion-mapping TelemetryReadingMapping '[{"column":"DeviceId","Properties":{"Path":"$.deviceId"}},{"column":"SensorType","Properties":{"Path":"$.sensorType"}},{"column":"Timestamp","Properties":{"Path":"$.timestamp"}},{"column":"Temperature","Properties":{"Path":"$.temperature"}},{"column":"Humidity","Properties":{"Path":"$.humidity"}},{"column":"Pressure","Properties":{"Path":"$.pressure"}},{"column":"Location","Properties":{"Path":"$.location"}},{"column":"Metadata","Properties":{"Path":"$.metadata"}}]'

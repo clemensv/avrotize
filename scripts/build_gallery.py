@@ -32,7 +32,9 @@ GALLERY_SOURCES = GALLERY_DIR / "sources"
 
 # Conversion definitions - one example per conversion feature
 GALLERY_ITEMS = [
-    # === SOURCE FORMAT → AVRO ===
+    # ============================================================
+    # SOURCE FORMAT → AVRO (Input conversions)
+    # ============================================================
     {
         "id": "jsonschema-to-avro",
         "title": "JSON Schema → Avro",
@@ -40,9 +42,7 @@ GALLERY_ITEMS = [
         "source_file": "order.jsons",
         "source_path": GALLERY_SOURCES / "order.jsons",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "j2a", "args": ["--out", "{out}/order.avsc"]},
-        ]
+        "conversions": [{"cmd": "j2a", "args": ["--out", "{out}/order.avsc"]}]
     },
     {
         "id": "xsd-to-avro",
@@ -51,9 +51,7 @@ GALLERY_ITEMS = [
         "source_file": "acmt.003.001.08.xsd",
         "source_path": TEST_DIR / "xsd" / "acmt.003.001.08.xsd",
         "source_language": "xml",
-        "conversions": [
-            {"cmd": "x2a", "args": ["--out", "{out}/acmt.avsc"]},
-        ]
+        "conversions": [{"cmd": "x2a", "args": ["--out", "{out}/acmt.avsc"]}]
     },
     {
         "id": "proto-to-avro",
@@ -62,9 +60,7 @@ GALLERY_ITEMS = [
         "source_file": "messaging.proto",
         "source_path": GALLERY_SOURCES / "messaging.proto",
         "source_language": "protobuf",
-        "conversions": [
-            {"cmd": "p2a", "args": ["--out", "{out}/messaging.avsc"]},
-        ]
+        "conversions": [{"cmd": "p2a", "args": ["--out", "{out}/messaging.avsc"]}]
     },
     {
         "id": "asn1-to-avro",
@@ -73,91 +69,57 @@ GALLERY_ITEMS = [
         "source_file": "movie.asn",
         "source_path": TEST_DIR / "asn1" / "movie.asn",
         "source_language": "asn1",
-        "conversions": [
-            {"cmd": "asn2a", "args": ["--out", "{out}/movie.avsc"]},
-        ]
+        "conversions": [{"cmd": "asn2a", "args": ["--out", "{out}/movie.avsc"]}]
+    },
+    {
+        "id": "parquet-to-avro",
+        "title": "Parquet → Avro",
+        "description": "Extract schema from Parquet file to Avro Schema",
+        "source_file": "address.parquet",
+        "source_path": TEST_DIR / "parquet" / "address.parquet",
+        "source_language": "binary",
+        "conversions": [{"cmd": "pq2a", "args": ["--out", "{out}/address.avsc"]}]
+    },
+    {
+        "id": "kstruct-to-avro",
+        "title": "Kafka Struct → Avro",
+        "description": "Kafka Connect Struct schema to Avro Schema",
+        "source_file": "cardata.json",
+        "source_path": TEST_DIR / "kstruct" / "cardata.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "kstruct2a", "args": ["--out", "{out}/cardata.avsc"]}]
+    },
+    {
+        "id": "struct-to-avro",
+        "title": "JSON Structure → Avro",
+        "description": "Inventory management schema to Avro Schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2a", "args": ["--out", "{out}/inventory.avsc"]}]
+    },
+    {
+        "id": "csv-to-avro",
+        "title": "CSV → Avro",
+        "description": "Infer Avro schema from CSV data file",
+        "source_file": "addresses.csv",
+        "source_path": GALLERY_SOURCES / "addresses.csv",
+        "source_language": "csv",
+        "conversions": [{"cmd": "csv2a", "args": ["--out", "{out}/addresses.avsc"]}]
+    },
+    {
+        "id": "kusto-to-avro",
+        "title": "Kusto → Avro",
+        "description": "Azure Data Explorer table schema to Avro Schema",
+        "source_file": "telemetry.kql",
+        "source_path": GALLERY_SOURCES / "telemetry.kql",
+        "source_language": "kql",
+        "conversions": [{"cmd": "k2a", "args": ["--out", "{out}/telemetry_kusto.avsc"]}]
     },
     
-    # === AVRO → CODE ===
-    {
-        "id": "avro-to-python",
-        "title": "Avro → Python",
-        "description": "IoT telemetry to Python dataclasses with serialization",
-        "source_file": "telemetry.avsc",
-        "source_path": GALLERY_SOURCES / "telemetry.avsc",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "a2py", "args": ["--out", "{out}/python"]},
-        ]
-    },
-    {
-        "id": "avro-to-csharp",
-        "title": "Avro → C#",
-        "description": "IoT telemetry to C# classes with System.Text.Json",
-        "source_file": "telemetry.avsc",
-        "source_path": GALLERY_SOURCES / "telemetry.avsc",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "a2cs", "args": ["--out", "{out}/csharp"]},
-        ]
-    },
-    {
-        "id": "avro-to-java",
-        "title": "Avro → Java",
-        "description": "IoT telemetry to Java POJOs with Jackson annotations",
-        "source_file": "telemetry.avsc",
-        "source_path": GALLERY_SOURCES / "telemetry.avsc",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "a2java", "args": ["--out", "{out}/java"]},
-        ]
-    },
-    {
-        "id": "avro-to-typescript",
-        "title": "Avro → TypeScript",
-        "description": "IoT telemetry to TypeScript interfaces",
-        "source_file": "telemetry.avsc",
-        "source_path": GALLERY_SOURCES / "telemetry.avsc",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "a2ts", "args": ["--out", "{out}/typescript"]},
-        ]
-    },
-    {
-        "id": "avro-to-rust",
-        "title": "Avro → Rust",
-        "description": "IoT telemetry to Rust structs with serde",
-        "source_file": "telemetry.avsc",
-        "source_path": GALLERY_SOURCES / "telemetry.avsc",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "a2rust", "args": ["--out", "{out}/rust"]},
-        ]
-    },
-    {
-        "id": "avro-to-go",
-        "title": "Avro → Go",
-        "description": "IoT telemetry to Go structs with JSON tags",
-        "source_file": "telemetry.avsc",
-        "source_path": GALLERY_SOURCES / "telemetry.avsc",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "a2go", "args": ["--out", "{out}/go"]},
-        ]
-    },
-    {
-        "id": "avro-to-cpp",
-        "title": "Avro → C++",
-        "description": "IoT telemetry to C++ classes",
-        "source_file": "telemetry.avsc",
-        "source_path": GALLERY_SOURCES / "telemetry.avsc",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "a2cpp", "args": ["--out", "{out}/cpp"]},
-        ]
-    },
-    
-    # === AVRO → SCHEMA FORMATS ===
+    # ============================================================
+    # AVRO → SCHEMA FORMATS
+    # ============================================================
     {
         "id": "avro-to-proto",
         "title": "Avro → Protobuf",
@@ -165,9 +127,7 @@ GALLERY_ITEMS = [
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "a2p", "args": ["--out", "{out}/telemetry.proto"]},
-        ]
+        "conversions": [{"cmd": "a2p", "args": ["--out", "{out}/telemetry.proto"]}]
     },
     {
         "id": "avro-to-jsonschema",
@@ -176,91 +136,258 @@ GALLERY_ITEMS = [
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "a2js", "args": ["--out", "{out}/telemetry.json"]},
-        ]
+        "conversions": [{"cmd": "a2j", "args": ["--out", "{out}/telemetry.json"]}]
+    },
+    {
+        "id": "avro-to-xsd",
+        "title": "Avro → XSD",
+        "description": "Convert Avro schema to XML Schema Definition",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2x", "args": ["--out", "{out}/telemetry.xsd"]}]
+    },
+    {
+        "id": "avro-to-structure",
+        "title": "Avro → JSON Structure",
+        "description": "Convert Avro schema to JSON Structure format",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2s", "args": ["--out", "{out}/telemetry.struct.json"]}]
+    },
+    {
+        "id": "avro-to-datapackage",
+        "title": "Avro → Datapackage",
+        "description": "Convert Avro schema to Frictionless Datapackage",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2dp", "args": ["--out", "{out}/telemetry.datapackage.json"]}]
     },
     
-    # === STRUCTURE → CODE ===
+    # ============================================================
+    # AVRO → CODE GENERATION
+    # ============================================================
     {
-        "id": "struct-to-rust",
-        "title": "Structure → Rust",
-        "description": "Inventory management to Rust structs with serde",
-        "source_file": "inventory.struct.json",
-        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "id": "avro-to-python",
+        "title": "Avro → Python",
+        "description": "IoT telemetry to Python dataclasses with serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "s2rust", "args": ["--out", "{out}/rust"]},
-        ]
+        "conversions": [{"cmd": "a2py", "args": ["--out", "{out}/python"]}]
     },
     {
-        "id": "struct-to-go",
-        "title": "Structure → Go",
-        "description": "Inventory management to Go structs with JSON tags",
-        "source_file": "inventory.struct.json",
-        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "id": "avro-to-csharp",
+        "title": "Avro → C#",
+        "description": "IoT telemetry to C# classes with System.Text.Json",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "s2go", "args": ["--out", "{out}/go"]},
-        ]
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp"]}]
     },
     {
-        "id": "struct-to-csharp",
-        "title": "Structure → C#",
-        "description": "Inventory management to C# with validation attributes",
-        "source_file": "inventory.struct.json",
-        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "id": "avro-to-java",
+        "title": "Avro → Java",
+        "description": "IoT telemetry to Java POJOs with Jackson annotations",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "s2cs", "args": ["--out", "{out}/csharp"]},
-        ]
+        "conversions": [{"cmd": "a2java", "args": ["--out", "{out}/java"]}]
     },
     {
-        "id": "struct-to-python",
-        "title": "Structure → Python",
-        "description": "Inventory management to Python dataclasses",
-        "source_file": "inventory.struct.json",
-        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "id": "avro-to-typescript",
+        "title": "Avro → TypeScript",
+        "description": "IoT telemetry to TypeScript interfaces",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "s2py", "args": ["--out", "{out}/python"]},
-        ]
+        "conversions": [{"cmd": "a2ts", "args": ["--out", "{out}/typescript"]}]
     },
     {
-        "id": "struct-to-java",
-        "title": "Structure → Java",
-        "description": "Inventory management to Java POJOs",
-        "source_file": "inventory.struct.json",
-        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "id": "avro-to-javascript",
+        "title": "Avro → JavaScript",
+        "description": "IoT telemetry to JavaScript classes",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "s2java", "args": ["--out", "{out}/java"]},
-        ]
+        "conversions": [{"cmd": "a2js", "args": ["--out", "{out}/javascript"]}]
     },
     {
-        "id": "struct-to-typescript",
-        "title": "Structure → TypeScript",
-        "description": "Inventory management to TypeScript interfaces",
-        "source_file": "inventory.struct.json",
-        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "id": "avro-to-rust",
+        "title": "Avro → Rust",
+        "description": "IoT telemetry to Rust structs with serde",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "s2ts", "args": ["--out", "{out}/typescript"]},
-        ]
+        "conversions": [{"cmd": "a2rust", "args": ["--out", "{out}/rust"]}]
     },
     {
-        "id": "struct-to-cpp",
-        "title": "Structure → C++",
-        "description": "Inventory management to C++ classes",
-        "source_file": "inventory.struct.json",
-        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "id": "avro-to-go",
+        "title": "Avro → Go",
+        "description": "IoT telemetry to Go structs with JSON tags",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "s2cpp", "args": ["--out", "{out}/cpp"]},
-        ]
+        "conversions": [{"cmd": "a2go", "args": ["--out", "{out}/go"]}]
+    },
+    {
+        "id": "avro-to-cpp",
+        "title": "Avro → C++",
+        "description": "IoT telemetry to C++ classes",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cpp", "args": ["--out", "{out}/cpp"]}]
     },
     
-    # === STRUCTURE → SCHEMA FORMATS ===
+    # ============================================================
+    # AVRO → DATABASE SCHEMAS
+    # ============================================================
+    {
+        "id": "avro-to-sql-postgres",
+        "title": "Avro → PostgreSQL",
+        "description": "IoT telemetry to PostgreSQL table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "postgres", "--out", "{out}/telemetry.sql"]}]
+    },
+    {
+        "id": "avro-to-kusto",
+        "title": "Avro → Kusto",
+        "description": "IoT telemetry to Azure Data Explorer (Kusto) table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2k", "args": ["--out", "{out}/telemetry.kql"]}]
+    },
+    {
+        "id": "avro-to-parquet",
+        "title": "Avro → Parquet",
+        "description": "IoT telemetry to Parquet schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2pq", "args": ["--out", "{out}/telemetry.parquet.json"]}]
+    },
+    {
+        "id": "avro-to-iceberg",
+        "title": "Avro → Iceberg",
+        "description": "IoT telemetry to Apache Iceberg schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2ib", "args": ["--out", "{out}/telemetry.iceberg.json"]}]
+    },
+    {
+        "id": "avro-to-mongodb",
+        "title": "Avro → MongoDB",
+        "description": "IoT telemetry to MongoDB JSON Schema validation",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2mongo", "args": ["--out", "{out}/telemetry.mongodb.json"]}]
+    },
+    {
+        "id": "avro-to-cassandra",
+        "title": "Avro → Cassandra",
+        "description": "IoT telemetry to Cassandra CQL schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cassandra", "args": ["--out", "{out}/telemetry.cql"]}]
+    },
+    {
+        "id": "avro-to-dynamodb",
+        "title": "Avro → DynamoDB",
+        "description": "IoT telemetry to AWS DynamoDB schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2dynamodb", "args": ["--out", "{out}/telemetry.dynamodb.json"]}]
+    },
+    {
+        "id": "avro-to-elasticsearch",
+        "title": "Avro → Elasticsearch",
+        "description": "IoT telemetry to Elasticsearch mapping",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2es", "args": ["--out", "{out}/telemetry.es.json"]}]
+    },
+    {
+        "id": "avro-to-cosmosdb",
+        "title": "Avro → CosmosDB",
+        "description": "IoT telemetry to Azure CosmosDB schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cosmos", "args": ["--out", "{out}/telemetry.cosmos.json"]}]
+    },
+    {
+        "id": "avro-to-neo4j",
+        "title": "Avro → Neo4j",
+        "description": "IoT telemetry to Neo4j Cypher schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2neo4j", "args": ["--out", "{out}/telemetry.cypher"]}]
+    },
+    {
+        "id": "avro-to-firebase",
+        "title": "Avro → Firebase",
+        "description": "IoT telemetry to Firebase security rules schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2firebase", "args": ["--out", "{out}/telemetry.firebase.json"]}]
+    },
+    {
+        "id": "avro-to-couchdb",
+        "title": "Avro → CouchDB",
+        "description": "IoT telemetry to CouchDB validation schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2couchdb", "args": ["--out", "{out}/telemetry.couchdb.json"]}]
+    },
+    {
+        "id": "avro-to-hbase",
+        "title": "Avro → HBase",
+        "description": "IoT telemetry to HBase schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2hbase", "args": ["--out", "{out}/telemetry.hbase.json"]}]
+    },
+    
+    # ============================================================
+    # AVRO → DOCUMENTATION
+    # ============================================================
+    {
+        "id": "avro-to-markdown",
+        "title": "Avro → Markdown",
+        "description": "IoT telemetry to Markdown documentation",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2md", "args": ["--out", "{out}/telemetry.md"]}]
+    },
+    
+    # ============================================================
+    # JSON STRUCTURE → SCHEMA FORMATS
+    # ============================================================
+    {
+        "id": "struct-to-jsonschema",
+        "title": "Structure → JSON Schema",
+        "description": "Inventory management to JSON Schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2j", "args": ["--out", "{out}/inventory.schema.json"]}]
+    },
     {
         "id": "struct-to-xsd",
         "title": "Structure → XSD",
@@ -268,9 +395,7 @@ GALLERY_ITEMS = [
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "s2x", "args": ["--out", "{out}/inventory.xsd"]},
-        ]
+        "conversions": [{"cmd": "s2x", "args": ["--out", "{out}/inventory.xsd"]}]
     },
     {
         "id": "struct-to-graphql",
@@ -279,9 +404,7 @@ GALLERY_ITEMS = [
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "struct2gql", "args": ["--out", "{out}/schema.graphql"]},
-        ]
+        "conversions": [{"cmd": "struct2gql", "args": ["--out", "{out}/schema.graphql"]}]
     },
     {
         "id": "struct-to-proto",
@@ -290,9 +413,215 @@ GALLERY_ITEMS = [
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [
-            {"cmd": "s2p", "args": ["--out", "{out}/inventory.proto"]},
-        ]
+        "conversions": [{"cmd": "s2p", "args": ["--out", "{out}/inventory.proto"]}]
+    },
+    {
+        "id": "struct-to-datapackage",
+        "title": "Structure → Datapackage",
+        "description": "Inventory management to Frictionless Datapackage",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2dp", "args": ["--out", "{out}/inventory.datapackage.json"]}]
+    },
+    
+    # ============================================================
+    # JSON STRUCTURE → CODE GENERATION
+    # ============================================================
+    {
+        "id": "struct-to-rust",
+        "title": "Structure → Rust",
+        "description": "Inventory management to Rust structs with serde",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2rust", "args": ["--out", "{out}/rust"]}]
+    },
+    {
+        "id": "struct-to-go",
+        "title": "Structure → Go",
+        "description": "Inventory management to Go structs with JSON tags",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2go", "args": ["--out", "{out}/go"]}]
+    },
+    {
+        "id": "struct-to-csharp",
+        "title": "Structure → C#",
+        "description": "Inventory management to C# with validation attributes",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp"]}]
+    },
+    {
+        "id": "struct-to-python",
+        "title": "Structure → Python",
+        "description": "Inventory management to Python dataclasses",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2py", "args": ["--out", "{out}/python"]}]
+    },
+    {
+        "id": "struct-to-java",
+        "title": "Structure → Java",
+        "description": "Inventory management to Java POJOs",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2java", "args": ["--out", "{out}/java"]}]
+    },
+    {
+        "id": "struct-to-typescript",
+        "title": "Structure → TypeScript",
+        "description": "Inventory management to TypeScript interfaces",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2ts", "args": ["--out", "{out}/typescript"]}]
+    },
+    {
+        "id": "struct-to-cpp",
+        "title": "Structure → C++",
+        "description": "Inventory management to C++ classes",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2cpp", "args": ["--out", "{out}/cpp"]}]
+    },
+    
+    # ============================================================
+    # JSON STRUCTURE → DATABASE/DATA FORMATS
+    # ============================================================
+    {
+        "id": "struct-to-sql",
+        "title": "Structure → PostgreSQL",
+        "description": "Inventory management to PostgreSQL table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "struct2sql", "args": ["--dialect", "postgres", "--out", "{out}/inventory.sql"]}]
+    },
+    {
+        "id": "struct-to-cassandra",
+        "title": "Structure → Cassandra",
+        "description": "Inventory management to Cassandra CQL schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "struct2cassandra", "args": ["--out", "{out}/inventory.cql"]}]
+    },
+    {
+        "id": "struct-to-iceberg",
+        "title": "Structure → Iceberg",
+        "description": "Inventory management to Apache Iceberg schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2ib", "args": ["--out", "{out}/inventory.iceberg.json"]}]
+    },
+    
+    # ============================================================
+    # JSON STRUCTURE → DOCUMENTATION
+    # ============================================================
+    {
+        "id": "struct-to-markdown",
+        "title": "Structure → Markdown",
+        "description": "Inventory management to Markdown documentation",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "struct2md", "args": ["--out", "{out}/inventory.md"]}]
+    },
+    
+    # ============================================================
+    # JSON SCHEMA → JSON STRUCTURE
+    # ============================================================
+    {
+        "id": "jsonschema-to-struct",
+        "title": "JSON Schema → Structure",
+        "description": "E-commerce Order to JSON Structure format",
+        "source_file": "order.jsons",
+        "source_path": GALLERY_SOURCES / "order.jsons",
+        "source_language": "json",
+        "conversions": [{"cmd": "j2s", "args": ["--out", "{out}/order.struct.json"]}]
+    },
+    
+    # ============================================================
+    # ADDITIONAL SQL DIALECTS
+    # ============================================================
+    {
+        "id": "avro-to-sql-mysql",
+        "title": "Avro → MySQL",
+        "description": "IoT telemetry to MySQL table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "mysql", "--out", "{out}/telemetry_mysql.sql"]}]
+    },
+    {
+        "id": "avro-to-sql-sqlserver",
+        "title": "Avro → SQL Server",
+        "description": "IoT telemetry to SQL Server table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "sqlserver", "--out", "{out}/telemetry_mssql.sql"]}]
+    },
+    {
+        "id": "avro-to-sql-sqlite",
+        "title": "Avro → SQLite",
+        "description": "IoT telemetry to SQLite table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "sqlite", "--out", "{out}/telemetry_sqlite.sql"]}]
+    },
+    {
+        "id": "avro-to-sql-oracle",
+        "title": "Avro → Oracle",
+        "description": "IoT telemetry to Oracle database table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "oracle", "--out", "{out}/telemetry_oracle.sql"]}]
+    },
+    {
+        "id": "avro-to-sql-mariadb",
+        "title": "Avro → MariaDB",
+        "description": "IoT telemetry to MariaDB table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "mariadb", "--out", "{out}/telemetry_maria.sql"]}]
+    },
+    
+    # ============================================================
+    # CSV OUTPUT
+    # ============================================================
+    {
+        "id": "struct-to-csv",
+        "title": "Structure → CSV Template",
+        "description": "Generate CSV template from JSON Structure schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2csv", "args": ["--out", "{out}/inventory_template.csv"]}]
+    },
+    
+    # ============================================================
+    # STRUCTURE → KUSTO
+    # ============================================================
+    {
+        "id": "struct-to-kusto",
+        "title": "Structure → Kusto",
+        "description": "Inventory management to Azure Data Explorer table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2k", "args": ["--out", "{out}/inventory.kql"]}]
     },
 ]
 
@@ -351,6 +680,7 @@ def get_language_for_extension(ext: str) -> str:
     lang_map = {
         ".json": "json",
         ".avsc": "json",
+        ".struct.json": "json",
         ".py": "python",
         ".cs": "csharp",
         ".java": "java",
@@ -363,11 +693,17 @@ def get_language_for_extension(ext: str) -> str:
         ".h": "c",
         ".proto": "protobuf",
         ".sql": "sql",
+        ".kql": "kusto",
+        ".cql": "sql",
         ".xsd": "xml",
         ".xml": "xml",
         ".md": "markdown",
         ".graphql": "graphql",
         ".gql": "graphql",
+        ".csv": "csv",
+        ".asn": "asn1",
+        ".cypher": "cypher",
+        ".parquet": "plaintext",
     }
     return lang_map.get(ext.lower(), "plaintext")
 
@@ -425,10 +761,17 @@ def get_file_icon(ext: str) -> str:
         ".hpp": "⚙️",
         ".proto": "📝",
         ".sql": "🗃️",
+        ".kql": "🔍",
+        ".cql": "🗃️",
         ".xsd": "📐",
         ".xml": "📐",
         ".graphql": "◼️",
         ".gql": "◼️",
+        ".csv": "📊",
+        ".md": "📖",
+        ".asn": "📜",
+        ".cypher": "🕸️",
+        ".parquet": "📦",
     }
     return icon_map.get(ext.lower(), "📄")
 
@@ -530,6 +873,39 @@ function escapeHtml(text) {{
     print(f"  Generated page: {page_dir / 'index.html'}")
 
 
+def _ensure_test_files_from_master() -> None:
+    """Ensure test files are available from master branch."""
+    # Files needed from master branch test directory
+    needed_files = [
+        ("test/xsd/acmt.003.001.08.xsd", TEST_DIR / "xsd" / "acmt.003.001.08.xsd"),
+        ("test/asn1/movie.asn", TEST_DIR / "asn1" / "movie.asn"),
+        ("test/parquet/address.parquet", TEST_DIR / "parquet" / "address.parquet"),
+        ("test/kstruct/cardata.json", TEST_DIR / "kstruct" / "cardata.json"),
+    ]
+    
+    for git_path, local_path in needed_files:
+        if not local_path.exists():
+            print(f"  Fetching {git_path} from master...")
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                result = subprocess.run(
+                    ["git", "show", f"master:{git_path}"],
+                    cwd=PROJECT_ROOT,
+                    capture_output=True,
+                    check=True
+                )
+                # Handle binary files (like parquet)
+                if git_path.endswith(".parquet"):
+                    local_path.write_bytes(result.stdout)
+                else:
+                    local_path.write_bytes(result.stdout)
+                print(f"    Fetched: {local_path}")
+            except subprocess.CalledProcessError as e:
+                print(f"    Failed to fetch {git_path}: {e.stderr.decode() if e.stderr else e}")
+            except Exception as e:
+                print(f"    Error fetching {git_path}: {e}")
+
+
 def build_gallery() -> None:
     """Build all gallery items."""
     print("Building gallery content...")
@@ -541,8 +917,20 @@ def build_gallery() -> None:
     # Ensure gallery directories exist
     GALLERY_DIR.mkdir(parents=True, exist_ok=True)
     
+    # Checkout test files from master branch if not present
+    if not TEST_DIR.exists():
+        TEST_DIR.mkdir(parents=True, exist_ok=True)
+    _ensure_test_files_from_master()
+    
     for item in GALLERY_ITEMS:
         print(f"\nProcessing: {item['title']}")
+        
+        # Check if source file exists
+        source_path = item.get("source_path")
+        if source_path and not source_path.exists():
+            print(f"  Source file not found: {source_path}")
+            print(f"  Skipping item")
+            continue
         
         # Create temporary output directory
         output_dir = TMP_DIR / item["id"]

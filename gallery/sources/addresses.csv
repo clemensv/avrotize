@@ -1,0 +1,4 @@
+id,first_name,last_name,email,street,city,state,postal_code,country
+1,John,Doe,john.doe@example.com,123 Main St,Springfield,IL,62701,USA
+2,Jane,Smith,jane.smith@example.com,456 Oak Ave,Portland,OR,97201,USA
+3,Bob,Johnson,bob.j@example.com,789 Pine Rd,Austin,TX,78701,USA
