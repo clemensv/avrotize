@@ -986,6 +986,60 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         "asn1": '<i class="devicon-linux-plain" title="ASN.1"></i>',
     }
     
+    # Command to README anchor mapping
+    CMD_README_ANCHORS = {
+        # Avrotize commands
+        "j2a": "convert-json-schema-to-avro-schema",
+        "x2a": "convert-xsd-to-avro-schema",
+        "p2a": "convert-proto-to-avro-schema",
+        "asn2a": "convert-asn1-to-avro-schema",
+        "pq2a": "convert-parquet-to-avro-schema",
+        "kstruct2a": "convert-kafka-connect-struct-schema-to-avro-schema",
+        "csv2a": "convert-csv-to-avro-schema",
+        "k2a": "convert-kusto-to-avro-schema",
+        "s2a": "convert-json-structure-to-avro-schema",
+        "a2p": "convert-avro-schema-to-proto",
+        "a2j": "convert-avro-schema-to-json-schema",
+        "a2x": "convert-avro-schema-to-xsd",
+        "a2pq": "convert-avro-schema-to-parquet",
+        "a2k": "convert-avro-schema-to-kusto",
+        "a2ib": "convert-avro-schema-to-iceberg",
+        "a2dp": "convert-avro-schema-to-datapackage",
+        "a2md": "convert-avro-schema-to-markdown",
+        "a2py": "convert-avro-schema-to-python",
+        "a2cs": "convert-avro-schema-to-c",
+        "a2java": "convert-avro-schema-to-java",
+        "a2ts": "convert-avro-schema-to-typescript",
+        "a2js": "convert-avro-schema-to-javascript",
+        "a2go": "convert-avro-schema-to-go",
+        "a2rust": "convert-avro-schema-to-rust",
+        "a2cpp": "convert-avro-schema-to-c-1",
+        "a2sql": "convert-avro-schema-to-sql",
+        "a2nosql": "convert-avro-schema-to-nosql",
+        "a2gql": "convert-avro-schema-to-graphql",
+        "a2s": "convert-avro-schema-to-json-structure",
+        # Structurize commands
+        "j2s": "convert-json-schema-to-json-structure",
+        "s2j": "convert-json-structure-to-json-schema",
+        "s2x": "convert-json-structure-to-xsd",
+        "s2p": "convert-json-structure-to-proto",
+        "s2gql": "convert-json-structure-to-graphql",
+        "s2dp": "convert-json-structure-to-datapackage",
+        "s2ib": "convert-json-structure-to-iceberg",
+        "s2csv": "convert-json-structure-to-csv",
+        "s2k": "convert-json-structure-to-kusto",
+        "s2md": "convert-json-structure-to-markdown",
+        "s2py": "convert-json-structure-to-python",
+        "s2cs": "convert-json-structure-to-c",
+        "s2java": "convert-json-structure-to-java",
+        "s2ts": "convert-json-structure-to-typescript",
+        "s2go": "convert-json-structure-to-go",
+        "s2rust": "convert-json-structure-to-rust",
+        "s2cpp": "convert-json-structure-to-c-1",
+        "s2sql": "convert-json-structure-to-sql",
+        "s2nosql": "convert-json-structure-to-nosql",
+    }
+    
     def get_icon(format_name: str) -> str:
         """Get icon HTML for a format."""
         key = format_name.lower().strip()
@@ -1009,6 +1063,22 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
             return '<i class="devicon-oracle-original colored"></i>'
         return FORMAT_ICONS.get(key, '')
     
+    def get_command(item: dict) -> str:
+        """Get the primary command from an item."""
+        conversions = item.get("conversions", [])
+        if conversions:
+            return conversions[-1].get("cmd", "")
+        return ""
+    
+    def get_readme_url(cmd: str, is_structurize: bool) -> str:
+        """Get the README URL for a command."""
+        anchor = CMD_README_ANCHORS.get(cmd, "")
+        if anchor:
+            if is_structurize:
+                return f"https://github.com/clemensv/avrotize/blob/master/structurize/README.md#{anchor}"
+            return f"https://github.com/clemensv/avrotize/blob/master/README.md#{anchor}"
+        return "https://github.com/clemensv/avrotize"
+    
     # Categorize items
     avro_input = []  # X -> Avro
     avro_output = []  # Avro -> X
@@ -1026,11 +1096,13 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         elif item_id.startswith("struct-to-"):
             struct_output.append(item)
     
-    def render_card(item: dict) -> str:
+    def render_card(item: dict, is_structurize: bool = False) -> str:
         """Render a single gallery card."""
         title = item["title"]
         desc = item["description"]
         item_id = item["id"]
+        cmd = get_command(item)
+        readme_url = get_readme_url(cmd, is_structurize)
         
         # Parse formats from title (e.g., "JSON Schema -> Avro" or "Avro -> Python")
         parts = title.split(" -> ")
@@ -1052,27 +1124,33 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         <div class="gallery-card-formats">
           {format_html}
         </div>
-        <span class="gallery-card-link">View conversion -></span>
+        <div class="gallery-card-command">
+          <code class="command-code">{cmd}</code>
+          <a href="{readme_url}" class="command-docs-link" target="_blank" title="View documentation" onclick="event.stopPropagation();">docs</a>
+        </div>
+        <span class="gallery-card-link">View example -></span>
       </div>
     </a>'''
     
-    def render_section(title: str, subtitle: str, items: list[dict]) -> str:
+    def render_section(section_id: str, title: str, subtitle: str, items: list[dict], is_structurize: bool = False) -> str:
         """Render a section with cards."""
         if not items:
             return ""
         
-        cards = "\n\n".join(render_card(item) for item in items)
+        cards = "\n\n".join(render_card(item, is_structurize) for item in items)
         return f'''
-  <div class="section-header" style="margin-top: var(--spacing-3xl); margin-bottom: var(--spacing-2xl);">
-    <h2>{title}</h2>
-    <p>{subtitle}</p>
-  </div>
-  
-  <div class="gallery-grid">
+  <div id="{section_id}" class="gallery-section">
+    <div class="section-header">
+      <h3>{title}</h3>
+      <p>{subtitle}</p>
+    </div>
+    
+    <div class="gallery-grid">
 {cards}
+    </div>
   </div>'''
     
-    # Build page content
+    # Build page content with tabs
     page_content = '''---
 layout: default
 title: Gallery
@@ -1084,49 +1162,94 @@ permalink: /gallery/
   <div class="hero-content">
     <h1>Conversion Gallery</h1>
     <p class="hero-subtitle">
-      Explore real-world schema conversions. See the source schema, browse the output files, 
-      and view the generated code with syntax highlighting.
+      Explore real-world schema conversions. Click any card to see the source schema, 
+      browse the output files, and view the generated code with syntax highlighting.
     </p>
   </div>
 </section>
 
 <section class="gallery-index">
+  <!-- Tab Navigation -->
+  <div class="gallery-tabs">
+    <button class="gallery-tab active" data-tab="avrotize">
+      <span class="tab-title">Avrotize</span>
+      <span class="tab-subtitle">Avro Schema as pivot</span>
+    </button>
+    <button class="gallery-tab" data-tab="structurize">
+      <span class="tab-title">Structurize</span>
+      <span class="tab-subtitle">JSON Structure as pivot</span>
+    </button>
+  </div>
+
+  <!-- Avrotize Tab Content -->
+  <div id="avrotize-content" class="gallery-tab-content active">
 '''
     
-    # Add avro input section (X -> Avro) first without extra margin
-    if avro_input:
-        cards = "\n\n".join(render_card(item) for item in avro_input)
-        page_content += f'''
-  <div class="section-header" style="margin-bottom: var(--spacing-2xl);">
-    <h2>Input Formats -> Avro</h2>
-    <p>Convert various schema formats to Avro Schema</p>
-  </div>
-  
-  <div class="gallery-grid">
-{cards}
-  </div>
-'''
+    # Add Avrotize sections
+    page_content += render_section(
+        "avro-input",
+        "Input Formats -> Avro",
+        "Convert various schema formats to Avro Schema",
+        avro_input,
+        is_structurize=False
+    )
     
     page_content += render_section(
+        "avro-output", 
         "Avro -> Output Formats",
         "Generate code and schemas from Avro Schema",
-        avro_output
-    )
-    
-    page_content += render_section(
-        "Input Formats -> JSON Structure",
-        "Convert various schema formats to JSON Structure",
-        struct_input
-    )
-    
-    page_content += render_section(
-        "JSON Structure -> Output Formats",
-        "Generate code and schemas from JSON Structure",
-        struct_output
+        avro_output,
+        is_structurize=False
     )
     
     page_content += '''
+  </div>
+
+  <!-- Structurize Tab Content -->
+  <div id="structurize-content" class="gallery-tab-content">
+'''
+    
+    # Add Structurize sections
+    page_content += render_section(
+        "struct-input",
+        "Input Formats -> JSON Structure", 
+        "Convert various schema formats to JSON Structure",
+        struct_input,
+        is_structurize=True
+    )
+    
+    page_content += render_section(
+        "struct-output",
+        "JSON Structure -> Output Formats",
+        "Generate code and schemas from JSON Structure", 
+        struct_output,
+        is_structurize=True
+    )
+    
+    page_content += '''
+  </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const tabs = document.querySelectorAll('.gallery-tab');
+  const contents = document.querySelectorAll('.gallery-tab-content');
+  
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      const targetId = this.dataset.tab + '-content';
+      
+      // Update active tab
+      tabs.forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      
+      // Update visible content
+      contents.forEach(c => c.classList.remove('active'));
+      document.getElementById(targetId).classList.add('active');
+    });
+  });
+});
+</script>
 '''
     
     # Write to pages/gallery.html
