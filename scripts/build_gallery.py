@@ -33,11 +33,11 @@ GALLERY_SOURCES = GALLERY_DIR / "sources"
 # Conversion definitions - one example per conversion feature
 GALLERY_ITEMS = [
     # ============================================================
-    # SOURCE FORMAT → AVRO (Input conversions)
+    # SOURCE FORMAT -> AVRO (Input conversions)
     # ============================================================
     {
         "id": "jsonschema-to-avro",
-        "title": "JSON Schema → Avro",
+        "title": "JSON Schema -> Avro",
         "description": "E-commerce Order with nested types, refs, and polymorphic payment options",
         "source_file": "order.jsons",
         "source_path": GALLERY_SOURCES / "order.jsons",
@@ -46,7 +46,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "xsd-to-avro",
-        "title": "XSD → Avro",
+        "title": "XSD -> Avro",
         "description": "ISO 20022 banking standard (Account Opening) to Avro Schema",
         "source_file": "acmt.003.001.08.xsd",
         "source_path": TEST_DIR / "xsd" / "acmt.003.001.08.xsd",
@@ -55,7 +55,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "proto-to-avro",
-        "title": "Protobuf → Avro",
+        "title": "Protobuf -> Avro",
         "description": "Chat messaging with oneof unions and nested messages",
         "source_file": "messaging.proto",
         "source_path": GALLERY_SOURCES / "messaging.proto",
@@ -64,7 +64,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "asn1-to-avro",
-        "title": "ASN.1 → Avro",
+        "title": "ASN.1 -> Avro",
         "description": "Movie database with sequences, enums, and optional fields",
         "source_file": "movie.asn",
         "source_path": TEST_DIR / "asn1" / "movie.asn",
@@ -73,7 +73,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "parquet-to-avro",
-        "title": "Parquet → Avro",
+        "title": "Parquet -> Avro",
         "description": "Extract schema from Parquet file to Avro Schema",
         "source_file": "address.parquet",
         "source_path": TEST_DIR / "parquet" / "address.parquet",
@@ -82,7 +82,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "kstruct-to-avro",
-        "title": "Kafka Struct → Avro",
+        "title": "Kafka Struct -> Avro",
         "description": "Kafka Connect Struct schema to Avro Schema",
         "source_file": "cardata.json",
         "source_path": TEST_DIR / "kstruct" / "cardata.json",
@@ -91,7 +91,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-avro",
-        "title": "JSON Structure → Avro",
+        "title": "JSON Structure -> Avro",
         "description": "Inventory management schema to Avro Schema",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -100,7 +100,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "csv-to-avro",
-        "title": "CSV → Avro",
+        "title": "CSV -> Avro",
         "description": "Infer Avro schema from CSV data file",
         "source_file": "addresses.csv",
         "source_path": GALLERY_SOURCES / "addresses.csv",
@@ -109,7 +109,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "kusto-to-avro",
-        "title": "Kusto → Avro",
+        "title": "Kusto -> Avro",
         "description": "Azure Data Explorer table schema to Avro Schema",
         "source_file": "telemetry.kql",
         "source_path": GALLERY_SOURCES / "telemetry.kql",
@@ -118,11 +118,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # AVRO → SCHEMA FORMATS
+    # AVRO -> SCHEMA FORMATS
     # ============================================================
     {
         "id": "avro-to-proto",
-        "title": "Avro → Protobuf",
+        "title": "Avro -> Protobuf",
         "description": "Convert Avro telemetry schema to Protocol Buffers",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -131,7 +131,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-jsonschema",
-        "title": "Avro → JSON Schema",
+        "title": "Avro -> JSON Schema",
         "description": "Convert Avro schema to JSON Schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -140,7 +140,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-xsd",
-        "title": "Avro → XSD",
+        "title": "Avro -> XSD",
         "description": "Convert Avro schema to XML Schema Definition",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -149,7 +149,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-structure",
-        "title": "Avro → JSON Structure",
+        "title": "Avro -> JSON Structure",
         "description": "Convert Avro schema to JSON Structure format",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -158,7 +158,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-datapackage",
-        "title": "Avro → Datapackage",
+        "title": "Avro -> Datapackage",
         "description": "Convert Avro schema to Frictionless Datapackage",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -167,11 +167,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # AVRO → CODE GENERATION
+    # AVRO -> CODE GENERATION
     # ============================================================
     {
         "id": "avro-to-python",
-        "title": "Avro → Python",
+        "title": "Avro -> Python",
         "description": "IoT telemetry to Python dataclasses with serialization",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -180,7 +180,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-csharp",
-        "title": "Avro → C#",
+        "title": "Avro -> C#",
         "description": "IoT telemetry to C# classes with System.Text.Json",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -189,7 +189,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-java",
-        "title": "Avro → Java",
+        "title": "Avro -> Java",
         "description": "IoT telemetry to Java POJOs with Jackson annotations",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -198,7 +198,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-typescript",
-        "title": "Avro → TypeScript",
+        "title": "Avro -> TypeScript",
         "description": "IoT telemetry to TypeScript interfaces",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -207,7 +207,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-javascript",
-        "title": "Avro → JavaScript",
+        "title": "Avro -> JavaScript",
         "description": "IoT telemetry to JavaScript classes",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -216,7 +216,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-rust",
-        "title": "Avro → Rust",
+        "title": "Avro -> Rust",
         "description": "IoT telemetry to Rust structs with serde",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -225,7 +225,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-go",
-        "title": "Avro → Go",
+        "title": "Avro -> Go",
         "description": "IoT telemetry to Go structs with JSON tags",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -234,7 +234,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-cpp",
-        "title": "Avro → C++",
+        "title": "Avro -> C++",
         "description": "IoT telemetry to C++ classes",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -243,11 +243,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # AVRO → DATABASE SCHEMAS
+    # AVRO -> DATABASE SCHEMAS
     # ============================================================
     {
         "id": "avro-to-sql-postgres",
-        "title": "Avro → PostgreSQL",
+        "title": "Avro -> PostgreSQL",
         "description": "IoT telemetry to PostgreSQL table schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -256,7 +256,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-kusto",
-        "title": "Avro → Kusto",
+        "title": "Avro -> Kusto",
         "description": "IoT telemetry to Azure Data Explorer (Kusto) table schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -265,7 +265,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-parquet",
-        "title": "Avro → Parquet",
+        "title": "Avro -> Parquet",
         "description": "IoT telemetry to Parquet schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -274,7 +274,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-iceberg",
-        "title": "Avro → Iceberg",
+        "title": "Avro -> Iceberg",
         "description": "IoT telemetry to Apache Iceberg schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -283,7 +283,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-mongodb",
-        "title": "Avro → MongoDB",
+        "title": "Avro -> MongoDB",
         "description": "IoT telemetry to MongoDB JSON Schema validation",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -292,7 +292,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-cassandra",
-        "title": "Avro → Cassandra",
+        "title": "Avro -> Cassandra",
         "description": "IoT telemetry to Cassandra CQL schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -301,7 +301,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-dynamodb",
-        "title": "Avro → DynamoDB",
+        "title": "Avro -> DynamoDB",
         "description": "IoT telemetry to AWS DynamoDB schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -310,7 +310,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-elasticsearch",
-        "title": "Avro → Elasticsearch",
+        "title": "Avro -> Elasticsearch",
         "description": "IoT telemetry to Elasticsearch mapping",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -319,7 +319,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-cosmosdb",
-        "title": "Avro → CosmosDB",
+        "title": "Avro -> CosmosDB",
         "description": "IoT telemetry to Azure CosmosDB schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -328,7 +328,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-neo4j",
-        "title": "Avro → Neo4j",
+        "title": "Avro -> Neo4j",
         "description": "IoT telemetry to Neo4j Cypher schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -337,7 +337,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-firebase",
-        "title": "Avro → Firebase",
+        "title": "Avro -> Firebase",
         "description": "IoT telemetry to Firebase security rules schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -346,7 +346,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-couchdb",
-        "title": "Avro → CouchDB",
+        "title": "Avro -> CouchDB",
         "description": "IoT telemetry to CouchDB validation schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -355,7 +355,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-hbase",
-        "title": "Avro → HBase",
+        "title": "Avro -> HBase",
         "description": "IoT telemetry to HBase schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -364,11 +364,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # AVRO → DOCUMENTATION
+    # AVRO -> DOCUMENTATION
     # ============================================================
     {
         "id": "avro-to-markdown",
-        "title": "Avro → Markdown",
+        "title": "Avro -> Markdown",
         "description": "IoT telemetry to Markdown documentation",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -377,11 +377,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # JSON STRUCTURE → SCHEMA FORMATS
+    # JSON STRUCTURE -> SCHEMA FORMATS
     # ============================================================
     {
         "id": "struct-to-jsonschema",
-        "title": "Structure → JSON Schema",
+        "title": "Structure -> JSON Schema",
         "description": "Inventory management to JSON Schema",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -390,7 +390,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-xsd",
-        "title": "Structure → XSD",
+        "title": "Structure -> XSD",
         "description": "Inventory management to XML Schema",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -399,7 +399,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-graphql",
-        "title": "Structure → GraphQL",
+        "title": "Structure -> GraphQL",
         "description": "Inventory management to GraphQL type definitions",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -408,7 +408,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-proto",
-        "title": "Structure → Protobuf",
+        "title": "Structure -> Protobuf",
         "description": "Inventory management to Protocol Buffers",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -417,7 +417,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-datapackage",
-        "title": "Structure → Datapackage",
+        "title": "Structure -> Datapackage",
         "description": "Inventory management to Frictionless Datapackage",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -426,11 +426,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # JSON STRUCTURE → CODE GENERATION
+    # JSON STRUCTURE -> CODE GENERATION
     # ============================================================
     {
         "id": "struct-to-rust",
-        "title": "Structure → Rust",
+        "title": "Structure -> Rust",
         "description": "Inventory management to Rust structs with serde",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -439,7 +439,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-go",
-        "title": "Structure → Go",
+        "title": "Structure -> Go",
         "description": "Inventory management to Go structs with JSON tags",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -448,7 +448,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-csharp",
-        "title": "Structure → C#",
+        "title": "Structure -> C#",
         "description": "Inventory management to C# with validation attributes",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -457,7 +457,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-python",
-        "title": "Structure → Python",
+        "title": "Structure -> Python",
         "description": "Inventory management to Python dataclasses",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -466,7 +466,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-java",
-        "title": "Structure → Java",
+        "title": "Structure -> Java",
         "description": "Inventory management to Java POJOs",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -475,7 +475,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-typescript",
-        "title": "Structure → TypeScript",
+        "title": "Structure -> TypeScript",
         "description": "Inventory management to TypeScript interfaces",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -484,7 +484,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-cpp",
-        "title": "Structure → C++",
+        "title": "Structure -> C++",
         "description": "Inventory management to C++ classes",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -493,11 +493,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # JSON STRUCTURE → DATABASE/DATA FORMATS
+    # JSON STRUCTURE -> DATABASE/DATA FORMATS
     # ============================================================
     {
         "id": "struct-to-sql",
-        "title": "Structure → PostgreSQL",
+        "title": "Structure -> PostgreSQL",
         "description": "Inventory management to PostgreSQL table schema",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -506,7 +506,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-cassandra",
-        "title": "Structure → Cassandra",
+        "title": "Structure -> Cassandra",
         "description": "Inventory management to Cassandra CQL schema",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -515,7 +515,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "struct-to-iceberg",
-        "title": "Structure → Iceberg",
+        "title": "Structure -> Iceberg",
         "description": "Inventory management to Apache Iceberg schema",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -524,11 +524,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # JSON STRUCTURE → DOCUMENTATION
+    # JSON STRUCTURE -> DOCUMENTATION
     # ============================================================
     {
         "id": "struct-to-markdown",
-        "title": "Structure → Markdown",
+        "title": "Structure -> Markdown",
         "description": "Inventory management to Markdown documentation",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -537,11 +537,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # JSON SCHEMA → JSON STRUCTURE
+    # JSON SCHEMA -> JSON STRUCTURE
     # ============================================================
     {
         "id": "jsonschema-to-struct",
-        "title": "JSON Schema → Structure",
+        "title": "JSON Schema -> Structure",
         "description": "E-commerce Order to JSON Structure format",
         "source_file": "order.jsons",
         "source_path": GALLERY_SOURCES / "order.jsons",
@@ -554,7 +554,7 @@ GALLERY_ITEMS = [
     # ============================================================
     {
         "id": "avro-to-sql-mysql",
-        "title": "Avro → MySQL",
+        "title": "Avro -> MySQL",
         "description": "IoT telemetry to MySQL table schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -563,7 +563,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-sql-sqlserver",
-        "title": "Avro → SQL Server",
+        "title": "Avro -> SQL Server",
         "description": "IoT telemetry to SQL Server table schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -572,7 +572,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-sql-sqlite",
-        "title": "Avro → SQLite",
+        "title": "Avro -> SQLite",
         "description": "IoT telemetry to SQLite table schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -581,7 +581,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-sql-oracle",
-        "title": "Avro → Oracle",
+        "title": "Avro -> Oracle",
         "description": "IoT telemetry to Oracle database table schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -590,7 +590,7 @@ GALLERY_ITEMS = [
     },
     {
         "id": "avro-to-sql-mariadb",
-        "title": "Avro → MariaDB",
+        "title": "Avro -> MariaDB",
         "description": "IoT telemetry to MariaDB table schema",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
@@ -603,7 +603,7 @@ GALLERY_ITEMS = [
     # ============================================================
     {
         "id": "struct-to-csv",
-        "title": "Structure → CSV Template",
+        "title": "Structure -> CSV Template",
         "description": "Generate CSV template from JSON Structure schema",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -612,11 +612,11 @@ GALLERY_ITEMS = [
     },
     
     # ============================================================
-    # STRUCTURE → KUSTO
+    # STRUCTURE -> KUSTO
     # ============================================================
     {
         "id": "struct-to-kusto",
-        "title": "Structure → Kusto",
+        "title": "Structure -> Kusto",
         "description": "Inventory management to Azure Data Explorer table schema",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -1030,3 +1030,4 @@ def build_gallery() -> None:
 
 if __name__ == "__main__":
     build_gallery()
+
