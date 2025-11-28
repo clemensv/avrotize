@@ -3,6 +3,13 @@ CDDL (Concise Data Definition Language) to JSON Structure converter.
 
 CDDL is defined in RFC 8610 and is a schema language primarily used for 
 expressing CBOR and JSON data structures.
+
+Current Limitations:
+- CDDL operators (.size, .regexp, .default, .bits, .ne, .lt, .le, .gt, .ge, .eq)
+  are partially supported. The base type is extracted but specific constraints
+  may not be fully converted to JSON Structure equivalents.
+- CDDL sockets and plugs are not yet implemented.
+- Generic type parameters are not yet implemented.
 """
 
 import json
@@ -17,6 +24,9 @@ from cddlparser.ast import (
 
 from avrotize.common import avro_name
 
+
+# Default namespace for JSON Structure schema
+DEFAULT_NAMESPACE = 'example.com'
 
 # CDDL primitive types to JSON Structure type mapping
 CDDL_PRIMITIVE_TYPES: Dict[str, Dict[str, Any]] = {
@@ -59,7 +69,7 @@ class CddlToStructureConverter:
     """
 
     def __init__(self) -> None:
-        self.root_namespace = 'example.com'
+        self.root_namespace = DEFAULT_NAMESPACE
         self.type_registry: Dict[str, Dict[str, Any]] = {}
         self.definitions: Dict[str, Dict[str, Any]] = {}
 
@@ -610,7 +620,13 @@ class CddlToStructureConverter:
         return result
 
     def _convert_operator(self, operator_node: Operator, context_name: str = '') -> Dict[str, Any]:
-        """Convert an Operator node (type constraints like .size, .regexp)."""
+        """
+        Convert an Operator node (type constraints like .size, .regexp).
+        
+        Note: CDDL operators are partially supported. The base type is extracted
+        but specific constraints may not be fully converted to JSON Structure
+        equivalents. See module docstring for more details.
+        """
         base_type: Dict[str, Any] = {'type': 'any'}
         
         if hasattr(operator_node, 'getChildren'):
@@ -621,7 +637,6 @@ class CddlToStructureConverter:
                     base_type = self._convert_type(child, context_name)
                     break
         
-        # TODO: Handle specific operators like .size, .regexp, .default
         return base_type
 
     def _convert_tag(self, tag_node: Tag, context_name: str = '') -> Dict[str, Any]:
@@ -677,7 +692,7 @@ class CddlToStructureConverter:
         return sorted(uses)
 
 
-def convert_cddl_to_structure(cddl_content: str, namespace: str = 'example.com') -> str:
+def convert_cddl_to_structure(cddl_content: str, namespace: str = DEFAULT_NAMESPACE) -> str:
     """
     Convert CDDL content to JSON Structure format.
     
@@ -709,7 +724,7 @@ def convert_cddl_to_structure_files(
     """
     # Use default namespace if None provided
     if namespace is None:
-        namespace = 'example.com'
+        namespace = DEFAULT_NAMESPACE
     
     # Read the CDDL file
     with open(cddl_file_path, 'r', encoding='utf-8') as f:
