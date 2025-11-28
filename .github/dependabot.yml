@@ -1,0 +1,83 @@
+# Dependabot configuration for central dependency management
+# Monitors dependency files in avrotize/dependencies/ and proposes version updates
+
+version: 2
+updates:
+  # Python dependencies (main package and central dependencies)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(python)"
+
+  - package-ecosystem: "pip"
+    directory: "/avrotize/dependencies/python/py312"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(python-central)"
+
+  # NuGet/C# dependencies
+  - package-ecosystem: "nuget"
+    directory: "/avrotize/dependencies/cs/net90"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(nuget)"
+
+  # Maven/Java dependencies
+  - package-ecosystem: "maven"
+    directory: "/avrotize/dependencies/java/jdk21"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(maven)"
+
+  # npm/TypeScript dependencies
+  - package-ecosystem: "npm"
+    directory: "/avrotize/dependencies/typescript/node22"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(npm)"
+
+  # Go dependencies
+  - package-ecosystem: "gomod"
+    directory: "/avrotize/dependencies/go/go121"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(go)"
+
+  # Rust/Cargo dependencies
+  - package-ecosystem: "cargo"
+    directory: "/avrotize/dependencies/rust/stable"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(cargo)"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(actions)"

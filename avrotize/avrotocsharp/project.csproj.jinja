@@ -6,19 +6,19 @@
     </PropertyGroup>
     <ItemGroup>
         {%- if avro_annotation %}
-        <PackageReference Include="Apache.Avro" Version="1.12.0" />
+        <PackageReference Include="Apache.Avro" Version="{{ CSHARP_AVRO_VERSION }}" />
         {%- endif %}
         {%- if newtonsoft_json_annotation %}
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="Newtonsoft.Json" Version="{{ NEWTONSOFT_JSON_VERSION }}" />
         {%- endif %}
         {%- if system_text_json_annotation %}
-        <PackageReference Include="System.Text.Json" Version="9.0.3" />
+        <PackageReference Include="System.Text.Json" Version="{{ SYSTEM_TEXT_JSON_VERSION }}" />
         {%- endif %}
-        <PackageReference Include="System.Memory.Data" Version="9.0.3" />
+        <PackageReference Include="System.Memory.Data" Version="{{ SYSTEM_MEMORY_DATA_VERSION }}" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="NUnit" Version="4.3.2" />
-        <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+        <PackageReference Include="NUnit" Version="{{ NUNIT_VERSION }}" />
+        <PackageReference Include="NUnit3TestAdapter" Version="{{ NUNIT_ADAPTER_VERSION }}" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="{{ MSTEST_SDK_VERSION }}" />
     </ItemGroup>
 </Project>  

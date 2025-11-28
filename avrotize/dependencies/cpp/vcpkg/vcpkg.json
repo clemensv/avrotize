@@ -1,0 +1,19 @@
+{
+  "$comment": "Central dependency versions for Avrotize C++ code generation templates. This file is monitored by Dependabot.",
+  "name": "avrotize-dependencies",
+  "version": "1.0.0",
+  "dependencies": [
+    {
+      "name": "avro-cpp",
+      "version>=": "1.11.1"
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.3"
+    },
+    {
+      "name": "gtest",
+      "version>=": "1.15.2"
+    }
+  ]
+}

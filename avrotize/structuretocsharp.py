@@ -9,6 +9,14 @@ from typing import Any, Dict, List, Tuple, Union, cast, Optional
 import uuid
 
 from avrotize.common import pascal, process_template
+from avrotize.constants import (
+    NEWTONSOFT_JSON_VERSION,
+    SYSTEM_TEXT_JSON_VERSION,
+    SYSTEM_MEMORY_DATA_VERSION,
+    NUNIT_VERSION,
+    NUNIT_ADAPTER_VERSION,
+    MSTEST_SDK_VERSION,
+)
 import glob
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
@@ -1522,7 +1530,13 @@ class StructureToCSharp:
                         project_name=project_name, 
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
-                        newtonsoft_json_annotation=self.newtonsoft_json_annotation))
+                        newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                        NEWTONSOFT_JSON_VERSION=NEWTONSOFT_JSON_VERSION,
+                        SYSTEM_TEXT_JSON_VERSION=SYSTEM_TEXT_JSON_VERSION,
+                        SYSTEM_MEMORY_DATA_VERSION=SYSTEM_MEMORY_DATA_VERSION,
+                        NUNIT_VERSION=NUNIT_VERSION,
+                        NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
+                        MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
         
         # Create test project file if it doesn't exist
         if not glob.glob(os.path.join(output_dir, "test", "*.csproj")):
@@ -1536,7 +1550,10 @@ class StructureToCSharp:
                         project_name=project_name,
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
-                        newtonsoft_json_annotation=self.newtonsoft_json_annotation))
+                        newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                        NUNIT_VERSION=NUNIT_VERSION,
+                        NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
+                        MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
 
         self.output_dir = output_dir
         

@@ -1,0 +1,17 @@
+# Central dependency versions for Avrotize Rust code generation templates
+# This file is monitored by Dependabot and read by the dependency() function in templates
+
+[package]
+name = "avrotize-dependencies"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+apache-avro = "0.17.0"
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
+chrono = { version = "0.4.38", features = ["serde"] }
+uuid = { version = "1.11.0", features = ["v4", "serde"] }
+
+[dev-dependencies]

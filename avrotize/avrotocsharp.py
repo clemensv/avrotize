@@ -9,6 +9,15 @@ from typing import Any, Dict, List, Tuple, Union, cast
 import uuid
 
 from avrotize.common import build_flat_type_dict, inline_avro_references, is_generic_avro_type, pascal, process_template
+from avrotize.constants import (
+    CSHARP_AVRO_VERSION,
+    NEWTONSOFT_JSON_VERSION,
+    SYSTEM_TEXT_JSON_VERSION,
+    SYSTEM_MEMORY_DATA_VERSION,
+    NUNIT_VERSION,
+    NUNIT_ADAPTER_VERSION,
+    MSTEST_SDK_VERSION,
+)
 import glob
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
@@ -957,7 +966,14 @@ class AvroToCSharp:
                         avro_annotation=self.avro_annotation,
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
-                        newtonsoft_json_annotation=self.newtonsoft_json_annotation))
+                        newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                        CSHARP_AVRO_VERSION=CSHARP_AVRO_VERSION,
+                        NEWTONSOFT_JSON_VERSION=NEWTONSOFT_JSON_VERSION,
+                        SYSTEM_TEXT_JSON_VERSION=SYSTEM_TEXT_JSON_VERSION,
+                        SYSTEM_MEMORY_DATA_VERSION=SYSTEM_MEMORY_DATA_VERSION,
+                        NUNIT_VERSION=NUNIT_VERSION,
+                        NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
+                        MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
         if not glob.glob(os.path.join(output_dir, "test", "*.csproj")):
             csproj_test_file = os.path.join(
                 output_dir, "test", f"{pascal(project_name)}.Test.csproj")
@@ -971,7 +987,10 @@ class AvroToCSharp:
                         avro_annotation=self.avro_annotation,
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
-                        newtonsoft_json_annotation=self.newtonsoft_json_annotation))
+                        newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                        NUNIT_VERSION=NUNIT_VERSION,
+                        NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
+                        MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
 
         self.output_dir = output_dir
         for avro_schema in (avs for avs in schema if isinstance(avs, dict)):
