@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "primitives": {
+      "type": "object",
+      "properties": {
+        "unsigned_int": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "unsigned-int"
+          }
+        },
+        "negative_int": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "negative-int"
+          }
+        },
+        "signed_int": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "signed-int"
+          }
+        },
+        "half_float": {
+          "type": "float",
+          "altnames": {
+            "cddl": "half-float"
+          }
+        },
+        "single_float": {
+          "type": "float",
+          "altnames": {
+            "cddl": "single-float"
+          }
+        },
+        "double_float": {
+          "type": "double",
+          "altnames": {
+            "cddl": "double-float"
+          }
+        },
+        "generic_float": {
+          "type": "double",
+          "altnames": {
+            "cddl": "generic-float"
+          }
+        },
+        "text_string": {
+          "type": "string",
+          "altnames": {
+            "cddl": "text-string"
+          }
+        },
+        "byte_string": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "byte-string"
+          }
+        },
+        "flag": {
+          "type": "boolean"
+        },
+        "nothing": {
+          "type": "null"
+        },
+        "anything": {
+          "type": "any"
+        }
+      },
+      "required": [
+        "unsigned_int",
+        "negative_int",
+        "signed_int",
+        "half_float",
+        "single_float",
+        "double_float",
+        "generic_float",
+        "text_string",
+        "byte_string",
+        "flag",
+        "nothing",
+        "anything"
+      ],
+      "name": "primitives"
+    },
+    "constrained_types": {
+      "type": "object",
+      "properties": {
+        "short_string": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "altnames": {
+            "cddl": "short-string"
+          }
+        },
+        "fixed_bytes": {
+          "type": "bytes",
+          "minLength": 32,
+          "maxLength": 32,
+          "altnames": {
+            "cddl": "fixed-bytes"
+          }
+        },
+        "percentage": {
+          "type": "int64",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "positive": {
+          "type": "int64",
+          "minimum": 1
+        },
+        "greeting": {
+          "type": "string",
+          "default": "hello"
+        },
+        "count": {
+          "type": "int64",
+          "default": 0
+        }
+      },
+      "required": [
+        "short_string",
+        "fixed_bytes",
+        "percentage",
+        "positive",
+        "greeting",
+        "count"
+      ],
+      "name": "constrained_types",
+      "altnames": {
+        "cddl": "constrained-types"
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "unsigned_int": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "unsigned-int"
+      }
+    },
+    "negative_int": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "negative-int"
+      }
+    },
+    "signed_int": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "signed-int"
+      }
+    },
+    "half_float": {
+      "type": "float",
+      "altnames": {
+        "cddl": "half-float"
+      }
+    },
+    "single_float": {
+      "type": "float",
+      "altnames": {
+        "cddl": "single-float"
+      }
+    },
+    "double_float": {
+      "type": "double",
+      "altnames": {
+        "cddl": "double-float"
+      }
+    },
+    "generic_float": {
+      "type": "double",
+      "altnames": {
+        "cddl": "generic-float"
+      }
+    },
+    "text_string": {
+      "type": "string",
+      "altnames": {
+        "cddl": "text-string"
+      }
+    },
+    "byte_string": {
+      "type": "bytes",
+      "altnames": {
+        "cddl": "byte-string"
+      }
+    },
+    "flag": {
+      "type": "boolean"
+    },
+    "nothing": {
+      "type": "null"
+    },
+    "anything": {
+      "type": "any"
+    }
+  },
+  "required": [
+    "unsigned_int",
+    "negative_int",
+    "signed_int",
+    "half_float",
+    "single_float",
+    "double_float",
+    "generic_float",
+    "text_string",
+    "byte_string",
+    "flag",
+    "nothing",
+    "anything"
+  ],
+  "name": "primitives",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}

@@ -1,0 +1,56 @@
+; CDDL schema demonstrating choice/union types
+; Based on RFC 8610 Section 3.5
+
+; Simple choice between primitives
+string-or-int = tstr / int
+number = int / float
+
+; Choice with literals
+status = "pending" / "active" / "completed" / "failed"
+http-method = "GET" / "POST" / "PUT" / "DELETE" / "PATCH"
+
+; Choice between complex types
+shape = circle / rectangle / triangle
+
+circle = {
+    type: "circle"
+    radius: float
+}
+
+rectangle = {
+    type: "rectangle"
+    width: float
+    height: float
+}
+
+triangle = {
+    type: "triangle"
+    base: float
+    height: float
+}
+
+; Nullable types using choice
+nullable-string = tstr / nil
+nullable-int = int / nil
+
+; Tagged union pattern
+event = user-event / system-event / error-event
+
+user-event = {
+    event-type: "user"
+    user-id: uint
+    action: tstr
+}
+
+system-event = {
+    event-type: "system"
+    component: tstr
+    message: tstr
+}
+
+error-event = {
+    event-type: "error"
+    code: int
+    message: tstr
+    ? stack-trace: tstr
+}

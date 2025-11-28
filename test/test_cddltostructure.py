@@ -368,5 +368,184 @@ class TestCddlToStructure(unittest.TestCase):
             self.assertIn('int64', types)
 
 
+class TestCddlSchemaFiles(unittest.TestCase):
+    """Test cases using CDDL schema files from test/cddl directory."""
+    
+    @classmethod
+    def setUpClass(cls):
+        """Set up test fixtures."""
+        cls.cddl_dir = os.path.join(os.path.dirname(__file__), 'cddl')
+    
+    def _load_cddl_file(self, filename: str) -> str:
+        """Load a CDDL file from the test/cddl directory."""
+        filepath = os.path.join(self.cddl_dir, filename)
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+    
+    def test_reputon_schema(self):
+        """Test RFC 8610 Appendix E reputon example."""
+        cddl = self._load_cddl_file('reputon.cddl')
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('reputon', result['definitions'])
+        self.assertIn('reputon_response', result['definitions'])
+        
+        reputon = result['definitions']['reputon']
+        self.assertEqual(reputon['type'], 'object')
+        self.assertIn('rater', reputon['properties'])
+        self.assertIn('rating', reputon['properties'])
+    
+    def test_primitives_schema(self):
+        """Test primitives CDDL schema."""
+        cddl = self._load_cddl_file('primitives.cddl')
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('primitives', result['definitions'])
+        self.assertIn('constrained_types', result['definitions'])
+        
+        # Check constrained types have proper validation
+        constrained = result['definitions']['constrained_types']
+        props = constrained.get('properties', {})
+        
+        # short-string should have size constraints
+        if 'short_string' in props:
+            self.assertIn('minLength', props['short_string'])
+            self.assertIn('maxLength', props['short_string'])
+    
+    def test_generics_schema(self):
+        """Test generics CDDL schema."""
+        cddl = self._load_cddl_file('generics.cddl')
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('optional', result['definitions'])
+        self.assertIn('pair', result['definitions'])
+        self.assertIn('person_name', result['definitions'])
+    
+    def test_arrays_maps_schema(self):
+        """Test arrays and maps CDDL schema."""
+        cddl = self._load_cddl_file('arrays_maps.cddl')
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('string_list', result['definitions'])
+        self.assertIn('config_map', result['definitions'])
+        
+        # string_list should be an array
+        string_list = result['definitions']['string_list']
+        self.assertEqual(string_list['type'], 'array')
+    
+    def test_choices_schema(self):
+        """Test choice/union CDDL schema."""
+        cddl = self._load_cddl_file('choices.cddl')
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('shape', result['definitions'])
+        self.assertIn('circle', result['definitions'])
+        self.assertIn('event', result['definitions'])
+    
+    def test_control_operators_schema(self):
+        """Test control operators CDDL schema."""
+        cddl = self._load_cddl_file('control_operators.cddl')
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        
+        # Check username has size constraints
+        username = result['definitions'].get('username', {})
+        self.assertEqual(username.get('minLength'), 3)
+        self.assertEqual(username.get('maxLength'), 20)
+        
+        # Check default values
+        timeout = result['definitions'].get('timeout_ms', {})
+        self.assertEqual(timeout.get('default'), 5000)
+    
+    def test_iot_sensor_schema(self):
+        """Test comprehensive IoT sensor CDDL schema."""
+        cddl = self._load_cddl_file('iot_sensor.cddl')
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('device_info', result['definitions'])
+        self.assertIn('telemetry_message', result['definitions'])
+        self.assertIn('command_message', result['definitions'])
+        self.assertIn('coordinates', result['definitions'])
+        
+        # Check coordinates has range constraints
+        coords = result['definitions']['coordinates']
+        self.assertEqual(coords['type'], 'object')
+
+
+class TestCddlRegressions(unittest.TestCase):
+    """Regression tests comparing output against reference files."""
+    
+    @classmethod
+    def setUpClass(cls):
+        """Set up test fixtures."""
+        cls.cddl_dir = os.path.join(os.path.dirname(__file__), 'cddl')
+    
+    def _load_cddl_file(self, filename: str) -> str:
+        """Load a CDDL file from the test/cddl directory."""
+        filepath = os.path.join(self.cddl_dir, filename)
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+    
+    def _load_reference_file(self, filename: str) -> dict:
+        """Load a reference JSON Structure file."""
+        filepath = os.path.join(self.cddl_dir, filename)
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    
+    def _compare_with_reference(self, cddl_filename: str):
+        """Compare conversion output with reference file."""
+        cddl = self._load_cddl_file(cddl_filename)
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        ref_filename = cddl_filename.replace('.cddl', '-ref.struct.json')
+        expected = self._load_reference_file(ref_filename)
+        
+        self.assertEqual(result, expected, 
+            f"Output for {cddl_filename} does not match reference {ref_filename}")
+    
+    def test_reputon_regression(self):
+        """Regression test for reputon.cddl"""
+        self._compare_with_reference('reputon.cddl')
+    
+    def test_primitives_regression(self):
+        """Regression test for primitives.cddl"""
+        self._compare_with_reference('primitives.cddl')
+    
+    def test_generics_regression(self):
+        """Regression test for generics.cddl"""
+        self._compare_with_reference('generics.cddl')
+    
+    def test_arrays_maps_regression(self):
+        """Regression test for arrays_maps.cddl"""
+        self._compare_with_reference('arrays_maps.cddl')
+    
+    def test_choices_regression(self):
+        """Regression test for choices.cddl"""
+        self._compare_with_reference('choices.cddl')
+    
+    def test_control_operators_regression(self):
+        """Regression test for control_operators.cddl"""
+        self._compare_with_reference('control_operators.cddl')
+    
+    def test_cose_headers_regression(self):
+        """Regression test for cose_headers.cddl"""
+        self._compare_with_reference('cose_headers.cddl')
+    
+    def test_cwt_claims_regression(self):
+        """Regression test for cwt_claims.cddl"""
+        self._compare_with_reference('cwt_claims.cddl')
+    
+    def test_iot_sensor_regression(self):
+        """Regression test for iot_sensor.cddl"""
+        self._compare_with_reference('iot_sensor.cddl')
+
+
 if __name__ == '__main__':
     unittest.main()

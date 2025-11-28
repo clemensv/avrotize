@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "optional": {
+      "type": [
+        {
+          "$ref": "#/definitions/T"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "name": "optional"
+    },
+    "pair": {
+      "type": "array",
+      "items": {
+        "type": [
+          {
+            "$ref": "#/definitions/K"
+          },
+          {
+            "$ref": "#/definitions/V"
+          }
+        ]
+      },
+      "name": "pair"
+    },
+    "result": {
+      "type": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "ok"
+            },
+            "value": {
+              "$ref": "#/definitions/T"
+            }
+          },
+          "required": [
+            "status",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "error"
+            },
+            "error": {
+              "$ref": "#/definitions/E"
+            }
+          },
+          "required": [
+            "status",
+            "error"
+          ]
+        }
+      ],
+      "name": "result"
+    },
+    "success": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "ok"
+        },
+        "value": {
+          "$ref": "#/definitions/T"
+        }
+      },
+      "required": [
+        "status",
+        "value"
+      ],
+      "name": "success"
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "error"
+        },
+        "error": {
+          "$ref": "#/definitions/E"
+        }
+      },
+      "required": [
+        "status",
+        "error"
+      ],
+      "name": "error"
+    },
+    "person_name": {
+      "type": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "name": "person_name",
+      "altnames": {
+        "cddl": "person-name"
+      }
+    },
+    "string_int_pair": {
+      "type": "array",
+      "items": {
+        "type": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "int64"
+          }
+        ]
+      },
+      "name": "string_int_pair",
+      "altnames": {
+        "cddl": "string-int-pair"
+      }
+    },
+    "api_result": {
+      "type": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "ok"
+            },
+            "value": {
+              "$ref": "#/definitions/T"
+            }
+          },
+          "required": [
+            "status",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "error"
+            },
+            "error": {
+              "$ref": "#/definitions/E"
+            }
+          },
+          "required": [
+            "status",
+            "error"
+          ]
+        }
+      ],
+      "name": "api_result",
+      "altnames": {
+        "cddl": "api-result"
+      }
+    },
+    "response_data": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "int64"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "data"
+      ],
+      "name": "response_data",
+      "altnames": {
+        "cddl": "response-data"
+      }
+    },
+    "error_info": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "int64"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "name": "error_info",
+      "altnames": {
+        "cddl": "error-info"
+      }
+    }
+  },
+  "type": [
+    {
+      "$ref": "#/definitions/T"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "name": "optional",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}

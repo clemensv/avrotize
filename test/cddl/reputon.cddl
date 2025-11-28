@@ -1,0 +1,20 @@
+; RFC 8610 Appendix E - Reputon Example
+; A reputon is a single reputation assertion
+
+reputon = {
+    rater: tstr
+    assertion: tstr
+    rated: tstr
+    rating: float16
+    ? confidence: float16
+    ? normal-rating: float16
+    ? sample-size: uint
+    ? generated: uint
+    ? expires: uint
+}
+
+; A reputation response contains multiple reputons
+reputon-response = {
+    application: tstr
+    reputons: [* reputon]
+}

@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "username": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 20,
+      "name": "username"
+    },
+    "password": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "name": "password"
+    },
+    "sha256_hash": {
+      "type": "bytes",
+      "minLength": 32,
+      "maxLength": 32,
+      "name": "sha256_hash",
+      "altnames": {
+        "cddl": "sha256-hash"
+      }
+    },
+    "uuid_bytes": {
+      "type": "bytes",
+      "minLength": 16,
+      "maxLength": 16,
+      "name": "uuid_bytes",
+      "altnames": {
+        "cddl": "uuid-bytes"
+      }
+    },
+    "port_number": {
+      "type": "int64",
+      "maximum": 65535,
+      "name": "port_number",
+      "altnames": {
+        "cddl": "port-number"
+      }
+    },
+    "percentage": {
+      "type": "int64",
+      "maximum": 100,
+      "name": "percentage"
+    },
+    "positive_int": {
+      "type": "int64",
+      "minimum": 1,
+      "name": "positive_int",
+      "altnames": {
+        "cddl": "positive-int"
+      }
+    },
+    "negative_int": {
+      "type": "int64",
+      "exclusiveMaximum": 0,
+      "name": "negative_int",
+      "altnames": {
+        "cddl": "negative-int"
+      }
+    },
+    "byte_value": {
+      "type": "int64",
+      "minimum": 0,
+      "maximum": 255,
+      "name": "byte_value",
+      "altnames": {
+        "cddl": "byte-value"
+      }
+    },
+    "timeout_ms": {
+      "type": "int64",
+      "default": 5000,
+      "name": "timeout_ms",
+      "altnames": {
+        "cddl": "timeout-ms"
+      }
+    },
+    "max_retries": {
+      "type": "int64",
+      "default": 3,
+      "name": "max_retries",
+      "altnames": {
+        "cddl": "max-retries"
+      }
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": "true",
+      "name": "enabled"
+    },
+    "greeting": {
+      "type": "string",
+      "default": "Hello, World!",
+      "name": "greeting"
+    },
+    "valid_port": {
+      "type": "int64",
+      "minimum": 1,
+      "name": "valid_port",
+      "altnames": {
+        "cddl": "valid-port"
+      }
+    },
+    "bounded_port": {
+      "$ref": "#/definitions/valid_port",
+      "maximum": 65535,
+      "name": "bounded_port",
+      "altnames": {
+        "cddl": "bounded-port"
+      }
+    },
+    "server_config": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "$ref": "#/definitions/port_number"
+        },
+        "timeout": {
+          "$ref": "#/definitions/timeout_ms"
+        },
+        "retries": {
+          "$ref": "#/definitions/max_retries"
+        },
+        "enabled": {
+          "$ref": "#/definitions/enabled"
+        }
+      },
+      "required": [
+        "host",
+        "port"
+      ],
+      "name": "server_config",
+      "altnames": {
+        "cddl": "server-config"
+      }
+    },
+    "user_registration": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "$ref": "#/definitions/username"
+        },
+        "password": {
+          "$ref": "#/definitions/password"
+        },
+        "email": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "username",
+        "password"
+      ],
+      "name": "user_registration",
+      "altnames": {
+        "cddl": "user-registration"
+      }
+    }
+  },
+  "type": "string",
+  "minLength": 3,
+  "maxLength": 20,
+  "name": "username",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}

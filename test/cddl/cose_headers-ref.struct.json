@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "Generic_Headers": {
+      "type": "object",
+      "properties": {
+        "_1": {
+          "type": [
+            {
+              "type": "int64"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "altnames": {
+            "cddl": "1"
+          }
+        },
+        "_2": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/label"
+          },
+          "altnames": {
+            "cddl": "2"
+          }
+        },
+        "_3": {
+          "type": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "int64"
+            }
+          ],
+          "altnames": {
+            "cddl": "3"
+          }
+        },
+        "_4": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "4"
+          }
+        },
+        "_5": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "5"
+          }
+        },
+        "_6": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "6"
+          }
+        },
+        "_7": {
+          "type": [
+            {
+              "$ref": "#/definitions/COSE_Signature"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/COSE_Signature"
+              }
+            }
+          ],
+          "altnames": {
+            "cddl": "7"
+          }
+        }
+      },
+      "name": "Generic_Headers",
+      "altnames": {
+        "cddl": "Generic-Headers"
+      }
+    },
+    "label": {
+      "type": [
+        {
+          "type": "int64"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "name": "label"
+    },
+    "COSE_Key": {
+      "type": "object",
+      "properties": {
+        "_1": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "1"
+          }
+        },
+        "_2": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "2"
+          }
+        },
+        "_3": {
+          "type": [
+            {
+              "type": "int64"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "altnames": {
+            "cddl": "3"
+          }
+        },
+        "_4": {
+          "type": "array",
+          "items": {
+            "type": "int64"
+          },
+          "altnames": {
+            "cddl": "4"
+          }
+        },
+        "_5": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "5"
+          }
+        },
+        "label": {
+          "type": "any"
+        }
+      },
+      "required": [
+        "_1"
+      ],
+      "name": "COSE_Key",
+      "altnames": {
+        "cddl": "COSE-Key"
+      }
+    },
+    "COSE_Signature": {
+      "type": "array",
+      "items": {
+        "type": [
+          {
+            "$ref": "#/definitions/Headers"
+          },
+          {
+            "type": "bytes"
+          }
+        ]
+      },
+      "name": "COSE_Signature",
+      "altnames": {
+        "cddl": "COSE-Signature"
+      }
+    },
+    "Headers": {
+      "type": "any",
+      "name": "Headers"
+    },
+    "COSE_Sign1": {
+      "type": "array",
+      "items": {
+        "type": [
+          {
+            "type": "bytes"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "any"
+              }
+            }
+          },
+          {
+            "type": [
+              {
+                "type": "bytes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "type": "bytes"
+          }
+        ]
+      },
+      "name": "COSE_Sign1",
+      "altnames": {
+        "cddl": "COSE-Sign1"
+      }
+    },
+    "COSE_Encrypt0": {
+      "type": "array",
+      "items": {
+        "type": [
+          {
+            "type": "bytes"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "any"
+              }
+            }
+          },
+          {
+            "type": [
+              {
+                "type": "bytes"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        ]
+      },
+      "name": "COSE_Encrypt0",
+      "altnames": {
+        "cddl": "COSE-Encrypt0"
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "_1": {
+      "type": [
+        {
+          "type": "int64"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "altnames": {
+        "cddl": "1"
+      }
+    },
+    "_2": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/label"
+      },
+      "altnames": {
+        "cddl": "2"
+      }
+    },
+    "_3": {
+      "type": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "int64"
+        }
+      ],
+      "altnames": {
+        "cddl": "3"
+      }
+    },
+    "_4": {
+      "type": "bytes",
+      "altnames": {
+        "cddl": "4"
+      }
+    },
+    "_5": {
+      "type": "bytes",
+      "altnames": {
+        "cddl": "5"
+      }
+    },
+    "_6": {
+      "type": "bytes",
+      "altnames": {
+        "cddl": "6"
+      }
+    },
+    "_7": {
+      "type": [
+        {
+          "$ref": "#/definitions/COSE_Signature"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/COSE_Signature"
+          }
+        }
+      ],
+      "altnames": {
+        "cddl": "7"
+      }
+    }
+  },
+  "name": "Generic_Headers",
+  "altnames": {
+    "cddl": "Generic-Headers"
+  },
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}

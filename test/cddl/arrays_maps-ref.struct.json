@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "string_list": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "name": "string_list",
+      "altnames": {
+        "cddl": "string-list"
+      }
+    },
+    "int_array": {
+      "type": "array",
+      "items": {
+        "type": "int64"
+      },
+      "name": "int_array",
+      "altnames": {
+        "cddl": "int-array"
+      }
+    },
+    "optional_bytes": {
+      "type": "array",
+      "items": {
+        "type": "bytes"
+      },
+      "name": "optional_bytes",
+      "altnames": {
+        "cddl": "optional-bytes"
+      }
+    },
+    "bounded_list": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "name": "bounded_list",
+      "altnames": {
+        "cddl": "bounded-list"
+      }
+    },
+    "fixed_tuple": {
+      "type": "array",
+      "items": {
+        "type": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "int64"
+          },
+          {
+            "type": "boolean"
+          }
+        ]
+      },
+      "name": "fixed_tuple",
+      "altnames": {
+        "cddl": "fixed-tuple"
+      }
+    },
+    "string_map": {
+      "type": "object",
+      "name": "string_map",
+      "altnames": {
+        "cddl": "string-map"
+      }
+    },
+    "typed_map": {
+      "type": "object",
+      "name": "typed_map",
+      "altnames": {
+        "cddl": "typed-map"
+      }
+    },
+    "config_map": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "int64"
+        },
+        "timeout": {
+          "type": "int64"
+        },
+        "retries": {
+          "type": "int64",
+          "default": 3
+        }
+      },
+      "required": [
+        "host",
+        "port"
+      ],
+      "name": "config_map",
+      "altnames": {
+        "cddl": "config-map"
+      }
+    },
+    "nested_array": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "int64"
+            }
+          ]
+        }
+      },
+      "name": "nested_array",
+      "altnames": {
+        "cddl": "nested-array"
+      }
+    },
+    "array_of_objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "any"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "name": "array_of_objects",
+      "altnames": {
+        "cddl": "array-of-objects"
+      }
+    }
+  },
+  "type": "array",
+  "items": {
+    "type": "string"
+  },
+  "name": "string_list",
+  "altnames": {
+    "cddl": "string-list"
+  },
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}

@@ -1,0 +1,568 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "optional": {
+      "type": [
+        {
+          "$ref": "#/definitions/T"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "name": "optional"
+    },
+    "timestamp": {
+      "type": "int64",
+      "name": "timestamp"
+    },
+    "coordinates": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "double",
+          "minimum": -90.0,
+          "maximum": 90.0
+        },
+        "longitude": {
+          "type": "double",
+          "minimum": -180.0,
+          "maximum": 180.0
+        },
+        "altitude": {
+          "type": "double"
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude"
+      ],
+      "name": "coordinates"
+    },
+    "sensor_reading": {
+      "type": "object",
+      "properties": {
+        "sensor_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "altnames": {
+            "cddl": "sensor-id"
+          }
+        },
+        "timestamp": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "value": {
+          "$ref": "#/definitions/T"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/definitions/quality_indicator"
+        }
+      },
+      "required": [
+        "sensor_id",
+        "timestamp",
+        "value"
+      ],
+      "name": "sensor_reading",
+      "altnames": {
+        "cddl": "sensor-reading"
+      }
+    },
+    "quality_indicator": {
+      "type": [
+        {
+          "type": "string",
+          "const": "good"
+        },
+        {
+          "type": "string",
+          "const": "uncertain"
+        },
+        {
+          "type": "string",
+          "const": "bad"
+        },
+        {
+          "type": "string",
+          "const": "missing"
+        }
+      ],
+      "name": "quality_indicator",
+      "altnames": {
+        "cddl": "quality-indicator"
+      }
+    },
+    "temperature_reading": {
+      "type": "object",
+      "properties": {
+        "sensor_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "altnames": {
+            "cddl": "sensor-id"
+          }
+        },
+        "timestamp": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "value": {
+          "type": "double"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/definitions/quality_indicator"
+        }
+      },
+      "required": [
+        "sensor_id",
+        "timestamp",
+        "value"
+      ],
+      "name": "temperature_reading",
+      "altnames": {
+        "cddl": "temperature-reading"
+      }
+    },
+    "humidity_reading": {
+      "type": "object",
+      "properties": {
+        "sensor_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "altnames": {
+            "cddl": "sensor-id"
+          }
+        },
+        "timestamp": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "value": {
+          "type": "double"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/definitions/quality_indicator"
+        }
+      },
+      "required": [
+        "sensor_id",
+        "timestamp",
+        "value"
+      ],
+      "name": "humidity_reading",
+      "altnames": {
+        "cddl": "humidity-reading"
+      }
+    },
+    "pressure_reading": {
+      "type": "object",
+      "properties": {
+        "sensor_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "altnames": {
+            "cddl": "sensor-id"
+          }
+        },
+        "timestamp": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "value": {
+          "type": "double"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/definitions/quality_indicator"
+        }
+      },
+      "required": [
+        "sensor_id",
+        "timestamp",
+        "value"
+      ],
+      "name": "pressure_reading",
+      "altnames": {
+        "cddl": "pressure-reading"
+      }
+    },
+    "binary_reading": {
+      "type": "object",
+      "properties": {
+        "sensor_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "altnames": {
+            "cddl": "sensor-id"
+          }
+        },
+        "timestamp": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "value": {
+          "type": "boolean"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "quality": {
+          "$ref": "#/definitions/quality_indicator"
+        }
+      },
+      "required": [
+        "sensor_id",
+        "timestamp",
+        "value"
+      ],
+      "name": "binary_reading",
+      "altnames": {
+        "cddl": "binary-reading"
+      }
+    },
+    "device_info": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "altnames": {
+            "cddl": "device-id"
+          }
+        },
+        "device_type": {
+          "$ref": "#/definitions/device_type",
+          "altnames": {
+            "cddl": "device-type"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "location": {
+          "type": [
+            {
+              "$ref": "#/definitions/coordinates"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "firmware_version": {
+          "type": "string",
+          "altnames": {
+            "cddl": "firmware-version"
+          }
+        },
+        "last_seen": {
+          "$ref": "#/definitions/timestamp",
+          "altnames": {
+            "cddl": "last-seen"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/capability"
+          }
+        }
+      },
+      "required": [
+        "device_id",
+        "device_type",
+        "capabilities"
+      ],
+      "name": "device_info",
+      "altnames": {
+        "cddl": "device-info"
+      }
+    },
+    "device_type": {
+      "type": [
+        {
+          "type": "string",
+          "const": "sensor"
+        },
+        {
+          "type": "string",
+          "const": "actuator"
+        },
+        {
+          "type": "string",
+          "const": "gateway"
+        },
+        {
+          "type": "string",
+          "const": "controller"
+        }
+      ],
+      "name": "device_type",
+      "altnames": {
+        "cddl": "device-type"
+      }
+    },
+    "capability": {
+      "type": [
+        {
+          "type": "string",
+          "const": "temperature"
+        },
+        {
+          "type": "string",
+          "const": "humidity"
+        },
+        {
+          "type": "string",
+          "const": "pressure"
+        },
+        {
+          "type": "string",
+          "const": "motion"
+        },
+        {
+          "type": "string",
+          "const": "light"
+        },
+        {
+          "type": "string",
+          "const": "switch"
+        }
+      ],
+      "name": "capability"
+    },
+    "telemetry_message": {
+      "type": "object",
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "altnames": {
+            "cddl": "message-id"
+          }
+        },
+        "device_id": {
+          "type": "string",
+          "altnames": {
+            "cddl": "device-id"
+          }
+        },
+        "timestamp": {
+          "$ref": "#/definitions/timestamp"
+        },
+        "readings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sensor_value"
+          }
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "message_id",
+        "device_id",
+        "timestamp",
+        "readings"
+      ],
+      "name": "telemetry_message",
+      "altnames": {
+        "cddl": "telemetry-message"
+      }
+    },
+    "sensor_value": {
+      "type": [
+        {
+          "$ref": "#/definitions/temperature_reading"
+        },
+        {
+          "$ref": "#/definitions/humidity_reading"
+        },
+        {
+          "$ref": "#/definitions/pressure_reading"
+        },
+        {
+          "$ref": "#/definitions/binary_reading"
+        }
+      ],
+      "name": "sensor_value",
+      "altnames": {
+        "cddl": "sensor-value"
+      }
+    },
+    "command_message": {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "altnames": {
+            "cddl": "command-id"
+          }
+        },
+        "target_device": {
+          "type": "string",
+          "altnames": {
+            "cddl": "target-device"
+          }
+        },
+        "command": {
+          "$ref": "#/definitions/command_type"
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "timeout_ms": {
+          "type": "int64",
+          "default": 5000,
+          "altnames": {
+            "cddl": "timeout-ms"
+          }
+        }
+      },
+      "required": [
+        "command_id",
+        "target_device",
+        "command"
+      ],
+      "name": "command_message",
+      "altnames": {
+        "cddl": "command-message"
+      }
+    },
+    "command_type": {
+      "type": [
+        {
+          "type": "string",
+          "const": "read"
+        },
+        {
+          "type": "string",
+          "const": "write"
+        },
+        {
+          "type": "string",
+          "const": "reset"
+        },
+        {
+          "type": "string",
+          "const": "configure"
+        },
+        {
+          "type": "string",
+          "const": "update"
+        }
+      ],
+      "name": "command_type",
+      "altnames": {
+        "cddl": "command-type"
+      }
+    },
+    "response_message": {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "altnames": {
+            "cddl": "command-id"
+          }
+        },
+        "status": {
+          "$ref": "#/definitions/response_status"
+        },
+        "result": {
+          "type": "any"
+        },
+        "error": {
+          "$ref": "#/definitions/error_info"
+        },
+        "timestamp": {
+          "$ref": "#/definitions/timestamp"
+        }
+      },
+      "required": [
+        "command_id",
+        "status",
+        "timestamp"
+      ],
+      "name": "response_message",
+      "altnames": {
+        "cddl": "response-message"
+      }
+    },
+    "response_status": {
+      "type": [
+        {
+          "type": "string",
+          "const": "success"
+        },
+        {
+          "type": "string",
+          "const": "error"
+        },
+        {
+          "type": "string",
+          "const": "timeout"
+        },
+        {
+          "type": "string",
+          "const": "rejected"
+        }
+      ],
+      "name": "response_status",
+      "altnames": {
+        "cddl": "response-status"
+      }
+    },
+    "error_info": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "int64"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "name": "error_info",
+      "altnames": {
+        "cddl": "error-info"
+      }
+    }
+  },
+  "type": [
+    {
+      "$ref": "#/definitions/T"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "name": "optional",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureUnits",
+    "JSONStructureValidation"
+  ]
+}

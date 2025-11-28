@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "CWT_Claims": {
+      "type": "object",
+      "properties": {
+        "_1": {
+          "type": "string",
+          "altnames": {
+            "cddl": "1"
+          }
+        },
+        "_2": {
+          "type": "string",
+          "altnames": {
+            "cddl": "2"
+          }
+        },
+        "_3": {
+          "type": "string",
+          "altnames": {
+            "cddl": "3"
+          }
+        },
+        "_4": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "4"
+          }
+        },
+        "_5": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "5"
+          }
+        },
+        "_6": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "6"
+          }
+        },
+        "_7": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "7"
+          }
+        }
+      },
+      "name": "CWT_Claims",
+      "altnames": {
+        "cddl": "CWT-Claims"
+      }
+    },
+    "CWT": {
+      "type": [
+        {
+          "$ref": "#/definitions/COSE_Sign1_CWT"
+        },
+        {
+          "$ref": "#/definitions/COSE_Mac0_CWT"
+        },
+        {
+          "$ref": "#/definitions/COSE_Encrypt0_CWT"
+        }
+      ],
+      "name": "CWT"
+    },
+    "COSE_Sign1_CWT": {
+      "type": "array",
+      "items": {
+        "type": [
+          {
+            "type": "bytes"
+          },
+          {
+            "type": "object"
+          },
+          {
+            "type": "bytes"
+          },
+          {
+            "type": "bytes"
+          }
+        ]
+      },
+      "name": "COSE_Sign1_CWT",
+      "altnames": {
+        "cddl": "COSE-Sign1-CWT"
+      }
+    },
+    "COSE_Mac0_CWT": {
+      "type": "array",
+      "items": {
+        "type": [
+          {
+            "type": "bytes"
+          },
+          {
+            "type": "object"
+          },
+          {
+            "type": "bytes"
+          },
+          {
+            "type": "bytes"
+          }
+        ]
+      },
+      "name": "COSE_Mac0_CWT",
+      "altnames": {
+        "cddl": "COSE-Mac0-CWT"
+      }
+    },
+    "COSE_Encrypt0_CWT": {
+      "type": "array",
+      "items": {
+        "type": [
+          {
+            "type": "bytes"
+          },
+          {
+            "type": "object"
+          },
+          {
+            "type": "bytes"
+          }
+        ]
+      },
+      "name": "COSE_Encrypt0_CWT",
+      "altnames": {
+        "cddl": "COSE-Encrypt0-CWT"
+      }
+    },
+    "Cnf_Claim": {
+      "type": "object",
+      "properties": {
+        "_1": {
+          "$ref": "#/definitions/COSE_Key",
+          "altnames": {
+            "cddl": "1"
+          }
+        },
+        "_2": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "2"
+          }
+        },
+        "_3": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "3"
+          }
+        }
+      },
+      "name": "Cnf_Claim",
+      "altnames": {
+        "cddl": "Cnf-Claim"
+      }
+    },
+    "COSE_Key": {
+      "type": "object",
+      "properties": {
+        "_1": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "1"
+          }
+        },
+        "_2": {
+          "type": "bytes",
+          "altnames": {
+            "cddl": "2"
+          }
+        },
+        "_3": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "3"
+          }
+        }
+      },
+      "required": [
+        "_1"
+      ],
+      "name": "COSE_Key",
+      "altnames": {
+        "cddl": "COSE-Key"
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "_1": {
+      "type": "string",
+      "altnames": {
+        "cddl": "1"
+      }
+    },
+    "_2": {
+      "type": "string",
+      "altnames": {
+        "cddl": "2"
+      }
+    },
+    "_3": {
+      "type": "string",
+      "altnames": {
+        "cddl": "3"
+      }
+    },
+    "_4": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "4"
+      }
+    },
+    "_5": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "5"
+      }
+    },
+    "_6": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "6"
+      }
+    },
+    "_7": {
+      "type": "bytes",
+      "altnames": {
+        "cddl": "7"
+      }
+    }
+  },
+  "name": "CWT_Claims",
+  "altnames": {
+    "cddl": "CWT-Claims"
+  },
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}
