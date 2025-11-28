@@ -724,9 +724,11 @@ def render_file_tree_html(tree: list[dict], base_url: str, indent: int = 0) -> s
     
     for item in tree:
         if item["type"] == "folder":
+            # Get folder icon based on folder name (for special folders)
+            folder_icon = get_folder_icon(item["name"])
             html_parts.append(f'''
 <div class="tree-item folder expanded" style="padding-left: {indent * 16}px;">
-  <span class="tree-icon">📁</span>
+  <span class="tree-icon">{folder_icon}</span>
   <span class="tree-name">{escape_html(item["name"])}</span>
 </div>
 <div class="tree-children">
@@ -745,35 +747,84 @@ def render_file_tree_html(tree: list[dict], base_url: str, indent: int = 0) -> s
     return "".join(html_parts)
 
 
-def get_file_icon(ext: str) -> str:
-    """Get emoji icon for a file extension."""
-    icon_map = {
-        ".json": "📄",
-        ".avsc": "📋",
-        ".py": "🐍",
-        ".cs": "💜",
-        ".java": "☕",
-        ".ts": "💙",
-        ".js": "💛",
-        ".go": "🔵",
-        ".rs": "🦀",
-        ".cpp": "⚙️",
-        ".hpp": "⚙️",
-        ".proto": "📝",
-        ".sql": "🗃️",
-        ".kql": "🔍",
-        ".cql": "🗃️",
-        ".xsd": "📐",
-        ".xml": "📐",
-        ".graphql": "◼️",
-        ".gql": "◼️",
-        ".csv": "📊",
-        ".md": "📖",
-        ".asn": "📜",
-        ".cypher": "🕸️",
-        ".parquet": "📦",
+def get_folder_icon(folder_name: str) -> str:
+    """Get Devicon class or emoji for a folder based on its name."""
+    folder_lower = folder_name.lower()
+    
+    # Map folder names to devicon classes
+    folder_devicons = {
+        "python": '<i class="devicon-python-plain colored"></i>',
+        "csharp": '<i class="devicon-csharp-plain colored"></i>',
+        "java": '<i class="devicon-java-plain colored"></i>',
+        "typescript": '<i class="devicon-typescript-plain colored"></i>',
+        "javascript": '<i class="devicon-javascript-plain colored"></i>',
+        "go": '<i class="devicon-go-plain colored"></i>',
+        "rust": '<i class="devicon-rust-original"></i>',
+        "cpp": '<i class="devicon-cplusplus-plain colored"></i>',
     }
-    return icon_map.get(ext.lower(), "📄")
+    
+    return folder_devicons.get(folder_lower, "📁")
+
+
+def get_file_icon(ext: str) -> str:
+    """Get Devicon class or fallback emoji for a file extension."""
+    # Map file extensions to devicon classes (using 'colored' variant for visual appeal)
+    devicon_map = {
+        # Programming languages
+        ".py": "devicon-python-plain colored",
+        ".cs": "devicon-csharp-plain colored",
+        ".java": "devicon-java-plain colored",
+        ".ts": "devicon-typescript-plain colored",
+        ".js": "devicon-javascript-plain colored",
+        ".go": "devicon-go-plain colored",
+        ".rs": "devicon-rust-original",
+        ".cpp": "devicon-cplusplus-plain colored",
+        ".hpp": "devicon-cplusplus-plain colored",
+        ".h": "devicon-c-plain colored",
+        ".rb": "devicon-ruby-plain colored",
+        
+        # Schema formats
+        ".json": "devicon-json-plain colored",
+        ".avsc": "devicon-apachekafka-original colored",  # Avro is Kafka-adjacent
+        ".proto": "devicon-grpc-plain",
+        ".xsd": "devicon-xml-plain",
+        ".xml": "devicon-xml-plain",
+        ".graphql": "devicon-graphql-plain colored",
+        ".gql": "devicon-graphql-plain colored",
+        
+        # Database
+        ".sql": "devicon-azuresqldatabase-plain colored",
+        ".kql": "devicon-azure-plain colored",  # Kusto is Azure
+        ".cql": "devicon-cassandra-plain colored",
+        ".cypher": "devicon-neo4j-plain colored",
+        
+        # Data formats
+        ".csv": "devicon-pandas-plain",  # CSV often used with pandas
+        ".parquet": "devicon-apachespark-plain colored",  # Parquet is Spark-adjacent
+        ".md": "devicon-markdown-original",
+        ".yaml": "devicon-yaml-plain colored",
+        ".yml": "devicon-yaml-plain colored",
+        
+        # Config/Build
+        ".toml": "devicon-rust-original",  # TOML associated with Rust
+        ".gradle": "devicon-gradle-plain colored",
+        ".mod": "devicon-go-plain colored",  # Go modules
+        ".csproj": "devicon-dotnetcore-plain colored",
+        ".sln": "devicon-visualstudio-plain colored",
+    }
+    
+    devicon_class = devicon_map.get(ext.lower())
+    if devicon_class:
+        return f'<i class="{devicon_class}"></i>'
+    
+    # Fallback emojis for extensions without devicons
+    emoji_map = {
+        ".asn": "📜",
+        ".iceberg": "🧊",
+        ".datapackage": "📦",
+        ".struct.json": "🔧",
+    }
+    return emoji_map.get(ext.lower(), "📄")
 
 
 def generate_gallery_page(item: dict, output_dir: Path, files_base_url: str) -> None:

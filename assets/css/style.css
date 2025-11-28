@@ -685,9 +685,24 @@ img {
 }
 
 .tree-icon {
-  width: 16px;
+  width: 20px;
+  min-width: 20px;
   text-align: center;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Devicon styling in tree view */
+.tree-icon i[class*="devicon-"] {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Colored devicons */
+.tree-icon i.colored {
+  /* Let devicon colors show through */
 }
 
 .tree-children {
