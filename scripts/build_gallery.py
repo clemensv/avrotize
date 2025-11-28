@@ -14,12 +14,18 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Gallery output directory
-GALLERY_DIR = Path(__file__).parent / "gallery"
-GALLERY_DATA_DIR = GALLERY_DIR / "_data"
+# Directories - these are relative to the script location
+SCRIPT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = SCRIPT_DIR.parent
+
+# Gallery output directory (in the project for local testing)
+GALLERY_DIR = PROJECT_ROOT / "gallery"
 
 # Test data directory (source schemas)
-TEST_DIR = Path(__file__).parent.parent / "test"
+TEST_DIR = PROJECT_ROOT / "test"
+
+# Temporary output directory
+TMP_DIR = PROJECT_ROOT / "tmp" / "gallery"
 
 # Conversion definitions
 GALLERY_ITEMS = [
@@ -400,45 +406,39 @@ function escapeHtml(text) {{
     print(f"  Generated page: {page_dir / 'index.html'}")
 
 
-def copy_output_files(output_dir: Path, gallery_item_id: str) -> str:
-    """Copy output files to gallery data directory and return base URL."""
-    dest_dir = GALLERY_DATA_DIR / gallery_item_id
-    
-    if dest_dir.exists():
-        shutil.rmtree(dest_dir)
-    
-    shutil.copytree(output_dir, dest_dir)
-    print(f"  Copied output files to: {dest_dir}")
-    
-    # Return the base URL for these files (relative to site root)
-    return f"/avrotize/gallery/_data/{gallery_item_id}"
-
-
 def build_gallery() -> None:
     """Build all gallery items."""
     print("Building gallery content...")
+    print(f"  Project root: {PROJECT_ROOT}")
+    print(f"  Test directory: {TEST_DIR}")
+    print(f"  Gallery directory: {GALLERY_DIR}")
+    print(f"  Temp directory: {TMP_DIR}")
     
     # Ensure gallery directories exist
     GALLERY_DIR.mkdir(parents=True, exist_ok=True)
-    GALLERY_DATA_DIR.mkdir(parents=True, exist_ok=True)
     
     for item in GALLERY_ITEMS:
         print(f"\nProcessing: {item['title']}")
         
         # Create temporary output directory
-        output_dir = Path(__file__).parent / "tmp" / "gallery" / item["id"]
+        output_dir = TMP_DIR / item["id"]
         if output_dir.exists():
             shutil.rmtree(output_dir)
         output_dir.mkdir(parents=True)
         
         # Run setup commands if any
         setup_commands = item.get("setup", [])
+        success = True
         for setup in setup_commands:
             input_file = setup.get("input", item["source_path"])
             args = [arg.replace("{out}", str(output_dir)) for arg in setup.get("args", [])]
             if not run_avrotize(setup["cmd"], input_file, args, output_dir):
                 print(f"  Setup failed, skipping item")
-                continue
+                success = False
+                break
+        
+        if not success:
+            continue
         
         # Run conversion commands
         source_input = item["source_path"]
@@ -450,16 +450,19 @@ def build_gallery() -> None:
             
             if not run_avrotize(conv["cmd"], source_input, args, output_dir):
                 print(f"  Conversion failed, skipping item")
+                success = False
                 break
-        else:
-            # All conversions succeeded
-            # Copy files to gallery data directory
-            files_base_url = copy_output_files(output_dir, item["id"])
+        
+        if success:
+            # Files base URL for the generated page
+            files_base_url = f"/avrotize/gallery/_data/{item['id']}"
             
             # Generate the gallery page
             generate_gallery_page(item, output_dir, files_base_url)
     
     print("\nGallery build complete!")
+    print(f"Generated pages are in: {GALLERY_DIR}")
+    print(f"Output files are in: {TMP_DIR}")
 
 
 if __name__ == "__main__":
