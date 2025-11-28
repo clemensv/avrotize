@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package messaging;
+
+option java_package = "com.example.messaging";
+option csharp_namespace = "Example.Messaging";
+
+// A chat message in a messaging application
+message ChatMessage {
+  string message_id = 1;
+  int64 timestamp = 2;  // Unix timestamp in milliseconds
+  
+  User sender = 3;
+  
+  oneof recipient {
+    User direct_user = 4;
+    Channel channel = 5;
+    Group group = 6;
+  }
+  
+  oneof content {
+    TextContent text = 7;
+    MediaContent media = 8;
+    LocationContent location = 9;
+  }
+  
+  repeated Reaction reactions = 10;
+  MessageStatus status = 11;
+  
+  // Optional reply reference
+  string reply_to_id = 12;
+  
+  map<string, string> metadata = 13;
+}
+
+message User {
+  string user_id = 1;
+  string username = 2;
+  string display_name = 3;
+  string avatar_url = 4;
+  UserStatus status = 5;
+}
+
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  ONLINE = 1;
+  AWAY = 2;
+  DO_NOT_DISTURB = 3;
+  OFFLINE = 4;
+}
+
+message Channel {
+  string channel_id = 1;
+  string name = 2;
+  string description = 3;
+  bool is_private = 4;
+}
+
+message Group {
+  string group_id = 1;
+  string name = 2;
+  repeated User members = 3;
+}
+
+message TextContent {
+  string text = 1;
+  repeated Mention mentions = 2;
+  TextFormat format = 3;
+}
+
+message Mention {
+  string user_id = 1;
+  int32 start_index = 2;
+  int32 length = 3;
+}
+
+enum TextFormat {
+  TEXT_FORMAT_UNSPECIFIED = 0;
+  PLAIN = 1;
+  MARKDOWN = 2;
+  HTML = 3;
+}
+
+message MediaContent {
+  MediaType type = 1;
+  string url = 2;
+  string thumbnail_url = 3;
+  string filename = 4;
+  int64 file_size = 5;  // bytes
+  int32 width = 6;
+  int32 height = 7;
+  int32 duration = 8;  // seconds, for audio/video
+  string mime_type = 9;
+}
+
+enum MediaType {
+  MEDIA_TYPE_UNSPECIFIED = 0;
+  IMAGE = 1;
+  VIDEO = 2;
+  AUDIO = 3;
+  DOCUMENT = 4;
+}
+
+message LocationContent {
+  double latitude = 1;
+  double longitude = 2;
+  string name = 3;
+  string address = 4;
+}
+
+message Reaction {
+  string user_id = 1;
+  string emoji = 2;
+  int64 timestamp = 3;
+}
+
+enum MessageStatus {
+  MESSAGE_STATUS_UNSPECIFIED = 0;
+  SENDING = 1;
+  SENT = 2;
+  DELIVERED = 3;
+  READ = 4;
+  FAILED = 5;
+}

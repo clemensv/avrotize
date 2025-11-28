@@ -27,61 +27,32 @@ TEST_DIR = PROJECT_ROOT / "test"
 # Temporary output directory
 TMP_DIR = PROJECT_ROOT / "tmp" / "gallery"
 
-# Conversion definitions
+# Gallery source schemas (curated examples)
+GALLERY_SOURCES = GALLERY_DIR / "sources"
+
+# Conversion definitions - curated showcase examples
 GALLERY_ITEMS = [
-    # Avrotize examples (via Avro)
+    # === SOURCE FORMAT CONVERSIONS ===
+    # Showcase each input format converting to Avro
+    
+    # JSON Schema → Avro (e-commerce order example)
     {
-        "id": "employee-to-python",
-        "title": "Employee Schema → Python",
-        "description": "JSON Schema to Python dataclasses via Avro Schema",
-        "source_file": "employee.jsons",
-        "source_path": TEST_DIR / "jsons" / "employee.jsons",
+        "id": "jsonschema-to-avro",
+        "title": "JSON Schema → Avro",
+        "description": "E-commerce Order schema with nested types, enums, and polymorphic payment",
+        "source_file": "order.jsons",
+        "source_path": GALLERY_SOURCES / "order.jsons",
         "source_language": "json",
         "conversions": [
-            {"cmd": "j2a", "args": ["--out", "{out}/employee.avsc"], "output": "employee.avsc"},
-            {"cmd": "a2py", "args": ["--out", "{out}/python"], "input": "{out}/employee.avsc"},
+            {"cmd": "j2a", "args": ["--out", "{out}/order.avsc"]},
         ]
     },
-    {
-        "id": "employee-to-csharp",
-        "title": "Employee Schema → C#",
-        "description": "JSON Schema to C# classes via Avro Schema",
-        "source_file": "employee.jsons",
-        "source_path": TEST_DIR / "jsons" / "employee.jsons",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "j2a", "args": ["--out", "{out}/employee.avsc"], "output": "employee.avsc"},
-            {"cmd": "a2cs", "args": ["--out", "{out}/csharp"], "input": "{out}/employee.avsc"},
-        ]
-    },
-    {
-        "id": "employee-to-java",
-        "title": "Employee Schema → Java",
-        "description": "JSON Schema to Java POJOs via Avro Schema",
-        "source_file": "employee.jsons",
-        "source_path": TEST_DIR / "jsons" / "employee.jsons",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "j2a", "args": ["--out", "{out}/employee.avsc"], "output": "employee.avsc"},
-            {"cmd": "a2java", "args": ["--out", "{out}/java"], "input": "{out}/employee.avsc"},
-        ]
-    },
-    {
-        "id": "person-to-typescript",
-        "title": "Person Schema → TypeScript",
-        "description": "JSON Schema with unions to TypeScript interfaces",
-        "source_file": "person.jsons",
-        "source_path": TEST_DIR / "jsons" / "person.jsons",
-        "source_language": "json",
-        "conversions": [
-            {"cmd": "j2a", "args": ["--out", "{out}/person.avsc"], "output": "person.avsc"},
-            {"cmd": "a2ts", "args": ["--out", "{out}/typescript"], "input": "{out}/person.avsc"},
-        ]
-    },
+    
+    # XSD → Avro (ISO 20022 banking standard)
     {
         "id": "xsd-to-avro",
         "title": "ISO 20022 XSD → Avro",
-        "description": "Complex XML Schema to Avro Schema conversion",
+        "description": "Complex banking XML Schema (Account Opening) to Avro Schema",
         "source_file": "acmt.003.001.08.xsd",
         "source_path": TEST_DIR / "xsd" / "acmt.003.001.08.xsd",
         "source_language": "xml",
@@ -89,82 +60,144 @@ GALLERY_ITEMS = [
             {"cmd": "x2a", "args": ["--out", "{out}/acmt.avsc"]},
         ]
     },
+    
+    # Protobuf → Avro (messaging example)
     {
-        "id": "avro-to-proto",
-        "title": "Avro → Protobuf",
-        "description": "Convert Avro Schema to Protocol Buffers",
-        "source_file": "employee.avsc",
-        "source_path": None,  # Generated from employee.jsons first
-        "source_language": "json",
-        "setup": [
-            {"cmd": "j2a", "input": TEST_DIR / "jsons" / "employee.jsons", "args": ["--out", "{out}/employee.avsc"]},
-        ],
+        "id": "proto-to-avro",
+        "title": "Protobuf → Avro",
+        "description": "Chat messaging schema with oneof unions and nested messages",
+        "source_file": "messaging.proto",
+        "source_path": GALLERY_SOURCES / "messaging.proto",
+        "source_language": "protobuf",
         "conversions": [
-            {"cmd": "a2p", "args": ["--out", "{out}/proto"], "input": "{out}/employee.avsc"},
+            {"cmd": "p2a", "args": ["--out", "{out}/messaging.avsc"]},
         ]
     },
-    # Structurize examples (via JSON Structure)
+    
+    # ASN.1 → Avro (movie database example)
     {
-        "id": "struct-to-csharp",
-        "title": "Structure → C#",
-        "description": "JSON Structure to C# with validation attributes",
-        "source_file": "employee-ref.struct.json",
-        "source_path": TEST_DIR / "jsons" / "employee-ref.struct.json",
-        "source_language": "json",
+        "id": "asn1-to-avro",
+        "title": "ASN.1 → Avro",
+        "description": "Movie database schema with sequences, enums, and optional fields",
+        "source_file": "movie.asn",
+        "source_path": TEST_DIR / "asn1" / "movie.asn",
+        "source_language": "asn1",
         "conversions": [
-            {"cmd": "s2cs", "args": ["--out", "{out}/csharp"]},
+            {"cmd": "asn2a", "args": ["--out", "{out}/movie.avsc"]},
         ]
     },
+    
+    # === AVRO TO CODE GENERATION ===
+    # Showcase Avro schema converting to various languages
+    
     {
-        "id": "struct-to-python",
-        "title": "Structure → Python",
-        "description": "JSON Structure to Python dataclasses",
-        "source_file": "employee-ref.struct.json",
-        "source_path": TEST_DIR / "jsons" / "employee-ref.struct.json",
+        "id": "avro-to-python",
+        "title": "Avro → Python",
+        "description": "IoT telemetry schema to Python dataclasses with serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [
-            {"cmd": "s2py", "args": ["--out", "{out}/python"]},
+            {"cmd": "a2py", "args": ["--out", "{out}/python"]},
         ]
     },
+    
     {
-        "id": "struct-to-go",
-        "title": "Structure → Go",
-        "description": "JSON Structure to Go structs with JSON tags",
-        "source_file": "employee-ref.struct.json",
-        "source_path": TEST_DIR / "jsons" / "employee-ref.struct.json",
+        "id": "avro-to-csharp",
+        "title": "Avro → C#",
+        "description": "IoT telemetry schema to C# classes with System.Text.Json",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [
-            {"cmd": "s2go", "args": ["--out", "{out}/go"]},
+            {"cmd": "a2cs", "args": ["--out", "{out}/csharp"]},
         ]
     },
+    
+    {
+        "id": "avro-to-java",
+        "title": "Avro → Java",
+        "description": "IoT telemetry schema to Java POJOs with Jackson annotations",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [
+            {"cmd": "a2java", "args": ["--out", "{out}/java"]},
+        ]
+    },
+    
+    {
+        "id": "avro-to-typescript",
+        "title": "Avro → TypeScript",
+        "description": "IoT telemetry schema to TypeScript interfaces",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [
+            {"cmd": "a2ts", "args": ["--out", "{out}/typescript"]},
+        ]
+    },
+    
+    # === JSON STRUCTURE TO CODE GENERATION ===
+    # Showcase JSON Structure converting to various languages
+    
     {
         "id": "struct-to-rust",
         "title": "Structure → Rust",
-        "description": "JSON Structure to Rust structs with serde derives",
-        "source_file": "employee-ref.struct.json",
-        "source_path": TEST_DIR / "jsons" / "employee-ref.struct.json",
+        "description": "Inventory management schema to Rust structs with serde",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
         "conversions": [
             {"cmd": "s2rust", "args": ["--out", "{out}/rust"]},
         ]
     },
+    
     {
-        "id": "struct-to-xsd",
-        "title": "Structure → XSD",
-        "description": "JSON Structure to XML Schema",
-        "source_file": "employee-ref.struct.json",
-        "source_path": TEST_DIR / "jsons" / "employee-ref.struct.json",
+        "id": "struct-to-go",
+        "title": "Structure → Go",
+        "description": "Inventory management schema to Go structs with JSON tags",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
         "conversions": [
-            {"cmd": "s2x", "args": ["--out", "{out}/employee.xsd"]},
+            {"cmd": "s2go", "args": ["--out", "{out}/go"]},
         ]
     },
+    
+    {
+        "id": "struct-to-csharp",
+        "title": "Structure → C#",
+        "description": "Inventory management schema to C# with validation",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [
+            {"cmd": "s2cs", "args": ["--out", "{out}/csharp"]},
+        ]
+    },
+    
+    # === SCHEMA TRANSFORMATIONS ===
+    # Showcase format-to-format conversions
+    
+    {
+        "id": "avro-to-proto",
+        "title": "Avro → Protobuf",
+        "description": "Convert Avro telemetry schema to Protocol Buffers",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [
+            {"cmd": "a2p", "args": ["--out", "{out}/telemetry.proto"]},
+        ]
+    },
+    
     {
         "id": "struct-to-graphql",
         "title": "Structure → GraphQL",
-        "description": "JSON Structure to GraphQL type definitions",
-        "source_file": "employee-ref.struct.json",
-        "source_path": TEST_DIR / "jsons" / "employee-ref.struct.json",
+        "description": "Inventory schema to GraphQL type definitions",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
         "conversions": [
             {"cmd": "struct2gql", "args": ["--out", "{out}/schema.graphql"]},

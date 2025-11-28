@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://api.example.com/schemas/inventory",
+  "name": "InventoryItem",
+  "type": "object",
+  "description": "Product inventory with stock tracking and supplier information",
+  "properties": {
+    "sku": {
+      "type": "string",
+      "description": "Stock Keeping Unit"
+    },
+    "product": {
+      "type": "object",
+      "name": "Product",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": ["electronics", "clothing", "food", "furniture", "toys", "books", "other"]
+        },
+        "brand": { "type": "string" },
+        "weight": {
+          "type": "object",
+          "name": "Weight",
+          "properties": {
+            "value": { "type": "number" },
+            "unit": { "type": "string", "enum": ["kg", "lb", "g", "oz"] }
+          }
+        },
+        "dimensions": {
+          "type": "object",
+          "name": "Dimensions",
+          "properties": {
+            "length": { "type": "number" },
+            "width": { "type": "number" },
+            "height": { "type": "number" },
+            "unit": { "type": "string", "enum": ["cm", "in", "m"] }
+          }
+        }
+      },
+      "required": ["name", "category"]
+    },
+    "pricing": {
+      "type": "object",
+      "name": "Pricing",
+      "properties": {
+        "cost": { "type": "number", "description": "Wholesale cost" },
+        "retail": { "type": "number", "description": "Retail price" },
+        "currency": { "type": "string" },
+        "taxRate": { "type": "number" }
+      },
+      "required": ["cost", "retail", "currency"]
+    },
+    "stock": {
+      "type": "object",
+      "name": "StockInfo",
+      "properties": {
+        "quantity": { "type": "integer" },
+        "reserved": { "type": "integer" },
+        "available": { "type": "integer" },
+        "reorderPoint": { "type": "integer" },
+        "reorderQuantity": { "type": "integer" },
+        "location": {
+          "type": "object",
+          "name": "WarehouseLocation",
+          "properties": {
+            "warehouse": { "type": "string" },
+            "zone": { "type": "string" },
+            "aisle": { "type": "string" },
+            "shelf": { "type": "string" },
+            "bin": { "type": "string" }
+          }
+        }
+      },
+      "required": ["quantity", "available"]
+    },
+    "supplier": {
+      "type": "object",
+      "name": "Supplier",
+      "properties": {
+        "supplierId": { "type": "string" },
+        "name": { "type": "string" },
+        "leadTimeDays": { "type": "integer" },
+        "contact": {
+          "type": "object",
+          "name": "Contact",
+          "properties": {
+            "email": { "type": "string", "format": "email" },
+            "phone": { "type": "string" }
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "discontinued", "out_of_stock", "backordered"]
+    },
+    "lastUpdated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["sku", "product", "pricing", "stock", "status"]
+}

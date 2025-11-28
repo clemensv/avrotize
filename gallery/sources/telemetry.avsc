@@ -1,0 +1,102 @@
+{
+  "type": "record",
+  "name": "TelemetryEvent",
+  "namespace": "com.example.telemetry",
+  "doc": "Telemetry data from IoT sensors or application instrumentation",
+  "fields": [
+    {
+      "name": "eventId",
+      "type": "string",
+      "doc": "Unique event identifier"
+    },
+    {
+      "name": "timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Event timestamp in milliseconds"
+    },
+    {
+      "name": "source",
+      "type": {
+        "type": "record",
+        "name": "EventSource",
+        "fields": [
+          { "name": "deviceId", "type": "string" },
+          { "name": "deviceType", "type": { "type": "enum", "name": "DeviceType", "symbols": ["SENSOR", "GATEWAY", "EDGE", "CLOUD", "MOBILE", "WEB"] } },
+          { "name": "firmwareVersion", "type": ["null", "string"], "default": null },
+          { "name": "location", "type": ["null", {
+            "type": "record",
+            "name": "GeoLocation",
+            "fields": [
+              { "name": "latitude", "type": "double" },
+              { "name": "longitude", "type": "double" },
+              { "name": "altitude", "type": ["null", "double"], "default": null }
+            ]
+          }], "default": null }
+        ]
+      }
+    },
+    {
+      "name": "eventType",
+      "type": {
+        "type": "enum",
+        "name": "TelemetryType",
+        "symbols": ["METRIC", "LOG", "TRACE", "ALERT", "HEARTBEAT"]
+      }
+    },
+    {
+      "name": "payload",
+      "type": [
+        {
+          "type": "record",
+          "name": "MetricPayload",
+          "fields": [
+            { "name": "name", "type": "string" },
+            { "name": "value", "type": "double" },
+            { "name": "unit", "type": ["null", "string"], "default": null },
+            { "name": "tags", "type": { "type": "map", "values": "string" }, "default": {} }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "LogPayload",
+          "fields": [
+            { "name": "level", "type": { "type": "enum", "name": "LogLevel", "symbols": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"] } },
+            { "name": "message", "type": "string" },
+            { "name": "logger", "type": ["null", "string"], "default": null },
+            { "name": "stackTrace", "type": ["null", "string"], "default": null }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "AlertPayload",
+          "fields": [
+            { "name": "alertId", "type": "string" },
+            { "name": "severity", "type": { "type": "enum", "name": "Severity", "symbols": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] } },
+            { "name": "title", "type": "string" },
+            { "name": "description", "type": ["null", "string"], "default": null },
+            { "name": "acknowledged", "type": "boolean", "default": false }
+          ]
+        }
+      ],
+      "doc": "Event-specific payload data"
+    },
+    {
+      "name": "context",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {},
+      "doc": "Additional context as key-value pairs"
+    },
+    {
+      "name": "correlationId",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "ID for correlating related events"
+    }
+  ]
+}

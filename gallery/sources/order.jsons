@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://api.acme.com/schemas/order.json",
+  "title": "Order",
+  "description": "An e-commerce order with customer, items, and payment details",
+  "type": "object",
+  "properties": {
+    "orderId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique order identifier"
+    },
+    "orderDate": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "confirmed", "shipped", "delivered", "cancelled"]
+    },
+    "customer": {
+      "$ref": "#/$defs/Customer"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/LineItem" }
+    },
+    "shippingAddress": {
+      "$ref": "#/$defs/Address"
+    },
+    "billingAddress": {
+      "$ref": "#/$defs/Address"
+    },
+    "payment": {
+      "oneOf": [
+        { "$ref": "#/$defs/CreditCardPayment" },
+        { "$ref": "#/$defs/BankTransferPayment" }
+      ]
+    },
+    "totals": {
+      "type": "object",
+      "properties": {
+        "subtotal": { "type": "number", "minimum": 0 },
+        "tax": { "type": "number", "minimum": 0 },
+        "shipping": { "type": "number", "minimum": 0 },
+        "discount": { "type": "number", "minimum": 0 },
+        "total": { "type": "number", "minimum": 0 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+      },
+      "required": ["subtotal", "total", "currency"]
+    },
+    "notes": { "type": "string" }
+  },
+  "required": ["orderId", "orderDate", "status", "customer", "items", "totals"],
+  "$defs": {
+    "Customer": {
+      "type": "object",
+      "properties": {
+        "customerId": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["customerId", "email", "firstName", "lastName"]
+    },
+    "Address": {
+      "type": "object",
+      "properties": {
+        "street": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "country": { "type": "string", "pattern": "^[A-Z]{2}$" }
+      },
+      "required": ["street", "city", "postalCode", "country"]
+    },
+    "LineItem": {
+      "type": "object",
+      "properties": {
+        "sku": { "type": "string" },
+        "productName": { "type": "string" },
+        "quantity": { "type": "integer", "minimum": 1 },
+        "unitPrice": { "type": "number", "minimum": 0 },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "required": ["sku", "productName", "quantity", "unitPrice"]
+    },
+    "CreditCardPayment": {
+      "type": "object",
+      "properties": {
+        "method": { "const": "credit_card" },
+        "cardType": { "type": "string", "enum": ["visa", "mastercard", "amex"] },
+        "lastFour": { "type": "string", "pattern": "^[0-9]{4}$" },
+        "expiryMonth": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "expiryYear": { "type": "integer" }
+      },
+      "required": ["method", "cardType", "lastFour"]
+    },
+    "BankTransferPayment": {
+      "type": "object",
+      "properties": {
+        "method": { "const": "bank_transfer" },
+        "bankName": { "type": "string" },
+        "iban": { "type": "string" },
+        "reference": { "type": "string" }
+      },
+      "required": ["method", "iban"]
+    }
+  }
+}
