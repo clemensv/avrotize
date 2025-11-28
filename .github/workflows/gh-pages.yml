@@ -59,6 +59,9 @@ jobs:
           # Copy generated gallery pages
           cp -r master/gallery/* gh-pages/gallery/ 2>/dev/null || true
           
+          # Copy generated gallery index page (overwrites static version)
+          cp master/pages/gallery.html gh-pages/pages/gallery.html
+          
           # Copy gallery data files
           mkdir -p gh-pages/gallery/_data
           cp -r master/scripts/gallery/_data/* gh-pages/gallery/_data/ 2>/dev/null || true

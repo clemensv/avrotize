@@ -1195,6 +1195,35 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         elif item_id.startswith("struct-to-"):
             struct_output.append(item)
     
+    def build_example_command(item: dict, is_structurize: bool) -> str:
+        """Build a full example command string."""
+        conversions = item.get("conversions", [])
+        if not conversions:
+            return ""
+        
+        last_conv = conversions[-1]
+        cmd = last_conv.get("cmd", "")
+        args = last_conv.get("args", [])
+        source_file = item.get("source_file", "input")
+        
+        # Build argument string
+        arg_str = ""
+        for i, arg in enumerate(args):
+            if arg.startswith("--"):
+                # It's an option, check next arg for value
+                if i + 1 < len(args) and not args[i + 1].startswith("--"):
+                    val = args[i + 1]
+                    # Simplify output path for display
+                    if "{out}" in val:
+                        val = val.replace("{out}/", "").replace("{out}", "")
+                    arg_str += f" {arg} {val}"
+                else:
+                    arg_str += f" {arg}"
+        
+        # Build the full command
+        tool = "structurize" if is_structurize else "avrotize"
+        return f"{tool} {cmd} {source_file}{arg_str}"
+    
     def render_card(item: dict, is_structurize: bool = False) -> str:
         """Render a single gallery card."""
         title = item["title"]
@@ -1202,6 +1231,7 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         item_id = item["id"]
         cmd = get_command(item)
         readme_url = get_readme_url(cmd, is_structurize)
+        example_cmd = build_example_command(item, is_structurize)
         
         # Parse formats from title (e.g., "JSON Schema -> Avro" or "Avro -> Python")
         parts = title.split(" -> ")
@@ -1224,7 +1254,7 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
           {format_html}
         </div>
         <div class="gallery-card-command">
-          <code class="command-code">{cmd}</code>
+          <code class="command-code">{example_cmd}</code>
           <a href="{readme_url}" class="command-docs-link" target="_blank" title="View documentation" onclick="event.stopPropagation();">docs</a>
         </div>
         <span class="gallery-card-link">View example -></span>
