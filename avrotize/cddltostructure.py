@@ -20,18 +20,21 @@ Fully Implemented (RFC 8610 Sections 2-3):
 - CBOR tags (#6.n(type)) - underlying type extracted
 - Choice from groups (&group)
 - Comments (handled by parser)
+- Generic type parameters (<T>): Parameterized type definitions with instantiation
+- Unwrap operator (~): Extracting group/array content
 
-Partially Implemented:
-- Control operators (.size, .regexp, .default, .bits, .cbor, .cborseq, etc.):
-  The base type is extracted but specific constraints are not mapped to
-  JSON Structure equivalents (no direct mapping exists for many operators).
-- Bounded occurrence (n*m): min/max parsed but not fully utilized.
+Control Operators (RFC 8610 Section 3.8):
+- .size: Maps to minLength/maxLength for strings, minItems/maxItems for arrays
+- .regexp: Maps to pattern validation (ECMAScript regex)
+- .default: Maps to default value
+- .lt, .le, .gt, .ge: Maps to minimum/maximum/exclusiveMinimum/exclusiveMaximum
+- .eq: Maps to const value
+- .bits, .cbor, .cborseq: Base type extracted (CBOR-specific, no JSON equivalent)
+- .within, .and: Type intersection (limited support, base type used)
 
 Not Implemented:
-- CDDL sockets ($name, $$name): Extensibility points for future definitions.
-- Generic type parameters (<T>): Parameterized type definitions.
-- Unwrap operator (~): Extracting group content.
-- .within, .and operators: Type intersection.
+- CDDL sockets ($name, $$name): Extensibility points (parser limitation)
+- .ne operator: No direct JSON Structure equivalent
 
 Notes on Type Mapping:
 - CBOR-specific types (bstr, tstr) map to JSON equivalents (bytes, string)
@@ -100,6 +103,8 @@ class CddlToStructureConverter:
         self.root_namespace = DEFAULT_NAMESPACE
         self.type_registry: Dict[str, Dict[str, Any]] = {}
         self.definitions: Dict[str, Dict[str, Any]] = {}
+        self.generic_types: Dict[str, Dict[str, Any]] = {}  # Maps type name to generic info
+        self.current_generic_bindings: Dict[str, Dict[str, Any]] = {}  # Current type parameter bindings
 
     def convert_cddl_to_structure(self, cddl_content: str, namespace: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -121,8 +126,10 @@ class CddlToStructureConverter:
         # Clear type registry
         self.type_registry.clear()
         self.definitions.clear()
+        self.generic_types.clear()
+        self.current_generic_bindings.clear()
         
-        # First pass: collect all type names
+        # First pass: collect all type names and generic definitions
         for rule in ast.rules:
             if hasattr(rule, 'getChildren'):
                 children = rule.getChildren()
@@ -130,6 +137,13 @@ class CddlToStructureConverter:
                     typename_node = children[0]
                     if hasattr(typename_node, 'name'):
                         self.type_registry[typename_node.name] = {}
+                        # Check for generic parameters
+                        generic_params = self._extract_generic_parameters(typename_node)
+                        if generic_params:
+                            self.generic_types[typename_node.name] = {
+                                'params': generic_params,
+                                'type_node': children[1] if len(children) > 1 else None
+                            }
         
         # Second pass: process all rules
         for rule in ast.rules:
@@ -270,17 +284,126 @@ class CddlToStructureConverter:
             
         type_name = typename_node.name
         
+        # Check for unwrap operator (~)
+        has_unwrap = self._has_unwrap_operator(typename_node)
+        
+        # Check if this is a type parameter that's currently bound
+        if type_name in self.current_generic_bindings:
+            result = dict(self.current_generic_bindings[type_name])
+            if has_unwrap:
+                result = self._apply_unwrap(result)
+            return result
+        
         # Check if it's a primitive type
         if type_name in CDDL_PRIMITIVE_TYPES:
             return dict(CDDL_PRIMITIVE_TYPES[type_name])
         
+        # Check for generic arguments
+        generic_args = self._extract_generic_arguments(typename_node)
+        
+        # Check if this is a reference to a generic type with arguments
+        if generic_args and type_name in self.generic_types:
+            result = self._instantiate_generic_type(type_name, generic_args)
+            if has_unwrap:
+                result = self._apply_unwrap(result)
+            return result
+        
         # Check if it's a reference to another type
         normalized_name = avro_name(type_name)
+        result: Dict[str, Any]
         if type_name in self.type_registry or normalized_name in self.definitions:
+            result = {'$ref': f'#/definitions/{normalized_name}'}
+        else:
+            # Unknown type - treat as reference
+            result = {'$ref': f'#/definitions/{normalized_name}'}
+        
+        if has_unwrap:
+            result = self._apply_unwrap(result)
+        return result
+    
+    def _has_unwrap_operator(self, typename_node: Any) -> bool:
+        """Check if a typename node has the unwrap operator (~)."""
+        if hasattr(typename_node, 'getChildren'):
+            for child in typename_node.getChildren():
+                if hasattr(child, 'kind') and 'TILDE' in str(child.kind):
+                    return True
+        return False
+    
+    def _apply_unwrap(self, type_def: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Apply the unwrap operator (~) to a type.
+        
+        The unwrap operator extracts the content from a group or array.
+        In JSON Structure, we mark this with a special annotation.
+        """
+        # For referenced types, we need to resolve and unwrap
+        if '$ref' in type_def:
+            ref_name = type_def['$ref'].split('/')[-1]
+            if ref_name in self.definitions:
+                resolved = self.definitions[ref_name]
+                # If it's an object, return its properties inline
+                if resolved.get('type') == 'object' and 'properties' in resolved:
+                    return dict(resolved)
+                # If it's an array, return items type
+                if resolved.get('type') == 'array' and 'items' in resolved:
+                    return resolved['items']
+        
+        # For inline types, just return as-is (unwrap is contextual)
+        return type_def
+    
+    def _extract_generic_parameters(self, typename_node: Any) -> List[str]:
+        """Extract generic type parameters from a typename node (e.g., optional<T> -> ['T'])."""
+        params = []
+        if hasattr(typename_node, 'getChildren'):
+            for child in typename_node.getChildren():
+                if type(child).__name__ == 'GenericParameters':
+                    for pc in child.getChildren():
+                        if type(pc).__name__ == 'Typename' and hasattr(pc, 'name'):
+                            params.append(pc.name)
+        return params
+    
+    def _extract_generic_arguments(self, typename_node: Any) -> List[Dict[str, Any]]:
+        """Extract generic type arguments from a typename node (e.g., optional<tstr> -> [{'type': 'string'}])."""
+        args = []
+        if hasattr(typename_node, 'getChildren'):
+            for child in typename_node.getChildren():
+                if type(child).__name__ == 'GenericArguments':
+                    for ac in child.getChildren():
+                        if type(ac).__name__ == 'Typename':
+                            # Don't recurse through generic bindings - convert directly
+                            if hasattr(ac, 'name') and ac.name in CDDL_PRIMITIVE_TYPES:
+                                args.append(dict(CDDL_PRIMITIVE_TYPES[ac.name]))
+                            elif hasattr(ac, 'name'):
+                                normalized_name = avro_name(ac.name)
+                                args.append({'$ref': f'#/definitions/{normalized_name}'})
+        return args
+    
+    def _instantiate_generic_type(self, type_name: str, type_args: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Instantiate a generic type with concrete type arguments."""
+        generic_info = self.generic_types.get(type_name)
+        if not generic_info:
+            return {'type': 'any'}
+        
+        params = generic_info.get('params', [])
+        type_node = generic_info.get('type_node')
+        
+        if not type_node or len(params) != len(type_args):
+            # Parameter count mismatch - return reference
+            normalized_name = avro_name(type_name)
             return {'$ref': f'#/definitions/{normalized_name}'}
         
-        # Unknown type - treat as reference
-        return {'$ref': f'#/definitions/{normalized_name}'}
+        # Create bindings for type parameters
+        old_bindings = self.current_generic_bindings.copy()
+        for param, arg in zip(params, type_args):
+            self.current_generic_bindings[param] = arg
+        
+        try:
+            # Convert the type with the current bindings
+            result = self._convert_type(type_node, type_name)
+            return result
+        finally:
+            # Restore previous bindings
+            self.current_generic_bindings = old_bindings
 
     def _convert_map(self, map_node: Map, context_name: str = '') -> Dict[str, Any]:
         """Convert a Map node to JSON Structure object."""
@@ -649,22 +772,214 @@ class CddlToStructureConverter:
 
     def _convert_operator(self, operator_node: Operator, context_name: str = '') -> Dict[str, Any]:
         """
-        Convert an Operator node (type constraints like .size, .regexp).
+        Convert an Operator node (type constraints like .size, .regexp, .default).
         
-        Note: CDDL operators are partially supported. The base type is extracted
-        but specific constraints may not be fully converted to JSON Structure
-        equivalents. See module docstring for more details.
+        Supported control operators:
+        - .size: Maps to minLength/maxLength for strings, minItems/maxItems for arrays
+        - .regexp: Maps to pattern (ECMAScript regex)
+        - .default: Maps to default value
+        - .bits, .cbor, .cborseq: Base type extracted (CBOR-specific, no JSON Structure equivalent)
+        - .within, .and: Type intersection (limited support)
+        
+        See RFC 8610 Section 3.8 for full control operator specification.
         """
         base_type: Dict[str, Any] = {'type': 'any'}
+        operator_name: Optional[str] = None
+        controller_value: Any = None
         
-        if hasattr(operator_node, 'getChildren'):
-            children = operator_node.getChildren()
+        # Extract operator name and base type
+        if hasattr(operator_node, 'name') and hasattr(operator_node.name, 'literal'):
+            operator_name = operator_node.name.literal
+        
+        if hasattr(operator_node, 'type'):
+            base_type = self._convert_typename(operator_node.type) if hasattr(operator_node.type, 'name') else {'type': 'any'}
+        
+        # Extract controller (constraint argument)
+        if hasattr(operator_node, 'controller'):
+            controller_value = self._extract_controller_value(operator_node.controller)
+        
+        # Apply operator-specific mappings
+        if operator_name == 'size':
+            base_type = self._apply_size_constraint(base_type, controller_value)
+        elif operator_name == 'regexp':
+            base_type = self._apply_regexp_constraint(base_type, controller_value)
+        elif operator_name == 'default':
+            base_type = self._apply_default_value(base_type, controller_value)
+        elif operator_name == 'lt':
+            # .lt (less than) -> exclusiveMaximum
+            if isinstance(controller_value, (int, float)):
+                base_type['exclusiveMaximum'] = controller_value
+        elif operator_name == 'le':
+            # .le (less or equal) -> maximum
+            if isinstance(controller_value, (int, float)):
+                base_type['maximum'] = controller_value
+        elif operator_name == 'gt':
+            # .gt (greater than) -> exclusiveMinimum
+            if isinstance(controller_value, (int, float)):
+                base_type['exclusiveMinimum'] = controller_value
+        elif operator_name == 'ge':
+            # .ge (greater or equal) -> minimum
+            if isinstance(controller_value, (int, float)):
+                base_type['minimum'] = controller_value
+        elif operator_name == 'eq':
+            # .eq (equals) -> const
+            base_type['const'] = controller_value
+        elif operator_name == 'ne':
+            # .ne (not equals) - no direct JSON Structure equivalent, add as comment
+            pass
+        elif operator_name in ('within', 'and'):
+            # Type intersection - limited support, just use base type
+            pass
+        elif operator_name in ('bits', 'cbor', 'cborseq'):
+            # CBOR-specific operators - just use base type
+            pass
+        
+        return base_type
+    
+    def _extract_controller_value(self, controller: Any) -> Any:
+        """Extract the value from an operator's controller (argument)."""
+        if controller is None:
+            return None
+        
+        controller_type = type(controller).__name__
+        
+        # Handle direct Value node (e.g., .size 32, .ge 0)
+        if controller_type == 'Value':
+            return self._parse_value_literal(controller)
+        
+        # Handle direct Range node
+        if controller_type == 'Range':
+            return self._extract_range_values(controller)
+        
+        # Handle direct Typename node
+        if controller_type == 'Typename' and hasattr(controller, 'name'):
+            return controller.name
+            
+        # Handle Type node containing children (e.g., .size (1..100))
+        if hasattr(controller, 'getChildren'):
+            children = controller.getChildren()
             for child in children:
                 child_type = type(child).__name__
-                if child_type in ('Type', 'Typename'):
-                    base_type = self._convert_type(child, context_name)
-                    break
+                if child_type == 'Range':
+                    # Extract min/max from range
+                    return self._extract_range_values(child)
+                elif child_type == 'Value':
+                    return self._parse_value_literal(child)
+                elif child_type == 'Typename':
+                    if hasattr(child, 'name'):
+                        return child.name
         
+        return None
+    
+    def _extract_range_values(self, range_node: Any) -> Dict[str, Any]:
+        """Extract min and max from a Range node."""
+        result: Dict[str, Any] = {}
+        values = []
+        is_exclusive = False
+        
+        if hasattr(range_node, 'getChildren'):
+            for child in range_node.getChildren():
+                child_type = type(child).__name__
+                if child_type == 'Value':
+                    values.append(self._parse_value_literal(child))
+                elif hasattr(child, 'kind') and 'EXCLRANGE' in str(child.kind):
+                    is_exclusive = True
+        
+        if len(values) >= 2:
+            result['min'] = values[0]
+            result['max'] = values[1]
+            result['exclusive'] = is_exclusive
+        elif len(values) == 1:
+            result['min'] = values[0]
+            result['exclusive'] = is_exclusive
+        
+        return result
+    
+    def _parse_value_literal(self, value_node: Any) -> Any:
+        """Parse a Value node and return the Python value."""
+        if not hasattr(value_node, 'value'):
+            return None
+            
+        value = value_node.value
+        
+        # String value
+        if value.startswith('"') and value.endswith('"'):
+            return value[1:-1]
+        
+        # Boolean
+        if value == 'true':
+            return True
+        if value == 'false':
+            return False
+        
+        # Integer
+        try:
+            return int(value)
+        except ValueError:
+            pass
+        
+        # Float
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        
+        return value
+    
+    def _apply_size_constraint(self, base_type: Dict[str, Any], constraint: Any) -> Dict[str, Any]:
+        """Apply .size constraint to a type."""
+        if constraint is None:
+            return base_type
+        
+        type_name = base_type.get('type', 'any')
+        
+        # Determine if this is a string or array type
+        is_string_type = type_name in ('string', 'bytes')
+        is_array_type = type_name == 'array'
+        
+        if isinstance(constraint, dict):
+            # Range constraint
+            min_val = constraint.get('min')
+            max_val = constraint.get('max')
+            
+            if is_string_type:
+                if min_val is not None:
+                    base_type['minLength'] = min_val
+                if max_val is not None:
+                    base_type['maxLength'] = max_val
+            elif is_array_type:
+                if min_val is not None:
+                    base_type['minItems'] = min_val
+                if max_val is not None:
+                    base_type['maxItems'] = max_val
+            else:
+                # For other types, might be constraining bit/byte size
+                # Map to general min/max
+                if min_val is not None:
+                    base_type['minimum'] = min_val
+                if max_val is not None:
+                    base_type['maximum'] = max_val
+        elif isinstance(constraint, int):
+            # Exact size constraint
+            if is_string_type:
+                base_type['minLength'] = constraint
+                base_type['maxLength'] = constraint
+            elif is_array_type:
+                base_type['minItems'] = constraint
+                base_type['maxItems'] = constraint
+        
+        return base_type
+    
+    def _apply_regexp_constraint(self, base_type: Dict[str, Any], pattern: Any) -> Dict[str, Any]:
+        """Apply .regexp constraint to a string type."""
+        if pattern and isinstance(pattern, str):
+            base_type['pattern'] = pattern
+        return base_type
+    
+    def _apply_default_value(self, base_type: Dict[str, Any], default_val: Any) -> Dict[str, Any]:
+        """Apply .default value to a type."""
+        if default_val is not None:
+            base_type['default'] = default_val
         return base_type
 
     def _convert_tag(self, tag_node: Tag, context_name: str = '') -> Dict[str, Any]:

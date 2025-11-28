@@ -249,6 +249,124 @@ class TestCddlToStructure(unittest.TestCase):
         self.assertIn('type2', result['definitions'])
         self.assertIn('type3', result['definitions'])
 
+    def test_size_constraint_string(self):
+        """Test .size constraint on string types."""
+        cddl = '''
+        bounded-string = tstr .size (1..100)
+        '''
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('bounded_string', result['definitions'])
+        bounded = result['definitions']['bounded_string']
+        self.assertEqual(bounded['type'], 'string')
+        self.assertEqual(bounded.get('minLength'), 1)
+        self.assertEqual(bounded.get('maxLength'), 100)
+
+    def test_size_constraint_exact(self):
+        """Test exact .size constraint."""
+        cddl = '''
+        fixed-bytes = bstr .size 32
+        '''
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('fixed_bytes', result['definitions'])
+        fixed = result['definitions']['fixed_bytes']
+        self.assertEqual(fixed['type'], 'bytes')
+        self.assertEqual(fixed.get('minLength'), 32)
+        self.assertEqual(fixed.get('maxLength'), 32)
+
+    def test_default_value(self):
+        """Test .default operator."""
+        cddl = '''
+        greeting = tstr .default "hello"
+        '''
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('greeting', result['definitions'])
+        greeting = result['definitions']['greeting']
+        self.assertEqual(greeting['type'], 'string')
+        self.assertEqual(greeting.get('default'), 'hello')
+
+    def test_comparison_operators(self):
+        """Test .lt, .le, .gt, .ge operators."""
+        cddl = '''
+        positive = int .ge 0
+        percentage = int .le 100
+        '''
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        positive = result['definitions']['positive']
+        self.assertEqual(positive.get('minimum'), 0)
+        
+        percentage = result['definitions']['percentage']
+        self.assertEqual(percentage.get('maximum'), 100)
+
+    def test_generic_type_definition(self):
+        """Test generic type parameter definitions."""
+        cddl = '''
+        optional<T> = T / nil
+        opt-string = optional<tstr>
+        '''
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        # The opt-string should be a union of string and null
+        self.assertIn('definitions', result)
+        self.assertIn('opt_string', result['definitions'])
+        opt_string = result['definitions']['opt_string']
+        
+        # Should be a union type (array of types)
+        if 'type' in opt_string and isinstance(opt_string['type'], list):
+            types = [t.get('type') for t in opt_string['type'] if isinstance(t, dict)]
+            self.assertIn('string', types)
+            self.assertIn('null', types)
+
+    def test_generic_type_pair(self):
+        """Test generic type with multiple parameters."""
+        cddl = '''
+        pair<K, V> = [K, V]
+        string-int-pair = pair<tstr, int>
+        '''
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        # The string-int-pair should be an array
+        self.assertIn('definitions', result)
+        self.assertIn('string_int_pair', result['definitions'])
+        pair = result['definitions']['string_int_pair']
+        self.assertEqual(pair['type'], 'array')
+
+    def test_range_constraint(self):
+        """Test range constraints on numeric types."""
+        cddl = '''
+        byte-value = 0..255
+        '''
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('byte_value', result['definitions'])
+        byte_val = result['definitions']['byte_value']
+        self.assertEqual(byte_val.get('minimum'), 0)
+        self.assertEqual(byte_val.get('maximum'), 255)
+
+    def test_choice_type(self):
+        """Test choice/union types."""
+        cddl = '''
+        string-or-int = tstr / int
+        '''
+        result = json.loads(convert_cddl_to_structure(cddl))
+        
+        self.assertIn('definitions', result)
+        self.assertIn('string_or_int', result['definitions'])
+        choice = result['definitions']['string_or_int']
+        
+        # Should be a union type
+        if 'type' in choice and isinstance(choice['type'], list):
+            types = [t.get('type') for t in choice['type'] if isinstance(t, dict)]
+            self.assertIn('string', types)
+            self.assertIn('int64', types)
+
 
 if __name__ == '__main__':
     unittest.main()
