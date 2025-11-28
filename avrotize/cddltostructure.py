@@ -482,30 +482,36 @@ class CddlToStructureConverter:
             self.current_generic_bindings = old_bindings
 
     def _convert_map(self, map_node: Map, context_name: str = '') -> Dict[str, Any]:
-        """Convert a Map node to JSON Structure object."""
-        result: Dict[str, Any] = {
-            'type': 'object'
-        }
-        
+        """Convert a Map node to JSON Structure object or map."""
         properties: Dict[str, Any] = {}
         required: List[str] = []
-        additional_properties: Optional[Dict[str, Any]] = None
+        computed_key_info: Optional[Dict[str, Any]] = None
         
         # Process map contents
         if hasattr(map_node, 'getChildren'):
             for child in map_node.getChildren():
                 child_type = type(child).__name__
                 if child_type == 'GroupChoice':
-                    self._process_group_choice_for_object(
+                    computed_key_info = self._process_group_choice_for_object(
                         child, properties, required, context_name
                     )
         
+        # If we have a computed key (like * tstr => int) and no explicit properties,
+        # this is a JSON Structure map type
+        if computed_key_info and not properties:
+            result: Dict[str, Any] = {'type': 'map'}
+            if computed_key_info.get('keys'):
+                result['keys'] = computed_key_info['keys']
+            if computed_key_info.get('values'):
+                result['values'] = computed_key_info['values']
+            return result
+        
+        # Otherwise it's a regular object
+        result = {'type': 'object'}
         if properties:
             result['properties'] = properties
         if required:
             result['required'] = required
-        if additional_properties:
-            result['additionalProperties'] = additional_properties
             
         return result
 
@@ -515,22 +521,33 @@ class CddlToStructureConverter:
         properties: Dict[str, Any], 
         required: List[str],
         context_name: str
-    ) -> None:
-        """Process GroupChoice for object properties."""
+    ) -> Optional[Dict[str, Any]]:
+        """Process GroupChoice for object properties.
+        
+        Returns computed key info if a computed key entry (like * tstr => int) is found.
+        """
         if not hasattr(group_choice, 'getChildren'):
-            return
+            return None
+        
+        computed_key_info: Optional[Dict[str, Any]] = None
             
         for child in group_choice.getChildren():
             child_type = type(child).__name__
             if child_type == 'GroupEntry':
-                self._process_group_entry_for_object(
+                entry_computed = self._process_group_entry_for_object(
                     child, properties, required, context_name
                 )
+                if entry_computed:
+                    computed_key_info = entry_computed
             elif child_type == 'GroupChoice':
                 # Nested group choice
-                self._process_group_choice_for_object(
+                nested_computed = self._process_group_choice_for_object(
                     child, properties, required, context_name
                 )
+                if nested_computed:
+                    computed_key_info = nested_computed
+        
+        return computed_key_info
 
     def _process_group_entry_for_object(
         self, 
@@ -538,10 +555,13 @@ class CddlToStructureConverter:
         properties: Dict[str, Any], 
         required: List[str],
         context_name: str
-    ) -> None:
-        """Process a GroupEntry for object properties."""
+    ) -> Optional[Dict[str, Any]]:
+        """Process a GroupEntry for object properties.
+        
+        Returns computed key info if this is a computed key entry (like * tstr => int).
+        """
         if not hasattr(entry, 'getChildren'):
-            return
+            return None
             
         children = entry.getChildren()
         
@@ -560,19 +580,34 @@ class CddlToStructureConverter:
                 member_type = self._convert_type(child, context_name)
         
         if member_key is None:
-            return
+            return None
             
         prop_name = member_key.get('name', '')
         original_name = member_key.get('original_name', prop_name)
         is_computed = member_key.get('computed', False)
         
-        if not prop_name:
-            return
-        
-        # Handle computed keys (patterns like tstr => any)
+        # Handle computed keys (patterns like * tstr => int)
         if is_computed:
-            # This is an additionalProperties pattern
-            return
+            key_type_name = member_key.get('key_type', 'string')
+            # Map CDDL key type to JSON Structure type
+            if key_type_name in ('tstr', 'text'):
+                keys_type = {'type': 'string'}
+            elif key_type_name in ('bstr', 'bytes'):
+                keys_type = {'type': 'bytes'}
+            elif key_type_name in ('int', 'uint', 'nint'):
+                keys_type = {'type': 'int64'}
+            else:
+                keys_type = {'type': 'string'}
+            
+            values_type = member_type if member_type else {'type': 'any'}
+            
+            return {
+                'keys': keys_type,
+                'values': values_type
+            }
+        
+        if not prop_name:
+            return None
         
         normalized_name = avro_name(prop_name)
         

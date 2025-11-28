@@ -330,7 +330,13 @@
           }
         },
         "metadata": {
-          "type": "object"
+          "type": "map",
+          "keys": {
+            "type": "string"
+          },
+          "values": {
+            "type": "any"
+          }
         }
       },
       "required": [
@@ -384,7 +390,13 @@
           "$ref": "#/definitions/command_type"
         },
         "parameters": {
-          "type": "object"
+          "type": "map",
+          "keys": {
+            "type": "string"
+          },
+          "values": {
+            "type": "any"
+          }
         },
         "timeout_ms": {
           "type": "int64",

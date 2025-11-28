@@ -82,7 +82,13 @@
           "type": "bytes"
         },
         "_1": {
-          "type": "object"
+          "type": "map",
+          "keys": {
+            "type": "int64"
+          },
+          "values": {
+            "type": "any"
+          }
         },
         "_2": {
           "type": "bytes"
@@ -109,7 +115,13 @@
           "type": "bytes"
         },
         "_1": {
-          "type": "object"
+          "type": "map",
+          "keys": {
+            "type": "int64"
+          },
+          "values": {
+            "type": "any"
+          }
         },
         "_2": {
           "type": "bytes"
@@ -136,7 +148,13 @@
           "type": "bytes"
         },
         "_1": {
-          "type": "object"
+          "type": "map",
+          "keys": {
+            "type": "int64"
+          },
+          "values": {
+            "type": "any"
+          }
         },
         "_2": {
           "type": "bytes"

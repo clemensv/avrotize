@@ -68,7 +68,13 @@
       }
     },
     "string_map": {
-      "type": "object",
+      "type": "map",
+      "keys": {
+        "type": "string"
+      },
+      "values": {
+        "type": "any"
+      },
       "name": "string_map",
       "description": "Maps with string keys",
       "altnames": {
@@ -76,7 +82,13 @@
       }
     },
     "typed_map": {
-      "type": "object",
+      "type": "map",
+      "keys": {
+        "type": "string"
+      },
+      "values": {
+        "type": "int64"
+      },
       "name": "typed_map",
       "altnames": {
         "cddl": "typed-map"
