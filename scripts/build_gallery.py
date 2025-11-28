@@ -931,6 +931,69 @@ function escapeHtml(text) {{
 def generate_gallery_index(successful_items: list[dict]) -> None:
     """Generate the main gallery index page listing all conversions."""
     
+    # Icon mapping for formats/languages
+    FORMAT_ICONS = {
+        # Languages
+        "python": '<i class="devicon-python-plain"></i>',
+        "c#": '<i class="devicon-csharp-plain"></i>',
+        "csharp": '<i class="devicon-csharp-plain"></i>',
+        "java": '<i class="devicon-java-plain"></i>',
+        "typescript": '<i class="devicon-typescript-plain"></i>',
+        "javascript": '<i class="devicon-javascript-plain"></i>',
+        "go": '<i class="devicon-go-plain"></i>',
+        "rust": '<i class="devicon-rust-original"></i>',
+        "c++": '<i class="devicon-cplusplus-plain"></i>',
+        "cpp": '<i class="devicon-cplusplus-plain"></i>',
+        # Schema formats
+        "avro": '<i class="devicon-apachekafka-original" title="Avro"></i>',
+        "json schema": '<i class="devicon-json-plain"></i>',
+        "jsonschema": '<i class="devicon-json-plain"></i>',
+        "protobuf": '<i class="devicon-protobuf-plain"></i>',
+        "proto": '<i class="devicon-protobuf-plain"></i>',
+        "xsd": '<i class="devicon-xml-plain"></i>',
+        "xml": '<i class="devicon-xml-plain"></i>',
+        "graphql": '<i class="devicon-graphql-plain"></i>',
+        # Databases
+        "postgresql": '<i class="devicon-postgresql-plain"></i>',
+        "postgres": '<i class="devicon-postgresql-plain"></i>',
+        "mysql": '<i class="devicon-mysql-plain"></i>',
+        "mariadb": '<i class="devicon-mariadb-plain"></i>',
+        "sqlite": '<i class="devicon-sqlite-plain"></i>',
+        "mongodb": '<i class="devicon-mongodb-plain"></i>',
+        "cassandra": '<i class="devicon-cassandra-plain"></i>',
+        "redis": '<i class="devicon-redis-plain"></i>',
+        "elasticsearch": '<i class="devicon-elasticsearch-plain"></i>',
+        "neo4j": '<i class="devicon-neo4j-plain"></i>',
+        # Cloud/Platforms
+        "azure": '<i class="devicon-azure-plain"></i>',
+        "cosmosdb": '<i class="devicon-azure-plain"></i>',
+        "dynamodb": '<i class="devicon-amazonwebservices-plain-wordmark"></i>',
+        "firebase": '<i class="devicon-firebase-plain"></i>',
+        "kusto": '<i class="devicon-azure-plain"></i>',
+        # Data formats
+        "parquet": '<i class="devicon-apachekafka-original" title="Parquet"></i>',
+        "csv": '<i class="devicon-json-plain" title="CSV"></i>',
+        "markdown": '<i class="devicon-markdown-original"></i>',
+        "iceberg": '<i class="devicon-apachekafka-original" title="Iceberg"></i>',
+        # Fallbacks
+        "structure": '<i class="devicon-json-plain"></i>',
+        "json structure": '<i class="devicon-json-plain"></i>',
+        "datapackage": '<i class="devicon-json-plain"></i>',
+        "sql": '<i class="devicon-postgresql-plain"></i>',
+        "asn.1": '<i class="devicon-json-plain" title="ASN.1"></i>',
+        "asn1": '<i class="devicon-json-plain" title="ASN.1"></i>',
+    }
+    
+    def get_icon(format_name: str) -> str:
+        """Get icon HTML for a format."""
+        key = format_name.lower().strip()
+        # Check for SQL variants
+        if "sql" in key and "server" in key:
+            return '<i class="devicon-microsoftsqlserver-plain"></i>'
+        if "oracle" in key:
+            return '<i class="devicon-oracle-original"></i>'
+        return FORMAT_ICONS.get(key, '')
+    
     # Categorize items
     avro_input = []  # X -> Avro
     avro_output = []  # Avro -> X
@@ -958,8 +1021,12 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         parts = title.split(" -> ")
         formats = []
         for p in parts:
-            formats.append(f'<span class="format-tag">{p}</span>')
-        format_html = '<span class="format-tag">-></span>'.join(formats)
+            icon = get_icon(p)
+            if icon:
+                formats.append(f'<span class="format-tag">{icon} {p}</span>')
+            else:
+                formats.append(f'<span class="format-tag">{p}</span>')
+        format_html = '<span class="format-arrow">-></span>'.join(formats)
         
         return f'''    <a href="{{{{ '/gallery/{item_id}/' | relative_url }}}}" class="gallery-card">
       <div class="gallery-card-header">

@@ -541,6 +541,20 @@ img {
   background: var(--color-bg-lighter);
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.format-tag i {
+  font-size: 1.1em;
+  color: var(--color-accent);
+}
+
+.format-arrow {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  padding: 0 var(--spacing-xs);
 }
 
 /* =====================================================
