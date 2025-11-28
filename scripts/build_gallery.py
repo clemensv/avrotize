@@ -931,67 +931,82 @@ function escapeHtml(text) {{
 def generate_gallery_index(successful_items: list[dict]) -> None:
     """Generate the main gallery index page listing all conversions."""
     
-    # Icon mapping for formats/languages
+    # Icon mapping for formats/languages (using verified Devicon icons)
     FORMAT_ICONS = {
         # Languages
-        "python": '<i class="devicon-python-plain"></i>',
-        "c#": '<i class="devicon-csharp-plain"></i>',
-        "csharp": '<i class="devicon-csharp-plain"></i>',
-        "java": '<i class="devicon-java-plain"></i>',
-        "typescript": '<i class="devicon-typescript-plain"></i>',
-        "javascript": '<i class="devicon-javascript-plain"></i>',
-        "go": '<i class="devicon-go-plain"></i>',
+        "python": '<i class="devicon-python-plain colored"></i>',
+        "c#": '<i class="devicon-csharp-plain colored"></i>',
+        "csharp": '<i class="devicon-csharp-plain colored"></i>',
+        "java": '<i class="devicon-java-plain colored"></i>',
+        "typescript": '<i class="devicon-typescript-plain colored"></i>',
+        "javascript": '<i class="devicon-javascript-plain colored"></i>',
+        "go": '<i class="devicon-go-original-wordmark colored"></i>',
         "rust": '<i class="devicon-rust-original"></i>',
-        "c++": '<i class="devicon-cplusplus-plain"></i>',
-        "cpp": '<i class="devicon-cplusplus-plain"></i>',
-        # Schema formats
-        "avro": '<i class="devicon-apachekafka-original" title="Avro"></i>',
-        "json schema": '<i class="devicon-json-plain"></i>',
-        "jsonschema": '<i class="devicon-json-plain"></i>',
-        "protobuf": '<i class="devicon-protobuf-plain"></i>',
-        "proto": '<i class="devicon-protobuf-plain"></i>',
-        "xsd": '<i class="devicon-xml-plain"></i>',
-        "xml": '<i class="devicon-xml-plain"></i>',
-        "graphql": '<i class="devicon-graphql-plain"></i>',
+        "c++": '<i class="devicon-cplusplus-plain colored"></i>',
+        "cpp": '<i class="devicon-cplusplus-plain colored"></i>',
+        # Schema formats (no protobuf in devicon, use grpc which is related)
+        "avro": '<i class="devicon-apachekafka-original colored" title="Avro"></i>',
+        "json schema": '<i class="devicon-json-plain colored"></i>',
+        "jsonschema": '<i class="devicon-json-plain colored"></i>',
+        "protobuf": '<i class="devicon-grpc-plain colored"></i>',
+        "proto": '<i class="devicon-grpc-plain colored"></i>',
+        "xsd": '<i class="devicon-xml-plain colored"></i>',
+        "xml": '<i class="devicon-xml-plain colored"></i>',
+        "graphql": '<i class="devicon-graphql-plain colored"></i>',
         # Databases
-        "postgresql": '<i class="devicon-postgresql-plain"></i>',
-        "postgres": '<i class="devicon-postgresql-plain"></i>',
-        "mysql": '<i class="devicon-mysql-plain"></i>',
-        "mariadb": '<i class="devicon-mariadb-plain"></i>',
-        "sqlite": '<i class="devicon-sqlite-plain"></i>',
-        "mongodb": '<i class="devicon-mongodb-plain"></i>',
-        "cassandra": '<i class="devicon-cassandra-plain"></i>',
-        "redis": '<i class="devicon-redis-plain"></i>',
-        "elasticsearch": '<i class="devicon-elasticsearch-plain"></i>',
-        "neo4j": '<i class="devicon-neo4j-plain"></i>',
-        # Cloud/Platforms
-        "azure": '<i class="devicon-azure-plain"></i>',
-        "cosmosdb": '<i class="devicon-azure-plain"></i>',
-        "dynamodb": '<i class="devicon-amazonwebservices-plain-wordmark"></i>',
-        "firebase": '<i class="devicon-firebase-plain"></i>',
-        "kusto": '<i class="devicon-azure-plain"></i>',
+        "postgresql": '<i class="devicon-postgresql-plain colored"></i>',
+        "postgres": '<i class="devicon-postgresql-plain colored"></i>',
+        "mysql": '<i class="devicon-mysql-original colored"></i>',
+        "mariadb": '<i class="devicon-mariadb-original colored"></i>',
+        "sqlite": '<i class="devicon-sqlite-plain colored"></i>',
+        "mongodb": '<i class="devicon-mongodb-plain colored"></i>',
+        "cassandra": '<i class="devicon-cassandra-plain colored"></i>',
+        "redis": '<i class="devicon-redis-plain colored"></i>',
+        "elasticsearch": '<i class="devicon-elasticsearch-plain colored"></i>',
+        "neo4j": '<i class="devicon-neo4j-plain colored"></i>',
+        "couchdb": '<i class="devicon-couchdb-plain colored"></i>',
+        "hbase": '<i class="devicon-hadoop-plain colored"></i>',
+        # Cloud/Platforms  
+        "azure": '<i class="devicon-azure-plain colored"></i>',
+        "cosmosdb": '<i class="devicon-cosmosdb-plain colored"></i>',
+        "dynamodb": '<i class="devicon-dynamodb-plain colored"></i>',
+        "firebase": '<i class="devicon-firebase-plain colored"></i>',
+        "kusto": '<i class="devicon-azure-plain colored"></i>',
         # Data formats
-        "parquet": '<i class="devicon-apachekafka-original" title="Parquet"></i>',
-        "csv": '<i class="devicon-json-plain" title="CSV"></i>',
+        "parquet": '<i class="devicon-apachespark-original colored" title="Parquet"></i>',
+        "csv": '<i class="devicon-pandas-plain colored" title="CSV"></i>',
         "markdown": '<i class="devicon-markdown-original"></i>',
-        "iceberg": '<i class="devicon-apachekafka-original" title="Iceberg"></i>',
+        "iceberg": '<i class="devicon-apachespark-original colored" title="Iceberg"></i>',
         # Fallbacks
-        "structure": '<i class="devicon-json-plain"></i>',
-        "json structure": '<i class="devicon-json-plain"></i>',
-        "datapackage": '<i class="devicon-json-plain"></i>',
-        "sql": '<i class="devicon-postgresql-plain"></i>',
-        "asn.1": '<i class="devicon-json-plain" title="ASN.1"></i>',
-        "asn1": '<i class="devicon-json-plain" title="ASN.1"></i>',
+        "structure": '<i class="devicon-json-plain colored"></i>',
+        "json structure": '<i class="devicon-json-plain colored"></i>',
+        "datapackage": '<i class="devicon-json-plain colored"></i>',
+        "sql": '<i class="devicon-azuresqldatabase-plain colored"></i>',
+        "asn.1": '<i class="devicon-linux-plain" title="ASN.1"></i>',
+        "asn1": '<i class="devicon-linux-plain" title="ASN.1"></i>',
     }
     
     def get_icon(format_name: str) -> str:
         """Get icon HTML for a format."""
         key = format_name.lower().strip()
         # Check for SQL variants
-        if "sql" in key and "server" in key:
-            return '<i class="devicon-microsoftsqlserver-plain"></i>'
+        if "sql" in key:
+            if "server" in key or "sqlserver" in key:
+                return '<i class="devicon-microsoftsqlserver-plain colored"></i>'
+            if "oracle" in key:
+                return '<i class="devicon-oracle-original colored"></i>'
+            if "mysql" in key:
+                return '<i class="devicon-mysql-original colored"></i>'
+            if "mariadb" in key:
+                return '<i class="devicon-mariadb-original colored"></i>'
+            if "postgres" in key:
+                return '<i class="devicon-postgresql-plain colored"></i>'
+            if "sqlite" in key:
+                return '<i class="devicon-sqlite-plain colored"></i>'
+            # Generic SQL
+            return '<i class="devicon-azuresqldatabase-plain colored"></i>'
         if "oracle" in key:
-            return '<i class="devicon-oracle-original"></i>'
+            return '<i class="devicon-oracle-original colored"></i>'
         return FORMAT_ICONS.get(key, '')
     
     # Categorize items
