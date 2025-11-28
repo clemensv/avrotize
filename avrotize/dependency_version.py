@@ -27,7 +27,7 @@ def get_dependency(language: str, runtime_version: str, dependency_name: str) ->
     Get the dependency declaration for a specific language and dependency.
     
     Args:
-        language: Language identifier ('cs', 'java', 'py', 'ts', 'go', 'rust', 'cpp')
+        language: Language identifier ('cs', 'java', 'py/python', 'ts/typescript', 'go', 'rust', 'cpp')
         runtime_version: Runtime version identifier (e.g., 'net90', 'jdk21', 'py312')
         dependency_name: The dependency identifier. For Java, can use 'groupId:artifactId' 
                         syntax to disambiguate (e.g., 'org.junit.jupiter:junit-jupiter')
@@ -41,19 +41,28 @@ def get_dependency(language: str, runtime_version: str, dependency_name: str) ->
     # Determine the path to the central dependency file
     deps_dir = os.path.join(os.path.dirname(__file__), 'dependencies')
     
-    if language == 'cs':
+    # Normalize language aliases
+    lang = language.lower()
+    if lang in ('python', 'py'):
+        lang = 'py'
+    elif lang in ('typescript', 'ts'):
+        lang = 'ts'
+    elif lang in ('csharp', 'c#'):
+        lang = 'cs'
+    
+    if lang == 'cs':
         master_project_path = os.path.join(deps_dir, f'cs/{runtime_version}/dependencies.csproj')
-    elif language == 'java':
+    elif lang == 'java':
         master_project_path = os.path.join(deps_dir, f'java/{runtime_version}/pom.xml')
-    elif language == 'py':
+    elif lang == 'py':
         master_project_path = os.path.join(deps_dir, f'python/{runtime_version}/requirements.txt')
-    elif language == 'ts':
+    elif lang == 'ts':
         master_project_path = os.path.join(deps_dir, f'typescript/{runtime_version}/package.json')
-    elif language == 'go':
+    elif lang == 'go':
         master_project_path = os.path.join(deps_dir, f'go/{runtime_version}/go.mod')
-    elif language == 'rust':
+    elif lang == 'rust':
         master_project_path = os.path.join(deps_dir, f'rust/{runtime_version}/Cargo.toml')
-    elif language == 'cpp':
+    elif lang == 'cpp':
         master_project_path = os.path.join(deps_dir, f'cpp/{runtime_version}/vcpkg.json')
     else:
         raise ValueError(f"Unsupported language: {language}")
@@ -61,19 +70,19 @@ def get_dependency(language: str, runtime_version: str, dependency_name: str) ->
     if not os.path.exists(master_project_path):
         raise ValueError(f"Dependency file not found: {master_project_path}")
     
-    if language == 'cs':
+    if lang == 'cs':
         return _get_nuget_dependency(master_project_path, dependency_name)
-    elif language == 'java':
+    elif lang == 'java':
         return _get_maven_dependency(master_project_path, dependency_name)
-    elif language == 'py':
+    elif lang == 'py':
         return _get_python_dependency(master_project_path, dependency_name)
-    elif language == 'ts':
+    elif lang == 'ts':
         return _get_npm_dependency(master_project_path, dependency_name)
-    elif language == 'go':
+    elif lang == 'go':
         return _get_go_dependency(master_project_path, dependency_name)
-    elif language == 'rust':
+    elif lang == 'rust':
         return _get_cargo_dependency(master_project_path, dependency_name)
-    elif language == 'cpp':
+    elif lang == 'cpp':
         return _get_vcpkg_dependency(master_project_path, dependency_name)
     
     raise ValueError(f"Unsupported language: {language}")
@@ -84,7 +93,7 @@ def get_dependency_version(language: str, runtime_version: str, dependency_name:
     Get just the version string for a dependency.
     
     Args:
-        language: Language identifier
+        language: Language identifier (cs, java, py/python, ts/typescript, go, rust, cpp)
         runtime_version: Runtime version identifier
         dependency_name: The dependency identifier
         
@@ -93,25 +102,34 @@ def get_dependency_version(language: str, runtime_version: str, dependency_name:
     """
     deps_dir = os.path.join(os.path.dirname(__file__), 'dependencies')
     
-    if language == 'cs':
+    # Normalize language aliases
+    lang = language.lower()
+    if lang in ('python', 'py'):
+        lang = 'py'
+    elif lang in ('typescript', 'ts'):
+        lang = 'ts'
+    elif lang in ('csharp', 'c#'):
+        lang = 'cs'
+    
+    if lang == 'cs':
         master_project_path = os.path.join(deps_dir, f'cs/{runtime_version}/dependencies.csproj')
         return _get_nuget_version(master_project_path, dependency_name)
-    elif language == 'java':
+    elif lang == 'java':
         master_project_path = os.path.join(deps_dir, f'java/{runtime_version}/pom.xml')
         return _get_maven_version(master_project_path, dependency_name)
-    elif language == 'py':
+    elif lang == 'py':
         master_project_path = os.path.join(deps_dir, f'python/{runtime_version}/requirements.txt')
         return _get_python_version(master_project_path, dependency_name)
-    elif language == 'ts':
+    elif lang == 'ts':
         master_project_path = os.path.join(deps_dir, f'typescript/{runtime_version}/package.json')
         return _get_npm_version(master_project_path, dependency_name)
-    elif language == 'go':
+    elif lang == 'go':
         master_project_path = os.path.join(deps_dir, f'go/{runtime_version}/go.mod')
         return _get_go_version(master_project_path, dependency_name)
-    elif language == 'rust':
+    elif lang == 'rust':
         master_project_path = os.path.join(deps_dir, f'rust/{runtime_version}/Cargo.toml')
         return _get_cargo_version(master_project_path, dependency_name)
-    elif language == 'cpp':
+    elif lang == 'cpp':
         master_project_path = os.path.join(deps_dir, f'cpp/{runtime_version}/vcpkg.json')
         return _get_vcpkg_version(master_project_path, dependency_name)
     
