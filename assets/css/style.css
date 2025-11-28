@@ -980,6 +980,135 @@ code[class*="language-"] {
 }
 
 /* =====================================================
+   Binary File Notice
+   ===================================================== */
+
+.binary-file-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2xl);
+  text-align: center;
+  height: 100%;
+  min-height: 200px;
+}
+
+.binary-file-notice .binary-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.6;
+}
+
+.binary-file-notice .binary-text {
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-lg);
+  font-size: 0.95rem;
+}
+
+.binary-file-notice .download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--color-accent);
+  color: var(--color-bg);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.binary-file-notice .download-btn:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+}
+
+/* =====================================================
+   Markdown Rendered Content
+   ===================================================== */
+
+.markdown-rendered {
+  padding: var(--spacing-lg);
+  color: var(--color-text);
+  line-height: 1.7;
+  overflow-y: auto;
+}
+
+.markdown-rendered h1 {
+  font-size: 1.75rem;
+  margin: var(--spacing-lg) 0 var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.markdown-rendered h2 {
+  font-size: 1.4rem;
+  margin: var(--spacing-lg) 0 var(--spacing-sm);
+}
+
+.markdown-rendered h3 {
+  font-size: 1.15rem;
+  margin: var(--spacing-md) 0 var(--spacing-sm);
+}
+
+.markdown-rendered p {
+  margin: var(--spacing-sm) 0;
+}
+
+.markdown-rendered code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--color-bg-lighter);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.markdown-rendered pre {
+  background: var(--color-bg);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  margin: var(--spacing-md) 0;
+}
+
+.markdown-rendered pre code {
+  background: none;
+  padding: 0;
+}
+
+.markdown-rendered ul {
+  margin: var(--spacing-sm) 0;
+  padding-left: var(--spacing-lg);
+}
+
+.markdown-rendered li {
+  margin: var(--spacing-xs) 0;
+}
+
+.markdown-rendered a {
+  color: var(--color-accent);
+}
+
+.markdown-rendered .md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--spacing-md) 0;
+  font-size: 0.9rem;
+}
+
+.markdown-rendered .md-table td,
+.markdown-rendered .md-table th {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.markdown-rendered .md-table tr:nth-child(odd) {
+  background: var(--color-bg-lighter);
+}
+
+/* =====================================================
    Utility Classes
    ===================================================== */
 

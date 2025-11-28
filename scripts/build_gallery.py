@@ -711,6 +711,20 @@ def escape_html(text: str) -> str:
             .replace("'", "&#39;"))
 
 
+# Binary file extensions (cannot be displayed as text)
+BINARY_EXTENSIONS = {".parquet", ".iceberg"}
+
+
+def get_file_type(ext: str) -> str:
+    """Get file type for display handling: binary, markdown, or text."""
+    ext_lower = ext.lower()
+    if ext_lower in BINARY_EXTENSIONS:
+        return "binary"
+    if ext_lower == ".md":
+        return "markdown"
+    return "text"
+
+
 def render_file_tree_html(tree: list[dict], base_url: str, indent: int = 0) -> str:
     """Render file tree as HTML."""
     html_parts = []
@@ -731,8 +745,9 @@ def render_file_tree_html(tree: list[dict], base_url: str, indent: int = 0) -> s
             ext = Path(item["name"]).suffix
             icon = get_file_icon(ext)
             file_url = f"{base_url}/{item['path']}"
+            file_type = get_file_type(ext)
             html_parts.append(f'''
-<div class="tree-item file" data-path="{file_url}" data-lang="{get_language_for_extension(ext)}" style="padding-left: {indent * 16}px;">
+<div class="tree-item file" data-path="{file_url}" data-lang="{get_language_for_extension(ext)}" data-filetype="{file_type}" style="padding-left: {indent * 16}px;">
   <span class="tree-icon">{icon}</span>
   <span class="tree-name">{escape_html(item["name"])}</span>
 </div>''')
@@ -849,6 +864,10 @@ def generate_gallery_page(item: dict, output_dir: Path, files_base_url: str) -> 
     file_tree = build_file_tree(output_dir, output_dir)
     file_tree_html = render_file_tree_html(file_tree, files_base_url)
     
+    # Determine if source is binary
+    source_is_binary = source_language == "binary"
+    source_file_url = f"{files_base_url}/{item['source_file']}" if source_is_binary else ""
+    
     # Generate the page
     page_content = f'''---
 layout: gallery-viewer
@@ -865,14 +884,30 @@ permalink: /gallery/{item['id']}/
 // Store source content for this gallery item
 window.gallerySourceContent = {json.dumps(escape_html(source_content))};
 window.galleryFilesBaseUrl = "{files_base_url}";
+window.gallerySourceIsBinary = {"true" if source_is_binary else "false"};
+window.gallerySourceFileUrl = "{source_file_url}";
+window.gallerySourceFileName = "{item['source_file']}";
 
 document.addEventListener('DOMContentLoaded', function() {{
   // Set source content
   const sourcePanel = document.querySelector('.source-panel .panel-content');
   if (sourcePanel) {{
-    sourcePanel.innerHTML = '<pre class="line-numbers"><code class="language-{item["source_language"]}">' + window.gallerySourceContent + '</code></pre>';
-    if (window.Prism) {{
-      Prism.highlightAllUnder(sourcePanel);
+    if (window.gallerySourceIsBinary) {{
+      // Show download button for binary files
+      sourcePanel.innerHTML = `
+        <div class="binary-file-notice">
+          <div class="binary-icon">📦</div>
+          <div class="binary-text">Binary file cannot be displayed</div>
+          <a href="${{window.gallerySourceFileUrl}}" download="${{window.gallerySourceFileName}}" class="btn btn-primary download-btn">
+            ⬇ Download ${{window.gallerySourceFileName}}
+          </a>
+        </div>
+      `;
+    }} else {{
+      sourcePanel.innerHTML = '<pre class="line-numbers"><code class="language-{item["source_language"]}">' + window.gallerySourceContent + '</code></pre>';
+      if (window.Prism) {{
+        Prism.highlightAllUnder(sourcePanel);
+      }}
     }}
   }}
   
@@ -881,6 +916,8 @@ document.addEventListener('DOMContentLoaded', function() {{
     el.addEventListener('click', async function() {{
       const path = this.dataset.path;
       const lang = this.dataset.lang;
+      const fileType = this.dataset.filetype || 'text';
+      const fileName = path.split('/').pop();
       
       // Update active state
       document.querySelectorAll('.tree-item.active').forEach(function(item) {{
@@ -889,7 +926,23 @@ document.addEventListener('DOMContentLoaded', function() {{
       this.classList.add('active');
       
       // Update header
-      document.getElementById('outputFileName').textContent = '📄 ' + path.split('/').pop();
+      document.getElementById('outputFileName').textContent = '📄 ' + fileName;
+      
+      const outputContent = document.getElementById('outputContent');
+      
+      // Handle binary files
+      if (fileType === 'binary') {{
+        outputContent.innerHTML = `
+          <div class="binary-file-notice">
+            <div class="binary-icon">📦</div>
+            <div class="binary-text">Binary file cannot be displayed</div>
+            <a href="${{path}}" download="${{fileName}}" class="btn btn-primary download-btn">
+              ⬇ Download ${{fileName}}
+            </a>
+          </div>
+        `;
+        return;
+      }}
       
       // Load file content
       try {{
@@ -897,14 +950,17 @@ document.addEventListener('DOMContentLoaded', function() {{
         if (!response.ok) throw new Error('Failed to load file');
         const content = await response.text();
         
-        const outputContent = document.getElementById('outputContent');
-        outputContent.innerHTML = '<pre class="line-numbers"><code class="language-' + lang + '">' + escapeHtml(content) + '</code></pre>';
-        
-        if (window.Prism) {{
-          Prism.highlightAllUnder(outputContent);
+        // Handle markdown files
+        if (fileType === 'markdown') {{
+          outputContent.innerHTML = '<div class="markdown-rendered">' + renderMarkdown(content) + '</div>';
+        }} else {{
+          outputContent.innerHTML = '<pre class="line-numbers"><code class="language-' + lang + '">' + escapeHtml(content) + '</code></pre>';
+          if (window.Prism) {{
+            Prism.highlightAllUnder(outputContent);
+          }}
         }}
       }} catch (error) {{
-        document.getElementById('outputContent').innerHTML = '<div style="padding: 20px; color: var(--color-text-muted);">Failed to load file</div>';
+        outputContent.innerHTML = '<div style="padding: 20px; color: var(--color-text-muted);">Failed to load file</div>';
       }}
     }});
   }});
@@ -920,6 +976,49 @@ function escapeHtml(text) {{
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}}
+
+function renderMarkdown(text) {{
+  // Simple markdown renderer for common elements
+  let html = escapeHtml(text);
+  
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  
+  // Bold and italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  
+  // Code blocks
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  
+  // Lists
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+  
+  // Tables (basic support)
+  html = html.replace(/^\|(.+)\|$/gm, function(match, content) {{
+    const cells = content.split('|').map(c => c.trim());
+    const isHeader = cells.every(c => /^[-:]+$/.test(c));
+    if (isHeader) return '';
+    const cellTag = 'td';
+    return '<tr>' + cells.map(c => `<${{cellTag}}>${{c}}</${{cellTag}}>`).join('') + '</tr>';
+  }});
+  html = html.replace(/(<tr>.*<\/tr>)/s, '<table class="md-table">$1</table>');
+  
+  // Paragraphs (lines not already wrapped)
+  html = html.replace(/^(?!<[hupolta])(.+)$/gm, '<p>$1</p>');
+  
+  // Clean up empty paragraphs
+  html = html.replace(/<p><\/p>/g, '');
+  
+  return html;
 }}
 </script>
 '''
