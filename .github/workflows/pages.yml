@@ -64,14 +64,14 @@ jobs:
             cp -r source/gallery/* site/gallery/ 2>/dev/null || true
           fi
           
-          # Copy output data files for the gallery
-          mkdir -p site/_data/gallery
+          # Copy output data files for the gallery (use 'files' not '_data' so Jekyll serves them)
+          mkdir -p site/gallery/files
           if [ -d "source/tmp/gallery" ]; then
             for dir in source/tmp/gallery/*/; do
               if [ -d "$dir" ]; then
                 dirname=$(basename "$dir")
-                mkdir -p "site/_data/gallery/$dirname"
-                cp -r "$dir"* "site/_data/gallery/$dirname/" 2>/dev/null || true
+                mkdir -p "site/gallery/files/$dirname"
+                cp -r "$dir"* "site/gallery/files/$dirname/" 2>/dev/null || true
               fi
             done
           fi
