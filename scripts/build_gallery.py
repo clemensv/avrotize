@@ -832,12 +832,23 @@ def generate_gallery_page(item: dict, output_dir: Path, files_base_url: str) -> 
     page_dir = GALLERY_DIR / item["id"]
     page_dir.mkdir(parents=True, exist_ok=True)
     
-    # Read source content
+    # Read source content (skip binary files)
     source_path = item.get("source_path")
-    if source_path and source_path.exists():
-        source_content = source_path.read_text(encoding="utf-8")
+    source_language = item.get("source_language", "")
+    
+    if source_language == "binary":
+        # Binary files cannot be displayed as text
+        source_content = f"# Binary file: {item['source_file']}\n# Cannot display binary content"
+    elif source_path and source_path.exists():
+        try:
+            source_content = source_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            source_content = f"# Binary file: {item['source_file']}\n# Cannot display binary content"
     elif (output_dir / item["source_file"]).exists():
-        source_content = (output_dir / item["source_file"]).read_text(encoding="utf-8")
+        try:
+            source_content = (output_dir / item["source_file"]).read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            source_content = f"# Binary file: {item['source_file']}\n# Cannot display binary content"
     else:
         source_content = "# Source file not found"
     

@@ -51,6 +51,13 @@ jobs:
         run: |
           cp site/scripts/build_gallery.py source/scripts/build_gallery.py
 
+      - name: Copy gallery sources to source
+        run: |
+          mkdir -p source/gallery
+          if [ -d "site/gallery/sources" ]; then
+            cp -r site/gallery/sources source/gallery/sources
+          fi
+
       - name: Build gallery content
         run: |
           cd source
