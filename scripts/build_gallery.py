@@ -107,15 +107,8 @@ GALLERY_ITEMS = [
         "source_language": "csv",
         "conversions": [{"cmd": "csv2a", "args": ["--out", "{out}/addresses.avsc"]}]
     },
-    {
-        "id": "kusto-to-avro",
-        "title": "Kusto -> Avro",
-        "description": "Azure Data Explorer table schema to Avro Schema",
-        "source_file": "telemetry.kql",
-        "source_path": GALLERY_SOURCES / "telemetry.kql",
-        "source_language": "kql",
-        "conversions": [{"cmd": "k2a", "args": ["--out", "{out}/telemetry_kusto.avsc"]}]
-    },
+    # NOTE: kusto-to-avro (k2a) requires a live Kusto cluster connection, 
+    # so it cannot be demonstrated in the static gallery.
     
     # ============================================================
     # AVRO -> SCHEMA FORMATS

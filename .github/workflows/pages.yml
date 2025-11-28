@@ -84,9 +84,14 @@ jobs:
             for dir in source/tmp/gallery/*/; do
               if [ -d "$dir" ]; then
                 dirname=$(basename "$dir")
-                echo "Copying files for: $dirname"
-                mkdir -p "site/gallery/files/$dirname"
-                cp -r "$dir"/* "site/gallery/files/$dirname/"
+                # Check if directory has files before copying
+                if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
+                  echo "Copying files for: $dirname"
+                  mkdir -p "site/gallery/files/$dirname"
+                  cp -r "$dir"/* "site/gallery/files/$dirname/"
+                else
+                  echo "Skipping empty directory: $dirname"
+                fi
               fi
             done
           fi
