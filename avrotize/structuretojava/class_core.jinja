@@ -1,0 +1,23 @@
+/** {{ docstring }} */
+{%- if is_abstract %}
+/** This is an abstract type and cannot be instantiated directly. */
+{%- endif %}
+{%- if deprecated %}
+@Deprecated
+{%- endif %}
+public {{ 'abstract ' if is_abstract else '' }}class {{ class_name }}{% if base_class %} extends {{ base_class }}{% endif %} {
+    {% if is_abstract %}protected{% else %}public{% endif %} {{ class_name }}() {}
+{%- for field in fields %}
+    
+    /** {{ field.docstring }} */
+{%- if jackson_annotation and field.original_name != field.name %}
+    @JsonProperty("{{ field.original_name }}")
+{%- endif %}
+{%- if field.is_const %}
+    public static final {{ field.type }} {{ field.name }} = {{ field.const_value }};
+{%- else %}
+    private {{ field.type }} {{ field.name }};
+    public {{ field.type }} get{{ field.name|pascal }}() { return {{ field.name }}; }
+    public void set{{ field.name|pascal }}({{ field.type }} {{ field.name }}) { this.{{ field.name }} = {{ field.name }}; }
+{%- endif %}
+{%- endfor %}

@@ -79,10 +79,11 @@ Generate code from JSON Structure:
 
 - [`avrotize s2cpp`](#convert-json-structure-to-c-classes) - Generate C++ code from JSON Structure schema.
 - [`avrotize s2cs`](#convert-json-structure-to-c-classes) - Generate C# code from JSON Structure schema.
+- [`avrotize s2go`](#convert-json-structure-to-go-classes) - Generate Go code from JSON Structure schema.
+- [`avrotize s2java`](#convert-json-structure-to-java-classes) - Generate Java code from JSON Structure schema.
 - [`avrotize s2py`](#convert-json-structure-to-python-classes) - Generate Python code from JSON Structure schema.
 - [`avrotize s2rust`](#convert-json-structure-to-rust-classes) - Generate Rust code from JSON Structure schema.
 - [`avrotize s2ts`](#convert-json-structure-to-typescript-classes) - Generate TypeScript code from JSON Structure schema.
-- [`avrotize s2go`](#convert-json-structure-to-go-classes) - Generate Go code from JSON Structure schema.
 
 Direct JSON Structure conversions:
 
@@ -993,6 +994,30 @@ Conversion notes:
 - Choice types are generated as interface{} types for flexibility.
 - The tool generates a complete Go module with go.mod file, struct definitions, helper functions, and unit tests.
 - Generated code includes methods for JSON serialization/deserialization when annotations are enabled.
+
+### Convert JSON Structure to Java classes
+
+```bash
+avrotize s2java <path_to_structure_schema_file> [--out <path_to_java_dir>] [--package <java_package>] [--jackson-annotation] [--pascal-properties]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the Java classes to. Required.
+- `--package`: (optional) The Java package name for the generated classes.
+- `--jackson-annotation`: (optional) Use Jackson annotations for JSON serialization (default: true).
+- `--pascal-properties`: (optional) Use PascalCase for property names.
+
+Conversion notes:
+
+- The tool generates Java classes from JSON Structure schemas. Each object type is converted to a Java class with getter/setter methods.
+- JSON Structure primitive types are mapped to Java types. Extended types like `date`, `time`, `datetime` are mapped to `LocalDate`, `LocalTime`, `Instant`.
+- Integer types (int8-int64, uint8-uint64) are mapped to corresponding Java types. `uint64` uses `BigInteger` for full range support.
+- Choice types (discriminated unions) use Jackson polymorphism with `@JsonTypeInfo` and `@JsonSubTypes` annotations.
+- Tuple types serialize as JSON arrays using `@JsonFormat(shape = Shape.ARRAY)`.
+- The tool generates a complete Maven project with pom.xml including Jackson dependencies.
+- Generated classes include `equals()` and `hashCode()` implementations.
 
 ### Convert Avrotize Schema to Datapackage schema
 
