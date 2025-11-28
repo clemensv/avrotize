@@ -497,12 +497,18 @@ body_class: gallery-page
     const outputCollapsed = isCollapsed('output');
     
     // Update resize handle states (disabled instead of hidden)
+    // When center panel is collapsed, keep one handle active for source↔output resizing
     if (handles.sourceTree) {
-      const disabled = sourceCollapsed || treeCollapsed;
+      // Disable if source is collapsed, OR if tree is collapsed AND output is also collapsed
+      // Keep active when only tree is collapsed (to resize source↔output)
+      const disabled = sourceCollapsed || (treeCollapsed && outputCollapsed);
       handles.sourceTree.classList.toggle('disabled', disabled);
+      // Mark as spanning source-output when tree is collapsed
+      handles.sourceTree.classList.toggle('spans-collapsed', treeCollapsed && !sourceCollapsed && !outputCollapsed);
     }
     if (handles.treeOutput) {
-      const disabled = treeCollapsed || outputCollapsed;
+      // Disable if output is collapsed, OR if tree is collapsed (source-tree handle takes over)
+      const disabled = outputCollapsed || treeCollapsed;
       handles.treeOutput.classList.toggle('disabled', disabled);
     }
     
@@ -579,10 +585,16 @@ body_class: gallery-page
       startX = e.clientX;
       
       const resizeType = handle.dataset.resize;
+      const treeCollapsed = isCollapsed('tree');
       
       if (resizeType === 'source-tree') {
         startWidths.source = panels.source.offsetWidth;
-        startWidths.tree = panels.tree.offsetWidth;
+        if (treeCollapsed) {
+          // When tree is collapsed, this handle resizes source↔output
+          startWidths.output = panels.output.offsetWidth;
+        } else {
+          startWidths.tree = panels.tree.offsetWidth;
+        }
       } else if (resizeType === 'tree-output') {
         startWidths.tree = panels.tree.offsetWidth;
         startWidths.output = panels.output.offsetWidth;
@@ -600,13 +612,24 @@ body_class: gallery-page
     
     const deltaX = e.clientX - startX;
     const resizeType = currentHandle.dataset.resize;
+    const treeCollapsed = isCollapsed('tree');
     
     if (resizeType === 'source-tree') {
-      const newSourceWidth = Math.max(200, startWidths.source + deltaX);
-      const newTreeWidth = Math.max(180, Math.min(500, startWidths.tree - deltaX));
-      
-      panels.source.style.flex = `0 0 ${newSourceWidth}px`;
-      panels.tree.style.flex = `0 0 ${newTreeWidth}px`;
+      if (treeCollapsed) {
+        // Tree is collapsed - resize source↔output directly
+        const newSourceWidth = Math.max(200, startWidths.source + deltaX);
+        const newOutputWidth = Math.max(200, startWidths.output - deltaX);
+        
+        panels.source.style.flex = `0 0 ${newSourceWidth}px`;
+        panels.output.style.flex = `0 0 ${newOutputWidth}px`;
+      } else {
+        // Normal source↔tree resize
+        const newSourceWidth = Math.max(200, startWidths.source + deltaX);
+        const newTreeWidth = Math.max(180, Math.min(500, startWidths.tree - deltaX));
+        
+        panels.source.style.flex = `0 0 ${newSourceWidth}px`;
+        panels.tree.style.flex = `0 0 ${newTreeWidth}px`;
+      }
     } else if (resizeType === 'tree-output') {
       const newTreeWidth = Math.max(180, Math.min(500, startWidths.tree + deltaX));
       const newOutputWidth = Math.max(200, startWidths.output - deltaX);
