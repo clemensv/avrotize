@@ -280,6 +280,19 @@ body_class: gallery-page
   background: var(--color-primary);
 }
 
+.resize-handle.disabled {
+  cursor: default;
+  background: var(--color-bg-light);
+}
+
+.resize-handle.disabled:hover {
+  background: var(--color-bg-light);
+}
+
+.resize-handle.disabled .resize-grip {
+  opacity: 0.2;
+}
+
 .resize-grip {
   width: 2px;
   height: 40px;
@@ -294,9 +307,9 @@ body_class: gallery-page
   opacity: 0.8;
 }
 
-/* Hide resize handles when adjacent panel is collapsed */
-.resize-handle.hidden {
-  display: none;
+.resize-handle.disabled:hover .resize-grip {
+  background: var(--color-text-dim);
+  opacity: 0.2;
 }
 
 /* Code display */
@@ -445,18 +458,26 @@ body_class: gallery-page
     tree: document.getElementById('treePanel'),
     output: document.getElementById('outputPanel')
   };
+  const handles = {
+    sourceTree: document.querySelector('[data-resize="source-tree"]'),
+    treeOutput: document.querySelector('[data-resize="tree-output"]')
+  };
   
   function getCollapsedCount() {
     return Object.values(panels).filter(p => p.classList.contains('collapsed')).length;
+  }
+  
+  function isCollapsed(panelId) {
+    return panels[panelId] && panels[panelId].classList.contains('collapsed');
   }
   
   function togglePanel(panelId) {
     const panel = panels[panelId];
     if (!panel) return;
     
-    const isCollapsed = panel.classList.contains('collapsed');
+    const wasCollapsed = panel.classList.contains('collapsed');
     
-    if (isCollapsed) {
+    if (wasCollapsed) {
       // Expanding - always allowed
       panel.classList.remove('collapsed');
     } else {
@@ -466,24 +487,64 @@ body_class: gallery-page
       }
     }
     
-    updateResizeHandles();
+    updateLayout();
     saveState();
   }
   
-  function updateResizeHandles() {
-    const handle1 = document.querySelector('[data-resize="source-tree"]');
-    const handle2 = document.querySelector('[data-resize="tree-output"]');
+  function updateLayout() {
+    const sourceCollapsed = isCollapsed('source');
+    const treeCollapsed = isCollapsed('tree');
+    const outputCollapsed = isCollapsed('output');
     
-    // Hide handle if either adjacent panel is collapsed
-    if (handle1) {
-      handle1.classList.toggle('hidden', 
-        panels.source.classList.contains('collapsed') || 
-        panels.tree.classList.contains('collapsed'));
+    // Update resize handle states (disabled instead of hidden)
+    if (handles.sourceTree) {
+      const disabled = sourceCollapsed || treeCollapsed;
+      handles.sourceTree.classList.toggle('disabled', disabled);
     }
-    if (handle2) {
-      handle2.classList.toggle('hidden', 
-        panels.tree.classList.contains('collapsed') || 
-        panels.output.classList.contains('collapsed'));
+    if (handles.treeOutput) {
+      const disabled = treeCollapsed || outputCollapsed;
+      handles.treeOutput.classList.toggle('disabled', disabled);
+    }
+    
+    // Reset flex values for uncollapsed panels to fill space
+    // Only reset if we don't have stored widths
+    if (!panels.source.style.flex || sourceCollapsed) {
+      panels.source.style.flex = sourceCollapsed ? '' : '1 1 auto';
+    }
+    if (!panels.tree.style.flex || treeCollapsed) {
+      panels.tree.style.flex = treeCollapsed ? '' : '0 0 280px';
+    }
+    if (!panels.output.style.flex || outputCollapsed) {
+      panels.output.style.flex = outputCollapsed ? '' : '1 1 auto';
+    }
+    
+    // When panels are collapsed, ensure remaining panels expand
+    // If source is collapsed, give more space to tree and output
+    // If tree is collapsed, source and output share the space evenly
+    // If output is collapsed, give more space to source and tree
+    
+    if (sourceCollapsed && !treeCollapsed && !outputCollapsed) {
+      // Source collapsed: tree stays fixed, output expands
+      panels.tree.style.flex = '0 0 280px';
+      panels.output.style.flex = '1 1 auto';
+    } else if (treeCollapsed && !sourceCollapsed && !outputCollapsed) {
+      // Tree collapsed: source and output share space
+      panels.source.style.flex = '1 1 50%';
+      panels.output.style.flex = '1 1 50%';
+    } else if (outputCollapsed && !sourceCollapsed && !treeCollapsed) {
+      // Output collapsed: source expands, tree stays fixed
+      panels.source.style.flex = '1 1 auto';
+      panels.tree.style.flex = '0 0 280px';
+    } else if (sourceCollapsed && treeCollapsed) {
+      // Both source and tree collapsed: output takes all
+      panels.output.style.flex = '1 1 auto';
+    } else if (sourceCollapsed && outputCollapsed) {
+      // Both source and output collapsed: tree takes all
+      panels.tree.style.flex = '1 1 auto';
+      panels.tree.style.maxWidth = 'none';
+    } else if (treeCollapsed && outputCollapsed) {
+      // Both tree and output collapsed: source takes all
+      panels.source.style.flex = '1 1 auto';
     }
   }
   
@@ -510,7 +571,8 @@ body_class: gallery-page
   
   document.querySelectorAll('.resize-handle').forEach(handle => {
     handle.addEventListener('mousedown', (e) => {
-      if (handle.classList.contains('hidden')) return;
+      // Don't allow resize if handle is disabled
+      if (handle.classList.contains('disabled')) return;
       
       isResizing = true;
       currentHandle = handle;
@@ -570,9 +632,9 @@ body_class: gallery-page
   function saveState() {
     const state = {
       collapsed: {
-        source: panels.source.classList.contains('collapsed'),
-        tree: panels.tree.classList.contains('collapsed'),
-        output: panels.output.classList.contains('collapsed')
+        source: isCollapsed('source'),
+        tree: isCollapsed('tree'),
+        output: isCollapsed('output')
       },
       widths: {
         source: panels.source.style.flex,
@@ -591,27 +653,21 @@ body_class: gallery-page
       if (state) {
         // Restore collapsed state (max 2)
         let collapsedCount = 0;
-        Object.entries(state.collapsed || {}).forEach(([id, isCollapsed]) => {
-          if (isCollapsed && collapsedCount < 2 && panels[id]) {
+        Object.entries(state.collapsed || {}).forEach(([id, collapsed]) => {
+          if (collapsed && collapsedCount < 2 && panels[id]) {
             panels[id].classList.add('collapsed');
             collapsedCount++;
           }
         });
         
-        // Restore widths
-        Object.entries(state.widths || {}).forEach(([id, flex]) => {
-          if (flex && panels[id]) {
-            panels[id].style.flex = flex;
-          }
-        });
-        
-        updateResizeHandles();
+        // Don't restore widths - let updateLayout handle it based on collapsed state
+        updateLayout();
       }
     } catch (e) {}
   }
   
   // Initialize
   loadState();
-  updateResizeHandles();
+  updateLayout();
 })();
 </script>
