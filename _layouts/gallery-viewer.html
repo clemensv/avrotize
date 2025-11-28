@@ -82,6 +82,18 @@ body_class: gallery-page
   </div>
 </div>
 
+<!-- Gallery page data from front matter -->
+<script>
+window.galleryPageData = {
+  sourceContentB64: "{{ page.source_content_b64 }}",
+  sourceLanguage: "{{ page.source_language }}",
+  sourceIsBinary: {{ page.source_is_binary | default: false }},
+  sourceFileUrl: "{{ page.source_file_url }}",
+  sourceFileName: "{{ page.source_file }}",
+  filesBaseUrl: "{{ page.files_base_url }}"
+};
+</script>
+
 <style>
 .gallery-viewer-page {
   display: flex;
@@ -692,5 +704,143 @@ body_class: gallery-page
   // Initialize
   loadState();
   updateLayout();
+})();
+</script>
+
+<!-- Gallery content loading script -->
+<script>
+(function() {
+  const data = window.galleryPageData;
+  if (!data) return;
+  
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  
+  function renderMarkdown(text) {
+    let html = escapeHtml(text);
+    
+    // Headers
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+    
+    // Bold and italic
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    
+    // Code blocks
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    
+    // Lists
+    html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    
+    // Tables
+    html = html.replace(/^\|(.+)\|$/gm, function(match, content) {
+      const cells = content.split('|').map(c => c.trim());
+      const isHeader = cells.every(c => /^[-:]+$/.test(c));
+      if (isHeader) return '';
+      return '<tr>' + cells.map(c => '<td>' + c + '</td>').join('') + '</tr>';
+    });
+    html = html.replace(/(<tr>.*<\/tr>)/s, '<table class="md-table">$1</table>');
+    
+    // Paragraphs
+    html = html.replace(/^(?!<[hupolta])(.+)$/gm, '<p>$1</p>');
+    html = html.replace(/<p><\/p>/g, '');
+    
+    return html;
+  }
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    // Set source content
+    const sourcePanel = document.querySelector('.source-panel .panel-content');
+    if (sourcePanel) {
+      if (data.sourceIsBinary) {
+        sourcePanel.innerHTML = 
+          '<div class="binary-file-notice">' +
+            '<div class="binary-icon">📦</div>' +
+            '<div class="binary-text">Binary file cannot be displayed</div>' +
+            '<a href="' + data.sourceFileUrl + '" download="' + data.sourceFileName + '" class="btn btn-primary download-btn">' +
+              '⬇ Download ' + data.sourceFileName +
+            '</a>' +
+          '</div>';
+      } else if (data.sourceContentB64) {
+        try {
+          const sourceContent = atob(data.sourceContentB64);
+          sourcePanel.innerHTML = '<pre class="line-numbers"><code class="language-' + data.sourceLanguage + '">' + escapeHtml(sourceContent) + '</code></pre>';
+          if (window.Prism) {
+            Prism.highlightAllUnder(sourcePanel);
+          }
+        } catch (e) {
+          sourcePanel.innerHTML = '<div class="loading-placeholder">Failed to load source</div>';
+        }
+      }
+    }
+    
+    // Handle file tree clicks
+    document.querySelectorAll('.tree-item.file').forEach(function(el) {
+      el.addEventListener('click', async function() {
+        const path = this.dataset.path;
+        const lang = this.dataset.lang;
+        const fileType = this.dataset.filetype || 'text';
+        const fileName = path.split('/').pop();
+        
+        // Update active state
+        document.querySelectorAll('.tree-item.active').forEach(function(item) {
+          item.classList.remove('active');
+        });
+        this.classList.add('active');
+        
+        // Update header
+        document.getElementById('outputFileName').textContent = '📄 ' + fileName;
+        
+        const outputContent = document.getElementById('outputContent');
+        
+        // Handle binary files
+        if (fileType === 'binary') {
+          outputContent.innerHTML = 
+            '<div class="binary-file-notice">' +
+              '<div class="binary-icon">📦</div>' +
+              '<div class="binary-text">Binary file cannot be displayed</div>' +
+              '<a href="' + path + '" download="' + fileName + '" class="btn btn-primary download-btn">' +
+                '⬇ Download ' + fileName +
+              '</a>' +
+            '</div>';
+          return;
+        }
+        
+        // Load file content
+        try {
+          const response = await fetch(path);
+          if (!response.ok) throw new Error('Failed to load file');
+          const content = await response.text();
+          
+          if (fileType === 'markdown') {
+            outputContent.innerHTML = '<div class="markdown-rendered">' + renderMarkdown(content) + '</div>';
+          } else {
+            outputContent.innerHTML = '<pre class="line-numbers"><code class="language-' + lang + '">' + escapeHtml(content) + '</code></pre>';
+            if (window.Prism) {
+              Prism.highlightAllUnder(outputContent);
+            }
+          }
+        } catch (error) {
+          outputContent.innerHTML = '<div style="padding: 20px; color: var(--color-text-muted);">Failed to load file</div>';
+        }
+      });
+    });
+    
+    // Auto-select first file
+    const firstFile = document.querySelector('.tree-item.file');
+    if (firstFile) {
+      firstFile.click();
+    }
+  });
 })();
 </script>

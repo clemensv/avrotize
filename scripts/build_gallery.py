@@ -837,6 +837,8 @@ def get_file_icon(ext: str) -> str:
 
 def generate_gallery_page(item: dict, output_dir: Path, files_base_url: str) -> None:
     """Generate a gallery page for an item."""
+    import base64
+    
     page_dir = GALLERY_DIR / item["id"]
     page_dir.mkdir(parents=True, exist_ok=True)
     
@@ -846,17 +848,17 @@ def generate_gallery_page(item: dict, output_dir: Path, files_base_url: str) -> 
     
     if source_language == "binary":
         # Binary files cannot be displayed as text
-        source_content = f"# Binary file: {item['source_file']}\n# Cannot display binary content"
+        source_content = ""
     elif source_path and source_path.exists():
         try:
             source_content = source_path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
-            source_content = f"# Binary file: {item['source_file']}\n# Cannot display binary content"
+            source_content = ""
     elif (output_dir / item["source_file"]).exists():
         try:
             source_content = (output_dir / item["source_file"]).read_text(encoding="utf-8")
         except UnicodeDecodeError:
-            source_content = f"# Binary file: {item['source_file']}\n# Cannot display binary content"
+            source_content = ""
     else:
         source_content = "# Source file not found"
     
@@ -868,159 +870,24 @@ def generate_gallery_page(item: dict, output_dir: Path, files_base_url: str) -> 
     source_is_binary = source_language == "binary"
     source_file_url = f"{files_base_url}/{item['source_file']}" if source_is_binary else ""
     
-    # Generate the page
+    # Base64 encode source content for safe embedding in front matter
+    source_content_b64 = base64.b64encode(source_content.encode('utf-8')).decode('ascii') if source_content else ""
+    
+    # Generate the page - only file tree HTML in content, data in front matter
     page_content = f'''---
 layout: gallery-viewer
 title: "{item['title']}"
 description: "{item['description']}"
 source_file: "{item['source_file']}"
 source_language: "{item['source_language']}"
+source_is_binary: {str(source_is_binary).lower()}
+source_file_url: "{source_file_url}"
+source_content_b64: "{source_content_b64}"
+files_base_url: "{files_base_url}"
 permalink: /gallery/{item['id']}/
 ---
 
 {file_tree_html}
-
-<script>
-// Store source content for this gallery item
-window.gallerySourceContent = {json.dumps(escape_html(source_content))};
-window.galleryFilesBaseUrl = "{files_base_url}";
-window.gallerySourceIsBinary = {"true" if source_is_binary else "false"};
-window.gallerySourceFileUrl = "{source_file_url}";
-window.gallerySourceFileName = "{item['source_file']}";
-
-document.addEventListener('DOMContentLoaded', function() {{
-  // Set source content
-  const sourcePanel = document.querySelector('.source-panel .panel-content');
-  if (sourcePanel) {{
-    if (window.gallerySourceIsBinary) {{
-      // Show download button for binary files
-      sourcePanel.innerHTML = `
-        <div class="binary-file-notice">
-          <div class="binary-icon">📦</div>
-          <div class="binary-text">Binary file cannot be displayed</div>
-          <a href="${{window.gallerySourceFileUrl}}" download="${{window.gallerySourceFileName}}" class="btn btn-primary download-btn">
-            ⬇ Download ${{window.gallerySourceFileName}}
-          </a>
-        </div>
-      `;
-    }} else {{
-      sourcePanel.innerHTML = '<pre class="line-numbers"><code class="language-{item["source_language"]}">' + window.gallerySourceContent + '</code></pre>';
-      if (window.Prism) {{
-        Prism.highlightAllUnder(sourcePanel);
-      }}
-    }}
-  }}
-  
-  // Handle file tree clicks
-  document.querySelectorAll('.tree-item.file').forEach(function(el) {{
-    el.addEventListener('click', async function() {{
-      const path = this.dataset.path;
-      const lang = this.dataset.lang;
-      const fileType = this.dataset.filetype || 'text';
-      const fileName = path.split('/').pop();
-      
-      // Update active state
-      document.querySelectorAll('.tree-item.active').forEach(function(item) {{
-        item.classList.remove('active');
-      }});
-      this.classList.add('active');
-      
-      // Update header
-      document.getElementById('outputFileName').textContent = '📄 ' + fileName;
-      
-      const outputContent = document.getElementById('outputContent');
-      
-      // Handle binary files
-      if (fileType === 'binary') {{
-        outputContent.innerHTML = `
-          <div class="binary-file-notice">
-            <div class="binary-icon">📦</div>
-            <div class="binary-text">Binary file cannot be displayed</div>
-            <a href="${{path}}" download="${{fileName}}" class="btn btn-primary download-btn">
-              ⬇ Download ${{fileName}}
-            </a>
-          </div>
-        `;
-        return;
-      }}
-      
-      // Load file content
-      try {{
-        const response = await fetch(path);
-        if (!response.ok) throw new Error('Failed to load file');
-        const content = await response.text();
-        
-        // Handle markdown files
-        if (fileType === 'markdown') {{
-          outputContent.innerHTML = '<div class="markdown-rendered">' + renderMarkdown(content) + '</div>';
-        }} else {{
-          outputContent.innerHTML = '<pre class="line-numbers"><code class="language-' + lang + '">' + escapeHtml(content) + '</code></pre>';
-          if (window.Prism) {{
-            Prism.highlightAllUnder(outputContent);
-          }}
-        }}
-      }} catch (error) {{
-        outputContent.innerHTML = '<div style="padding: 20px; color: var(--color-text-muted);">Failed to load file</div>';
-      }}
-    }});
-  }});
-  
-  // Auto-select first file
-  const firstFile = document.querySelector('.tree-item.file');
-  if (firstFile) {{
-    firstFile.click();
-  }}
-}});
-
-function escapeHtml(text) {{
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}}
-
-function renderMarkdown(text) {{
-  // Simple markdown renderer for common elements
-  let html = escapeHtml(text);
-  
-  // Headers
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-  
-  // Bold and italic
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  
-  // Code blocks
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  
-  // Lists
-  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-  
-  // Tables (basic support)
-  html = html.replace(/^\|(.+)\|$/gm, function(match, content) {{
-    const cells = content.split('|').map(c => c.trim());
-    const isHeader = cells.every(c => /^[-:]+$/.test(c));
-    if (isHeader) return '';
-    const cellTag = 'td';
-    return '<tr>' + cells.map(c => `<${{cellTag}}>${{c}}</${{cellTag}}>`).join('') + '</tr>';
-  }});
-  html = html.replace(/(<tr>.*<\/tr>)/s, '<table class="md-table">$1</table>');
-  
-  // Paragraphs (lines not already wrapped)
-  html = html.replace(/^(?!<[hupolta])(.+)$/gm, '<p>$1</p>');
-  
-  // Clean up empty paragraphs
-  html = html.replace(/<p><\/p>/g, '');
-  
-  return html;
-}}
-</script>
 '''
     
     (page_dir / "index.html").write_text(page_content, encoding="utf-8")
