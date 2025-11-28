@@ -1111,7 +1111,7 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
                 formats.append(f'<span class="format-tag">{p}</span>')
         format_html = '<span class="format-arrow">-></span>'.join(formats)
         
-        return f'''    <a href="{{{{ '/gallery/{item_id}/' | relative_url }}}}" class="gallery-card">
+        return f'''    <div class="gallery-card" onclick="window.location.href='{{{{ '/gallery/{item_id}/' | relative_url }}}}'" style="cursor: pointer;">
       <div class="gallery-card-header">
         <div class="gallery-card-title">{title}</div>
         <div class="gallery-card-subtitle">{desc}</div>
@@ -1124,9 +1124,9 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
           <code class="command-code">{example_cmd}</code>
           <a href="{readme_url}" class="command-docs-link" target="_blank" title="View documentation" onclick="event.stopPropagation();">docs</a>
         </div>
-        <span class="gallery-card-link">View example -></span>
+        <a href="{{{{ '/gallery/{item_id}/' | relative_url }}}}" class="gallery-card-link">View example -></a>
       </div>
-    </a>'''
+    </div>'''
     
     def render_section(section_id: str, title: str, subtitle: str, items: list[dict], is_structurize: bool = False) -> str:
         """Render a section with cards."""
