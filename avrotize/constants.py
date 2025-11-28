@@ -55,6 +55,11 @@ try:
 except ValueError:
     MSTEST_SDK_VERSION = '17.13.0'
 
+try:
+    COVERLET_VERSION = get_dependency_version('cs', 'net90', 'coverlet.collector')
+except ValueError:
+    COVERLET_VERSION = '6.0.4'
+
 # Java test dependencies
 try:
     JUNIT_VERSION = get_dependency_version('java', 'jdk21', 'org.junit.jupiter:junit-jupiter-api')

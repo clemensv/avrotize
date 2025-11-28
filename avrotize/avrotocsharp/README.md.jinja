@@ -1,0 +1,166 @@
+# {{ project_name }}
+
+This is a generated C# project from an Avro schema using [avrotize](https://github.com/clemensv/avrotize).
+
+## Project Structure
+
+```
+{{ project_name }}/
+├── src/                    # Generated C# classes from Avro schema
+│   └── {{ project_name | pascal }}.csproj
+├── test/                   # Generated unit tests
+│   └── {{ project_name | pascal }}.Test.csproj
+├── run_coverage.ps1        # PowerShell coverage script
+├── run_coverage.sh         # Bash coverage script (Linux/macOS)
+└── {{ project_name }}.sln  # Visual Studio solution file
+```
+
+## Building and Running
+
+### Quick Start
+```bash
+# Build the project
+dotnet build
+
+# Run tests
+dotnet test
+
+# Run tests with coverage
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+### Code Coverage
+
+This project includes automated code coverage collection and reporting.
+
+#### Using the Coverage Scripts
+
+**PowerShell (Windows):**
+```powershell
+# Run tests with default 85% coverage threshold
+.\run_coverage.ps1
+
+# Set custom coverage threshold
+.\run_coverage.ps1 -Threshold 90
+
+# Generate HTML coverage report
+.\run_coverage.ps1 -HtmlReport
+
+# Generate and open HTML report in browser
+.\run_coverage.ps1 -HtmlReport -OpenReport
+
+# Run without failing on low coverage
+.\run_coverage.ps1 -FailOnLowCoverage:$false
+```
+
+**Bash (Linux/macOS):**
+```bash
+# Run tests with default 85% coverage threshold
+./run_coverage.sh
+
+# Set custom coverage threshold
+./run_coverage.sh --threshold 90
+
+# Generate HTML coverage report
+./run_coverage.sh --html-report
+
+# Generate and open HTML report in browser
+./run_coverage.sh --open-report
+
+# Run without failing on low coverage
+./run_coverage.sh --no-fail
+```
+
+#### Coverage Configuration
+
+The test project is configured with the following coverage settings in `test/{{ project_name | pascal }}.Test.csproj`:
+
+- **Default Threshold**: 85% line coverage
+- **Output Format**: Cobertura XML
+- **Coverage Output**: `./coverage/` directory
+- **Includes**: All `{{ project_name | pascal }}` namespace code
+- **Excludes**: Test projects
+
+#### Coverage Reports
+
+Coverage reports are generated in the following formats:
+
+1. **Cobertura XML**: `./coverage/[guid]/coverage.cobertura.xml`
+2. **HTML Report** (when requested): `./coverage/html/index.html`
+
+#### Continuous Integration
+
+For CI/CD pipelines, use:
+
+```yaml
+# Example GitHub Actions step
+- name: Run tests with coverage
+  run: |
+    dotnet test --collect:"XPlat Code Coverage" --results-directory:"./coverage"
+    
+# Or use the coverage script for threshold enforcement
+- name: Run tests with coverage threshold
+  run: ./run_coverage.sh --threshold 85
+```
+
+## Generated Code Features
+
+This project includes generated C# classes with the following features:
+
+- **Value Equality**: Generated `Equals()` and `GetHashCode()` methods
+- **Comprehensive Unit Tests**: Property tests, equality tests, and serialization tests
+- **Multiple Serialization Support**: JSON, XML, and Avro serialization (if enabled)
+- **Nullable Reference Types**: Full C# nullable reference type support
+
+## Test Coverage Goals
+
+The generated tests aim to provide comprehensive coverage of:
+
+- ✅ **Property Access**: All public properties
+- ✅ **Equality Methods**: `Equals()` and `GetHashCode()` 
+- ✅ **Constructors**: Default and parameterized constructors
+- ✅ **Serialization**: JSON/XML/Avro serialization (when enabled)
+- ✅ **Edge Cases**: Null handling and type conversion
+
+### Typical Coverage Results
+
+The generated tests typically achieve:
+- **Line Coverage**: 95%+
+- **Branch Coverage**: 90%+
+
+## Customizing Coverage
+
+To modify coverage settings, edit the `test/{{ project_name | pascal }}.Test.csproj` file:
+
+```xml
+<PropertyGroup>
+  <!-- Modify these values -->
+  <Threshold>85</Threshold>                    <!-- Minimum coverage % -->
+  <ThresholdType>line</ThresholdType>          <!-- line, branch, or method -->
+  <ThresholdStat>minimum</ThresholdStat>       <!-- minimum, average, or total -->
+</PropertyGroup>
+```
+
+## Dependencies
+
+### Runtime
+- .NET 9.0
+- Newtonsoft.Json (if JSON serialization enabled)
+- Apache.Avro (if Avro serialization enabled)
+
+### Testing
+- NUnit 4.3.2
+- NUnit3TestAdapter 5.0.0
+- Microsoft.NET.Test.Sdk 17.13.0
+- coverlet.collector 6.0.4
+- coverlet.msbuild 6.0.4
+
+## Additional Tools
+
+For enhanced coverage reporting, install ReportGenerator globally:
+
+```bash
+dotnet tool install -g dotnet-reportgenerator-globaltool
+```
+
+This enables HTML report generation with the `-HtmlReport` option.
