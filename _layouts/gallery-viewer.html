@@ -16,37 +16,66 @@ body_class: gallery-page
     </div>
   </div>
   
-  <div class="gallery-viewer">
+  <div class="gallery-viewer" id="galleryViewer">
     <!-- Source Panel -->
-    <div class="gallery-panel source-panel">
-      <div class="panel-header">
-        <span>📄 Source: {{ page.source_file }}</span>
+    <div class="gallery-panel source-panel" id="sourcePanel" data-panel="source">
+      <div class="panel-collapse-handle" data-target="source" title="Expand Source">
+        <span class="collapse-label">📄 Source</span>
       </div>
-      <div class="panel-content" id="sourceContent">
-        <div class="loading-placeholder">Loading source...</div>
-      </div>
-    </div>
-    
-    <!-- File Tree Panel -->
-    <div class="gallery-panel tree-panel">
-      <div class="panel-header">
-        <span>📁 Output Files</span>
-      </div>
-      <div class="panel-content">
-        <div class="file-tree" id="fileTree">
-          {{ content }}
+      <div class="panel-main">
+        <div class="panel-header">
+          <span>📄 Source: {{ page.source_file }}</span>
+          <button class="panel-collapse-btn" data-target="source" title="Collapse panel">◀</button>
+        </div>
+        <div class="panel-content" id="sourceContent">
+          <div class="loading-placeholder">Loading source...</div>
         </div>
       </div>
     </div>
     
-    <!-- Output Panel -->
-    <div class="gallery-panel output-panel">
-      <div class="panel-header">
-        <span id="outputFileName">📄 Select a file to view</span>
+    <!-- Resize Handle 1 -->
+    <div class="resize-handle" data-resize="source-tree" title="Drag to resize">
+      <div class="resize-grip"></div>
+    </div>
+    
+    <!-- File Tree Panel -->
+    <div class="gallery-panel tree-panel" id="treePanel" data-panel="tree">
+      <div class="panel-collapse-handle" data-target="tree" title="Expand Output Files">
+        <span class="collapse-label">📁 Files</span>
       </div>
-      <div class="panel-content" id="outputContent">
-        <div class="loading-placeholder">
-          Click a file in the tree to view its contents
+      <div class="panel-main">
+        <div class="panel-header">
+          <button class="panel-collapse-btn" data-target="tree" title="Collapse panel">◀</button>
+          <span>📁 Output Files</span>
+          <button class="panel-collapse-btn" data-target="tree" title="Collapse panel">▶</button>
+        </div>
+        <div class="panel-content">
+          <div class="file-tree" id="fileTree">
+            {{ content }}
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Resize Handle 2 -->
+    <div class="resize-handle" data-resize="tree-output" title="Drag to resize">
+      <div class="resize-grip"></div>
+    </div>
+    
+    <!-- Output Panel -->
+    <div class="gallery-panel output-panel" id="outputPanel" data-panel="output">
+      <div class="panel-collapse-handle" data-target="output" title="Expand Output">
+        <span class="collapse-label">📄 Output</span>
+      </div>
+      <div class="panel-main">
+        <div class="panel-header">
+          <button class="panel-collapse-btn" data-target="output" title="Collapse panel">◀</button>
+          <span id="outputFileName">📄 Select a file to view</span>
+        </div>
+        <div class="panel-content" id="outputContent">
+          <div class="loading-placeholder">
+            Click a file in the tree to view its contents
+          </div>
         </div>
       </div>
     </div>
@@ -96,25 +125,85 @@ body_class: gallery-page
 
 .gallery-viewer {
   flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 260px 1fr;
+  display: flex;
   min-height: 0;
   overflow: hidden;
 }
 
+/* Panel base styles */
 .gallery-panel {
   display: flex;
-  flex-direction: column;
+  position: relative;
   overflow: hidden;
+  transition: flex-basis 0.3s ease, min-width 0.3s ease;
+}
+
+.gallery-panel .panel-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Panel sizing - using flex-basis */
+.source-panel { flex: 1 1 35%; min-width: 200px; }
+.tree-panel { flex: 0 0 280px; min-width: 180px; max-width: 500px; }
+.output-panel { flex: 1 1 35%; min-width: 200px; }
+
+/* Collapsed panel state */
+.gallery-panel.collapsed {
+  flex: 0 0 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+}
+
+.gallery-panel.collapsed .panel-main {
+  display: none;
+}
+
+.gallery-panel.collapsed .panel-collapse-handle {
+  display: flex;
+}
+
+/* Collapse handle (vertical bar when collapsed) */
+.panel-collapse-handle {
+  display: none;
+  width: 32px;
+  height: 100%;
+  background: var(--color-surface);
   border-right: 1px solid var(--color-border);
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
 }
 
-.gallery-panel:last-child {
-  border-right: none;
+.panel-collapse-handle:hover {
+  background: var(--color-surface-hover);
 }
 
+.collapse-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: var(--spacing-md) 0;
+  white-space: nowrap;
+}
+
+/* Panel header with collapse buttons */
 .panel-header {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
@@ -126,12 +215,91 @@ body_class: gallery-page
   letter-spacing: 0.05em;
 }
 
+.panel-header span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-collapse-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: 0.625rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.panel-collapse-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border-color: var(--color-border-light);
+}
+
+/* Source panel: only right collapse button */
+.source-panel .panel-header .panel-collapse-btn { margin-left: auto; }
+
+/* Tree panel: both buttons */
+.tree-panel .panel-header { justify-content: space-between; }
+.tree-panel .panel-header span { text-align: center; }
+.tree-panel .panel-header .panel-collapse-btn:first-child { order: -1; }
+
+/* Output panel: only left collapse button */
+.output-panel .panel-header .panel-collapse-btn { order: -1; }
+
 .panel-content {
   flex: 1;
   overflow: auto;
   background: var(--color-bg);
 }
 
+/* Resize handles */
+.resize-handle {
+  flex-shrink: 0;
+  width: 6px;
+  background: var(--color-border);
+  cursor: col-resize;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background: var(--color-primary);
+}
+
+.resize-grip {
+  width: 2px;
+  height: 40px;
+  background: var(--color-text-dim);
+  border-radius: 1px;
+  opacity: 0.5;
+}
+
+.resize-handle:hover .resize-grip,
+.resize-handle.active .resize-grip {
+  background: white;
+  opacity: 0.8;
+}
+
+/* Hide resize handles when adjacent panel is collapsed */
+.resize-handle.hidden {
+  display: none;
+}
+
+/* Code display */
 .source-panel pre,
 .output-panel pre {
   margin: 0;
@@ -198,23 +366,50 @@ body_class: gallery-page
 }
 
 /* Responsive */
-@media (max-width: 1200px) {
+@media (max-width: 900px) {
   .gallery-viewer {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto 1fr;
+    flex-direction: column;
   }
   
   .gallery-panel {
+    flex: 1 1 auto !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    min-height: 150px;
+  }
+  
+  .gallery-panel.collapsed {
+    flex: 0 0 32px !important;
+    min-height: 32px !important;
+  }
+  
+  .gallery-panel.collapsed .panel-collapse-handle {
+    width: 100%;
+    height: 32px;
+    flex-direction: row;
     border-right: none;
     border-bottom: 1px solid var(--color-border);
   }
   
-  .gallery-panel:last-child {
-    border-bottom: none;
+  .gallery-panel.collapsed .collapse-label {
+    writing-mode: horizontal-tb;
+    transform: none;
+    padding: 0 var(--spacing-md);
+  }
+  
+  .resize-handle {
+    width: 100%;
+    height: 6px;
+    cursor: row-resize;
+  }
+  
+  .resize-grip {
+    width: 40px;
+    height: 2px;
   }
   
   .tree-panel {
-    max-height: 200px;
+    max-width: none !important;
   }
 }
 
@@ -229,4 +424,194 @@ body_class: gallery-page
     font-size: 1.25rem;
   }
 }
+
+/* Prevent text selection during resize */
+.gallery-viewer.resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.gallery-viewer.resizing * {
+  cursor: col-resize !important;
+}
 </style>
+
+<script>
+(function() {
+  // Panel collapse/expand functionality
+  const viewer = document.getElementById('galleryViewer');
+  const panels = {
+    source: document.getElementById('sourcePanel'),
+    tree: document.getElementById('treePanel'),
+    output: document.getElementById('outputPanel')
+  };
+  
+  function getCollapsedCount() {
+    return Object.values(panels).filter(p => p.classList.contains('collapsed')).length;
+  }
+  
+  function togglePanel(panelId) {
+    const panel = panels[panelId];
+    if (!panel) return;
+    
+    const isCollapsed = panel.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+      // Expanding - always allowed
+      panel.classList.remove('collapsed');
+    } else {
+      // Collapsing - only if less than 2 are already collapsed
+      if (getCollapsedCount() < 2) {
+        panel.classList.add('collapsed');
+      }
+    }
+    
+    updateResizeHandles();
+    saveState();
+  }
+  
+  function updateResizeHandles() {
+    const handle1 = document.querySelector('[data-resize="source-tree"]');
+    const handle2 = document.querySelector('[data-resize="tree-output"]');
+    
+    // Hide handle if either adjacent panel is collapsed
+    if (handle1) {
+      handle1.classList.toggle('hidden', 
+        panels.source.classList.contains('collapsed') || 
+        panels.tree.classList.contains('collapsed'));
+    }
+    if (handle2) {
+      handle2.classList.toggle('hidden', 
+        panels.tree.classList.contains('collapsed') || 
+        panels.output.classList.contains('collapsed'));
+    }
+  }
+  
+  // Collapse button click handlers
+  document.querySelectorAll('.panel-collapse-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePanel(btn.dataset.target);
+    });
+  });
+  
+  // Collapsed handle click to expand
+  document.querySelectorAll('.panel-collapse-handle').forEach(handle => {
+    handle.addEventListener('click', () => {
+      togglePanel(handle.dataset.target);
+    });
+  });
+  
+  // Resize functionality
+  let isResizing = false;
+  let currentHandle = null;
+  let startX = 0;
+  let startWidths = {};
+  
+  document.querySelectorAll('.resize-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      if (handle.classList.contains('hidden')) return;
+      
+      isResizing = true;
+      currentHandle = handle;
+      startX = e.clientX;
+      
+      const resizeType = handle.dataset.resize;
+      
+      if (resizeType === 'source-tree') {
+        startWidths.source = panels.source.offsetWidth;
+        startWidths.tree = panels.tree.offsetWidth;
+      } else if (resizeType === 'tree-output') {
+        startWidths.tree = panels.tree.offsetWidth;
+        startWidths.output = panels.output.offsetWidth;
+      }
+      
+      viewer.classList.add('resizing');
+      handle.classList.add('active');
+      
+      e.preventDefault();
+    });
+  });
+  
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    
+    const deltaX = e.clientX - startX;
+    const resizeType = currentHandle.dataset.resize;
+    
+    if (resizeType === 'source-tree') {
+      const newSourceWidth = Math.max(200, startWidths.source + deltaX);
+      const newTreeWidth = Math.max(180, Math.min(500, startWidths.tree - deltaX));
+      
+      panels.source.style.flex = `0 0 ${newSourceWidth}px`;
+      panels.tree.style.flex = `0 0 ${newTreeWidth}px`;
+    } else if (resizeType === 'tree-output') {
+      const newTreeWidth = Math.max(180, Math.min(500, startWidths.tree + deltaX));
+      const newOutputWidth = Math.max(200, startWidths.output - deltaX);
+      
+      panels.tree.style.flex = `0 0 ${newTreeWidth}px`;
+      panels.output.style.flex = `0 0 ${newOutputWidth}px`;
+    }
+  });
+  
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false;
+      viewer.classList.remove('resizing');
+      if (currentHandle) {
+        currentHandle.classList.remove('active');
+      }
+      currentHandle = null;
+      saveState();
+    }
+  });
+  
+  // State persistence
+  function saveState() {
+    const state = {
+      collapsed: {
+        source: panels.source.classList.contains('collapsed'),
+        tree: panels.tree.classList.contains('collapsed'),
+        output: panels.output.classList.contains('collapsed')
+      },
+      widths: {
+        source: panels.source.style.flex,
+        tree: panels.tree.style.flex,
+        output: panels.output.style.flex
+      }
+    };
+    try {
+      localStorage.setItem('galleryViewerState', JSON.stringify(state));
+    } catch (e) {}
+  }
+  
+  function loadState() {
+    try {
+      const state = JSON.parse(localStorage.getItem('galleryViewerState'));
+      if (state) {
+        // Restore collapsed state (max 2)
+        let collapsedCount = 0;
+        Object.entries(state.collapsed || {}).forEach(([id, isCollapsed]) => {
+          if (isCollapsed && collapsedCount < 2 && panels[id]) {
+            panels[id].classList.add('collapsed');
+            collapsedCount++;
+          }
+        });
+        
+        // Restore widths
+        Object.entries(state.widths || {}).forEach(([id, flex]) => {
+          if (flex && panels[id]) {
+            panels[id].style.flex = flex;
+          }
+        });
+        
+        updateResizeHandles();
+      }
+    } catch (e) {}
+  }
+  
+  // Initialize
+  loadState();
+  updateResizeHandles();
+})();
+</script>
