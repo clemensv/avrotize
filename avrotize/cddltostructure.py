@@ -4,12 +4,40 @@ CDDL (Concise Data Definition Language) to JSON Structure converter.
 CDDL is defined in RFC 8610 and is a schema language primarily used for 
 expressing CBOR and JSON data structures.
 
-Current Limitations:
-- CDDL operators (.size, .regexp, .default, .bits, .ne, .lt, .le, .gt, .ge, .eq)
-  are partially supported. The base type is extracted but specific constraints
-  may not be fully converted to JSON Structure equivalents.
-- CDDL sockets and plugs are not yet implemented.
-- Generic type parameters are not yet implemented.
+RFC 8610 Compliance Summary:
+============================
+
+Fully Implemented (RFC 8610 Sections 2-3):
+- Primitive types: uint, nint, int, float16/32/64, tstr, bstr, bool, nil, any
+- Maps/objects with member keys and values
+- Arrays with homogeneous and heterogeneous (tuple) items
+- Choice/union types (type1 / type2)
+- Occurrence indicators: ? (optional), * (zero-or-more), + (one-or-more)
+- Literal values (strings, integers, floats, booleans)
+- Range constraints (min..max, min...max)
+- Type references and nested types
+- Groups and group composition
+- CBOR tags (#6.n(type)) - underlying type extracted
+- Choice from groups (&group)
+- Comments (handled by parser)
+
+Partially Implemented:
+- Control operators (.size, .regexp, .default, .bits, .cbor, .cborseq, etc.):
+  The base type is extracted but specific constraints are not mapped to
+  JSON Structure equivalents (no direct mapping exists for many operators).
+- Bounded occurrence (n*m): min/max parsed but not fully utilized.
+
+Not Implemented:
+- CDDL sockets ($name, $$name): Extensibility points for future definitions.
+- Generic type parameters (<T>): Parameterized type definitions.
+- Unwrap operator (~): Extracting group content.
+- .within, .and operators: Type intersection.
+
+Notes on Type Mapping:
+- CBOR-specific types (bstr, tstr) map to JSON equivalents (bytes, string)
+- CBOR tags are unwrapped to their underlying types
+- Integer types (uint, nint, int) all map to int64 for JSON compatibility
+- Float types map to float (float16/32) or double (float64)
 """
 
 import json
