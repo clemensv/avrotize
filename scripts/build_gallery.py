@@ -910,7 +910,7 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         "rust": '<i class="devicon-rust-original"></i>',
         "c++": '<i class="devicon-cplusplus-plain colored"></i>',
         "cpp": '<i class="devicon-cplusplus-plain colored"></i>',
-        # Schema formats (no protobuf in devicon, use grpc which is related)
+        # Schema formats
         "avro": '<i class="devicon-apachekafka-original colored" title="Avro"></i>',
         "json schema": '<i class="devicon-json-plain colored"></i>',
         "jsonschema": '<i class="devicon-json-plain colored"></i>',

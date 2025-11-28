@@ -9,212 +9,53 @@ permalink: /gallery/
   <div class="hero-content">
     <h1>Conversion Gallery</h1>
     <p class="hero-subtitle">
-      Explore real-world schema conversions. See the source schema, browse the output files, 
-      and view the generated code with syntax highlighting.
+      Explore real-world schema conversions. Click any card to see the source schema, 
+      browse the output files, and view the generated code with syntax highlighting.
     </p>
   </div>
 </section>
 
 <section class="gallery-index">
-  <div class="section-header" style="margin-bottom: var(--spacing-2xl);">
-    <h2>Avrotize Examples</h2>
-    <p>Conversions using Avro Schema as the pivot format</p>
+  <!-- Tab Navigation -->
+  <div class="gallery-tabs">
+    <button class="gallery-tab active" data-tab="avrotize">
+      <span class="tab-title">Avrotize</span>
+      <span class="tab-subtitle">Avro Schema as pivot</span>
+    </button>
+    <button class="gallery-tab" data-tab="structurize">
+      <span class="tab-title">Structurize</span>
+      <span class="tab-subtitle">JSON Structure as pivot</span>
+    </button>
   </div>
-  
-  <div class="gallery-grid">
-    <a href="{{ '/gallery/employee-to-python/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Employee Schema → Python</div>
-        <div class="gallery-card-subtitle">JSON Schema to Python dataclasses via Avro</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Schema</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Avro</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Python</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/employee-to-csharp/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Employee Schema → C#</div>
-        <div class="gallery-card-subtitle">JSON Schema to C# classes via Avro</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Schema</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Avro</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">C#</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/employee-to-java/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Employee Schema → Java</div>
-        <div class="gallery-card-subtitle">JSON Schema to Java POJOs via Avro</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Schema</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Avro</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Java</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/person-to-typescript/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Person Schema → TypeScript</div>
-        <div class="gallery-card-subtitle">JSON Schema with unions to TypeScript</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Schema</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Avro</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">TypeScript</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/xsd-to-avro/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">ISO 20022 XSD → Avro</div>
-        <div class="gallery-card-subtitle">Complex XML Schema to Avro Schema</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">XSD</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Avro</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/avro-to-proto/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Avro → Protobuf</div>
-        <div class="gallery-card-subtitle">Convert Avro Schema to Protocol Buffers</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">Avro</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Protobuf</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
+
+  <!-- Avrotize Tab Content -->
+  <div id="avrotize-content" class="gallery-tab-content active">
+
   </div>
-  
-  <div class="section-header" style="margin-top: var(--spacing-3xl); margin-bottom: var(--spacing-2xl);">
-    <h2>Structurize Examples</h2>
-    <p>Conversions using JSON Structure as the pivot format</p>
-  </div>
-  
-  <div class="gallery-grid">
-    <a href="{{ '/gallery/struct-to-csharp/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Structure → C#</div>
-        <div class="gallery-card-subtitle">JSON Structure to C# with validation</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Structure</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">C#</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/struct-to-python/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Structure → Python</div>
-        <div class="gallery-card-subtitle">JSON Structure to Python dataclasses</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Structure</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Python</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/struct-to-go/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Structure → Go</div>
-        <div class="gallery-card-subtitle">JSON Structure to Go structs</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Structure</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Go</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/struct-to-rust/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Structure → Rust</div>
-        <div class="gallery-card-subtitle">JSON Structure to Rust with serde</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Structure</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">Rust</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/struct-to-xsd/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Structure → XSD</div>
-        <div class="gallery-card-subtitle">JSON Structure to XML Schema</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Structure</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">XSD</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
-    
-    <a href="{{ '/gallery/struct-to-graphql/' | relative_url }}" class="gallery-card">
-      <div class="gallery-card-header">
-        <div class="gallery-card-title">Structure → GraphQL</div>
-        <div class="gallery-card-subtitle">JSON Structure to GraphQL types</div>
-      </div>
-      <div class="gallery-card-body">
-        <div class="gallery-card-formats">
-          <span class="format-tag">JSON Structure</span>
-          <span class="format-tag">→</span>
-          <span class="format-tag">GraphQL</span>
-        </div>
-        <span class="gallery-card-link">View conversion →</span>
-      </div>
-    </a>
+
+  <!-- Structurize Tab Content -->
+  <div id="structurize-content" class="gallery-tab-content">
+
   </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const tabs = document.querySelectorAll('.gallery-tab');
+  const contents = document.querySelectorAll('.gallery-tab-content');
+  
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      const targetId = this.dataset.tab + '-content';
+      
+      // Update active tab
+      tabs.forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      
+      // Update visible content
+      contents.forEach(c => c.classList.remove('active'));
+      document.getElementById(targetId).classList.add('active');
+    });
+  });
+});
+</script>

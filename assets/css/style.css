@@ -743,6 +743,18 @@ img {
   padding: var(--spacing-2xl) var(--spacing-xl);
 }
 
+.gallery-section {
+  margin-top: var(--spacing-3xl);
+}
+
+.gallery-section:first-child {
+  margin-top: 0;
+}
+
+.gallery-section .section-header {
+  margin-bottom: var(--spacing-xl);
+}
+
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
