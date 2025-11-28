@@ -4,7 +4,8 @@
   "definitions": {
     "timestamp": {
       "type": "int64",
-      "name": "timestamp"
+      "name": "timestamp",
+      "description": "Timestamp as Unix epoch milliseconds"
     },
     "coordinates": {
       "type": "object",
@@ -27,7 +28,8 @@
         "latitude",
         "longitude"
       ],
-      "name": "coordinates"
+      "name": "coordinates",
+      "description": "Geographic coordinates"
     },
     "quality_indicator": {
       "type": [
@@ -83,6 +85,7 @@
         "value"
       ],
       "name": "temperature_reading",
+      "description": "Specific sensor types",
       "altnames": {
         "cddl": "temperature-reading"
       }
@@ -244,6 +247,7 @@
         "capabilities"
       ],
       "name": "device_info",
+      "description": "Device information",
       "altnames": {
         "cddl": "device-info"
       }
@@ -336,6 +340,7 @@
         "readings"
       ],
       "name": "telemetry_message",
+      "description": "Telemetry message",
       "altnames": {
         "cddl": "telemetry-message"
       }
@@ -395,6 +400,7 @@
         "command"
       ],
       "name": "command_message",
+      "description": "Command message",
       "altnames": {
         "cddl": "command-message"
       }
@@ -455,6 +461,7 @@
         "timestamp"
       ],
       "name": "response_message",
+      "description": "Response message",
       "altnames": {
         "cddl": "response-message"
       }
@@ -508,6 +515,7 @@
   },
   "type": "int64",
   "name": "timestamp",
+  "description": "Timestamp as Unix epoch milliseconds",
   "$uses": [
     "JSONStructureAlternateNames",
     "JSONStructureUnits",

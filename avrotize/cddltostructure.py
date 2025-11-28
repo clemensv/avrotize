@@ -107,6 +107,39 @@ class CddlToStructureConverter:
         self.current_generic_bindings: Dict[str, Dict[str, Any]] = {}  # Current type parameter bindings
         self.generic_template_names: Set[str] = set()  # Names of generic templates (not concrete types)
 
+    def _extract_description(self, node: Any) -> Optional[str]:
+        """
+        Extract description from comments attached to a node.
+        
+        CDDL comments start with ';' and are attached to AST nodes by the parser.
+        This method extracts and cleans up those comments to use as descriptions.
+        
+        Args:
+            node: Any AST node that might have comments attached
+            
+        Returns:
+            A cleaned description string, or None if no comments
+        """
+        if not hasattr(node, 'comments') or not node.comments:
+            return None
+        
+        # Extract comment text from each comment token
+        comment_lines = []
+        for comment in node.comments:
+            if hasattr(comment, 'literal'):
+                # Remove the leading semicolon and whitespace
+                text = comment.literal.strip()
+                if text.startswith(';'):
+                    text = text[1:].strip()
+                if text:
+                    comment_lines.append(text)
+        
+        if not comment_lines:
+            return None
+        
+        # Join multiple comment lines with spaces
+        return ' '.join(comment_lines)
+
     def convert_cddl_to_structure(self, cddl_content: str, namespace: Optional[str] = None) -> Dict[str, Any]:
         """
         Convert CDDL content to JSON Structure format.
@@ -218,12 +251,18 @@ class CddlToStructureConverter:
         rule_name = avro_name(typename_node.name)
         original_name = typename_node.name
         
+        # Extract description from comments on the typename
+        description = self._extract_description(typename_node)
+        
         # Convert the type
         structure_type = self._convert_type(type_node, rule_name)
         
         if structure_type:
             if isinstance(structure_type, dict):
                 structure_type['name'] = rule_name
+                # Add description if present
+                if description:
+                    structure_type['description'] = description
                 # Add altnames if original name differs
                 if original_name != rule_name:
                     structure_type['altnames'] = {'cddl': original_name}
@@ -569,6 +608,12 @@ class CddlToStructureConverter:
             if isinstance(prop_schema, dict):
                 prop_schema['altnames'] = {'cddl': original_name}
         
+        # Add description if present in member_key or occurrence indicator
+        if isinstance(prop_schema, dict):
+            description = member_key.get('description') or (occurrence_indicator.get('description') if occurrence_indicator else None)
+            if description:
+                prop_schema['description'] = description
+        
         properties[normalized_name] = prop_schema
 
     def _parse_occurrence(self, occurrence: Occurrence) -> Dict[str, Any]:
@@ -577,6 +622,15 @@ class CddlToStructureConverter:
         
         if not hasattr(occurrence, 'getChildren'):
             return {'optional': True}
+        
+        # Check for comments on the occurrence tokens
+        if hasattr(occurrence, 'tokens') and occurrence.tokens:
+            for token in occurrence.tokens:
+                if hasattr(token, 'comments') and token.comments:
+                    description = self._extract_description_from_comments(token.comments)
+                    if description:
+                        result['description'] = description
+                        break
             
         for child in occurrence.getChildren():
             # Check for occurrence tokens
@@ -594,10 +648,26 @@ class CddlToStructureConverter:
                 # Handle numeric occurrences like n*m
                 pass
         
-        if not result:
+        if not result or ('optional' not in result and 'array' not in result):
             result['optional'] = True
             
         return result
+    
+    def _extract_description_from_comments(self, comments: List[Any]) -> Optional[str]:
+        """Extract description from a list of comment tokens."""
+        if not comments:
+            return None
+        
+        comment_lines = []
+        for comment in comments:
+            if hasattr(comment, 'literal'):
+                text = comment.literal.strip()
+                if text.startswith(';'):
+                    text = text[1:].strip()
+                if text:
+                    comment_lines.append(text)
+        
+        return ' '.join(comment_lines) if comment_lines else None
 
     def _parse_memberkey(self, memberkey: Memberkey) -> Optional[Dict[str, Any]]:
         """Parse a Memberkey node."""
@@ -618,6 +688,10 @@ class CddlToStructureConverter:
                     else:
                         result['name'] = avro_name(name)
                         result['original_name'] = name
+                        # Extract description from comments on the typename
+                        description = self._extract_description(child)
+                        if description:
+                            result['description'] = description
             elif child_type == 'Value':
                 # Could be string key or integer key
                 if hasattr(child, 'value'):

@@ -85,6 +85,7 @@
         "_7"
       ],
       "name": "Generic_Headers",
+      "description": "COSE (CBOR Object Signing and Encryption) Header Parameters Simplified from RFC 8152 Generic header bucket",
       "altnames": {
         "cddl": "Generic-Headers"
       }
@@ -113,7 +114,8 @@
           "type": "bytes",
           "altnames": {
             "cddl": "2"
-          }
+          },
+          "description": "kty - Key type"
         },
         "_3": {
           "type": [
@@ -126,7 +128,8 @@
           ],
           "altnames": {
             "cddl": "3"
-          }
+          },
+          "description": "kid - Key identifier"
         },
         "_4": {
           "type": "array",
@@ -135,22 +138,26 @@
           },
           "altnames": {
             "cddl": "4"
-          }
+          },
+          "description": "alg - Algorithm"
         },
         "_5": {
           "type": "bytes",
           "altnames": {
             "cddl": "5"
-          }
+          },
+          "description": "key_ops - Key operations"
         },
         "label": {
-          "type": "any"
+          "type": "any",
+          "description": "Base IV"
         }
       },
       "required": [
         "_1"
       ],
       "name": "COSE_Key",
+      "description": "COSE Key structure",
       "altnames": {
         "cddl": "COSE-Key"
       }
@@ -170,6 +177,7 @@
         "_1"
       ],
       "name": "COSE_Signature",
+      "description": "COSE Signature structure",
       "altnames": {
         "cddl": "COSE-Signature"
       }
@@ -213,6 +221,7 @@
         "_3"
       ],
       "name": "COSE_Sign1",
+      "description": "COSE_Sign1 - Single signer structure",
       "altnames": {
         "cddl": "COSE-Sign1"
       }
@@ -248,6 +257,7 @@
         "_2"
       ],
       "name": "COSE_Encrypt0",
+      "description": "COSE_Encrypt0 - Single recipient encryption",
       "altnames": {
         "cddl": "COSE-Encrypt0"
       }
@@ -335,6 +345,7 @@
     "_7"
   ],
   "name": "Generic_Headers",
+  "description": "COSE (CBOR Object Signing and Encryption) Header Parameters Simplified from RFC 8152 Generic header bucket",
   "altnames": {
     "cddl": "Generic-Headers"
   },

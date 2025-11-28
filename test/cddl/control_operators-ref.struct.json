@@ -6,7 +6,8 @@
       "type": "string",
       "minLength": 3,
       "maxLength": 20,
-      "name": "username"
+      "name": "username",
+      "description": "CDDL schema demonstrating control operators Based on RFC 8610 Section 3.8 Size constraints"
     },
     "password": {
       "type": "string",
@@ -36,6 +37,7 @@
       "type": "int64",
       "maximum": 65535,
       "name": "port_number",
+      "description": "Numeric constraints",
       "altnames": {
         "cddl": "port-number"
       }
@@ -74,6 +76,7 @@
       "type": "int64",
       "default": 5000,
       "name": "timeout_ms",
+      "description": "Default values",
       "altnames": {
         "cddl": "timeout-ms"
       }
@@ -100,6 +103,7 @@
       "type": "int64",
       "minimum": 1,
       "name": "valid_port",
+      "description": "Combined constraints (using intermediate types)",
       "altnames": {
         "cddl": "valid-port"
       }
@@ -136,6 +140,7 @@
         "port"
       ],
       "name": "server_config",
+      "description": "Example record using constrained types",
       "altnames": {
         "cddl": "server-config"
       }
@@ -167,6 +172,7 @@
   "minLength": 3,
   "maxLength": 20,
   "name": "username",
+  "description": "CDDL schema demonstrating control operators Based on RFC 8610 Section 3.8 Size constraints",
   "$uses": [
     "JSONStructureAlternateNames",
     "JSONStructureValidation"

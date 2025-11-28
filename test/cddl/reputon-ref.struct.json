@@ -45,7 +45,8 @@
         "rated",
         "rating"
       ],
-      "name": "reputon"
+      "name": "reputon",
+      "description": "RFC 8610 Appendix E - Reputon Example A reputon is a single reputation assertion"
     },
     "reputon_response": {
       "type": "object",
@@ -65,6 +66,7 @@
         "reputons"
       ],
       "name": "reputon_response",
+      "description": "A reputation response contains multiple reputons",
       "altnames": {
         "cddl": "reputon-response"
       }
@@ -113,6 +115,7 @@
     "rating"
   ],
   "name": "reputon",
+  "description": "RFC 8610 Appendix E - Reputon Example A reputon is a single reputation assertion",
   "$uses": [
     "JSONStructureAlternateNames",
     "JSONStructureValidation"

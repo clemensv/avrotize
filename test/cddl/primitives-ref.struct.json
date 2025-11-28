@@ -9,7 +9,8 @@
           "type": "int64",
           "altnames": {
             "cddl": "unsigned-int"
-          }
+          },
+          "description": "Integer types"
         },
         "negative_int": {
           "type": "int64",
@@ -27,7 +28,8 @@
           "type": "float",
           "altnames": {
             "cddl": "half-float"
-          }
+          },
+          "description": "Floating point types"
         },
         "single_float": {
           "type": "float",
@@ -51,7 +53,8 @@
           "type": "string",
           "altnames": {
             "cddl": "text-string"
-          }
+          },
+          "description": "String types"
         },
         "byte_string": {
           "type": "bytes",
@@ -60,13 +63,15 @@
           }
         },
         "flag": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Boolean and null"
         },
         "nothing": {
           "type": "null"
         },
         "anything": {
-          "type": "any"
+          "type": "any",
+          "description": "Any type"
         }
       },
       "required": [
@@ -83,7 +88,8 @@
         "nothing",
         "anything"
       ],
-      "name": "primitives"
+      "name": "primitives",
+      "description": "CDDL schema demonstrating primitive types Based on RFC 8610 Section 3.1"
     },
     "constrained_types": {
       "type": "object",
@@ -94,7 +100,8 @@
           "maxLength": 50,
           "altnames": {
             "cddl": "short-string"
-          }
+          },
+          "description": "Size constraints"
         },
         "fixed_bytes": {
           "type": "bytes",
@@ -107,7 +114,8 @@
         "percentage": {
           "type": "int64",
           "minimum": 0,
-          "maximum": 100
+          "maximum": 100,
+          "description": "Numeric constraints"
         },
         "positive": {
           "type": "int64",
@@ -115,7 +123,8 @@
         },
         "greeting": {
           "type": "string",
-          "default": "hello"
+          "default": "hello",
+          "description": "Default values"
         },
         "count": {
           "type": "int64",
@@ -131,6 +140,7 @@
         "count"
       ],
       "name": "constrained_types",
+      "description": "Constrained types",
       "altnames": {
         "cddl": "constrained-types"
       }
@@ -142,7 +152,8 @@
       "type": "int64",
       "altnames": {
         "cddl": "unsigned-int"
-      }
+      },
+      "description": "Integer types"
     },
     "negative_int": {
       "type": "int64",
@@ -160,7 +171,8 @@
       "type": "float",
       "altnames": {
         "cddl": "half-float"
-      }
+      },
+      "description": "Floating point types"
     },
     "single_float": {
       "type": "float",
@@ -184,7 +196,8 @@
       "type": "string",
       "altnames": {
         "cddl": "text-string"
-      }
+      },
+      "description": "String types"
     },
     "byte_string": {
       "type": "bytes",
@@ -193,13 +206,15 @@
       }
     },
     "flag": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Boolean and null"
     },
     "nothing": {
       "type": "null"
     },
     "anything": {
-      "type": "any"
+      "type": "any",
+      "description": "Any type"
     }
   },
   "required": [
@@ -217,6 +232,7 @@
     "anything"
   ],
   "name": "primitives",
+  "description": "CDDL schema demonstrating primitive types Based on RFC 8610 Section 3.1",
   "$uses": [
     "JSONStructureAlternateNames",
     "JSONStructureValidation"

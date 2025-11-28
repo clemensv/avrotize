@@ -12,6 +12,7 @@
         }
       ],
       "name": "person_name",
+      "description": "Usage examples",
       "altnames": {
         "cddl": "person-name"
       }
@@ -123,6 +124,7 @@
     }
   ],
   "name": "person_name",
+  "description": "Usage examples",
   "altnames": {
     "cddl": "person-name"
   },

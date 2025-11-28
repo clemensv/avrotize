@@ -15,40 +15,47 @@
           "type": "string",
           "altnames": {
             "cddl": "2"
-          }
+          },
+          "description": "iss - Issuer"
         },
         "_3": {
           "type": "string",
           "altnames": {
             "cddl": "3"
-          }
+          },
+          "description": "sub - Subject"
         },
         "_4": {
           "type": "int64",
           "altnames": {
             "cddl": "4"
-          }
+          },
+          "description": "aud - Audience"
         },
         "_5": {
           "type": "int64",
           "altnames": {
             "cddl": "5"
-          }
+          },
+          "description": "exp - Expiration Time"
         },
         "_6": {
           "type": "int64",
           "altnames": {
             "cddl": "6"
-          }
+          },
+          "description": "nbf - Not Before"
         },
         "_7": {
           "type": "bytes",
           "altnames": {
             "cddl": "7"
-          }
+          },
+          "description": "iat - Issued At"
         }
       },
       "name": "CWT_Claims",
+      "description": "CWT (CBOR Web Token) Claims Simplified from RFC 8392 Claim keys as defined in the CWT spec",
       "altnames": {
         "cddl": "CWT-Claims"
       }
@@ -65,7 +72,8 @@
           "$ref": "#/definitions/COSE_Encrypt0_CWT"
         }
       ],
-      "name": "CWT"
+      "name": "CWT",
+      "description": "CWT structure (signed)"
     },
     "COSE_Sign1_CWT": {
       "type": "tuple",
@@ -157,16 +165,19 @@
           "type": "bytes",
           "altnames": {
             "cddl": "2"
-          }
+          },
+          "description": "COSE_Key"
         },
         "_3": {
           "type": "bytes",
           "altnames": {
             "cddl": "3"
-          }
+          },
+          "description": "Encrypted COSE_Key"
         }
       },
       "name": "Cnf_Claim",
+      "description": "Confirmation claim structure",
       "altnames": {
         "cddl": "Cnf-Claim"
       }
@@ -184,13 +195,15 @@
           "type": "bytes",
           "altnames": {
             "cddl": "2"
-          }
+          },
+          "description": "kty"
         },
         "_3": {
           "type": "int64",
           "altnames": {
             "cddl": "3"
-          }
+          },
+          "description": "kid"
         }
       },
       "required": [
@@ -214,40 +227,47 @@
       "type": "string",
       "altnames": {
         "cddl": "2"
-      }
+      },
+      "description": "iss - Issuer"
     },
     "_3": {
       "type": "string",
       "altnames": {
         "cddl": "3"
-      }
+      },
+      "description": "sub - Subject"
     },
     "_4": {
       "type": "int64",
       "altnames": {
         "cddl": "4"
-      }
+      },
+      "description": "aud - Audience"
     },
     "_5": {
       "type": "int64",
       "altnames": {
         "cddl": "5"
-      }
+      },
+      "description": "exp - Expiration Time"
     },
     "_6": {
       "type": "int64",
       "altnames": {
         "cddl": "6"
-      }
+      },
+      "description": "nbf - Not Before"
     },
     "_7": {
       "type": "bytes",
       "altnames": {
         "cddl": "7"
-      }
+      },
+      "description": "iat - Issued At"
     }
   },
   "name": "CWT_Claims",
+  "description": "CWT (CBOR Web Token) Claims Simplified from RFC 8392 Claim keys as defined in the CWT spec",
   "altnames": {
     "cddl": "CWT-Claims"
   },

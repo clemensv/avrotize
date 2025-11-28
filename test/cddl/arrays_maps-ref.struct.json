@@ -8,6 +8,7 @@
         "type": "string"
       },
       "name": "string_list",
+      "description": "CDDL schema demonstrating arrays and maps Based on RFC 8610 Section 3.4 Homogeneous arrays",
       "altnames": {
         "cddl": "string-list"
       }
@@ -38,6 +39,7 @@
         "type": "string"
       },
       "name": "bounded_list",
+      "description": "Bounded arrays",
       "altnames": {
         "cddl": "bounded-list"
       }
@@ -68,6 +70,7 @@
     "string_map": {
       "type": "object",
       "name": "string_map",
+      "description": "Maps with string keys",
       "altnames": {
         "cddl": "string-map"
       }
@@ -101,6 +104,7 @@
         "port"
       ],
       "name": "config_map",
+      "description": "Maps with specific keys",
       "altnames": {
         "cddl": "config-map"
       }
@@ -123,6 +127,7 @@
         ]
       },
       "name": "nested_array",
+      "description": "Nested structures",
       "altnames": {
         "cddl": "nested-array"
       }
@@ -155,6 +160,7 @@
     "type": "string"
   },
   "name": "string_list",
+  "description": "CDDL schema demonstrating arrays and maps Based on RFC 8610 Section 3.4 Homogeneous arrays",
   "altnames": {
     "cddl": "string-list"
   },

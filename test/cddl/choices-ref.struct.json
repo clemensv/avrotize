@@ -12,6 +12,7 @@
         }
       ],
       "name": "string_or_int",
+      "description": "CDDL schema demonstrating choice/union types Based on RFC 8610 Section 3.5 Simple choice between primitives",
       "altnames": {
         "cddl": "string-or-int"
       }
@@ -46,7 +47,8 @@
           "const": "failed"
         }
       ],
-      "name": "status"
+      "name": "status",
+      "description": "Choice with literals"
     },
     "http_method": {
       "type": [
@@ -88,7 +90,8 @@
           "$ref": "#/definitions/triangle"
         }
       ],
-      "name": "shape"
+      "name": "shape",
+      "description": "Choice between complex types"
     },
     "circle": {
       "type": "object",
@@ -159,6 +162,7 @@
         }
       ],
       "name": "nullable_string",
+      "description": "Nullable types using choice",
       "altnames": {
         "cddl": "nullable-string"
       }
@@ -189,7 +193,8 @@
           "$ref": "#/definitions/error_event"
         }
       ],
-      "name": "event"
+      "name": "event",
+      "description": "Tagged union pattern"
     },
     "user_event": {
       "type": "object",
@@ -291,6 +296,7 @@
     }
   ],
   "name": "string_or_int",
+  "description": "CDDL schema demonstrating choice/union types Based on RFC 8610 Section 3.5 Simple choice between primitives",
   "altnames": {
     "cddl": "string-or-int"
   },
