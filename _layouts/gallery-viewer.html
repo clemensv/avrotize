@@ -1,0 +1,232 @@
+---
+layout: default
+body_class: gallery-page
+---
+
+<div class="gallery-viewer-page">
+  <div class="gallery-header">
+    <div class="gallery-header-content">
+      <a href="{{ '/gallery/' | relative_url }}" class="btn btn-outline btn-back">
+        ← Back
+      </a>
+      <div class="gallery-header-text">
+        <h1>{{ page.title }}</h1>
+        <p>{{ page.description }}</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="gallery-viewer">
+    <!-- Source Panel -->
+    <div class="gallery-panel source-panel">
+      <div class="panel-header">
+        <span>📄 Source: {{ page.source_file }}</span>
+      </div>
+      <div class="panel-content" id="sourceContent">
+        <div class="loading-placeholder">Loading source...</div>
+      </div>
+    </div>
+    
+    <!-- File Tree Panel -->
+    <div class="gallery-panel tree-panel">
+      <div class="panel-header">
+        <span>📁 Output Files</span>
+      </div>
+      <div class="panel-content">
+        <div class="file-tree" id="fileTree">
+          {{ content }}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Output Panel -->
+    <div class="gallery-panel output-panel">
+      <div class="panel-header">
+        <span id="outputFileName">📄 Select a file to view</span>
+      </div>
+      <div class="panel-content" id="outputContent">
+        <div class="loading-placeholder">
+          Click a file in the tree to view its contents
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.gallery-viewer-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+}
+
+.gallery-header {
+  flex-shrink: 0;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  background: var(--color-bg-light);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.gallery-header-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  max-width: 100%;
+}
+
+.btn-back {
+  flex-shrink: 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.gallery-header-text h1 {
+  font-size: 1.5rem;
+  margin-bottom: var(--spacing-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gallery-header-text p {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.gallery-viewer {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 260px 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.gallery-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--color-border);
+}
+
+.gallery-panel:last-child {
+  border-right: none;
+}
+
+.panel-header {
+  flex-shrink: 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.panel-content {
+  flex: 1;
+  overflow: auto;
+  background: var(--color-bg);
+}
+
+.source-panel pre,
+.output-panel pre {
+  margin: 0;
+  padding: var(--spacing-md);
+  min-height: 100%;
+  background: var(--color-bg) !important;
+}
+
+.file-tree {
+  padding: var(--spacing-sm);
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.tree-item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.tree-item.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.tree-item.folder {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.tree-icon {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+}
+
+.tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-children {
+  margin-left: var(--spacing-md);
+}
+
+.tree-children.collapsed {
+  display: none;
+}
+
+.loading-placeholder {
+  padding: var(--spacing-xl);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .gallery-viewer {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto 1fr;
+  }
+  
+  .gallery-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+  
+  .gallery-panel:last-child {
+    border-bottom: none;
+  }
+  
+  .tree-panel {
+    max-height: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .gallery-header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+  
+  .gallery-header-text h1 {
+    font-size: 1.25rem;
+  }
+}
+</style>

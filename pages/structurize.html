@@ -1,0 +1,235 @@
+---
+layout: default
+title: Structurize
+description: Convert schemas to and from JSON Structure format
+permalink: /structurize/
+---
+
+<section class="hero" style="padding: var(--spacing-2xl) var(--spacing-xl);">
+  <div class="hero-content">
+    <h1 style="color: var(--color-structurize);">Structurize</h1>
+    <p class="hero-subtitle">
+      Work with JSON Structure schema format. Transform schemas, generate code, 
+      and export to databases while preserving validation rules and documentation.
+    </p>
+    <div class="hero-buttons">
+      <a href="https://pypi.org/project/structurize/" class="btn btn-structurize" target="_blank">
+        Install from PyPI
+      </a>
+      <a href="{{ '/gallery/' | relative_url }}" class="btn btn-outline">
+        View Examples
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: var(--color-bg-light);">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>What is JSON Structure?</h2>
+      <p>A clean, focused schema format for data structures</p>
+    </div>
+    
+    <div style="max-width: 800px; margin: 0 auto;">
+      <p style="color: var(--color-text-muted); margin-bottom: var(--spacing-lg);">
+        JSON Structure is a schema format that focuses on describing data structures clearly and concisely. 
+        Unlike JSON Schema which is primarily designed for validation, JSON Structure emphasizes 
+        type definitions, inheritance, and code generation capabilities.
+      </p>
+      
+      <div class="features-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="feature-card">
+          <h4>Clean Type Definitions</h4>
+          <p>Express types clearly with support for primitives, objects, arrays, maps, and unions.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Type Extensions</h4>
+          <p>Support for type inheritance and composition with $extends.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Discriminated Unions</h4>
+          <p>Tagged unions with clear discriminator properties for polymorphism.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Validation Rules</h4>
+          <p>Preserve validation constraints like minLength, maxLength, pattern, etc.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Convert TO JSON Structure</h2>
+      <p>Transform schemas into JSON Structure format</p>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon structurize">📋</div>
+        <h3>JSON Schema → Structure</h3>
+        <p>Convert JSON Schema to JSON Structure, preserving validation and composition.</p>
+        <code>avrotize j2s schema.json --out schema.struct.json</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">📦</div>
+        <h3>Avro → Structure</h3>
+        <p>Convert Avro Schema to JSON Structure format.</p>
+        <code>avrotize a2s schema.avsc --out schema.struct.json</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: var(--color-bg-light);">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Convert FROM JSON Structure</h2>
+      <p>Export JSON Structure to other formats</p>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon structurize">📦</div>
+        <h3>Structure → Protobuf</h3>
+        <p>Generate Protocol Buffer definitions from JSON Structure.</p>
+        <code>avrotize s2p schema.struct.json --out ./proto</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">📐</div>
+        <h3>Structure → XSD</h3>
+        <p>Generate XML Schema from JSON Structure with full type support.</p>
+        <code>avrotize s2x schema.struct.json --out schema.xsd</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">🗃️</div>
+        <h3>Structure → SQL</h3>
+        <p>Generate SQL table definitions for multiple database engines.</p>
+        <code>avrotize struct2sql schema.struct.json --dialect postgresql</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">📊</div>
+        <h3>Structure → Kusto</h3>
+        <p>Generate Kusto/KQL table definitions.</p>
+        <code>avrotize s2k schema.struct.json --out table.kql</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">📊</div>
+        <h3>Structure → Iceberg</h3>
+        <p>Generate Apache Iceberg schemas.</p>
+        <code>avrotize s2ib schema.struct.json --out schema.json</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">📝</div>
+        <h3>Structure → Markdown</h3>
+        <p>Generate documentation from JSON Structure schemas.</p>
+        <code>avrotize struct2md schema.struct.json --out docs/</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Generate Code</h2>
+      <p>Create type-safe code from JSON Structure</p>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon structurize">🐍</div>
+        <h3>Python</h3>
+        <p>Generate dataclasses with validation and type hints.</p>
+        <code>avrotize s2py schema.struct.json --out ./python</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">💜</div>
+        <h3>C#</h3>
+        <p>Generate C# classes with JSON serialization attributes.</p>
+        <code>avrotize s2cs schema.struct.json --out ./csharp</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">☕</div>
+        <h3>Java</h3>
+        <p>Generate Java POJOs with Jackson annotations.</p>
+        <code>avrotize s2java schema.struct.json --out ./java</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">💙</div>
+        <h3>TypeScript</h3>
+        <p>Generate TypeScript interfaces and types.</p>
+        <code>avrotize s2ts schema.struct.json --out ./typescript</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">🔵</div>
+        <h3>Go</h3>
+        <p>Generate Go structs with JSON tags.</p>
+        <code>avrotize s2go schema.struct.json --out ./go</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">🦀</div>
+        <h3>Rust</h3>
+        <p>Generate Rust structs with serde derives.</p>
+        <code>avrotize s2rust schema.struct.json --out ./rust</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">⚙️</div>
+        <h3>C++</h3>
+        <p>Generate C++ classes with nlohmann/json support.</p>
+        <code>avrotize s2cpp schema.struct.json --out ./cpp</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">◼️</div>
+        <h3>GraphQL</h3>
+        <p>Generate GraphQL type definitions.</p>
+        <code>avrotize struct2gql schema.struct.json --out schema.graphql</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: var(--color-bg-light);">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Database Exports</h2>
+      <p>Generate database schemas from JSON Structure</p>
+    </div>
+    
+    <div style="max-width: 800px; margin: 0 auto;">
+      <div class="tool-formats" style="justify-content: center; gap: var(--spacing-md);">
+        <span class="format-tag">MySQL</span>
+        <span class="format-tag">PostgreSQL</span>
+        <span class="format-tag">SQL Server</span>
+        <span class="format-tag">Oracle</span>
+        <span class="format-tag">SQLite</span>
+        <span class="format-tag">BigQuery</span>
+        <span class="format-tag">Snowflake</span>
+        <span class="format-tag">Cassandra</span>
+        <span class="format-tag">Kusto/KQL</span>
+        <span class="format-tag">Iceberg</span>
+      </div>
+      
+      <div style="text-align: center; margin-top: var(--spacing-2xl);">
+        <a href="https://github.com/clemensv/avrotize#readme" class="btn btn-structurize" target="_blank">
+          View Full Documentation
+        </a>
+      </div>
+    </div>
+  </div>
+</section>

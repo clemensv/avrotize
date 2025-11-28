@@ -1,0 +1,217 @@
+---
+layout: default
+title: Avrotize
+description: Convert schemas to and from Apache Avro Schema format
+permalink: /avrotize/
+---
+
+<section class="hero" style="padding: var(--spacing-2xl) var(--spacing-xl);">
+  <div class="hero-content">
+    <h1 style="color: var(--color-avrotize);">Avrotize</h1>
+    <p class="hero-subtitle">
+      Your gateway to Apache Avro. Convert schemas from JSON Schema, Protobuf, XSD, 
+      and more to Avro format, then generate code for any language.
+    </p>
+    <div class="hero-buttons">
+      <a href="https://pypi.org/project/avrotize/" class="btn btn-avrotize" target="_blank">
+        Install from PyPI
+      </a>
+      <a href="{{ '/gallery/' | relative_url }}" class="btn btn-outline">
+        View Examples
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: var(--color-bg-light);">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Convert TO Avro Schema</h2>
+      <p>Transform any schema format into Apache Avro</p>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📋</div>
+        <h3>JSON Schema → Avro</h3>
+        <p>Convert complex JSON Schema documents including allOf, oneOf, anyOf compositions.</p>
+        <code>avrotize j2a schema.json --out schema.avsc</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📦</div>
+        <h3>Protobuf → Avro</h3>
+        <p>Transform Protocol Buffer definitions (proto2 and proto3) to Avro Schema.</p>
+        <code>avrotize p2a messages.proto --out schema.avsc</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📐</div>
+        <h3>XSD → Avro</h3>
+        <p>Convert XML Schema definitions to Avro, handling complex types and namespaces.</p>
+        <code>avrotize x2a schema.xsd --out schema.avsc</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">🔧</div>
+        <h3>ASN.1 → Avro</h3>
+        <p>Parse ASN.1 schemas and convert to Avro format for modern data processing.</p>
+        <code>avrotize asn2a schema.asn --out schema.avsc</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📊</div>
+        <h3>Parquet → Avro</h3>
+        <p>Extract schema from Parquet files and convert to Avro Schema.</p>
+        <code>avrotize pq2a data.parquet --out schema.avsc</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📄</div>
+        <h3>CSV → Avro</h3>
+        <p>Infer schema from CSV files and generate corresponding Avro Schema.</p>
+        <code>avrotize csv2a data.csv --out schema.avsc</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Convert FROM Avro Schema</h2>
+      <p>Export Avro schemas to other formats</p>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📋</div>
+        <h3>Avro → JSON Schema</h3>
+        <p>Generate JSON Schema from Avro for validation and documentation.</p>
+        <code>avrotize a2j schema.avsc --out schema.json</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📦</div>
+        <h3>Avro → Protobuf</h3>
+        <p>Convert Avro Schema to Protocol Buffer definitions.</p>
+        <code>avrotize a2p schema.avsc --out ./proto</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📐</div>
+        <h3>Avro → XSD</h3>
+        <p>Generate XML Schema from Avro for XML-based systems.</p>
+        <code>avrotize a2x schema.avsc --out schema.xsd</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">🗃️</div>
+        <h3>Avro → SQL</h3>
+        <p>Generate SQL table definitions for multiple database engines.</p>
+        <code>avrotize a2sql schema.avsc --dialect postgresql</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📊</div>
+        <h3>Avro → Parquet/Iceberg</h3>
+        <p>Create Parquet or Iceberg schemas from Avro definitions.</p>
+        <code>avrotize a2pq schema.avsc --out schema.parquet</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📝</div>
+        <h3>Avro → Markdown</h3>
+        <p>Generate documentation from your Avro schemas.</p>
+        <code>avrotize a2md schema.avsc --out docs/</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: var(--color-bg-light);">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Generate Code</h2>
+      <p>Create type-safe code from Avro Schema</p>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon avrotize">🐍</div>
+        <h3>Python</h3>
+        <p>Generate dataclasses with type hints and serialization support.</p>
+        <code>avrotize a2py schema.avsc --out ./python</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">💜</div>
+        <h3>C#</h3>
+        <p>Generate C# classes with System.Text.Json or Newtonsoft.Json annotations.</p>
+        <code>avrotize a2cs schema.avsc --out ./csharp</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">☕</div>
+        <h3>Java</h3>
+        <p>Generate Java POJOs with Jackson annotations.</p>
+        <code>avrotize a2java schema.avsc --out ./java</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">💙</div>
+        <h3>TypeScript</h3>
+        <p>Generate TypeScript interfaces and classes.</p>
+        <code>avrotize a2ts schema.avsc --out ./typescript</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">🔵</div>
+        <h3>Go</h3>
+        <p>Generate Go structs with JSON tags.</p>
+        <code>avrotize a2go schema.avsc --out ./go</code>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">🦀</div>
+        <h3>Rust</h3>
+        <p>Generate Rust structs with serde derives.</p>
+        <code>avrotize a2rust schema.avsc --out ./rust</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Database Exports</h2>
+      <p>Generate database schemas from Avro</p>
+    </div>
+    
+    <div style="max-width: 800px; margin: 0 auto;">
+      <div class="tool-formats" style="justify-content: center; gap: var(--spacing-md);">
+        <span class="format-tag">MySQL</span>
+        <span class="format-tag">PostgreSQL</span>
+        <span class="format-tag">SQL Server</span>
+        <span class="format-tag">Oracle</span>
+        <span class="format-tag">SQLite</span>
+        <span class="format-tag">BigQuery</span>
+        <span class="format-tag">Snowflake</span>
+        <span class="format-tag">Redshift</span>
+        <span class="format-tag">MongoDB</span>
+        <span class="format-tag">Cassandra</span>
+        <span class="format-tag">DynamoDB</span>
+        <span class="format-tag">CosmosDB</span>
+        <span class="format-tag">Elasticsearch</span>
+        <span class="format-tag">Kusto/KQL</span>
+      </div>
+      
+      <div style="text-align: center; margin-top: var(--spacing-2xl);">
+        <a href="https://github.com/clemensv/avrotize#readme" class="btn btn-avrotize" target="_blank">
+          View Full Documentation
+        </a>
+      </div>
+    </div>
+  </div>
+</section>

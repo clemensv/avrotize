@@ -1,0 +1,173 @@
+---
+layout: default
+title: Home
+description: A universal schema converter and code generator for data structures
+---
+
+<section class="hero">
+  <div class="hero-content">
+    <h1>Schema Conversion Made Simple</h1>
+    <p class="hero-subtitle">
+      Convert between data schema formats and generate code for any language. 
+      Your universal translator for JSON Schema, Avro, Protobuf, XSD, SQL, and more.
+    </p>
+    <div class="hero-buttons">
+      <a href="{{ '/avrotize/' | relative_url }}" class="btn btn-avrotize">
+        <span>🔄</span> Avrotize
+      </a>
+      <a href="{{ '/structurize/' | relative_url }}" class="btn btn-structurize">
+        <span>📐</span> Structurize
+      </a>
+      <a href="{{ '/gallery/' | relative_url }}" class="btn btn-outline">
+        <span>🖼️</span> View Gallery
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: var(--color-bg-light);">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Two Tools, One Mission</h2>
+      <p>Whether you're working with Avro or JSON Structure, we've got you covered</p>
+    </div>
+    
+    <div class="tools-split">
+      <div class="tool-panel avrotize">
+        <div class="tool-header">
+          <span class="tool-badge avrotize">Avrotize</span>
+        </div>
+        <p class="tool-description">
+          Convert schemas to and from Apache Avro Schema format. Perfect for data pipelines, 
+          event streaming, and systems that use Avro as their schema model.
+        </p>
+        <div class="tool-formats">
+          <span class="format-tag">JSON Schema → Avro</span>
+          <span class="format-tag">Protobuf → Avro</span>
+          <span class="format-tag">XSD → Avro</span>
+          <span class="format-tag">ASN.1 → Avro</span>
+          <span class="format-tag">Avro → Code</span>
+        </div>
+        <a href="{{ '/avrotize/' | relative_url }}" class="btn btn-avrotize">Learn More</a>
+      </div>
+      
+      <div class="tool-panel structurize">
+        <div class="tool-header">
+          <span class="tool-badge structurize">Structurize</span>
+        </div>
+        <p class="tool-description">
+          Work with JSON Structure schema format. Generate code, convert to databases, 
+          and transform schemas while preserving validation and documentation.
+        </p>
+        <div class="tool-formats">
+          <span class="format-tag">JSON Schema → Structure</span>
+          <span class="format-tag">Structure → SQL</span>
+          <span class="format-tag">Structure → Proto</span>
+          <span class="format-tag">Structure → XSD</span>
+          <span class="format-tag">Structure → Code</span>
+        </div>
+        <a href="{{ '/structurize/' | relative_url }}" class="btn btn-structurize">Learn More</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Features</h2>
+      <p>Everything you need to work with data schemas</p>
+    </div>
+    
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon avrotize">🔄</div>
+        <h3>Schema Conversion</h3>
+        <p>Convert between JSON Schema, Avro, Protobuf, XSD, ASN.1, and more. Preserve semantics across formats.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">💻</div>
+        <h3>Code Generation</h3>
+        <p>Generate type-safe code in Python, C#, Java, TypeScript, JavaScript, Go, Rust, and C++.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">🗃️</div>
+        <h3>Database Schemas</h3>
+        <p>Export to MySQL, PostgreSQL, SQL Server, MongoDB, Cassandra, DynamoDB, and more.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">📊</div>
+        <h3>Data Formats</h3>
+        <p>Convert to Parquet, Iceberg, Kusto, GraphQL, and other modern data formats.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon avrotize">📝</div>
+        <h3>Documentation</h3>
+        <p>Generate Markdown documentation from your schemas with full type hierarchy.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon structurize">🔌</div>
+        <h3>VS Code Extension</h3>
+        <p>Integrate directly into your editor with our Visual Studio Code extension.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: var(--color-bg-light);">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>Quick Start</h2>
+      <p>Get up and running in seconds</p>
+    </div>
+    
+    <div style="max-width: 700px; margin: 0 auto;">
+      <h4 style="margin-bottom: var(--spacing-md);">Installation</h4>
+      <pre class="line-numbers"><code class="language-bash"># Install from PyPI
+pip install avrotize
+
+# Or install as structurize
+pip install structurize</code></pre>
+      
+      <h4 style="margin-top: var(--spacing-xl); margin-bottom: var(--spacing-md);">Example: JSON Schema to Python</h4>
+      <pre class="line-numbers"><code class="language-bash"># Convert JSON Schema to Avro Schema
+avrotize j2a schema.json --out schema.avsc
+
+# Generate Python code from Avro Schema
+avrotize a2py schema.avsc --out ./python_classes</code></pre>
+      
+      <h4 style="margin-top: var(--spacing-xl); margin-bottom: var(--spacing-md);">Example: JSON Structure to C#</h4>
+      <pre class="line-numbers"><code class="language-bash"># Convert JSON Schema to JSON Structure
+avrotize j2s schema.json --out schema.struct.json
+
+# Generate C# code from JSON Structure
+avrotize s2cs schema.struct.json --out ./csharp_classes</code></pre>
+      
+      <div style="text-align: center; margin-top: var(--spacing-2xl);">
+        <a href="https://github.com/clemensv/avrotize#readme" class="btn btn-primary" target="_blank">
+          View Full Documentation
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-container">
+    <div class="section-header">
+      <h2>See It In Action</h2>
+      <p>Browse our gallery to see real conversion examples</p>
+    </div>
+    
+    <div style="text-align: center;">
+      <a href="{{ '/gallery/' | relative_url }}" class="btn btn-primary btn-lg">
+        <span>🖼️</span> Open Gallery
+      </a>
+    </div>
+  </div>
+</section>
