@@ -1892,6 +1892,156 @@
     ]
   },
   {
+    "command": "s2java",
+    "description": "Convert JSON Structure to Java classes",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretojava.convert_structure_to_java",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "java_file_path": "output_file_path",
+        "package_name": "args.package",
+        "pascal_properties": "args.pascal_properties",
+        "jackson_annotation": "args.jackson_annotation"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the Java classes",
+        "required": true
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "Java package name",
+        "required": false
+      },
+      {
+        "name": "--jackson-annotation",
+        "type": "bool",
+        "help": "Use Jackson annotations for JSON serialization",
+        "default": true,
+        "required": false
+      },
+      {
+        "name": "--pascal-properties",
+        "type": "bool",
+        "help": "Use PascalCase for property names",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-java",
+    "prompts": [
+      {
+        "name": "--package",
+        "message": "Enter the Java package name",
+        "type": "str",
+        "default": "{input_file_name}",
+        "required": false
+      },
+      {
+        "name": "--jackson-annotation",
+        "message": "Use Jackson annotations?",
+        "type": "bool",
+        "default": true
+      }
+    ]
+  },
+  {
+    "command": "s2go",
+    "description": "Convert JSON Structure to Go structs",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretogo.convert_structure_to_go",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "go_file_path": "output_file_path",
+        "package_name": "args.package",
+        "json_annotation": "args.json_annotation",
+        "avro_annotation": "args.avro_annotation",
+        "package_site": "args.package_site",
+        "package_username": "args.package_username"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the Go structs",
+        "required": true
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "Go package name",
+        "required": false
+      },
+      {
+        "name": "--json-annotation",
+        "type": "bool",
+        "help": "Add JSON struct tags for encoding/json",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--avro-annotation",
+        "type": "bool",
+        "help": "Add Avro struct tags",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--package-site",
+        "type": "str",
+        "help": "Package site for Go module (e.g., github.com)",
+        "default": "github.com",
+        "required": false
+      },
+      {
+        "name": "--package-username",
+        "type": "str",
+        "help": "Username/organization for Go module",
+        "default": "username",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-go",
+    "prompts": [
+      {
+        "name": "--package",
+        "message": "Enter the Go package name",
+        "type": "str",
+        "default": "{input_file_name}",
+        "required": false
+      },
+      {
+        "name": "--json-annotation",
+        "message": "Add JSON struct tags?",
+        "type": "bool",
+        "default": false
+      }
+    ]
+  },
+  {
     "command": "struct2gql",
     "description": "Convert JSON Structure schema to GraphQL schema",
     "group": "1_Schemas",
