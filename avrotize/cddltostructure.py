@@ -582,14 +582,24 @@ class CddlToStructureConverter:
                         result['name'] = avro_name(name)
                         result['original_name'] = name
             elif child_type == 'Value':
-                # String key value
+                # Could be string key or integer key
                 if hasattr(child, 'value'):
                     value = child.value
-                    # Remove quotes if present
+                    # Remove quotes if present (string key)
                     if value.startswith('"') and value.endswith('"'):
                         value = value[1:-1]
-                    result['name'] = avro_name(value)
-                    result['original_name'] = value
+                        result['name'] = avro_name(value)
+                        result['original_name'] = value
+                    else:
+                        # Try to parse as integer key
+                        try:
+                            int_key = int(value)
+                            result['name'] = f'_{value}'
+                            result['original_name'] = value
+                            result['integer_key'] = int_key
+                        except ValueError:
+                            result['name'] = avro_name(value)
+                            result['original_name'] = value
         
         return result if result else None
 
@@ -659,8 +669,142 @@ class CddlToStructureConverter:
 
     def _convert_group(self, group_node: Group, context_name: str = '') -> Dict[str, Any]:
         """Convert a Group node."""
-        # A group is typically used inline and becomes an object
+        # Check if this is an integer-keyed group (should become a tuple)
+        int_key_entries = self._extract_integer_key_entries(group_node)
+        if int_key_entries:
+            return self._convert_to_tuple(int_key_entries, context_name)
+        
+        # Otherwise, treat as an object
         return self._convert_map_like(group_node, context_name)
+    
+    def _extract_integer_key_entries(self, node: Any) -> Optional[List[Tuple[int, bool, Any]]]:
+        """
+        Extract integer-keyed entries from a group.
+        Returns list of (key, is_optional, type_node) tuples, or None if not integer-keyed.
+        """
+        entries: List[Tuple[int, bool, Any]] = []
+        
+        if not hasattr(node, 'getChildren'):
+            return None
+        
+        for child in node.getChildren():
+            if type(child).__name__ == 'GroupChoice':
+                result = self._extract_int_keys_from_group_choice(child)
+                if result is None:
+                    return None  # Mixed keys, not a pure integer-keyed group
+                entries.extend(result)
+        
+        if not entries:
+            return None
+        
+        # Sort by key and check for sequential keys starting from 1
+        entries.sort(key=lambda x: x[0])
+        
+        return entries
+    
+    def _extract_int_keys_from_group_choice(self, group_choice: Any) -> Optional[List[Tuple[int, bool, Any]]]:
+        """Extract integer keys from a GroupChoice node."""
+        entries: List[Tuple[int, bool, Any]] = []
+        
+        if not hasattr(group_choice, 'getChildren'):
+            return None
+        
+        for child in group_choice.getChildren():
+            if type(child).__name__ == 'GroupEntry':
+                result = self._extract_int_key_from_entry(child)
+                if result is None:
+                    return None  # Not an integer key
+                entries.append(result)
+            elif type(child).__name__ == 'GroupChoice':
+                nested = self._extract_int_keys_from_group_choice(child)
+                if nested is None:
+                    return None
+                entries.extend(nested)
+        
+        return entries
+    
+    def _extract_int_key_from_entry(self, entry: Any) -> Optional[Tuple[int, bool, Any]]:
+        """Extract integer key, optionality, and type from a GroupEntry."""
+        if not hasattr(entry, 'getChildren'):
+            return None
+        
+        children = entry.getChildren()
+        is_optional = False
+        int_key = None
+        type_node = None
+        
+        for child in children:
+            child_type = type(child).__name__
+            if child_type == 'Occurrence':
+                # Check for optional marker
+                is_optional = self._is_optional_occurrence(child)
+            elif child_type == 'Memberkey':
+                int_key = self._get_integer_key(child)
+                if int_key is None:
+                    return None  # Not an integer key
+            elif child_type in ('Type', 'Typename', 'Map', 'Array', 'Group', 'Value'):
+                type_node = child
+        
+        if int_key is not None and type_node is not None:
+            return (int_key, is_optional, type_node)
+        
+        return None
+    
+    def _is_optional_occurrence(self, occurrence: Any) -> bool:
+        """Check if an occurrence node indicates optional (?)."""
+        # The ? marker means n=0, m=1 (zero or one)
+        # Check the n attribute - if n=0, it's optional
+        if hasattr(occurrence, 'n') and occurrence.n == 0:
+            return True
+        # Fallback: check tokens for QUEST
+        if hasattr(occurrence, 'tokens'):
+            for token in occurrence.tokens:
+                if 'QUEST' in repr(token):
+                    return True
+        return False
+    
+    def _get_integer_key(self, memberkey: Any) -> Optional[int]:
+        """Get integer key from a Memberkey node, or None if not an integer key."""
+        if not hasattr(memberkey, 'getChildren'):
+            return None
+        
+        for child in memberkey.getChildren():
+            if type(child).__name__ == 'Value' and hasattr(child, 'value'):
+                try:
+                    return int(child.value)
+                except ValueError:
+                    return None
+        
+        return None
+    
+    def _convert_to_tuple(self, entries: List[Tuple[int, bool, Any]], context_name: str) -> Dict[str, Any]:
+        """Convert integer-keyed entries to a tuple type."""
+        # Sort entries by key
+        entries.sort(key=lambda x: x[0])
+        
+        # Build tuple items array
+        items = []
+        for key, is_optional, type_node in entries:
+            item_type = self._convert_type(type_node, context_name)
+            
+            # If optional, wrap in a union with null
+            if is_optional:
+                if isinstance(item_type, dict):
+                    if 'type' in item_type and isinstance(item_type['type'], list):
+                        # Already a union, add null if not present
+                        types = item_type['type']
+                        if not any(t.get('type') == 'null' for t in types if isinstance(t, dict)):
+                            types.append({'type': 'null'})
+                    else:
+                        # Wrap in union with null
+                        item_type = {'type': [item_type, {'type': 'null'}]}
+            
+            items.append(item_type)
+        
+        return {
+            'type': 'tuple',
+            'items': items
+        }
 
     def _convert_map_like(self, node: Any, context_name: str = '') -> Dict[str, Any]:
         """Convert a map-like structure to object."""

@@ -3,62 +3,78 @@
   "$id": "https://example/com/schema.json",
   "definitions": {
     "Generic_Headers": {
-      "type": "object",
-      "properties": {
-        "_1": {
+      "type": "tuple",
+      "items": [
+        {
           "type": [
             {
               "type": "int64"
             },
             {
               "type": "string"
+            },
+            {
+              "type": "null"
             }
-          ],
-          "altnames": {
-            "cddl": "1"
-          }
+          ]
         },
-        "_2": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/label"
-          },
-          "altnames": {
-            "cddl": "2"
-          }
+        {
+          "type": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/label"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        "_3": {
+        {
           "type": [
             {
               "type": "string"
             },
             {
               "type": "int64"
+            },
+            {
+              "type": "null"
             }
-          ],
-          "altnames": {
-            "cddl": "3"
-          }
+          ]
         },
-        "_4": {
-          "type": "bytes",
-          "altnames": {
-            "cddl": "4"
-          }
+        {
+          "type": [
+            {
+              "type": "bytes"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        "_5": {
-          "type": "bytes",
-          "altnames": {
-            "cddl": "5"
-          }
+        {
+          "type": [
+            {
+              "type": "bytes"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        "_6": {
-          "type": "bytes",
-          "altnames": {
-            "cddl": "6"
-          }
+        {
+          "type": [
+            {
+              "type": "bytes"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        "_7": {
+        {
           "type": [
             {
               "$ref": "#/definitions/COSE_Signature"
@@ -68,13 +84,13 @@
               "items": {
                 "$ref": "#/definitions/COSE_Signature"
               }
+            },
+            {
+              "type": "null"
             }
-          ],
-          "altnames": {
-            "cddl": "7"
-          }
+          ]
         }
-      },
+      ],
       "name": "Generic_Headers",
       "altnames": {
         "cddl": "Generic-Headers"
@@ -235,62 +251,78 @@
       }
     }
   },
-  "type": "object",
-  "properties": {
-    "_1": {
+  "type": "tuple",
+  "items": [
+    {
       "type": [
         {
           "type": "int64"
         },
         {
           "type": "string"
+        },
+        {
+          "type": "null"
         }
-      ],
-      "altnames": {
-        "cddl": "1"
-      }
+      ]
     },
-    "_2": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/label"
-      },
-      "altnames": {
-        "cddl": "2"
-      }
+    {
+      "type": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/label"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "_3": {
+    {
       "type": [
         {
           "type": "string"
         },
         {
           "type": "int64"
+        },
+        {
+          "type": "null"
         }
-      ],
-      "altnames": {
-        "cddl": "3"
-      }
+      ]
     },
-    "_4": {
-      "type": "bytes",
-      "altnames": {
-        "cddl": "4"
-      }
+    {
+      "type": [
+        {
+          "type": "bytes"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "_5": {
-      "type": "bytes",
-      "altnames": {
-        "cddl": "5"
-      }
+    {
+      "type": [
+        {
+          "type": "bytes"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "_6": {
-      "type": "bytes",
-      "altnames": {
-        "cddl": "6"
-      }
+    {
+      "type": [
+        {
+          "type": "bytes"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "_7": {
+    {
       "type": [
         {
           "$ref": "#/definitions/COSE_Signature"
@@ -300,13 +332,13 @@
           "items": {
             "$ref": "#/definitions/COSE_Signature"
           }
+        },
+        {
+          "type": "null"
         }
-      ],
-      "altnames": {
-        "cddl": "7"
-      }
+      ]
     }
-  },
+  ],
   "name": "Generic_Headers",
   "altnames": {
     "cddl": "Generic-Headers"
