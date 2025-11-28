@@ -58,23 +58,37 @@ jobs:
 
       - name: Copy gallery to site
         run: |
+          # Debug: Show what was generated
+          echo "=== Contents of source/gallery ==="
+          ls -la source/gallery/ || echo "source/gallery not found"
+          echo "=== Contents of source/tmp/gallery ==="
+          ls -la source/tmp/gallery/ || echo "source/tmp/gallery not found"
+          
           # Copy generated gallery viewer pages
           mkdir -p site/gallery
           if [ -d "source/gallery" ]; then
-            cp -r source/gallery/* site/gallery/ 2>/dev/null || true
+            cp -r source/gallery/* site/gallery/
+            echo "Copied gallery pages"
           fi
           
-          # Copy output data files for the gallery (use 'files' not '_data' so Jekyll serves them)
+          # Copy output data files for the gallery
           mkdir -p site/gallery/files
           if [ -d "source/tmp/gallery" ]; then
             for dir in source/tmp/gallery/*/; do
               if [ -d "$dir" ]; then
                 dirname=$(basename "$dir")
+                echo "Copying files for: $dirname"
                 mkdir -p "site/gallery/files/$dirname"
-                cp -r "$dir"* "site/gallery/files/$dirname/" 2>/dev/null || true
+                cp -r "$dir"/* "site/gallery/files/$dirname/"
               fi
             done
           fi
+          
+          # Debug: Show what was copied
+          echo "=== Contents of site/gallery ==="
+          find site/gallery -type f | head -50
+          echo "=== Contents of site/gallery/files ==="
+          find site/gallery/files -type f 2>/dev/null | head -50 || echo "No files found"
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
