@@ -1,0 +1,149 @@
+#!/bin/bash
+# Shell script to run tests with code coverage and generate reports
+# Generated for project: {{ project_name }}
+
+# Default values
+THRESHOLD=85
+HTML_REPORT=false
+OPEN_REPORT=false
+FAIL_ON_LOW_COVERAGE=true
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --threshold)
+            THRESHOLD="$2"
+            shift 2
+            ;;
+        --html-report)
+            HTML_REPORT=true
+            shift
+            ;;
+        --open-report)
+            OPEN_REPORT=true
+            HTML_REPORT=true
+            shift
+            ;;
+        --no-fail)
+            FAIL_ON_LOW_COVERAGE=false
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--threshold N] [--html-report] [--open-report] [--no-fail]"
+            exit 1
+            ;;
+    esac
+done
+
+echo "🧪 Running tests with code coverage for {{ project_name }}..."
+
+# Clean previous coverage results
+COVERAGE_DIR="./coverage"
+if [ -d "$COVERAGE_DIR" ]; then
+    rm -rf "$COVERAGE_DIR"
+    echo "🧹 Cleaned previous coverage results"
+fi
+
+# Run tests with coverage collection
+echo "📊 Collecting code coverage..."
+dotnet test --collect:"XPlat Code Coverage" --results-directory:"$COVERAGE_DIR" --logger:"console;verbosity=detailed"
+TEST_EXIT_CODE=$?
+
+if [ $TEST_EXIT_CODE -ne 0 ]; then
+    echo "❌ Tests failed!"
+    exit $TEST_EXIT_CODE
+fi
+
+# Find coverage file
+COVERAGE_FILE=$(find "$COVERAGE_DIR" -name "*.cobertura.xml" | head -n 1)
+if [ -z "$COVERAGE_FILE" ]; then
+    echo "❌ No coverage file found!"
+    exit 1
+fi
+
+echo "📄 Coverage file: $COVERAGE_FILE"
+
+# Parse coverage percentage using grep and sed
+COVERAGE_LINE_RATE=$(grep -o 'line-rate="[0-9.]*"' "$COVERAGE_FILE" | head -n 1 | sed 's/line-rate="//;s/"//')
+COVERAGE_PERCENT=$(echo "$COVERAGE_LINE_RATE * 100" | bc -l | xargs printf "%.2f")
+
+# Parse branch coverage
+BRANCH_LINE_RATE=$(grep -o 'branch-rate="[0-9.]*"' "$COVERAGE_FILE" | head -n 1 | sed 's/branch-rate="//;s/"//')
+BRANCH_PERCENT=$(echo "$BRANCH_LINE_RATE * 100" | bc -l | xargs printf "%.2f")
+
+# Color codes
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m' # No Color
+
+# Determine colors based on threshold
+LINE_COLOR=$GREEN
+if (( $(echo "$COVERAGE_PERCENT < $THRESHOLD" | bc -l) )); then
+    LINE_COLOR=$RED
+fi
+
+BRANCH_COLOR=$GREEN
+if (( $(echo "$BRANCH_PERCENT < $THRESHOLD" | bc -l) )); then
+    BRANCH_COLOR=$RED
+fi
+
+echo -e "📈 Line Coverage: ${LINE_COLOR}${COVERAGE_PERCENT}%${NC}"
+echo -e "🌿 Branch Coverage: ${BRANCH_COLOR}${BRANCH_PERCENT}%${NC}"
+
+# Generate HTML report if requested
+if [ "$HTML_REPORT" = true ]; then
+    echo -e "${BLUE}📊 Generating HTML coverage report...${NC}"
+    
+    # Check if reportgenerator is installed
+    if ! command -v reportgenerator &> /dev/null; then
+        echo -e "${YELLOW}⬇️ Installing ReportGenerator...${NC}"
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+    fi
+    
+    HTML_REPORT_PATH="$COVERAGE_DIR/html"
+    reportgenerator "-reports:$COVERAGE_FILE" "-targetdir:$HTML_REPORT_PATH" "-reporttypes:Html"
+    
+    echo -e "${GREEN}📊 HTML report generated: $HTML_REPORT_PATH/index.html${NC}"
+    
+    if [ "$OPEN_REPORT" = true ]; then
+        if command -v xdg-open &> /dev/null; then
+            xdg-open "$HTML_REPORT_PATH/index.html"
+        elif command -v open &> /dev/null; then
+            open "$HTML_REPORT_PATH/index.html"
+        else
+            echo "Cannot auto-open browser. Please open: $HTML_REPORT_PATH/index.html"
+        fi
+        echo -e "${GREEN}🌐 Opened coverage report in browser${NC}"
+    fi
+fi
+
+# Coverage summary
+echo ""
+echo -e "${CYAN}📊 Coverage Summary:${NC}"
+echo -e "  Line Coverage: ${WHITE}${COVERAGE_PERCENT}%${NC} (Threshold: ${THRESHOLD}%)"
+echo -e "  Branch Coverage: ${WHITE}${BRANCH_PERCENT}%${NC}"
+
+# Determine status
+if (( $(echo "$COVERAGE_PERCENT >= $THRESHOLD" | bc -l) )); then
+    echo -e "  Status: ${GREEN}✅ PASSED${NC}"
+    STATUS_CODE=0
+else
+    echo -e "  Status: ${RED}❌ FAILED${NC}"
+    STATUS_CODE=1
+fi
+
+# Fail if coverage is below threshold and FAIL_ON_LOW_COVERAGE is set
+if [ "$FAIL_ON_LOW_COVERAGE" = true ] && [ $STATUS_CODE -eq 1 ]; then
+    echo ""
+    echo -e "${RED}❌ Coverage ${COVERAGE_PERCENT}% is below the required threshold of ${THRESHOLD}%${NC}"
+    exit 1
+fi
+
+echo ""
+echo -e "${GREEN}✅ Coverage analysis completed successfully!${NC}"
+exit 0
