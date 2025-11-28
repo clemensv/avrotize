@@ -928,6 +928,132 @@ function escapeHtml(text) {{
     print(f"  Generated page: {page_dir / 'index.html'}")
 
 
+def generate_gallery_index(successful_items: list[dict]) -> None:
+    """Generate the main gallery index page listing all conversions."""
+    
+    # Categorize items
+    avro_input = []  # X -> Avro
+    avro_output = []  # Avro -> X
+    struct_input = []  # X -> Struct
+    struct_output = []  # Struct -> X
+    
+    for item in successful_items:
+        item_id = item["id"]
+        if item_id.endswith("-to-avro"):
+            avro_input.append(item)
+        elif item_id.startswith("avro-to-"):
+            avro_output.append(item)
+        elif item_id.endswith("-to-struct"):
+            struct_input.append(item)
+        elif item_id.startswith("struct-to-"):
+            struct_output.append(item)
+    
+    def render_card(item: dict) -> str:
+        """Render a single gallery card."""
+        title = item["title"]
+        desc = item["description"]
+        item_id = item["id"]
+        
+        # Parse formats from title (e.g., "JSON Schema -> Avro" or "Avro -> Python")
+        parts = title.split(" -> ")
+        formats = []
+        for p in parts:
+            formats.append(f'<span class="format-tag">{p}</span>')
+        format_html = '<span class="format-tag">-></span>'.join(formats)
+        
+        return f'''    <a href="{{{{ '/gallery/{item_id}/' | relative_url }}}}" class="gallery-card">
+      <div class="gallery-card-header">
+        <div class="gallery-card-title">{title}</div>
+        <div class="gallery-card-subtitle">{desc}</div>
+      </div>
+      <div class="gallery-card-body">
+        <div class="gallery-card-formats">
+          {format_html}
+        </div>
+        <span class="gallery-card-link">View conversion -></span>
+      </div>
+    </a>'''
+    
+    def render_section(title: str, subtitle: str, items: list[dict]) -> str:
+        """Render a section with cards."""
+        if not items:
+            return ""
+        
+        cards = "\n\n".join(render_card(item) for item in items)
+        return f'''
+  <div class="section-header" style="margin-top: var(--spacing-3xl); margin-bottom: var(--spacing-2xl);">
+    <h2>{title}</h2>
+    <p>{subtitle}</p>
+  </div>
+  
+  <div class="gallery-grid">
+{cards}
+  </div>'''
+    
+    # Build page content
+    page_content = '''---
+layout: default
+title: Gallery
+description: See real conversion examples with full output
+permalink: /gallery/
+---
+
+<section class="hero" style="padding: var(--spacing-xl) var(--spacing-xl);">
+  <div class="hero-content">
+    <h1>Conversion Gallery</h1>
+    <p class="hero-subtitle">
+      Explore real-world schema conversions. See the source schema, browse the output files, 
+      and view the generated code with syntax highlighting.
+    </p>
+  </div>
+</section>
+
+<section class="gallery-index">
+'''
+    
+    # Add avro input section (X -> Avro) first without extra margin
+    if avro_input:
+        cards = "\n\n".join(render_card(item) for item in avro_input)
+        page_content += f'''
+  <div class="section-header" style="margin-bottom: var(--spacing-2xl);">
+    <h2>Input Formats -> Avro</h2>
+    <p>Convert various schema formats to Avro Schema</p>
+  </div>
+  
+  <div class="gallery-grid">
+{cards}
+  </div>
+'''
+    
+    page_content += render_section(
+        "Avro -> Output Formats",
+        "Generate code and schemas from Avro Schema",
+        avro_output
+    )
+    
+    page_content += render_section(
+        "Input Formats -> JSON Structure",
+        "Convert various schema formats to JSON Structure",
+        struct_input
+    )
+    
+    page_content += render_section(
+        "JSON Structure -> Output Formats",
+        "Generate code and schemas from JSON Structure",
+        struct_output
+    )
+    
+    page_content += '''
+</section>
+'''
+    
+    # Write to pages/gallery.html
+    pages_dir = PROJECT_ROOT / "pages"
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    output_path = pages_dir / "gallery.html"
+    output_path.write_text(page_content, encoding="utf-8")
+    print(f"\nGenerated gallery index: {output_path}")
+
 def _ensure_test_files_from_master() -> None:
     """Ensure test files are available from master branch."""
     # Files needed from master branch test directory
@@ -976,6 +1102,9 @@ def build_gallery() -> None:
     if not TEST_DIR.exists():
         TEST_DIR.mkdir(parents=True, exist_ok=True)
     _ensure_test_files_from_master()
+    
+    # Track successful items for index generation
+    successful_items = []
     
     for item in GALLERY_ITEMS:
         print(f"\nProcessing: {item['title']}")
@@ -1026,9 +1155,13 @@ def build_gallery() -> None:
             
             # Generate the gallery page
             generate_gallery_page(item, output_dir, files_base_url)
+            successful_items.append(item)
+    
+    # Generate the main gallery index page
+    generate_gallery_index(successful_items)
     
     print("\nGallery build complete!")
-    print(f"Generated pages are in: {GALLERY_DIR}")
+    print(f"Generated {len(successful_items)} gallery pages in: {GALLERY_DIR}")
     print(f"Output files are in: {TMP_DIR}")
 
 

@@ -78,6 +78,12 @@ jobs:
             echo "Copied gallery pages"
           fi
           
+          # Copy generated gallery index page (pages/gallery.html)
+          if [ -f "source/pages/gallery.html" ]; then
+            cp source/pages/gallery.html site/pages/gallery.html
+            echo "Copied gallery index page"
+          fi
+          
           # Copy output data files for the gallery
           mkdir -p site/gallery/files
           if [ -d "source/tmp/gallery" ]; then
