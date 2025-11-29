@@ -449,66 +449,93 @@ class StructureToCddlConverter:
     def _convert_primitive(self, type_name: str, schema: Dict[str, Any]) -> str:
         """Convert a primitive type with optional constraints."""
         cddl_type = self._map_primitive_type(type_name)
+        
+        # Check for numeric range - use CDDL range syntax instead of type + control operators
+        minimum = schema.get('minimum')
+        maximum = schema.get('maximum')
+        exclusive_min = schema.get('exclusiveMinimum')
+        exclusive_max = schema.get('exclusiveMaximum')
+        
+        # If we have both bounds, use range syntax
+        if minimum is not None and maximum is not None:
+            return f"{minimum}..{maximum}"
+        elif exclusive_min is not None and exclusive_max is not None:
+            return f"{exclusive_min + 1}..{exclusive_max - 1}"
+        elif minimum is not None and exclusive_max is not None:
+            return f"{minimum}..{exclusive_max - 1}"
+        elif exclusive_min is not None and maximum is not None:
+            return f"{exclusive_min + 1}..{maximum}"
+        
+        # For single-bound constraints or other constraints, use control operators
         constraints = self._get_constraints(schema)
         if constraints:
             return f"{cddl_type} {constraints}"
         return cddl_type
 
     def _get_constraints(self, schema: Dict[str, Any]) -> str:
-        """Get CDDL control operators for constraints."""
-        constraints = []
+        """
+        Get CDDL control operators for constraints.
         
+        Note: CDDL only allows ONE control operator per type. If multiple are needed,
+        we prioritize: pattern > size > numeric > default > const
+        """
         # String constraints
         if 'minLength' in schema or 'maxLength' in schema:
             min_len = schema.get('minLength', 0)
             max_len = schema.get('maxLength')
             if min_len == max_len and max_len is not None:
-                constraints.append(f".size {max_len}")
+                return f".size {max_len}"
             elif max_len is not None:
-                constraints.append(f".size ({min_len}..{max_len})")
+                return f".size ({min_len}..{max_len})"
             elif min_len > 0:
-                constraints.append(f".size ({min_len}..)")
+                return f".size ({min_len}..)"
         
-        # Pattern constraint
+        # Pattern constraint (takes priority for strings)
         if 'pattern' in schema:
             pattern = schema['pattern'].replace('"', '\\"')
-            constraints.append(f'.regexp "{pattern}"')
+            return f'.regexp "{pattern}"'
         
-        # Numeric constraints
-        if 'minimum' in schema:
-            constraints.append(f".ge {schema['minimum']}")
-        if 'maximum' in schema:
-            constraints.append(f".le {schema['maximum']}")
-        if 'exclusiveMinimum' in schema:
-            constraints.append(f".gt {schema['exclusiveMinimum']}")
-        if 'exclusiveMaximum' in schema:
-            constraints.append(f".lt {schema['exclusiveMaximum']}")
+        # Numeric constraints (only if not already handled by range syntax)
+        minimum = schema.get('minimum')
+        maximum = schema.get('maximum')
+        exclusive_min = schema.get('exclusiveMinimum')
+        exclusive_max = schema.get('exclusiveMaximum')
+        
+        # Single-bound numeric constraints
+        if minimum is not None and maximum is None and exclusive_max is None:
+            return f".ge {minimum}"
+        if maximum is not None and minimum is None and exclusive_min is None:
+            return f".le {maximum}"
+        if exclusive_min is not None and exclusive_max is None and maximum is None:
+            return f".gt {exclusive_min}"
+        if exclusive_max is not None and exclusive_min is None and minimum is None:
+            return f".lt {exclusive_max}"
         
         # Default value
         if 'default' in schema:
             default = schema['default']
             if isinstance(default, str):
-                constraints.append(f'.default "{default}"')
+                return f'.default "{default}"'
             elif isinstance(default, bool):
-                constraints.append(f".default {'true' if default else 'false'}")
+                return f".default {'true' if default else 'false'}"
             elif default is None:
-                constraints.append(".default nil")
+                return ".default nil"
             else:
-                constraints.append(f".default {default}")
+                return f".default {default}"
         
         # Const value (use .eq)
         if 'const' in schema:
             const = schema['const']
             if isinstance(const, str):
-                constraints.append(f'.eq "{const}"')
+                return f'.eq "{const}"'
             elif isinstance(const, bool):
-                constraints.append(f".eq {'true' if const else 'false'}")
+                return f".eq {'true' if const else 'false'}"
             elif const is None:
-                constraints.append(".eq nil")
+                return ".eq nil"
             else:
-                constraints.append(f".eq {const}")
+                return f".eq {const}"
 
-        return ' '.join(constraints)
+        return ''
 
     def _convert_const(self, value: Any) -> str:
         """Convert a const value to CDDL literal."""

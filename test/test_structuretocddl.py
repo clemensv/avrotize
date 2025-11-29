@@ -294,8 +294,10 @@ class TestStructureToCddl(unittest.TestCase):
         
         result = convert_structure_to_cddl(json.dumps(structure))
         
+        # Single bound uses control operator
         self.assertIn('.ge', result)
-        self.assertIn('.le', result)
+        # Double bound uses range syntax (0..100)
+        self.assertIn('0..100', result)
 
     def test_default_value(self):
         """Test conversion of default values."""
