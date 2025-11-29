@@ -44,11 +44,13 @@ Notes on Type Mapping:
 """
 
 import json
+import logging
 import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
 from cddlparser import parse as cddl_parse
 from cddlparser.ast import (
-    CDDLTree, Rule, Type, Typename, Map, Array, Group, GroupChoice, 
+    CDDLTree, Rule, Type, Typename, Map, Array, Group, GroupChoice,
     GroupEntry, Memberkey, Occurrence, Value, Range, Operator, Tag,
     ChoiceFrom, GenericArguments, GenericParameters
 )
@@ -56,8 +58,56 @@ from cddlparser.ast import (
 from avrotize.common import avro_name
 
 
+# Configure module logger
+logger = logging.getLogger(__name__)
+
+
 # Default namespace for JSON Structure schema
 DEFAULT_NAMESPACE = 'example.com'
+
+# Maximum recursion depth for type conversion (prevents stack overflow)
+MAX_CONVERSION_DEPTH = 100
+
+# Type aliases for better type safety
+JsonStructureType = Dict[str, Any]
+AstNode = Any  # Union of all cddlparser AST node types
+CommentList = List[Any]
+
+
+class CddlConversionError(Exception):
+    """
+    Exception raised when CDDL to JSON Structure conversion fails.
+
+    Attributes:
+        message: Human-readable error description
+        context: Optional context about where the error occurred
+        cause: Optional underlying exception that caused this error
+    """
+
+    def __init__(self, message: str, context: Optional[str] = None,
+                 cause: Optional[Exception] = None) -> None:
+        self.message = message
+        self.context = context
+        self.cause = cause
+        full_message = message
+        if context:
+            full_message = f"{message} (context: {context})"
+        super().__init__(full_message)
+
+
+class CddlCycleError(CddlConversionError):
+    """
+    Exception raised when a circular type reference is detected.
+
+    Attributes:
+        cycle_path: List of type names forming the cycle
+    """
+
+    def __init__(self, cycle_path: List[str]) -> None:
+        self.cycle_path = cycle_path
+        cycle_str = ' -> '.join(cycle_path)
+        super().__init__(f"Circular type reference detected: {cycle_str}")
+
 
 # CDDL primitive types to JSON Structure type mapping
 CDDL_PRIMITIVE_TYPES: Dict[str, Dict[str, Any]] = {
@@ -106,6 +156,9 @@ class CddlToStructureConverter:
         self.generic_types: Dict[str, Dict[str, Any]] = {}  # Maps type name to generic info
         self.current_generic_bindings: Dict[str, Dict[str, Any]] = {}  # Current type parameter bindings
         self.generic_template_names: Set[str] = set()  # Names of generic templates (not concrete types)
+        # Cycle detection state
+        self._conversion_stack: List[str] = []  # Stack of type names currently being converted
+        self._conversion_depth: int = 0  # Current recursion depth
 
     def _extract_description(self, node: Any) -> Optional[str]:
         """
@@ -157,12 +210,14 @@ class CddlToStructureConverter:
         # Parse the CDDL content
         ast = cddl_parse(cddl_content)
         
-        # Clear type registry
+        # Clear type registry and cycle detection state
         self.type_registry.clear()
         self.definitions.clear()
         self.generic_types.clear()
         self.current_generic_bindings.clear()
         self.generic_template_names.clear()
+        self._conversion_stack.clear()
+        self._conversion_depth = 0
         
         # First pass: collect all type names and generic definitions
         for rule in ast.rules:
@@ -270,39 +325,65 @@ class CddlToStructureConverter:
             self.type_registry[typename_node.name] = structure_type
 
     def _convert_type(self, type_node: Any, context_name: str = '') -> Dict[str, Any]:
-        """Convert a CDDL type node to JSON Structure type."""
+        """
+        Convert a CDDL type node to JSON Structure type.
+        
+        Args:
+            type_node: The AST node to convert
+            context_name: Name context for error messages and nested type naming
+            
+        Returns:
+            JSON Structure type definition
+            
+        Raises:
+            CddlConversionError: If conversion depth exceeds MAX_CONVERSION_DEPTH
+        """
         if type_node is None:
             return {'type': 'any'}
-            
-        node_type = type(type_node).__name__
         
-        if node_type == 'Type':
-            return self._convert_type_node(type_node, context_name)
-        elif node_type == 'Typename':
-            return self._convert_typename(type_node)
-        elif node_type == 'Map':
-            return self._convert_map(type_node, context_name)
-        elif node_type == 'Array':
-            return self._convert_array(type_node, context_name)
-        elif node_type == 'Group':
-            return self._convert_group(type_node, context_name)
-        elif node_type == 'GroupChoice':
-            return self._convert_group_choice(type_node, context_name)
-        elif node_type == 'GroupEntry':
-            return self._convert_group_entry(type_node, context_name)
-        elif node_type == 'Value':
-            return self._convert_value(type_node)
-        elif node_type == 'Range':
-            return self._convert_range(type_node)
-        elif node_type == 'Operator':
-            return self._convert_operator(type_node, context_name)
-        elif node_type == 'Tag':
-            return self._convert_tag(type_node, context_name)
-        elif node_type == 'ChoiceFrom':
-            return self._convert_choice_from(type_node, context_name)
-        else:
-            # Default fallback
-            return {'type': 'any'}
+        # Check recursion depth
+        self._conversion_depth += 1
+        if self._conversion_depth > MAX_CONVERSION_DEPTH:
+            self._conversion_depth -= 1
+            logger.warning("Maximum conversion depth exceeded for context: %s", context_name)
+            raise CddlConversionError(
+                f"Maximum conversion depth ({MAX_CONVERSION_DEPTH}) exceeded",
+                context=context_name
+            )
+        
+        try:
+            node_type = type(type_node).__name__
+            
+            if node_type == 'Type':
+                return self._convert_type_node(type_node, context_name)
+            elif node_type == 'Typename':
+                return self._convert_typename(type_node)
+            elif node_type == 'Map':
+                return self._convert_map(type_node, context_name)
+            elif node_type == 'Array':
+                return self._convert_array(type_node, context_name)
+            elif node_type == 'Group':
+                return self._convert_group(type_node, context_name)
+            elif node_type == 'GroupChoice':
+                return self._convert_group_choice(type_node, context_name)
+            elif node_type == 'GroupEntry':
+                return self._convert_group_entry(type_node, context_name)
+            elif node_type == 'Value':
+                return self._convert_value(type_node)
+            elif node_type == 'Range':
+                return self._convert_range(type_node)
+            elif node_type == 'Operator':
+                return self._convert_operator(type_node, context_name)
+            elif node_type == 'Tag':
+                return self._convert_tag(type_node, context_name)
+            elif node_type == 'ChoiceFrom':
+                return self._convert_choice_from(type_node, context_name)
+            else:
+                # Default fallback
+                logger.debug("Unknown node type '%s', using 'any'", node_type)
+                return {'type': 'any'}
+        finally:
+            self._conversion_depth -= 1
 
     def _convert_type_node(self, type_node: Type, context_name: str = '') -> Dict[str, Any]:
         """Convert a Type node."""
@@ -484,15 +565,30 @@ class CddlToStructureConverter:
         return self._convert_type(arg_node, '')
     
     def _instantiate_generic_type(self, type_name: str, type_arg_nodes: List[Any]) -> Dict[str, Any]:
-        """Instantiate a generic type with concrete type arguments.
+        """
+        Instantiate a generic type with concrete type arguments.
         
         Args:
             type_name: Name of the generic type (e.g., 'optional', 'pair')
             type_arg_nodes: AST nodes for the type arguments
+            
+        Returns:
+            JSON Structure type definition with type arguments substituted
+            
+        Raises:
+            CddlCycleError: If a circular generic instantiation is detected
         """
         generic_info = self.generic_types.get(type_name)
         if not generic_info:
             return {'type': 'any'}
+        
+        # Check for cycles in generic instantiation
+        if type_name in self._conversion_stack:
+            cycle_path = self._conversion_stack[self._conversion_stack.index(type_name):] + [type_name]
+            logger.warning("Circular generic instantiation detected: %s", ' -> '.join(cycle_path))
+            # Return a reference instead of raising to allow recursive types
+            normalized_name = avro_name(type_name)
+            return {'$ref': f'#/definitions/{normalized_name}'}
         
         params = generic_info.get('params', [])
         type_node = generic_info.get('type_node')
@@ -510,12 +606,15 @@ class CddlToStructureConverter:
         for param, arg in zip(params, resolved_args):
             self.current_generic_bindings[param] = arg
         
+        # Push to conversion stack for cycle detection
+        self._conversion_stack.append(type_name)
         try:
             # Convert the type with the current bindings
             result = self._convert_type(type_node, type_name)
             return result
         finally:
-            # Restore previous bindings
+            # Pop from conversion stack and restore previous bindings
+            self._conversion_stack.pop()
             self.current_generic_bindings = old_bindings
 
     def _convert_map(self, map_node: Map, context_name: str = '') -> Dict[str, Any]:
