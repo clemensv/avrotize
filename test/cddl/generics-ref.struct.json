@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "person_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "name": "person_name",
+      "description": "Usage examples",
+      "altnames": {
+        "cddl": "person-name"
+      }
+    },
+    "string_int_pair": {
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "string"
+        },
+        "_1": {
+          "type": "int64"
+        }
+      },
+      "tuple": [
+        "_0",
+        "_1"
+      ],
+      "name": "string_int_pair",
+      "altnames": {
+        "cddl": "string-int-pair"
+      }
+    },
+    "result_option_object_3": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "ok"
+        },
+        "value": {
+          "$ref": "#/definitions/response_data"
+        }
+      },
+      "required": [
+        "status",
+        "value"
+      ],
+      "name": "result_option_object_3"
+    },
+    "result_option_object_4": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "error"
+        },
+        "error": {
+          "$ref": "#/definitions/error_info"
+        }
+      },
+      "required": [
+        "status",
+        "error"
+      ],
+      "name": "result_option_object_4"
+    },
+    "api_result": {
+      "type": [
+        {
+          "$ref": "#/definitions/result_option_object_3"
+        },
+        {
+          "$ref": "#/definitions/result_option_object_4"
+        }
+      ],
+      "name": "api_result",
+      "altnames": {
+        "cddl": "api-result"
+      }
+    },
+    "response_data": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "int64"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "data"
+      ],
+      "name": "response_data",
+      "altnames": {
+        "cddl": "response-data"
+      }
+    },
+    "error_info": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "int64"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "name": "error_info",
+      "altnames": {
+        "cddl": "error-info"
+      }
+    }
+  },
+  "type": [
+    "string",
+    "null"
+  ],
+  "name": "person_name",
+  "description": "Usage examples",
+  "altnames": {
+    "cddl": "person-name"
+  },
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}

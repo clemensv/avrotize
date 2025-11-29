@@ -1,0 +1,51 @@
+; CWT (CBOR Web Token) Claims
+; Simplified from RFC 8392
+
+; Claim keys as defined in the CWT spec
+CWT-Claims = {
+    ? 1 => tstr,                ; iss - Issuer
+    ? 2 => tstr,                ; sub - Subject
+    ? 3 => tstr,                ; aud - Audience
+    ? 4 => int,                 ; exp - Expiration Time
+    ? 5 => int,                 ; nbf - Not Before
+    ? 6 => int,                 ; iat - Issued At
+    ? 7 => bstr,                ; cti - CWT ID
+    * int => any                ; Additional claims
+}
+
+; CWT structure (signed)
+CWT = COSE-Sign1-CWT / COSE-Mac0-CWT / COSE-Encrypt0-CWT
+
+COSE-Sign1-CWT = [
+    protected: bstr,
+    unprotected: { * int => any },
+    payload: bstr,              ; Contains CWT-Claims
+    signature: bstr
+]
+
+COSE-Mac0-CWT = [
+    protected: bstr,
+    unprotected: { * int => any },
+    payload: bstr,              ; Contains CWT-Claims
+    tag: bstr
+]
+
+COSE-Encrypt0-CWT = [
+    protected: bstr,
+    unprotected: { * int => any },
+    ciphertext: bstr            ; Encrypted CWT-Claims
+]
+
+; Confirmation claim structure
+Cnf-Claim = {
+    ? 1 => COSE-Key,            ; COSE_Key
+    ? 2 => bstr,                ; Encrypted COSE_Key
+    ? 3 => bstr                 ; kid reference
+}
+
+COSE-Key = {
+    1 => int,                   ; kty
+    ? 2 => bstr,                ; kid
+    ? 3 => int,                 ; alg
+    * int => any
+}

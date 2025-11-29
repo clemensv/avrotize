@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "string_or_int": {
+      "type": [
+        "string",
+        "int64"
+      ],
+      "name": "string_or_int",
+      "description": "CDDL schema demonstrating choice/union types Based on RFC 8610 Section 3.5 Simple choice between primitives",
+      "altnames": {
+        "cddl": "string-or-int"
+      }
+    },
+    "number": {
+      "type": [
+        "int64",
+        "double"
+      ],
+      "name": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "completed",
+        "failed"
+      ],
+      "name": "status",
+      "description": "Choice with literals"
+    },
+    "http_method": {
+      "type": "string",
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PATCH"
+      ],
+      "name": "http_method",
+      "altnames": {
+        "cddl": "http-method"
+      }
+    },
+    "shape": {
+      "type": [
+        {
+          "$ref": "#/definitions/circle"
+        },
+        {
+          "$ref": "#/definitions/rectangle"
+        },
+        {
+          "$ref": "#/definitions/triangle"
+        }
+      ],
+      "name": "shape",
+      "description": "Choice between complex types"
+    },
+    "circle": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "circle"
+        },
+        "radius": {
+          "type": "double"
+        }
+      },
+      "required": [
+        "type",
+        "radius"
+      ],
+      "name": "circle"
+    },
+    "rectangle": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "rectangle"
+        },
+        "width": {
+          "type": "double"
+        },
+        "height": {
+          "type": "double"
+        }
+      },
+      "required": [
+        "type",
+        "width",
+        "height"
+      ],
+      "name": "rectangle"
+    },
+    "triangle": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "triangle"
+        },
+        "base": {
+          "type": "double"
+        },
+        "height": {
+          "type": "double"
+        }
+      },
+      "required": [
+        "type",
+        "base",
+        "height"
+      ],
+      "name": "triangle"
+    },
+    "nullable_string": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "name": "nullable_string",
+      "description": "Nullable types using choice",
+      "altnames": {
+        "cddl": "nullable-string"
+      }
+    },
+    "nullable_int": {
+      "type": [
+        "int64",
+        "null"
+      ],
+      "name": "nullable_int",
+      "altnames": {
+        "cddl": "nullable-int"
+      }
+    },
+    "event": {
+      "type": [
+        {
+          "$ref": "#/definitions/user_event"
+        },
+        {
+          "$ref": "#/definitions/system_event"
+        },
+        {
+          "$ref": "#/definitions/error_event"
+        }
+      ],
+      "name": "event",
+      "description": "Tagged union pattern"
+    },
+    "user_event": {
+      "type": "object",
+      "properties": {
+        "event_type": {
+          "type": "string",
+          "const": "user",
+          "altnames": {
+            "cddl": "event-type"
+          }
+        },
+        "user_id": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "user-id"
+          }
+        },
+        "action": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_type",
+        "user_id",
+        "action"
+      ],
+      "name": "user_event",
+      "altnames": {
+        "cddl": "user-event"
+      }
+    },
+    "system_event": {
+      "type": "object",
+      "properties": {
+        "event_type": {
+          "type": "string",
+          "const": "system",
+          "altnames": {
+            "cddl": "event-type"
+          }
+        },
+        "component": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_type",
+        "component",
+        "message"
+      ],
+      "name": "system_event",
+      "altnames": {
+        "cddl": "system-event"
+      }
+    },
+    "error_event": {
+      "type": "object",
+      "properties": {
+        "event_type": {
+          "type": "string",
+          "const": "error",
+          "altnames": {
+            "cddl": "event-type"
+          }
+        },
+        "code": {
+          "type": "int64"
+        },
+        "message": {
+          "type": "string"
+        },
+        "stack_trace": {
+          "type": "string",
+          "altnames": {
+            "cddl": "stack-trace"
+          }
+        }
+      },
+      "required": [
+        "event_type",
+        "code",
+        "message"
+      ],
+      "name": "error_event",
+      "altnames": {
+        "cddl": "error-event"
+      }
+    }
+  },
+  "type": [
+    "string",
+    "int64"
+  ],
+  "name": "string_or_int",
+  "description": "CDDL schema demonstrating choice/union types Based on RFC 8610 Section 3.5 Simple choice between primitives",
+  "altnames": {
+    "cddl": "string-or-int"
+  },
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}

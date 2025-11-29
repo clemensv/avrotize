@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "primitives": {
+      "type": "object",
+      "properties": {
+        "unsigned_int": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "unsigned-int"
+          },
+          "description": "Integer types"
+        },
+        "negative_int": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "negative-int"
+          }
+        },
+        "signed_int": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "signed-int"
+          }
+        },
+        "half_float": {
+          "type": "float",
+          "altnames": {
+            "cddl": "half-float"
+          },
+          "description": "Floating point types"
+        },
+        "single_float": {
+          "type": "float",
+          "altnames": {
+            "cddl": "single-float"
+          }
+        },
+        "double_float": {
+          "type": "double",
+          "altnames": {
+            "cddl": "double-float"
+          }
+        },
+        "generic_float": {
+          "type": "double",
+          "altnames": {
+            "cddl": "generic-float"
+          }
+        },
+        "text_string": {
+          "type": "string",
+          "altnames": {
+            "cddl": "text-string"
+          },
+          "description": "String types"
+        },
+        "byte_string": {
+          "type": "binary",
+          "altnames": {
+            "cddl": "byte-string"
+          }
+        },
+        "flag": {
+          "type": "boolean",
+          "description": "Boolean and null"
+        },
+        "nothing": {
+          "type": "null"
+        },
+        "anything": {
+          "type": "any",
+          "description": "Any type"
+        }
+      },
+      "required": [
+        "unsigned_int",
+        "negative_int",
+        "signed_int",
+        "half_float",
+        "single_float",
+        "double_float",
+        "generic_float",
+        "text_string",
+        "byte_string",
+        "flag",
+        "nothing",
+        "anything"
+      ],
+      "name": "primitives",
+      "description": "CDDL schema demonstrating primitive types Based on RFC 8610 Section 3.1"
+    },
+    "constrained_types": {
+      "type": "object",
+      "properties": {
+        "short_string": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "altnames": {
+            "cddl": "short-string"
+          },
+          "description": "Size constraints"
+        },
+        "fixed_bytes": {
+          "type": "binary",
+          "minLength": 32,
+          "maxLength": 32,
+          "altnames": {
+            "cddl": "fixed-bytes"
+          }
+        },
+        "percentage": {
+          "type": "int64",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Numeric constraints"
+        },
+        "positive": {
+          "type": "int64",
+          "minimum": 1
+        },
+        "greeting": {
+          "type": "string",
+          "default": "hello",
+          "description": "Default values"
+        },
+        "count": {
+          "type": "int64",
+          "default": 0
+        }
+      },
+      "required": [
+        "short_string",
+        "fixed_bytes",
+        "percentage",
+        "positive",
+        "greeting",
+        "count"
+      ],
+      "name": "constrained_types",
+      "description": "Constrained types",
+      "altnames": {
+        "cddl": "constrained-types"
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "unsigned_int": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "unsigned-int"
+      },
+      "description": "Integer types"
+    },
+    "negative_int": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "negative-int"
+      }
+    },
+    "signed_int": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "signed-int"
+      }
+    },
+    "half_float": {
+      "type": "float",
+      "altnames": {
+        "cddl": "half-float"
+      },
+      "description": "Floating point types"
+    },
+    "single_float": {
+      "type": "float",
+      "altnames": {
+        "cddl": "single-float"
+      }
+    },
+    "double_float": {
+      "type": "double",
+      "altnames": {
+        "cddl": "double-float"
+      }
+    },
+    "generic_float": {
+      "type": "double",
+      "altnames": {
+        "cddl": "generic-float"
+      }
+    },
+    "text_string": {
+      "type": "string",
+      "altnames": {
+        "cddl": "text-string"
+      },
+      "description": "String types"
+    },
+    "byte_string": {
+      "type": "binary",
+      "altnames": {
+        "cddl": "byte-string"
+      }
+    },
+    "flag": {
+      "type": "boolean",
+      "description": "Boolean and null"
+    },
+    "nothing": {
+      "type": "null"
+    },
+    "anything": {
+      "type": "any",
+      "description": "Any type"
+    }
+  },
+  "required": [
+    "unsigned_int",
+    "negative_int",
+    "signed_int",
+    "half_float",
+    "single_float",
+    "double_float",
+    "generic_float",
+    "text_string",
+    "byte_string",
+    "flag",
+    "nothing",
+    "anything"
+  ],
+  "name": "primitives",
+  "description": "CDDL schema demonstrating primitive types Based on RFC 8610 Section 3.1",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}

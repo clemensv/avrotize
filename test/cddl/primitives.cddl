@@ -1,0 +1,41 @@
+; CDDL schema demonstrating primitive types
+; Based on RFC 8610 Section 3.1
+
+primitives = {
+    ; Integer types
+    unsigned-int: uint
+    negative-int: nint
+    signed-int: int
+    
+    ; Floating point types
+    half-float: float16
+    single-float: float32
+    double-float: float64
+    generic-float: float
+    
+    ; String types
+    text-string: tstr
+    byte-string: bstr
+    
+    ; Boolean and null
+    flag: bool
+    nothing: nil
+    
+    ; Any type
+    anything: any
+}
+
+; Constrained types
+constrained-types = {
+    ; Size constraints
+    short-string: tstr .size (1..50)
+    fixed-bytes: bstr .size 32
+    
+    ; Numeric constraints
+    percentage: 0..100
+    positive: uint .ge 1
+    
+    ; Default values
+    greeting: tstr .default "hello"
+    count: uint .default 0
+}

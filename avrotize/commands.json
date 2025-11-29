@@ -3257,5 +3257,51 @@
     ],
     "suggested_output_file_path": "{input_file_name}.md",
     "prompts": []
+  },
+  {
+    "command": "cddl2s",
+    "description": "Convert CDDL schema to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.cddltostructure.convert_cddl_to_structure_files",
+      "args": {
+        "cddl_file_path": "input_file_path",
+        "structure_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".cddl"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the CDDL schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the JSON Structure schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": [
+      {
+        "name": "--namespace",
+        "message": "Enter the namespace for the JSON Structure schema",
+        "type": "str",
+        "required": false
+      }
+    ]
   }
 ]

@@ -1,0 +1,62 @@
+; CDDL schema demonstrating the unwrap operator (~)
+; Based on RFC 8610 Section 3.7
+
+; Base group that will be unwrapped
+base-header = (
+    version: uint,
+    timestamp: uint
+)
+
+; Extended header using unwrap to inline base-header
+extended-header = {
+    ~base-header,
+    message-id: tstr,
+    priority: uint
+}
+
+; Another example: base coordinates
+coordinates = (
+    x: float,
+    y: float
+)
+
+; 3D point extends 2D coordinates
+point-3d = {
+    ~coordinates,
+    z: float
+}
+
+; Unwrap in arrays/tuples
+base-tuple = (
+    tstr,
+    int
+)
+
+; Extended tuple with unwrapped base
+extended-tuple = [
+    ~base-tuple,
+    bool
+]
+
+; Multiple unwraps in one structure
+metadata = (
+    created: uint,
+    modified: uint
+)
+
+full-record = {
+    ~base-header,
+    ~metadata,
+    data: bstr
+}
+
+; Unwrap with optional fields
+optional-fields = (
+    ? description: tstr,
+    ? tags: [* tstr]
+)
+
+config-with-optional = {
+    name: tstr,
+    ~optional-fields
+}

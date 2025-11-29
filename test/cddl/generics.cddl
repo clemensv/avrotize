@@ -1,0 +1,28 @@
+; CDDL schema demonstrating generic types
+; Based on RFC 8610 Section 3.6
+
+; Generic optional type - value or null
+optional<T> = T / nil
+
+; Generic pair type
+pair<K, V> = [K, V]
+
+; Generic result type - success or error
+result<T, E> = success<T> / error<E>
+success<T> = { status: "ok", value: T }
+error<E> = { status: "error", error: E }
+
+; Usage examples
+person-name = optional<tstr>
+string-int-pair = pair<tstr, int>
+api-result = result<response-data, error-info>
+
+response-data = {
+    id: uint
+    data: tstr
+}
+
+error-info = {
+    code: int
+    message: tstr
+}

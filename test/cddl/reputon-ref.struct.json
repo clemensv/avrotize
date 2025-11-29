@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "reputon": {
+      "type": "object",
+      "properties": {
+        "rater": {
+          "type": "string"
+        },
+        "assertion": {
+          "type": "string"
+        },
+        "rated": {
+          "type": "string"
+        },
+        "rating": {
+          "type": "float"
+        },
+        "confidence": {
+          "type": "float"
+        },
+        "normal_rating": {
+          "type": "float",
+          "altnames": {
+            "cddl": "normal-rating"
+          }
+        },
+        "sample_size": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "sample-size"
+          }
+        },
+        "generated": {
+          "type": "int64"
+        },
+        "expires": {
+          "type": "int64"
+        }
+      },
+      "required": [
+        "rater",
+        "assertion",
+        "rated",
+        "rating"
+      ],
+      "name": "reputon",
+      "description": "RFC 8610 Appendix E - Reputon Example A reputon is a single reputation assertion"
+    },
+    "reputon_response": {
+      "type": "object",
+      "properties": {
+        "application": {
+          "type": "string"
+        },
+        "reputons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/reputon"
+          }
+        }
+      },
+      "required": [
+        "application",
+        "reputons"
+      ],
+      "name": "reputon_response",
+      "description": "A reputation response contains multiple reputons",
+      "altnames": {
+        "cddl": "reputon-response"
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "rater": {
+      "type": "string"
+    },
+    "assertion": {
+      "type": "string"
+    },
+    "rated": {
+      "type": "string"
+    },
+    "rating": {
+      "type": "float"
+    },
+    "confidence": {
+      "type": "float"
+    },
+    "normal_rating": {
+      "type": "float",
+      "altnames": {
+        "cddl": "normal-rating"
+      }
+    },
+    "sample_size": {
+      "type": "int64",
+      "altnames": {
+        "cddl": "sample-size"
+      }
+    },
+    "generated": {
+      "type": "int64"
+    },
+    "expires": {
+      "type": "int64"
+    }
+  },
+  "required": [
+    "rater",
+    "assertion",
+    "rated",
+    "rating"
+  ],
+  "name": "reputon",
+  "description": "RFC 8610 Appendix E - Reputon Example A reputon is a single reputation assertion",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}
