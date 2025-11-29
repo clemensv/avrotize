@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  Central dependency file for .NET 9.0 code generation templates.
+  Dependabot will detect and propose updates to these dependencies.
+  The dependency() function in templates reads from this file.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <!-- Serialization -->
+    <ItemGroup>
+        <PackageReference Include="Apache.Avro" Version="1.12.0" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="System.Text.Json" Version="9.0.3" />
+        <PackageReference Include="System.Memory.Data" Version="9.0.3" />
+    </ItemGroup>
+
+    <!-- Testing -->
+    <ItemGroup>
+        <PackageReference Include="NUnit" Version="4.3.2" />
+        <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    </ItemGroup>
+</Project>

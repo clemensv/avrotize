@@ -4,7 +4,8 @@
 import json
 import os
 from typing import Dict, List, Tuple, Union
-from avrotize.constants import AVRO_VERSION, JACKSON_VERSION, JDK_VERSION
+from avrotize.constants import (AVRO_VERSION, JACKSON_VERSION, JDK_VERSION, 
+                                  JUNIT_VERSION, MAVEN_COMPILER_VERSION, MAVEN_SUREFIRE_VERSION)
 
 from avrotize.common import pascal, camel, is_generic_avro_type, inline_avro_references, build_flat_type_dict
 
@@ -46,13 +47,13 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.10.0</version>
+            <version>{JUNIT_VERSION}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.10.0</version>
+            <version>{JUNIT_VERSION}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -61,7 +62,7 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>{MAVEN_COMPILER_VERSION}</version>
                 <configuration>
                     <compilerArgs>
                         <arg>-Xmaxerrs</arg>
@@ -72,7 +73,7 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M9</version>
+                <version>{MAVEN_SUREFIRE_VERSION}</version>
                 <configuration>
                     <useSystemClassLoader>false</useSystemClassLoader>
                 </configuration>
@@ -2092,7 +2093,16 @@ class AvroToJava:
             groupid = '.'.join(package_elements[:-1]) if len(package_elements) > 1 else package_elements[0]
             artifactid = package_elements[-1]
             with open(pom_path, 'w', encoding='utf-8') as file:
-                file.write(POM_CONTENT.format(groupid=groupid, artifactid=artifactid, AVRO_VERSION=AVRO_VERSION, JACKSON_VERSION=JACKSON_VERSION, JDK_VERSION=JDK_VERSION, PACKAGE=self.base_package))
+                file.write(POM_CONTENT.format(
+                    groupid=groupid, 
+                    artifactid=artifactid, 
+                    AVRO_VERSION=AVRO_VERSION, 
+                    JACKSON_VERSION=JACKSON_VERSION, 
+                    JDK_VERSION=JDK_VERSION, 
+                    JUNIT_VERSION=JUNIT_VERSION,
+                    MAVEN_COMPILER_VERSION=MAVEN_COMPILER_VERSION,
+                    MAVEN_SUREFIRE_VERSION=MAVEN_SUREFIRE_VERSION,
+                    PACKAGE=self.base_package))
         output_dir = os.path.join(
             output_dir, "src/main/java".replace('/', os.sep))
         if not os.path.exists(output_dir):

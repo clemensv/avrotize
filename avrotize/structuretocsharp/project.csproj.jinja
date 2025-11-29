@@ -6,11 +6,12 @@
     </PropertyGroup>
     <ItemGroup>
         {%- if newtonsoft_json_annotation %}
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="Newtonsoft.Json" Version="{{ NEWTONSOFT_JSON_VERSION }}" />
         {%- endif %}
         {%- if system_text_json_annotation %}
-        <PackageReference Include="System.Text.Json" Version="9.0.3" />
+        <PackageReference Include="System.Text.Json" Version="{{ SYSTEM_TEXT_JSON_VERSION }}" />
         {%- endif %}
-        <PackageReference Include="System.Memory.Data" Version="9.0.3" />
+        <PackageReference Include="System.Memory.Data" Version="{{ SYSTEM_MEMORY_DATA_VERSION }}" />
     </ItemGroup>
 </Project>  
+
