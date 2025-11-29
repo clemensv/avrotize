@@ -387,10 +387,7 @@ class StructureToCddlConverter:
             # Add optional marker if not required
             optional_marker = '' if prop_name in required else '? '
             
-            # Add constraints
-            constraints = self._get_constraints(prop_schema) if isinstance(prop_schema, dict) else ''
-            
-            prop_lines.append(f"{INDENT}{optional_marker}{original_name}: {prop_type}{constraints}")
+            prop_lines.append(f"{INDENT}{optional_marker}{original_name}: {prop_type}")
 
         lines.extend([f"{line}," for line in prop_lines[:-1]] if len(prop_lines) > 1 else [])
         if prop_lines:
@@ -453,7 +450,9 @@ class StructureToCddlConverter:
         """Convert a primitive type with optional constraints."""
         cddl_type = self._map_primitive_type(type_name)
         constraints = self._get_constraints(schema)
-        return f"{cddl_type}{constraints}"
+        if constraints:
+            return f"{cddl_type} {constraints}"
+        return cddl_type
 
     def _get_constraints(self, schema: Dict[str, Any]) -> str:
         """Get CDDL control operators for constraints."""
