@@ -42,6 +42,10 @@ Notes on Type Mapping:
 - Integer types (uint, nint, int) all map to int64 for JSON compatibility
 - Float types map to float (float16/32) or double (float64)
 """
+# pylint: disable=too-many-lines,too-many-instance-attributes,too-many-arguments
+# pylint: disable=too-many-positional-arguments,too-many-locals,too-many-branches
+# pylint: disable=too-many-statements,too-many-return-statements,too-many-nested-blocks
+# pylint: disable=no-else-return
 
 import json
 import logging
@@ -152,16 +156,18 @@ class CddlToStructureConverter:
         self.root_namespace = DEFAULT_NAMESPACE
         self.type_registry: Dict[str, Dict[str, Any]] = {}
         self.definitions: Dict[str, Dict[str, Any]] = {}
-        self.generic_types: Dict[str, Dict[str, Any]] = {}  # Maps type name to generic info
-        self.current_generic_bindings: Dict[str, Dict[str, Any]] = {}  # Current type parameter bindings
-        self.generic_template_names: Set[str] = set()  # Names of generic templates (not concrete types)
+        self.generic_types: Dict[str, Dict[str, Any]] = {}  # type name -> generic info
+        self.current_generic_bindings: Dict[str, Dict[str, Any]] = {}  # type param bindings
+        self.generic_template_names: Set[str] = set()  # generic templates (not concrete)
         # Cycle detection state
-        self._conversion_stack: List[str] = []  # Stack of type names currently being converted
+        self._conversion_stack: List[str] = []  # Stack of type names being converted
         self._conversion_depth: int = 0  # Current recursion depth
         # Counter for auto-generated type names
         self._auto_name_counter: int = 0
 
-    def _create_inline_definition(self, type_def: Dict[str, Any], base_name: str) -> Dict[str, Any]:
+    def _create_inline_definition(
+        self, type_def: Dict[str, Any], base_name: str
+    ) -> Dict[str, Any]:
         """
         Move an inline compound type to definitions and return a $ref.
 
@@ -266,7 +272,9 @@ class CddlToStructureConverter:
         # Join multiple comment lines with spaces
         return ' '.join(comment_lines)
 
-    def convert_cddl_to_structure(self, cddl_content: str, namespace: Optional[str] = None) -> Dict[str, Any]:
+    def convert_cddl_to_structure(
+        self, cddl_content: str, namespace: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Convert CDDL content to JSON Structure format.
 
@@ -674,7 +682,9 @@ class CddlToStructureConverter:
         # Fallback: try to convert it
         return self._convert_type(arg_node, '')
 
-    def _instantiate_generic_type(self, type_name: str, type_arg_nodes: List[Any]) -> Dict[str, Any]:
+    def _instantiate_generic_type(
+        self, type_name: str, type_arg_nodes: List[Any]
+    ) -> Dict[str, Any]:
         """
         Instantiate a generic type with concrete type arguments.
 
@@ -694,8 +704,11 @@ class CddlToStructureConverter:
 
         # Check for cycles in generic instantiation
         if type_name in self._conversion_stack:
-            cycle_path = self._conversion_stack[self._conversion_stack.index(type_name):] + [type_name]
-            logger.warning("Circular generic instantiation detected: %s", ' -> '.join(cycle_path))
+            cycle_start = self._conversion_stack.index(type_name)
+            cycle_path = self._conversion_stack[cycle_start:] + [type_name]
+            logger.warning(
+                "Circular generic instantiation detected: %s", ' -> '.join(cycle_path)
+            )
             # Return a reference instead of raising to allow recursive types
             normalized_name = avro_name(type_name)
             return {'$ref': f'#/definitions/{normalized_name}'}
@@ -932,9 +945,11 @@ class CddlToStructureConverter:
 
         # Add description if present in member_key or occurrence indicator
         if isinstance(prop_schema, dict):
-            description = member_key.get('description') or (occurrence_indicator.get('description') if occurrence_indicator else None)
-            if description:
-                prop_schema['description'] = description
+            desc = member_key.get('description')
+            if not desc and occurrence_indicator:
+                desc = occurrence_indicator.get('description')
+            if desc:
+                prop_schema['description'] = desc
 
         properties[normalized_name] = prop_schema
         return None
@@ -1089,7 +1104,9 @@ class CddlToStructureConverter:
                 'items': {'type': 'any'}
             }
 
-    def _get_array_items_types(self, group_choice: CDDLNode, context_name: str) -> Tuple[List[Dict[str, Any]], bool]:
+    def _get_array_items_types(
+        self, group_choice: CDDLNode, context_name: str
+    ) -> Tuple[List[Dict[str, Any]], bool]:
         """Extract items types from a GroupChoice in an array context.
 
         Returns:
@@ -1216,7 +1233,9 @@ class CddlToStructureConverter:
 
         return entries
 
-    def _extract_int_keys_from_group_choice(self, group_choice: Any) -> Optional[List[Tuple[int, bool, Any]]]:
+    def _extract_int_keys_from_group_choice(
+        self, group_choice: Any
+    ) -> Optional[List[Tuple[int, bool, Any]]]:
         """Extract integer keys from a GroupChoice node."""
         entries: List[Tuple[int, bool, Any]] = []
 
@@ -1291,7 +1310,9 @@ class CddlToStructureConverter:
 
         return None
 
-    def _convert_to_tuple(self, entries: List[Tuple[int, bool, Any]], context_name: str) -> Dict[str, Any]:
+    def _convert_to_tuple(
+        self, entries: List[Tuple[int, bool, Any]], context_name: str
+    ) -> Dict[str, Any]:
         """Convert integer-keyed entries to a tuple type per JSON Structure spec.
 
         JSON Structure tuples use:
@@ -1299,8 +1320,9 @@ class CddlToStructureConverter:
         - 'tuple': array of property names defining the order
         - All declared properties are implicitly REQUIRED
 
-        For optional elements, we omit them from the 'tuple' array but keep them in properties,
-        or we can include them and note that JSON Structure tuples don't support optional elements directly.
+        For optional elements, we omit them from the 'tuple' array but keep them
+        in properties, or we can include them and note that JSON Structure tuples
+        don't support optional elements directly.
         """
         # Sort entries by key
         entries.sort(key=lambda x: x[0])
@@ -1385,7 +1407,9 @@ class CddlToStructureConverter:
 
         return {'type': 'any'}
 
-    def _convert_group_choice(self, group_choice: CDDLNode, context_name: str = '') -> Dict[str, Any]:
+    def _convert_group_choice(
+        self, group_choice: CDDLNode, context_name: str = ''
+    ) -> Dict[str, Any]:
         """Convert a GroupChoice node."""
         # Process as an object with properties
         properties: Dict[str, Any] = {}
@@ -1499,7 +1523,10 @@ class CddlToStructureConverter:
 
         if hasattr(operator_node, 'type'):
             # Use _convert_type which handles all node types properly
-            base_type = self._convert_type(operator_node.type, context_name) if operator_node.type else {'type': 'any'}
+            if operator_node.type:
+                base_type = self._convert_type(operator_node.type, context_name)
+            else:
+                base_type = {'type': 'any'}
 
         # Extract controller (constraint argument)
         if hasattr(operator_node, 'controller'):
@@ -1570,9 +1597,9 @@ class CddlToStructureConverter:
                 if child_type == 'Range':
                     # Extract min/max from range
                     return self._extract_range_values(child)
-                elif child_type == 'Value':
+                if child_type == 'Value':
                     return self._parse_value_literal(child)
-                elif child_type == 'Typename':
+                if child_type == 'Typename':
                     if hasattr(child, 'name'):
                         return child.name
 
@@ -1701,7 +1728,9 @@ class CddlToStructureConverter:
 
         return {'type': 'any'}
 
-    def _convert_choice_from(self, choice_from: ChoiceFrom, context_name: str = '') -> Dict[str, Any]:
+    def _convert_choice_from(
+        self, choice_from: ChoiceFrom, _context_name: str = ''
+    ) -> Dict[str, Any]:
         """Convert a ChoiceFrom node (&group or &enum)."""
         # This is typically used for enumerations
         result: Dict[str, Any] = {'type': 'string'}
