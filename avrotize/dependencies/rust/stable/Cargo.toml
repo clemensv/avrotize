@@ -8,7 +8,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-apache-avro = "0.17.0"
+apache-avro = "0.21.0"
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.133"
 chrono = { version = "0.4.38", features = ["serde"] }
