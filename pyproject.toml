@@ -32,7 +32,8 @@ dependencies = [
     "pyiceberg>=0.10.0",
     "pandas>=2.2.2",
     "docker>=7.1.0",
-    "cddlparser>=0.5.0"
+    "cddlparser>=0.5.0",
+    "json-structure>=0.1.8"
 ]
 [project.optional-dependencies]
 dev = [

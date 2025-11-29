@@ -2,6 +2,13 @@
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example/com/schema.json",
   "definitions": {
+    "Generic_Headers_option_array_1": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/COSE_Signature"
+      },
+      "name": "Generic_Headers_option_array_1"
+    },
     "Generic_Headers": {
       "type": "tuple",
       "properties": {
@@ -56,10 +63,7 @@
               "$ref": "#/definitions/COSE_Signature"
             },
             {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/COSE_Signature"
-              }
+              "$ref": "#/definitions/Generic_Headers_option_array_1"
             }
           ],
           "altnames": {
@@ -309,10 +313,7 @@
           "$ref": "#/definitions/COSE_Signature"
         },
         {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/COSE_Signature"
-          }
+          "$ref": "#/definitions/Generic_Headers_option_array_1"
         }
       ],
       "altnames": {

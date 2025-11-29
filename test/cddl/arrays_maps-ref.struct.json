@@ -121,22 +121,26 @@
         "cddl": "config-map"
       }
     },
+    "nested_array_item_tuple_1": {
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "string"
+        },
+        "_1": {
+          "type": "int64"
+        }
+      },
+      "tuple": [
+        "_0",
+        "_1"
+      ],
+      "name": "nested_array_item_tuple_1"
+    },
     "nested_array": {
       "type": "array",
       "items": {
-        "type": "tuple",
-        "properties": {
-          "_0": {
-            "type": "string"
-          },
-          "_1": {
-            "type": "int64"
-          }
-        },
-        "tuple": [
-          "_0",
-          "_1"
-        ]
+        "$ref": "#/definitions/nested_array_item_tuple_1"
       },
       "name": "nested_array",
       "description": "Nested structures",
@@ -144,22 +148,26 @@
         "cddl": "nested-array"
       }
     },
+    "array_of_objects_item_object_2": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "any"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "name": "array_of_objects_item_object_2"
+    },
     "array_of_objects": {
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "value": {
-            "type": "any"
-          }
-        },
-        "required": [
-          "name",
-          "value"
-        ]
+        "$ref": "#/definitions/array_of_objects_item_object_2"
       },
       "name": "array_of_objects",
       "altnames": {

@@ -145,10 +145,7 @@
     },
     "full_record": {
       "type": "object",
-      "$extends": [
-        "#/definitions/base_header",
-        "#/definitions/metadata"
-      ],
+      "$extends": "#/definitions/base_header",
       "properties": {
         "data": {
           "type": "binary"

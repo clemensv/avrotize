@@ -32,39 +32,47 @@
         "cddl": "string-int-pair"
       }
     },
+    "result_option_object_3": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "ok"
+        },
+        "value": {
+          "$ref": "#/definitions/response_data"
+        }
+      },
+      "required": [
+        "status",
+        "value"
+      ],
+      "name": "result_option_object_3"
+    },
+    "result_option_object_4": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "error"
+        },
+        "error": {
+          "$ref": "#/definitions/error_info"
+        }
+      },
+      "required": [
+        "status",
+        "error"
+      ],
+      "name": "result_option_object_4"
+    },
     "api_result": {
       "type": [
         {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "const": "ok"
-            },
-            "value": {
-              "$ref": "#/definitions/response_data"
-            }
-          },
-          "required": [
-            "status",
-            "value"
-          ]
+          "$ref": "#/definitions/result_option_object_3"
         },
         {
-          "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "const": "error"
-            },
-            "error": {
-              "$ref": "#/definitions/error_info"
-            }
-          },
-          "required": [
-            "status",
-            "error"
-          ]
+          "$ref": "#/definitions/result_option_object_4"
         }
       ],
       "name": "api_result",

@@ -49,6 +49,7 @@ import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from cddlparser import parse as cddl_parse
+from json_structure import SchemaValidator, ValidationError, ValidationSeverity
 from cddlparser.ast import (
     CDDLTree, Rule, Type, Typename, Map, Array, Group, GroupChoice,
     GroupEntry, Memberkey, Occurrence, Value, Range, Operator, Tag,
@@ -159,6 +160,80 @@ class CddlToStructureConverter:
         # Cycle detection state
         self._conversion_stack: List[str] = []  # Stack of type names currently being converted
         self._conversion_depth: int = 0  # Current recursion depth
+        # Counter for auto-generated type names
+        self._auto_name_counter: int = 0
+
+    def _create_inline_definition(self, type_def: Dict[str, Any], base_name: str) -> Dict[str, Any]:
+        """
+        Move an inline compound type to definitions and return a $ref.
+        
+        JSON Structure requires compound types (object, tuple, array, map, etc.) 
+        inside unions to be referenced via $ref. This method handles the extraction.
+        
+        Args:
+            type_def: The inline type definition to extract
+            base_name: Base name to use for generating the definition name
+            
+        Returns:
+            A $ref pointing to the new definition, or the original type if not compound
+        """
+        type_value = type_def.get('type')
+        # All compound types that need extraction in union contexts
+        if type_value not in ('object', 'tuple', 'choice', 'array', 'map', 'set'):
+            return type_def
+        
+        # Generate a unique name for the inline type
+        self._auto_name_counter += 1
+        type_name = f"{base_name}_{type_value}_{self._auto_name_counter}"
+        type_name = avro_name(type_name)
+        
+        # Add name to the type and store in definitions
+        type_def['name'] = type_name
+        self.definitions[type_name] = type_def
+        
+        # Return a $ref
+        return {'$ref': f'#/definitions/{type_name}'}
+
+    def _has_unresolved_refs(self, type_def: Dict[str, Any]) -> bool:
+        """
+        Check if a type definition has unresolved $ref pointers.
+        
+        Unresolved refs are typically generic type parameters (like T, E) that
+        weren't substituted during instantiation.
+        """
+        def check(obj: Any) -> bool:
+            if isinstance(obj, dict):
+                if '$ref' in obj:
+                    ref = obj['$ref']
+                    # Check if this is a reference to a definitions entry
+                    if ref.startswith('#/definitions/'):
+                        ref_name = ref[14:]  # Remove '#/definitions/'
+                        # Check if ref exists in definitions or type_registry
+                        # Type registry has original names, definitions has transformed names
+                        if ref_name in self.definitions:
+                            return False  # Resolved
+                        if ref_name in self.type_registry:
+                            return False  # Resolved (original name)
+                        # Check if the transformed name exists
+                        if avro_name(ref_name) in self.definitions:
+                            return False  # Resolved with transformed name
+                        # Check for generic type parameters (typically single uppercase letters)
+                        if len(ref_name) <= 2 and ref_name.isupper():
+                            return True  # Likely an unresolved generic parameter
+                        # If not found anywhere, it's unresolved
+                        return True
+                    elif ref.startswith('#/'):
+                        # Other internal refs - allow them
+                        return False
+                for v in obj.values():
+                    if check(v):
+                        return True
+            elif isinstance(obj, list):
+                for item in obj:
+                    if check(item):
+                        return True
+            return False
+        return check(type_def)
 
     def _extract_description(self, node: Any) -> Optional[str]:
         """
@@ -218,6 +293,7 @@ class CddlToStructureConverter:
         self.generic_template_names.clear()
         self._conversion_stack.clear()
         self._conversion_depth = 0
+        self._auto_name_counter = 0
         
         # First pass: collect all type names and generic definitions
         for rule in ast.rules:
@@ -247,10 +323,10 @@ class CddlToStructureConverter:
             "$id": f"https://{self.root_namespace.replace('.', '/')}/schema.json"
         }
         
-        # Add definitions if any (excluding generic templates)
+        # Add definitions if any (excluding generic templates and types with unresolved refs)
         concrete_definitions = {
             name: defn for name, defn in self.definitions.items()
-            if name not in self.generic_template_names
+            if name not in self.generic_template_names and not self._has_unresolved_refs(defn)
         }
         if concrete_definitions:
             structure_schema['definitions'] = concrete_definitions
@@ -286,6 +362,33 @@ class CddlToStructureConverter:
                 if hasattr(typename_node, 'name'):
                     return avro_name(typename_node.name)
         return None
+
+    def validate_structure_schema(self, structure_schema: Dict[str, Any],
+                                   source_text: Optional[str] = None) -> List[ValidationError]:
+        """
+        Validate a JSON Structure schema using the json-structure SDK.
+        
+        Args:
+            structure_schema: The JSON Structure schema to validate
+            source_text: Optional source text for better error locations
+            
+        Returns:
+            List of validation errors (empty if valid)
+            
+        Raises:
+            CddlConversionError: If the schema is invalid
+        """
+        validator = SchemaValidator()
+        errors = validator.validate(structure_schema, source_text)
+        
+        # Log any errors
+        for error in errors:
+            if error.severity == ValidationSeverity.ERROR:
+                logger.error("Schema validation error: %s at %s", error.message, error.path)
+            else:
+                logger.warning("Schema validation warning: %s at %s", error.message, error.path)
+        
+        return errors
 
     def _process_rule(self, rule: Rule) -> None:
         """Process a CDDL rule and add it to definitions."""
@@ -419,22 +522,31 @@ class CddlToStructureConverter:
                 
                 # Create a union type per JSON Structure spec Section 3.5.1
                 # Union elements should be type names (strings) or $ref schemas
+                # Inline compound types must be extracted to definitions
                 union_elements = []
                 for ct in converted_types:
                     if '$ref' in ct:
                         # Keep $ref as-is (it's a valid union element)
                         union_elements.append(ct)
                     elif 'type' in ct and isinstance(ct['type'], str):
-                        # Check if it's a simple primitive type with no other attributes
-                        other_keys = set(ct.keys()) - {'type'}
-                        if not other_keys:
-                            # Simple type - use just the type name
-                            union_elements.append(ct['type'])
+                        type_val = ct['type']
+                        # Check if it's a compound type that needs extraction
+                        # object, tuple, choice, array, map are all compound types
+                        if type_val in ('object', 'tuple', 'choice', 'array', 'map', 'set'):
+                            # Extract to definitions and use $ref
+                            extracted = self._create_inline_definition(ct, f"{context_name}_option")
+                            union_elements.append(extracted)
                         else:
-                            # Complex type (array, map, etc.) - keep full schema
-                            union_elements.append(ct)
+                            # Check if it's a simple primitive type with no other attributes
+                            other_keys = set(ct.keys()) - {'type'}
+                            if not other_keys:
+                                # Simple type - use just the type name
+                                union_elements.append(type_val)
+                            else:
+                                # Type with constraints - keep full schema
+                                union_elements.append(ct)
                     else:
-                        # Keep as-is for complex types
+                        # Keep as-is for other types
                         union_elements.append(ct)
                 return {'type': union_elements}
             elif len(converted_types) == 1:
@@ -646,11 +758,15 @@ class CddlToStructureConverter:
         # Otherwise it's a regular object
         result = {'type': 'object'}
         if extends_refs:
-            # Use $extends for unwrapped types (single ref or array of refs)
-            if len(extends_refs) == 1:
-                result['$extends'] = extends_refs[0]
-            else:
-                result['$extends'] = extends_refs
+            # Use $extends for unwrapped types - only first one supported
+            # JSON Structure only supports single inheritance via $extends
+            result['$extends'] = extends_refs[0]
+            if len(extends_refs) > 1:
+                logger.warning(
+                    "Multiple unwrap operators found, only using first: %s. "
+                    "JSON Structure $extends only supports single inheritance.",
+                    extends_refs[0]
+                )
         if properties:
             result['properties'] = properties
         if required:
@@ -954,9 +1070,16 @@ class CddlToStructureConverter:
             # Regular array
             if len(items_types) == 1:
                 items_type = items_types[0]
+                # Extract inline compound types to definitions
+                items_type = self._create_inline_definition(items_type, f"{context_name}_item")
             else:
                 # Multiple types that aren't a tuple - use union for items
-                items_type = {'type': items_types}
+                # Extract each inline compound type to definitions
+                extracted_types = [
+                    self._create_inline_definition(t, f"{context_name}_item")
+                    for t in items_types
+                ]
+                items_type = {'type': extracted_types}
             return {
                 'type': 'array',
                 'items': items_type
@@ -1231,10 +1354,14 @@ class CddlToStructureConverter:
         
         result: Dict[str, Any] = {'type': 'object'}
         if extends_refs:
-            if len(extends_refs) == 1:
-                result['$extends'] = extends_refs[0]
-            else:
-                result['$extends'] = extends_refs
+            # JSON Structure only supports single inheritance via $extends
+            result['$extends'] = extends_refs[0]
+            if len(extends_refs) > 1:
+                logger.warning(
+                    "Multiple unwrap operators found, only using first: %s. "
+                    "JSON Structure $extends only supports single inheritance.",
+                    extends_refs[0]
+                )
         if properties:
             result['properties'] = properties
         if required:
@@ -1272,10 +1399,14 @@ class CddlToStructureConverter:
         
         result: Dict[str, Any] = {'type': 'object'}
         if extends_refs:
-            if len(extends_refs) == 1:
-                result['$extends'] = extends_refs[0]
-            else:
-                result['$extends'] = extends_refs
+            # JSON Structure only supports single inheritance via $extends
+            result['$extends'] = extends_refs[0]
+            if len(extends_refs) > 1:
+                logger.warning(
+                    "Multiple unwrap operators found, only using first: %s. "
+                    "JSON Structure $extends only supports single inheritance.",
+                    extends_refs[0]
+                )
         if properties:
             result['properties'] = properties
         if required:
@@ -1612,27 +1743,46 @@ class CddlToStructureConverter:
         return sorted(uses)
 
 
-def convert_cddl_to_structure(cddl_content: str, namespace: str = DEFAULT_NAMESPACE) -> str:
+def convert_cddl_to_structure(cddl_content: str, namespace: str = DEFAULT_NAMESPACE,
+                               validate: bool = True) -> str:
     """
     Convert CDDL content to JSON Structure format.
     
     Args:
         cddl_content: The CDDL schema as a string
         namespace: The namespace for the schema
+        validate: If True, validate the output schema using json-structure SDK
         
     Returns:
         JSON Structure schema as a string
+        
+    Raises:
+        CddlConversionError: If validation is enabled and the schema is invalid
     """
     converter = CddlToStructureConverter()
     converter.root_namespace = namespace
     result = converter.convert_cddl_to_structure(cddl_content, namespace)
+    
+    # Validate the output schema
+    if validate:
+        result_str = json.dumps(result, indent=2)
+        errors = converter.validate_structure_schema(result, result_str)
+        error_errors = [e for e in errors if e.severity == ValidationSeverity.ERROR]
+        if error_errors:
+            error_messages = '; '.join(f"{e.message} at {e.path}" for e in error_errors)
+            raise CddlConversionError(
+                f"Generated schema validation failed: {error_messages}",
+                context="output validation"
+            )
+    
     return json.dumps(result, indent=2)
 
 
 def convert_cddl_to_structure_files(
     cddl_file_path: str,
     structure_schema_path: str,
-    namespace: Optional[str] = None
+    namespace: Optional[str] = None,
+    validate: bool = True
 ) -> None:
     """
     Convert a CDDL file to JSON Structure format.
@@ -1641,6 +1791,10 @@ def convert_cddl_to_structure_files(
         cddl_file_path: Path to the input CDDL file
         structure_schema_path: Path to the output JSON Structure file
         namespace: Optional namespace for the schema
+        validate: If True, validate the output schema using json-structure SDK
+        
+    Raises:
+        CddlConversionError: If validation is enabled and the schema is invalid
     """
     # Use default namespace if None provided
     if namespace is None:
@@ -1650,8 +1804,8 @@ def convert_cddl_to_structure_files(
     with open(cddl_file_path, 'r', encoding='utf-8') as f:
         cddl_content = f.read()
     
-    # Convert to JSON Structure
-    result = convert_cddl_to_structure(cddl_content, namespace)
+    # Convert to JSON Structure (validation happens in convert_cddl_to_structure)
+    result = convert_cddl_to_structure(cddl_content, namespace, validate)
     
     # Write the result
     with open(structure_schema_path, 'w', encoding='utf-8') as f:
