@@ -183,7 +183,24 @@
       }
     },
     "Headers": {
-      "type": "any",
+      "type": "object",
+      "properties": {
+        "protected": {
+          "type": "bytes"
+        },
+        "unprotected": {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "any"
+            }
+          }
+        }
+      },
+      "required": [
+        "protected",
+        "unprotected"
+      ],
       "name": "Headers"
     },
     "COSE_Sign1": {

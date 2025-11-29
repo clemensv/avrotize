@@ -288,6 +288,8 @@ class CddlToStructureConverter:
             return self._convert_group(type_node, context_name)
         elif node_type == 'GroupChoice':
             return self._convert_group_choice(type_node, context_name)
+        elif node_type == 'GroupEntry':
+            return self._convert_group_entry(type_node, context_name)
         elif node_type == 'Value':
             return self._convert_value(type_node)
         elif node_type == 'Range':
@@ -375,6 +377,10 @@ class CddlToStructureConverter:
     
     def _has_unwrap_operator(self, typename_node: Any) -> bool:
         """Check if a typename node has the unwrap operator (~)."""
+        # Check for 'unwrapped' attribute which contains the TILDE token
+        if hasattr(typename_node, 'unwrapped') and typename_node.unwrapped is not None:
+            return True
+        # Fallback: check children for TILDE token
         if hasattr(typename_node, 'getChildren'):
             for child in typename_node.getChildren():
                 if hasattr(child, 'kind') and 'TILDE' in str(child.kind):
@@ -569,6 +575,7 @@ class CddlToStructureConverter:
         occurrence_indicator = None
         member_key = None
         member_type = None
+        unwrap_typename = None
         
         for child in children:
             child_type = type(child).__name__
@@ -576,8 +583,46 @@ class CddlToStructureConverter:
                 occurrence_indicator = self._parse_occurrence(child)
             elif child_type == 'Memberkey':
                 member_key = self._parse_memberkey(child)
-            elif child_type in ('Type', 'Typename', 'Map', 'Array', 'Group', 'Value'):
+            elif child_type == 'Typename':
+                # Check if this is an unwrap operator usage (~typename)
+                if self._has_unwrap_operator(child):
+                    unwrap_typename = child
+                else:
+                    member_type = self._convert_type(child, context_name)
+            elif child_type == 'Type':
+                # Check if this Type contains an unwrapped Typename
+                if hasattr(child, 'getChildren'):
+                    type_children = child.getChildren()
+                    if len(type_children) == 1 and type(type_children[0]).__name__ == 'Typename':
+                        typename = type_children[0]
+                        if self._has_unwrap_operator(typename):
+                            unwrap_typename = typename
+                            continue
                 member_type = self._convert_type(child, context_name)
+            elif child_type in ('Map', 'Array', 'Group', 'Value'):
+                member_type = self._convert_type(child, context_name)
+        
+        # Handle unwrap operator (~) - inline the referenced type's properties
+        if unwrap_typename is not None and member_key is None:
+            ref_name = getattr(unwrap_typename, 'name', None)
+            if ref_name:
+                normalized_ref = avro_name(ref_name)
+                # Check if the referenced type is already defined
+                if normalized_ref in self.definitions:
+                    ref_def = self.definitions[normalized_ref]
+                    if ref_def.get('type') == 'object' and 'properties' in ref_def:
+                        # Inline the properties from the referenced type
+                        for prop_name, prop_schema in ref_def['properties'].items():
+                            properties[prop_name] = prop_schema.copy() if isinstance(prop_schema, dict) else prop_schema
+                        # Add required fields
+                        if 'required' in ref_def:
+                            for req_field in ref_def['required']:
+                                if req_field not in required:
+                                    required.append(req_field)
+                        return None
+                # Type not yet defined - store for later resolution
+                # For now, just skip it
+            return None
         
         if member_key is None:
             return None
@@ -856,9 +901,46 @@ class CddlToStructureConverter:
         if int_key_entries:
             return self._convert_to_tuple(int_key_entries, context_name)
         
+        # Check if this is a sequence of unnamed entries (should become a tuple)
+        unnamed_entries = self._extract_unnamed_entries(group_node)
+        if unnamed_entries:
+            # Convert to tuple format - assign sequential indices
+            indexed_entries = [(i, False, entry) for i, entry in enumerate(unnamed_entries)]
+            return self._convert_to_tuple(indexed_entries, context_name)
+        
         # Otherwise, treat as an object
         return self._convert_map_like(group_node, context_name)
     
+    def _extract_unnamed_entries(self, node: Any) -> Optional[List[Any]]:
+        """Extract unnamed entries from a group (entries with only types, no member keys)."""
+        entries: List[Any] = []
+        has_named = False
+        
+        if not hasattr(node, 'getChildren'):
+            return None
+        
+        for child in node.getChildren():
+            if type(child).__name__ == 'GroupChoice':
+                for gc_child in child.getChildren():
+                    if type(gc_child).__name__ == 'GroupEntry':
+                        has_memberkey = False
+                        type_node = None
+                        for entry_child in gc_child.getChildren():
+                            child_type = type(entry_child).__name__
+                            if child_type == 'Memberkey':
+                                has_memberkey = True
+                            elif child_type in ('Type', 'Typename'):
+                                type_node = entry_child
+                        if has_memberkey:
+                            has_named = True
+                        elif type_node:
+                            entries.append(type_node)
+        
+        # Only return if all entries are unnamed
+        if entries and not has_named:
+            return entries
+        return None
+
     def _extract_integer_key_entries(self, node: Any) -> Optional[List[Tuple[int, bool, Any]]]:
         """
         Extract integer-keyed entries from a group.
@@ -1028,6 +1110,23 @@ class CddlToStructureConverter:
             result['required'] = required
             
         return result
+
+    def _convert_group_entry(self, entry: GroupEntry, context_name: str = '') -> Dict[str, Any]:
+        """Convert a GroupEntry node used as a top-level type (e.g., for inline groups)."""
+        # A GroupEntry at top level typically contains a Type with a Group inside
+        if not hasattr(entry, 'getChildren'):
+            return {'type': 'any'}
+        
+        for child in entry.getChildren():
+            child_type = type(child).__name__
+            if child_type == 'Type':
+                return self._convert_type(child, context_name)
+            elif child_type == 'Group':
+                return self._convert_group(child, context_name)
+            elif child_type == 'GroupChoice':
+                return self._convert_group_choice(child, context_name)
+        
+        return {'type': 'any'}
 
     def _convert_group_choice(self, group_choice: GroupChoice, context_name: str = '') -> Dict[str, Any]:
         """Convert a GroupChoice node."""

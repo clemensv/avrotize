@@ -553,6 +553,10 @@ class TestCddlRegressions(unittest.TestCase):
     def test_iot_sensor_regression(self):
         """Regression test for iot_sensor.cddl"""
         self._compare_with_reference('iot_sensor.cddl')
+    
+    def test_unwrap_regression(self):
+        """Regression test for unwrap.cddl"""
+        self._compare_with_reference('unwrap.cddl')
 
 
 if __name__ == '__main__':
