@@ -61,4 +61,4 @@ avrotize = "avrotize.avrotize:main"
 [tool.setuptools_scm]
 write_to = "avrotize/_version.py"
 [tool.poetry.dev-dependencies]
-pytest-cov = "^5.0.0"
+pytest-cov = "^7.0.0"
