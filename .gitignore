@@ -1,2 +1,6 @@
 
+avrotize/
 __pycache__/
+.playwright-mcp/
+test/
+tmp/
