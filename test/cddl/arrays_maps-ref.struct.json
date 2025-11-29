@@ -26,7 +26,7 @@
     "optional_bytes": {
       "type": "array",
       "items": {
-        "type": "bytes"
+        "type": "binary"
       },
       "name": "optional_bytes",
       "altnames": {

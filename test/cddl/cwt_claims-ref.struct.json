@@ -47,7 +47,7 @@
           "description": "nbf - Not Before"
         },
         "_7": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "7"
           },
@@ -79,7 +79,7 @@
       "type": "tuple",
       "properties": {
         "_0": {
-          "type": "bytes"
+          "type": "binary"
         },
         "_1": {
           "type": "map",
@@ -91,10 +91,10 @@
           }
         },
         "_2": {
-          "type": "bytes"
+          "type": "binary"
         },
         "_3": {
-          "type": "bytes"
+          "type": "binary"
         }
       },
       "tuple": [
@@ -112,7 +112,7 @@
       "type": "tuple",
       "properties": {
         "_0": {
-          "type": "bytes"
+          "type": "binary"
         },
         "_1": {
           "type": "map",
@@ -124,10 +124,10 @@
           }
         },
         "_2": {
-          "type": "bytes"
+          "type": "binary"
         },
         "_3": {
-          "type": "bytes"
+          "type": "binary"
         }
       },
       "tuple": [
@@ -145,7 +145,7 @@
       "type": "tuple",
       "properties": {
         "_0": {
-          "type": "bytes"
+          "type": "binary"
         },
         "_1": {
           "type": "map",
@@ -157,7 +157,7 @@
           }
         },
         "_2": {
-          "type": "bytes"
+          "type": "binary"
         }
       },
       "tuple": [
@@ -180,14 +180,14 @@
           }
         },
         "_2": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "2"
           },
           "description": "COSE_Key"
         },
         "_3": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "3"
           },
@@ -210,7 +210,7 @@
           }
         },
         "_2": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "2"
           },
@@ -277,7 +277,7 @@
       "description": "nbf - Not Before"
     },
     "_7": {
-      "type": "bytes",
+      "type": "binary",
       "altnames": {
         "cddl": "7"
       },

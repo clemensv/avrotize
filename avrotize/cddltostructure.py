@@ -74,8 +74,8 @@ CDDL_PRIMITIVE_TYPES: Dict[str, Dict[str, Any]] = {
     'float': {'type': 'double'},    # Generic float (maps to double)
     
     # String types
-    'bstr': {'type': 'bytes'},      # Byte string (base64 encoded)
-    'bytes': {'type': 'bytes'},     # Alias for bstr
+    'bstr': {'type': 'binary'},      # Byte string (base64 encoded)
+    'bytes': {'type': 'binary'},     # Alias for bstr
     'tstr': {'type': 'string'},     # Text string (UTF-8)
     'text': {'type': 'string'},     # Alias for tstr
     
@@ -323,8 +323,39 @@ class CddlToStructureConverter:
                     converted_types.append(converted)
             
             if len(converted_types) > 1:
-                # Create a union type
-                return {'type': converted_types}
+                # Check if all types are string constants - if so, convert to enum
+                all_string_consts = all(
+                    isinstance(ct, dict) and 
+                    ct.get('type') == 'string' and 
+                    'const' in ct and 
+                    len(ct) == 2
+                    for ct in converted_types
+                )
+                if all_string_consts:
+                    # Convert to string enum
+                    enum_values = [ct['const'] for ct in converted_types]
+                    return {'type': 'string', 'enum': enum_values}
+                
+                # Create a union type per JSON Structure spec Section 3.5.1
+                # Union elements should be type names (strings) or $ref schemas
+                union_elements = []
+                for ct in converted_types:
+                    if '$ref' in ct:
+                        # Keep $ref as-is (it's a valid union element)
+                        union_elements.append(ct)
+                    elif 'type' in ct and isinstance(ct['type'], str):
+                        # Check if it's a simple primitive type with no other attributes
+                        other_keys = set(ct.keys()) - {'type'}
+                        if not other_keys:
+                            # Simple type - use just the type name
+                            union_elements.append(ct['type'])
+                        else:
+                            # Complex type (array, map, etc.) - keep full schema
+                            union_elements.append(ct)
+                    else:
+                        # Keep as-is for complex types
+                        union_elements.append(ct)
+                return {'type': union_elements}
             elif len(converted_types) == 1:
                 return converted_types[0]
         
@@ -491,6 +522,7 @@ class CddlToStructureConverter:
         """Convert a Map node to JSON Structure object or map."""
         properties: Dict[str, Any] = {}
         required: List[str] = []
+        extends_refs: List[str] = []
         computed_key_info: Optional[Dict[str, Any]] = None
         
         # Process map contents
@@ -499,12 +531,12 @@ class CddlToStructureConverter:
                 child_type = type(child).__name__
                 if child_type == 'GroupChoice':
                     computed_key_info = self._process_group_choice_for_object(
-                        child, properties, required, context_name
+                        child, properties, required, extends_refs, context_name
                     )
         
         # If we have a computed key (like * tstr => int) and no explicit properties,
         # this is a JSON Structure map type
-        if computed_key_info and not properties:
+        if computed_key_info and not properties and not extends_refs:
             result: Dict[str, Any] = {'type': 'map'}
             if computed_key_info.get('keys'):
                 result['keys'] = computed_key_info['keys']
@@ -514,6 +546,12 @@ class CddlToStructureConverter:
         
         # Otherwise it's a regular object
         result = {'type': 'object'}
+        if extends_refs:
+            # Use $extends for unwrapped types (single ref or array of refs)
+            if len(extends_refs) == 1:
+                result['$extends'] = extends_refs[0]
+            else:
+                result['$extends'] = extends_refs
         if properties:
             result['properties'] = properties
         if required:
@@ -526,6 +564,7 @@ class CddlToStructureConverter:
         group_choice: GroupChoice, 
         properties: Dict[str, Any], 
         required: List[str],
+        extends_refs: List[str],
         context_name: str
     ) -> Optional[Dict[str, Any]]:
         """Process GroupChoice for object properties.
@@ -541,14 +580,14 @@ class CddlToStructureConverter:
             child_type = type(child).__name__
             if child_type == 'GroupEntry':
                 entry_computed = self._process_group_entry_for_object(
-                    child, properties, required, context_name
+                    child, properties, required, extends_refs, context_name
                 )
                 if entry_computed:
                     computed_key_info = entry_computed
             elif child_type == 'GroupChoice':
                 # Nested group choice
                 nested_computed = self._process_group_choice_for_object(
-                    child, properties, required, context_name
+                    child, properties, required, extends_refs, context_name
                 )
                 if nested_computed:
                     computed_key_info = nested_computed
@@ -560,6 +599,7 @@ class CddlToStructureConverter:
         entry: GroupEntry, 
         properties: Dict[str, Any], 
         required: List[str],
+        extends_refs: List[str],
         context_name: str
     ) -> Optional[Dict[str, Any]]:
         """Process a GroupEntry for object properties.
@@ -602,26 +642,15 @@ class CddlToStructureConverter:
             elif child_type in ('Map', 'Array', 'Group', 'Value'):
                 member_type = self._convert_type(child, context_name)
         
-        # Handle unwrap operator (~) - inline the referenced type's properties
+        # Handle unwrap operator (~) - use $extends to reference the base type
         if unwrap_typename is not None and member_key is None:
             ref_name = getattr(unwrap_typename, 'name', None)
             if ref_name:
                 normalized_ref = avro_name(ref_name)
-                # Check if the referenced type is already defined
-                if normalized_ref in self.definitions:
-                    ref_def = self.definitions[normalized_ref]
-                    if ref_def.get('type') == 'object' and 'properties' in ref_def:
-                        # Inline the properties from the referenced type
-                        for prop_name, prop_schema in ref_def['properties'].items():
-                            properties[prop_name] = prop_schema.copy() if isinstance(prop_schema, dict) else prop_schema
-                        # Add required fields
-                        if 'required' in ref_def:
-                            for req_field in ref_def['required']:
-                                if req_field not in required:
-                                    required.append(req_field)
-                        return None
-                # Type not yet defined - store for later resolution
-                # For now, just skip it
+                # Add $ref to extends_refs for $extends
+                ref = f"#/definitions/{normalized_ref}"
+                if ref not in extends_refs:
+                    extends_refs.append(ref)
             return None
         
         if member_key is None:
@@ -638,7 +667,7 @@ class CddlToStructureConverter:
             if key_type_name in ('tstr', 'text'):
                 keys_type = {'type': 'string'}
             elif key_type_name in ('bstr', 'bytes'):
-                keys_type = {'type': 'bytes'}
+                keys_type = {'type': 'binary'}
             elif key_type_name in ('int', 'uint', 'nint'):
                 keys_type = {'type': 'int64'}
             else:
@@ -1089,21 +1118,24 @@ class CddlToStructureConverter:
 
     def _convert_map_like(self, node: Any, context_name: str = '') -> Dict[str, Any]:
         """Convert a map-like structure to object."""
-        result: Dict[str, Any] = {
-            'type': 'object'
-        }
-        
         properties: Dict[str, Any] = {}
         required: List[str] = []
+        extends_refs: List[str] = []
         
         if hasattr(node, 'getChildren'):
             for child in node.getChildren():
                 child_type = type(child).__name__
                 if child_type == 'GroupChoice':
                     self._process_group_choice_for_object(
-                        child, properties, required, context_name
+                        child, properties, required, extends_refs, context_name
                     )
         
+        result: Dict[str, Any] = {'type': 'object'}
+        if extends_refs:
+            if len(extends_refs) == 1:
+                result['$extends'] = extends_refs[0]
+            else:
+                result['$extends'] = extends_refs
         if properties:
             result['properties'] = properties
         if required:
@@ -1131,17 +1163,20 @@ class CddlToStructureConverter:
     def _convert_group_choice(self, group_choice: GroupChoice, context_name: str = '') -> Dict[str, Any]:
         """Convert a GroupChoice node."""
         # Process as an object with properties
-        result: Dict[str, Any] = {
-            'type': 'object'
-        }
-        
         properties: Dict[str, Any] = {}
         required: List[str] = []
+        extends_refs: List[str] = []
         
         self._process_group_choice_for_object(
-            group_choice, properties, required, context_name
+            group_choice, properties, required, extends_refs, context_name
         )
         
+        result: Dict[str, Any] = {'type': 'object'}
+        if extends_refs:
+            if len(extends_refs) == 1:
+                result['$extends'] = extends_refs[0]
+            else:
+                result['$extends'] = extends_refs
         if properties:
             result['properties'] = properties
         if required:
@@ -1376,7 +1411,7 @@ class CddlToStructureConverter:
         type_name = base_type.get('type', 'any')
         
         # Determine if this is a string or array type
-        is_string_type = type_name in ('string', 'bytes')
+        is_string_type = type_name in ('string', 'binary')
         is_array_type = type_name == 'array'
         
         if isinstance(constraint, dict):
@@ -1463,11 +1498,12 @@ class CddlToStructureConverter:
                         uses.add('JSONStructureUnits')
                     if k in {'pattern', 'minLength', 'maxLength', 'minimum', 'maximum', 
                             'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 
-                            'const', 'enum', 'required', 'minItems', 'maxItems'}:
+                            'const', 'enum', 'required', 'minItems', 'maxItems', 'default'}:
                         uses.add('JSONStructureValidation')
                     if k in {'if', 'then', 'else', 'dependentRequired', 'dependentSchemas', 
                             'anyOf', 'allOf', 'oneOf', 'not'}:
                         uses.add('JSONStructureConditionalComposition')
+                    # Note: $extends is a core keyword per Section 3.10.2, not an add-in
                     scan(v)
             elif isinstance(obj, list):
                 for item in obj:

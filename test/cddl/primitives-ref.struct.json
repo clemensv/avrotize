@@ -57,7 +57,7 @@
           "description": "String types"
         },
         "byte_string": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "byte-string"
           }
@@ -104,7 +104,7 @@
           "description": "Size constraints"
         },
         "fixed_bytes": {
-          "type": "bytes",
+          "type": "binary",
           "minLength": 32,
           "maxLength": 32,
           "altnames": {
@@ -200,7 +200,7 @@
       "description": "String types"
     },
     "byte_string": {
-      "type": "bytes",
+      "type": "binary",
       "altnames": {
         "cddl": "byte-string"
       }

@@ -24,13 +24,8 @@
     },
     "extended_header": {
       "type": "object",
+      "$extends": "#/definitions/base_header",
       "properties": {
-        "version": {
-          "type": "int64"
-        },
-        "timestamp": {
-          "type": "int64"
-        },
         "message_id": {
           "type": "string",
           "altnames": {
@@ -42,8 +37,6 @@
         }
       },
       "required": [
-        "version",
-        "timestamp",
         "message_id",
         "priority"
       ],
@@ -72,20 +65,13 @@
     },
     "point_3d": {
       "type": "object",
+      "$extends": "#/definitions/coordinates",
       "properties": {
-        "x": {
-          "type": "double"
-        },
-        "y": {
-          "type": "double"
-        },
         "z": {
           "type": "double"
         }
       },
       "required": [
-        "x",
-        "y",
         "z"
       ],
       "name": "point_3d",
@@ -159,28 +145,16 @@
     },
     "full_record": {
       "type": "object",
+      "$extends": [
+        "#/definitions/base_header",
+        "#/definitions/metadata"
+      ],
       "properties": {
-        "version": {
-          "type": "int64"
-        },
-        "timestamp": {
-          "type": "int64"
-        },
-        "created": {
-          "type": "int64"
-        },
-        "modified": {
-          "type": "int64"
-        },
         "data": {
-          "type": "bytes"
+          "type": "binary"
         }
       },
       "required": [
-        "version",
-        "timestamp",
-        "created",
-        "modified",
         "data"
       ],
       "name": "full_record",
@@ -209,18 +183,10 @@
     },
     "config_with_optional": {
       "type": "object",
+      "$extends": "#/definitions/optional_fields",
       "properties": {
         "name": {
           "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       },
       "required": [

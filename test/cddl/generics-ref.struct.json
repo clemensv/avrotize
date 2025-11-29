@@ -4,12 +4,8 @@
   "definitions": {
     "person_name": {
       "type": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
+        "string",
+        "null"
       ],
       "name": "person_name",
       "description": "Usage examples",
@@ -116,12 +112,8 @@
     }
   },
   "type": [
-    {
-      "type": "string"
-    },
-    {
-      "type": "null"
-    }
+    "string",
+    "null"
   ],
   "name": "person_name",
   "description": "Usage examples",

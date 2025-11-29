@@ -7,12 +7,8 @@
       "properties": {
         "_1": {
           "type": [
-            {
-              "type": "int64"
-            },
-            {
-              "type": "string"
-            }
+            "int64",
+            "string"
           ],
           "altnames": {
             "cddl": "1"
@@ -29,31 +25,27 @@
         },
         "_3": {
           "type": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "int64"
-            }
+            "string",
+            "int64"
           ],
           "altnames": {
             "cddl": "3"
           }
         },
         "_4": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "4"
           }
         },
         "_5": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "5"
           }
         },
         "_6": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "6"
           }
@@ -92,12 +84,8 @@
     },
     "label": {
       "type": [
-        {
-          "type": "int64"
-        },
-        {
-          "type": "string"
-        }
+        "int64",
+        "string"
       ],
       "name": "label"
     },
@@ -111,7 +99,7 @@
           }
         },
         "_2": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "2"
           },
@@ -119,12 +107,8 @@
         },
         "_3": {
           "type": [
-            {
-              "type": "int64"
-            },
-            {
-              "type": "string"
-            }
+            "int64",
+            "string"
           ],
           "altnames": {
             "cddl": "3"
@@ -142,7 +126,7 @@
           "description": "alg - Algorithm"
         },
         "_5": {
-          "type": "bytes",
+          "type": "binary",
           "altnames": {
             "cddl": "5"
           },
@@ -169,7 +153,7 @@
           "$ref": "#/definitions/Headers"
         },
         "_1": {
-          "type": "bytes"
+          "type": "binary"
         }
       },
       "tuple": [
@@ -186,7 +170,7 @@
       "type": "object",
       "properties": {
         "protected": {
-          "type": "bytes"
+          "type": "binary"
         },
         "unprotected": {
           "type": "object",
@@ -207,7 +191,7 @@
       "type": "tuple",
       "properties": {
         "_0": {
-          "type": "bytes"
+          "type": "binary"
         },
         "_1": {
           "type": "object",
@@ -219,16 +203,12 @@
         },
         "_2": {
           "type": [
-            {
-              "type": "bytes"
-            },
-            {
-              "type": "null"
-            }
+            "binary",
+            "null"
           ]
         },
         "_3": {
-          "type": "bytes"
+          "type": "binary"
         }
       },
       "tuple": [
@@ -247,7 +227,7 @@
       "type": "tuple",
       "properties": {
         "_0": {
-          "type": "bytes"
+          "type": "binary"
         },
         "_1": {
           "type": "object",
@@ -259,12 +239,8 @@
         },
         "_2": {
           "type": [
-            {
-              "type": "bytes"
-            },
-            {
-              "type": "null"
-            }
+            "binary",
+            "null"
           ]
         }
       },
@@ -284,12 +260,8 @@
   "properties": {
     "_1": {
       "type": [
-        {
-          "type": "int64"
-        },
-        {
-          "type": "string"
-        }
+        "int64",
+        "string"
       ],
       "altnames": {
         "cddl": "1"
@@ -306,31 +278,27 @@
     },
     "_3": {
       "type": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "int64"
-        }
+        "string",
+        "int64"
       ],
       "altnames": {
         "cddl": "3"
       }
     },
     "_4": {
-      "type": "bytes",
+      "type": "binary",
       "altnames": {
         "cddl": "4"
       }
     },
     "_5": {
-      "type": "bytes",
+      "type": "binary",
       "altnames": {
         "cddl": "5"
       }
     },
     "_6": {
-      "type": "bytes",
+      "type": "binary",
       "altnames": {
         "cddl": "6"
       }

@@ -32,7 +32,7 @@ CDDL (Concise Data Definition Language) is defined in [RFC 8610](https://www.rfc
 ### What is JSON Structure?
 
 JSON Structure is a schema format that extends JSON Schema concepts with additional features for data modeling. It supports:
-- Extended primitive types (`int64`, `float`, `double`, `bytes`)
+- Extended primitive types (`int64`, `float`, `double`, `binary`)
 - Tuple types with ordered properties
 - Alternate names (`altnames`) for field mappings
 - Extension declarations (`$uses`)
@@ -53,7 +53,7 @@ CDDL primitive types are mapped to JSON Structure types as follows:
 | `float64` | `double` | Double precision float |
 | `float` | `double` | Generic float |
 | `tstr`, `text` | `string` | Text string (UTF-8) |
-| `bstr`, `bytes` | `bytes` | Byte string |
+| `bstr`, `bytes` | `binary` | Byte string |
 | `bool` | `boolean` | Boolean value |
 | `true`, `false` | `boolean` | Boolean literals |
 | `nil`, `null` | `null` | Null value |
@@ -174,7 +174,7 @@ optional-bytes = [? bstr]
     },
     "optional_bytes": {
       "type": "array",
-      "items": { "type": "bytes" }
+      "items": { "type": "binary" }
     }
   }
 }
@@ -244,17 +244,11 @@ rectangle = {
 {
   "definitions": {
     "string_or_int": {
-      "type": [
-        { "type": "string" },
-        { "type": "int64" }
-      ]
+      "type": ["string", "int64"]
     },
     "status": {
-      "type": [
-        { "type": "string", "const": "pending" },
-        { "type": "string", "const": "active" },
-        { "type": "string", "const": "completed" }
-      ]
+      "type": "string",
+      "enum": ["pending", "active", "completed"]
     },
     "shape": {
       "type": [
@@ -267,6 +261,8 @@ rectangle = {
 ```
 
 </td></tr></table>
+
+**Note:** Union types in JSON Structure use an array for the `type` field. Primitive types are represented as simple strings (e.g., `["string", "int64"]`), while references to named types use object notation with `$ref` (e.g., `{ "$ref": "#/definitions/circle" }`). When a CDDL choice consists entirely of string literals (e.g., `"a" / "b" / "c"`), it is converted to a string type with an `enum` constraint instead of a union. This follows the JSON Structure specification Section 3.5.1.
 
 #### Type References
 
@@ -386,7 +382,7 @@ sha256-hash = bstr .size 32
       "maxLength": 20
     },
     "sha256_hash": {
-      "type": "bytes",
+      "type": "binary",
       "minLength": 32,
       "maxLength": 32
     }
@@ -586,10 +582,7 @@ api-result = result<response, error-info>
 {
   "definitions": {
     "person_name": {
-      "type": [
-        { "type": "string" },
-        { "type": "null" }
-      ]
+      "type": ["string", "null"]
     },
     "string_int_pair": {
       "type": "tuple",
@@ -629,28 +622,94 @@ api-result = result<response, error-info>
 
 #### Unwrap Operator
 
-The CDDL unwrap operator (`~`) extracts the content from a wrapped type:
+The CDDL unwrap operator (`~`) is used for type composition by including all members of one type into another. In JSON Structure, this is represented using the `$extends` mechanism, which is semantically equivalent:
 
 <table width="100%"><tr><th>CDDL</th><th>JSON Structure</th></tr><tr><td style="vertical-align:top">
 
 ```cddl
-base-header = [
-    field1: int,
-    field2: tstr
-]
+; Base header with common fields
+base-header = {
+    version: int,
+    timestamp: int
+}
 
-extended-header = [
+; Extended header inherits from base
+extended-header = {
     ~base-header,
-    field3: bool
-]
+    message-id: tstr,
+    priority: int
+}
 ```
 
 </td>
 <td style="vertical-align:top">
 
-The unwrapped group content is inlined into the containing type.
+```json
+{
+  "definitions": {
+    "base_header": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "int64" },
+        "timestamp": { "type": "int64" }
+      },
+      "required": ["version", "timestamp"]
+    },
+    "extended_header": {
+      "type": "object",
+      "$extends": "#/definitions/base_header",
+      "properties": {
+        "message_id": { "type": "string" },
+        "priority": { "type": "int64" }
+      },
+      "required": ["message_id", "priority"]
+    }
+  }
+}
+```
 
 </td></tr></table>
+
+**Multiple Unwraps:** When a type unwraps multiple base types, `$extends` becomes an array:
+
+<table width="100%"><tr><th>CDDL</th><th>JSON Structure</th></tr><tr><td style="vertical-align:top">
+
+```cddl
+header = { version: int }
+metadata = { tags: [* tstr] }
+
+; Multiple inheritance
+full-record = {
+    ~header,
+    ~metadata,
+    data: bstr
+}
+```
+
+</td>
+<td style="vertical-align:top">
+
+```json
+{
+  "definitions": {
+    "full_record": {
+      "type": "object",
+      "$extends": [
+        "#/definitions/header",
+        "#/definitions/metadata"
+      ],
+      "properties": {
+        "data": { "type": "binary" }
+      },
+      "required": ["data"]
+    }
+  }
+}
+```
+
+</td></tr></table>
+
+**Note:** The `$extends` keyword is part of the JSON Structure core specification (Section 3.10.2) for type inheritance, not an add-in extension.
 
 #### CBOR Tags
 
@@ -673,7 +732,7 @@ uuid = #6.37(bstr)
 {
   "definitions": {
     "datetime": { "type": "string" },
-    "uuid": { "type": "bytes" }
+    "uuid": { "type": "binary" }
   }
 }
 ```
@@ -752,11 +811,11 @@ flags = uint .bits (flag1 / flag2 / flag3)
 
 #### `.cbor` and `.cborseq` Operators
 
-These operators specify embedded CBOR data within byte strings. The base `bytes` type is used:
+These operators specify embedded CBOR data within byte strings. The base `binary` type is used:
 
 ```cddl
 embedded = bstr .cbor some-type
-; Converts to: { "type": "bytes" }
+; Converts to: { "type": "binary" }
 ```
 
 #### `.within` and `.and` Operators

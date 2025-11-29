@@ -4,12 +4,8 @@
   "definitions": {
     "string_or_int": {
       "type": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "int64"
-        }
+        "string",
+        "int64"
       ],
       "name": "string_or_int",
       "description": "CDDL schema demonstrating choice/union types Based on RFC 8610 Section 3.5 Simple choice between primitives",
@@ -19,59 +15,30 @@
     },
     "number": {
       "type": [
-        {
-          "type": "int64"
-        },
-        {
-          "type": "double"
-        }
+        "int64",
+        "double"
       ],
       "name": "number"
     },
     "status": {
-      "type": [
-        {
-          "type": "string",
-          "const": "pending"
-        },
-        {
-          "type": "string",
-          "const": "active"
-        },
-        {
-          "type": "string",
-          "const": "completed"
-        },
-        {
-          "type": "string",
-          "const": "failed"
-        }
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "completed",
+        "failed"
       ],
       "name": "status",
       "description": "Choice with literals"
     },
     "http_method": {
-      "type": [
-        {
-          "type": "string",
-          "const": "GET"
-        },
-        {
-          "type": "string",
-          "const": "POST"
-        },
-        {
-          "type": "string",
-          "const": "PUT"
-        },
-        {
-          "type": "string",
-          "const": "DELETE"
-        },
-        {
-          "type": "string",
-          "const": "PATCH"
-        }
+      "type": "string",
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PATCH"
       ],
       "name": "http_method",
       "altnames": {
@@ -154,12 +121,8 @@
     },
     "nullable_string": {
       "type": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
+        "string",
+        "null"
       ],
       "name": "nullable_string",
       "description": "Nullable types using choice",
@@ -169,12 +132,8 @@
     },
     "nullable_int": {
       "type": [
-        {
-          "type": "int64"
-        },
-        {
-          "type": "null"
-        }
+        "int64",
+        "null"
       ],
       "name": "nullable_int",
       "altnames": {
@@ -288,12 +247,8 @@
     }
   },
   "type": [
-    {
-      "type": "string"
-    },
-    {
-      "type": "int64"
-    }
+    "string",
+    "int64"
   ],
   "name": "string_or_int",
   "description": "CDDL schema demonstrating choice/union types Based on RFC 8610 Section 3.5 Simple choice between primitives",

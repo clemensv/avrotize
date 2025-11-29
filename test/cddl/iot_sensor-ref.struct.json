@@ -32,23 +32,12 @@
       "description": "Geographic coordinates"
     },
     "quality_indicator": {
-      "type": [
-        {
-          "type": "string",
-          "const": "good"
-        },
-        {
-          "type": "string",
-          "const": "uncertain"
-        },
-        {
-          "type": "string",
-          "const": "bad"
-        },
-        {
-          "type": "string",
-          "const": "missing"
-        }
+      "type": "string",
+      "enum": [
+        "good",
+        "uncertain",
+        "bad",
+        "missing"
       ],
       "name": "quality_indicator",
       "altnames": {
@@ -217,9 +206,7 @@
             {
               "$ref": "#/definitions/coordinates"
             },
-            {
-              "type": "null"
-            }
+            "null"
           ]
         },
         "firmware_version": {
@@ -253,23 +240,12 @@
       }
     },
     "device_type": {
-      "type": [
-        {
-          "type": "string",
-          "const": "sensor"
-        },
-        {
-          "type": "string",
-          "const": "actuator"
-        },
-        {
-          "type": "string",
-          "const": "gateway"
-        },
-        {
-          "type": "string",
-          "const": "controller"
-        }
+      "type": "string",
+      "enum": [
+        "sensor",
+        "actuator",
+        "gateway",
+        "controller"
       ],
       "name": "device_type",
       "altnames": {
@@ -277,31 +253,14 @@
       }
     },
     "capability": {
-      "type": [
-        {
-          "type": "string",
-          "const": "temperature"
-        },
-        {
-          "type": "string",
-          "const": "humidity"
-        },
-        {
-          "type": "string",
-          "const": "pressure"
-        },
-        {
-          "type": "string",
-          "const": "motion"
-        },
-        {
-          "type": "string",
-          "const": "light"
-        },
-        {
-          "type": "string",
-          "const": "switch"
-        }
+      "type": "string",
+      "enum": [
+        "temperature",
+        "humidity",
+        "pressure",
+        "motion",
+        "light",
+        "switch"
       ],
       "name": "capability"
     },
@@ -418,27 +377,13 @@
       }
     },
     "command_type": {
-      "type": [
-        {
-          "type": "string",
-          "const": "read"
-        },
-        {
-          "type": "string",
-          "const": "write"
-        },
-        {
-          "type": "string",
-          "const": "reset"
-        },
-        {
-          "type": "string",
-          "const": "configure"
-        },
-        {
-          "type": "string",
-          "const": "update"
-        }
+      "type": "string",
+      "enum": [
+        "read",
+        "write",
+        "reset",
+        "configure",
+        "update"
       ],
       "name": "command_type",
       "altnames": {
@@ -479,23 +424,12 @@
       }
     },
     "response_status": {
-      "type": [
-        {
-          "type": "string",
-          "const": "success"
-        },
-        {
-          "type": "string",
-          "const": "error"
-        },
-        {
-          "type": "string",
-          "const": "timeout"
-        },
-        {
-          "type": "string",
-          "const": "rejected"
-        }
+      "type": "string",
+      "enum": [
+        "success",
+        "error",
+        "timeout",
+        "rejected"
       ],
       "name": "response_status",
       "altnames": {

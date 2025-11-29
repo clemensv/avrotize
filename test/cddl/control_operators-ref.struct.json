@@ -16,7 +16,7 @@
       "name": "password"
     },
     "sha256_hash": {
-      "type": "bytes",
+      "type": "binary",
       "minLength": 32,
       "maxLength": 32,
       "name": "sha256_hash",
@@ -25,7 +25,7 @@
       }
     },
     "uuid_bytes": {
-      "type": "bytes",
+      "type": "binary",
       "minLength": 16,
       "maxLength": 16,
       "name": "uuid_bytes",

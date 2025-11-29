@@ -88,7 +88,7 @@ class TestCddlToStructure(unittest.TestCase):
         self.assertEqual(props['float64_field']['type'], 'double')
         self.assertEqual(props['bool_field']['type'], 'boolean')
         self.assertEqual(props['text_field']['type'], 'string')
-        self.assertEqual(props['bytes_field']['type'], 'bytes')
+        self.assertEqual(props['bytes_field']['type'], 'binary')
 
     def test_array_type(self):
         """Test conversion of CDDL array types."""
@@ -273,7 +273,7 @@ class TestCddlToStructure(unittest.TestCase):
         self.assertIn('definitions', result)
         self.assertIn('fixed_bytes', result['definitions'])
         fixed = result['definitions']['fixed_bytes']
-        self.assertEqual(fixed['type'], 'bytes')
+        self.assertEqual(fixed['type'], 'binary')
         self.assertEqual(fixed.get('minLength'), 32)
         self.assertEqual(fixed.get('maxLength'), 32)
 
@@ -319,7 +319,12 @@ class TestCddlToStructure(unittest.TestCase):
         
         # Should be a union type (array of types)
         if 'type' in opt_string and isinstance(opt_string['type'], list):
-            types = [t.get('type') for t in opt_string['type'] if isinstance(t, dict)]
+            types = []
+            for t in opt_string['type']:
+                if isinstance(t, str):
+                    types.append(t)
+                elif isinstance(t, dict) and 'type' in t:
+                    types.append(t['type'])
             self.assertIn('string', types)
             self.assertIn('null', types)
 
@@ -367,7 +372,12 @@ class TestCddlToStructure(unittest.TestCase):
         
         # Should be a union type
         if 'type' in choice and isinstance(choice['type'], list):
-            types = [t.get('type') for t in choice['type'] if isinstance(t, dict)]
+            types = []
+            for t in choice['type']:
+                if isinstance(t, str):
+                    types.append(t)
+                elif isinstance(t, dict) and 'type' in t:
+                    types.append(t['type'])
             self.assertIn('string', types)
             self.assertIn('int64', types)
 
