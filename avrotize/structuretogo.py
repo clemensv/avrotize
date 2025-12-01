@@ -74,6 +74,7 @@ class StructureToGo:
             'binary64': '*float64',
             'decimal': '*float64',
             'binary': '[]byte',
+            'bytes': '[]byte',  # Legacy fallback for 'binary'
             'date': '*time.Time',
             'time': '*time.Time',
             'datetime': '*time.Time',
@@ -107,6 +108,7 @@ class StructureToGo:
             'binary64': 'float64',
             'decimal': 'float64',
             'binary': '[]byte',
+            'bytes': '[]byte',  # Legacy fallback for 'binary'
             'date': 'time.Time',
             'time': 'time.Time',
             'datetime': 'time.Time',

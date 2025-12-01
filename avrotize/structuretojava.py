@@ -114,6 +114,7 @@ class StructureToJava:
             'binary64': 'Double',
             'decimal': 'BigDecimal',
             'binary': 'byte[]',
+            'bytes': 'byte[]',  # Legacy fallback for 'binary'
             'date': 'LocalDate',
             'time': 'LocalTime',
             'datetime': 'Instant',
@@ -147,6 +148,7 @@ class StructureToJava:
             'binary64': 'double',
             'decimal': 'BigDecimal',
             'binary': 'byte[]',
+            'bytes': 'byte[]',  # Legacy fallback for 'binary'
             'date': 'LocalDate',
             'time': 'LocalTime',
             'datetime': 'Instant',

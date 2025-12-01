@@ -97,6 +97,7 @@ class StructureToRust:
             'binary64': 'Option<f64>',
             'decimal': 'Option<f64>',
             'binary': 'Option<Vec<u8>>',
+            'bytes': 'Option<Vec<u8>>',  # Legacy fallback for 'binary'
             'date': 'Option<chrono::NaiveDate>',
             'time': 'Option<chrono::NaiveTime>',
             'datetime': 'Option<chrono::DateTime<chrono::Utc>>',
@@ -130,6 +131,7 @@ class StructureToRust:
             'binary64': 'f64',
             'decimal': 'f64',
             'binary': 'Vec<u8>',
+            'bytes': 'Vec<u8>',  # Legacy fallback for 'binary'
             'date': 'chrono::NaiveDate',
             'time': 'chrono::NaiveTime',
             'datetime': 'chrono::DateTime<chrono::Utc>',

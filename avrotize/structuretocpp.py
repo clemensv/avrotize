@@ -64,6 +64,7 @@ class StructureToCpp:
             'float': 'std::optional<float>',
             'double': 'std::optional<double>',
             'binary': 'std::optional<std::vector<uint8_t>>',
+            'bytes': 'std::optional<std::vector<uint8_t>>',  # Legacy fallback for 'binary'
             'date': 'std::optional<std::chrono::system_clock::time_point>',
             'time': 'std::optional<std::chrono::milliseconds>',
             'datetime': 'std::optional<std::chrono::system_clock::time_point>',
@@ -92,6 +93,7 @@ class StructureToCpp:
             'float': 'float',
             'double': 'double',
             'binary': 'std::vector<uint8_t>',
+            'bytes': 'std::vector<uint8_t>',  # Legacy fallback for 'binary'
             'date': 'std::chrono::system_clock::time_point',
             'time': 'std::chrono::milliseconds',
             'datetime': 'std::chrono::system_clock::time_point',
@@ -498,6 +500,7 @@ class StructureToCpp:
                 'float': '3.14f',
                 'double': '3.14',
                 'binary': 'std::vector<uint8_t>{0x01, 0x02, 0x03}',
+                'bytes': 'std::vector<uint8_t>{0x01, 0x02, 0x03}',  # Legacy fallback
                 'date': 'std::chrono::system_clock::now()',
                 'time': 'std::chrono::milliseconds(123456)',
                 'datetime': 'std::chrono::system_clock::now()',

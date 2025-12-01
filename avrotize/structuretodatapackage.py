@@ -360,7 +360,7 @@ class StructureToDataPackageConverter:
             field_schema['format'] = 'uri'
         elif prop_type == 'uuid':
             field_schema['format'] = 'uuid'
-        elif prop_type == 'binary':
+        elif prop_type in ('binary', 'bytes'):  # 'bytes' is legacy fallback for 'binary'
             field_schema['format'] = 'binary'
         
         # Handle format keyword for additional string formats
