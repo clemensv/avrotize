@@ -1729,9 +1729,9 @@ class JsonToStructureConverter:
                         ('properties' not in def_schema or len(def_schema['properties']) == 0)):
                         def_schema['abstract'] = True
                     
-                    # Mark choice types with discriminators as abstract  
+                    # Mark choice types with selectors as abstract  
                     if (def_schema.get('type') == 'choice' and 
-                        'discriminator' in def_schema):
+                        'selector' in def_schema):
                         def_schema['abstract'] = True
     
     def jsons_to_structure(self, json_schema: Union[dict, list], namespace: str, base_uri: str) -> dict:

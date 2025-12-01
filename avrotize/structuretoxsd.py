@@ -269,7 +269,7 @@ class StructureToXSD:
     def convert_choice_type(self, schema_root: Element, type_name: str, parent: Element, choice_def: Dict):
         """Handle choice (union) type conversion."""
         choices = choice_def.get('choices', [])
-        discriminator = choice_def.get('discriminator') or choice_def.get('selector')
+        discriminator = choice_def.get('selector') or choice_def.get('discriminator')
         
         # Handle choices as dict (tagged) or list (inline)
         if isinstance(choices, dict):
@@ -574,7 +574,7 @@ class StructureToXSD:
         elif type_type == 'choice':
             # Handle choice as complex type with choice element
             choices = type_def.get('choices', [])
-            discriminator = type_def.get('discriminator') or type_def.get('selector')
+            discriminator = type_def.get('selector') or type_def.get('discriminator')
             
             # Handle choices as dict (tagged) or list (inline)
             if isinstance(choices, dict):
