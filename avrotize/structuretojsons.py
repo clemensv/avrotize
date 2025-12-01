@@ -36,11 +36,12 @@ class StructureToJsonConverter:
         # - int64, uint64, decimal are serialized as strings in JSON due to precision/range limits
         # - binary32/binary64 are IEEE 754 binary formats
         # - timestamp is Unix epoch time as number
+        # - 'binary' is the correct JSON Structure type; 'bytes' kept for compatibility
         type_mappings = {
             'null': {'type': 'null'},
             'string': {'type': 'string'},
             'boolean': {'type': 'boolean'},
-            'bytes': {'type': 'string', 'format': 'byte'},
+            'bytes': {'type': 'string', 'format': 'byte'},  # Non-standard fallback; use 'binary'
             'int8': {'type': 'integer', 'minimum': -128, 'maximum': 127},
             'int16': {'type': 'integer', 'minimum': -32768, 'maximum': 32767},
             'int32': {'type': 'integer', 'minimum': -2147483648, 'maximum': 2147483647},
@@ -67,6 +68,9 @@ class StructureToJsonConverter:
             'uuid': {'type': 'string', 'format': 'uuid'},
             'uri': {'type': 'string', 'format': 'uri'},
             'jsonpointer': {'type': 'string', 'format': 'json-pointer'},
+            'any': {},  # JSON Structure 'any' maps to empty schema (accepts anything)
+            'number': {'type': 'number'},  # Core primitive type
+            'integer': {'type': 'integer'},  # Alias for int32
         }
         
         return type_mappings.get(structure_type, {'type': 'string'})
@@ -139,6 +143,8 @@ class StructureToJsonConverter:
             return self._convert_set_type(type_def)
         elif structure_type == 'map':
             return self._convert_map_type(type_def)
+        elif structure_type == 'tuple':
+            return self._convert_tuple_type(type_def)
         elif structure_type == 'choice':
             return self._convert_choice_type(type_def)
         else:
@@ -209,6 +215,37 @@ class StructureToJsonConverter:
         else:
             result['additionalProperties'] = True
             
+        return result
+
+    def _convert_tuple_type(self, type_def: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert a JSON Structure tuple type to JSON Schema array with prefixItems.
+        
+        JSON Structure tuples have named properties with a 'tuple' array specifying order.
+        JSON Schema 2020-12 uses prefixItems for tuple validation.
+        """
+        result = {'type': 'array'}
+        
+        # Get the tuple order and properties
+        tuple_order = type_def.get('tuple', [])
+        properties = type_def.get('properties', {})
+        
+        if tuple_order and properties:
+            # Build prefixItems array based on tuple order
+            prefix_items = []
+            for prop_name in tuple_order:
+                if prop_name in properties:
+                    prefix_items.append(self._convert_type_definition(properties[prop_name]))
+                else:
+                    # Property not found, use any type
+                    prefix_items.append({})
+            
+            if prefix_items:
+                result['prefixItems'] = prefix_items
+                # Tuples have fixed length - no additional items allowed
+                result['items'] = False
+                result['minItems'] = len(prefix_items)
+                result['maxItems'] = len(prefix_items)
+        
         return result
 
     def _convert_choice_type(self, type_def: Dict[str, Any]) -> Dict[str, Any]:

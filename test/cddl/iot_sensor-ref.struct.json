@@ -290,9 +290,6 @@
         },
         "metadata": {
           "type": "map",
-          "keys": {
-            "type": "string"
-          },
           "values": {
             "type": "any"
           }
@@ -350,9 +347,6 @@
         },
         "parameters": {
           "type": "map",
-          "keys": {
-            "type": "string"
-          },
           "values": {
             "type": "any"
           }

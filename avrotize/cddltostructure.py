@@ -758,10 +758,9 @@ class CddlToStructureConverter:
 
         # If we have a computed key (like * tstr => int) and no explicit properties,
         # this is a JSON Structure map type
+        # Note: JSON Structure maps always have string keys - there is no 'keys' keyword
         if computed_key_info and not properties and not extends_refs:
             result: Dict[str, Any] = {'type': 'map'}
-            if computed_key_info.get('keys'):
-                result['keys'] = computed_key_info['keys']
             if computed_key_info.get('values'):
                 result['values'] = computed_key_info['values']
             return result
@@ -769,15 +768,11 @@ class CddlToStructureConverter:
         # Otherwise it's a regular object
         result = {'type': 'object'}
         if extends_refs:
-            # Use $extends for unwrapped types - only first one supported
-            # JSON Structure only supports single inheritance via $extends
-            result['$extends'] = extends_refs[0]
-            if len(extends_refs) > 1:
-                logger.warning(
-                    "Multiple unwrap operators found, only using first: %s. "
-                    "JSON Structure $extends only supports single inheritance.",
-                    extends_refs[0]
-                )
+            # Use $extends for unwrapped types - supports single or multiple inheritance
+            if len(extends_refs) == 1:
+                result['$extends'] = extends_refs[0]
+            else:
+                result['$extends'] = extends_refs
         if properties:
             result['properties'] = properties
         if required:
@@ -889,20 +884,13 @@ class CddlToStructureConverter:
         # Handle computed keys (patterns like * tstr => int)
         if is_computed:
             key_type_name = member_key.get('key_type', 'string')
-            # Map CDDL key type to JSON Structure type
-            if key_type_name in ('tstr', 'text'):
-                keys_type = {'type': 'string'}
-            elif key_type_name in ('bstr', 'bytes'):
-                keys_type = {'type': 'binary'}
-            elif key_type_name in ('int', 'uint', 'nint'):
-                keys_type = {'type': 'int64'}
-            else:
-                keys_type = {'type': 'string'}
+            # Note: JSON Structure maps always have string keys (no 'keys' keyword in spec).
+            # CDDL may allow non-string keys, but we only pass through the values type.
+            # Non-string key types from CDDL are not representable in JSON Structure maps.
 
             values_type = member_type if member_type else {'type': 'any'}
 
             return {
-                'keys': keys_type,
                 'values': values_type
             }
 
@@ -1375,14 +1363,11 @@ class CddlToStructureConverter:
 
         result: Dict[str, Any] = {'type': 'object'}
         if extends_refs:
-            # JSON Structure only supports single inheritance via $extends
-            result['$extends'] = extends_refs[0]
-            if len(extends_refs) > 1:
-                logger.warning(
-                    "Multiple unwrap operators found, only using first: %s. "
-                    "JSON Structure $extends only supports single inheritance.",
-                    extends_refs[0]
-                )
+            # Use $extends for unwrapped types - supports single or multiple inheritance
+            if len(extends_refs) == 1:
+                result['$extends'] = extends_refs[0]
+            else:
+                result['$extends'] = extends_refs
         if properties:
             result['properties'] = properties
         if required:
@@ -1422,14 +1407,11 @@ class CddlToStructureConverter:
 
         result: Dict[str, Any] = {'type': 'object'}
         if extends_refs:
-            # JSON Structure only supports single inheritance via $extends
-            result['$extends'] = extends_refs[0]
-            if len(extends_refs) > 1:
-                logger.warning(
-                    "Multiple unwrap operators found, only using first: %s. "
-                    "JSON Structure $extends only supports single inheritance.",
-                    extends_refs[0]
-                )
+            # Use $extends for unwrapped types - supports single or multiple inheritance
+            if len(extends_refs) == 1:
+                result['$extends'] = extends_refs[0]
+            else:
+                result['$extends'] = extends_refs
         if properties:
             result['properties'] = properties
         if required:

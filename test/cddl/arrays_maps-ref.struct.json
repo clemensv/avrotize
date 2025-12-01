@@ -69,9 +69,6 @@
     },
     "string_map": {
       "type": "map",
-      "keys": {
-        "type": "string"
-      },
       "values": {
         "type": "any"
       },
@@ -83,9 +80,6 @@
     },
     "typed_map": {
       "type": "map",
-      "keys": {
-        "type": "string"
-      },
       "values": {
         "type": "int64"
       },

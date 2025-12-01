@@ -16,12 +16,20 @@ import requests
 from avrotize.common import avro_name, avro_name_with_altname, avro_namespace, find_schema_node, generic_type, set_schema_node
 from avrotize.dependency_resolver import inline_dependencies_of, sort_messages_by_dependencies
 
-# JSON Structure primitive types
+# JSON Structure primitive types per spec Section 3.2
 structure_primitive_types = [
-    'null', 'string', 'int8', 'int16', 'int32', 'int64', 
-    'uint8', 'uint16', 'uint32', 'uint64', 'float', 'double', 
-    'decimal', 'boolean', 'bytes', 'date', 'time', 'datetime', 
-    'duration', 'uuid', 'set', 'map', 'object', 'choice'
+    # Core primitives (Section 3.2.1)
+    'null', 'string', 'number', 'boolean',
+    # Extended integer types (Section 3.2.2.1)
+    'int8', 'int16', 'int32', 'int64', 'int128',
+    'uint8', 'uint16', 'uint32', 'uint64', 'uint128',
+    # Extended float types (Section 3.2.2.2)
+    'float8', 'float', 'double', 'decimal',
+    # Extended types (Section 3.2.2.3)
+    'binary', 'date', 'time', 'datetime', 'duration', 
+    'uuid', 'uri', 'jsonpointer',
+    # Compound types (Section 3.2.3)
+    'object', 'array', 'set', 'map', 'tuple', 'choice', 'any'
 ]
 
 
@@ -380,8 +388,9 @@ class JsonToStructureConverter:
                 elif format == 'uuid':
                     structure_type = 'uuid'
                 elif format == 'byte':
-                    structure_type = 'string'  # Map bytes to string in JSON Structure                elif format == 'binary':
-                    structure_type = 'string'  # Map binary to string in JSON Structure
+                    structure_type = 'binary'  # Map JSON Schema 'byte' format to JSON Structure 'binary'
+                elif format == 'binary':
+                    structure_type = 'binary'  # Map JSON Schema 'binary' format to JSON Structure 'binary'
                 else:
                     structure_type = 'string'
             else:
@@ -500,7 +509,7 @@ class JsonToStructureConverter:
             if force_hoist_in_union and ('$ref' not in value):
                 # Check if this is a simple primitive type like {"type": "int32"}
                 if (len(value) == 1 and 'type' in value and 
-                    value['type'] in ['string', 'boolean', 'integer', 'number', 'null', 'int32', 'int64', 'float', 'double', 'decimal', 'uuid', 'date', 'time', 'datetime', 'duration', 'bytes']):
+                    value['type'] in ['string', 'boolean', 'integer', 'number', 'null', 'int32', 'int64', 'float', 'double', 'decimal', 'uuid', 'uri', 'date', 'time', 'datetime', 'duration', 'binary', 'jsonpointer']):
                     # Return the primitive type string directly for JSON Structure compliance
                     return value['type']
                 elif structure_schema is not None:
@@ -522,7 +531,7 @@ class JsonToStructureConverter:
             if force_hoist_in_union:
                 # Return the primitive type string directly for JSON Structure compliance
                 # But only for actual primitives, not for complex types like map/set
-                if value in ['string', 'boolean', 'integer', 'number', 'null', 'int32', 'int64', 'float', 'double', 'decimal', 'uuid', 'date', 'time', 'datetime', 'duration', 'bytes']:
+                if value in ['string', 'boolean', 'integer', 'number', 'null', 'int32', 'int64', 'float', 'double', 'decimal', 'uuid', 'uri', 'date', 'time', 'datetime', 'duration', 'binary', 'jsonpointer']:
                     return value
                 else:
                     # For complex types like map/set, return the complete schema object
@@ -555,7 +564,7 @@ class JsonToStructureConverter:
                         uses.add('JSONStructureAlternateNames')
                     if k in {'unit', 'currency', 'symbol'}:
                         uses.add('JSONStructureUnits')
-                    if k in {'pattern', 'minLength', 'maxLength', 'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'const', 'enum', 'required', 'propertyNames', 'keyNames'}:
+                    if k in {'pattern', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf', 'const', 'enum', 'required', 'propertyNames', 'keyNames'}:
                         uses.add('JSONStructureValidation')
                     if k in {'if', 'then', 'else', 'dependentRequired', 'dependentSchemas', 'anyOf', 'allOf', 'oneOf', 'not'}:
                         uses.add('JSONStructureConditionalComposition')
@@ -775,7 +784,7 @@ class JsonToStructureConverter:
         """
         choice_obj = {
             'type': 'choice',
-            'discriminator': discriminator_info['property'],
+            'selector': discriminator_info['property'],
             'choices': {}
         }
         
@@ -1938,7 +1947,7 @@ class JsonToStructureConverter:
         Validate and fix a JSON Structure type to ensure compliance.
         
         This method post-processes generated JSON Structure schemas to fix common issues:
-        - Converts "integer" type to "number" (JSON Structure doesn't support integer)
+        - Converts "integer" type to "int32" (per JSON Structure spec Section 3.2.1.3)
         - Ensures arrays have "items"
         - Ensures objects have "properties" 
         - Ensures map/set "values"/"items" are schema objects, not strings
@@ -1952,7 +1961,7 @@ class JsonToStructureConverter:
         
         # Fix invalid types
         if structure_type.get('type') == 'integer':
-            structure_type['type'] = 'number'  # JSON Structure doesn't have integer type
+            structure_type['type'] = 'int32'  # JSON Structure spec Section 3.2.1.3: integer is alias for int32
         
         # Ensure arrays have items
         elif structure_type.get('type') == 'array' and 'items' not in structure_type:
