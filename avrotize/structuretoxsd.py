@@ -84,7 +84,6 @@ class StructureToXSD:
             'binary64': 'double',
             'decimal': 'decimal',
             'binary': 'base64Binary',
-            'bytes': 'base64Binary',
             'date': 'date',
             'time': 'time',
             'datetime': 'dateTime',
@@ -110,7 +109,7 @@ class StructureToXSD:
             'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32',
             'int64', 'uint64', 'int128', 'uint128',
             'float8', 'float', 'float32', 'float64', 'double', 'binary32', 'binary64',
-            'decimal', 'binary', 'bytes', 'date', 'time', 'datetime',
+            'decimal', 'binary', 'date', 'time', 'datetime',
             'timestamp', 'duration', 'uuid', 'uri', 'jsonpointer'
         }
         return structure_type in primitives
@@ -269,7 +268,7 @@ class StructureToXSD:
     def convert_choice_type(self, schema_root: Element, type_name: str, parent: Element, choice_def: Dict):
         """Handle choice (union) type conversion."""
         choices = choice_def.get('choices', [])
-        discriminator = choice_def.get('selector') or choice_def.get('discriminator')
+        selector = choice_def.get('selector')
         
         # Handle choices as dict (tagged) or list (inline)
         if isinstance(choices, dict):
@@ -277,7 +276,7 @@ class StructureToXSD:
         else:
             choices_list = [(f"option{i+1}", choice) for i, choice in enumerate(choices)]
         
-        if discriminator:
+        if selector:
             # Tagged union - use xs:choice with different elements
             complex_type = self.create_element(parent, "complexType")
             choice_element = self.create_element(complex_type, "choice")
@@ -574,7 +573,7 @@ class StructureToXSD:
         elif type_type == 'choice':
             # Handle choice as complex type with choice element
             choices = type_def.get('choices', [])
-            discriminator = type_def.get('selector') or type_def.get('discriminator')
+            selector = type_def.get('selector')
             
             # Handle choices as dict (tagged) or list (inline)
             if isinstance(choices, dict):

@@ -36,12 +36,10 @@ class StructureToJsonConverter:
         # - int64, uint64, decimal are serialized as strings in JSON due to precision/range limits
         # - binary32/binary64 are IEEE 754 binary formats
         # - timestamp is Unix epoch time as number
-        # - 'binary' is the correct JSON Structure type; 'bytes' kept for compatibility
         type_mappings = {
             'null': {'type': 'null'},
             'string': {'type': 'string'},
             'boolean': {'type': 'boolean'},
-            'bytes': {'type': 'string', 'format': 'byte'},  # Non-standard fallback; use 'binary'
             'int8': {'type': 'integer', 'minimum': -128, 'maximum': 127},
             'int16': {'type': 'integer', 'minimum': -32768, 'maximum': 32767},
             'int32': {'type': 'integer', 'minimum': -2147483648, 'maximum': 2147483647},

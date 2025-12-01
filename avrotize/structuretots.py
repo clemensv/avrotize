@@ -81,7 +81,6 @@ class StructureToTypeScript:
             'binary64': 'number',
             'decimal': 'string',
             'binary': 'string',
-            'bytes': 'string',
             'date': 'Date',
             'time': 'Date',
             'datetime': 'Date',

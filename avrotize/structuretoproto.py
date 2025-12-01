@@ -59,7 +59,6 @@ class StructureToProto:
             'binary64': 'double',
             'decimal': 'string',  # Proto doesn't have native decimal, use string
             'binary': 'bytes',
-            'bytes': 'bytes',
             'date': 'string',  # Or use google.type.Date
             'time': 'string',  # Or use google.type.TimeOfDay
             'datetime': 'string',  # Or use google.protobuf.Timestamp

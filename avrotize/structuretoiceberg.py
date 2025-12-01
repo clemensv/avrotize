@@ -334,7 +334,6 @@ class StructureToIcebergConverter:
             'binary64': DoubleType(),
             'decimal': DecimalType(38, 18),
             'binary': BinaryType(),
-            'bytes': BinaryType(),  # Binary data
             'date': DateType(),
             'time': TimeType(),
             'datetime': TimestampType(),
