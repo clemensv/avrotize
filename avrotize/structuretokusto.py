@@ -587,7 +587,6 @@ class StructureToKusto:
             
             # Binary
             'binary': 'dynamic',
-            'bytes': 'dynamic',  # Legacy fallback for 'binary'
             
             # Date/time types
             'date': 'datetime',

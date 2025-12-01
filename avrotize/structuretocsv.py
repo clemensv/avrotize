@@ -325,7 +325,6 @@ class StructureToCSVConverter:
             
             # Binary data
             'binary': 'string',  # Base64 encoded
-            'bytes': 'string',  # Legacy fallback for 'binary'
             
             # Date/time types
             'date': 'string',

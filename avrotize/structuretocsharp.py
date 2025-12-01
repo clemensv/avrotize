@@ -746,7 +746,7 @@ class StructureToCSharp:
             return ref
         
         choices = structure_schema.get('choices', {})
-        selector = structure_schema.get('selector') or structure_schema.get('discriminator')  # 'discriminator' is legacy
+        selector = structure_schema.get('selector')
         extends = structure_schema.get('$extends')
         
         if extends and selector:
@@ -931,7 +931,7 @@ class StructureToCSharp:
         base_class_name = base_class_ref.split('::')[-1].split('.')[-1]
         
         choices = structure_schema.get('choices', {})
-        selector = structure_schema.get('selector') or structure_schema.get('discriminator', 'type')  # 'discriminator' is legacy
+        selector = structure_schema.get('selector', 'type')
         
         # Generate abstract base class with selector property
         class_definition = f"/// <summary>\n/// {structure_schema.get('description', class_name + ' (inline union base)')}\n/// </summary>\n"
