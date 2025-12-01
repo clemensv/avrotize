@@ -95,7 +95,7 @@
       }
     },
     "signature": {
-      "type": "bytes",
+      "type": "binary",
       "description": "Digital signature"
     }
   },

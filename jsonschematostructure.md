@@ -168,7 +168,7 @@ JSON Schema format annotations are converted to specific JSON Structure types wh
 | `"format": "uuid"` | `"type": "uuid"` | - |
 | `"format": "uri"` | `"type": "uri"` | - |
 | `"format": "email"` | `"type": "string"` | `format: "email"` preserved |
-| `"format": "byte"` | `"type": "bytes"` | - |
+| `"format": "byte"` | `"type": "binary"` | - |
 
 <table width="100%"><tr><th>JSON Schema</th><th>JSON Structure</th></tr><tr><td style="vertical-align:top">
 
