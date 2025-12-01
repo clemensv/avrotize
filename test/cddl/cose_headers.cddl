@@ -1,0 +1,51 @@
+; COSE (CBOR Object Signing and Encryption) Header Parameters
+; Simplified from RFC 8152
+
+; Generic header bucket
+Generic-Headers = (
+    ? 1 => int / tstr,          ; alg - Algorithm identifier
+    ? 2 => [+ label],           ; crit - Critical headers
+    ? 3 => tstr / int,          ; content type
+    ? 4 => bstr,                ; kid - Key identifier
+    ? 5 => bstr,                ; IV - Initialization vector
+    ? 6 => bstr,                ; partial IV
+    ? 7 => COSE-Signature / [+ COSE-Signature] ; counter signature
+)
+
+label = int / tstr
+
+; COSE Key structure
+COSE-Key = {
+    1 => int,                   ; kty - Key type
+    ? 2 => bstr,                ; kid - Key identifier
+    ? 3 => int / tstr,          ; alg - Algorithm
+    ? 4 => [+ int],             ; key_ops - Key operations
+    ? 5 => bstr,                ; Base IV
+    * label => any              ; Additional parameters
+}
+
+; COSE Signature structure
+COSE-Signature = [
+    Headers,
+    bstr                        ; signature
+]
+
+Headers = (
+    protected: bstr,
+    unprotected: { * label => any }
+)
+
+; COSE_Sign1 - Single signer structure
+COSE-Sign1 = [
+    protected: bstr,
+    unprotected: { * label => any },
+    payload: bstr / nil,
+    signature: bstr
+]
+
+; COSE_Encrypt0 - Single recipient encryption
+COSE-Encrypt0 = [
+    protected: bstr,
+    unprotected: { * label => any },
+    ciphertext: bstr / nil
+]

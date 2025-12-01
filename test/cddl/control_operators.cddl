@@ -1,0 +1,40 @@
+; CDDL schema demonstrating control operators
+; Based on RFC 8610 Section 3.8
+
+; Size constraints
+username = tstr .size (3..20)
+password = tstr .size (8..128)
+sha256-hash = bstr .size 32
+uuid-bytes = bstr .size 16
+
+; Numeric constraints
+port-number = uint .le 65535
+percentage = uint .le 100
+positive-int = int .ge 1
+negative-int = int .lt 0
+byte-value = 0..255
+
+; Default values
+timeout-ms = uint .default 5000
+max-retries = uint .default 3
+enabled = bool .default true
+greeting = tstr .default "Hello, World!"
+
+; Combined constraints (using intermediate types)
+valid-port = uint .ge 1
+bounded-port = valid-port .le 65535
+
+; Example record using constrained types
+server-config = {
+    host: tstr
+    port: port-number
+    ? timeout: timeout-ms
+    ? retries: max-retries
+    ? enabled: enabled
+}
+
+user-registration = {
+    username: username
+    password: password
+    ? email: tstr
+}

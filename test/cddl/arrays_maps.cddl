@@ -1,0 +1,30 @@
+; CDDL schema demonstrating arrays and maps
+; Based on RFC 8610 Section 3.4
+
+; Homogeneous arrays
+string-list = [* tstr]
+int-array = [+ int]
+optional-bytes = [? bstr]
+
+; Bounded arrays
+bounded-list = [1*10 tstr]
+fixed-tuple = [tstr, int, bool]
+
+; Maps with string keys
+string-map = { * tstr => any }
+typed-map = { * tstr => int }
+
+; Maps with specific keys
+config-map = {
+    "host": tstr
+    "port": uint
+    ? "timeout": uint
+    ? "retries": uint .default 3
+}
+
+; Nested structures
+nested-array = [* [tstr, int]]
+array-of-objects = [* {
+    name: tstr
+    value: any
+}]

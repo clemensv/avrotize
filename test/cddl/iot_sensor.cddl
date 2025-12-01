@@ -1,0 +1,85 @@
+; Comprehensive example combining multiple CDDL features
+; Represents a simplified IoT sensor data model
+
+; Generic wrapper for optional values
+optional<T> = T / nil
+
+; Timestamp as Unix epoch milliseconds
+timestamp = uint
+
+; Geographic coordinates
+coordinates = {
+    latitude: -90.0..90.0
+    longitude: -180.0..180.0
+    ? altitude: float
+}
+
+; Sensor reading with metadata
+sensor-reading<T> = {
+    sensor-id: tstr .size (1..64)
+    timestamp: timestamp
+    value: T
+    ? unit: tstr
+    ? quality: quality-indicator
+}
+
+quality-indicator = "good" / "uncertain" / "bad" / "missing"
+
+; Specific sensor types
+temperature-reading = sensor-reading<float>
+humidity-reading = sensor-reading<float>
+pressure-reading = sensor-reading<float>
+binary-reading = sensor-reading<bool>
+
+; Device information
+device-info = {
+    device-id: tstr .size (1..128)
+    device-type: device-type
+    ? name: tstr
+    ? location: optional<coordinates>
+    ? firmware-version: tstr
+    ? last-seen: timestamp
+    capabilities: [+ capability]
+}
+
+device-type = "sensor" / "actuator" / "gateway" / "controller"
+capability = "temperature" / "humidity" / "pressure" / "motion" / "light" / "switch"
+
+; Telemetry message
+telemetry-message = {
+    message-id: tstr
+    device-id: tstr
+    timestamp: timestamp
+    readings: [+ sensor-value]
+    ? metadata: { * tstr => any }
+}
+
+sensor-value = temperature-reading / humidity-reading / pressure-reading / binary-reading
+
+; Command message
+command-message = {
+    command-id: tstr
+    target-device: tstr
+    command: command-type
+    ? parameters: { * tstr => any }
+    ? timeout-ms: uint .default 5000
+}
+
+command-type = "read" / "write" / "reset" / "configure" / "update"
+
+; Response message
+response-message = {
+    command-id: tstr
+    status: response-status
+    ? result: any
+    ? error: error-info
+    timestamp: timestamp
+}
+
+response-status = "success" / "error" / "timeout" / "rejected"
+
+error-info = {
+    code: int
+    message: tstr
+    ? details: tstr
+}

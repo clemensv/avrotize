@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "Generic_Headers_option_array_1": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/COSE_Signature"
+      },
+      "name": "Generic_Headers_option_array_1"
+    },
+    "Generic_Headers": {
+      "type": "tuple",
+      "properties": {
+        "_1": {
+          "type": [
+            "int64",
+            "string"
+          ],
+          "altnames": {
+            "cddl": "1"
+          }
+        },
+        "_2": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/label"
+          },
+          "altnames": {
+            "cddl": "2"
+          }
+        },
+        "_3": {
+          "type": [
+            "string",
+            "int64"
+          ],
+          "altnames": {
+            "cddl": "3"
+          }
+        },
+        "_4": {
+          "type": "binary",
+          "altnames": {
+            "cddl": "4"
+          }
+        },
+        "_5": {
+          "type": "binary",
+          "altnames": {
+            "cddl": "5"
+          }
+        },
+        "_6": {
+          "type": "binary",
+          "altnames": {
+            "cddl": "6"
+          }
+        },
+        "_7": {
+          "type": [
+            {
+              "$ref": "#/definitions/COSE_Signature"
+            },
+            {
+              "$ref": "#/definitions/Generic_Headers_option_array_1"
+            }
+          ],
+          "altnames": {
+            "cddl": "7"
+          }
+        }
+      },
+      "tuple": [
+        "_1",
+        "_2",
+        "_3",
+        "_4",
+        "_5",
+        "_6",
+        "_7"
+      ],
+      "name": "Generic_Headers",
+      "description": "COSE (CBOR Object Signing and Encryption) Header Parameters Simplified from RFC 8152 Generic header bucket",
+      "altnames": {
+        "cddl": "Generic-Headers"
+      }
+    },
+    "label": {
+      "type": [
+        "int64",
+        "string"
+      ],
+      "name": "label"
+    },
+    "COSE_Key": {
+      "type": "object",
+      "properties": {
+        "_1": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "1"
+          }
+        },
+        "_2": {
+          "type": "binary",
+          "altnames": {
+            "cddl": "2"
+          },
+          "description": "kty - Key type"
+        },
+        "_3": {
+          "type": [
+            "int64",
+            "string"
+          ],
+          "altnames": {
+            "cddl": "3"
+          },
+          "description": "kid - Key identifier"
+        },
+        "_4": {
+          "type": "array",
+          "items": {
+            "type": "int64"
+          },
+          "altnames": {
+            "cddl": "4"
+          },
+          "description": "alg - Algorithm"
+        },
+        "_5": {
+          "type": "binary",
+          "altnames": {
+            "cddl": "5"
+          },
+          "description": "key_ops - Key operations"
+        },
+        "label": {
+          "type": "any",
+          "description": "Base IV"
+        }
+      },
+      "required": [
+        "_1"
+      ],
+      "name": "COSE_Key",
+      "description": "COSE Key structure",
+      "altnames": {
+        "cddl": "COSE-Key"
+      }
+    },
+    "COSE_Signature": {
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "$ref": "#/definitions/Headers"
+        },
+        "_1": {
+          "type": "binary"
+        }
+      },
+      "tuple": [
+        "_0",
+        "_1"
+      ],
+      "name": "COSE_Signature",
+      "description": "COSE Signature structure",
+      "altnames": {
+        "cddl": "COSE-Signature"
+      }
+    },
+    "Headers": {
+      "type": "object",
+      "properties": {
+        "protected": {
+          "type": "binary"
+        },
+        "unprotected": {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "any"
+            }
+          }
+        }
+      },
+      "required": [
+        "protected",
+        "unprotected"
+      ],
+      "name": "Headers"
+    },
+    "COSE_Sign1": {
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "binary"
+        },
+        "_1": {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "any"
+            }
+          }
+        },
+        "_2": {
+          "type": [
+            "binary",
+            "null"
+          ]
+        },
+        "_3": {
+          "type": "binary"
+        }
+      },
+      "tuple": [
+        "_0",
+        "_1",
+        "_2",
+        "_3"
+      ],
+      "name": "COSE_Sign1",
+      "description": "COSE_Sign1 - Single signer structure",
+      "altnames": {
+        "cddl": "COSE-Sign1"
+      }
+    },
+    "COSE_Encrypt0": {
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "binary"
+        },
+        "_1": {
+          "type": "object",
+          "properties": {
+            "label": {
+              "type": "any"
+            }
+          }
+        },
+        "_2": {
+          "type": [
+            "binary",
+            "null"
+          ]
+        }
+      },
+      "tuple": [
+        "_0",
+        "_1",
+        "_2"
+      ],
+      "name": "COSE_Encrypt0",
+      "description": "COSE_Encrypt0 - Single recipient encryption",
+      "altnames": {
+        "cddl": "COSE-Encrypt0"
+      }
+    }
+  },
+  "type": "tuple",
+  "properties": {
+    "_1": {
+      "type": [
+        "int64",
+        "string"
+      ],
+      "altnames": {
+        "cddl": "1"
+      }
+    },
+    "_2": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/label"
+      },
+      "altnames": {
+        "cddl": "2"
+      }
+    },
+    "_3": {
+      "type": [
+        "string",
+        "int64"
+      ],
+      "altnames": {
+        "cddl": "3"
+      }
+    },
+    "_4": {
+      "type": "binary",
+      "altnames": {
+        "cddl": "4"
+      }
+    },
+    "_5": {
+      "type": "binary",
+      "altnames": {
+        "cddl": "5"
+      }
+    },
+    "_6": {
+      "type": "binary",
+      "altnames": {
+        "cddl": "6"
+      }
+    },
+    "_7": {
+      "type": [
+        {
+          "$ref": "#/definitions/COSE_Signature"
+        },
+        {
+          "$ref": "#/definitions/Generic_Headers_option_array_1"
+        }
+      ],
+      "altnames": {
+        "cddl": "7"
+      }
+    }
+  },
+  "tuple": [
+    "_1",
+    "_2",
+    "_3",
+    "_4",
+    "_5",
+    "_6",
+    "_7"
+  ],
+  "name": "Generic_Headers",
+  "description": "COSE (CBOR Object Signing and Encryption) Header Parameters Simplified from RFC 8152 Generic header bucket",
+  "altnames": {
+    "cddl": "Generic-Headers"
+  },
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}

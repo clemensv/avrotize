@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example/com/schema.json",
+  "definitions": {
+    "base_header": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "int64"
+        },
+        "timestamp": {
+          "type": "int64"
+        }
+      },
+      "required": [
+        "version",
+        "timestamp"
+      ],
+      "name": "base_header",
+      "description": "CDDL schema demonstrating the unwrap operator (~) Based on RFC 8610 Section 3.7 Base group that will be unwrapped",
+      "altnames": {
+        "cddl": "base-header"
+      }
+    },
+    "extended_header": {
+      "type": "object",
+      "$extends": "#/definitions/base_header",
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "altnames": {
+            "cddl": "message-id"
+          }
+        },
+        "priority": {
+          "type": "int64"
+        }
+      },
+      "required": [
+        "message_id",
+        "priority"
+      ],
+      "name": "extended_header",
+      "description": "Extended header using unwrap to inline base-header",
+      "altnames": {
+        "cddl": "extended-header"
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "double"
+        },
+        "y": {
+          "type": "double"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "name": "coordinates",
+      "description": "Another example: base coordinates"
+    },
+    "point_3d": {
+      "type": "object",
+      "$extends": "#/definitions/coordinates",
+      "properties": {
+        "z": {
+          "type": "double"
+        }
+      },
+      "required": [
+        "z"
+      ],
+      "name": "point_3d",
+      "description": "3D point extends 2D coordinates",
+      "altnames": {
+        "cddl": "point-3d"
+      }
+    },
+    "base_tuple": {
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "type": "string",
+          "altnames": {
+            "cddl": "0"
+          }
+        },
+        "_1": {
+          "type": "int64",
+          "altnames": {
+            "cddl": "1"
+          }
+        }
+      },
+      "tuple": [
+        "_0",
+        "_1"
+      ],
+      "name": "base_tuple",
+      "description": "Unwrap in arrays/tuples",
+      "altnames": {
+        "cddl": "base-tuple"
+      }
+    },
+    "extended_tuple": {
+      "type": "tuple",
+      "properties": {
+        "_0": {
+          "$ref": "#/definitions/base_tuple"
+        },
+        "_1": {
+          "type": "boolean"
+        }
+      },
+      "tuple": [
+        "_0",
+        "_1"
+      ],
+      "name": "extended_tuple",
+      "description": "Extended tuple with unwrapped base",
+      "altnames": {
+        "cddl": "extended-tuple"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "created": {
+          "type": "int64"
+        },
+        "modified": {
+          "type": "int64"
+        }
+      },
+      "required": [
+        "created",
+        "modified"
+      ],
+      "name": "metadata",
+      "description": "Multiple unwraps in one structure"
+    },
+    "full_record": {
+      "type": "object",
+      "$extends": "#/definitions/base_header",
+      "properties": {
+        "data": {
+          "type": "binary"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "name": "full_record",
+      "altnames": {
+        "cddl": "full-record"
+      }
+    },
+    "optional_fields": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "name": "optional_fields",
+      "description": "Unwrap with optional fields",
+      "altnames": {
+        "cddl": "optional-fields"
+      }
+    },
+    "config_with_optional": {
+      "type": "object",
+      "$extends": "#/definitions/optional_fields",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "name": "config_with_optional",
+      "altnames": {
+        "cddl": "config-with-optional"
+      }
+    }
+  },
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "int64"
+    },
+    "timestamp": {
+      "type": "int64"
+    }
+  },
+  "required": [
+    "version",
+    "timestamp"
+  ],
+  "name": "base_header",
+  "description": "CDDL schema demonstrating the unwrap operator (~) Based on RFC 8610 Section 3.7 Base group that will be unwrapped",
+  "altnames": {
+    "cddl": "base-header"
+  },
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureValidation"
+  ]
+}
