@@ -300,22 +300,22 @@ class TestStructureToJsonSchemaConversion(unittest.TestCase):
         self.assertEqual(count_prop["maximum"], 1000)
         self.assertEqual(count_prop["multipleOf"], 5)
 
-    def test_bytes_type(self):
-        """Test bytes type conversion."""
+    def test_binary_type(self):
+        """Test binary type conversion per JSON Structure spec."""
         structure = {
             "type": "object",
             "properties": {
-                "data": {"type": "bytes"}
+                "data": {"type": "binary"}
             }
         }
         
         result = convert_structure_to_json_schema_string(json.dumps(structure))
         schema = json.loads(result)
         
-        # bytes becomes string with format: byte
+        # binary becomes string with contentEncoding: base64 (JSON Schema standard)
         data_prop = schema["properties"]["data"]
         self.assertEqual(data_prop["type"], "string")
-        self.assertEqual(data_prop["format"], "byte")
+        self.assertEqual(data_prop["contentEncoding"], "base64")
 
     def test_invalid_json_structure(self):
         """Test error handling for invalid JSON Structure."""
