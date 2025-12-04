@@ -10,17 +10,17 @@ const {{ enum_name }} = require('../src/{{ enum_path }}');
 function testEnumValues() {
     const expectedValues = [{{ expected_values }}];
     const actualValues = Object.values({{ enum_name }});
-    
+
     if (actualValues.length !== expectedValues.length) {
         throw new Error(`Expected ${expectedValues.length} values, got ${actualValues.length}`);
     }
-    
+
     for (const expected of expectedValues) {
         if (!actualValues.includes(expected)) {
             throw new Error(`Enum value "${expected}" not found`);
         }
     }
-    
+
     console.log('✓ {{ enum_name }} has all expected values');
 }
 

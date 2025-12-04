@@ -20,11 +20,11 @@ let failedCount = 0;
 for (const testFile of testFiles) {
     const testName = path.basename(testFile, '.js');
     console.log(`\n=== ${testName} ===`);
-    
+
     try {
         const testModule = require(testFile);
         const success = testModule.runTests();
-        
+
         if (success) {
             passedCount++;
         } else {

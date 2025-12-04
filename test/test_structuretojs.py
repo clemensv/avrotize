@@ -225,7 +225,7 @@ process.exit(testsFailed > 0 ? 1 : 0);
         convert_structure_schema_to_javascript(test_schema, js_path, "test")
         
         # Verify the class file was created
-        class_file = os.path.join(js_path, "test", "AllPrimitives.js")
+        class_file = os.path.join(js_path, "test", "src", "AllPrimitives.js")
         self.assertTrue(os.path.exists(class_file))
         
         # Read and verify the generated code
@@ -265,7 +265,7 @@ process.exit(testsFailed > 0 ? 1 : 0);
         convert_structure_schema_to_javascript(test_schema, js_path, "test")
         
         # Verify the class file was created
-        class_file = os.path.join(js_path, "test", "Collections.js")
+        class_file = os.path.join(js_path, "test", "src", "Collections.js")
         self.assertTrue(os.path.exists(class_file))
         
         with open(class_file, 'r') as f:
@@ -318,7 +318,7 @@ process.exit(testsFailed > 0 ? 1 : 0);
         from avrotize.structuretojs import convert_structure_schema_to_javascript
         convert_structure_schema_to_javascript(test_schema, js_path, "test")
         
-        class_file = os.path.join(js_path, "test", "OptionalFields.js")
+        class_file = os.path.join(js_path, "test", "src", "OptionalFields.js")
         self.assertTrue(os.path.exists(class_file))
 
     def test_convert_nested_objects_to_javascript(self):
@@ -377,7 +377,7 @@ process.exit(testsFailed > 0 ? 1 : 0);
         from avrotize.structuretojs import convert_structure_schema_to_javascript
         convert_structure_schema_to_javascript(test_schema, js_path, "test")
         
-        class_file = os.path.join(js_path, "test", "WithDefaults.js")
+        class_file = os.path.join(js_path, "test", "src", "WithDefaults.js")
         self.assertTrue(os.path.exists(class_file))
         
         with open(class_file, 'r') as f:
@@ -407,7 +407,7 @@ process.exit(testsFailed > 0 ? 1 : 0);
         from avrotize.structuretojs import convert_structure_schema_to_javascript
         convert_structure_schema_to_javascript(test_schema, js_path, "test")
         
-        class_file = os.path.join(js_path, "test", "WithConst.js")
+        class_file = os.path.join(js_path, "test", "src", "WithConst.js")
         self.assertTrue(os.path.exists(class_file))
         
         with open(class_file, 'r') as f:
