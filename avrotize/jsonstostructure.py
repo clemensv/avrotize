@@ -773,21 +773,38 @@ class JsonToStructureConverter:
         Returns:
             dict: JSON Structure choice definition
         """
+        # Handle both 'property' and 'propertyName' keys for compatibility
+        discriminator_property = discriminator_info.get('property') or discriminator_info.get('propertyName')
+        mapping = discriminator_info.get('mapping', {})
+        
         choice_obj = {
             'type': 'choice',
-            'discriminator': discriminator_info['property'],
+            'discriminator': discriminator_property,
             'choices': {}
         }
         
         if record_name:
             choice_obj['name'] = avro_name(record_name)
+        
+        # Build reverse mapping from $ref to choice key
+        ref_to_key = {}
+        for key, ref in mapping.items():
+            ref_to_key[ref] = key
             
         # Process each choice option
         for i, option in enumerate(oneof_options):
             if '$ref' in option:
-                # Handle reference
-                choice_key = f"option_{i}"  # Default key, ideally extract from mapping
-                choice_obj['choices'][choice_key] = {'$ref': option['$ref']}
+                # Handle reference - use mapping to get the choice key
+                ref = option['$ref']
+                if ref in ref_to_key:
+                    choice_key = ref_to_key[ref]
+                else:
+                    # Extract name from reference
+                    if ref.startswith('#/definitions/'):
+                        choice_key = ref[14:]  # Remove '#/definitions/' prefix
+                    else:
+                        choice_key = f"option_{i}"
+                choice_obj['choices'][choice_key] = {'$ref': ref}
             else:
                 # Convert option to structure type
                 choice_key = f"option_{i}"
