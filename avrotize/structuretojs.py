@@ -376,8 +376,8 @@ class StructureToJavaScript:
             return qualified_name
 
         enum_values = structure_schema.get('enum', [])
-        symbols = [str(symbol) if not is_javascript_reserved_word(str(symbol)) else str(symbol) + "_" 
-                  for symbol in enum_values]
+        symbols = [str(symbol) if not is_javascript_reserved_word(str(symbol)) else str(symbol) + "_"
+                   for symbol in enum_values]
         symbol_values = [str(val) for val in enum_values]
 
         doc = structure_schema.get('description', structure_schema.get('doc', f'A {class_name} enum.'))
@@ -474,17 +474,17 @@ class StructureToJavaScript:
         file_path = os.path.join(directory_path, f"{name}.js")
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(content)
-    
+
     def write_test_to_file(self, namespace: str, name: str, content: str):
         """Writes test content to a file in the test directory"""
         directory_path = os.path.join(self.output_dir, namespace.replace('.', os.sep), 'test')
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)
-        
+
         file_path = os.path.join(directory_path, f'test_{name}.js')
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(content)
-    
+
     def generate_test_value(self, field_type: str, field_name: str) -> str:
         """Generate appropriate test value based on field type"""
         if field_type == 'string':
@@ -505,8 +505,8 @@ class StructureToJavaScript:
             return '{}'
         else:
             return f'new {field_type}()'
-    
-    def generate_test_class(self, namespace: str, class_name: str, fields: List[Dict], 
+
+    def generate_test_class(self, namespace: str, class_name: str, fields: List[Dict],
                            import_types: Set[str], prop_schema: Dict):
         """Generate test file for a class"""
         test_imports = {}
@@ -514,7 +514,7 @@ class StructureToJavaScript:
             import_type_type = pascal(import_type.split('.')[-1])
             import_type_package = import_type.rsplit('.', 1)[0].replace('.', '/')
             namespace_path = namespace.replace('.', '/')
-            
+
             if import_type_package:
                 rel_path = os.path.relpath(import_type_package, namespace_path).replace(os.sep, '/')
                 if not rel_path.startswith('.'):
@@ -522,7 +522,7 @@ class StructureToJavaScript:
                 test_imports[import_type_type] = f'../{rel_path}/{import_type_type}'
             else:
                 test_imports[import_type_type] = f'./{import_type_type}'
-        
+
         test_fields = []
         for field in fields:
             test_value = self.generate_test_value(field['type'], field['name'])
@@ -532,10 +532,10 @@ class StructureToJavaScript:
                 'test_value': test_value,
                 'docstring': field.get('docstring', '')
             })
-        
+
         # Class path should just be the class name since src/test structure mirrors each other
         class_path = class_name
-        
+
         test_definition = process_template(
             "structuretojs/test_class.js.jinja",
             class_name=class_name,
@@ -543,23 +543,23 @@ class StructureToJavaScript:
             fields=test_fields,
             test_imports=test_imports
         )
-        
+
         self.write_test_to_file(namespace, class_name, test_definition)
-    
+
     def generate_test_enum(self, namespace: str, enum_name: str, enum_values: List):
         """Generate test file for an enum"""
         expected_values = ', '.join([f'"{val}"' for val in enum_values])
-        
-        # Enum path should just be the enum name 
+
+        # Enum path should just be the enum name
         enum_path = enum_name
-        
+
         test_definition = process_template(
             "structuretojs/test_enum.js.jinja",
             enum_name=enum_name,
             enum_path=enum_path,
             expected_values=expected_values
         )
-        
+
         self.write_test_to_file(namespace, enum_name, test_definition)
 
     def process_definitions(self, definitions: Dict, namespace_path: str) -> None:
@@ -612,7 +612,7 @@ class StructureToJavaScript:
             # Process definitions
             if 'definitions' in structure_schema:
                 self.process_definitions(self.definitions, '')
-        
+
         # Generate test runner after all classes and enums are generated
         self.generate_test_runner()
 
@@ -621,12 +621,12 @@ class StructureToJavaScript:
         test_runner = process_template(
             "structuretojs/test_runner.js.jinja"
         )
-        
+
         # Write test runner to root test directory
         test_dir = os.path.join(self.output_dir, self.base_package.replace('.', os.sep), 'test')
         if not os.path.exists(test_dir):
             os.makedirs(test_dir, exist_ok=True)
-        
+
         test_runner_path = os.path.join(test_dir, 'test_runner.js')
         with open(test_runner_path, 'w', encoding='utf-8') as file:
             file.write(test_runner)

@@ -48,14 +48,14 @@ function testJsonRoundtrip() {
     const instance = createInstance();
     const json = JSON.stringify(instance);
     const parsed = JSON.parse(json);
-    
+
     // Verify all fields are serialized
     {%- for field in fields %}
     if (parsed.{{ field.name }} === undefined && instance.{{ field.name }} !== undefined) {
         throw new Error('Field {{ field.name }} was not serialized');
     }
     {%- endfor %}
-    
+
     console.log('✓ {{ class_name }} JSON serialization roundtrip successful');
 }
 
