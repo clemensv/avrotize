@@ -388,10 +388,10 @@ class JsonToStructureConverter:
                 structure_type = 'string'
                 
         elif json_primitive == 'integer':
-            structure_type = self.detect_numeric_type({'type': 'integer', 'format': format, **schema})
+            structure_type = self.detect_numeric_type({**schema, 'type': 'integer', 'format': format})
             
         elif json_primitive == 'number':
-            structure_type = self.detect_numeric_type({'type': 'number', 'format': format, **schema})
+            structure_type = self.detect_numeric_type({**schema, 'type': 'number', 'format': format})
             
         elif json_primitive == 'boolean':
             structure_type = 'boolean'
@@ -773,21 +773,38 @@ class JsonToStructureConverter:
         Returns:
             dict: JSON Structure choice definition
         """
+        # Handle both 'property' and 'propertyName' keys for compatibility
+        discriminator_property = discriminator_info.get('property') or discriminator_info.get('propertyName')
+        mapping = discriminator_info.get('mapping', {})
+        
         choice_obj = {
             'type': 'choice',
-            'discriminator': discriminator_info['property'],
+            'selector': discriminator_property,
             'choices': {}
         }
         
         if record_name:
             choice_obj['name'] = avro_name(record_name)
+        
+        # Build reverse mapping from $ref to choice key
+        ref_to_key = {}
+        for key, ref in mapping.items():
+            ref_to_key[ref] = key
             
         # Process each choice option
         for i, option in enumerate(oneof_options):
             if '$ref' in option:
-                # Handle reference
-                choice_key = f"option_{i}"  # Default key, ideally extract from mapping
-                choice_obj['choices'][choice_key] = {'$ref': option['$ref']}
+                # Handle reference - use mapping to get the choice key
+                ref = option['$ref']
+                if ref in ref_to_key:
+                    choice_key = ref_to_key[ref]
+                else:
+                    # Extract name from reference
+                    if ref.startswith('#/definitions/'):
+                        choice_key = ref[14:]  # Remove '#/definitions/' prefix
+                    else:
+                        choice_key = f"option_{i}"
+                choice_obj['choices'][choice_key] = {'$ref': ref}
             else:
                 # Convert option to structure type
                 choice_key = f"option_{i}"
@@ -908,6 +925,77 @@ class JsonToStructureConverter:
             'items': items_type
         }
 
+    def _process_array_type(self, json_type: dict, record_name: str, field_name: str, namespace: str, 
+                            dependencies: list, json_schema: dict, base_uri: str, 
+                            structure_schema: dict, record_stack: list, recursion_depth: int) -> dict:
+        """
+        Process an array type schema into JSON Structure format.
+        
+        Args:
+            json_type: The JSON Schema with type: "array"
+            record_name: Name of the containing record
+            field_name: Name of the field
+            namespace: Namespace
+            dependencies: Dependencies list
+            json_schema: Full JSON schema
+            base_uri: Base URI
+            structure_schema: Structure schema being built
+            record_stack: Record stack for recursion detection
+            recursion_depth: Current recursion depth
+            
+        Returns:
+            dict: JSON Structure array definition
+        """
+        items_schema = json_type.get('items', {})
+        is_set = json_type.get('uniqueItems', False)
+        return self.create_structure_array_or_set(
+            items_schema, is_set, record_name, namespace, dependencies,
+            json_schema, base_uri, structure_schema, record_stack, recursion_depth + 1
+        )
+
+    def _process_object_type(self, json_type: dict, record_name: str, field_name: str, namespace: str,
+                             dependencies: list, json_schema: dict, base_uri: str,
+                             structure_schema: dict, record_stack: list, recursion_depth: int) -> dict:
+        """
+        Process an object type schema into JSON Structure format.
+        
+        Args:
+            json_type: The JSON Schema with type: "object"
+            record_name: Name of the containing record
+            field_name: Name of the field
+            namespace: Namespace
+            dependencies: Dependencies list
+            json_schema: Full JSON schema
+            base_uri: Base URI
+            structure_schema: Structure schema being built
+            record_stack: Record stack for recursion detection
+            recursion_depth: Current recursion depth
+            
+        Returns:
+            dict: JSON Structure object definition
+        """
+        properties = json_type.get('properties', {})
+        required = json_type.get('required', [])
+        
+        structure_properties = {}
+        for prop_name, prop_schema in properties.items():
+            prop_type = self.json_type_to_structure_type(
+                prop_schema, record_name, prop_name, namespace, dependencies,
+                json_schema, base_uri, structure_schema, record_stack, recursion_depth + 1
+            )
+            prop_type = self._ensure_schema_object(prop_type, structure_schema, prop_name)
+            structure_properties[prop_name] = prop_type
+        
+        result = {
+            'type': 'object',
+            'properties': structure_properties
+        }
+        
+        if required:
+            result['required'] = required
+            
+        return result
+
     def add_alternate_names(self, structure: dict, original_name: str) -> dict:
         """
         Add alternate names for different naming conventions.
@@ -1005,13 +1093,25 @@ class JsonToStructureConverter:
         """
         Flatten the list of types in a union into a single list.
 
+        JSON Structure Core requires union members to be either:
+        - Simple type strings (e.g., "string", "null", "boolean")
+        - References to definitions (e.g., {"$ref": "#/definitions/Foo"})
+        
+        Inline compound types or primitives with constraints must be hoisted to definitions.
+
         Args:
             type_list (list): The list of types in a union.
+            structure_schema: The structure schema for hoisting definitions.
+            name_hint: Hint for naming hoisted definitions.
 
         Returns:
             list: The flattened list of types.
         """
         flat_list = []
+        simple_primitives = {'string', 'boolean', 'integer', 'number', 'null', 'int8', 'int16', 
+                             'int32', 'int64', 'float', 'double', 'bytes', 'uuid', 'datetime',
+                             'date', 'time', 'duration', 'decimal'}
+        
         for idx, t in enumerate(type_list):
             if isinstance(t, list):
                 inner = self.flatten_union(t, structure_schema, name_hint)
@@ -1019,17 +1119,52 @@ class JsonToStructureConverter:
                     obj = self._ensure_schema_object(u, structure_schema, f"{name_hint}_option_{idx}" if name_hint else None, force_hoist_in_union=True)
                     if obj not in flat_list:
                         flat_list.append(obj)
-            else:
-                # For primitive types in unions, extract the type string directly
-                if isinstance(t, dict) and 'type' in t and t['type'] in ['string', 'boolean', 'integer', 'number', 'null'] and len(t) == 1:
-                    # This is a simple primitive type object like {"type": "boolean"} - extract the type string
+            elif isinstance(t, str):
+                # Simple type string - use directly
+                if t not in flat_list:
+                    flat_list.append(t)
+            elif isinstance(t, dict):
+                # Check if it's a simple primitive (type only, no constraints)
+                if '$ref' in t:
+                    # Reference - use directly
+                    if t not in flat_list:
+                        flat_list.append(t)
+                elif 'type' in t and t['type'] in simple_primitives and len(t) == 1:
+                    # Simple primitive type object like {"type": "boolean"} - extract the type string
                     if t['type'] not in flat_list:
                         flat_list.append(t['type'])
+                elif 'type' in t and t['type'] in simple_primitives:
+                    # Primitive with constraints (e.g., {type: "string", maxLength: 280})
+                    # This needs to be hoisted because inline constraints not allowed in union
+                    if structure_schema is not None:
+                        hoisted = self._hoist_definition(t, structure_schema, f"{name_hint or 'union'}_{t['type']}")
+                        if hoisted not in flat_list:
+                            flat_list.append(hoisted)
+                    else:
+                        # No structure schema for hoisting - fallback to just the type
+                        if t['type'] not in flat_list:
+                            flat_list.append(t['type'])
+                elif 'type' in t and t['type'] in ('array', 'object', 'set', 'map', 'choice'):
+                    # Compound type - must be hoisted
+                    if structure_schema is not None:
+                        hoisted = self._hoist_definition(t, structure_schema, f"{name_hint or 'union'}_{t['type']}")
+                        if hoisted not in flat_list:
+                            flat_list.append(hoisted)
+                    else:
+                        # No structure schema - use as is (will likely fail validation)
+                        obj = self._ensure_schema_object(t, structure_schema, f"{name_hint}_option_{idx}" if name_hint else None, force_hoist_in_union=True)
+                        if obj not in flat_list:
+                            flat_list.append(obj)
                 else:
-                    # For complex types, use the normal processing
+                    # Other dict structure - use normal processing
                     obj = self._ensure_schema_object(t, structure_schema, f"{name_hint}_option_{idx}" if name_hint else None, force_hoist_in_union=True)
                     if obj not in flat_list:
                         flat_list.append(obj)
+            else:
+                # Unknown type - use normal processing
+                obj = self._ensure_schema_object(t, structure_schema, f"{name_hint}_option_{idx}" if name_hint else None, force_hoist_in_union=True)
+                if obj not in flat_list:
+                    flat_list.append(obj)
         return flat_list
 
     def merge_structure_schemas(self, schemas: list, structure_schemas: list, type_name: str | None = None, deps: List[str] = []) -> str | list | dict:
@@ -1243,6 +1378,61 @@ class JsonToStructureConverter:
                         return {
                             'type': 'object',
                             'properties': {}                        }
+                
+                # Handle type arrays (e.g., ["integer", "null"] for nullable in JSON Schema 2020-12/OpenAPI 3.1)
+                if json_type.get('type') and isinstance(json_type['type'], list):
+                    type_list = json_type['type']
+                    format_hint = json_type.get('format')
+                    enum_values = json_type.get('enum')
+                    
+                    # Check if any type in the list is a compound type (array, object)
+                    compound_types = {'array', 'object'}
+                    has_compound = any(t in compound_types for t in type_list if isinstance(t, str))
+                    
+                    if has_compound:
+                        # For compound types, we need to process each variant separately
+                        # and create a proper union. Compound types must be hoisted to definitions
+                        # because JSON Structure Core doesn't allow inline compound types in unions.
+                        union_members = []
+                        for t in type_list:
+                            if t == 'null':
+                                union_members.append('null')
+                            elif t == 'array':
+                                # Process array with the full schema context (items, etc.)
+                                array_schema = {**json_type, 'type': 'array'}
+                                array_type = self._process_array_type(
+                                    array_schema, record_name, field_name, namespace, dependencies,
+                                    json_schema, base_uri, structure_schema, record_stack, recursion_depth
+                                )
+                                # Hoist to definitions - inline compound types not allowed in union
+                                hoisted = self._hoist_definition(array_type, structure_schema, f"{field_name or record_name}_array")
+                                union_members.append(hoisted)
+                            elif t == 'object':
+                                # Process object with the full schema context (properties, etc.)
+                                object_schema = {**json_type, 'type': 'object'}
+                                object_type = self._process_object_type(
+                                    object_schema, record_name, field_name, namespace, dependencies,
+                                    json_schema, base_uri, structure_schema, record_stack, recursion_depth
+                                )
+                                # Hoist to definitions - inline compound types not allowed in union
+                                hoisted = self._hoist_definition(object_type, structure_schema, f"{field_name or record_name}_object")
+                                union_members.append(hoisted)
+                            elif isinstance(t, str):
+                                # Primitive type
+                                prim_type = self.json_schema_primitive_to_structure_type(
+                                    t, format_hint, enum_values, record_name, field_name, namespace, dependencies, json_type
+                                )
+                                union_members.append(prim_type)
+                        
+                        return {'type': self.flatten_union(union_members, structure_schema, field_name)}
+                    else:
+                        # All primitives, use the existing logic
+                        structure_type = self.json_schema_primitive_to_structure_type(
+                            type_list, format_hint, enum_values, record_name, field_name, namespace, dependencies, json_type
+                        )
+                        if isinstance(structure_type, dict):
+                            structure_type = self.add_validation_constraints(structure_type, json_type)
+                        return structure_type
                 
                 if json_type.get('type') and isinstance(json_type['type'], str):
                     # Check if this schema also has composition keywords that should be preserved
@@ -2160,12 +2350,20 @@ class JsonToStructureConverter:
             if 'allOf' in json_type:
                 # Merge all schemas in allOf
                 merged = {}
+                has_ref = False
+                ref_value = None
+                
                 for schema in json_type['allOf']:
                     converted = self.json_type_to_structure_type(
                         schema, record_name, field_name, namespace, dependencies,
                         json_schema, base_uri, structure_schema, record_stack, recursion_depth + 1
                     )
                     if isinstance(converted, dict):
+                        # Track if we have a $ref
+                        if '$ref' in converted:
+                            has_ref = True
+                            ref_value = converted['$ref']
+                        
                         # Simple merge - in real scenarios this would be more complex
                         for key, value in converted.items():
                             if key == 'properties' and key in merged:
@@ -2174,6 +2372,28 @@ class JsonToStructureConverter:
                                 merged[key] = list(set(merged[key] + value))
                             else:
                                 merged[key] = value
+                
+                # JSON Structure doesn't allow both $ref and type
+                # If we have a $ref and type with no meaningful properties, just use $ref
+                if has_ref and 'type' in merged:
+                    has_meaningful_properties = (
+                        'properties' in merged and merged['properties'] or
+                        'required' in merged and merged['required'] or
+                        'items' in merged
+                    )
+                    if not has_meaningful_properties:
+                        # Just return the reference
+                        result = {'$ref': ref_value}
+                        # Copy metadata fields if present
+                        for meta_key in ['description', 'title', 'doc']:
+                            if meta_key in merged:
+                                result[meta_key] = merged[meta_key]
+                        return result
+                    else:
+                        # Has meaningful extensions - need to create a proper extension
+                        # Remove the $ref and keep the merged type
+                        del merged['$ref']
+                
                 return merged
                 
             elif 'anyOf' in json_type:
@@ -2186,8 +2406,10 @@ class JsonToStructureConverter:
                     )
                     anyof_schemas.append(converted)
                 
+                # Use flatten_union to properly hoist compound types
+                flattened = self.flatten_union(anyof_schemas, structure_schema, field_name or record_name)
                 return {
-                    'type': anyof_schemas
+                    'type': flattened
                 }
                     
             elif 'oneOf' in json_type:

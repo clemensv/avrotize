@@ -1,0 +1,207 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Vehicle API",
+    "description": "API demonstrating inheritance and discriminator patterns",
+    "version": "2.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "Vehicle": {
+        "type": "object",
+        "discriminator": {
+          "propertyName": "vehicleType",
+          "mapping": {
+            "car": "#/components/schemas/Car",
+            "motorcycle": "#/components/schemas/Motorcycle",
+            "truck": "#/components/schemas/Truck"
+          }
+        },
+        "required": ["vehicleType", "make", "model", "year"],
+        "properties": {
+          "vehicleType": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 1900,
+            "maximum": 2100
+          },
+          "vin": {
+            "type": "string",
+            "pattern": "^[A-HJ-NPR-Z0-9]{17}$"
+          }
+        }
+      },
+      "Car": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Vehicle"
+          },
+          {
+            "type": "object",
+            "required": ["numberOfDoors"],
+            "properties": {
+              "numberOfDoors": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 5
+              },
+              "bodyStyle": {
+                "type": "string",
+                "enum": ["sedan", "coupe", "hatchback", "suv", "wagon"]
+              },
+              "fuelType": {
+                "type": "string",
+                "enum": ["gasoline", "diesel", "electric", "hybrid"]
+              }
+            }
+          }
+        ]
+      },
+      "Motorcycle": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Vehicle"
+          },
+          {
+            "type": "object",
+            "required": ["engineSize"],
+            "properties": {
+              "engineSize": {
+                "type": "integer",
+                "description": "Engine size in cc"
+              },
+              "motorcycleType": {
+                "type": "string",
+                "enum": ["sport", "cruiser", "touring", "standard"]
+              }
+            }
+          }
+        ]
+      },
+      "Truck": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Vehicle"
+          },
+          {
+            "type": "object",
+            "required": ["payloadCapacity"],
+            "properties": {
+              "payloadCapacity": {
+                "type": "number",
+                "description": "Payload capacity in tons"
+              },
+              "bedLength": {
+                "type": "number",
+                "description": "Bed length in feet"
+              },
+              "towingCapacity": {
+                "type": "number",
+                "description": "Towing capacity in pounds"
+              }
+            }
+          }
+        ]
+      },
+      "FleetVehicle": {
+        "type": "object",
+        "required": ["vehicle", "fleetId"],
+        "properties": {
+          "fleetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicle": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Car"
+              },
+              {
+                "$ref": "#/components/schemas/Motorcycle"
+              },
+              {
+                "$ref": "#/components/schemas/Truck"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["available", "in-use", "maintenance", "retired"]
+          },
+          "mileage": {
+            "type": "number"
+          },
+          "lastServiceDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "MaintenanceRecord": {
+        "type": "object",
+        "required": ["id", "vehicleId", "type", "date"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["oil-change", "tire-rotation", "brake-service", "inspection", "repair"]
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "cost": {
+            "type": "number",
+            "multipleOf": 0.01
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Part"
+            }
+          }
+        }
+      },
+      "Part": {
+        "type": "object",
+        "required": ["name", "quantity"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "partNumber": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unitPrice": {
+            "type": "number",
+            "multipleOf": 0.01
+          }
+        }
+      }
+    }
+  }
+}

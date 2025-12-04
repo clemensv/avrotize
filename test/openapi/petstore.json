@@ -1,0 +1,263 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pet Store API",
+    "description": "A sample Pet Store API demonstrating OpenAPI to JSON Structure conversion",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "listPets",
+        "summary": "List all pets",
+        "responses": {
+          "200": {
+            "description": "A list of pets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Pet"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPet",
+        "summary": "Create a pet",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pet created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pet"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pets/{petId}": {
+      "get": {
+        "operationId": "getPet",
+        "summary": "Get a pet by ID",
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pet"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pet not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Pet": {
+        "type": "object",
+        "required": ["id", "name", "species"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true,
+            "description": "Unique identifier for the pet"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Name of the pet"
+          },
+          "species": {
+            "type": "string",
+            "enum": ["dog", "cat", "bird", "fish", "other"],
+            "description": "Species of the pet"
+          },
+          "breed": {
+            "type": "string",
+            "nullable": true,
+            "description": "Breed of the pet"
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Age of the pet in years"
+          },
+          "vaccinated": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether the pet is vaccinated"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "description": "Tags for the pet"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Additional metadata"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "When the pet was created"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/Owner"
+          }
+        }
+      },
+      "Owner": {
+        "type": "object",
+        "required": ["name", "contact"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Owner's name"
+          },
+          "contact": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EmailContact"
+              },
+              {
+                "$ref": "#/components/schemas/PhoneContact"
+              }
+            ],
+            "discriminator": {
+              "propertyName": "type",
+              "mapping": {
+                "email": "#/components/schemas/EmailContact",
+                "phone": "#/components/schemas/PhoneContact"
+              }
+            }
+          }
+        }
+      },
+      "EmailContact": {
+        "type": "object",
+        "required": ["type", "email"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["email"]
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      "PhoneContact": {
+        "type": "object",
+        "required": ["type", "phone"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["phone"]
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+?[0-9]{10,15}$"
+          }
+        }
+      },
+      "CreatePetRequest": {
+        "type": "object",
+        "required": ["name", "species"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "species": {
+            "type": "string",
+            "enum": ["dog", "cat", "bird", "fish", "other"]
+          },
+          "breed": {
+            "type": "string",
+            "nullable": true
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid",
+            "writeOnly": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "deprecated": true
+          }
+        }
+      }
+    }
+  }
+}

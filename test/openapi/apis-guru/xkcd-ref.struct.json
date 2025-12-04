@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "definitions": {
+    "comic": {
+      "type": "object",
+      "name": "comic",
+      "properties": {
+        "alt": {
+          "type": "string"
+        },
+        "day": {
+          "type": "string"
+        },
+        "img": {
+          "type": "string"
+        },
+        "link": {
+          "type": "string"
+        },
+        "month": {
+          "type": "string"
+        },
+        "news": {
+          "type": "string"
+        },
+        "num": {
+          "type": "double"
+        },
+        "safe_title": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "transcript": {
+          "type": "string"
+        },
+        "year": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$id": "https://example.com/schemas/xkcd/1.0.0",
+  "description": "Webcomic of romance, sarcasm, math, and language."
+}

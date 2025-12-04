@@ -1,0 +1,1495 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "definitions": {
+    "actions": {
+      "type": "object",
+      "name": "actions",
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "actions_comments": {
+      "type": "object",
+      "name": "actions_comments",
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "actions_text": {
+      "type": "object",
+      "name": "actions_text",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "boards": {
+      "type": "object",
+      "name": "boards",
+      "properties": {
+        "closed": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "idBoardSource": {
+          "type": "string"
+        },
+        "idOrganization": {
+          "type": "string"
+        },
+        "keepFromSource": {
+          "type": "string"
+        },
+        "labelNames_blue": {
+          "type": "string",
+          "altnames": {
+            "json": "labelNames/blue"
+          }
+        },
+        "labelNames_green": {
+          "type": "string",
+          "altnames": {
+            "json": "labelNames/green"
+          }
+        },
+        "labelNames_orange": {
+          "type": "string",
+          "altnames": {
+            "json": "labelNames/orange"
+          }
+        },
+        "labelNames_purple": {
+          "type": "string",
+          "altnames": {
+            "json": "labelNames/purple"
+          }
+        },
+        "labelNames_red": {
+          "type": "string",
+          "altnames": {
+            "json": "labelNames/red"
+          }
+        },
+        "labelNames_yellow": {
+          "type": "string",
+          "altnames": {
+            "json": "labelNames/yellow"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "powerUps": {
+          "type": "string"
+        },
+        "prefs_background": {
+          "type": "string"
+        },
+        "prefs_calendarFeedEnabled": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/calendarFeedEnabled"
+          }
+        },
+        "prefs_cardAging": {
+          "type": "string"
+        },
+        "prefs_cardCovers": {
+          "type": "string"
+        },
+        "prefs_comments": {
+          "type": "string"
+        },
+        "prefs_invitations": {
+          "type": "string"
+        },
+        "prefs_permissionLevel": {
+          "type": "string"
+        },
+        "prefs_selfJoin": {
+          "type": "string"
+        },
+        "prefs_voting": {
+          "type": "string"
+        },
+        "subscribed": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_checklists": {
+      "type": "object",
+      "name": "boards_checklists",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_closed": {
+      "type": "object",
+      "name": "boards_closed",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_desc": {
+      "type": "object",
+      "name": "boards_desc",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_idOrganization": {
+      "type": "object",
+      "name": "boards_idOrganization",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_labels": {
+      "type": "object",
+      "name": "boards_labels",
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_lists": {
+      "type": "object",
+      "name": "boards_lists",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_members": {
+      "type": "object",
+      "name": "boards_members",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "fullName": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_memberships": {
+      "type": "object",
+      "name": "boards_memberships",
+      "properties": {
+        "member_fields": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_name": {
+      "type": "object",
+      "name": "boards_name",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_powerUps": {
+      "type": "object",
+      "name": "boards_powerUps",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "boards_subscribed": {
+      "type": "object",
+      "name": "boards_subscribed",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards": {
+      "type": "object",
+      "name": "cards",
+      "properties": {
+        "closed": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "due": {
+          "type": "string"
+        },
+        "fileSource": {
+          "type": "string"
+        },
+        "idAttachmentCover": {
+          "type": "string"
+        },
+        "idBoard": {
+          "type": "string"
+        },
+        "idCardSource": {
+          "type": "string"
+        },
+        "idLabels": {
+          "type": "string"
+        },
+        "idList": {
+          "type": "string"
+        },
+        "idMembers": {
+          "type": "string"
+        },
+        "keepFromSource": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        },
+        "subscribed": {
+          "type": "string"
+        },
+        "urlSource": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_actions_comments": {
+      "type": "object",
+      "name": "cards_actions_comments",
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_attachments": {
+      "type": "object",
+      "name": "cards_attachments",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_checklist_checkItem": {
+      "type": "object",
+      "name": "cards_checklist_checkItem",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_checklist_checkItem_name": {
+      "type": "object",
+      "name": "cards_checklist_checkItem_name",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_checklist_checkItem_pos": {
+      "type": "object",
+      "name": "cards_checklist_checkItem_pos",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_checklist_checkItem_state": {
+      "type": "object",
+      "name": "cards_checklist_checkItem_state",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_checklist_idChecklistCurrent_checkItem": {
+      "type": "object",
+      "name": "cards_checklist_idChecklistCurrent_checkItem",
+      "properties": {
+        "idChecklist": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_checklists": {
+      "type": "object",
+      "name": "cards_checklists",
+      "properties": {
+        "idChecklistSource": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_closed": {
+      "type": "object",
+      "name": "cards_closed",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_desc": {
+      "type": "object",
+      "name": "cards_desc",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_due": {
+      "type": "object",
+      "name": "cards_due",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_idAttachmentCover": {
+      "type": "object",
+      "name": "cards_idAttachmentCover",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_idBoard": {
+      "type": "object",
+      "name": "cards_idBoard",
+      "properties": {
+        "idList": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_idLabels": {
+      "type": "object",
+      "name": "cards_idLabels",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_idList": {
+      "type": "object",
+      "name": "cards_idList",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_idMembers": {
+      "type": "object",
+      "name": "cards_idMembers",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_labels": {
+      "type": "object",
+      "name": "cards_labels",
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_membersVoted": {
+      "type": "object",
+      "name": "cards_membersVoted",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_name": {
+      "type": "object",
+      "name": "cards_name",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_pos": {
+      "type": "object",
+      "name": "cards_pos",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_stickers": {
+      "type": "object",
+      "name": "cards_stickers",
+      "properties": {
+        "image": {
+          "type": "string"
+        },
+        "left": {
+          "type": "string"
+        },
+        "rotate": {
+          "type": "string"
+        },
+        "top": {
+          "type": "string"
+        },
+        "zIndex": {
+          "type": "string"
+        }
+      }
+    },
+    "cards_subscribed": {
+      "type": "object",
+      "name": "cards_subscribed",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "checklists": {
+      "type": "object",
+      "name": "checklists",
+      "properties": {
+        "idBoard": {
+          "type": "string"
+        },
+        "idCard": {
+          "type": "string"
+        },
+        "idChecklistSource": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        }
+      }
+    },
+    "checklists_checkItems": {
+      "type": "object",
+      "name": "checklists_checkItems",
+      "properties": {
+        "checked": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        }
+      }
+    },
+    "checklists_idCard": {
+      "type": "object",
+      "name": "checklists_idCard",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "checklists_name": {
+      "type": "object",
+      "name": "checklists_name",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "checklists_pos": {
+      "type": "object",
+      "name": "checklists_pos",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "labelNames_blue": {
+      "type": "object",
+      "name": "labelNames_blue",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "labelNames_green": {
+      "type": "object",
+      "name": "labelNames_green",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "labelNames_orange": {
+      "type": "object",
+      "name": "labelNames_orange",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "labelNames_purple": {
+      "type": "object",
+      "name": "labelNames_purple",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "labelNames_red": {
+      "type": "object",
+      "name": "labelNames_red",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "labelNames_yellow": {
+      "type": "object",
+      "name": "labelNames_yellow",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "name": "labels",
+      "properties": {
+        "color": {
+          "type": "string"
+        },
+        "idBoard": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "labels_color": {
+      "type": "object",
+      "name": "labels_color",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "labels_name": {
+      "type": "object",
+      "name": "labels_name",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "lists": {
+      "type": "object",
+      "name": "lists",
+      "properties": {
+        "closed": {
+          "type": "string"
+        },
+        "idBoard": {
+          "type": "string"
+        },
+        "idListSource": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        },
+        "subscribed": {
+          "type": "string"
+        }
+      }
+    },
+    "lists_cards": {
+      "type": "object",
+      "name": "lists_cards",
+      "properties": {
+        "desc": {
+          "type": "string"
+        },
+        "due": {
+          "type": "string"
+        },
+        "idMembers": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "lists_closed": {
+      "type": "object",
+      "name": "lists_closed",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "lists_idBoard": {
+      "type": "object",
+      "name": "lists_idBoard",
+      "properties": {
+        "pos": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "lists_moveAllCards": {
+      "type": "object",
+      "name": "lists_moveAllCards",
+      "properties": {
+        "idBoard": {
+          "type": "string"
+        }
+      }
+    },
+    "lists_name": {
+      "type": "object",
+      "name": "lists_name",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "lists_pos": {
+      "type": "object",
+      "name": "lists_pos",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "lists_subscribed": {
+      "type": "object",
+      "name": "lists_subscribed",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members": {
+      "type": "object",
+      "name": "members",
+      "properties": {
+        "avatarSource": {
+          "type": "string"
+        },
+        "bio": {
+          "type": "string"
+        },
+        "fullName": {
+          "type": "string"
+        },
+        "initials": {
+          "type": "string"
+        },
+        "prefs_colorBlind": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/colorBlind"
+          }
+        },
+        "prefs_locale": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/locale"
+          }
+        },
+        "prefs_minutesBetweenSummaries": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/minutesBetweenSummaries"
+          }
+        },
+        "username": {
+          "type": "string"
+        }
+      }
+    },
+    "members_avatar": {
+      "type": "object",
+      "name": "members_avatar",
+      "properties": {
+        "file": {
+          "type": "string"
+        }
+      }
+    },
+    "members_avatarSource": {
+      "type": "object",
+      "name": "members_avatarSource",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_bio": {
+      "type": "object",
+      "name": "members_bio",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_boardBackgrounds": {
+      "type": "object",
+      "name": "members_boardBackgrounds",
+      "properties": {
+        "brightness": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "tile": {
+          "type": "string"
+        }
+      }
+    },
+    "members_boardStars": {
+      "type": "object",
+      "name": "members_boardStars",
+      "properties": {
+        "idBoard": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        }
+      }
+    },
+    "members_boardStars_idBoard": {
+      "type": "object",
+      "name": "members_boardStars_idBoard",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_boardStars_pos": {
+      "type": "object",
+      "name": "members_boardStars_pos",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_customBoardBackgrounds": {
+      "type": "object",
+      "name": "members_customBoardBackgrounds",
+      "properties": {
+        "brightness": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "tile": {
+          "type": "string"
+        }
+      }
+    },
+    "members_customEmoji": {
+      "type": "object",
+      "name": "members_customEmoji",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "members_customStickers": {
+      "type": "object",
+      "name": "members_customStickers",
+      "properties": {
+        "file": {
+          "type": "string"
+        }
+      }
+    },
+    "members_fullName": {
+      "type": "object",
+      "name": "members_fullName",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_initials": {
+      "type": "object",
+      "name": "members_initials",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_oneTimeMessagesDismissed": {
+      "type": "object",
+      "name": "members_oneTimeMessagesDismissed",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_savedSearches": {
+      "type": "object",
+      "name": "members_savedSearches",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pos": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        }
+      }
+    },
+    "members_savedSearches_name": {
+      "type": "object",
+      "name": "members_savedSearches_name",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_savedSearches_pos": {
+      "type": "object",
+      "name": "members_savedSearches_pos",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_savedSearches_query": {
+      "type": "object",
+      "name": "members_savedSearches_query",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "members_username": {
+      "type": "object",
+      "name": "members_username",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "myPrefs_emailPosition": {
+      "type": "object",
+      "name": "myPrefs_emailPosition",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "myPrefs_idEmailList": {
+      "type": "object",
+      "name": "myPrefs_idEmailList",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "myPrefs_showListGuide": {
+      "type": "object",
+      "name": "myPrefs_showListGuide",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "myPrefs_showSidebar": {
+      "type": "object",
+      "name": "myPrefs_showSidebar",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "myPrefs_showSidebarActivity": {
+      "type": "object",
+      "name": "myPrefs_showSidebarActivity",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "myPrefs_showSidebarBoardActions": {
+      "type": "object",
+      "name": "myPrefs_showSidebarBoardActions",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "myPrefs_showSidebarMembers": {
+      "type": "object",
+      "name": "myPrefs_showSidebarMembers",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "name": "notifications",
+      "properties": {
+        "unread": {
+          "type": "string"
+        }
+      }
+    },
+    "notifications_unread": {
+      "type": "object",
+      "name": "notifications_unread",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "organizations": {
+      "type": "object",
+      "name": "organizations",
+      "properties": {
+        "desc": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "prefs_associatedDomain": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/associatedDomain"
+          }
+        },
+        "prefs_boardVisibilityRestrict_org": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/boardVisibilityRestrict/org"
+          }
+        },
+        "prefs_boardVisibilityRestrict_private": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/boardVisibilityRestrict/private"
+          }
+        },
+        "prefs_boardVisibilityRestrict_public": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/boardVisibilityRestrict/public"
+          }
+        },
+        "prefs_externalMembersDisabled": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/externalMembersDisabled"
+          }
+        },
+        "prefs_googleAppsVersion": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/googleAppsVersion"
+          }
+        },
+        "prefs_orgInviteRestrict": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/orgInviteRestrict"
+          }
+        },
+        "prefs_permissionLevel": {
+          "type": "string",
+          "altnames": {
+            "json": "prefs/permissionLevel"
+          }
+        },
+        "website": {
+          "type": "string"
+        }
+      }
+    },
+    "organizations_desc": {
+      "type": "object",
+      "name": "organizations_desc",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "organizations_displayName": {
+      "type": "object",
+      "name": "organizations_displayName",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "organizations_logo": {
+      "type": "object",
+      "name": "organizations_logo",
+      "properties": {
+        "file": {
+          "type": "string"
+        }
+      }
+    },
+    "organizations_members": {
+      "type": "object",
+      "name": "organizations_members",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "fullName": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
+    "organizations_members_deactivated": {
+      "type": "object",
+      "name": "organizations_members_deactivated",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "organizations_memberships": {
+      "type": "object",
+      "name": "organizations_memberships",
+      "properties": {
+        "member_fields": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
+    "organizations_name": {
+      "type": "object",
+      "name": "organizations_name",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "organizations_website": {
+      "type": "object",
+      "name": "organizations_website",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_associatedDomain": {
+      "type": "object",
+      "name": "prefs_associatedDomain",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_background": {
+      "type": "object",
+      "name": "prefs_background",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_boardVisibilityRestrict": {
+      "type": "object",
+      "name": "prefs_boardVisibilityRestrict",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_calendarFeedEnabled": {
+      "type": "object",
+      "name": "prefs_calendarFeedEnabled",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_cardAging": {
+      "type": "object",
+      "name": "prefs_cardAging",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_cardCovers": {
+      "type": "object",
+      "name": "prefs_cardCovers",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_colorBlind": {
+      "type": "object",
+      "name": "prefs_colorBlind",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_comments": {
+      "type": "object",
+      "name": "prefs_comments",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_externalMembersDisabled": {
+      "type": "object",
+      "name": "prefs_externalMembersDisabled",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_googleAppsVersion": {
+      "type": "object",
+      "name": "prefs_googleAppsVersion",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_invitations": {
+      "type": "object",
+      "name": "prefs_invitations",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_locale": {
+      "type": "object",
+      "name": "prefs_locale",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_minutesBetweenSummaries": {
+      "type": "object",
+      "name": "prefs_minutesBetweenSummaries",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_orgInviteRestrict": {
+      "type": "object",
+      "name": "prefs_orgInviteRestrict",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_permissionLevel": {
+      "type": "object",
+      "name": "prefs_permissionLevel",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_selfJoin": {
+      "type": "object",
+      "name": "prefs_selfJoin",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "prefs_voting": {
+      "type": "object",
+      "name": "prefs_voting",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "sessions": {
+      "type": "object",
+      "name": "sessions",
+      "properties": {
+        "idBoard": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "sessions_status": {
+      "type": "object",
+      "name": "sessions_status",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "tokens_webhooks": {
+      "type": "object",
+      "name": "tokens_webhooks",
+      "properties": {
+        "callbackURL": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "idModel": {
+          "type": "string"
+        }
+      }
+    },
+    "webhooks": {
+      "type": "object",
+      "name": "webhooks",
+      "properties": {
+        "active": {
+          "type": "string"
+        },
+        "callbackURL": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "idModel": {
+          "type": "string"
+        }
+      }
+    },
+    "webhooks_active": {
+      "type": "object",
+      "name": "webhooks_active",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "webhooks_callbackURL": {
+      "type": "object",
+      "name": "webhooks_callbackURL",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "webhooks_description": {
+      "type": "object",
+      "name": "webhooks_description",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "webhooks_idModel": {
+      "type": "object",
+      "name": "webhooks_idModel",
+      "properties": {
+        "value": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$id": "https://example.com/schemas/trello/1.0",
+  "description": "This document describes the REST API of Trello as published by Trello.com.\n - <a href='https://trello.com/docs/index.html' target='_blank'>Official Documentation</a>\n - <a href='https://trello.com/docs/api' target='_blank'>The HTML pages that were scraped in order to generate this specification.</a>",
+  "$uses": [
+    "JSONStructureAlternateNames"
+  ]
+}

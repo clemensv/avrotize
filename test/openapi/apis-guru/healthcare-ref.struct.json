@@ -1,0 +1,789 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "definitions": {
+    "articlesList": {
+      "type": "object",
+      "name": "articlesList",
+      "properties": {
+        "articles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "articlesList",
+            "properties": {
+              "bite": {
+                "type": "string"
+              },
+              "categories": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "content": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "excerpt": {
+                "type": "string"
+              },
+              "featured": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "lang": {
+                "type": "string"
+              },
+              "layout": {
+                "type": "string"
+              },
+              "meta_description": {
+                "type": "string",
+                "altnames": {
+                  "json": "meta-description"
+                }
+              },
+              "meta_title": {
+                "type": "string",
+                "altnames": {
+                  "json": "meta-title"
+                }
+              },
+              "path": {
+                "type": "string"
+              },
+              "published": {
+                "type": "boolean"
+              },
+              "related": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "seo_keywords": {
+                "type": "string",
+                "altnames": {
+                  "json": "seo-keywords"
+                }
+              },
+              "sort": {
+                "type": "double"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {}
+                  }
+                }
+              },
+              "title": {
+                "type": "string"
+              },
+              "title_short": {
+                "type": "string",
+                "altnames": {
+                  "json": "title-short"
+                }
+              },
+              "topics": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "blogList": {
+      "type": "object",
+      "name": "blogList",
+      "properties": {
+        "blog": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "name": "blogList",
+              "properties": {
+                "categories": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "content": {
+                  "type": "string"
+                },
+                "date": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "layout": {
+                  "type": "string"
+                },
+                "meta_description": {
+                  "type": "string",
+                  "altnames": {
+                    "json": "meta-description"
+                  }
+                },
+                "meta_title": {
+                  "type": "string",
+                  "altnames": {
+                    "json": "meta-title"
+                  }
+                },
+                "published": {
+                  "type": "boolean"
+                },
+                "seo_keywords": {
+                  "type": "string",
+                  "altnames": {
+                    "json": "seo-keywords"
+                  }
+                },
+                "sort": {
+                  "type": "double"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {}
+                    }
+                  }
+                },
+                "title": {
+                  "type": "string"
+                },
+                "topics": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "url": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "blogPage": {
+      "type": "object",
+      "name": "blogPage",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "content": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "excerpt": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "layout": {
+          "type": "string"
+        },
+        "meta_description": {
+          "type": "string",
+          "altnames": {
+            "json": "meta-description"
+          }
+        },
+        "meta_title": {
+          "type": "string",
+          "altnames": {
+            "json": "meta-title"
+          }
+        },
+        "path": {
+          "type": "string"
+        },
+        "published": {
+          "type": "boolean"
+        },
+        "seo_keywords": {
+          "type": "string",
+          "altnames": {
+            "json": "seo-keywords"
+          }
+        },
+        "sort": {
+          "type": "double"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {}
+            }
+          }
+        },
+        "title": {
+          "type": "string"
+        },
+        "topics": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "glossaryList": {
+      "type": "object",
+      "name": "glossaryList",
+      "properties": {
+        "glossary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "glossaryList",
+            "properties": {
+              "categories": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "content": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "excerpt": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "lang": {
+                "type": "string"
+              },
+              "layout": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "published": {
+                "type": "boolean"
+              },
+              "sort": {
+                "type": "double"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "glossaryPage": {
+      "type": "object",
+      "name": "glossaryPage",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "excerpt": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "layout": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "published": {
+          "type": "boolean"
+        },
+        "sort": {
+          "type": "double"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "name": "page",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {}
+            }
+          }
+        },
+        "content": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "excerpt": {
+          "type": "string"
+        },
+        "experience": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "layout": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "published": {
+          "type": "boolean"
+        },
+        "sort": {
+          "type": "double"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {}
+            }
+          }
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "questionPage": {
+      "type": "object",
+      "name": "questionPage",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "excerpt": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "published": {
+          "type": "boolean"
+        },
+        "sort": {
+          "type": "double"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "questionsList": {
+      "type": "object",
+      "name": "questionsList",
+      "properties": {
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "questionsList",
+            "properties": {
+              "categories": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "content": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "excerpt": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "lang": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "published": {
+                "type": "boolean"
+              },
+              "sort": {
+                "type": "double"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "statePage": {
+      "type": "object",
+      "name": "statePage",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {}
+            }
+          }
+        },
+        "content": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "excerpt": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sort": {
+          "type": "double"
+        },
+        "stateurl": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "statesList": {
+      "type": "object",
+      "name": "statesList",
+      "properties": {
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "name": "statesList",
+              "properties": {
+                "categories": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {}
+                    }
+                  }
+                },
+                "content": {
+                  "type": "string"
+                },
+                "date": {
+                  "type": "string"
+                },
+                "excerpt": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "sort": {
+                  "type": "double"
+                },
+                "stateurl": {
+                  "type": "string"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "title": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "topicsList": {
+      "type": "object",
+      "name": "topicsList",
+      "properties": {
+        "topics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "topicsList",
+            "properties": {
+              "articleorder": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "categories": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {}
+                  }
+                }
+              },
+              "content": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "excerpt": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "lang": {
+                "type": "string"
+              },
+              "layout": {
+                "type": "string"
+              },
+              "meta_description": {
+                "type": "string",
+                "altnames": {
+                  "json": "meta-description"
+                }
+              },
+              "meta_title": {
+                "type": "string",
+                "altnames": {
+                  "json": "meta-title"
+                }
+              },
+              "order": {
+                "type": "double"
+              },
+              "path": {
+                "type": "string"
+              },
+              "published": {
+                "type": "boolean"
+              },
+              "sort": {
+                "type": "double"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$id": "https://example.com/schemas/healthcare/1.0.0",
+  "description": "Healthcare",
+  "$uses": [
+    "JSONStructureAlternateNames"
+  ]
+}
