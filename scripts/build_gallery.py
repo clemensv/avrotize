@@ -161,47 +161,51 @@ GALLERY_ITEMS = [
     
     # ============================================================
     # AVRO -> CODE GENERATION
+    # All code generators include their full feature set:
+    # - Avro annotations for binary serialization support
+    # - JSON annotations for JSON serialization
+    # - PascalCase properties where applicable
     # ============================================================
     {
         "id": "avro-to-python",
         "title": "Avro -> Python",
-        "description": "IoT telemetry to Python dataclasses with serialization",
+        "description": "Python dataclasses with Avro serialization and dataclasses-json support",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [{"cmd": "a2py", "args": ["--out", "{out}/python"]}]
+        "conversions": [{"cmd": "a2py", "args": ["--out", "{out}/python", "--avro-annotation", "--dataclasses-json-annotation"]}]
     },
     {
         "id": "avro-to-csharp",
         "title": "Avro -> C#",
-        "description": "IoT telemetry to C# classes with System.Text.Json",
+        "description": "C# classes with Avro, System.Text.Json, and Newtonsoft.Json annotations",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp"]}]
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--avro-annotation", "--system-text-json-annotation", "--newtonsoft-json-annotation", "--pascal-properties"]}]
     },
     {
         "id": "avro-to-java",
         "title": "Avro -> Java",
-        "description": "IoT telemetry to Java POJOs with Jackson annotations",
+        "description": "Java POJOs with Avro and Jackson annotations",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [{"cmd": "a2java", "args": ["--out", "{out}/java"]}]
+        "conversions": [{"cmd": "a2java", "args": ["--out", "{out}/java", "--avro-annotation", "--jackson-annotation", "--pascal-properties"]}]
     },
     {
         "id": "avro-to-typescript",
         "title": "Avro -> TypeScript",
-        "description": "IoT telemetry to TypeScript interfaces",
+        "description": "TypeScript interfaces with Avro and TypedJSON annotations",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [{"cmd": "a2ts", "args": ["--out", "{out}/typescript"]}]
+        "conversions": [{"cmd": "a2ts", "args": ["--out", "{out}/typescript", "--avro-annotation", "--typedjson-annotation"]}]
     },
     {
         "id": "avro-to-javascript",
         "title": "Avro -> JavaScript",
-        "description": "IoT telemetry to JavaScript classes",
+        "description": "JavaScript classes with Avro serialization support",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
@@ -210,25 +214,25 @@ GALLERY_ITEMS = [
     {
         "id": "avro-to-rust",
         "title": "Avro -> Rust",
-        "description": "IoT telemetry to Rust structs with serde",
+        "description": "Rust structs with serde and Avro serialization support",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [{"cmd": "a2rust", "args": ["--out", "{out}/rust"]}]
+        "conversions": [{"cmd": "a2rust", "args": ["--out", "{out}/rust", "--avro-annotation", "--json-annotation"]}]
     },
     {
         "id": "avro-to-go",
         "title": "Avro -> Go",
-        "description": "IoT telemetry to Go structs with JSON tags",
+        "description": "Go structs with JSON tags and Avro serialization support",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [{"cmd": "a2go", "args": ["--out", "{out}/go"]}]
+        "conversions": [{"cmd": "a2go", "args": ["--out", "{out}/go", "--avro-annotation", "--json-annotation"]}]
     },
     {
         "id": "avro-to-cpp",
         "title": "Avro -> C++",
-        "description": "IoT telemetry to C++ classes",
+        "description": "C++ classes with Avro serialization support",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
@@ -420,11 +424,15 @@ GALLERY_ITEMS = [
     
     # ============================================================
     # JSON STRUCTURE -> CODE GENERATION
+    # All code generators include their full feature set:
+    # - Avro annotations for binary serialization support (where available)
+    # - JSON annotations for JSON serialization
+    # - PascalCase properties where applicable
     # ============================================================
     {
         "id": "struct-to-rust",
         "title": "Structure -> Rust",
-        "description": "Inventory management to Rust structs with serde",
+        "description": "Rust structs with serde JSON support",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
@@ -433,7 +441,7 @@ GALLERY_ITEMS = [
     {
         "id": "struct-to-go",
         "title": "Structure -> Go",
-        "description": "Inventory management to Go structs with JSON tags",
+        "description": "Go structs with JSON tags",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
@@ -442,25 +450,25 @@ GALLERY_ITEMS = [
     {
         "id": "struct-to-csharp",
         "title": "Structure -> C#",
-        "description": "Inventory management to C# with validation attributes",
+        "description": "C# classes with System.Text.Json and Newtonsoft.Json annotations",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp"]}]
+        "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp", "--system-text-json-annotation", "--newtonsoft-json-annotation", "--pascal-properties"]}]
     },
     {
         "id": "struct-to-python",
         "title": "Structure -> Python",
-        "description": "Inventory management to Python dataclasses",
+        "description": "Python dataclasses with dataclasses-json and Avro annotations",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "s2py", "args": ["--out", "{out}/python"]}]
+        "conversions": [{"cmd": "s2py", "args": ["--out", "{out}/python", "--dataclasses-json-annotation", "--avro-annotation"]}]
     },
     {
         "id": "struct-to-java",
         "title": "Structure -> Java",
-        "description": "Inventory management to Java POJOs",
+        "description": "Java POJOs with Jackson annotations",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
@@ -469,7 +477,7 @@ GALLERY_ITEMS = [
     {
         "id": "struct-to-typescript",
         "title": "Structure -> TypeScript",
-        "description": "Inventory management to TypeScript interfaces",
+        "description": "TypeScript interfaces with type-safe definitions",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
@@ -478,7 +486,7 @@ GALLERY_ITEMS = [
     {
         "id": "struct-to-cpp",
         "title": "Structure -> C++",
-        "description": "Inventory management to C++ classes",
+        "description": "C++ classes with modern C++ features",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
