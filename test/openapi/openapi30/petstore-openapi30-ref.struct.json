@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "definitions": {
+    "Order": {
+      "type": "object",
+      "name": "Order",
+      "properties": {
+        "id": {
+          "type": "int64"
+        },
+        "petId": {
+          "type": "int64"
+        },
+        "quantity": {
+          "type": "int32"
+        },
+        "shipDate": {
+          "type": "datetime"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "placed",
+            "approved",
+            "delivered"
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Category": {
+      "type": "object",
+      "name": "Category",
+      "properties": {
+        "id": {
+          "type": "int64"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "User": {
+      "type": "object",
+      "name": "User",
+      "properties": {
+        "id": {
+          "type": "int64"
+        },
+        "username": {
+          "type": "string"
+        },
+        "firstName": {
+          "type": "string"
+        },
+        "lastName": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "userStatus": {
+          "type": "int32"
+        }
+      }
+    },
+    "Tag": {
+      "type": "object",
+      "name": "Tag",
+      "properties": {
+        "id": {
+          "type": "int64"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "Pet": {
+      "type": "object",
+      "required": [
+        "name",
+        "photoUrls"
+      ],
+      "name": "Pet",
+      "properties": {
+        "id": {
+          "type": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": {
+            "$ref": "#/definitions/Category"
+          }
+        },
+        "photoUrls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/Tag"
+            }
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "available",
+            "pending",
+            "sold"
+          ]
+        }
+      }
+    },
+    "ApiResponse": {
+      "type": "object",
+      "name": "ApiResponse",
+      "properties": {
+        "code": {
+          "type": "int32"
+        },
+        "type": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$id": "https://example.com/schemas/swagger-petstore---openapi-3.0/1.0.27",
+  "description": "This is a sample Pet Store Server based on the OpenAPI 3.0 specification.  You can find out more about\nSwagger at [https://swagger.io](https://swagger.io). In the third iteration of the pet store, we've switched to the design first approach!\nYou can now help us improve the API whether it's by making changes to the definition itself or to the code.\nThat way, with time, we can improve the API in general, and expose some of the new features in OAS3.\n\nSome useful links:\n- [The Pet Store repository](https://github.com/swagger-api/swagger-petstore)\n- [The source API definition for the Pet Store](https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml)",
+  "$uses": [
+    "JSONStructureValidation"
+  ]
+}

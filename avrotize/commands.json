@@ -3377,8 +3377,8 @@
       {
         "name": "--preserve-composition",
         "type": "bool",
-        "help": "Preserve composition keywords (allOf, oneOf, anyOf)",
-        "default": true,
+        "help": "Preserve composition keywords (allOf, oneOf, anyOf) - requires Conditional Composition extension",
+        "default": false,
         "required": false
       },
       {

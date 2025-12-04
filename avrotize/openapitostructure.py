@@ -1,15 +1,21 @@
 """
-OpenAPI to JSON Structure converter.
+OpenAPI/Swagger to JSON Structure converter.
 
-This module converts OpenAPI 3.x documents to JSON Structure format by extracting
-components.schemas and delegating to the existing JSON Schema to JSON Structure converter.
+This module converts OpenAPI 3.x and Swagger 2.0 documents to JSON Structure format 
+by extracting schema definitions and delegating to the existing JSON Schema to 
+JSON Structure converter.
+
+Supported versions:
+- Swagger 2.0
+- OpenAPI 3.0.x
+- OpenAPI 3.1.x
 """
 
 # pylint: disable=line-too-long
 
 import json
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import requests
@@ -19,11 +25,16 @@ from avrotize.jsonstostructure import JsonToStructureConverter
 
 class OpenApiToStructureConverter:
     """
-    Converts OpenAPI 3.x documents to JSON Structure format.
+    Converts OpenAPI 3.x and Swagger 2.0 documents to JSON Structure format.
     
-    This converter extracts schema definitions from `components.schemas` in an OpenAPI
-    document and converts them to JSON Structure format using the existing JSON Schema
-    to JSON Structure conversion machinery.
+    This converter extracts schema definitions from API documents and converts 
+    them to JSON Structure format using the existing JSON Schema to JSON Structure 
+    conversion machinery.
+    
+    Supported document types:
+    - Swagger 2.0: Extracts from `definitions`
+    - OpenAPI 3.0.x: Extracts from `components.schemas`
+    - OpenAPI 3.1.x: Extracts from `components.schemas` (JSON Schema compatible)
     
     Attributes:
         root_namespace: The namespace for the root schema.
@@ -35,16 +46,56 @@ class OpenApiToStructureConverter:
         lift_inline_schemas: Flag to lift inline schemas from paths to definitions.
     """
     
+    # Supported specification versions
+    SWAGGER_2 = 'swagger_2'
+    OPENAPI_3_0 = 'openapi_3_0'
+    OPENAPI_3_1 = 'openapi_3_1'
+    
     def __init__(self) -> None:
         """Initialize the OpenAPI to JSON Structure converter."""
         self.root_namespace = 'example.com'
         self.root_class_name = 'document'
-        self.preserve_composition = True
+        self.preserve_composition = False  # Resolve composition for JSON Structure Core compliance
         self.detect_inheritance = True
         self.detect_discriminators = True
         self.convert_empty_objects_to_maps = True
         self.lift_inline_schemas = False  # Optional: lift inline schemas from paths
         self.content_cache: Dict[str, str] = {}
+    
+    def detect_spec_version(self, doc: dict) -> Tuple[str, str]:
+        """
+        Detect the specification version of an API document.
+        
+        Args:
+            doc: The API document as a dictionary.
+            
+        Returns:
+            Tuple of (spec_type, version_string) where spec_type is one of:
+            SWAGGER_2, OPENAPI_3_0, OPENAPI_3_1
+            
+        Raises:
+            ValueError: If the document is not a valid Swagger/OpenAPI document.
+        """
+        # Check for Swagger 2.0
+        if 'swagger' in doc:
+            swagger_version = str(doc['swagger'])
+            if swagger_version.startswith('2.'):
+                return (self.SWAGGER_2, swagger_version)
+            raise ValueError(f"Unsupported Swagger version: {swagger_version}. Only Swagger 2.0 is supported.")
+        
+        # Check for OpenAPI 3.x
+        if 'openapi' in doc:
+            openapi_version = str(doc['openapi'])
+            if openapi_version.startswith('3.0'):
+                return (self.OPENAPI_3_0, openapi_version)
+            if openapi_version.startswith('3.1'):
+                return (self.OPENAPI_3_1, openapi_version)
+            if openapi_version.startswith('3.'):
+                # Future 3.x versions - treat as 3.1 compatible
+                return (self.OPENAPI_3_1, openapi_version)
+            raise ValueError(f"Unsupported OpenAPI version: {openapi_version}. Supported versions: 3.0.x, 3.1.x")
+        
+        raise ValueError("Not a valid Swagger/OpenAPI document: missing 'swagger' or 'openapi' version field")
     
     def fetch_content(self, url: str) -> str:
         """
@@ -83,9 +134,196 @@ class OpenApiToStructureConverter:
         else:
             raise ValueError(f"Unsupported URL scheme: {parsed_url.scheme}")
     
-    def extract_schemas_from_openapi(self, openapi_doc: dict) -> dict:
+    def extract_schemas_from_swagger2(self, swagger_doc: dict) -> dict:
         """
-        Extract schemas from an OpenAPI document and convert to JSON Schema format.
+        Extract schemas from a Swagger 2.0 document and convert to JSON Schema format.
+        
+        Swagger 2.0 stores definitions at the root level under `definitions`.
+        
+        Args:
+            swagger_doc: The Swagger 2.0 document as a dictionary.
+            
+        Returns:
+            A JSON Schema document with definitions from the Swagger document.
+        """
+        json_schema: Dict[str, Any] = {
+            "$schema": "http://json-schema.org/draft-04/schema#"
+        }
+        
+        # Copy Swagger info to JSON Schema metadata
+        if 'info' in swagger_doc:
+            info = swagger_doc['info']
+            if 'title' in info:
+                json_schema['title'] = info['title']
+            if 'description' in info:
+                json_schema['description'] = info['description']
+            if 'version' in info:
+                title_slug = info.get('title', 'swagger').lower().replace(' ', '-')
+                json_schema['$id'] = f"https://{self.root_namespace}/schemas/{title_slug}/{info['version']}"
+        
+        # Swagger 2.0 uses top-level 'definitions' 
+        definitions = swagger_doc.get('definitions', {})
+        
+        if definitions:
+            json_schema['definitions'] = {}
+            for schema_name, schema_def in definitions.items():
+                # Process the schema to handle Swagger-specific keywords
+                processed_schema = self._process_swagger2_schema(schema_def)
+                json_schema['definitions'][schema_name] = processed_schema
+        
+        # Optionally lift inline schemas from paths
+        if self.lift_inline_schemas:
+            self._lift_inline_schemas_from_swagger2_paths(swagger_doc, json_schema)
+        
+        return json_schema
+    
+    def _process_swagger2_schema(self, schema: Union[dict, Any]) -> Union[dict, Any]:
+        """
+        Process a Swagger 2.0 schema to handle Swagger-specific keywords.
+        
+        Swagger 2.0 uses slightly different keywords than OpenAPI 3.x.
+        Notable differences:
+        - No 'nullable' keyword (use x-nullable extension)
+        - Uses 'type: file' for file uploads
+        - discriminator is a string (property name), not an object
+        
+        Args:
+            schema: The Swagger 2.0 schema object.
+            
+        Returns:
+            The processed schema compatible with JSON Schema.
+        """
+        if not isinstance(schema, dict):
+            return schema
+        
+        processed: Dict[str, Any] = {}
+        
+        for key, value in schema.items():
+            if key == 'x-nullable':
+                # Swagger extension for nullable
+                if value is True:
+                    processed['nullable'] = True
+            elif key == 'discriminator':
+                # Swagger 2.0 discriminator is just a property name string
+                if isinstance(value, str):
+                    processed['discriminator'] = {
+                        'propertyName': value
+                    }
+                else:
+                    processed['discriminator'] = value
+            elif key == 'readOnly':
+                if 'x-metadata' not in processed:
+                    processed['x-metadata'] = {}
+                processed['x-metadata']['readOnly'] = value
+            elif key == 'xml':
+                if 'x-metadata' not in processed:
+                    processed['x-metadata'] = {}
+                processed['x-metadata']['xml'] = value
+            elif key == 'externalDocs':
+                if 'x-metadata' not in processed:
+                    processed['x-metadata'] = {}
+                processed['x-metadata']['externalDocs'] = value
+            elif key == 'example':
+                if 'examples' not in processed:
+                    processed['examples'] = []
+                processed['examples'].append(value)
+            elif key == '$ref':
+                # Swagger 2.0 refs are already in #/definitions/ format
+                processed['$ref'] = value
+            elif key in ('properties', 'additionalProperties', 'patternProperties'):
+                if key == 'properties' and isinstance(value, dict):
+                    processed[key] = {
+                        prop_name: self._process_swagger2_schema(prop_schema)
+                        for prop_name, prop_schema in value.items()
+                    }
+                elif key == 'additionalProperties' and isinstance(value, dict):
+                    processed[key] = self._process_swagger2_schema(value)
+                elif key == 'patternProperties' and isinstance(value, dict):
+                    processed[key] = {
+                        pattern: self._process_swagger2_schema(prop_schema)
+                        for pattern, prop_schema in value.items()
+                    }
+                else:
+                    processed[key] = value
+            elif key == 'items':
+                if isinstance(value, dict):
+                    processed[key] = self._process_swagger2_schema(value)
+                elif isinstance(value, list):
+                    processed[key] = [self._process_swagger2_schema(item) for item in value]
+                else:
+                    processed[key] = value
+            elif key == 'allOf':
+                if isinstance(value, list):
+                    processed[key] = [self._process_swagger2_schema(item) for item in value]
+                else:
+                    processed[key] = value
+            elif key == 'type' and value == 'file':
+                # Swagger 2.0 file type - convert to string with format
+                processed['type'] = 'string'
+                processed['format'] = 'binary'
+            else:
+                processed[key] = value
+        
+        # Handle nullable conversion
+        if processed.get('nullable') is True:
+            if 'type' in processed:
+                current_type = processed['type']
+                if isinstance(current_type, list):
+                    if 'null' not in current_type:
+                        processed['type'] = current_type + ['null']
+                else:
+                    processed['type'] = [current_type, 'null']
+            del processed['nullable']
+        
+        return processed
+    
+    def _lift_inline_schemas_from_swagger2_paths(self, swagger_doc: dict, json_schema: dict) -> None:
+        """
+        Lift inline schemas from Swagger 2.0 paths into named definitions.
+        
+        Args:
+            swagger_doc: The Swagger 2.0 document.
+            json_schema: The JSON Schema being built (modified in place).
+        """
+        if 'definitions' not in json_schema:
+            json_schema['definitions'] = {}
+        
+        paths = swagger_doc.get('paths', {})
+        
+        for path, path_item in paths.items():
+            if not isinstance(path_item, dict):
+                continue
+            
+            for method in ['get', 'put', 'post', 'delete', 'options', 'head', 'patch']:
+                operation = path_item.get(method)
+                if not isinstance(operation, dict):
+                    continue
+                
+                operation_id = operation.get('operationId', f"{method}_{path.replace('/', '_')}")
+                
+                # Extract parameter schemas (body parameters in Swagger 2.0)
+                parameters = operation.get('parameters', [])
+                for param in parameters:
+                    if isinstance(param, dict) and param.get('in') == 'body':
+                        schema = param.get('schema', {})
+                        if isinstance(schema, dict) and '$ref' not in schema:
+                            def_name = f"{operation_id}_Request"
+                            processed = self._process_swagger2_schema(schema)
+                            json_schema['definitions'][def_name] = processed
+                
+                # Extract response schemas
+                responses = operation.get('responses', {})
+                for status_code, response in responses.items():
+                    if isinstance(response, dict) and 'schema' in response:
+                        schema = response['schema']
+                        if isinstance(schema, dict) and '$ref' not in schema:
+                            def_name = f"{operation_id}_{status_code}_Response"
+                            processed = self._process_swagger2_schema(schema)
+                            json_schema['definitions'][def_name] = processed
+
+    def extract_schemas_from_openapi(self, openapi_doc: dict, spec_type: str = None) -> dict:
+        """
+        Extract schemas from an OpenAPI 3.x document and convert to JSON Schema format.
         
         This method extracts all schema definitions from `components.schemas` and
         creates a consolidated JSON Schema document that can be processed by the
@@ -93,12 +331,20 @@ class OpenApiToStructureConverter:
         
         Args:
             openapi_doc: The OpenAPI document as a dictionary.
+            spec_type: The spec type (OPENAPI_3_0 or OPENAPI_3_1).
             
         Returns:
             A JSON Schema document with definitions from the OpenAPI document.
         """
+        # Use appropriate JSON Schema version based on OpenAPI version
+        # OpenAPI 3.1 uses JSON Schema draft 2020-12
+        if spec_type == self.OPENAPI_3_1:
+            schema_version = "https://json-schema.org/draft/2020-12/schema"
+        else:
+            schema_version = "http://json-schema.org/draft-07/schema#"
+        
         json_schema: Dict[str, Any] = {
-            "$schema": "http://json-schema.org/draft-07/schema#"
+            "$schema": schema_version
         }
         
         # Copy OpenAPI info to JSON Schema metadata
@@ -109,7 +355,8 @@ class OpenApiToStructureConverter:
             if 'description' in info:
                 json_schema['description'] = info['description']
             if 'version' in info:
-                json_schema['$id'] = f"https://{self.root_namespace}/schemas/{info.get('title', 'openapi').lower().replace(' ', '-')}/{info['version']}"
+                title_slug = info.get('title', 'openapi').lower().replace(' ', '-')
+                json_schema['$id'] = f"https://{self.root_namespace}/schemas/{title_slug}/{info['version']}"
         
         # Extract components.schemas
         components = openapi_doc.get('components', {})
@@ -321,17 +568,22 @@ class OpenApiToStructureConverter:
         base_uri: str = ''
     ) -> dict:
         """
-        Convert an OpenAPI document to JSON Structure format.
+        Convert an OpenAPI/Swagger document to JSON Structure format.
+        
+        Supports:
+        - Swagger 2.0
+        - OpenAPI 3.0.x
+        - OpenAPI 3.1.x
         
         Args:
-            openapi_doc: The OpenAPI document as a dictionary or JSON string.
+            openapi_doc: The API document as a dictionary or JSON string.
             base_uri: The base URI for resolving references.
             
         Returns:
             The JSON Structure document.
             
         Raises:
-            ValueError: If the input is not a valid OpenAPI document.
+            ValueError: If the input is not a valid Swagger/OpenAPI document.
             TypeError: If the input type is not supported.
         """
         # Parse JSON string if needed
@@ -341,17 +593,14 @@ class OpenApiToStructureConverter:
         if not isinstance(openapi_doc, dict):
             raise TypeError(f"Expected dict or str, got {type(openapi_doc)}")
         
-        # Validate OpenAPI version
-        openapi_version = openapi_doc.get('openapi', '')
-        if not openapi_version.startswith('3.'):
-            if 'swagger' in openapi_doc:
-                raise ValueError(f"Swagger 2.x documents are not supported. Please convert to OpenAPI 3.x first.")
-            if not openapi_version:
-                raise ValueError("Not a valid OpenAPI document: missing 'openapi' version field")
-            raise ValueError(f"Unsupported OpenAPI version: {openapi_version}. Only OpenAPI 3.x is supported.")
+        # Detect and validate specification version
+        spec_type, version = self.detect_spec_version(openapi_doc)
         
-        # Extract schemas from OpenAPI and convert to JSON Schema format
-        json_schema = self.extract_schemas_from_openapi(openapi_doc)
+        # Extract schemas based on specification type
+        if spec_type == self.SWAGGER_2:
+            json_schema = self.extract_schemas_from_swagger2(openapi_doc)
+        else:
+            json_schema = self.extract_schemas_from_openapi(openapi_doc, spec_type)
         
         # Use the JSON Schema to JSON Structure converter
         json_converter = JsonToStructureConverter()
@@ -416,10 +665,12 @@ def convert_openapi_to_structure(
     root_namespace: str = 'example.com'
 ) -> str:
     """
-    Convert an OpenAPI document to JSON Structure format.
+    Convert an OpenAPI/Swagger document to JSON Structure format.
+    
+    Supports Swagger 2.0, OpenAPI 3.0.x, and OpenAPI 3.1.x.
     
     Args:
-        input_data: The OpenAPI document as a JSON string.
+        input_data: The API document as a JSON string.
         root_namespace: The namespace for the root schema.
         
     Returns:
@@ -437,19 +688,21 @@ def convert_openapi_to_structure_files(
     openapi_file_path: str,
     structure_schema_path: str,
     root_namespace: Optional[str] = None,
-    preserve_composition: bool = True,
+    preserve_composition: bool = False,
     detect_discriminators: bool = True,
     lift_inline_schemas: bool = False
 ) -> None:
     """
-    Convert an OpenAPI file to JSON Structure format.
+    Convert an OpenAPI/Swagger file to JSON Structure format.
+    
+    Supports Swagger 2.0, OpenAPI 3.0.x, and OpenAPI 3.1.x.
     
     Args:
-        openapi_file_path: Path to the input OpenAPI file.
+        openapi_file_path: Path to the input API file (JSON or YAML).
         structure_schema_path: Path to the output JSON Structure file.
         root_namespace: The namespace for the root schema.
         preserve_composition: Flag to preserve composition keywords.
-        detect_discriminators: Flag to detect OpenAPI discriminator patterns.
+        detect_discriminators: Flag to detect discriminator patterns.
         lift_inline_schemas: Flag to lift inline schemas from paths to definitions.
     """
     if root_namespace is None:

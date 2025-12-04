@@ -410,8 +410,9 @@ class TestOpenApiToStructure(unittest.TestCase):
     
     def test_invalid_openapi_version(self):
         """Test that invalid OpenAPI versions raise errors."""
+        # Test invalid Swagger version (1.x is not supported)
         swagger_doc = {
-            "swagger": "2.0",
+            "swagger": "1.2",
             "info": {"title": "Test", "version": "1.0.0"},
             "paths": {}
         }
@@ -419,7 +420,19 @@ class TestOpenApiToStructure(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.converter.convert_openapi_to_structure(swagger_doc)
         
-        self.assertIn("Swagger 2.x", str(context.exception))
+        self.assertIn("Swagger", str(context.exception))
+        
+        # Test invalid OpenAPI version (2.x doesn't exist in OpenAPI spec)
+        invalid_openapi = {
+            "openapi": "2.0.0",
+            "info": {"title": "Test", "version": "1.0.0"},
+            "paths": {}
+        }
+        
+        with self.assertRaises(ValueError) as context:
+            self.converter.convert_openapi_to_structure(invalid_openapi)
+        
+        self.assertIn("OpenAPI", str(context.exception))
     
     def test_missing_openapi_field(self):
         """Test that missing openapi field raises error."""
@@ -622,6 +635,351 @@ class TestOpenApiMetadata(unittest.TestCase):
         # Conversion should succeed
         self.assertIn('definitions', result)
         self.assertIn('OldSchema', result['definitions'])
+
+
+class TestSwagger2Support(unittest.TestCase):
+    """Test cases for Swagger 2.0 support."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.converter = OpenApiToStructureConverter()
+    
+    def test_basic_swagger2_conversion(self):
+        """Test basic Swagger 2.0 document conversion."""
+        swagger_doc = {
+            "swagger": "2.0",
+            "info": {"title": "Test API", "version": "1.0.0"},
+            "paths": {},
+            "definitions": {
+                "Pet": {
+                    "type": "object",
+                    "required": ["name"],
+                    "properties": {
+                        "id": {"type": "integer", "format": "int64"},
+                        "name": {"type": "string"},
+                        "tag": {"type": "string"}
+                    }
+                }
+            }
+        }
+        
+        result = self.converter.convert_openapi_to_structure(swagger_doc)
+        
+        self.assertIn('definitions', result)
+        self.assertIn('Pet', result['definitions'])
+        pet = result['definitions']['Pet']
+        # JSON Structure uses 'object' type, not 'record'
+        self.assertEqual(pet.get('type'), 'object')
+    
+    def test_swagger2_references(self):
+        """Test Swagger 2.0 $ref handling."""
+        swagger_doc = {
+            "swagger": "2.0",
+            "info": {"title": "Test API", "version": "1.0.0"},
+            "paths": {},
+            "definitions": {
+                "Category": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "integer"},
+                        "name": {"type": "string"}
+                    }
+                },
+                "Pet": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "category": {"$ref": "#/definitions/Category"}
+                    }
+                }
+            }
+        }
+        
+        result = self.converter.convert_openapi_to_structure(swagger_doc)
+        
+        self.assertIn('definitions', result)
+        self.assertIn('Pet', result['definitions'])
+        self.assertIn('Category', result['definitions'])
+    
+    def test_swagger2_nullable_extension(self):
+        """Test Swagger 2.0 x-nullable extension."""
+        swagger_doc = {
+            "swagger": "2.0",
+            "info": {"title": "Test API", "version": "1.0.0"},
+            "paths": {},
+            "definitions": {
+                "Item": {
+                    "type": "object",
+                    "properties": {
+                        "value": {
+                            "type": "string",
+                            "x-nullable": True
+                        }
+                    }
+                }
+            }
+        }
+        
+        result = self.converter.convert_openapi_to_structure(swagger_doc)
+        
+        self.assertIn('definitions', result)
+        self.assertIn('Item', result['definitions'])
+    
+    def test_swagger2_discriminator(self):
+        """Test Swagger 2.0 discriminator (property name only)."""
+        swagger_doc = {
+            "swagger": "2.0",
+            "info": {"title": "Test API", "version": "1.0.0"},
+            "paths": {},
+            "definitions": {
+                "Pet": {
+                    "type": "object",
+                    "discriminator": "petType",
+                    "required": ["petType"],
+                    "properties": {
+                        "petType": {"type": "string"},
+                        "name": {"type": "string"}
+                    }
+                },
+                "Dog": {
+                    "allOf": [
+                        {"$ref": "#/definitions/Pet"},
+                        {
+                            "type": "object",
+                            "properties": {
+                                "breed": {"type": "string"}
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        
+        result = self.converter.convert_openapi_to_structure(swagger_doc)
+        
+        self.assertIn('definitions', result)
+        self.assertIn('Pet', result['definitions'])
+        self.assertIn('Dog', result['definitions'])
+    
+    def test_swagger2_file_type(self):
+        """Test Swagger 2.0 file type conversion."""
+        swagger_doc = {
+            "swagger": "2.0",
+            "info": {"title": "Test API", "version": "1.0.0"},
+            "paths": {},
+            "definitions": {
+                "FileUpload": {
+                    "type": "object",
+                    "properties": {
+                        "document": {"type": "file"}
+                    }
+                }
+            }
+        }
+        
+        result = self.converter.convert_openapi_to_structure(swagger_doc)
+        
+        self.assertIn('definitions', result)
+        self.assertIn('FileUpload', result['definitions'])
+    
+    def test_swagger2_petstore_file(self):
+        """Test Swagger 2.0 Petstore file conversion."""
+        test_file = os.path.join(os.path.dirname(__file__), 'openapi', 'swagger2', 'petstore-swagger2.json')
+        if not os.path.exists(test_file):
+            self.skipTest("Petstore Swagger 2.0 file not found")
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            output_file = f.name
+        
+        try:
+            self.converter.convert_openapi_file_to_structure(test_file, output_file)
+            
+            with open(output_file, 'r') as f:
+                result = json.load(f)
+            
+            self.assertIn('definitions', result)
+            # Petstore has Pet, Category, Tag, Order, User, ApiResponse
+            self.assertIn('Pet', result['definitions'])
+            self.assertIn('Order', result['definitions'])
+        finally:
+            if os.path.exists(output_file):
+                os.remove(output_file)
+
+
+class TestOpenApi31Support(unittest.TestCase):
+    """Test cases for OpenAPI 3.1 support."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.converter = OpenApiToStructureConverter()
+    
+    def test_openapi31_type_array(self):
+        """Test OpenAPI 3.1 type array for nullable."""
+        openapi_doc = {
+            "openapi": "3.1.0",
+            "info": {"title": "Test API", "version": "1.0.0"},
+            "paths": {},
+            "components": {
+                "schemas": {
+                    "Person": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "email": {"type": ["string", "null"]}
+                        }
+                    }
+                }
+            }
+        }
+        
+        result = self.converter.convert_openapi_to_structure(openapi_doc)
+        
+        self.assertIn('definitions', result)
+        self.assertIn('Person', result['definitions'])
+    
+    def test_openapi31_const(self):
+        """Test OpenAPI 3.1 const keyword."""
+        openapi_doc = {
+            "openapi": "3.1.0",
+            "info": {"title": "Test API", "version": "1.0.0"},
+            "paths": {},
+            "components": {
+                "schemas": {
+                    "Status": {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string", "const": "active"}
+                        }
+                    }
+                }
+            }
+        }
+        
+        result = self.converter.convert_openapi_to_structure(openapi_doc)
+        
+        self.assertIn('definitions', result)
+        self.assertIn('Status', result['definitions'])
+
+
+class TestReferenceFileComparison(unittest.TestCase):
+    """Test cases comparing converter output against reference files."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.converter = OpenApiToStructureConverter()
+        self.test_dir = os.path.dirname(__file__)
+    
+    def _normalize_for_comparison(self, data: dict) -> dict:
+        """Normalize JSON Structure for comparison (sort keys, etc.)."""
+        return json.loads(json.dumps(data, sort_keys=True))
+    
+    def test_swagger2_petstore_matches_reference(self):
+        """Test Swagger 2.0 Petstore output matches reference file."""
+        input_file = os.path.join(self.test_dir, 'openapi', 'swagger2', 'petstore-swagger2.json')
+        ref_file = os.path.join(self.test_dir, 'openapi', 'swagger2', 'petstore-swagger2-ref.struct.json')
+        
+        if not os.path.exists(input_file):
+            self.skipTest("Swagger 2.0 input file not found")
+        if not os.path.exists(ref_file):
+            self.skipTest("Swagger 2.0 reference file not found")
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            output_file = f.name
+        
+        try:
+            self.converter.convert_openapi_file_to_structure(input_file, output_file)
+            
+            with open(output_file, 'r', encoding='utf-8') as f:
+                result = json.load(f)
+            with open(ref_file, 'r', encoding='utf-8') as f:
+                expected = json.load(f)
+            
+            # Compare normalized versions
+            self.assertEqual(
+                self._normalize_for_comparison(result),
+                self._normalize_for_comparison(expected),
+                "Swagger 2.0 output does not match reference"
+            )
+        finally:
+            if os.path.exists(output_file):
+                os.remove(output_file)
+    
+    def test_openapi30_petstore_matches_reference(self):
+        """Test OpenAPI 3.0 Petstore output matches reference file."""
+        input_file = os.path.join(self.test_dir, 'openapi', 'openapi30', 'petstore-openapi30.json')
+        ref_file = os.path.join(self.test_dir, 'openapi', 'openapi30', 'petstore-openapi30-ref.struct.json')
+        
+        if not os.path.exists(input_file):
+            self.skipTest("OpenAPI 3.0 input file not found")
+        if not os.path.exists(ref_file):
+            self.skipTest("OpenAPI 3.0 reference file not found")
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            output_file = f.name
+        
+        try:
+            self.converter.convert_openapi_file_to_structure(input_file, output_file)
+            
+            with open(output_file, 'r', encoding='utf-8') as f:
+                result = json.load(f)
+            with open(ref_file, 'r', encoding='utf-8') as f:
+                expected = json.load(f)
+            
+            self.assertEqual(
+                self._normalize_for_comparison(result),
+                self._normalize_for_comparison(expected),
+                "OpenAPI 3.0 output does not match reference"
+            )
+        finally:
+            if os.path.exists(output_file):
+                os.remove(output_file)
+    
+    def test_openapi31_sample_matches_reference(self):
+        """Test OpenAPI 3.1 sample output matches reference file."""
+        input_file = os.path.join(self.test_dir, 'openapi', 'openapi31', 'sample-31.json')
+        ref_file = os.path.join(self.test_dir, 'openapi', 'openapi31', 'sample-31-ref.struct.json')
+        
+        if not os.path.exists(input_file):
+            self.skipTest("OpenAPI 3.1 input file not found")
+        if not os.path.exists(ref_file):
+            self.skipTest("OpenAPI 3.1 reference file not found")
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            output_file = f.name
+        
+        try:
+            self.converter.convert_openapi_file_to_structure(input_file, output_file)
+            
+            with open(output_file, 'r', encoding='utf-8') as f:
+                result = json.load(f)
+            with open(ref_file, 'r', encoding='utf-8') as f:
+                expected = json.load(f)
+            
+            self.assertEqual(
+                self._normalize_for_comparison(result),
+                self._normalize_for_comparison(expected),
+                "OpenAPI 3.1 output does not match reference"
+            )
+        finally:
+            if os.path.exists(output_file):
+                os.remove(output_file)
+    
+    def test_selector_keyword_in_discriminated_union(self):
+        """Verify 'selector' keyword is used instead of 'discriminator'."""
+        ref_file = os.path.join(self.test_dir, 'openapi', 'openapi31', 'sample-31-ref.struct.json')
+        
+        if not os.path.exists(ref_file):
+            self.skipTest("OpenAPI 3.1 reference file not found")
+        
+        with open(ref_file, 'r', encoding='utf-8') as f:
+            result = json.load(f)
+        
+        # Find the Pet schema which should use selector
+        pet = result.get('definitions', {}).get('Pet', {})
+        self.assertEqual(pet.get('type'), 'choice', "Pet should be a choice type")
+        self.assertIn('selector', pet, "Pet should have 'selector' keyword")
+        self.assertNotIn('discriminator', pet, "Pet should NOT have 'discriminator' keyword")
+        self.assertEqual(pet.get('selector'), 'petType', "Selector should be 'petType'")
 
 
 if __name__ == '__main__':
