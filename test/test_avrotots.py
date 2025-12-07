@@ -244,4 +244,91 @@ class TestAvroToTypeScript(unittest.TestCase):
         avro_js_types_file_no_avro = os.path.join(ts_path_no_avro, "src", "avro-js.d.ts")
         self.assertFalse(os.path.exists(avro_js_types_file_no_avro),
                         "avro-js.d.ts should NOT be generated when avro_annotation=False")
+
+    def test_create_instance_method_generated(self):
+        """
+        Test that the createInstance() static method is generated for TypeScript classes.
+        This test helper creates instances with valid sample data for testing.
+        """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-ts-createinstance-test")
+        
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+        os.makedirs(ts_path, exist_ok=True)
+        
+        convert_avro_to_typescript(avro_path, ts_path, "telemetrytypes", typedjson_annotation=True)
+        
+        # Find all generated TypeScript class files
+        ts_files = []
+        for root, dirs, files in os.walk(os.path.join(ts_path, "src")):
+            for file in files:
+                if file.endswith('.ts') and file != 'index.ts' and not file.endswith('.d.ts'):
+                    ts_files.append(os.path.join(root, file))
+        
+        self.assertGreater(len(ts_files), 0, "Should have generated TypeScript files")
+        
+        for ts_file in ts_files:
+            with open(ts_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Skip enum files (they don't have createInstance)
+            if '@jsonObject' not in content:
+                continue
+            
+            # Verify createInstance method exists
+            self.assertIn('public static createInstance()', content,
+                f"createInstance() method should be generated in {os.path.basename(ts_file)}")
+            
+            # Verify it returns the class type
+            class_name_match = re.search(r'export class (\w+)', content)
+            if class_name_match:
+                class_name = class_name_match.group(1)
+                self.assertIn(f'createInstance(): {class_name}', content,
+                    f"createInstance() should return {class_name} in {os.path.basename(ts_file)}")
+                self.assertIn(f'return new {class_name}(', content,
+                    f"createInstance() should call new {class_name}() in {os.path.basename(ts_file)}")
+
+    def test_jest_test_files_generated(self):
+        """
+        Test that Jest test files are generated for TypeScript classes.
+        These test files use createInstance() for testing serialization and properties.
+        """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-ts-jest-tests")
+        
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+        os.makedirs(ts_path, exist_ok=True)
+        
+        convert_avro_to_typescript(avro_path, ts_path, "telemetrytypes", typedjson_annotation=True)
+        
+        # Verify test directory exists
+        test_dir = os.path.join(ts_path, "test")
+        self.assertTrue(os.path.exists(test_dir), "test/ directory should be generated")
+        
+        # Find all test files
+        test_files = []
+        for root, dirs, files in os.walk(test_dir):
+            for file in files:
+                if file.endswith('.test.ts'):
+                    test_files.append(os.path.join(root, file))
+        
+        self.assertGreater(len(test_files), 0, "Should have generated Jest test files")
+        
+        for test_file in test_files:
+            with open(test_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Verify test file structure
+            self.assertIn("describe('", content,
+                f"Test file should use Jest describe() in {os.path.basename(test_file)}")
+            self.assertIn(".createInstance()", content,
+                f"Test file should use createInstance() in {os.path.basename(test_file)}")
+            self.assertIn("beforeEach", content,
+                f"Test file should have beforeEach setup in {os.path.basename(test_file)}")
+            self.assertIn("expect(", content,
+                f"Test file should have expect() assertions in {os.path.basename(test_file)}")
         

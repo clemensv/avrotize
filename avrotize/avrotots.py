@@ -31,6 +31,7 @@ class AvroToTypeScript:
         self.output_dir = os.getcwd()
         self.src_dir = os.path.join(self.output_dir, "src")
         self.generated_types: Dict[str, str] = {}
+        self.generated_type_fields: Dict[str, List[Dict]] = {}  # Store fields for test generation
         self.main_schema = None
         self.type_dict = None
         self.INDENT = ' ' * 4
@@ -160,6 +161,7 @@ class AvroToTypeScript:
             'is_array': field['definition']['is_array'],
             'is_union': field['definition']['is_union'],
             'docstring': field['docstring'],
+            'test_value': self.generate_test_value(field['definition']['type'], field['definition']['is_enum']),
         } for field in fields]
 
         imports_with_paths: Dict[str, str] = {}
@@ -201,6 +203,7 @@ class AvroToTypeScript:
         if write_file:
             self.write_to_file(namespace, class_name, class_definition)
         self.generated_types[ts_qualified_name] = 'class'
+        self.generated_type_fields[ts_qualified_name] = fields  # Store fields for test generation
         return ts_qualified_name
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str, write_file: bool = True) -> str:
@@ -241,6 +244,47 @@ class AvroToTypeScript:
             'is_union': self.generated_types.get(import_name, '') == 'union',
             'is_enum': self.generated_types.get(import_name, '') == 'enum',
         }
+
+    def generate_test_value(self, field_type: str, is_enum: bool = False) -> str:
+        """Generate a test value for a TypeScript field type."""
+        # Strip nullable marker
+        is_nullable = field_type.endswith('?')
+        field_type = self.strip_nullable(field_type)
+        
+        # Handle arrays
+        if field_type.endswith('[]'):
+            inner_type = field_type[:-2]
+            inner_value = self.generate_test_value(inner_type, is_enum)
+            return f'[{inner_value}]'
+        
+        # Handle map/dict types
+        if field_type.startswith('{ [key: string]:'):
+            return "{ 'key': 'value' }"
+        
+        # Handle union types (pipe-separated)
+        if '|' in field_type:
+            first_type = field_type.split('|')[0].strip()
+            return self.generate_test_value(first_type, is_enum)
+        
+        # Handle enums - use first value (will be set via template)
+        if is_enum:
+            return f'{field_type}.values()[0]'
+        
+        # Handle primitive types
+        primitive_values = {
+            'string': "'sample-string'",
+            'number': '42',
+            'boolean': 'true',
+            'null': 'null',
+            'Date': "new Date('2024-01-01T00:00:00Z')",
+            'any': "{ test: 'data' }",
+        }
+        
+        if field_type in primitive_values:
+            return primitive_values[field_type]
+        
+        # For complex types (classes), call their createInstance method
+        return f'{field_type}.createInstance()'
 
     def get_is_json_match_clause(self, field_name: str, field_type: str, field_is_enum: bool) -> str:
         """Generates the isJsonMatch clause for a field."""
@@ -556,6 +600,57 @@ class AvroToTypeScript:
         with open(types_file_path, 'w', encoding='utf-8') as file:
             file.write(avro_js_types)
 
+    def generate_tests(self, output_dir: str):
+        """Generate Jest test files for all generated TypeScript classes."""
+        test_directory_path = os.path.join(output_dir, "test")
+        if not os.path.exists(test_directory_path):
+            os.makedirs(test_directory_path, exist_ok=True)
+
+        for qualified_name, type_kind in self.generated_types.items():
+            if type_kind == 'class':
+                self.generate_test_class(qualified_name, test_directory_path)
+
+    def generate_test_class(self, qualified_name: str, test_directory_path: str):
+        """Generate a Jest test file for a TypeScript class."""
+        parts = qualified_name.split('.')
+        class_name = parts[-1]
+        namespace = '.'.join(parts[:-1])
+        test_class_name = f"{class_name}.test"
+        
+        fields = self.generated_type_fields.get(qualified_name, [])
+        
+        # Build imports for nested types
+        imports_with_paths: Dict[str, str] = {}
+        for field in fields:
+            field_type = field.get('type_no_null', '')
+            if not self.is_typescript_primitive(field_type.replace('[]', '')):
+                # It's a reference type, need to import it
+                type_name = field_type.replace('[]', '').replace('?', '')
+                if type_name and type_name not in ['null', 'any', 'Date']:
+                    # Build relative path from test dir to src dir
+                    src_path = '/'.join(parts)
+                    imports_with_paths[type_name] = f'../src/{src_path.rsplit("/", 1)[0]}/{type_name}.js' if '/' in src_path else f'../src/{parts[0]}/{type_name}.js'
+        
+        # Calculate relative path from test directory to class file
+        class_path_parts = namespace.split('.') if namespace else []
+        relative_path = '../src/' + '/'.join(class_path_parts + [class_name]) + '.js'
+        
+        test_definition = process_template(
+            "avrotots/class_test.ts.jinja",
+            class_name=class_name,
+            fields=fields,
+            imports=imports_with_paths,
+            typed_json_annotation=self.typed_json_annotation,
+            avro_annotation=self.avro_annotation,
+        )
+        
+        # Update the import path in the generated test
+        test_definition = test_definition.replace(f"from './{class_name}.js'", f"from '{relative_path}'")
+        
+        test_file_path = os.path.join(test_directory_path, f"{test_class_name}.ts")
+        with open(test_file_path, 'w', encoding='utf-8') as file:
+            file.write(test_definition)
+
     def convert_schema(self, schema: Union[List[Dict], Dict], output_dir: str, write_file: bool = True):
         """Convert Avro schema to TypeScript classes with namespace support."""
         self.output_dir = output_dir
@@ -571,6 +666,7 @@ class AvroToTypeScript:
                 self.generate_enum(avro_schema, '', write_file)
         self.generate_index_file()
         self.generate_project_files(output_dir)
+        self.generate_tests(output_dir)
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Convert Avro schema to TypeScript classes."""
