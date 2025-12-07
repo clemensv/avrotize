@@ -55,6 +55,11 @@ try:
 except ValueError:
     MSTEST_SDK_VERSION = '17.13.0'
 
+try:
+    MSGPACK_VERSION = get_dependency_version('cs', 'net90', 'MessagePack')
+except ValueError:
+    MSGPACK_VERSION = '2.5.187'
+
 # Java test dependencies
 try:
     JUNIT_VERSION = get_dependency_version('java', 'jdk21', 'org.junit.jupiter:junit-jupiter-api')

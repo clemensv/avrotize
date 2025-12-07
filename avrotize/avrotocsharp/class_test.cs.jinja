@@ -133,6 +133,17 @@ public class {{ test_class_name }}
         Assert.That(newInstance, Is.EqualTo(_instance));
     }
     {%- endif %}
+    {%- if msgpack_annotation %}
+    /// <summary> Testing MsgPack serializer </summary>
+    [Test]
+    public void Test_ToByteArray_FromData_MsgPack()
+    {
+        var mediaType = "application/msgpack";
+        var bytes = _instance.ToByteArray(mediaType);
+        var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
+        Assert.That(newInstance, Is.EqualTo(_instance));
+    }
+    {%- endif %}
 }
 {% endfilter %}
 {% if namespace %}

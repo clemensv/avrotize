@@ -14,6 +14,7 @@ from avrotize.constants import (
     NEWTONSOFT_JSON_VERSION,
     SYSTEM_TEXT_JSON_VERSION,
     SYSTEM_MEMORY_DATA_VERSION,
+    MSGPACK_VERSION,
     NUNIT_VERSION,
     NUNIT_ADAPTER_VERSION,
     MSTEST_SDK_VERSION,
@@ -49,6 +50,7 @@ class AvroToCSharp:
         self.system_text_json_annotation = False
         self.newtonsoft_json_annotation = False
         self.system_xml_annotation = False
+        self.msgpack_annotation = False
         self.avro_annotation = False
         self.generated_types: Dict[str,str] = {}
         self.generated_avro_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
@@ -177,7 +179,11 @@ class AvroToCSharp:
             else:
                 class_definition += f"[XmlRoot(\"{class_name}\")]\n"
 
-        fields_str = [self.generate_property(field, class_name, avro_namespace) for field in avro_schema.get('fields', [])]
+        # Add MessagePack serialization attribute for the class if enabled
+        if self.msgpack_annotation:
+            class_definition += "[MessagePackObject]\n"
+
+        fields_str = [self.generate_property(field, class_name, avro_namespace, i) for i, field in enumerate(avro_schema.get('fields', []))]
         class_body = "\n".join(fields_str)
         class_definition += f"public partial class {class_name}"
         if self.avro_annotation:
@@ -252,7 +258,8 @@ class AvroToCSharp:
             avro_annotation=self.avro_annotation,
             system_text_json_annotation=self.system_text_json_annotation,
             newtonsoft_json_annotation=self.newtonsoft_json_annotation,
-            system_xml_annotation=self.system_xml_annotation, 
+            system_xml_annotation=self.system_xml_annotation,
+            msgpack_annotation=self.msgpack_annotation,
             json_match_clauses=self.create_is_json_match_clauses(avro_schema, avro_namespace, class_name)
         )
 
@@ -522,8 +529,11 @@ class AvroToCSharp:
             class_definition_ctors += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Constructor for {union_type_name} values\n{INDENT*2}/// </summary>\n" + \
                 f"{INDENT*2}public {union_class_name}({union_type}? {union_type_name})\n{INDENT*2}{{\n{INDENT*3}this.{union_type_name} = {union_type_name};\n{INDENT*2}}}\n"
+            # Add Key attribute for MessagePack serialization if enabled
+            msgpack_key_attr = f"{INDENT*2}[Key({i})]\n" if self.msgpack_annotation else ""
             class_definition_decls += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Gets the {union_type_name} value\n{INDENT*2}/// </summary>\n" + \
+                msgpack_key_attr + \
                 f"{INDENT*2}public {union_type}? {union_type_name} {{ get; set; }} = null;\n"
             class_definition_toobject += f"{INDENT*3}if ({union_type_name} != null) {{\n{INDENT*4}return {union_type_name};\n{INDENT*3}}}\n"
 
@@ -570,6 +580,9 @@ class AvroToCSharp:
         if self.system_xml_annotation:
             class_definition += \
                 f"{INDENT}[XmlRoot(\"{union_class_name}\")]\n"
+        if self.msgpack_annotation:
+            class_definition += \
+                f"{INDENT}[MessagePackObject]\n"
         if self.system_text_json_annotation:
             class_definition += \
                 f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({union_class_name}))]\n"
@@ -711,7 +724,7 @@ class AvroToCSharp:
             return avro_type.get('type') == 'enum'
         return False
 
-    def generate_property(self, field: Dict, class_name: str, parent_namespace: str) -> str:
+    def generate_property(self, field: Dict, class_name: str, parent_namespace: str, field_index: int = 0) -> str:
         """ Generates a property """
         is_enum_type = self.is_enum_type(field['type'])
         field_type = self.convert_avro_type_to_csharp(
@@ -734,6 +747,10 @@ class AvroToCSharp:
                 prop += f"{INDENT}[XmlElement(\"{annotation_name}\")]\n"
             elif xmlkind == 'attribute':
                 prop += f"{INDENT}[XmlAttribute(\"{annotation_name}\")]\n"
+        
+        # Add MessagePack serialization attribute if enabled
+        if self.msgpack_annotation:
+            prop += f"{INDENT}[Key({field_index})]\n"
         
         if self.system_text_json_annotation:
             prop += f"{INDENT}[System.Text.Json.Serialization.JsonPropertyName(\"{annotation_name}\")]\n"
@@ -792,6 +809,8 @@ class AvroToCSharp:
                 file_content += "using Newtonsoft.Json;\n"
             if self.system_xml_annotation:  # Add XML serialization using directive
                 file_content += "using System.Xml.Serialization;\n"
+            if self.msgpack_annotation:  # Add MessagePack serialization using directive
+                file_content += "using MessagePack;\n"
 
             if namespace:
                 # Namespace declaration with correct indentation for the definition
@@ -833,7 +852,8 @@ class AvroToCSharp:
                 avro_annotation=self.avro_annotation,
                 system_xml_annotation=self.system_xml_annotation,
                 system_text_json_annotation=self.system_text_json_annotation,
-                newtonsoft_json_annotation=self.newtonsoft_json_annotation
+                newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                msgpack_annotation=self.msgpack_annotation
             )
         elif type_kind == "enum":
             test_class_definition = process_template(
@@ -967,10 +987,12 @@ class AvroToCSharp:
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
                         newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                        msgpack_annotation=self.msgpack_annotation,
                         CSHARP_AVRO_VERSION=CSHARP_AVRO_VERSION,
                         NEWTONSOFT_JSON_VERSION=NEWTONSOFT_JSON_VERSION,
                         SYSTEM_TEXT_JSON_VERSION=SYSTEM_TEXT_JSON_VERSION,
                         SYSTEM_MEMORY_DATA_VERSION=SYSTEM_MEMORY_DATA_VERSION,
+                        MSGPACK_VERSION=MSGPACK_VERSION,
                         NUNIT_VERSION=NUNIT_VERSION,
                         NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
                         MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
@@ -1012,7 +1034,8 @@ def convert_avro_to_csharp(
     pascal_properties=False, 
     system_text_json_annotation=False, 
     newtonsoft_json_annotation=False, 
-    system_xml_annotation=False,  # New parameter
+    system_xml_annotation=False,
+    msgpack_annotation=False,
     avro_annotation=False
 ):
     """Converts Avro schema to C# classes
@@ -1026,6 +1049,7 @@ def convert_avro_to_csharp(
         system_text_json_annotation (bool, optional): Use System.Text.Json annotations. Defaults to False.
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
+        msgpack_annotation (bool, optional): Use MessagePack annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
     """
 
@@ -1036,7 +1060,8 @@ def convert_avro_to_csharp(
     avrotocs.pascal_properties = pascal_properties
     avrotocs.system_text_json_annotation = system_text_json_annotation
     avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
-    avrotocs.system_xml_annotation = system_xml_annotation  # Set the flag
+    avrotocs.system_xml_annotation = system_xml_annotation
+    avrotocs.msgpack_annotation = msgpack_annotation
     avrotocs.avro_annotation = avro_annotation
     avrotocs.convert(avro_schema_path, cs_file_path)
 
@@ -1049,7 +1074,8 @@ def convert_avro_schema_to_csharp(
     pascal_properties: bool = False, 
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
-    system_xml_annotation: bool = False,  # New parameter
+    system_xml_annotation: bool = False,
+    msgpack_annotation: bool = False,
     avro_annotation: bool = False
 ):
     """Converts Avro schema to C# classes
@@ -1063,6 +1089,7 @@ def convert_avro_schema_to_csharp(
         system_text_json_annotation (bool, optional): Use System.Text.Json annotations. Defaults to False.
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
+        msgpack_annotation (bool, optional): Use MessagePack annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
     """
     avrotocs = AvroToCSharp(base_namespace)
@@ -1070,6 +1097,7 @@ def convert_avro_schema_to_csharp(
     avrotocs.pascal_properties = pascal_properties
     avrotocs.system_text_json_annotation = system_text_json_annotation
     avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
-    avrotocs.system_xml_annotation = system_xml_annotation  # Set the flag
+    avrotocs.system_xml_annotation = system_xml_annotation
+    avrotocs.msgpack_annotation = msgpack_annotation
     avrotocs.avro_annotation = avro_annotation
     avrotocs.convert_schema(avro_schema, output_dir)

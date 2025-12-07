@@ -14,6 +14,9 @@
         {%- if system_text_json_annotation %}
         <PackageReference Include="System.Text.Json" Version="{{ SYSTEM_TEXT_JSON_VERSION }}" />
         {%- endif %}
+        {%- if msgpack_annotation %}
+        <PackageReference Include="MessagePack" Version="{{ MSGPACK_VERSION }}" />
+        {%- endif %}
         <PackageReference Include="System.Memory.Data" Version="{{ SYSTEM_MEMORY_DATA_VERSION }}" />
     </ItemGroup>
     <ItemGroup>
