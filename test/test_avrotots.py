@@ -353,14 +353,16 @@ class TestAvroToTypeScript(unittest.TestCase):
                                    avro_annotation=True)
         
         # Install dependencies
+        # Use shell=True on Windows for npm, shell=False on Linux
+        use_shell = sys.platform == 'win32'
         result = subprocess.run(['npm', 'install'], cwd=ts_path, 
-                               capture_output=True, text=True, shell=True)
+                               capture_output=True, text=True, shell=use_shell)
         self.assertEqual(result.returncode, 0, 
             f"npm install failed: {result.stderr}")
         
         # Build the TypeScript project
         result = subprocess.run(['npm', 'run', 'build'], cwd=ts_path,
-                               capture_output=True, text=True, shell=True)
+                               capture_output=True, text=True, shell=use_shell)
         self.assertEqual(result.returncode, 0,
             f"TypeScript build failed: {result.stderr}")
         
@@ -393,7 +395,7 @@ process.exit(0);
         
         # Run the test script in Node.js ESM mode
         result = subprocess.run(['node', 'test-esm-runtime.mjs'], cwd=ts_path,
-                               capture_output=True, text=True, shell=True)
+                               capture_output=True, text=True, shell=use_shell)
         
         self.assertEqual(result.returncode, 0,
             f"ESM runtime test failed. This indicates avro-js CJS/ESM interop issue.\n"
