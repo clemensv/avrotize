@@ -505,13 +505,6 @@ class AvroToTypeScript:
      */
     export class Type {
         /**
-         * Create a Type instance from an Avro schema.
-         * @param schema - Avro schema object or JSON string
-         * @returns Type instance
-         */
-        static forSchema(schema: any): Type;
-
-        /**
          * Encode a value to a Buffer.
          * @param obj - Value to encode
          * @returns Encoded Buffer
@@ -582,7 +575,7 @@ class AvroToTypeScript:
     }
 
     /**
-     * Parse an Avro schema.
+     * Parse an Avro schema and return a Type instance.
      * @param schema - Schema as string or object
      * @param options - Parse options
      * @returns Type instance

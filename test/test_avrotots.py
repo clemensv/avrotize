@@ -88,11 +88,11 @@ class TestAvroToTypeScript(unittest.TestCase):
         """
         Regression test for bug where Avro schema JSON had escaped quotes.
         Verifies that generated TypeScript with avro_annotation=True contains
-        properly formatted JSON without backslash-escaped quotes in Type.forSchema().
+        properly formatted JSON without backslash-escaped quotes in avro.parse().
         
         This prevents the critical bug where:
-        - INCORRECT: Type.forSchema({\"type\": \"record\", ...})
-        - CORRECT:   Type.forSchema({"type": "record", ...})
+        - INCORRECT: avro.parse({\"type\": \"record\", ...})
+        - CORRECT:   avro.parse({"type": "record", ...})
         """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
@@ -123,12 +123,12 @@ class TestAvroToTypeScript(unittest.TestCase):
             
             # If this file contains AvroType, validate the schema
             if 'public static AvroType' in content:
-                # Extract the Type.forSchema(...) call
-                schema_pattern = r'Type\.forSchema\((\{[^)]+\})\)'
+                # Extract the avro.parse(...) call
+                schema_pattern = r'avro\.parse\((\{[^)]+\})\)'
                 matches = re.findall(schema_pattern, content, re.DOTALL)
                 
                 self.assertGreater(len(matches), 0, 
-                    f"Could not find Type.forSchema() in {ts_file}")
+                    f"Could not find avro.parse() in {ts_file}")
                 
                 for schema_json in matches:
                     # CRITICAL: Verify no backslash-escaped quotes
@@ -226,8 +226,6 @@ class TestAvroToTypeScript(unittest.TestCase):
                      "Type definition should declare the avro-js module")
         self.assertIn("export class Type", content,
                      "Type definition should export the Type class")
-        self.assertIn("static forSchema(schema: any): Type", content,
-                     "Type definition should include forSchema method")
         self.assertIn("export function parse", content,
                      "Type definition should export the parse function")
         
@@ -331,4 +329,75 @@ class TestAvroToTypeScript(unittest.TestCase):
                 f"Test file should have beforeEach setup in {os.path.basename(test_file)}")
             self.assertIn("expect(", content,
                 f"Test file should have expect() assertions in {os.path.basename(test_file)}")
+
+    def test_typescript_esm_runtime_avro_import(self):
+        """
+        Test that generated TypeScript code compiles and runs correctly in ESM mode.
+        This tests the avro-js CJS/ESM interop issue where named imports fail at runtime.
         
+        Regression test for issue #159.
+        """
+        import subprocess
+        
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-ts-esm-runtime")
+        
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+        os.makedirs(ts_path, exist_ok=True)
+        
+        # Generate TypeScript with Avro annotations (the problematic case)
+        convert_avro_to_typescript(avro_path, ts_path, "addresstypes", 
+                                   typedjson_annotation=False, 
+                                   avro_annotation=True)
+        
+        # Install dependencies
+        result = subprocess.run(['npm', 'install'], cwd=ts_path, 
+                               capture_output=True, text=True, shell=True)
+        self.assertEqual(result.returncode, 0, 
+            f"npm install failed: {result.stderr}")
+        
+        # Build the TypeScript project
+        result = subprocess.run(['npm', 'run', 'build'], cwd=ts_path,
+                               capture_output=True, text=True, shell=True)
+        self.assertEqual(result.returncode, 0,
+            f"TypeScript build failed: {result.stderr}")
+        
+        # Create a test script that imports and uses the generated code
+        test_script = '''
+import { Addresstypes_Example_Com_Record as Record } from './dist/index.js';
+
+// Test that AvroType static property was initialized correctly
+// This will fail if avro-js import doesn't work in ESM
+console.log('SUCCESS: AvroType is:', typeof Record.AvroType);
+
+// Verify the static type was properly initialized  
+if (typeof Record.AvroType === 'undefined') {
+    console.error('FAIL: AvroType is undefined - avro-js import failed');
+    process.exit(1);
+}
+
+// Verify we can use avro.parse result - it should have toBuffer method
+if (typeof Record.AvroType.toBuffer !== 'function') {
+    console.error('FAIL: AvroType.toBuffer is not a function - avro-js parse failed');
+    process.exit(1);
+}
+
+console.log('SUCCESS: avro-js ESM import and parse working correctly');
+process.exit(0);
+'''
+        test_script_path = os.path.join(ts_path, 'test-esm-runtime.mjs')
+        with open(test_script_path, 'w', encoding='utf-8') as f:
+            f.write(test_script)
+        
+        # Run the test script in Node.js ESM mode
+        result = subprocess.run(['node', 'test-esm-runtime.mjs'], cwd=ts_path,
+                               capture_output=True, text=True, shell=True)
+        
+        self.assertEqual(result.returncode, 0,
+            f"ESM runtime test failed. This indicates avro-js CJS/ESM interop issue.\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}")
+        
+        self.assertIn('SUCCESS', result.stdout,
+            f"Test script should report success. Output: {result.stdout}")
