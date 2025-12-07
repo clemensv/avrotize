@@ -123,4 +123,16 @@ export class {{ class_name }} {
     }
     {%- endif %}
     {%- endif %}
+
+    /**
+     * Creates an instance of {{ class_name }} with sample data for testing.
+     * @returns A new {{ class_name }} instance with sample values.
+     */
+    public static createInstance(): {{ class_name }} {
+        return new {{ class_name }}(
+            {%- for field in fields %}
+            {{ field.test_value }}{% if not loop.last %},{% endif %}  // {{ field.name }}
+            {%- endfor %}
+        );
+    }
 }

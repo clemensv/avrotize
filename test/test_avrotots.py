@@ -244,4 +244,49 @@ class TestAvroToTypeScript(unittest.TestCase):
         avro_js_types_file_no_avro = os.path.join(ts_path_no_avro, "src", "avro-js.d.ts")
         self.assertFalse(os.path.exists(avro_js_types_file_no_avro),
                         "avro-js.d.ts should NOT be generated when avro_annotation=False")
+
+    def test_create_instance_method_generated(self):
+        """
+        Test that the createInstance() static method is generated for TypeScript classes.
+        This test helper creates instances with valid sample data for testing.
+        """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-ts-createinstance-test")
+        
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+        os.makedirs(ts_path, exist_ok=True)
+        
+        convert_avro_to_typescript(avro_path, ts_path, "telemetrytypes", typedjson_annotation=True)
+        
+        # Find all generated TypeScript class files
+        ts_files = []
+        for root, dirs, files in os.walk(os.path.join(ts_path, "src")):
+            for file in files:
+                if file.endswith('.ts') and file != 'index.ts' and not file.endswith('.d.ts'):
+                    ts_files.append(os.path.join(root, file))
+        
+        self.assertGreater(len(ts_files), 0, "Should have generated TypeScript files")
+        
+        for ts_file in ts_files:
+            with open(ts_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Skip enum files (they don't have createInstance)
+            if '@jsonObject' not in content:
+                continue
+            
+            # Verify createInstance method exists
+            self.assertIn('public static createInstance()', content,
+                f"createInstance() method should be generated in {os.path.basename(ts_file)}")
+            
+            # Verify it returns the class type
+            class_name_match = re.search(r'export class (\w+)', content)
+            if class_name_match:
+                class_name = class_name_match.group(1)
+                self.assertIn(f'createInstance(): {class_name}', content,
+                    f"createInstance() should return {class_name} in {os.path.basename(ts_file)}")
+                self.assertIn(f'return new {class_name}(', content,
+                    f"createInstance() should call new {class_name}() in {os.path.basename(ts_file)}")
         

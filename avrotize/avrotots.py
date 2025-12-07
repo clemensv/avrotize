@@ -160,6 +160,7 @@ class AvroToTypeScript:
             'is_array': field['definition']['is_array'],
             'is_union': field['definition']['is_union'],
             'docstring': field['docstring'],
+            'test_value': self.generate_test_value(field['definition']['type'], field['definition']['is_enum']),
         } for field in fields]
 
         imports_with_paths: Dict[str, str] = {}
@@ -241,6 +242,47 @@ class AvroToTypeScript:
             'is_union': self.generated_types.get(import_name, '') == 'union',
             'is_enum': self.generated_types.get(import_name, '') == 'enum',
         }
+
+    def generate_test_value(self, field_type: str, is_enum: bool = False) -> str:
+        """Generate a test value for a TypeScript field type."""
+        # Strip nullable marker
+        is_nullable = field_type.endswith('?')
+        field_type = self.strip_nullable(field_type)
+        
+        # Handle arrays
+        if field_type.endswith('[]'):
+            inner_type = field_type[:-2]
+            inner_value = self.generate_test_value(inner_type, is_enum)
+            return f'[{inner_value}]'
+        
+        # Handle map/dict types
+        if field_type.startswith('{ [key: string]:'):
+            return "{ 'key': 'value' }"
+        
+        # Handle union types (pipe-separated)
+        if '|' in field_type:
+            first_type = field_type.split('|')[0].strip()
+            return self.generate_test_value(first_type, is_enum)
+        
+        # Handle enums - use first value (will be set via template)
+        if is_enum:
+            return f'{field_type}.values()[0]'
+        
+        # Handle primitive types
+        primitive_values = {
+            'string': "'sample-string'",
+            'number': '42',
+            'boolean': 'true',
+            'null': 'null',
+            'Date': "new Date('2024-01-01T00:00:00Z')",
+            'any': "{ test: 'data' }",
+        }
+        
+        if field_type in primitive_values:
+            return primitive_values[field_type]
+        
+        # For complex types (classes), call their createInstance method
+        return f'{field_type}.createInstance()'
 
     def get_is_json_match_clause(self, field_name: str, field_type: str, field_is_enum: bool) -> str:
         """Generates the isJsonMatch clause for a field."""
