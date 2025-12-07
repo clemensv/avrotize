@@ -1248,6 +1248,7 @@
         "avro_schema_path": "input_file_path",
         "cs_file_path": "output_file_path",
         "avro_annotation": "args.avro_annotation",
+        "protobuf_net_annotation": "args.protobuf_net_annotation",
         "system_text_json_annotation": "args.system_text_json_annotation",
         "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
         "system_xml_annotation": "args.system_xml_annotation",
@@ -1288,6 +1289,13 @@
         "name": "--avro-annotation",
         "type": "bool",
         "help": "Use Avro annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--protobuf-net-annotation",
+        "type": "bool",
+        "help": "Use protobuf-net annotations",
         "default": false,
         "required": false
       },

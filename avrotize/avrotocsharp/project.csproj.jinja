@@ -8,6 +8,9 @@
         {%- if avro_annotation %}
         <PackageReference Include="Apache.Avro" Version="{{ CSHARP_AVRO_VERSION }}" />
         {%- endif %}
+        {%- if protobuf_net_annotation %}
+        <PackageReference Include="protobuf-net" Version="{{ PROTOBUF_NET_VERSION }}" />
+        {%- endif %}
         {%- if newtonsoft_json_annotation %}
         <PackageReference Include="Newtonsoft.Json" Version="{{ NEWTONSOFT_JSON_VERSION }}" />
         {%- endif %}

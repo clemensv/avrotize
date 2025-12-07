@@ -41,6 +41,11 @@ except ValueError:
     SYSTEM_MEMORY_DATA_VERSION = '9.0.3'
 
 try:
+    PROTOBUF_NET_VERSION = get_dependency_version('cs', 'net90', 'protobuf-net')
+except ValueError:
+    PROTOBUF_NET_VERSION = '3.2.30'
+
+try:
     NUNIT_VERSION = get_dependency_version('cs', 'net90', 'NUnit')
 except ValueError:
     NUNIT_VERSION = '4.3.2'

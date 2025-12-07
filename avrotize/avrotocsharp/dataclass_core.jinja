@@ -1,4 +1,4 @@
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation %}
     /// <summary>
     /// Creates an object from the data
     /// </summary>
@@ -11,7 +11,7 @@
         if ( data is {{ class_name }}) return ({{ class_name }})data;
         if ( contentTypeString == null ) contentTypeString = System.Net.Mime.MediaTypeNames.Application.Octet;
         var contentType = new System.Net.Mime.ContentType(contentTypeString);
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation %}
         if ( contentType.MediaType.EndsWith("+gzip"))
         {
             var stream = data switch
@@ -88,6 +88,17 @@
             }
         }
     {%- endif %}
+    {%- if protobuf_net_annotation %}
+        if ( contentType.MediaType.StartsWith("application/x-protobuf") || contentType.MediaType.StartsWith("application/protobuf") || contentType.MediaType.StartsWith("application/vnd.google.protobuf"))
+        {
+            var stream = data switch
+            {
+                System.IO.Stream s => s, System.BinaryData bd => bd.ToStream(), byte[] bytes => new System.IO.MemoryStream(bytes),
+                _ => throw new NotSupportedException("Data is not of a supported type for conversion to Stream")
+            };
+            return global::ProtoBuf.Serializer.Deserialize<{{ class_name }}>(stream);
+        }
+    {%- endif %}
     {%- if system_xml_annotation %}
         if ( contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Text.Xml) || contentType.MediaType.StartsWith(System.Net.Mime.MediaTypeNames.Application.Xml) || contentType.MediaType.EndsWith("+xml"))
         {
@@ -144,7 +155,7 @@
     {%- if avro_annotation %}
     {%- endif%}
 
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation %}
     /// <summary>
     /// Converts the object to a byte array
     /// </summary>
@@ -201,7 +212,17 @@
             }
         }
     {%- endif %}
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+    {%- if protobuf_net_annotation %}
+        if (contentType.MediaType.StartsWith("application/x-protobuf") || contentType.MediaType.StartsWith("application/protobuf") || contentType.MediaType.StartsWith("application/vnd.google.protobuf"))
+        {
+            using (var stream = new System.IO.MemoryStream())
+            {
+                global::ProtoBuf.Serializer.Serialize(stream, this);
+                result = stream.ToArray();
+            }
+        }
+    {%- endif %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation %}
     if (result != null && contentType.MediaType.EndsWith("+gzip"))
         {
             var stream = new System.IO.MemoryStream();

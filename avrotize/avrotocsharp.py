@@ -14,6 +14,7 @@ from avrotize.constants import (
     NEWTONSOFT_JSON_VERSION,
     SYSTEM_TEXT_JSON_VERSION,
     SYSTEM_MEMORY_DATA_VERSION,
+    PROTOBUF_NET_VERSION,
     NUNIT_VERSION,
     NUNIT_ADAPTER_VERSION,
     MSTEST_SDK_VERSION,
@@ -50,6 +51,7 @@ class AvroToCSharp:
         self.newtonsoft_json_annotation = False
         self.system_xml_annotation = False
         self.avro_annotation = False
+        self.protobuf_net_annotation = False
         self.generated_types: Dict[str,str] = {}
         self.generated_avro_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
         self.type_dict: Dict[str, Dict] = {}
@@ -177,7 +179,10 @@ class AvroToCSharp:
             else:
                 class_definition += f"[XmlRoot(\"{class_name}\")]\n"
 
-        fields_str = [self.generate_property(field, class_name, avro_namespace) for field in avro_schema.get('fields', [])]
+        if self.protobuf_net_annotation:
+            class_definition += "[ProtoContract]\n"
+
+        fields_str = [self.generate_property(index + 1, field, class_name, avro_namespace) for index, field in enumerate(avro_schema.get('fields', []))]
         class_body = "\n".join(fields_str)
         class_definition += f"public partial class {class_name}"
         if self.avro_annotation:
@@ -250,6 +255,7 @@ class AvroToCSharp:
             "avrotocsharp/dataclass_core.jinja",
             class_name=class_name,
             avro_annotation=self.avro_annotation,
+            protobuf_net_annotation=self.protobuf_net_annotation,
             system_text_json_annotation=self.system_text_json_annotation,
             newtonsoft_json_annotation=self.newtonsoft_json_annotation,
             system_xml_annotation=self.system_xml_annotation, 
@@ -516,6 +522,7 @@ class AvroToCSharp:
                 union_type_name = union_type.rsplit('.', 1)[-1]
             if self.is_csharp_reserved_word(union_type_name):
                 union_type_name = f"@{union_type_name}"
+            proto_member_name = union_type_name[1:] if union_type_name.startswith("@") else union_type_name
             class_definition_objctr += f"{INDENT*3}if (obj is {union_type})\n{INDENT*3}{{\n{INDENT*4}self.{union_type_name} = ({union_type})obj;\n{INDENT*4}return self;\n{INDENT*3}}}\n"
             if union_type in self.generated_types and self.generated_types[union_type] == "class":
                 class_definition_genericrecordctor += f"{INDENT*3}if (obj.Schema.Fullname == {union_type}.AvroSchema.Fullname)\n{INDENT*3}{{\n{INDENT*4}this.{union_type_name} = new {union_type}(obj);\n{INDENT*4}return;\n{INDENT*3}}}\n"
@@ -524,6 +531,7 @@ class AvroToCSharp:
                 f"{INDENT*2}public {union_class_name}({union_type}? {union_type_name})\n{INDENT*2}{{\n{INDENT*3}this.{union_type_name} = {union_type_name};\n{INDENT*2}}}\n"
             class_definition_decls += \
                 f"{INDENT*2}/// <summary>\n{INDENT*2}/// Gets the {union_type_name} value\n{INDENT*2}/// </summary>\n" + \
+                (f"{INDENT*2}[ProtoMember({i+1}, Name=\"{proto_member_name}\")]\n" if self.protobuf_net_annotation else "") + \
                 f"{INDENT*2}public {union_type}? {union_type_name} {{ get; set; }} = null;\n"
             class_definition_toobject += f"{INDENT*3}if ({union_type_name} != null) {{\n{INDENT*4}return {union_type_name};\n{INDENT*3}}}\n"
 
@@ -573,6 +581,8 @@ class AvroToCSharp:
         if self.system_text_json_annotation:
             class_definition += \
                 f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({union_class_name}))]\n"
+        if self.protobuf_net_annotation:
+            class_definition += f"{INDENT}[ProtoContract]\n"
         class_definition += \
             f"{INDENT}public sealed class {union_class_name}"
         if self.system_text_json_annotation:
@@ -711,7 +721,7 @@ class AvroToCSharp:
             return avro_type.get('type') == 'enum'
         return False
 
-    def generate_property(self, field: Dict, class_name: str, parent_namespace: str) -> str:
+    def generate_property(self, field_index: int, field: Dict, class_name: str, parent_namespace: str) -> str:
         """ Generates a property """
         is_enum_type = self.is_enum_type(field['type'])
         field_type = self.convert_avro_type_to_csharp(
@@ -726,6 +736,9 @@ class AvroToCSharp:
             field_name += "_"
         prop = ''
         prop += f"{INDENT}/// <summary>\n{INDENT}/// { field.get('doc', field_name) }\n{INDENT}/// </summary>\n"
+        
+        if self.protobuf_net_annotation:
+            prop += f"{INDENT}[ProtoMember({field_index}, Name=\"{annotation_name}\")]\n"
         
         # Add XML serialization attribute if enabled
         if self.system_xml_annotation:
@@ -785,6 +798,8 @@ class AvroToCSharp:
             # Common using statements (add more as needed)
             file_content = "using System;\nusing System.Collections.Generic;\n"
             file_content += "using System.Linq;\n"
+            if self.protobuf_net_annotation:
+                file_content += "using ProtoBuf;\n"
             if self.system_text_json_annotation:
                 file_content += "using System.Text.Json;\n"
                 file_content += "using System.Text.Json.Serialization;\n"
@@ -833,7 +848,8 @@ class AvroToCSharp:
                 avro_annotation=self.avro_annotation,
                 system_xml_annotation=self.system_xml_annotation,
                 system_text_json_annotation=self.system_text_json_annotation,
-                newtonsoft_json_annotation=self.newtonsoft_json_annotation
+                newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                protobuf_net_annotation=self.protobuf_net_annotation
             )
         elif type_kind == "enum":
             test_class_definition = process_template(
@@ -845,7 +861,8 @@ class AvroToCSharp:
                 avro_annotation=self.avro_annotation,
                 system_xml_annotation=self.system_xml_annotation,
                 system_text_json_annotation=self.system_text_json_annotation,
-                newtonsoft_json_annotation=self.newtonsoft_json_annotation
+                newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                protobuf_net_annotation=self.protobuf_net_annotation
             )
 
         test_file_path = os.path.join(test_directory_path, f"{test_class_name}.cs")
@@ -967,10 +984,12 @@ class AvroToCSharp:
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
                         newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                        protobuf_net_annotation=self.protobuf_net_annotation,
                         CSHARP_AVRO_VERSION=CSHARP_AVRO_VERSION,
                         NEWTONSOFT_JSON_VERSION=NEWTONSOFT_JSON_VERSION,
                         SYSTEM_TEXT_JSON_VERSION=SYSTEM_TEXT_JSON_VERSION,
                         SYSTEM_MEMORY_DATA_VERSION=SYSTEM_MEMORY_DATA_VERSION,
+                        PROTOBUF_NET_VERSION=PROTOBUF_NET_VERSION,
                         NUNIT_VERSION=NUNIT_VERSION,
                         NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
                         MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
@@ -988,6 +1007,7 @@ class AvroToCSharp:
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
                         newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                        protobuf_net_annotation=self.protobuf_net_annotation,
                         NUNIT_VERSION=NUNIT_VERSION,
                         NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
                         MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
@@ -1013,7 +1033,8 @@ def convert_avro_to_csharp(
     system_text_json_annotation=False, 
     newtonsoft_json_annotation=False, 
     system_xml_annotation=False,  # New parameter
-    avro_annotation=False
+    avro_annotation=False,
+    protobuf_net_annotation=False
 ):
     """Converts Avro schema to C# classes
 
@@ -1027,6 +1048,7 @@ def convert_avro_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
+        protobuf_net_annotation (bool, optional): Use protobuf-net annotations. Defaults to False.
     """
 
     if not base_namespace:
@@ -1038,6 +1060,7 @@ def convert_avro_to_csharp(
     avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     avrotocs.system_xml_annotation = system_xml_annotation  # Set the flag
     avrotocs.avro_annotation = avro_annotation
+    avrotocs.protobuf_net_annotation = protobuf_net_annotation
     avrotocs.convert(avro_schema_path, cs_file_path)
 
 
@@ -1050,7 +1073,8 @@ def convert_avro_schema_to_csharp(
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,  # New parameter
-    avro_annotation: bool = False
+    avro_annotation: bool = False,
+    protobuf_net_annotation: bool = False
 ):
     """Converts Avro schema to C# classes
 
@@ -1064,6 +1088,7 @@ def convert_avro_schema_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
+        protobuf_net_annotation (bool, optional): Use protobuf-net annotations. Defaults to False.
     """
     avrotocs = AvroToCSharp(base_namespace)
     avrotocs.project_name = project_name
@@ -1072,4 +1097,5 @@ def convert_avro_schema_to_csharp(
     avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     avrotocs.system_xml_annotation = system_xml_annotation  # Set the flag
     avrotocs.avro_annotation = avro_annotation
+    avrotocs.protobuf_net_annotation = protobuf_net_annotation
     avrotocs.convert_schema(avro_schema, output_dir)
