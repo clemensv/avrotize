@@ -1,0 +1,77 @@
+/** Test file for {{ class_name }} */
+import { {{ class_name }} } from './{{ class_name }}.js';
+{%- for import_type, import_path in imports.items() %}
+import { {{ import_type }} } from '{{ import_path }}';
+{%- endfor %}
+
+describe('{{ class_name }}', () => {
+    let instance: {{ class_name }};
+
+    beforeEach(() => {
+        instance = {{ class_name }}.createInstance();
+    });
+
+    describe('createInstance', () => {
+        it('should create a valid instance', () => {
+            expect(instance).toBeInstanceOf({{ class_name }});
+        });
+
+        it('should create instances with consistent values', () => {
+            const instance1 = {{ class_name }}.createInstance();
+            const instance2 = {{ class_name }}.createInstance();
+            {%- for field in fields %}
+            expect(instance1.{{ field.name }}).toEqual(instance2.{{ field.name }});
+            {%- endfor %}
+        });
+    });
+
+    {%- for field in fields %}
+
+    describe('{{ field.name }} property', () => {
+        it('should have a valid {{ field.name }} value', () => {
+            expect(instance.{{ field.name }}).toBeDefined();
+        });
+
+        it('should accept assigned values', () => {
+            const testValue = {{ field.test_value }};
+            instance.{{ field.name }} = testValue;
+            expect(instance.{{ field.name }}).toEqual(testValue);
+        });
+    });
+    {%- endfor %}
+
+    {%- if typed_json_annotation %}
+
+    describe('JSON serialization', () => {
+        it('should serialize to JSON and deserialize back', () => {
+            const bytes = instance.toByteArray('application/json');
+            const restored = {{ class_name }}.fromData(bytes, 'application/json');
+            {%- for field in fields %}
+            expect(restored.{{ field.name }}).toEqual(instance.{{ field.name }});
+            {%- endfor %}
+        });
+
+        it('should match JSON structure', () => {
+            const jsonObj = {
+                {%- for field in fields %}
+                {{ field.original_name }}: instance.{{ field.name }}{% if not loop.last %},{% endif %}
+                {%- endfor %}
+            };
+            expect({{ class_name }}.isJsonMatch(jsonObj)).toBe(true);
+        });
+    });
+    {%- endif %}
+
+    {%- if avro_annotation %}
+
+    describe('Avro serialization', () => {
+        it('should serialize to Avro and deserialize back', () => {
+            const bytes = instance.toByteArray('application/vnd.apache.avro+avro');
+            const restored = {{ class_name }}.fromData(bytes, 'application/vnd.apache.avro+avro');
+            {%- for field in fields %}
+            expect(restored.{{ field.name }}).toEqual(instance.{{ field.name }});
+            {%- endfor %}
+        });
+    });
+    {%- endif %}
+});

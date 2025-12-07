@@ -289,4 +289,46 @@ class TestAvroToTypeScript(unittest.TestCase):
                     f"createInstance() should return {class_name} in {os.path.basename(ts_file)}")
                 self.assertIn(f'return new {class_name}(', content,
                     f"createInstance() should call new {class_name}() in {os.path.basename(ts_file)}")
+
+    def test_jest_test_files_generated(self):
+        """
+        Test that Jest test files are generated for TypeScript classes.
+        These test files use createInstance() for testing serialization and properties.
+        """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "telemetry.avsc")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "telemetry-ts-jest-tests")
+        
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+        os.makedirs(ts_path, exist_ok=True)
+        
+        convert_avro_to_typescript(avro_path, ts_path, "telemetrytypes", typedjson_annotation=True)
+        
+        # Verify test directory exists
+        test_dir = os.path.join(ts_path, "test")
+        self.assertTrue(os.path.exists(test_dir), "test/ directory should be generated")
+        
+        # Find all test files
+        test_files = []
+        for root, dirs, files in os.walk(test_dir):
+            for file in files:
+                if file.endswith('.test.ts'):
+                    test_files.append(os.path.join(root, file))
+        
+        self.assertGreater(len(test_files), 0, "Should have generated Jest test files")
+        
+        for test_file in test_files:
+            with open(test_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Verify test file structure
+            self.assertIn("describe('", content,
+                f"Test file should use Jest describe() in {os.path.basename(test_file)}")
+            self.assertIn(".createInstance()", content,
+                f"Test file should use createInstance() in {os.path.basename(test_file)}")
+            self.assertIn("beforeEach", content,
+                f"Test file should have beforeEach setup in {os.path.basename(test_file)}")
+            self.assertIn("expect(", content,
+                f"Test file should have expect() assertions in {os.path.basename(test_file)}")
         
