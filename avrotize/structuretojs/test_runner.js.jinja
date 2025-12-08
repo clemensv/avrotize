@@ -1,0 +1,45 @@
+/**
+ * Test runner for all generated classes and enums
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// Find all test files
+const testDir = __dirname;
+const testFiles = fs.readdirSync(testDir)
+    .filter(file => file.startsWith('test_') && file.endsWith('.js') && file !== 'test_runner.js')
+    .map(file => path.join(testDir, file));
+
+console.log(`Running ${testFiles.length} test suites...\n`);
+
+let passedCount = 0;
+let failedCount = 0;
+
+// Run each test suite
+for (const testFile of testFiles) {
+    const testName = path.basename(testFile, '.js');
+    console.log(`\n=== ${testName} ===`);
+
+    try {
+        const testModule = require(testFile);
+        const success = testModule.runTests();
+
+        if (success) {
+            passedCount++;
+        } else {
+            failedCount++;
+        }
+    } catch (error) {
+        console.error(`✗ Failed to run ${testName}:`, error.message);
+        failedCount++;
+    }
+}
+
+console.log(`\n${'='.repeat(50)}`);
+console.log(`Total: ${testFiles.length} test suites`);
+console.log(`Passed: ${passedCount}`);
+console.log(`Failed: ${failedCount}`);
+console.log('='.repeat(50));
+
+process.exit(failedCount > 0 ? 1 : 0);

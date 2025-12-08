@@ -1,0 +1,58 @@
+/**
+ * Test suite for {{ enum_name }} enum
+ */
+
+const {{ enum_name }} = require('../src/{{ enum_path }}');
+
+/**
+ * Test enum values
+ */
+function testEnumValues() {
+    const expectedValues = [{{ expected_values }}];
+    const actualValues = Object.values({{ enum_name }});
+
+    if (actualValues.length !== expectedValues.length) {
+        throw new Error(`Expected ${expectedValues.length} values, got ${actualValues.length}`);
+    }
+
+    for (const expected of expectedValues) {
+        if (!actualValues.includes(expected)) {
+            throw new Error(`Enum value "${expected}" not found`);
+        }
+    }
+
+    console.log('✓ {{ enum_name }} has all expected values');
+}
+
+/**
+ * Test enum is frozen
+ */
+function testEnumFrozen() {
+    if (!Object.isFrozen({{ enum_name }})) {
+        throw new Error('Enum should be frozen');
+    }
+    console.log('✓ {{ enum_name }} is properly frozen');
+}
+
+/**
+ * Run all tests
+ */
+function runTests() {
+    try {
+        testEnumValues();
+        testEnumFrozen();
+        console.log('✓ All tests passed for {{ enum_name }}');
+        return true;
+    } catch (error) {
+        console.error('✗ Test failed for {{ enum_name }}:', error.message);
+        return false;
+    }
+}
+
+// Run tests if executed directly
+if (require.main === module) {
+    const success = runTests();
+    process.exit(success ? 0 : 1);
+}
+
+module.exports = { runTests };

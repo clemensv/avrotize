@@ -84,7 +84,7 @@
             }
             else if (data is System.BinaryData)
             {
-                return ((System.BinaryData)data).ToObjectFromJson<{{ class_name }}>();
+                return Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_name }}>(((System.BinaryData)data).ToString());
             }
         }
     {%- endif %}

@@ -1,0 +1,98 @@
+#!/usr/bin/env pwsh
+# PowerShell script to run tests with code coverage and generate reports
+# Generated for project: {{ project_name }}
+
+param(
+    [Parameter(HelpMessage="Minimum coverage threshold (default: 85)")]
+    [int]$Threshold = 85,
+    
+    [Parameter(HelpMessage="Generate HTML report")]
+    [switch]$HtmlReport = $false,
+    
+    [Parameter(HelpMessage="Open HTML report in browser")]
+    [switch]$OpenReport = $false,
+    
+    [Parameter(HelpMessage="Fail build if coverage below threshold")]
+    [switch]$FailOnLowCoverage = $true
+)
+
+Write-Host "🧪 Running tests with code coverage for {{ project_name }}..." -ForegroundColor Green
+
+# Clean previous coverage results
+$coverageDir = "./coverage"
+if (Test-Path $coverageDir) {
+    Remove-Item $coverageDir -Recurse -Force
+    Write-Host "🧹 Cleaned previous coverage results" -ForegroundColor Yellow
+}
+
+# Run tests with coverage collection
+Write-Host "📊 Collecting code coverage..." -ForegroundColor Blue
+$testResult = dotnet test --collect:"XPlat Code Coverage" --results-directory:"$coverageDir" --logger:"console;verbosity=detailed"
+$testExitCode = $LASTEXITCODE
+
+if ($testExitCode -ne 0) {
+    Write-Host "❌ Tests failed!" -ForegroundColor Red
+    exit $testExitCode
+}
+
+# Find coverage file
+$coverageFile = Get-ChildItem -Recurse -Path $coverageDir -Name "*.cobertura.xml" | Select-Object -First 1
+if (-not $coverageFile) {
+    Write-Host "❌ No coverage file found!" -ForegroundColor Red
+    exit 1
+}
+
+$coverageFilePath = Join-Path $coverageDir $coverageFile
+Write-Host "📄 Coverage file: $coverageFilePath" -ForegroundColor Green
+
+# Parse coverage percentage
+$coverage = Select-Xml -Path $coverageFilePath -XPath "/coverage/@line-rate"
+$coveragePercent = [math]::Round([double]$coverage.Node.Value * 100, 2)
+
+Write-Host "📈 Line Coverage: $coveragePercent%" -ForegroundColor $(if ($coveragePercent -ge $Threshold) { "Green" } else { "Red" })
+
+# Parse branch coverage
+$branchCoverage = Select-Xml -Path $coverageFilePath -XPath "/coverage/@branch-rate"
+$branchPercent = [math]::Round([double]$branchCoverage.Node.Value * 100, 2)
+Write-Host "🌿 Branch Coverage: $branchPercent%" -ForegroundColor $(if ($branchPercent -ge $Threshold) { "Green" } else { "Red" })
+
+# Generate HTML report if requested
+if ($HtmlReport) {
+    Write-Host "📊 Generating HTML coverage report..." -ForegroundColor Blue
+    
+    # Check if reportgenerator is installed
+    $reportGenExists = Get-Command reportgenerator -ErrorAction SilentlyContinue
+    if (-not $reportGenExists) {
+        Write-Host "⬇️ Installing ReportGenerator..." -ForegroundColor Yellow
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+    }
+    
+    $htmlReportPath = Join-Path $coverageDir "html"
+    reportgenerator "-reports:$coverageFilePath" "-targetdir:$htmlReportPath" "-reporttypes:Html"
+    
+    Write-Host "📊 HTML report generated: $htmlReportPath/index.html" -ForegroundColor Green
+    
+    if ($OpenReport) {
+        $indexPath = Join-Path $htmlReportPath "index.html"
+        Start-Process $indexPath
+        Write-Host "🌐 Opened coverage report in browser" -ForegroundColor Green
+    }
+}
+
+# Coverage summary
+Write-Host ""
+Write-Host "📊 Coverage Summary:" -ForegroundColor Cyan
+Write-Host "  Line Coverage: $coveragePercent% (Threshold: $Threshold%)" -ForegroundColor White
+Write-Host "  Branch Coverage: $branchPercent%" -ForegroundColor White
+Write-Host "  Status: $(if ($coveragePercent -ge $Threshold) { "✅ PASSED" } else { "❌ FAILED" })" -ForegroundColor $(if ($coveragePercent -ge $Threshold) { "Green" } else { "Red" })
+
+# Fail if coverage is below threshold and FailOnLowCoverage is set
+if ($FailOnLowCoverage -and $coveragePercent -lt $Threshold) {
+    Write-Host ""
+    Write-Host "❌ Coverage $coveragePercent% is below the required threshold of $Threshold%" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+Write-Host "✅ Coverage analysis completed successfully!" -ForegroundColor Green
+exit 0

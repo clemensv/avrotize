@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "definitions": {
+    "Person": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "name": "Person",
+      "properties": {
+        "id": {
+          "type": "int64"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "age": {
+          "type": [
+            "int32",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "Address": {
+      "type": "object",
+      "name": "Address",
+      "properties": {
+        "street": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string",
+          "const": "USA"
+        }
+      }
+    },
+    "Pet": {
+      "type": "choice",
+      "selector": "petType",
+      "choices": {
+        "dog": {
+          "$ref": "#/definitions/Dog"
+        },
+        "cat": {
+          "$ref": "#/definitions/Cat"
+        }
+      },
+      "name": "Pet"
+    },
+    "Dog": {
+      "type": "object",
+      "required": [
+        "petType",
+        "breed"
+      ],
+      "name": "Dog",
+      "properties": {
+        "petType": {
+          "type": "string",
+          "const": "dog"
+        },
+        "breed": {
+          "type": "string"
+        },
+        "barkVolume": {
+          "type": "int32"
+        }
+      }
+    },
+    "Cat": {
+      "type": "object",
+      "required": [
+        "petType"
+      ],
+      "name": "Cat",
+      "properties": {
+        "petType": {
+          "type": "string",
+          "const": "cat"
+        },
+        "meowPitch": {
+          "type": "double"
+        },
+        "isLazy": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "pending"
+      ],
+      "name": "Status"
+    }
+  },
+  "$id": "https://example.com/schemas/sample-openapi-3.1-api/1.0.0",
+  "description": "A sample API demonstrating OpenAPI 3.1 features",
+  "$uses": [
+    "JSONStructureValidation"
+  ]
+}

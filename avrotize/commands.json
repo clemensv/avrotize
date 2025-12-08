@@ -1967,6 +1967,51 @@
     ]
   },
   {
+    "command": "s2js",
+    "description": "Convert JSON Structure to JavaScript classes",
+    "group": "2_ProgLanguages",
+    "function": {
+      "name": "avrotize.structuretojs.convert_structure_to_javascript",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "js_file_path": "output_file_path",
+        "package_name": "args.package",
+        "avro_annotation": "args.avro_annotation"
+      }
+    },
+    "extensions": [".struct.json", ".json"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the JavaScript classes",
+        "required": true
+      },
+      {
+        "name": "--package",
+        "type": "str",
+        "help": "JavaScript package name",
+        "required": false
+      },
+      {
+        "name": "--avro-annotation",
+        "type": "bool",
+        "help": "Add Avro binary serialization support",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}-js",
+    "prompts": []
+  },
+  {
     "command": "s2go",
     "description": "Convert JSON Structure to Go structs",
     "group": "2_ProgLanguages",
@@ -3338,6 +3383,85 @@
         "name": "--namespace",
         "message": "Enter the namespace for the JSON Structure schema",
         "type": "str",
+        "required": false
+      }
+    ]
+  },
+  {
+    "command": "oas2s",
+    "description": "Convert OpenAPI 3.x document to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.openapitostructure.convert_openapi_to_structure_files",
+      "args": {
+        "openapi_file_path": "input_file_path",
+        "structure_schema_path": "output_file_path",
+        "root_namespace": "args.namespace",
+        "preserve_composition": "args.preserve_composition",
+        "detect_discriminators": "args.detect_discriminators",
+        "lift_inline_schemas": "args.lift_inline_schemas"
+      }
+    },
+    "extensions": [
+      ".yaml",
+      ".yml",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the OpenAPI document (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure output file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the JSON Structure schema",
+        "required": false
+      },
+      {
+        "name": "--preserve-composition",
+        "type": "bool",
+        "help": "Preserve composition keywords (allOf, oneOf, anyOf) - requires Conditional Composition extension",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--detect-discriminators",
+        "type": "bool",
+        "help": "Detect OpenAPI discriminator patterns",
+        "default": true,
+        "required": false
+      },
+      {
+        "name": "--lift-inline-schemas",
+        "type": "bool",
+        "help": "Lift inline schemas from paths to named definitions",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": [
+      {
+        "name": "--namespace",
+        "message": "Enter the namespace for the JSON Structure schema",
+        "type": "str",
+        "required": false
+      },
+      {
+        "name": "--lift-inline-schemas",
+        "message": "Lift inline schemas from paths to definitions?",
+        "type": "bool",
+        "default": false,
         "required": false
       }
     ]
