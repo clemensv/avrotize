@@ -122,6 +122,17 @@ public class {{ test_class_name }}
         Assert.That(newInstance, Is.EqualTo(_instance));
     }
     {%- endif %}
+    {%- if protobuf_net_annotation %}
+    /// <summary> Testing Protobuf serializer </summary>
+    [Test]
+    public void Test_ToByteArray_FromData_Protobuf()
+    {
+        var mediaType = "application/x-protobuf";
+        var bytes = _instance.ToByteArray(mediaType);
+        var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
+        Assert.That(newInstance, Is.EqualTo(_instance));
+    }
+    {%- endif %}
     {%- if system_xml_annotation %}
     /// <summary> Testing XML serializer </summary>
     [Test]
