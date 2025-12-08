@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "definitions": {
+    "BulkResponse": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "name": "BulkResponse",
+        "properties": {
+          "code": {
+            "type": "int32"
+          },
+          "errors": {
+            "type": "any"
+          },
+          "input": {
+            "type": "any"
+          },
+          "message": {
+            "type": "string"
+          },
+          "result": {
+            "type": "any"
+          }
+        }
+      },
+      "name": "BulkResponse"
+    },
+    "Episode": {
+      "type": "any",
+      "name": "Episode"
+    },
+    "EpisodeVote": {
+      "type": "object",
+      "name": "EpisodeVote",
+      "properties": {
+        "episode_id": {
+          "type": "int32"
+        },
+        "vote": {
+          "type": "int32",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "voted_at": {
+          "type": "int32"
+        }
+      }
+    },
+    "MarkType": {
+      "type": "object",
+      "properties": {},
+      "name": "MarkType"
+    },
+    "MarkedEpisode": {
+      "type": "object",
+      "name": "MarkedEpisode",
+      "properties": {
+        "_embedded": {
+          "type": "object",
+          "name": "MarkedEpisode",
+          "properties": {
+            "episode": {
+              "type": {
+                "$ref": "#/definitions/Episode"
+              }
+            }
+          }
+        },
+        "episode_id": {
+          "type": "int32"
+        },
+        "marked_at": {
+          "type": "int32"
+        },
+        "type": {
+          "type": {
+            "$ref": "#/definitions/MarkType"
+          }
+        }
+      }
+    },
+    "Network": {
+      "type": "any",
+      "name": "Network"
+    },
+    "NetworkFollow": {
+      "type": "object",
+      "name": "NetworkFollow",
+      "properties": {
+        "_embedded": {
+          "type": "object",
+          "name": "NetworkFollow",
+          "properties": {
+            "network": {
+              "type": {
+                "$ref": "#/definitions/Network"
+              }
+            }
+          }
+        },
+        "network_id": {
+          "type": "int32"
+        }
+      }
+    },
+    "Person": {
+      "type": "any",
+      "name": "Person"
+    },
+    "PersonFollow": {
+      "type": "object",
+      "name": "PersonFollow",
+      "properties": {
+        "_embedded": {
+          "type": "object",
+          "name": "PersonFollow",
+          "properties": {
+            "person": {
+              "type": {
+                "$ref": "#/definitions/Person"
+              }
+            }
+          }
+        },
+        "person_id": {
+          "type": "int32"
+        }
+      }
+    },
+    "Show": {
+      "type": "any",
+      "name": "Show"
+    },
+    "ShowFollow": {
+      "type": "object",
+      "name": "ShowFollow",
+      "properties": {
+        "_embedded": {
+          "type": "object",
+          "name": "ShowFollow",
+          "properties": {
+            "show": {
+              "type": {
+                "$ref": "#/definitions/Show"
+              }
+            }
+          }
+        },
+        "show_id": {
+          "type": "int32"
+        }
+      }
+    },
+    "ShowVote": {
+      "type": "object",
+      "name": "ShowVote",
+      "properties": {
+        "show_id": {
+          "type": "int32"
+        },
+        "vote": {
+          "type": "int32",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "voted_at": {
+          "type": "int32"
+        }
+      }
+    },
+    "Tag": {
+      "type": "object",
+      "name": "Tag",
+      "properties": {
+        "id": {
+          "type": "int32"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "TagInstance": {
+      "type": "object",
+      "name": "TagInstance",
+      "properties": {
+        "_embedded": {
+          "type": "object",
+          "name": "TagInstance",
+          "properties": {
+            "show": {
+              "type": {
+                "$ref": "#/definitions/Show"
+              }
+            }
+          }
+        },
+        "show_id": {
+          "type": "int32"
+        }
+      }
+    },
+    "Webchannel": {
+      "type": "any",
+      "name": "Webchannel"
+    },
+    "WebchannelFollow": {
+      "type": "object",
+      "name": "WebchannelFollow",
+      "properties": {
+        "_embedded": {
+          "type": "object",
+          "name": "WebchannelFollow",
+          "properties": {
+            "webchannel": {
+              "type": {
+                "$ref": "#/definitions/Webchannel"
+              }
+            }
+          }
+        },
+        "webchannel_id": {
+          "type": "int32"
+        }
+      }
+    }
+  },
+  "$id": "https://example.com/schemas/tvmaze-user-api/1.0",
+  "description": "Access to the user API is only possible for users with a [premium](http://www.tvmaze.com/premium) account. A user can only access their own user data.\n\nAuthentication uses HTTP Basic. Use the TVmaze username as authentication username, and the TVmaze API key as authentication password. Your API key can be found on your [dashboard](http://www.tvmaze.com/dashboard). To try out these API calls from this page, click the \"Authorize\" button on top and input your credentials.\n",
+  "$uses": [
+    "JSONStructureValidation"
+  ]
+}

@@ -63,6 +63,7 @@ Converting from Avrotize Schema:
 Direct conversions (JSON Structure):
 
 - [`avrotize s2p`](#convert-json-structure-to-protocol-buffers) - Convert JSON Structure to Protocol Buffers (.proto files).
+- [`avrotize oas2s`](#convert-openapi-to-json-structure) - Convert OpenAPI 3.x document to JSON Structure.
 
 Generate code from Avrotize Schema:
 
@@ -1151,6 +1152,47 @@ Conversion notes:
 - Type references (`$ref`) are resolved and converted to appropriate message types.
 - Choice types (unions) are converted to Protocol Buffers `oneof` constructs.
 - Abstract types and extensions (`$extends`) are handled by generating appropriate message hierarchies.
+
+### Convert OpenAPI to JSON Structure
+
+```bash
+avrotize oas2s <path_to_openapi_file> --out <path_to_json_structure_file> [--namespace <namespace>] [--preserve-composition] [--detect-discriminators] [--lift-inline-schemas]
+```
+
+Parameters:
+
+- `<path_to_openapi_file>`: The path to the OpenAPI 3.x document (JSON or YAML). If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Structure schema file to write the conversion result to. If omitted, the result is written to stdout.
+- `--namespace`: (optional) Namespace for the JSON Structure schema.
+- `--preserve-composition`: (optional) Preserve composition keywords (allOf, oneOf, anyOf). Default is `true`.
+- `--detect-discriminators`: (optional) Detect OpenAPI discriminator patterns and convert to choice types. Default is `true`.
+- `--lift-inline-schemas`: (optional) Lift inline schemas from paths/operations to named definitions. Default is `false`.
+
+Conversion notes:
+
+- The tool extracts schema definitions from `components.schemas` in the OpenAPI document and converts them to JSON Structure format.
+- OpenAPI-specific keywords are handled as follows:
+  - `nullable`: Converted to type union with `null`
+  - `readOnly`, `writeOnly`, `deprecated`: Mapped to metadata annotations
+  - `discriminator`: Used to create choice types with proper discriminator mapping
+- OpenAPI `$ref` references (e.g., `#/components/schemas/Pet`) are converted to JSON Structure references (`#/definitions/Pet`).
+- All JSON Schema features supported by the JSON Schema converter are preserved, including:
+  - Object structures with properties and required fields
+  - Enumerations
+  - Numeric and string constraints (minimum, maximum, minLength, maxLength, pattern)
+  - Array and set types (with uniqueItems)
+  - Map types (from additionalProperties)
+  - Composition (allOf, oneOf, anyOf)
+
+Example:
+
+```bash
+# Convert an OpenAPI document to JSON Structure
+avrotize oas2s petstore.yaml --out petstore.struct.json
+
+# With namespace and inline schema lifting
+avrotize oas2s api.json --out api.struct.json --namespace com.example.api --lift-inline-schemas
+```
 
 ### Create the Parsing Canonical Form (PCF) of an Avrotize schema
 

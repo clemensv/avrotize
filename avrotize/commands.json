@@ -1070,7 +1070,10 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1251,7 +1254,6 @@
         "system_text_json_annotation": "args.system_text_json_annotation",
         "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
         "system_xml_annotation": "args.system_xml_annotation",
-        "msgpack_annotation": "args.msgpack_annotation",
         "pascal_properties": "args.pascal_properties",
         "base_namespace": "args.namespace"
       }
@@ -1310,13 +1312,6 @@
         "name": "--newtonsoft-json-annotation",
         "type": "bool",
         "help": "Use Newtonsoft.Json annotations",
-        "default": false,
-        "required": false
-      },
-      {
-        "name": "--msgpack-annotation",
-        "type": "bool",
-        "help": "Use MessagePack annotations",
         "default": false,
         "required": false
       },
@@ -1712,7 +1707,10 @@
         "json_annotation": "args.json_annotation"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1762,7 +1760,10 @@
         "csv_schema_path": "output_file_path"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1794,7 +1795,10 @@
         "serde_annotation": "args.json_annotation"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1853,7 +1857,10 @@
         "avro_annotation": "args.avro_annotation"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1913,7 +1920,10 @@
         "jackson_annotation": "args.jackson_annotation"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1982,7 +1992,10 @@
         "package_username": "args.package_username"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -3203,7 +3216,10 @@
         "target_namespace": "args.namespace"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -3245,7 +3261,10 @@
         "cddl_file_path": "output_file_path"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -3338,6 +3357,85 @@
         "name": "--namespace",
         "message": "Enter the namespace for the JSON Structure schema",
         "type": "str",
+        "required": false
+      }
+    ]
+  },
+  {
+    "command": "oas2s",
+    "description": "Convert OpenAPI 3.x document to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.openapitostructure.convert_openapi_to_structure_files",
+      "args": {
+        "openapi_file_path": "input_file_path",
+        "structure_schema_path": "output_file_path",
+        "root_namespace": "args.namespace",
+        "preserve_composition": "args.preserve_composition",
+        "detect_discriminators": "args.detect_discriminators",
+        "lift_inline_schemas": "args.lift_inline_schemas"
+      }
+    },
+    "extensions": [
+      ".yaml",
+      ".yml",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the OpenAPI document (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure output file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the JSON Structure schema",
+        "required": false
+      },
+      {
+        "name": "--preserve-composition",
+        "type": "bool",
+        "help": "Preserve composition keywords (allOf, oneOf, anyOf) - requires Conditional Composition extension",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--detect-discriminators",
+        "type": "bool",
+        "help": "Detect OpenAPI discriminator patterns",
+        "default": true,
+        "required": false
+      },
+      {
+        "name": "--lift-inline-schemas",
+        "type": "bool",
+        "help": "Lift inline schemas from paths to named definitions",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": [
+      {
+        "name": "--namespace",
+        "message": "Enter the namespace for the JSON Structure schema",
+        "type": "str",
+        "required": false
+      },
+      {
+        "name": "--lift-inline-schemas",
+        "message": "Lift inline schemas from paths to definitions?",
+        "type": "bool",
+        "default": false,
         "required": false
       }
     ]

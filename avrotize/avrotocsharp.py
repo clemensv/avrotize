@@ -18,6 +18,7 @@ from avrotize.constants import (
     NUNIT_VERSION,
     NUNIT_ADAPTER_VERSION,
     MSTEST_SDK_VERSION,
+    COVERLET_VERSION,
 )
 import glob
 
@@ -710,6 +711,8 @@ class AvroToCSharp:
     def is_enum_type(self, avro_type: Union[str, Dict, List]) -> bool:
         """ Checks if a type is an enum (including nullable enums) """
         if isinstance(avro_type, str):
+            if avro_type in ('null', 'boolean', 'int', 'long', 'float', 'double', 'bytes', 'string'):
+                return False
             schema = self.schema_doc
             name = avro_type.split('.')[-1]
             namespace = ".".join(avro_type.split('.')[:-1])
@@ -760,6 +763,8 @@ class AvroToCSharp:
                 prop += f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({field_type}))]\n"
         if self.newtonsoft_json_annotation:
             prop += f"{INDENT}[Newtonsoft.Json.JsonProperty(\"{annotation_name}\")]\n"
+            if is_enum_type:
+                prop += f"{INDENT}[Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]\n"
         
         # Determine initialization value
         initialization = ""
@@ -876,13 +881,14 @@ class AvroToCSharp:
         """ Retrieves fields for a given class name """
 
         class Field:
-            def __init__(self, fn: str, ft:str, tv:Any, ct: bool, pm: bool, ie: bool):
+            def __init__(self, fn: str, ft:str, tv:Any, ct: bool, pm: bool, ie: bool, iu: bool):
                 self.field_name = fn
                 self.field_type = ft
                 self.test_value = tv
                 self.is_const = ct
                 self.is_primitive = pm
                 self.is_enum = ie
+                self.is_union = iu
 
         fields: List[Field] = []
         if avro_schema and 'fields' in avro_schema:
@@ -897,16 +903,19 @@ class AvroToCSharp:
                 field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], str(avro_schema.get('namespace', '')))
                 is_class = field_type in self.generated_types and self.generated_types[field_type] == "class"
                 is_enum = self.is_enum_type(field['type'])
+                is_union = field_type in self.generated_types and self.generated_types[field_type] == "union"
+                test_value = self.get_test_value(field_type, field['type'], str(avro_schema.get('namespace', ''))) if not "const" in field else '\"'+str(field["const"])+'\"'
                 f = Field(field_name,
                           field_type,
-                          (self.get_test_value(field_type) if not "const" in field else '\"'+str(field["const"])+'\"'),
+                          test_value,
                           "const" in field and field["const"] is not None,
                           not is_class,
-                          is_enum)
+                          is_enum,
+                          is_union)
                 fields.append(f)
         return cast(List[Any], fields)
 
-    def get_test_value(self, csharp_type: str) -> str:
+    def get_test_value(self, csharp_type: str, avro_type: JsonNode = None, parent_namespace: str = '') -> str:
         """Returns a default test value based on the Avro type"""
         # For nullable object types, return typed null to avoid var issues
         if csharp_type == "object?":
@@ -928,6 +937,19 @@ class AvroToCSharp:
         }
         if csharp_type.endswith('?'):
             csharp_type = csharp_type[:-1]
+        
+        # Check if this is a union type (either by generated_types lookup or by type structure)
+        if csharp_type in self.generated_types and self.generated_types[csharp_type] == "union":
+            # For union types, we need to initialize with one of the valid options
+            # Find the first non-null type in the union and create a value for it
+            if isinstance(avro_type, list):
+                non_null_types = [t for t in avro_type if t != 'null']
+                if non_null_types:
+                    first_option = non_null_types[0]
+                    first_option_csharp = self.convert_avro_type_to_csharp('', 'Option0', first_option, parent_namespace)
+                    first_option_value = self.get_test_value(first_option_csharp, first_option, parent_namespace)
+                    return f'new {csharp_type}({first_option_value})'
+        
         return test_values.get(csharp_type, f'new {csharp_type}()')
 
     def convert_schema(self, schema: JsonNode, output_dir: str):
@@ -1012,7 +1034,36 @@ class AvroToCSharp:
                         newtonsoft_json_annotation=self.newtonsoft_json_annotation,
                         NUNIT_VERSION=NUNIT_VERSION,
                         NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
-                        MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
+                        MSTEST_SDK_VERSION=MSTEST_SDK_VERSION,
+                        COVERLET_VERSION=COVERLET_VERSION))
+
+        # Generate coverage scripts
+        if not os.path.exists(os.path.join(output_dir, "run_coverage.ps1")):
+            coverage_ps1_file = os.path.join(output_dir, "run_coverage.ps1")
+            with open(coverage_ps1_file, 'w', encoding='utf-8') as file:
+                file.write(process_template(
+                    "avrotocsharp/run_coverage.ps1.jinja", 
+                    project_name=project_name))
+        
+        if not os.path.exists(os.path.join(output_dir, "run_coverage.sh")):
+            coverage_sh_file = os.path.join(output_dir, "run_coverage.sh")
+            with open(coverage_sh_file, 'w', encoding='utf-8') as file:
+                file.write(process_template(
+                    "avrotocsharp/run_coverage.sh.jinja", 
+                    project_name=project_name))
+            # Make the shell script executable on Unix-like systems
+            try:
+                os.chmod(coverage_sh_file, 0o755)
+            except:
+                pass  # Ignore on Windows
+        
+        # Generate README with coverage documentation
+        if not os.path.exists(os.path.join(output_dir, "README.md")):
+            readme_file = os.path.join(output_dir, "README.md")
+            with open(readme_file, 'w', encoding='utf-8') as file:
+                file.write(process_template(
+                    "avrotocsharp/README.md.jinja", 
+                    project_name=project_name))
 
         self.output_dir = output_dir
         for avro_schema in (avs for avs in schema if isinstance(avs, dict)):
