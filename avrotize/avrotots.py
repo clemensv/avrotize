@@ -266,9 +266,9 @@ class AvroToTypeScript:
             first_type = field_type.split('|')[0].strip()
             return self.generate_test_value(first_type, is_enum)
         
-        # Handle enums - use first value (will be set via template)
+        # Handle enums - use first value with Object.values()
         if is_enum:
-            return f'{field_type}.values()[0]'
+            return f'Object.values({field_type})[0] as {field_type}'
         
         # Handle primitive types
         primitive_values = {
@@ -505,13 +505,6 @@ class AvroToTypeScript:
      */
     export class Type {
         /**
-         * Create a Type instance from an Avro schema.
-         * @param schema - Avro schema object or JSON string
-         * @returns Type instance
-         */
-        static forSchema(schema: any): Type;
-
-        /**
          * Encode a value to a Buffer.
          * @param obj - Value to encode
          * @returns Encoded Buffer
@@ -582,7 +575,7 @@ class AvroToTypeScript:
     }
 
     /**
-     * Parse an Avro schema.
+     * Parse an Avro schema and return a Type instance.
      * @param schema - Schema as string or object
      * @param options - Parse options
      * @returns Type instance

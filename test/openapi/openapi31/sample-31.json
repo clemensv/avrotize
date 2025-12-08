@@ -1,0 +1,99 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Sample OpenAPI 3.1 API",
+    "version": "1.0.0",
+    "description": "A sample API demonstrating OpenAPI 3.1 features"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "Person": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "email": {
+            "type": ["string", "null"],
+            "format": "email"
+          },
+          "age": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "street": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string",
+            "const": "USA"
+          }
+        }
+      },
+      "Pet": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/Dog" },
+          { "$ref": "#/components/schemas/Cat" }
+        ],
+        "discriminator": {
+          "propertyName": "petType",
+          "mapping": {
+            "dog": "#/components/schemas/Dog",
+            "cat": "#/components/schemas/Cat"
+          }
+        }
+      },
+      "Dog": {
+        "type": "object",
+        "required": ["petType", "breed"],
+        "properties": {
+          "petType": {
+            "type": "string",
+            "const": "dog"
+          },
+          "breed": {
+            "type": "string"
+          },
+          "barkVolume": {
+            "type": "integer"
+          }
+        }
+      },
+      "Cat": {
+        "type": "object",
+        "required": ["petType"],
+        "properties": {
+          "petType": {
+            "type": "string",
+            "const": "cat"
+          },
+          "meowPitch": {
+            "type": "number"
+          },
+          "isLazy": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Status": {
+        "type": "string",
+        "enum": ["active", "inactive", "pending"]
+      }
+    }
+  }
+}

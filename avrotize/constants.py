@@ -56,6 +56,11 @@ except ValueError:
     MSTEST_SDK_VERSION = '17.13.0'
 
 try:
+    COVERLET_VERSION = get_dependency_version('cs', 'net90', 'coverlet.collector')
+except ValueError:
+    COVERLET_VERSION = '6.0.4'
+
+try:
     MSGPACK_VERSION = get_dependency_version('cs', 'net90', 'MessagePack')
 except ValueError:
     MSGPACK_VERSION = '2.5.187'
