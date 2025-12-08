@@ -266,9 +266,9 @@ class AvroToTypeScript:
             first_type = field_type.split('|')[0].strip()
             return self.generate_test_value(first_type, is_enum)
         
-        # Handle enums - use first value (will be set via template)
+        # Handle enums - use first value with Object.values()
         if is_enum:
-            return f'{field_type}.values()[0]'
+            return f'Object.values({field_type})[0] as {field_type}'
         
         # Handle primitive types
         primitive_values = {
