@@ -861,13 +861,14 @@ class AvroToCSharp:
         """ Retrieves fields for a given class name """
 
         class Field:
-            def __init__(self, fn: str, ft:str, tv:Any, ct: bool, pm: bool, ie: bool):
+            def __init__(self, fn: str, ft:str, tv:Any, ct: bool, pm: bool, ie: bool, iu: bool):
                 self.field_name = fn
                 self.field_type = ft
                 self.test_value = tv
                 self.is_const = ct
                 self.is_primitive = pm
                 self.is_enum = ie
+                self.is_union = iu
 
         fields: List[Field] = []
         if avro_schema and 'fields' in avro_schema:
@@ -882,16 +883,19 @@ class AvroToCSharp:
                 field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], str(avro_schema.get('namespace', '')))
                 is_class = field_type in self.generated_types and self.generated_types[field_type] == "class"
                 is_enum = self.is_enum_type(field['type'])
+                is_union = field_type in self.generated_types and self.generated_types[field_type] == "union"
+                test_value = self.get_test_value(field_type, field['type'], str(avro_schema.get('namespace', ''))) if not "const" in field else '\"'+str(field["const"])+'\"'
                 f = Field(field_name,
                           field_type,
-                          (self.get_test_value(field_type) if not "const" in field else '\"'+str(field["const"])+'\"'),
+                          test_value,
                           "const" in field and field["const"] is not None,
                           not is_class,
-                          is_enum)
+                          is_enum,
+                          is_union)
                 fields.append(f)
         return cast(List[Any], fields)
 
-    def get_test_value(self, csharp_type: str) -> str:
+    def get_test_value(self, csharp_type: str, avro_type: JsonNode = None, parent_namespace: str = '') -> str:
         """Returns a default test value based on the Avro type"""
         # For nullable object types, return typed null to avoid var issues
         if csharp_type == "object?":
@@ -913,6 +917,19 @@ class AvroToCSharp:
         }
         if csharp_type.endswith('?'):
             csharp_type = csharp_type[:-1]
+        
+        # Check if this is a union type (either by generated_types lookup or by type structure)
+        if csharp_type in self.generated_types and self.generated_types[csharp_type] == "union":
+            # For union types, we need to initialize with one of the valid options
+            # Find the first non-null type in the union and create a value for it
+            if isinstance(avro_type, list):
+                non_null_types = [t for t in avro_type if t != 'null']
+                if non_null_types:
+                    first_option = non_null_types[0]
+                    first_option_csharp = self.convert_avro_type_to_csharp('', 'Option0', first_option, parent_namespace)
+                    first_option_value = self.get_test_value(first_option_csharp, first_option, parent_namespace)
+                    return f'new {csharp_type}({first_option_value})'
+        
         return test_values.get(csharp_type, f'new {csharp_type}()')
 
     def convert_schema(self, schema: JsonNode, output_dir: str):

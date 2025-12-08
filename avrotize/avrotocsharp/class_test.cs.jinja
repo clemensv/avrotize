@@ -133,6 +133,51 @@ public class {{ test_class_name }}
         Assert.That(newInstance, Is.EqualTo(_instance));
     }
     {%- endif %}
+    {%- if system_text_json_annotation %}
+    /// <summary> Testing JSON serializer </summary>
+    [Test]
+    public void Test_ToByteArray_FromData_Json()
+    {
+        var mediaType = "application/json";
+        var bytes = _instance.ToByteArray(mediaType);
+        var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
+        Assert.That(newInstance, Is.EqualTo(_instance));
+    }
+
+    /// <summary> Testing FromData with edge cases </summary>
+    [Test]
+    public void Test_FromData_EdgeCases()
+    {
+        // Test null data - FromData returns null for null input
+        Assert.That({{ class_base_name }}.FromData((byte[])null!, "application/json"), Is.Null);
+        // Test empty data - should throw JsonException for invalid JSON
+        Assert.Throws<System.Text.Json.JsonException>(() => {{ class_base_name }}.FromData(Array.Empty<byte>(), "application/json"));
+    }
+
+    /// <summary> Testing IsJsonMatch </summary>
+    [Test]
+    public void Test_IsJsonMatch()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(_instance);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        Assert.That({{ class_base_name }}.IsJsonMatch(doc.RootElement), Is.True);
+    }
+
+    /// <summary> Testing Gzip compression </summary>
+    [Test]
+    public void Test_ToByteArray_Gzip()
+    {
+        var mediaType = "application/json";
+        var gzipMediaType = "application/json+gzip";
+        var plainBytes = _instance.ToByteArray(mediaType);
+        var gzipBytes = _instance.ToByteArray(gzipMediaType);
+        // Gzip compressed data should start with magic bytes 0x1f 0x8b
+        Assert.That(gzipBytes.Length >= 2 && gzipBytes[0] == 0x1f && gzipBytes[1] == 0x8b, Is.True,
+            "Gzip compressed data should have correct magic bytes");
+        var newInstance = {{ class_base_name }}.FromData(gzipBytes, gzipMediaType);
+        Assert.That(newInstance, Is.EqualTo(_instance));
+    }
+    {%- endif %}
 }
 {% endfilter %}
 {% if namespace %}
