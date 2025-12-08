@@ -127,7 +127,7 @@
         }
     {%- endif %}
     {%- if msgpack_annotation %}
-        if (contentType.MediaType == "application/msgpack" || contentType.MediaType == "application/x-msgpack")
+        if (contentType.MediaType.StartsWith("application/msgpack") || contentType.MediaType.StartsWith("application/x-msgpack"))
         {
             var bytes = data switch
             {
@@ -247,7 +247,7 @@
         }
     {%- endif %}
     {%- if msgpack_annotation %}
-        if (contentType.MediaType == "application/msgpack" || contentType.MediaType == "application/x-msgpack")
+        if (contentType.MediaType.StartsWith("application/msgpack") || contentType.MediaType.StartsWith("application/x-msgpack"))
         {
             result = MessagePack.MessagePackSerializer.Serialize(this);
         }
