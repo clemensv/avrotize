@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "definitions": {
+    "Gif": {
+      "type": "object",
+      "name": "Gif",
+      "properties": {
+        "bitly_url": {
+          "type": "string"
+        },
+        "content_url": {
+          "type": "string"
+        },
+        "create_datetime": {
+          "type": "datetime"
+        },
+        "embded_url": {
+          "type": "string"
+        },
+        "featured_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "images": {
+          "type": "object",
+          "name": "Gif",
+          "properties": {
+            "downsized": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "downsized_large": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "downsized_medium": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "downsized_small": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "downsized_still": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_height": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_height_downsampled": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_height_small": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_height_small_still": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_height_still": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_width": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_width_downsampled": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_width_small": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_width_small_still": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "fixed_width_still": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "looping": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "original": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "original_still": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "preview": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            },
+            "preview_gif": {
+              "type": {
+                "$ref": "#/definitions/Image"
+              }
+            }
+          }
+        },
+        "import_datetime": {
+          "type": "datetime"
+        },
+        "rating": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_post_url": {
+          "type": "string"
+        },
+        "source_tld": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trending_datetime": {
+          "type": "datetime"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "gif"
+          ]
+        },
+        "update_datetime": {
+          "type": "datetime"
+        },
+        "url": {
+          "type": "string"
+        },
+        "user": {
+          "type": {
+            "$ref": "#/definitions/User"
+          }
+        },
+        "username": {
+          "type": "string"
+        }
+      }
+    },
+    "Image": {
+      "type": "object",
+      "name": "Image",
+      "properties": {
+        "frames": {
+          "type": "string"
+        },
+        "height": {
+          "type": "string"
+        },
+        "mp4": {
+          "type": "string"
+        },
+        "mp4_size": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "webp": {
+          "type": "string"
+        },
+        "webp_size": {
+          "type": "string"
+        },
+        "width": {
+          "type": "string"
+        }
+      }
+    },
+    "Meta": {
+      "type": "object",
+      "name": "Meta",
+      "properties": {
+        "msg": {
+          "type": "string"
+        },
+        "response_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "int32"
+        }
+      }
+    },
+    "Pagination": {
+      "type": "object",
+      "name": "Pagination",
+      "properties": {
+        "count": {
+          "type": "int32"
+        },
+        "offset": {
+          "type": "int32"
+        },
+        "total_count": {
+          "type": "int32"
+        }
+      }
+    },
+    "User": {
+      "type": "object",
+      "name": "User",
+      "properties": {
+        "avatar_url": {
+          "type": "string"
+        },
+        "banner_url": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "profile_url": {
+          "type": "string"
+        },
+        "twitter": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$id": "https://example.com/schemas/giphy-api/1.0",
+  "description": "Giphy API",
+  "$uses": [
+    "JSONStructureValidation"
+  ]
+}
