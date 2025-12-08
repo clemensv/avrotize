@@ -1020,6 +1020,29 @@ Conversion notes:
 - The tool generates a complete Maven project with pom.xml including Jackson dependencies.
 - Generated classes include `equals()` and `hashCode()` implementations.
 
+### Convert JSON Structure to JavaScript classes
+
+```bash
+avrotize s2js <path_to_structure_schema_file> [--out <path_to_js_dir>] [--package <package_name>] [--avro-annotation]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the directory to write the JavaScript classes to. Required.
+- `--package`: (optional) The package name for the generated classes.
+- `--avro-annotation`: (optional) Add Avro binary serialization support.
+
+Conversion notes:
+
+- The tool generates JavaScript ES6 classes from JSON Structure schemas with full type support.
+- JSON Structure primitive types are mapped to JavaScript types. Extended types like `date`, `time`, `datetime` are handled as Date objects or strings.
+- Integer types are mapped to JavaScript Number or BigInt depending on size.
+- Choice types are generated as union type classes with factory methods.
+- Tuple types are generated as arrays with fixed length.
+- The tool generates a complete npm package with package.json.
+- Generated classes include serialization/deserialization methods and optional Avro support when enabled.
+
 ### Convert Avrotize Schema to Datapackage schema
 
 ```bash
