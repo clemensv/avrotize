@@ -698,6 +698,8 @@ class AvroToCSharp:
     def is_enum_type(self, avro_type: Union[str, Dict, List]) -> bool:
         """ Checks if a type is an enum (including nullable enums) """
         if isinstance(avro_type, str):
+            if avro_type in ('null', 'boolean', 'int', 'long', 'float', 'double', 'bytes', 'string'):
+                return False
             schema = self.schema_doc
             name = avro_type.split('.')[-1]
             namespace = ".".join(avro_type.split('.')[:-1])
@@ -744,6 +746,8 @@ class AvroToCSharp:
                 prop += f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({field_type}))]\n"
         if self.newtonsoft_json_annotation:
             prop += f"{INDENT}[Newtonsoft.Json.JsonProperty(\"{annotation_name}\")]\n"
+            if is_enum_type:
+                prop += f"{INDENT}[Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]\n"
         
         # Determine initialization value
         initialization = ""
