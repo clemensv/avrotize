@@ -172,11 +172,16 @@ public class {{ test_class_name }}
     [Test]
     public void Test_FromData_EdgeCases()
     {
-        {%- if system_text_json_annotation or newtonsoft_json_annotation %}
+        {%- if system_text_json_annotation %}
         // Test null data - FromData returns null for null input
         Assert.That({{ class_base_name }}.FromData((byte[])null!, "application/json"), Is.Null);
         // Test empty data - should throw JsonException for invalid JSON
         Assert.Throws<System.Text.Json.JsonException>(() => {{ class_base_name }}.FromData(Array.Empty<byte>(), "application/json"));
+        {%- elif newtonsoft_json_annotation %}
+        // Test null data - FromData returns null for null input
+        Assert.That({{ class_base_name }}.FromData((byte[])null!, "application/json"), Is.Null);
+        // Test empty data - Newtonsoft.Json returns null for empty string
+        Assert.That({{ class_base_name }}.FromData(Array.Empty<byte>(), "application/json"), Is.Null);
         {%- elif avro_annotation %}
         // Test null data - FromData returns null for null input
         Assert.That({{ class_base_name }}.FromData((byte[])null!, "avro/binary"), Is.Null);
@@ -192,7 +197,7 @@ public class {{ test_class_name }}
         {%- endif %}
     }
     {%- endif %}
-    {%- if system_text_json_annotation or newtonsoft_json_annotation %}
+    {%- if system_text_json_annotation %}
 
     /// <summary> Testing IsJsonMatch </summary>
     [Test]
@@ -202,6 +207,8 @@ public class {{ test_class_name }}
         using var doc = System.Text.Json.JsonDocument.Parse(json);
         Assert.That({{ class_base_name }}.IsJsonMatch(doc.RootElement), Is.True);
     }
+    {%- endif %}
+    {%- if system_text_json_annotation or newtonsoft_json_annotation %}
 
     /// <summary> Testing Gzip compression </summary>
     [Test]

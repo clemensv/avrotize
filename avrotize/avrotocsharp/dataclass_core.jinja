@@ -86,6 +86,17 @@
             {
                 return Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_name }}>(((System.BinaryData)data).ToString());
             }
+            else if (data is byte[])
+            {
+                return Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_name }}>(System.Text.Encoding.UTF8.GetString((byte[])data));
+            }
+            else if (data is System.IO.Stream)
+            {
+                using (var reader = new System.IO.StreamReader((System.IO.Stream)data))
+                {
+                    return Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_name }}>(reader.ReadToEnd());
+                }
+            }
         }
     {%- endif %}
     {%- if protobuf_net_annotation %}
