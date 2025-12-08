@@ -17,6 +17,7 @@ from avrotize.constants import (
     NUNIT_VERSION,
     NUNIT_ADAPTER_VERSION,
     MSTEST_SDK_VERSION,
+    COVERLET_VERSION,
 )
 import glob
 
@@ -697,6 +698,8 @@ class AvroToCSharp:
     def is_enum_type(self, avro_type: Union[str, Dict, List]) -> bool:
         """ Checks if a type is an enum (including nullable enums) """
         if isinstance(avro_type, str):
+            if avro_type in ('null', 'boolean', 'int', 'long', 'float', 'double', 'bytes', 'string'):
+                return False
             schema = self.schema_doc
             name = avro_type.split('.')[-1]
             namespace = ".".join(avro_type.split('.')[:-1])
@@ -743,6 +746,8 @@ class AvroToCSharp:
                 prop += f"{INDENT}[System.Text.Json.Serialization.JsonConverter(typeof({field_type}))]\n"
         if self.newtonsoft_json_annotation:
             prop += f"{INDENT}[Newtonsoft.Json.JsonProperty(\"{annotation_name}\")]\n"
+            if is_enum_type:
+                prop += f"{INDENT}[Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]\n"
         
         # Determine initialization value
         initialization = ""
@@ -990,7 +995,36 @@ class AvroToCSharp:
                         newtonsoft_json_annotation=self.newtonsoft_json_annotation,
                         NUNIT_VERSION=NUNIT_VERSION,
                         NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
-                        MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
+                        MSTEST_SDK_VERSION=MSTEST_SDK_VERSION,
+                        COVERLET_VERSION=COVERLET_VERSION))
+
+        # Generate coverage scripts
+        if not os.path.exists(os.path.join(output_dir, "run_coverage.ps1")):
+            coverage_ps1_file = os.path.join(output_dir, "run_coverage.ps1")
+            with open(coverage_ps1_file, 'w', encoding='utf-8') as file:
+                file.write(process_template(
+                    "avrotocsharp/run_coverage.ps1.jinja", 
+                    project_name=project_name))
+        
+        if not os.path.exists(os.path.join(output_dir, "run_coverage.sh")):
+            coverage_sh_file = os.path.join(output_dir, "run_coverage.sh")
+            with open(coverage_sh_file, 'w', encoding='utf-8') as file:
+                file.write(process_template(
+                    "avrotocsharp/run_coverage.sh.jinja", 
+                    project_name=project_name))
+            # Make the shell script executable on Unix-like systems
+            try:
+                os.chmod(coverage_sh_file, 0o755)
+            except:
+                pass  # Ignore on Windows
+        
+        # Generate README with coverage documentation
+        if not os.path.exists(os.path.join(output_dir, "README.md")):
+            readme_file = os.path.join(output_dir, "README.md")
+            with open(readme_file, 'w', encoding='utf-8') as file:
+                file.write(process_template(
+                    "avrotocsharp/README.md.jinja", 
+                    project_name=project_name))
 
         self.output_dir = output_dir
         for avro_schema in (avs for avs in schema if isinstance(avs, dict)):
