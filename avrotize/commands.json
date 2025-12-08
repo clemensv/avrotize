@@ -1070,7 +1070,10 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1712,7 +1715,10 @@
         "json_annotation": "args.json_annotation"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1762,7 +1768,10 @@
         "csv_schema_path": "output_file_path"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1794,7 +1803,10 @@
         "serde_annotation": "args.json_annotation"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1853,7 +1865,10 @@
         "avro_annotation": "args.avro_annotation"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -1913,7 +1928,10 @@
         "jackson_annotation": "args.jackson_annotation"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -2027,7 +2045,10 @@
         "package_username": "args.package_username"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -3248,7 +3269,10 @@
         "target_namespace": "args.namespace"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
@@ -3290,7 +3314,10 @@
         "cddl_file_path": "output_file_path"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",

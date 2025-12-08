@@ -1,4 +1,4 @@
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation or msgpack_annotation %}
     /// <summary>
     /// Creates an object from the data
     /// </summary>
@@ -11,7 +11,7 @@
         if ( data is {{ class_name }}) return ({{ class_name }})data;
         if ( contentTypeString == null ) contentTypeString = System.Net.Mime.MediaTypeNames.Application.Octet;
         var contentType = new System.Net.Mime.ContentType(contentTypeString);
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation or msgpack_annotation %}
         if ( contentType.MediaType.EndsWith("+gzip"))
         {
             var stream = data switch
@@ -86,6 +86,17 @@
             {
                 return Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_name }}>(((System.BinaryData)data).ToString());
             }
+            else if (data is byte[])
+            {
+                return Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_name }}>(System.Text.Encoding.UTF8.GetString((byte[])data));
+            }
+            else if (data is System.IO.Stream)
+            {
+                using (var reader = new System.IO.StreamReader((System.IO.Stream)data))
+                {
+                    return Newtonsoft.Json.JsonConvert.DeserializeObject<{{ class_name }}>(reader.ReadToEnd());
+                }
+            }
         }
     {%- endif %}
     {%- if protobuf_net_annotation %}
@@ -126,7 +137,31 @@
             }
         }
     {%- endif %}
+    {%- if msgpack_annotation %}
+        if (contentType.MediaType.StartsWith("application/msgpack") || contentType.MediaType.StartsWith("application/x-msgpack"))
+        {
+            var bytes = data switch
+            {
+                byte[] b => b,
+                System.IO.Stream s => ReadStreamToBytes(s),
+                System.BinaryData bd => bd.ToArray(),
+                _ => throw new NotSupportedException("Data type not supported for MsgPack")
+            };
+            return MessagePack.MessagePackSerializer.Deserialize<{{ class_name }}>(bytes);
+        }
+    {%- endif %}
         throw new System.NotSupportedException($"Unsupported media type {contentType.MediaType}");
+    }
+    {%- endif %}
+
+    {%- if msgpack_annotation %}
+    private static byte[] ReadStreamToBytes(System.IO.Stream stream)
+    {
+        using (var memoryStream = new System.IO.MemoryStream())
+        {
+            stream.CopyTo(memoryStream);
+            return memoryStream.ToArray();
+        }
     }
     {%- endif %}
 
@@ -155,7 +190,7 @@
     {%- if avro_annotation %}
     {%- endif%}
 
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation or msgpack_annotation %}
     /// <summary>
     /// Converts the object to a byte array
     /// </summary>
@@ -222,7 +257,13 @@
             }
         }
     {%- endif %}
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation %}
+    {%- if msgpack_annotation %}
+        if (contentType.MediaType.StartsWith("application/msgpack") || contentType.MediaType.StartsWith("application/x-msgpack"))
+        {
+            result = MessagePack.MessagePackSerializer.Serialize(this);
+        }
+    {%- endif %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation or msgpack_annotation %}
     if (result != null && contentType.MediaType.EndsWith("+gzip"))
         {
             var stream = new System.IO.MemoryStream();

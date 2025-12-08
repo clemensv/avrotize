@@ -23,7 +23,7 @@ class TestAvroToCSharp(unittest.TestCase):
     # Timeout in seconds for dotnet commands
     DOTNET_TIMEOUT = 120
     
-    def run_convert_avsc_to_csharp(self, avsc_name, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False, system_xml_annotation=False, pascal_properties=False, protobuf_net_annotation=False):
+    def run_convert_avsc_to_csharp(self, avsc_name, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False, system_xml_annotation=False, msgpack_annotation=False, pascal_properties=False, protobuf_net_annotation=False):
         """ Test converting an avsc file to C# """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", avsc_name + ".avsc")
@@ -32,7 +32,7 @@ class TestAvroToCSharp(unittest.TestCase):
             shutil.rmtree(cs_path, ignore_errors=True)
         os.makedirs(cs_path, exist_ok=True)
 
-        convert_avro_to_csharp(avro_path, cs_path, pascal_properties=pascal_properties, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, system_xml_annotation=system_xml_annotation, protobuf_net_annotation=protobuf_net_annotation)
+        convert_avro_to_csharp(avro_path, cs_path, pascal_properties=pascal_properties, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, system_xml_annotation=system_xml_annotation, msgpack_annotation=msgpack_annotation, protobuf_net_annotation=protobuf_net_annotation)
         assert subprocess.check_call(
             ['dotnet', 'test'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.DOTNET_TIMEOUT) == 0
     
@@ -311,3 +311,11 @@ class TestAvroToCSharp(unittest.TestCase):
                 for pascal_properties in [True, False]:
                     # Skip avro_annotation and system_xml_annotation due to serialization issues with complex optional types
                     self.run_convert_avsc_to_csharp("alltypes-optional", system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=False, pascal_properties=pascal_properties, system_xml_annotation=False)
+
+    def test_convert_address_avsc_to_csharp_msgpack(self):
+        """ Test converting an address.avsc file to C# with MessagePack annotations """
+        self.run_convert_avsc_to_csharp("address", msgpack_annotation=True)
+
+    def test_convert_telemetry_avsc_to_csharp_msgpack(self):
+        """ Test converting an telemetry.avsc file to C# with MessagePack annotations """
+        self.run_convert_avsc_to_csharp("telemetry", msgpack_annotation=True)
