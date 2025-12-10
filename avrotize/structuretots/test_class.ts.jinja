@@ -3,6 +3,9 @@
  */
 
 import { {{ class_name }} } from '../src/{{ relative_path }}';
+{%- for enum_type, enum_path in enum_imports.items() %}
+import { {{ enum_type }} } from '{{ enum_path }}';
+{%- endfor %}
 
 describe('{{ class_name }}', () => {
     it('should create an instance with required fields', () => {

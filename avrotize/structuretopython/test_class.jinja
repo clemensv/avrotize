@@ -11,12 +11,9 @@ sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), '../src
 from {{ package_name | lower }} import {{ class_name }}
 
 {%- for import_type in import_types if import_type not in ['decimal.Decimal', 'datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta', 'uuid.UUID'] %}
-{%- set import_type_name = 'Test_'+import_type.split('.')[-1] %}
-{%- set import_package_name = 'test_'+'_'.join(import_type.split('.')[:-1]) | lower %}
-
-{%- if import_type.startswith('.') %}
-from .{{ import_package_name }} import {{ import_type_name }}
-{%- else %}
+{%- set import_type_name = import_type.split('.')[-1] %}
+{%- set import_package_name = '.'.join(import_type.split('.')[:-1]) | lower %}
+{%- if import_package_name %}
 from {{ import_package_name }} import {{ import_type_name }}
 {%- endif -%}
 {%- endfor %}

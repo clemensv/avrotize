@@ -2,7 +2,7 @@ package {{ base_package }}
 
 import (
     "testing"
-    {%- if json_annotation %}
+    {%- if json_annotation and kind == 'struct' %}
     "encoding/json"
     {%- endif %}
 )

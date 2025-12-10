@@ -39,6 +39,7 @@ class StructureToPython:
         self.schema_doc: JsonNode = None
         self.generated_types: Dict[str, str] = {}
         self.generated_structure_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
+        self.generated_enum_symbols: Dict[str, List[str]] = {}
         self.type_dict: Dict[str, Dict] = {}
         self.definitions: Dict[str, Any] = {}
         self.schema_registry: Dict[str, Dict] = {}
@@ -445,6 +446,7 @@ class StructureToPython:
             self.generate_test_enum(namespace, class_name, symbols)
 
         self.generated_types[python_qualified_name] = 'enum'
+        self.generated_enum_symbols[python_qualified_name] = symbols
         return python_qualified_name
 
     def generate_choice(self, structure_schema: Dict, parent_namespace: str, 
@@ -596,7 +598,23 @@ class StructureToPython:
             elif field_type.startswith('typing.Union['):
                 field_type = resolve(field_type)
                 return generate_value(field_type)
-            return test_values.get(field_type, 'Test_' + field_type + '.create_instance()')
+            if field_type in test_values:
+                return test_values[field_type]
+            # Check if this is an enum type - use first symbol value
+            # Look up by fully qualified name or by short name (class name only)
+            enum_symbols = None
+            if field_type in self.generated_enum_symbols:
+                enum_symbols = self.generated_enum_symbols[field_type]
+            else:
+                # Try to find by short name (the field type might be just the class name)
+                for qualified_name, symbols in self.generated_enum_symbols.items():
+                    if qualified_name.endswith('.' + field_type) or qualified_name == field_type:
+                        enum_symbols = symbols
+                        break
+            if enum_symbols:
+                return f"{field_type.split('.')[-1]}.{enum_symbols[0]}"
+            # Fallback to Test_ class for complex types
+            return 'Test_' + field_type.split('.')[-1] + '.create_instance()'
 
         return generate_value(field_type)
 

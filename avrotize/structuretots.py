@@ -540,9 +540,24 @@ class StructureToTypeScript:
         # Get only required fields for the test
         required_fields = [f for f in fields if f['is_required']]
         
+        # Collect enum imports needed for test file
+        enum_imports: Dict[str, str] = {}
+        
         # Generate test values for required fields
         for field in required_fields:
             field['test_value'] = self.generate_test_value(field)
+            # Check if this field is an enum and needs an import
+            if field.get('is_enum', False):
+                enum_type = field['type_no_null']
+                # Find the enum in generated_types to get its full path
+                for qualified_name, type_kind in self.generated_types.items():
+                    if type_kind == 'enum' and qualified_name.endswith('.' + enum_type):
+                        # Build import path - lowercase namespace like write_to_file does
+                        parts = qualified_name.split('.')
+                        enum_namespace = '.'.join(parts[:-1]).lower()
+                        enum_import_path = enum_namespace.replace('.', '/') + '/' + enum_type
+                        enum_imports[enum_type] = f'../src/{enum_import_path}'
+                        break
         
         # Determine relative path from test directory to src
         namespace_path = namespace.replace('.', '/') if namespace else ''
@@ -555,7 +570,8 @@ class StructureToTypeScript:
             "structuretots/test_class.ts.jinja",
             class_name=class_name,
             required_fields=required_fields,
-            relative_path=relative_path
+            relative_path=relative_path,
+            enum_imports=enum_imports
         )
         
         # Write test file
