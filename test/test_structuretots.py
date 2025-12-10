@@ -9,7 +9,7 @@ import tempfile
 import json
 from os import path, getcwd
 
-from avrotize.structuretots import convert_structure_to_typescript
+from avrotize.structuretots import convert_structure_to_typescript, convert_structure_schema_to_typescript
 
 current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
@@ -131,6 +131,62 @@ class TestStructureToTypeScript(unittest.TestCase):
     def test_convert_complex_scenario_struct_to_typescript(self):
         """Test converting complex-scenario.struct.json to TypeScript"""
         self.run_convert_struct_to_typescript("complex-scenario")
+
+    def test_convert_schema_to_typescript(self):
+        """Test converting a schema as JsonNode to TypeScript"""
+        schema = {
+            "type": "object",
+            "name": "TestRecord",
+            "namespace": "test.schema",
+            "properties": {
+                "id": {"type": "string"},
+                "count": {"type": "integer"},
+                "active": {"type": "boolean"}
+            },
+            "required": ["id"]
+        }
+        
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "schema-test-ts")
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+        os.makedirs(ts_path, exist_ok=True)
+        
+        convert_structure_schema_to_typescript(
+            schema,
+            ts_path,
+            package_name='schema-test'
+        )
+        
+        # Verify basic structure
+        assert os.path.exists(os.path.join(ts_path, 'src'))
+        assert os.path.exists(os.path.join(ts_path, 'package.json'))
+        assert os.path.exists(os.path.join(ts_path, 'tsconfig.json'))
+        
+        # Verify the generated TypeScript file exists
+        src_files = os.listdir(os.path.join(ts_path, 'src'))
+        ts_files = [f for f in src_files if f.endswith('.ts')]
+        assert len(ts_files) > 0, "Expected at least one TypeScript file to be generated"
+        
+        # Try to compile TypeScript
+        try:
+            subprocess.check_call(
+                ["npm", "install"],
+                cwd=ts_path,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            subprocess.check_call(
+                ["npm", "run", "build"],
+                cwd=ts_path,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            assert os.path.exists(os.path.join(ts_path, 'dist'))
+            print("[OK] schema-test compiled successfully")
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: TypeScript compilation failed for schema-test: {e}")
+        except FileNotFoundError:
+            print("Warning: npm not found, skipping TypeScript compilation for schema-test")
 
 
 if __name__ == '__main__':

@@ -608,12 +608,19 @@ class StructureToTypeScript:
             f.write(index_content)
 
     def convert(self, structure_schema_path: str, output_dir: str, package_name: str = '') -> None:
-        """ Main conversion method """
+        """ Converts a JSON Structure schema file to TypeScript classes """
         self.output_dir = output_dir
         
         # Load schema
         with open(structure_schema_path, 'r', encoding='utf-8') as f:
-            self.schema_doc = json.load(f)
+            schema = json.load(f)
+        
+        self.convert_schema(schema, output_dir, package_name)
+
+    def convert_schema(self, schema: JsonNode, output_dir: str, package_name: str = '') -> None:
+        """ Converts a JSON Structure schema to TypeScript classes """
+        self.output_dir = output_dir
+        self.schema_doc = schema
         
         # Register schema IDs
         self.register_schema_ids(self.schema_doc)
@@ -651,3 +658,20 @@ def convert_structure_to_typescript(structure_schema_path: str, ts_file_path: st
     """
     converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation)
     converter.convert(structure_schema_path, ts_file_path, package_name)
+
+
+def convert_structure_schema_to_typescript(structure_schema: JsonNode, output_dir: str, 
+                                          package_name: str = '', typedjson_annotation: bool = False, 
+                                          avro_annotation: bool = False) -> None:
+    """
+    Converts a JSON Structure schema to TypeScript classes.
+    
+    Args:
+        structure_schema: JSON Structure schema to convert
+        output_dir: Output directory for TypeScript files
+        package_name: Package name for the generated TypeScript project
+        typedjson_annotation: Whether to include TypedJSON annotations
+        avro_annotation: Whether to include Avro annotations
+    """
+    converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation)
+    converter.convert_schema(structure_schema, output_dir, package_name)
