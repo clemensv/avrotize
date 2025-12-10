@@ -553,10 +553,15 @@ class StructureToGo:
             'enums': self.enums,
             'base_package': self.base_package,
         }
+        needs_time_import = False
         for struct in context['structs']:
             for field in struct['fields']:
                 if 'value' not in field:
                     field['value'] = self.random_value(field['type'])
+                # Check if time package is needed
+                if 'time.Time' in field['type'] or 'time.Duration' in field['type']:
+                    needs_time_import = True
+        context['needs_time_import'] = needs_time_import
         helpers_file_name = os.path.join(self.output_dir, 'pkg', self.base_package, f"{self.base_package}_helpers.go")
         render_template('structuretogo/go_helpers.jinja', helpers_file_name, **context)
 
