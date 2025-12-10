@@ -523,6 +523,10 @@ class StructureToGo:
             v = f'float64({random.uniform(-100, 100)})'
         elif go_type == '[]byte':
             v = '[]byte("' + ''.join(random.choices(string.ascii_letters + string.digits, k=10)) + '")'
+        elif go_type == 'time.Time':
+            v = 'time.Now()'
+        elif go_type == 'time.Duration':
+            v = 'time.Hour'
         elif go_type.startswith('[]'):
             inner_type = go_type[2:]
             v = f'{go_type}{{{self.random_value(inner_type)}}}'
