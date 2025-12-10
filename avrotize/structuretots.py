@@ -595,7 +595,8 @@ class StructureToTypeScript:
             type_name = qualified_name.split('.')[-1]
             namespace = '.'.join(qualified_name.split('.')[:-1])
             if namespace:
-                relative_path = namespace.replace('.', '/') + '/' + type_name
+                # Lowercase the namespace to match the directory structure created by write_to_file
+                relative_path = namespace.lower().replace('.', '/') + '/' + type_name
             else:
                 relative_path = type_name
             exports.append(f"export * from './{relative_path}.js';")
