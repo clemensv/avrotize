@@ -369,6 +369,11 @@ class StructureToTypeScript:
                 relative_import_path = f'./{relative_import_path}'
             imports_with_paths[import_type_name] = relative_import_path + '.js'
 
+        # Prepare required fields with test values for createInstance()
+        required_fields = [f for f in fields if f.get('is_required', not f.get('is_optional', False))]
+        for field in required_fields:
+            field['test_value'] = self.generate_test_value(field)
+
         # Generate class definition using template
         class_definition = process_template(
             "structuretots/class_core.ts.jinja",
@@ -378,6 +383,7 @@ class StructureToTypeScript:
             is_abstract=is_abstract,
             docstring=structure_schema.get('description', '').strip() if 'description' in structure_schema else f'A {class_name} class.',
             fields=fields,
+            required_fields=required_fields,
             imports=imports_with_paths,
             typedjson_annotation=self.typedjson_annotation,
         )
@@ -532,8 +538,12 @@ class StructureToTypeScript:
         if field_type.startswith('{ [key: string]:'):
             return '{}'
         
-        # Return test value or construct object for custom types
-        return test_values.get(field_type, f'{{}} as {field_type}')
+        # Handle enums - use first value with Object.values()
+        if field.get('is_enum', False):
+            return f'Object.values({field_type})[0] as {field_type}'
+        
+        # Return test value for primitives, or call createInstance() for complex types (classes)
+        return test_values.get(field_type, f'{field_type}.createInstance()')
 
     def generate_test_class(self, namespace: str, class_name: str, fields: List[Dict[str, Any]]) -> None:
         """Generates a unit test class for a TypeScript class"""
@@ -615,17 +625,30 @@ class StructureToTypeScript:
             f.write(gitignore)
 
     def generate_index(self) -> None:
-        """ Generates index.ts that exports all generated types """
+        """ Generates index.ts that exports all generated types with aliased exports """
         exports = []
         for qualified_name, type_kind in self.generated_types.items():
-            type_name = qualified_name.split('.')[-1]
-            namespace = '.'.join(qualified_name.split('.')[:-1])
+            # Split the qualified_name into parts
+            parts = qualified_name.split('.')
+            type_name = parts[-1]  # The actual type name
+            namespace = '.'.join(parts[:-1])  # The namespace excluding the type
+            
+            # Construct the relative path to the .js file
             if namespace:
                 # Lowercase the namespace to match the directory structure created by write_to_file
                 relative_path = namespace.lower().replace('.', '/') + '/' + type_name
             else:
                 relative_path = type_name
-            exports.append(f"export * from './{relative_path}.js';")
+            
+            if not relative_path.startswith('./'):
+                relative_path = './' + relative_path
+            
+            # Construct the alias name by joining all parts with underscores (PascalCase)
+            alias_parts = [pascal(part) for part in parts]
+            alias_name = '_'.join(alias_parts)
+            
+            # Generate the export statement with alias (like avrotots does)
+            exports.append(f"export {{ {type_name} as {alias_name} }} from '{relative_path}.js';")
         
         index_content = '\n'.join(exports) + '\n' if exports else ''
         

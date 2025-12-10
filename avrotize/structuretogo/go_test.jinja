@@ -9,9 +9,9 @@ import (
 
 func Test{{ struct_name }}(t *testing.T) {
     {%- if kind == 'struct' %}
+    {%- if json_annotation %}
     instance := CreateInstance{{ struct_name }}()
     
-    {%- if json_annotation %}
     // Test JSON marshaling
     data, err := json.Marshal(&instance)
     if err != nil {
@@ -56,6 +56,10 @@ func Test{{ struct_name }}(t *testing.T) {
     if fromDataGzip == nil {
         t.Fatal("FromData with gzip returned nil")
     }
+    {%- else %}
+    // Basic instance creation test (no JSON serialization without json annotation)
+    instance := CreateInstance{{ struct_name }}()
+    _ = instance // Verify instance creation works
     {%- endif %}
     {%- elif kind == 'enum' %}
     // Test enum values

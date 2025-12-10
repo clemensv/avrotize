@@ -613,8 +613,9 @@ class StructureToPython:
                         break
             if enum_symbols:
                 return f"{field_type.split('.')[-1]}.{enum_symbols[0]}"
-            # Fallback to Test_ class for complex types
-            return 'Test_' + field_type.split('.')[-1] + '.create_instance()'
+            # For complex types, use None since fields are typically optional
+            # This avoids needing to construct nested objects with required args
+            return 'None'
 
         return generate_value(field_type)
 

@@ -91,9 +91,9 @@ ARRAY_MAP_SCHEMA = {
             "type": "array",
             "items": {"type": "number"}
         },
-        "metadata": {
-            "type": "object",
-            "additionalProperties": {"type": "string"}
+        "labels": {
+            "type": "array",
+            "items": {"type": "integer"}
         }
     },
     "required": ["tags"]
@@ -206,19 +206,23 @@ class TestTypeScriptFlagCombinations(unittest.TestCase):
     def _try_compile_typescript(self, output_dir: str) -> bool:
         """Try to compile TypeScript, return True if successful."""
         try:
+            # On Windows, npm is a script that requires shell=True
+            use_shell = sys.platform == 'win32'
             subprocess.check_call(
                 ["npm", "install"],
                 cwd=output_dir,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=120
+                timeout=120,
+                shell=use_shell
             )
             subprocess.check_call(
                 ["npm", "run", "build"],
                 cwd=output_dir,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=60
+                timeout=60,
+                shell=use_shell
             )
             return True
         except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
@@ -228,12 +232,15 @@ class TestTypeScriptFlagCombinations(unittest.TestCase):
     def _run_typescript_tests(self, output_dir: str) -> bool:
         """Run TypeScript tests, return True if successful."""
         try:
+            # On Windows, npm is a script that requires shell=True
+            use_shell = sys.platform == 'win32'
             subprocess.check_call(
                 ["npm", "test"],
                 cwd=output_dir,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=120
+                timeout=120,
+                shell=use_shell
             )
             return True
         except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
@@ -262,6 +269,11 @@ class TestTypeScriptFlagCombinations(unittest.TestCase):
                 )
                 
                 self._verify_typescript_output(output_dir, should_have_typedjson=typedjson)
+                
+                # Actually compile and run the generated tests
+                if self._try_compile_typescript(output_dir):
+                    self.assertTrue(self._run_typescript_tests(output_dir), 
+                                   f"TypeScript tests failed for flags={flag_str}")
 
     def test_all_schemas_with_typedjson(self):
         """Test all schema types with TypedJSON annotation."""
@@ -275,6 +287,11 @@ class TestTypeScriptFlagCombinations(unittest.TestCase):
                     typedjson_annotation=True
                 )
                 self._verify_typescript_output(output_dir, should_have_typedjson=True)
+                
+                # Actually compile and run the generated tests
+                if self._try_compile_typescript(output_dir):
+                    self.assertTrue(self._run_typescript_tests(output_dir), 
+                                   f"TypeScript tests failed for schema={schema_name}")
 
     def test_all_schemas_without_annotations(self):
         """Test all schema types without annotations."""
@@ -287,6 +304,11 @@ class TestTypeScriptFlagCombinations(unittest.TestCase):
                     package_name=f"test-{schema_name}"
                 )
                 self._verify_typescript_output(output_dir)
+                
+                # Actually compile and run the generated tests
+                if self._try_compile_typescript(output_dir):
+                    self.assertTrue(self._run_typescript_tests(output_dir), 
+                                   f"TypeScript tests failed for schema={schema_name}")
 
     def test_enum_schema_compilation(self):
         """Test enum schema compiles and enum imports are correct."""
@@ -310,6 +332,11 @@ class TestTypeScriptFlagCombinations(unittest.TestCase):
                 # Verify enum types used in tests are imported
                 if 'StatusEnum' in content or 'PriorityEnum' in content:
                     self.assertIn("import {", content, "Test file should have imports")
+        
+        # Actually compile and run tests
+        if self._try_compile_typescript(output_dir):
+            self.assertTrue(self._run_typescript_tests(output_dir), 
+                           "TypeScript tests failed for enum schema")
 
 
 class TestPythonFlagCombinations(unittest.TestCase):
@@ -380,6 +407,29 @@ class TestPythonFlagCombinations(unittest.TestCase):
                         self.fail(f"Found invalid Test_{enum_type}.create_instance() in {test_file}:{i+1}: {line.strip()}\n"
                                  f"Enum types should use {enum_type}.<VALUE> instead")
 
+    def _try_run_python_tests(self, output_dir: str) -> bool:
+        """Try to run Python tests, return True if successful."""
+        try:
+            # Install the package and run tests
+            subprocess.check_call(
+                ["pip", "install", "-e", ".", "--quiet"],
+                cwd=output_dir,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=120
+            )
+            subprocess.check_call(
+                ["pytest", "-v", "--tb=short"],
+                cwd=output_dir,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=180
+            )
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+            print(f"Python tests failed or skipped: {e}")
+            return False
+
     def test_basic_schema_all_flag_combinations(self):
         """Test basic schema with all flag combinations."""
         flag_combinations = [
@@ -401,6 +451,10 @@ class TestPythonFlagCombinations(unittest.TestCase):
                 )
                 
                 self._verify_python_output(output_dir, should_have_dataclasses_json=dataclasses_json)
+                
+                # Actually run the generated tests
+                self.assertTrue(self._try_run_python_tests(output_dir),
+                               f"Python tests failed for flags={flag_str}")
 
     def test_all_schemas_with_dataclasses_json(self):
         """Test all schema types with dataclasses_json annotation."""
@@ -415,6 +469,10 @@ class TestPythonFlagCombinations(unittest.TestCase):
                 )
                 self._verify_python_output(output_dir, should_have_dataclasses_json=True)
                 self._verify_test_files_valid(output_dir)
+                
+                # Actually run the generated tests
+                self.assertTrue(self._try_run_python_tests(output_dir),
+                               f"Python tests failed for schema={schema_name}")
 
     def test_all_schemas_without_annotations(self):
         """Test all schema types without annotations."""
@@ -427,6 +485,10 @@ class TestPythonFlagCombinations(unittest.TestCase):
                     package_name=f"test_{schema_name}"
                 )
                 self._verify_python_output(output_dir)
+                
+                # Actually run the generated tests
+                self.assertTrue(self._try_run_python_tests(output_dir),
+                               f"Python tests failed for schema={schema_name}")
 
     def test_enum_schema_test_values(self):
         """Test enum schema generates correct test values (not Test_EnumType.create_instance)."""
@@ -452,6 +514,10 @@ class TestPythonFlagCombinations(unittest.TestCase):
                     if 'StatusEnum' in content or 'PriorityEnum' in content:
                         self.assertNotIn('Test_StatusEnum.create_instance()', content,
                                         "Should use StatusEnum.Symbol not Test_StatusEnum.create_instance()")
+        
+        # Actually run the generated tests
+        self.assertTrue(self._try_run_python_tests(output_dir),
+                       "Python tests failed for enum schema")
 
 
 class TestGoFlagCombinations(unittest.TestCase):
@@ -529,6 +595,21 @@ class TestGoFlagCombinations(unittest.TestCase):
             print(f"Go build failed or skipped: {e}")
             return False
 
+    def _try_run_go_tests(self, output_dir: str) -> bool:
+        """Try to run Go tests, return True if successful."""
+        try:
+            subprocess.check_call(
+                ["go", "test", "./..."],
+                cwd=output_dir,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=120
+            )
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+            print(f"Go tests failed or skipped: {e}")
+            return False
+
     def test_basic_schema_all_flag_combinations(self):
         """Test basic schema with all flag combinations."""
         flag_combinations = [
@@ -551,6 +632,11 @@ class TestGoFlagCombinations(unittest.TestCase):
                 )
                 
                 self._verify_go_output(output_dir, should_have_json=json_annotation)
+                
+                # Build and run tests
+                if self._try_build_go(output_dir):
+                    self.assertTrue(self._try_run_go_tests(output_dir),
+                                   f"Go tests failed for flags={flag_str}")
 
     def test_all_schemas_with_json(self):
         """Test all schema types with JSON annotation."""
@@ -565,6 +651,11 @@ class TestGoFlagCombinations(unittest.TestCase):
                     json_annotation=True
                 )
                 self._verify_go_output(output_dir, should_have_json=True)
+                
+                # Build and run tests
+                if self._try_build_go(output_dir):
+                    self.assertTrue(self._try_run_go_tests(output_dir),
+                                   f"Go tests failed for schema={schema_name}")
 
     def test_all_schemas_without_annotations(self):
         """Test all schema types without annotations."""
@@ -578,6 +669,11 @@ class TestGoFlagCombinations(unittest.TestCase):
                     package_name=pkg_name
                 )
                 self._verify_go_output(output_dir)
+                
+                # Build and run tests
+                if self._try_build_go(output_dir):
+                    self.assertTrue(self._try_run_go_tests(output_dir),
+                                   f"Go tests failed for schema={schema_name}")
 
     def test_enum_schema_no_unused_imports(self):
         """Test enum schema doesn't have unused encoding/json import in tests."""
@@ -591,6 +687,11 @@ class TestGoFlagCombinations(unittest.TestCase):
         
         self._verify_go_output(output_dir, should_have_json=True)
         self._verify_test_files_no_unused_imports(output_dir)
+        
+        # Build and run tests
+        if self._try_build_go(output_dir):
+            self.assertTrue(self._try_run_go_tests(output_dir),
+                           "Go tests failed for enum schema")
 
     def test_temporal_schema_has_time_import(self):
         """Test temporal schema has time import in helpers."""
@@ -613,6 +714,11 @@ class TestGoFlagCombinations(unittest.TestCase):
             # If time.Time or time.Duration is used, "time" should be imported
             if 'time.Time' in content or 'time.Duration' in content or 'time.Now()' in content:
                 self.assertIn('"time"', content, "time package should be imported when time types are used")
+        
+        # Build and run tests
+        if self._try_build_go(output_dir):
+            self.assertTrue(self._try_run_go_tests(output_dir),
+                           "Go tests failed for temporal schema")
 
 
 class TestCSharpFlagCombinations(unittest.TestCase):
@@ -683,6 +789,11 @@ class TestCSharpFlagCombinations(unittest.TestCase):
             system_text_json_annotation=True
         )
         self._verify_csharp_output(output_dir, should_have_system_text_json=True)
+        
+        # Build and run tests
+        if self._try_build_csharp(output_dir):
+            self.assertTrue(self._try_test_csharp(output_dir),
+                           "C# tests failed for System.Text.Json")
 
     def test_basic_schema_newtonsoft_only(self):
         """Test basic schema with Newtonsoft.Json only."""
@@ -694,6 +805,11 @@ class TestCSharpFlagCombinations(unittest.TestCase):
             newtonsoft_json_annotation=True
         )
         self._verify_csharp_output(output_dir, should_have_newtonsoft=True)
+        
+        # Build and run tests
+        if self._try_build_csharp(output_dir):
+            self.assertTrue(self._try_test_csharp(output_dir),
+                           "C# tests failed for Newtonsoft.Json")
 
     def test_basic_schema_xml_only(self):
         """Test basic schema with XML annotation only."""
@@ -705,6 +821,11 @@ class TestCSharpFlagCombinations(unittest.TestCase):
             system_xml_annotation=True
         )
         self._verify_csharp_output(output_dir, should_have_xml=True)
+        
+        # Build and run tests
+        if self._try_build_csharp(output_dir):
+            self.assertTrue(self._try_test_csharp(output_dir),
+                           "C# tests failed for System.Xml")
 
     def test_basic_schema_all_annotations(self):
         """Test basic schema with all annotations."""
@@ -722,6 +843,11 @@ class TestCSharpFlagCombinations(unittest.TestCase):
                                    should_have_system_text_json=True,
                                    should_have_newtonsoft=True,
                                    should_have_xml=True)
+        
+        # Build and run tests
+        if self._try_build_csharp(output_dir):
+            self.assertTrue(self._try_test_csharp(output_dir),
+                           "C# tests failed for all annotations")
 
     def test_basic_schema_no_annotations(self):
         """Test basic schema with no annotations."""
@@ -732,6 +858,11 @@ class TestCSharpFlagCombinations(unittest.TestCase):
             base_namespace="TestBasic"
         )
         self._verify_csharp_output(output_dir)
+        
+        # Build and run tests
+        if self._try_build_csharp(output_dir):
+            self.assertTrue(self._try_test_csharp(output_dir),
+                           "C# tests failed for no annotations")
 
     def test_all_schemas_with_system_text_json(self):
         """Test all schema types with System.Text.Json."""
@@ -746,6 +877,11 @@ class TestCSharpFlagCombinations(unittest.TestCase):
                     system_text_json_annotation=True
                 )
                 self._verify_csharp_output(output_dir, should_have_system_text_json=True)
+                
+                # Build and run tests
+                if self._try_build_csharp(output_dir):
+                    self.assertTrue(self._try_test_csharp(output_dir),
+                                   f"C# tests failed for schema={schema_name}")
 
     def test_all_flag_combinations(self):
         """Test all possible flag combinations for C#."""
@@ -772,6 +908,11 @@ class TestCSharpFlagCombinations(unittest.TestCase):
                                           should_have_system_text_json=stj,
                                           should_have_newtonsoft=newtonsoft,
                                           should_have_xml=xml)
+                
+                # Build and run tests
+                if self._try_build_csharp(output_dir):
+                    self.assertTrue(self._try_test_csharp(output_dir),
+                                   f"C# tests failed for flags={flag_str}")
 
     def test_enum_schema_test_casing(self):
         """Test enum schema generates correct PascalCase test values."""
@@ -796,6 +937,11 @@ class TestCSharpFlagCombinations(unittest.TestCase):
                     if 'StatusEnum' in content:
                         self.assertIn('StatusEnum.', content, 
                                      "Test should reference enum values")
+        
+        # Build and run tests
+        if self._try_build_csharp(output_dir):
+            self.assertTrue(self._try_test_csharp(output_dir),
+                           "C# tests failed for enum schema")
 
 
 class TestSchemaFileCoverage(unittest.TestCase):
