@@ -19,7 +19,7 @@ export {% if is_abstract %}abstract {% endif %}class {{ class_name }}{% if base_
     /** {{ field.docstring }} */
     {%- if typedjson_annotation %}
     {%- set field_type = field.type_no_null %}
-    @jsonMember({{ field_type if not field.is_primitive else 'String' if field_type == 'Date' else field_type | capitalize }})
+    @jsonMember({{ 'String' if field.is_enum else (field_type if not field.is_primitive else 'String' if field_type == 'Date' else field_type | capitalize) }})
     {%- endif %}
     public {{ field.name }}{% if field.is_optional %}?{% endif %}: {{ field.type_no_null }};
     {%- endfor %}

@@ -332,15 +332,25 @@ class StructureToTypeScript:
                 class_name, prop_name, prop_schema, namespace, import_types)
             is_required = prop_name in required_props
             is_optional = not is_required
+            field_type_no_null = self.strip_nullable(field_type)
+            
+            # Check if the field type is an enum
+            is_enum = False
+            for import_type in import_types:
+                if import_type.endswith('.' + field_type_no_null) or import_type == field_type_no_null:
+                    if import_type in self.generated_types and self.generated_types[import_type] == 'enum':
+                        is_enum = True
+                        break
             
             fields.append({
                 'name': self.safe_name(prop_name),
                 'original_name': prop_name,
                 'type': field_type,
-                'type_no_null': self.strip_nullable(field_type),
+                'type_no_null': field_type_no_null,
                 'is_required': is_required,
                 'is_optional': is_optional,
-                'is_primitive': self.is_typescript_primitive(self.strip_nullable(field_type).replace('[]', '')),
+                'is_primitive': self.is_typescript_primitive(field_type_no_null.replace('[]', '')),
+                'is_enum': is_enum,
                 'docstring': prop_schema.get('description', '') if isinstance(prop_schema, dict) else ''
             })
 
@@ -619,23 +629,34 @@ class StructureToTypeScript:
         self.convert_schema(schema, output_dir, package_name)
 
     def convert_schema(self, schema: JsonNode, output_dir: str, package_name: str = '') -> None:
-        """ Converts a JSON Structure schema to TypeScript classes """
+        """ Converts a JSON Structure schema (or list of schemas) to TypeScript classes """
+        # Normalize to list
+        if not isinstance(schema, list):
+            schema = [schema]
+        
         self.output_dir = output_dir
         self.schema_doc = schema
         
-        # Register schema IDs
-        self.register_schema_ids(self.schema_doc)
+        # Register schema IDs for all schemas
+        for s in schema:
+            if isinstance(s, dict):
+                self.register_schema_ids(s)
         
-        # Process definitions
-        if 'definitions' in self.schema_doc:
-            for def_name, def_schema in self.schema_doc['definitions'].items():
-                if isinstance(def_schema, dict):
-                    self.generate_class_or_choice(def_schema, '', write_file=True, explicit_name=def_name)
-        
-        # Process root schema if it's an object or choice
-        if 'type' in self.schema_doc:
-            root_namespace = self.schema_doc.get('namespace', '')
-            self.generate_class_or_choice(self.schema_doc, root_namespace, write_file=True)
+        # Process each schema
+        for s in schema:
+            if not isinstance(s, dict):
+                continue
+                
+            # Process definitions
+            if 'definitions' in s:
+                for def_name, def_schema in s['definitions'].items():
+                    if isinstance(def_schema, dict):
+                        self.generate_class_or_choice(def_schema, '', write_file=True, explicit_name=def_name)
+            
+            # Process root schema if it's an object or choice
+            if 'type' in s:
+                root_namespace = s.get('namespace', '')
+                self.generate_class_or_choice(s, root_namespace, write_file=True)
         
         # Generate project files
         self.generate_package_json(package_name)

@@ -188,6 +188,81 @@ class TestStructureToTypeScript(unittest.TestCase):
         except FileNotFoundError:
             print("Warning: npm not found, skipping TypeScript compilation for schema-test")
 
+    def test_convert_schema_list_to_typescript(self):
+        """Test converting a list of schemas to TypeScript"""
+        schemas = [
+            {
+                "type": "object",
+                "name": "PrintJobStartedEventData",
+                "properties": {
+                    "jobId": {"type": "string"},
+                    "startTime": {"type": "datetime"}
+                },
+                "required": ["jobId", "startTime"]
+            },
+            {
+                "type": "object",
+                "name": "PrintJobCompletedEventData",
+                "properties": {
+                    "jobId": {"type": "string"},
+                    "endTime": {"type": "datetime"}
+                },
+                "required": ["jobId", "endTime"]
+            }
+        ]
+        
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "schema-list-test-ts")
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+        os.makedirs(ts_path, exist_ok=True)
+        
+        convert_structure_schema_to_typescript(
+            schemas,
+            ts_path,
+            package_name='schema-list-test'
+        )
+        
+        # Verify basic structure
+        assert os.path.exists(os.path.join(ts_path, 'src'))
+        assert os.path.exists(os.path.join(ts_path, 'package.json'))
+        assert os.path.exists(os.path.join(ts_path, 'tsconfig.json'))
+        
+        # Verify index.ts contains exports for both types
+        index_path = os.path.join(ts_path, 'src', 'index.ts')
+        assert os.path.exists(index_path), "index.ts should exist"
+        with open(index_path, 'r', encoding='utf-8') as f:
+            index_content = f.read()
+        assert 'PrintJobStartedEventData' in index_content, "index.ts should export PrintJobStartedEventData"
+        assert 'PrintJobCompletedEventData' in index_content, "index.ts should export PrintJobCompletedEventData"
+        
+        # Verify both TypeScript files were generated
+        src_dir = os.path.join(ts_path, 'src', 'schema-list-test')
+        assert os.path.exists(os.path.join(src_dir, 'PrintJobStartedEventData.ts')), \
+            "PrintJobStartedEventData.ts should exist"
+        assert os.path.exists(os.path.join(src_dir, 'PrintJobCompletedEventData.ts')), \
+            "PrintJobCompletedEventData.ts should exist"
+        
+        # Try to compile TypeScript
+        try:
+            subprocess.check_call(
+                ["npm", "install"],
+                cwd=ts_path,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            subprocess.check_call(
+                ["npm", "run", "build"],
+                cwd=ts_path,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            assert os.path.exists(os.path.join(ts_path, 'dist'))
+            print("[OK] schema-list-test compiled successfully")
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: TypeScript compilation failed for schema-list-test: {e}")
+        except FileNotFoundError:
+            print("Warning: npm not found, skipping TypeScript compilation for schema-list-test")
+
 
 if __name__ == '__main__':
     unittest.main()

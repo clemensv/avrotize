@@ -2072,8 +2072,8 @@ class StructureToCSharp:
             if enum_values:
                 for value in enum_values:
                     if isinstance(value, str):
-                        # Convert to PascalCase enum member name
-                        symbol_name = ''.join(word.capitalize() for word in re.split(r'[_\-\s]+', value))
+                        # Convert to PascalCase enum member name - must match generate_enum logic
+                        symbol_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
                         symbols.append(symbol_name)
                     else:
                         # For numeric enums, use Value1, Value2, etc.
