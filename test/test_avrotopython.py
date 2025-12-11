@@ -397,10 +397,11 @@ except Exception as e:
             with open(test_file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # The import should be: from test_producer_data import Test_BaseEvent
-            # NOT: from test_test_producer_data import Test_BaseEvent
-            # (The template joins package parts with underscore, but for a single-segment
-            # package like 'test_producer_data', it stays as is)
+            # The import should be: from test_producer_data_baseevent import Test_BaseEvent
+            # NOT: from test_test_producer_data_baseevent import Test_BaseEvent
+            # The template uses import_type.split('.')[:-1] to get the package path,
+            # which for 'test_producer_data.BaseEvent' becomes 'test_producer_data'
+            # Since it starts with 'test_', no additional prefix is added
             assert 'from test_producer_data import Test_BaseEvent' in content, \
                 f"Expected correct import statement in test file, got:\n{content}"
             assert 'test_test_' not in content, \
