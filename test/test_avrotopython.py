@@ -293,6 +293,122 @@ except Exception as e:
             # Poetry not available or timeout, skip this check
             pass
 
+    def test_no_double_test_prefix_when_package_starts_with_test(self):
+        """
+        Regression test: Verify that test file names don't get a double test_ prefix
+        when the package already starts with test_.
+        
+        This prevents errors like:
+        ModuleNotFoundError: No module named 'test_test_kafkaproducer_...'
+        """
+        from avrotize.avrotopython import AvroToPython
+        import tempfile
+        import shutil
+        
+        # Create a test output directory
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "test_prefix_check")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        try:
+            # Use a package name that already starts with 'test_' like xregistry-codegen does
+            converter = AvroToPython(
+                base_package='test_kafkaproducer_data',
+                dataclasses_json_annotation=True
+            )
+            converter.output_dir = output_dir
+            converter.generated_types = {}
+            
+            # Generate test file with package already having test_ prefix
+            converter.generate_test_class(
+                package_name='test_kafkaproducer_data.MyEvent',
+                class_name='MyEvent',
+                fields=[{'name': 'value', 'type': 'str', 'test_value': "'test'"}],
+                import_types=set()
+            )
+            
+            # Verify the test file was created without double test_ prefix
+            test_file_path = os.path.join(output_dir, "tests", "test_kafkaproducer_data_myevent.py")
+            assert os.path.exists(test_file_path), \
+                f"Expected test file at {test_file_path}, should not have double test_ prefix"
+            
+            # Verify the double-prefixed file does NOT exist
+            wrong_file_path = os.path.join(output_dir, "tests", "test_test_kafkaproducer_data_myevent.py")
+            assert not os.path.exists(wrong_file_path), \
+                f"Found file with double test_ prefix at {wrong_file_path}"
+            
+            # Also verify the content of the generated test file has correct imports
+            with open(test_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Verify there's no double test_ prefix in import statements
+            assert 'test_test_' not in content, \
+                f"Found double test_ prefix in generated test file content"
+                
+        finally:
+            shutil.rmtree(output_dir, ignore_errors=True)
+
+    def test_no_double_test_prefix_in_import_types(self):
+        """
+        Regression test: Verify that import statements for dependent types 
+        don't get a double test_ prefix when the package already starts with test_.
+        
+        This tests the template logic that generates imports like:
+        from test_mypackage_myclass import Test_MyClass
+        
+        Not:
+        from test_test_mypackage_myclass import Test_MyClass
+        """
+        from avrotize.avrotopython import AvroToPython
+        import tempfile
+        import shutil
+        
+        # Create a test output directory
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "test_import_prefix_check")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        try:
+            # Use a package name that already starts with 'test_'
+            converter = AvroToPython(
+                base_package='test_producer_data',
+                dataclasses_json_annotation=True
+            )
+            converter.output_dir = output_dir
+            converter.generated_types = {
+                'test_producer_data.BaseEvent': 'class'  # Simulate a dependent type
+            }
+            
+            # Generate test file with import_types that has test_ prefix
+            import_types = {'test_producer_data.BaseEvent'}
+            converter.generate_test_class(
+                package_name='test_producer_data.DerivedEvent',
+                class_name='DerivedEvent',
+                fields=[{'name': 'value', 'type': 'str', 'test_value': "'test'"}],
+                import_types=import_types
+            )
+            
+            # Check the generated file content
+            test_file_path = os.path.join(output_dir, "tests", "test_producer_data_derivedevent.py")
+            assert os.path.exists(test_file_path), f"Expected test file at {test_file_path}"
+            
+            with open(test_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # The import should be: from test_producer_data import Test_BaseEvent
+            # NOT: from test_test_producer_data import Test_BaseEvent
+            # (The template joins package parts with underscore, but for a single-segment
+            # package like 'test_producer_data', it stays as is)
+            assert 'from test_producer_data import Test_BaseEvent' in content, \
+                f"Expected correct import statement in test file, got:\n{content}"
+            assert 'test_test_' not in content, \
+                f"Found double test_ prefix in import statement:\n{content}"
+                
+        finally:
+            shutil.rmtree(output_dir, ignore_errors=True)
+
     def test_gzip_compression_json(self):
         """ Test that gzip compression works correctly with JSON content type """
         import gzip
