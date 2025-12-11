@@ -263,6 +263,118 @@ class TestStructureToTypeScript(unittest.TestCase):
         except FileNotFoundError:
             print("Warning: npm not found, skipping TypeScript compilation for schema-list-test")
 
+    def test_enum_with_namespace_import_path(self):
+        """
+        Regression test: Enum import paths must match actual file locations.
+        
+        When an enum has its own namespace, the import path in classes using that enum
+        must match the actual file location (based on schema_namespace, not parent_namespace).
+        """
+        import re
+        
+        # Schema with a class that uses an enum with its own namespace
+        schema = {
+            "type": "object",
+            "name": "Order",
+            "namespace": "com.example.orders",
+            "properties": {
+                "orderId": {"type": "string"},
+                "status": {
+                    "type": "string",
+                    "enum": ["PENDING", "SHIPPED", "DELIVERED", "CANCELLED"],
+                    "name": "OrderStatus",
+                    "namespace": "com.example.orders.enums"  # Different namespace
+                }
+            }
+        }
+        
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "ts-enum-import-test")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_schema_to_typescript(schema, output_dir, package_name="test")
+        
+        # Verify enum file exists at the correct location (based on its namespace)
+        enum_path = os.path.join(output_dir, "src", "test", "com", "example", "orders", "enums", "OrderStatus.ts")
+        assert os.path.exists(enum_path), f"Enum file should exist at {enum_path}"
+        
+        # Verify Order class file exists
+        order_path = os.path.join(output_dir, "src", "test", "com", "example", "orders", "Order.ts")
+        assert os.path.exists(order_path), f"Order class should exist at {order_path}"
+        
+        # Read Order.ts and check the import statement references correct path
+        with open(order_path, 'r', encoding='utf-8') as f:
+            order_content = f.read()
+        
+        # The import should point to the enum's actual location
+        assert "OrderStatus" in order_content, "Order should reference OrderStatus"
+        
+        # Verify the import path includes 'enums' subdirectory
+        import_pattern = r"import\s*\{\s*OrderStatus\s*\}\s*from\s*['\"]([^'\"]+)['\"]"
+        match = re.search(import_pattern, order_content)
+        assert match is not None, "Should have an import statement for OrderStatus"
+        import_path = match.group(1)
+        assert "enums" in import_path, f"Import path '{import_path}' should reference 'enums' subdirectory"
+
+    def test_named_enum_keeps_name(self):
+        """
+        Regression test: Enums with explicit names should not get 'Enum' suffix.
+        """
+        schema = {
+            "type": "object",
+            "name": "Task",
+            "properties": {
+                "priority": {
+                    "type": "string",
+                    "enum": ["LOW", "MEDIUM", "HIGH"],
+                    "name": "Priority"  # Explicit name
+                }
+            }
+        }
+        
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "ts-enum-naming")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_schema_to_typescript(schema, output_dir)
+        
+        # Look for Priority.ts (not PriorityEnum.ts)
+        priority_path = os.path.join(output_dir, "src", "Priority.ts")
+        priority_enum_path = os.path.join(output_dir, "src", "PriorityEnum.ts")
+        
+        assert os.path.exists(priority_path), "Named enum should use its explicit name (Priority.ts)"
+        assert not os.path.exists(priority_enum_path), "Should NOT have PriorityEnum.ts when name is explicitly 'Priority'"
+
+    def test_unnamed_enum_gets_suffix(self):
+        """
+        Regression test: Inline enums without names should get 'Enum' suffix based on field name.
+        """
+        schema = {
+            "type": "object",
+            "name": "Task",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["TODO", "DONE"]
+                    # No explicit 'name' - should become 'StatusEnum'
+                }
+            }
+        }
+        
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "ts-unnamed-enum")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_schema_to_typescript(schema, output_dir)
+        
+        # Look for StatusEnum.ts (field name + Enum suffix)
+        status_enum_path = os.path.join(output_dir, "src", "StatusEnum.ts")
+        
+        assert os.path.exists(status_enum_path), "Unnamed enum should get 'Enum' suffix (StatusEnum.ts)"
+
 
 if __name__ == '__main__':
     unittest.main()

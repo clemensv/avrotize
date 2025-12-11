@@ -237,7 +237,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         )
 
         # Verify that the BaseEntity abstract base class was generated
-        base_entity_path = os.path.join(py_path, "src", "choice_types", "struct", "baseentity.py")
+        base_entity_path = os.path.join(py_path, "src", "choice_types", "baseentity.py")
         assert os.path.exists(base_entity_path)
         
         with open(base_entity_path, "r", encoding="utf-8") as f:
@@ -248,27 +248,27 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             assert "entityType: typing.Optional[str]" in content or "entityType: Optional[str]" in content
 
         # Verify that Person extends BaseEntity
-        person_path = os.path.join(py_path, "src", "choice_types", "struct", "person.py")
+        person_path = os.path.join(py_path, "src", "choice_types", "person.py")
         assert os.path.exists(person_path)
         
         with open(person_path, "r", encoding="utf-8") as f:
             content = f.read()
-            assert "from choice_types.struct.baseentity import BaseEntity" in content
+            assert "from choice_types.baseentity import BaseEntity" in content
             assert "class Person(BaseEntity):" in content
             assert "age: typing.Optional[int]" in content or "age: Optional[int]" in content
 
         # Verify that Company extends BaseEntity
-        company_path = os.path.join(py_path, "src", "choice_types", "struct", "company.py")
+        company_path = os.path.join(py_path, "src", "choice_types", "company.py")
         assert os.path.exists(company_path)
         
         with open(company_path, "r", encoding="utf-8") as f:
             content = f.read()
-            assert "from choice_types.struct.baseentity import BaseEntity" in content
+            assert "from choice_types.baseentity import BaseEntity" in content
             assert "class Company(BaseEntity):" in content
             assert "employees: typing.Optional[int]" in content or "employees: Optional[int]" in content
 
         # Verify the ChoiceTypes class with Union field
-        choice_types_path = os.path.join(py_path, "src", "choice_types", "struct", "choicetypes.py")
+        choice_types_path = os.path.join(py_path, "src", "choice_types", "choicetypes.py")
         assert os.path.exists(choice_types_path)
         
         with open(choice_types_path, "r", encoding="utf-8") as f:
@@ -477,6 +477,85 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         
         assert len(py_files) > 0, "No Python files were generated"
 
+    def test_test_file_import_matches_module_structure(self):
+        """
+        Regression test: Generated test files should import from the correct module path.
+        
+        The import path must match where the source files are actually placed.
+        """
+        from avrotize.structuretopython import convert_structure_schema_to_python
+        
+        schema = {
+            "type": "object",
+            "name": "Customer",
+            "namespace": "myapp.models",
+            "properties": {
+                "customerId": {"type": "string"},
+                "name": {"type": "string"}
+            }
+        }
+        
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "python-test-import")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_schema_to_python(schema, output_dir, package_name="myapp")
+        
+        # Find the test file
+        test_file_path = os.path.join(output_dir, "tests", "test_customer.py")
+        assert os.path.exists(test_file_path), f"Test file should exist at {test_file_path}"
+        
+        with open(test_file_path, 'r', encoding='utf-8') as f:
+            test_content = f.read()
+        
+        # The import should reference the correct module path
+        assert "Customer" in test_content, \
+            "Test file should import Customer class"
+        
+        # Verify the import path matches where files are actually placed
+        # The module should be importable - check that path components are correct
+        assert "myapp" in test_content, \
+            "Test file import should include the package name"
+        assert "models" in test_content, \
+            "Test file import should include the namespace"
+
+    def test_test_file_name_is_simple(self):
+        """
+        Regression test: Test file names should be simple (test_{class}.py), not overly long.
+        """
+        from avrotize.structuretopython import convert_structure_schema_to_python
+        
+        schema = {
+            "type": "object",
+            "name": "VeryLongClassName",
+            "namespace": "very.long.namespace.path.that.is.quite.deep",
+            "properties": {
+                "field1": {"type": "string"}
+            }
+        }
+        
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "python-test-filename")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_schema_to_python(schema, output_dir, package_name="pkg")
+        
+        tests_dir = os.path.join(output_dir, "tests")
+        assert os.path.exists(tests_dir), "Tests directory should exist"
+        
+        # List test files
+        test_files = [f for f in os.listdir(tests_dir) if f.endswith('.py')]
+        assert len(test_files) > 0, "Should have at least one test file"
+        
+        for test_file in test_files:
+            # Verify file name is reasonably short (class name based, not full package path)
+            assert len(test_file) < 100, f"Test file name '{test_file}' should not be excessively long"
+            
+            # Should NOT include flattened namespace path
+            assert "very_long_namespace" not in test_file.lower(), \
+                "Test file name should not include flattened namespace path"
 
 
 if __name__ == '__main__':

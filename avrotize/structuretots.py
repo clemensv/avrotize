@@ -400,8 +400,10 @@ class StructureToTypeScript:
                      write_file: bool = True) -> str:
         """ Generates a TypeScript enum from JSON Structure enum """
         enum_name = pascal(structure_schema.get('name', field_name + 'Enum'))
-        namespace = self.concat_namespace(self.base_package, structure_schema.get('namespace', parent_namespace)).lower()
-        typescript_qualified_name = self.typescript_fully_qualified_name_from_structure_type(parent_namespace, enum_name)
+        schema_namespace = structure_schema.get('namespace', parent_namespace)
+        namespace = self.concat_namespace(self.base_package, schema_namespace).lower()
+        # Use schema_namespace (not parent_namespace) to match the file location
+        typescript_qualified_name = self.typescript_fully_qualified_name_from_structure_type(schema_namespace, enum_name)
         
         if typescript_qualified_name in self.generated_types:
             return typescript_qualified_name

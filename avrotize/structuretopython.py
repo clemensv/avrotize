@@ -286,6 +286,7 @@ class StructureToPython:
         class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'))
         schema_namespace = structure_schema.get('namespace', parent_namespace)
         namespace = self.concat_namespace(self.base_package, schema_namespace).lower()
+        package_name = self.python_package_from_structure_type(schema_namespace, class_name)
         python_qualified_name = self.python_fully_qualified_name_from_structure_type(schema_namespace, class_name)
         
         if python_qualified_name in self.generated_types:
@@ -358,8 +359,8 @@ class StructureToPython:
         )
 
         if write_file:
-            self.write_to_file(namespace, class_name, class_definition)
-            self.generate_test_class(namespace, class_name, field_docstrings, import_types)
+            self.write_to_file(package_name, class_name, class_definition)
+            self.generate_test_class(package_name, class_name, field_docstrings, import_types)
 
         self.generated_types[python_qualified_name] = 'class'
         self.generated_structure_types[python_qualified_name] = structure_schema
@@ -424,6 +425,7 @@ class StructureToPython:
         class_name = pascal(structure_schema.get('name', field_name + 'Enum'))
         schema_namespace = structure_schema.get('namespace', parent_namespace)
         namespace = self.concat_namespace(self.base_package, schema_namespace).lower()
+        package_name = self.python_package_from_structure_type(schema_namespace, class_name)
         python_qualified_name = self.python_fully_qualified_name_from_structure_type(schema_namespace, class_name)
         
         if python_qualified_name in self.generated_types:
@@ -442,8 +444,8 @@ class StructureToPython:
         )
 
         if write_file:
-            self.write_to_file(namespace, class_name, enum_definition)
-            self.generate_test_enum(namespace, class_name, symbols)
+            self.write_to_file(package_name, class_name, enum_definition)
+            self.generate_test_enum(package_name, class_name, symbols)
 
         self.generated_types[python_qualified_name] = 'enum'
         self.generated_enum_symbols[python_qualified_name] = symbols
@@ -513,6 +515,7 @@ class StructureToPython:
         class_name = pascal(structure_schema.get('name', 'UnnamedMap'))
         schema_namespace = structure_schema.get('namespace', parent_namespace)
         namespace = self.concat_namespace(self.base_package, schema_namespace).lower()
+        package_name = self.python_package_from_structure_type(schema_namespace, class_name)
         python_qualified_name = self.python_fully_qualified_name_from_structure_type(schema_namespace, class_name)
         
         if python_qualified_name in self.generated_types:
@@ -537,7 +540,7 @@ class StructureToPython:
         )
         
         if write_file:
-            self.write_to_file(namespace, class_name, map_definition)
+            self.write_to_file(package_name, class_name, map_definition)
         
         self.generated_types[python_qualified_name] = 'map'
         return python_qualified_name
@@ -623,7 +626,8 @@ class StructureToPython:
                            import_types: Set[str]) -> None:
         """Generates a unit test class for a Python dataclass"""
         test_class_name = f"Test_{class_name}"
-        tests_package_name = "test_" + package_name.replace('.', '_').lower()
+        # Use a simpler file naming scheme based on class name only
+        test_file_name = f"test_{class_name.lower()}"
         test_class_definition = process_template(
             "structuretopython/test_class.jinja",
             package_name=package_name,
@@ -636,7 +640,7 @@ class StructureToPython:
         )
 
         base_dir = os.path.join(self.output_dir, "tests")
-        test_file_path = os.path.join(base_dir, f"{tests_package_name.replace('.', '_').lower()}.py")
+        test_file_path = os.path.join(base_dir, f"{test_file_name}.py")
         if not os.path.exists(os.path.dirname(test_file_path)):
             os.makedirs(os.path.dirname(test_file_path), exist_ok=True)
         with open(test_file_path, 'w', encoding='utf-8') as file:
@@ -645,7 +649,8 @@ class StructureToPython:
     def generate_test_enum(self, package_name: str, class_name: str, symbols: List[str]) -> None:
         """Generates a unit test class for a Python enum"""
         test_class_name = f"Test_{class_name}"
-        tests_package_name = "test_" + package_name.replace('.', '_').lower()
+        # Use a simpler file naming scheme based on class name only
+        test_file_name = f"test_{class_name.lower()}"
         test_class_definition = process_template(
             "structuretopython/test_enum.jinja",
             package_name=package_name,
@@ -654,7 +659,7 @@ class StructureToPython:
             symbols=symbols
         )
         base_dir = os.path.join(self.output_dir, "tests")
-        test_file_path = os.path.join(base_dir, f"{tests_package_name.replace('.', '_').lower()}.py")
+        test_file_path = os.path.join(base_dir, f"{test_file_name}.py")
         if not os.path.exists(os.path.dirname(test_file_path)):
             os.makedirs(os.path.dirname(test_file_path), exist_ok=True)
         with open(test_file_path, 'w', encoding='utf-8') as file:
@@ -662,9 +667,8 @@ class StructureToPython:
 
     def write_to_file(self, package: str, class_name: str, python_code: str):
         """Writes a Python class to a file"""
-        # Add 'struct' module to the package path
-        full_package = f"{package}.struct"
-        parent_package_name = '.'.join(full_package.split('.')[:-1])
+        # The containing directory is the parent package (matches avrotopython.py)
+        parent_package_name = '.'.join(package.split('.')[:-1])
         parent_package_path = os.sep.join(parent_package_name.split('.')).lower()
         directory_path = os.path.join(self.output_dir, "src", parent_package_path)
         if not os.path.exists(directory_path):
@@ -777,7 +781,11 @@ class StructureToPython:
 def convert_structure_to_python(structure_schema_path, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False):
     """Converts JSON Structure schema to Python dataclasses"""
     if not package_name:
-        package_name = os.path.splitext(os.path.basename(structure_schema_path))[0].lower().replace('-', '_')
+        # Strip .json extension, then also strip .struct suffix if present (*.struct.json naming convention)
+        base_name = os.path.splitext(os.path.basename(structure_schema_path))[0]
+        if base_name.endswith('.struct'):
+            base_name = base_name[:-7]  # Remove '.struct' suffix
+        package_name = base_name.lower().replace('-', '_')
 
     structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
     structure_to_python.convert(structure_schema_path, py_file_path)

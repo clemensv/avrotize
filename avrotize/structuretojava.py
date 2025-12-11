@@ -384,7 +384,12 @@ class StructureToJava:
             field_count=len(field_names)
         )
         
-        class_definition = class_definition.rstrip() + equals_hashcode + "\n}\n"
+        # Generate createTestInstance() method for testing (only for non-abstract classes)
+        create_test_instance = ''
+        if not is_abstract:
+            create_test_instance = self.generate_create_test_instance_method(class_name, fields, schema_namespace)
+        
+        class_definition = class_definition.rstrip() + create_test_instance + equals_hashcode + "\n}\n"
 
         if write_file:
             self.write_to_file(package, class_name, class_definition)
@@ -454,6 +459,86 @@ class StructureToJava:
                 return f"{value}d"
             return str(value)
         return f"/* unsupported const value */"
+
+    def get_test_value(self, java_type: str) -> str:
+        """ Get a test value for a Java type """
+        # Handle arrays/lists
+        if java_type.startswith("List<") or java_type.startswith("ArrayList<"):
+            return "new java.util.ArrayList<>()"
+        if java_type.startswith("Map<"):
+            return "new java.util.HashMap<>()"
+        if java_type.endswith("[]"):
+            return f"new {java_type[:-2]}[0]"
+        
+        # Primitive test values
+        test_values = {
+            'String': '"test-string"',
+            'string': '"test-string"',
+            'int': '42',
+            'Integer': '42',
+            'long': '42L',
+            'Long': '42L',
+            'double': '3.14',
+            'Double': '3.14',
+            'float': '3.14f',
+            'Float': '3.14f',
+            'boolean': 'true',
+            'Boolean': 'true',
+            'byte': '(byte)0',
+            'Byte': '(byte)0',
+            'short': '(short)0',
+            'Short': '(short)0',
+            'BigInteger': 'java.math.BigInteger.ZERO',
+            'BigDecimal': 'java.math.BigDecimal.ZERO',
+            'byte[]': 'new byte[0]',
+            'LocalDate': 'java.time.LocalDate.now()',
+            'LocalTime': 'java.time.LocalTime.now()',
+            'Instant': 'java.time.Instant.now()',
+            'Duration': 'java.time.Duration.ZERO',
+            'UUID': 'java.util.UUID.randomUUID()',
+            'URI': 'java.net.URI.create("http://example.com")',
+            'Object': 'new Object()',
+            'void': 'null',
+            'Void': 'null',
+        }
+        
+        if java_type in test_values:
+            return test_values[java_type]
+        
+        # Check if it's a generated type (enum or class)
+        if java_type in self.generated_types_java_package:
+            type_kind = self.generated_types_java_package[java_type]
+            if type_kind == "enum":
+                return f'{java_type}.values()[0]'
+            elif type_kind == "class":
+                return f'{java_type}.createTestInstance()'
+        
+        # Default: try to instantiate
+        return f'new {java_type}()'
+
+    def generate_create_test_instance_method(self, class_name: str, fields: List[Dict], parent_package: str) -> str:
+        """ Generates a static createTestInstance method that creates a fully initialized instance """
+        method = f"\n{INDENT}/**\n{INDENT} * Creates a test instance with all required fields populated\n{INDENT} * @return a fully initialized test instance\n{INDENT} */\n"
+        method += f"{INDENT}public static {class_name} createTestInstance() {{\n"
+        method += f"{INDENT*2}{class_name} instance = new {class_name}();\n"
+        
+        for field in fields:
+            # Skip const fields
+            if field.get('is_const', False):
+                continue
+            
+            field_name = field['name']
+            field_type = field['type']
+            
+            # Get a test value for this field
+            test_value = self.get_test_value(field_type)
+            
+            # Setter name: set{Pascal(field_name)}
+            method += f"{INDENT*2}instance.set{pascal(field_name)}({test_value});\n"
+        
+        method += f"{INDENT*2}return instance;\n"
+        method += f"{INDENT}}}\n"
+        return method
 
     def generate_enum(self, structure_schema: Dict, field_name: str, parent_package: str, write_file: bool) -> JavaType:
         """ Generates a Java enum from JSON Structure enum schema """

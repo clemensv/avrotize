@@ -51,6 +51,7 @@ class TestStructureToJava(unittest.TestCase):
                 cwd=java_path,
                 stdout=sys.stdout,
                 stderr=sys.stderr,
+                shell=True,
             )
             == 0
         )
@@ -144,6 +145,93 @@ class TestStructureToJava(unittest.TestCase):
     def test_convert_composition_composed_struct_to_java(self):
         """Test converting composed composition schema to Java"""
         self.run_convert_struct_to_java("composition-ref-composed")
+
+    def test_class_has_create_test_instance_method(self):
+        """
+        Regression test: Generated Java classes should have createTestInstance() method.
+        """
+        from avrotize.structuretojava import convert_structure_schema_to_java
+        
+        schema = {
+            "type": "object",
+            "name": "Person",
+            "namespace": "com.example",
+            "properties": {
+                "name": {"type": "string"},
+                "age": {"type": "integer"},
+                "email": {"type": "string"}
+            }
+        }
+        
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "java-create-test-instance")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_schema_to_java(schema, output_dir, package_name="test.pkg")
+        
+        # Find the Person.java file
+        java_src_dir = os.path.join(output_dir, "src", "main", "java")
+        person_files = []
+        for root, dirs, files in os.walk(java_src_dir):
+            for f in files:
+                if f == "Person.java":
+                    person_files.append(os.path.join(root, f))
+        
+        assert len(person_files) > 0, f"Person.java should exist somewhere under {java_src_dir}"
+        person_path = person_files[0]
+        
+        with open(person_path, 'r', encoding='utf-8') as f:
+            java_content = f.read()
+        
+        # Check for createTestInstance method
+        assert "public static Person createTestInstance()" in java_content, \
+            "Person class should have createTestInstance() method"
+        
+        # Check that the method sets field values
+        assert "instance.set" in java_content, \
+            "createTestInstance should call setter methods"
+
+    def test_abstract_class_no_create_test_instance(self):
+        """
+        Regression test: Abstract classes should NOT have createTestInstance() method.
+        """
+        from avrotize.structuretojava import convert_structure_schema_to_java
+        
+        schema = {
+            "type": "object",
+            "name": "BaseEntity",
+            "namespace": "com.example",
+            "abstract": True,
+            "properties": {
+                "id": {"type": "string"}
+            }
+        }
+        
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "java-abstract-no-test-instance")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_schema_to_java(schema, output_dir, package_name="test.pkg")
+        
+        # Find the BaseEntity.java file
+        java_src_dir = os.path.join(output_dir, "src", "main", "java")
+        base_entity_files = []
+        for root, dirs, files in os.walk(java_src_dir):
+            for f in files:
+                if f == "BaseEntity.java":
+                    base_entity_files.append(os.path.join(root, f))
+        
+        assert len(base_entity_files) > 0, f"BaseEntity.java should exist somewhere under {java_src_dir}"
+        base_entity_path = base_entity_files[0]
+        
+        with open(base_entity_path, 'r', encoding='utf-8') as f:
+            java_content = f.read()
+        
+        # Abstract classes should NOT have createTestInstance
+        assert "public static BaseEntity createTestInstance()" not in java_content, \
+            "Abstract class should NOT have createTestInstance() method"
 
 
 if __name__ == "__main__":

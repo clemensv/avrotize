@@ -12,7 +12,8 @@ from {{ package_name | lower }} import {{ class_name }}
 
 {%- for import_type in import_types if import_type not in ['decimal.Decimal', 'datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta'] %}
 {%- set import_type_name = 'Test_'+import_type.split('.')[-1] %}
-{%- set import_package_name = 'test_'+'_'.join(import_type.split('.')[:-1]) | lower %}
+{%- set flat_package = '_'.join(import_type.split('.')[:-1]) | lower %}
+{%- set import_package_name = flat_package if flat_package.startswith('test_') else 'test_' + flat_package %}
 
 {%- if import_type.startswith('.') %}
 from .{{ import_package_name }} import {{ import_type_name }}

@@ -69,7 +69,7 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
     {% endif %}
     {% for field in fields %}
     {%- set isdate = field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: datetime.datetime.isoformat(d) if d else None, decoder=lambda d:datetime.datetime.fromisoformat(d) if d else None, mm_field=fields.DateTime(format='iso'){%- endif -%}){%- endif %})
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- endif -%}){%- endif %})
     {%- endfor %}
 
     @classmethod

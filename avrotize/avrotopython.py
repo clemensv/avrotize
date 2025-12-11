@@ -327,7 +327,8 @@ class AvroToPython:
     def generate_test_class(self, package_name: str, class_name: str, fields: List[Dict[str, str]], import_types: Set[str]) -> None:
         """Generates a unit test class for a Python data class"""
         test_class_name = f"Test_{class_name}"
-        tests_package_name = "test_"+package_name.replace('.', '_').lower()
+        flat_package = package_name.replace('.', '_').lower()
+        tests_package_name = flat_package if flat_package.startswith('test_') else f"test_{flat_package}"
         test_class_definition = process_template(
             "avrotopython/test_class.jinja",
             package_name=package_name,
@@ -348,7 +349,8 @@ class AvroToPython:
     def generate_test_enum(self, package_name: str, class_name: str, symbols: List[str]) -> None:
         """Generates a unit test class for a Python enum"""
         test_class_name = f"Test_{class_name}"
-        tests_package_name = "test_"+package_name.replace('.', '_').lower()
+        flat_package = package_name.replace('.', '_').lower()
+        tests_package_name = flat_package if flat_package.startswith('test_') else f"test_{flat_package}"
         test_class_definition = process_template(
             "avrotopython/test_enum.jinja",
             package_name=package_name,
