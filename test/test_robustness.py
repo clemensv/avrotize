@@ -36,6 +36,7 @@ from avrotize.avrotojava import convert_avro_to_java
 from avrotize.avrotots import convert_avro_to_typescript
 from avrotize.avrotocsharp import convert_avro_to_csharp
 from avrotize.avrotogo import convert_avro_to_go
+from avrotize.avrotorust import convert_avro_to_rust
 
 current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
@@ -3738,6 +3739,2810 @@ class TestGoEdgeCases(RobustnessTestBase):
         
         success, message = self.verify_go_compiles(output_dir)
         self.assertTrue(success, f"Go with spaces failed to compile: {message}")
+
+
+class TestRustEdgeCases(RobustnessTestBase):
+    """
+    Tests for Rust code generator edge cases.
+    """
+    
+    def verify_rust_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Rust code compiles using cargo check."""
+        cargo_toml = os.path.join(output_dir, "Cargo.toml")
+        if not os.path.exists(cargo_toml):
+            for root, dirs, files in os.walk(output_dir):
+                if "Cargo.toml" in files:
+                    cargo_toml = os.path.join(root, "Cargo.toml")
+                    break
+        
+        if not os.path.exists(cargo_toml):
+            return False, "No Cargo.toml found"
+        
+        cargo_dir = os.path.dirname(cargo_toml)
+        try:
+            result = subprocess.run(
+                ["cargo", "check"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=cargo_dir
+            )
+            if result.returncode != 0:
+                errors = [line for line in result.stderr.split('\n') if 'error' in line.lower()][:10]
+                return False, f"Rust compilation error:\n" + "\n".join(errors)
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "cargo not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_101_rust_hyphenated_props(self):
+        """Rust with hyphenated property names should compile."""
+        temp_dir = self.get_temp_dir("test_101")
+        schema = {
+            "type": "object",
+            "title": "HyphenTest",
+            "properties": {
+                "my-field": {"type": "string"},
+                "another-property-name": {"type": "integer"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "hyphen.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_rust(
+            schema_path,
+            output_dir,
+            package_name="test_pkg"
+        )
+        
+        success, message = self.verify_rust_compiles(output_dir)
+        self.assertTrue(success, f"Rust with hyphens failed to compile: {message}")
+    
+    def test_102_rust_dot_props(self):
+        """Rust with dotted property names should compile."""
+        temp_dir = self.get_temp_dir("test_102")
+        schema = {
+            "type": "object",
+            "title": "DotTest",
+            "properties": {
+                "my.field": {"type": "string"},
+                "another.property.name": {"type": "integer"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "dot.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_rust(
+            schema_path,
+            output_dir,
+            package_name="test_pkg"
+        )
+        
+        success, message = self.verify_rust_compiles(output_dir)
+        self.assertTrue(success, f"Rust with dots failed to compile: {message}")
+    
+    def test_103_rust_space_props(self):
+        """Rust with space property names should compile."""
+        temp_dir = self.get_temp_dir("test_103")
+        schema = {
+            "type": "object",
+            "title": "SpaceTest",
+            "properties": {
+                "my field": {"type": "string"},
+                "another property name": {"type": "integer"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "space.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_rust(
+            schema_path,
+            output_dir,
+            package_name="test_pkg"
+        )
+        
+        success, message = self.verify_rust_compiles(output_dir)
+        self.assertTrue(success, f"Rust with spaces failed to compile: {message}")
+
+
+class TestAvroToJavaCompilation(RobustnessTestBase):
+    """
+    Tests for Avro to Java code generation.
+    """
+    
+    def verify_java_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Java code compiles using javac."""
+        java_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.java'):
+                    java_files.append(os.path.join(root, f))
+        
+        if not java_files:
+            return False, "No .java files found"
+        
+        try:
+            result = subprocess.run(
+                ["javac", "-Xlint:none"] + java_files,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if result.returncode != 0:
+                return False, f"Java syntax error:\n{result.stderr}"
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "javac not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_104_avro_java_logical_types(self):
+        """Avro to Java with logical types should compile."""
+        temp_dir = self.get_temp_dir("test_104")
+        schema = {
+            "type": "record",
+            "name": "LogicalRecord",
+            "namespace": "mytest.logical",
+            "fields": [
+                {"name": "created", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+                {"name": "eventDate", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "id", "type": {"type": "string", "logicalType": "uuid"}}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "logical.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_java(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_java_compiles(output_dir)
+        self.assertTrue(success, f"Avro Java with logical types failed to compile: {message}")
+    
+    def test_105_avro_java_decimal(self):
+        """Avro to Java with decimal logical type should compile."""
+        temp_dir = self.get_temp_dir("test_105")
+        schema = {
+            "type": "record",
+            "name": "DecimalRecord",
+            "namespace": "mytest.decimal",
+            "fields": [
+                {"name": "amount", "type": {"type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2}},
+                {"name": "id", "type": "string"}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "decimal.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_java(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_java_compiles(output_dir)
+        self.assertTrue(success, f"Avro Java with decimal failed to compile: {message}")
+    
+    def test_106_avro_java_fixed(self):
+        """Avro to Java with fixed type should compile."""
+        temp_dir = self.get_temp_dir("test_106")
+        schema = {
+            "type": "record",
+            "name": "FixedRecord",
+            "namespace": "mytest.fixed",
+            "fields": [
+                {"name": "hash", "type": {"type": "fixed", "name": "MD5", "size": 16}},
+                {"name": "name", "type": "string"}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "fixed.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_java(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_java_compiles(output_dir)
+        self.assertTrue(success, f"Avro Java with fixed failed to compile: {message}")
+
+
+class TestAvroToGoCompilation(RobustnessTestBase):
+    """
+    Tests for Avro to Go code generation.
+    """
+    
+    def verify_go_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Go code compiles using go build."""
+        go_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.go') and not f.endswith('_test.go'):
+                    go_files.append(os.path.join(root, f))
+        
+        if not go_files:
+            return False, "No .go files found"
+        
+        for go_file in go_files:
+            go_dir = os.path.dirname(go_file)
+            try:
+                result = subprocess.run(
+                    ["go", "build", "."],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=go_dir
+                )
+                if result.returncode != 0:
+                    return False, f"Go build error:\n{result.stderr}"
+            except FileNotFoundError:
+                return True, "go not available, skipping"
+            except subprocess.TimeoutExpired:
+                return False, "Compilation timed out"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+    
+    def test_107_avro_go_logical_types(self):
+        """Avro to Go with logical types should compile."""
+        temp_dir = self.get_temp_dir("test_107")
+        schema = {
+            "type": "record",
+            "name": "LogicalRecord",
+            "namespace": "mytest.logical",
+            "fields": [
+                {"name": "created", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+                {"name": "eventDate", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "id", "type": {"type": "string", "logicalType": "uuid"}}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "logical.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_go(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_go_compiles(output_dir)
+        self.assertTrue(success, f"Avro Go with logical types failed to compile: {message}")
+    
+    def test_108_avro_go_map_type(self):
+        """Avro to Go with map type should compile."""
+        temp_dir = self.get_temp_dir("test_108")
+        schema = {
+            "type": "record",
+            "name": "MapRecord",
+            "namespace": "mytest.maptype",
+            "fields": [
+                {
+                    "name": "data",
+                    "type": {
+                        "type": "map",
+                        "values": "string"
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "map.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_go(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_go_compiles(output_dir)
+        self.assertTrue(success, f"Avro Go with map failed to compile: {message}")
+
+
+class TestAvroToTypeScriptCompilation(RobustnessTestBase):
+    """
+    Tests for Avro to TypeScript code generation.
+    """
+    
+    def verify_ts_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify TypeScript code compiles."""
+        ts_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.ts') and not f.endswith('.d.ts'):
+                    ts_files.append(os.path.join(root, f))
+        
+        if not ts_files:
+            return False, "No .ts files found"
+        
+        try:
+            result = subprocess.run(
+                ["npx", "tsc", "--noEmit", "--skipLibCheck", "--target", "ES2020", 
+                 "--module", "ESNext", "--moduleResolution", "node", "--esModuleInterop", 
+                 "--strict"] + ts_files,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=output_dir
+            )
+            if result.returncode != 0:
+                return False, f"TypeScript compilation error:\n{result.stdout}\n{result.stderr}"
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "npx/tsc not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_109_avro_ts_logical_types(self):
+        """Avro to TypeScript with logical types should compile."""
+        temp_dir = self.get_temp_dir("test_109")
+        schema = {
+            "type": "record",
+            "name": "LogicalRecord",
+            "namespace": "mytest.logical",
+            "fields": [
+                {"name": "created", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+                {"name": "eventDate", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "id", "type": {"type": "string", "logicalType": "uuid"}}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "logical.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_typescript(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_ts_compiles(output_dir)
+        self.assertTrue(success, f"Avro TypeScript with logical types failed to compile: {message}")
+    
+    def test_110_avro_ts_nested_records(self):
+        """Avro to TypeScript with nested records should compile."""
+        temp_dir = self.get_temp_dir("test_110")
+        schema = {
+            "type": "record",
+            "name": "OuterRecord",
+            "namespace": "mytest.nested",
+            "fields": [
+                {
+                    "name": "inner",
+                    "type": {
+                        "type": "record",
+                        "name": "InnerRecord",
+                        "fields": [
+                            {"name": "value", "type": "string"},
+                            {"name": "count", "type": "int"}
+                        ]
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "nested.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_typescript(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_ts_compiles(output_dir)
+        self.assertTrue(success, f"Avro TypeScript with nested records failed to compile: {message}")
+
+
+class TestReservedKeywordsAsFieldNames(RobustnessTestBase):
+    """
+    Tests for using language reserved keywords as field names.
+    """
+    
+    def verify_python_imports(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code can be imported."""
+        py_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    py_files.append(os.path.join(root, f))
+        
+        if not py_files:
+            return False, "No .py files found"
+        
+        for py_file in py_files:
+            try:
+                result = subprocess.run(
+                    ["python", "-c", f"import sys; sys.path.insert(0, r'{output_dir}'); exec(open(r'{py_file}').read())"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode != 0:
+                    return False, f"Python import error in {py_file}:\n{result.stderr}"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+    
+    def verify_java_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Java code compiles."""
+        java_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.java'):
+                    java_files.append(os.path.join(root, f))
+        
+        if not java_files:
+            return False, "No .java files found"
+        
+        try:
+            result = subprocess.run(
+                ["javac", "-Xlint:none"] + java_files,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if result.returncode != 0:
+                return False, f"Java compilation error:\n{result.stderr}"
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "javac not available, skipping"
+        except Exception as e:
+            return False, str(e)
+    
+    def verify_ts_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify TypeScript code compiles."""
+        ts_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.ts') and not f.endswith('.d.ts'):
+                    ts_files.append(os.path.join(root, f))
+        
+        if not ts_files:
+            return False, "No .ts files found"
+        
+        try:
+            result = subprocess.run(
+                ["npx", "tsc", "--noEmit", "--skipLibCheck", "--target", "ES2020", 
+                 "--module", "ESNext", "--moduleResolution", "node", "--esModuleInterop", 
+                 "--strict"] + ts_files,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=output_dir
+            )
+            if result.returncode != 0:
+                return False, f"TypeScript error:\n{result.stdout}\n{result.stderr}"
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "npx/tsc not available, skipping"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_111_python_reserved_keywords(self):
+        """Python with reserved keyword field names should compile."""
+        temp_dir = self.get_temp_dir("test_111")
+        schema = {
+            "type": "object",
+            "title": "KeywordTest",
+            "properties": {
+                "class": {"type": "string"},
+                "def": {"type": "string"},
+                "import": {"type": "string"},
+                "from": {"type": "string"},
+                "return": {"type": "string"},
+                "if": {"type": "boolean"},
+                "else": {"type": "string"},
+                "for": {"type": "integer"},
+                "while": {"type": "integer"},
+                "try": {"type": "string"},
+                "except": {"type": "string"},
+                "lambda": {"type": "string"},
+                "global": {"type": "string"},
+                "yield": {"type": "string"},
+                "async": {"type": "string"},
+                "await": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "keywords.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.keywords"
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"Python with reserved keywords failed: {message}")
+    
+    def test_112_java_reserved_keywords(self):
+        """Java with reserved keyword field names should compile."""
+        temp_dir = self.get_temp_dir("test_112")
+        schema = {
+            "type": "object",
+            "title": "KeywordTest",
+            "properties": {
+                "class": {"type": "string"},
+                "public": {"type": "string"},
+                "private": {"type": "string"},
+                "static": {"type": "string"},
+                "final": {"type": "string"},
+                "void": {"type": "string"},
+                "int": {"type": "string"},
+                "boolean": {"type": "string"},
+                "new": {"type": "string"},
+                "return": {"type": "string"},
+                "import": {"type": "string"},
+                "package": {"type": "string"},
+                "interface": {"type": "string"},
+                "abstract": {"type": "string"},
+                "synchronized": {"type": "string"},
+                "native": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "keywords.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_java(
+            schema_path,
+            output_dir,
+            package_name="mytest.keywords"
+        )
+        
+        success, message = self.verify_java_compiles(output_dir)
+        self.assertTrue(success, f"Java with reserved keywords failed: {message}")
+    
+    def test_113_typescript_reserved_keywords(self):
+        """TypeScript with reserved keyword field names should compile."""
+        temp_dir = self.get_temp_dir("test_113")
+        schema = {
+            "type": "object",
+            "title": "KeywordTest",
+            "properties": {
+                "class": {"type": "string"},
+                "function": {"type": "string"},
+                "const": {"type": "string"},
+                "let": {"type": "string"},
+                "var": {"type": "string"},
+                "if": {"type": "boolean"},
+                "else": {"type": "string"},
+                "return": {"type": "string"},
+                "import": {"type": "string"},
+                "export": {"type": "string"},
+                "interface": {"type": "string"},
+                "type": {"type": "string"},
+                "enum": {"type": "string"},
+                "async": {"type": "string"},
+                "await": {"type": "string"},
+                "new": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "keywords.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_typescript(
+            schema_path,
+            output_dir,
+            package_name="mytest.keywords"
+        )
+        
+        success, message = self.verify_ts_compiles(output_dir)
+        self.assertTrue(success, f"TypeScript with reserved keywords failed: {message}")
+
+
+class TestAvroUnionTypes(RobustnessTestBase):
+    """
+    Tests for Avro union type handling.
+    """
+    
+    def verify_python_imports(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code can be imported."""
+        py_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    py_files.append(os.path.join(root, f))
+        
+        if not py_files:
+            return False, "No .py files found"
+        
+        for py_file in py_files:
+            try:
+                result = subprocess.run(
+                    ["python", "-c", f"import sys; sys.path.insert(0, r'{output_dir}'); exec(open(r'{py_file}').read())"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode != 0:
+                    return False, f"Python import error in {py_file}:\n{result.stderr}"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+    
+    def test_114_avro_complex_union(self):
+        """Avro with complex union types should compile to Python."""
+        temp_dir = self.get_temp_dir("test_114")
+        schema = {
+            "type": "record",
+            "name": "UnionRecord",
+            "namespace": "mytest.union",
+            "fields": [
+                {
+                    "name": "payload",
+                    "type": [
+                        "null",
+                        "string",
+                        "int",
+                        {
+                            "type": "record",
+                            "name": "InnerRecord",
+                            "fields": [
+                                {"name": "value", "type": "string"}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "union.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"Avro Python with complex union failed: {message}")
+    
+    def test_115_avro_array_of_unions(self):
+        """Avro with array of union types should compile to Python."""
+        temp_dir = self.get_temp_dir("test_115")
+        schema = {
+            "type": "record",
+            "name": "ArrayUnionRecord",
+            "namespace": "mytest.arrayunion",
+            "fields": [
+                {
+                    "name": "items",
+                    "type": {
+                        "type": "array",
+                        "items": ["null", "string", "int"]
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "arrayunion.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"Avro Python with array of unions failed: {message}")
+    
+    def test_116_avro_map_of_unions(self):
+        """Avro with map of union types should compile to Python."""
+        temp_dir = self.get_temp_dir("test_116")
+        schema = {
+            "type": "record",
+            "name": "MapUnionRecord",
+            "namespace": "mytest.mapunion",
+            "fields": [
+                {
+                    "name": "data",
+                    "type": {
+                        "type": "map",
+                        "values": ["null", "string", "int"]
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "mapunion.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"Avro Python with map of unions failed: {message}")
+
+
+class TestEnumEdgeCases(RobustnessTestBase):
+    """
+    Tests for enum handling edge cases.
+    """
+    
+    def verify_python_imports(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code can be imported."""
+        py_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    py_files.append(os.path.join(root, f))
+        
+        if not py_files:
+            return False, "No .py files found"
+        
+        for py_file in py_files:
+            try:
+                result = subprocess.run(
+                    ["python", "-c", f"import sys; sys.path.insert(0, r'{output_dir}'); exec(open(r'{py_file}').read())"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode != 0:
+                    return False, f"Python import error in {py_file}:\n{result.stderr}"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+    
+    def verify_java_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Java code compiles."""
+        java_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.java'):
+                    java_files.append(os.path.join(root, f))
+        
+        if not java_files:
+            return False, "No .java files found"
+        
+        try:
+            result = subprocess.run(
+                ["javac", "-Xlint:none"] + java_files,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if result.returncode != 0:
+                return False, f"Java compilation error:\n{result.stderr}"
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "javac not available, skipping"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_117_avro_enum_with_numeric_prefix(self):
+        """Avro enum with numeric prefix symbols should compile."""
+        temp_dir = self.get_temp_dir("test_117")
+        schema = {
+            "type": "record",
+            "name": "EnumRecord",
+            "namespace": "mytest.enumtest",
+            "fields": [
+                {
+                    "name": "status",
+                    "type": {
+                        "type": "enum",
+                        "name": "Status",
+                        "symbols": ["1_PENDING", "2_ACTIVE", "3_CLOSED"]
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "enum.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"Avro Python with numeric enum failed: {message}")
+    
+    def test_118_avro_enum_java_reserved(self):
+        """Avro enum with Java reserved word symbols should compile."""
+        temp_dir = self.get_temp_dir("test_118")
+        schema = {
+            "type": "record",
+            "name": "EnumRecord",
+            "namespace": "mytest.enumtest",
+            "fields": [
+                {
+                    "name": "keyword",
+                    "type": {
+                        "type": "enum",
+                        "name": "Keyword",
+                        "symbols": ["CLASS", "PUBLIC", "PRIVATE", "STATIC", "FINAL"]
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "enum.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_java(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_java_compiles(output_dir)
+        self.assertTrue(success, f"Avro Java with reserved enum symbols failed: {message}")
+
+
+class TestDeeplyNestedSchemas(RobustnessTestBase):
+    """
+    Tests for very deeply nested schemas.
+    """
+    
+    def verify_python_imports(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code can be imported."""
+        py_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    py_files.append(os.path.join(root, f))
+        
+        if not py_files:
+            return False, "No .py files found"
+        
+        for py_file in py_files:
+            try:
+                result = subprocess.run(
+                    ["python", "-c", f"import sys; sys.path.insert(0, r'{output_dir}'); exec(open(r'{py_file}').read())"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode != 0:
+                    return False, f"Python import error in {py_file}:\n{result.stderr}"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+    
+    def test_119_very_deep_nesting(self):
+        """Very deeply nested schema (10 levels) should compile."""
+        temp_dir = self.get_temp_dir("test_119")
+        
+        # Build a 10-level deep nested structure
+        def build_nested(depth: int) -> dict:
+            if depth == 0:
+                return {"type": "string"}
+            return {
+                "type": "object",
+                "title": f"Level{depth}",
+                "properties": {
+                    "nested": build_nested(depth - 1),
+                    f"value{depth}": {"type": "string"}
+                }
+            }
+        
+        schema = build_nested(10)
+        schema_path = self.write_json_file(temp_dir, "deep.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.deep"
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"Very deep nesting failed: {message}")
+    
+    def test_120_avro_self_referential(self):
+        """Avro with self-referential type should not crash."""
+        temp_dir = self.get_temp_dir("test_120")
+        schema = {
+            "type": "record",
+            "name": "TreeNode",
+            "namespace": "mytest.tree",
+            "fields": [
+                {"name": "value", "type": "string"},
+                {"name": "left", "type": ["null", "TreeNode"]},
+                {"name": "right", "type": ["null", "TreeNode"]}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "tree.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"Self-referential Avro failed: {message}")
+
+
+class TestAllOfAndOneOf(RobustnessTestBase):
+    """
+    Tests for allOf and oneOf JSON Schema constructs.
+    """
+    
+    def verify_python_imports(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code can be imported."""
+        py_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    py_files.append(os.path.join(root, f))
+        
+        if not py_files:
+            return False, "No .py files found"
+        
+        for py_file in py_files:
+            try:
+                result = subprocess.run(
+                    ["python", "-c", f"import sys; sys.path.insert(0, r'{output_dir}'); exec(open(r'{py_file}').read())"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode != 0:
+                    return False, f"Python import error in {py_file}:\n{result.stderr}"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+    
+    def test_121_allof_inheritance(self):
+        """allOf with multiple refs should compile."""
+        temp_dir = self.get_temp_dir("test_121")
+        schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$defs": {
+                "Base1": {
+                    "type": "object",
+                    "properties": {
+                        "field1": {"type": "string"}
+                    }
+                },
+                "Base2": {
+                    "type": "object",
+                    "properties": {
+                        "field2": {"type": "integer"}
+                    }
+                }
+            },
+            "type": "object",
+            "title": "Combined",
+            "allOf": [
+                {"$ref": "#/$defs/Base1"},
+                {"$ref": "#/$defs/Base2"}
+            ],
+            "properties": {
+                "field3": {"type": "boolean"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "allof.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.allof"
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"allOf inheritance failed: {message}")
+    
+    def test_122_oneof_union(self):
+        """oneOf with multiple types should compile."""
+        temp_dir = self.get_temp_dir("test_122")
+        schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "title": "Container",
+            "properties": {
+                "payload": {
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "integer"},
+                        {
+                            "type": "object",
+                            "title": "ComplexPayload",
+                            "properties": {
+                                "data": {"type": "string"}
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "oneof.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.oneof"
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"oneOf union failed: {message}")
+    
+    def test_123_anyof_union(self):
+        """anyOf with multiple types should compile."""
+        temp_dir = self.get_temp_dir("test_123")
+        schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "title": "AnyOfContainer",
+            "properties": {
+                "value": {
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "number"},
+                        {"type": "boolean"}
+                    ]
+                }
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "anyof.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.anyof"
+        )
+        
+        success, message = self.verify_python_imports(output_dir)
+        self.assertTrue(success, f"anyOf union failed: {message}")
+
+
+class TestCSharpEdgeCases(RobustnessTestBase):
+    """
+    Tests for C# specific edge cases.
+    """
+    
+    def verify_csharp_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify C# code compiles using dotnet build."""
+        csproj_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.csproj'):
+                    csproj_files.append(os.path.join(root, f))
+        
+        if not csproj_files:
+            return False, "No .csproj files found"
+        
+        for csproj in csproj_files:
+            csproj_dir = os.path.dirname(csproj)
+            try:
+                restore_result = subprocess.run(
+                    ["dotnet", "restore"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    cwd=csproj_dir
+                )
+                if restore_result.returncode != 0:
+                    return False, f"dotnet restore failed:\n{restore_result.stderr}"
+                
+                result = subprocess.run(
+                    ["dotnet", "build", "--no-restore"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    cwd=csproj_dir
+                )
+                if result.returncode != 0:
+                    errors = [line for line in result.stdout.split('\n') if 'error' in line.lower()][:10]
+                    return False, f"C# compilation error:\n" + "\n".join(errors)
+            except FileNotFoundError:
+                return True, "dotnet not available, skipping"
+            except subprocess.TimeoutExpired:
+                return False, "Compilation timed out"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+    
+    def test_124_csharp_reserved_keywords(self):
+        """C# with reserved keyword field names should compile."""
+        temp_dir = self.get_temp_dir("test_124")
+        schema = {
+            "type": "object",
+            "title": "KeywordTest",
+            "properties": {
+                "class": {"type": "string"},
+                "public": {"type": "string"},
+                "private": {"type": "string"},
+                "static": {"type": "string"},
+                "readonly": {"type": "string"},
+                "new": {"type": "string"},
+                "override": {"type": "string"},
+                "virtual": {"type": "string"},
+                "abstract": {"type": "string"},
+                "event": {"type": "string"},
+                "delegate": {"type": "string"},
+                "namespace": {"type": "string"},
+                "object": {"type": "string"},
+                "string": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "keywords.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_csharp(
+            schema_path,
+            output_dir,
+            base_namespace="MyTest.Keywords"
+        )
+        
+        success, message = self.verify_csharp_compiles(output_dir)
+        self.assertTrue(success, f"C# with reserved keywords failed: {message}")
+    
+    def test_125_csharp_nullable_types(self):
+        """C# with nullable types should compile."""
+        temp_dir = self.get_temp_dir("test_125")
+        schema = {
+            "type": "object",
+            "title": "NullableTest",
+            "properties": {
+                "optionalString": {"type": ["string", "null"]},
+                "optionalInt": {"type": ["integer", "null"]},
+                "optionalBool": {"type": ["boolean", "null"]},
+                "optionalNumber": {"type": ["number", "null"]}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "nullable.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_csharp(
+            schema_path,
+            output_dir,
+            base_namespace="MyTest.Nullable"
+        )
+        
+        success, message = self.verify_csharp_compiles(output_dir)
+        self.assertTrue(success, f"C# with nullable types failed: {message}")
+
+
+class TestGoEdgeCases2(RobustnessTestBase):
+    """
+    More tests for Go specific edge cases.
+    """
+    
+    def verify_go_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Go code compiles."""
+        go_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.go') and not f.endswith('_test.go'):
+                    go_files.append(os.path.join(root, f))
+        
+        if not go_files:
+            return False, "No .go files found"
+        
+        for go_file in go_files:
+            go_dir = os.path.dirname(go_file)
+            try:
+                result = subprocess.run(
+                    ["go", "build", "."],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=go_dir
+                )
+                if result.returncode != 0:
+                    return False, f"Go build error:\n{result.stderr}"
+            except FileNotFoundError:
+                return True, "go not available, skipping"
+            except subprocess.TimeoutExpired:
+                return False, "Compilation timed out"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+    
+    def test_126_go_reserved_keywords(self):
+        """Go with reserved keyword field names should compile."""
+        temp_dir = self.get_temp_dir("test_126")
+        schema = {
+            "type": "object",
+            "title": "KeywordTest",
+            "properties": {
+                "func": {"type": "string"},
+                "var": {"type": "string"},
+                "const": {"type": "string"},
+                "type": {"type": "string"},
+                "struct": {"type": "string"},
+                "interface": {"type": "string"},
+                "map": {"type": "string"},
+                "chan": {"type": "string"},
+                "range": {"type": "string"},
+                "select": {"type": "string"},
+                "defer": {"type": "string"},
+                "go": {"type": "string"},
+                "package": {"type": "string"},
+                "import": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "keywords.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_go(
+            schema_path,
+            output_dir,
+            package_name="testpkg"
+        )
+        
+        success, message = self.verify_go_compiles(output_dir)
+        self.assertTrue(success, f"Go with reserved keywords failed: {message}")
+    
+    def test_127_go_builtin_types(self):
+        """Go with builtin type field names should compile."""
+        temp_dir = self.get_temp_dir("test_127")
+        schema = {
+            "type": "object",
+            "title": "BuiltinTest",
+            "properties": {
+                "string": {"type": "string"},
+                "int": {"type": "integer"},
+                "int32": {"type": "integer"},
+                "int64": {"type": "integer"},
+                "float32": {"type": "number"},
+                "float64": {"type": "number"},
+                "bool": {"type": "boolean"},
+                "byte": {"type": "integer"},
+                "error": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "builtin.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_go(
+            schema_path,
+            output_dir,
+            package_name="testpkg"
+        )
+        
+        success, message = self.verify_go_compiles(output_dir)
+        self.assertTrue(success, f"Go with builtin type names failed: {message}")
+
+
+class TestAvroToCSharpCompilation(RobustnessTestBase):
+    """
+    Tests for Avro to C# code generation.
+    """
+    
+    def verify_csharp_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify C# code compiles."""
+        csproj_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.csproj'):
+                    csproj_files.append(os.path.join(root, f))
+        
+        if not csproj_files:
+            return False, "No .csproj files found"
+        
+        for csproj in csproj_files:
+            csproj_dir = os.path.dirname(csproj)
+            try:
+                restore_result = subprocess.run(
+                    ["dotnet", "restore"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    cwd=csproj_dir
+                )
+                if restore_result.returncode != 0:
+                    return False, f"dotnet restore failed:\n{restore_result.stderr}"
+                
+                result = subprocess.run(
+                    ["dotnet", "build", "--no-restore"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    cwd=csproj_dir
+                )
+                if result.returncode != 0:
+                    errors = [line for line in result.stdout.split('\n') if 'error' in line.lower()][:10]
+                    return False, f"C# compilation error:\n" + "\n".join(errors)
+            except FileNotFoundError:
+                return True, "dotnet not available, skipping"
+            except subprocess.TimeoutExpired:
+                return False, "Compilation timed out"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+    
+    def test_128_avro_csharp_logical_types(self):
+        """Avro to C# with logical types should compile."""
+        temp_dir = self.get_temp_dir("test_128")
+        schema = {
+            "type": "record",
+            "name": "LogicalRecord",
+            "namespace": "MyTest.Logical",
+            "fields": [
+                {"name": "created", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+                {"name": "eventDate", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "id", "type": {"type": "string", "logicalType": "uuid"}}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "logical.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_csharp(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_csharp_compiles(output_dir)
+        self.assertTrue(success, f"Avro C# with logical types failed: {message}")
+    
+    def test_129_avro_csharp_decimal(self):
+        """Avro to C# with decimal logical type should compile."""
+        temp_dir = self.get_temp_dir("test_129")
+        schema = {
+            "type": "record",
+            "name": "DecimalRecord",
+            "namespace": "MyTest.Decimal",
+            "fields": [
+                {"name": "amount", "type": {"type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2}},
+                {"name": "id", "type": "string"}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "decimal.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_csharp(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_csharp_compiles(output_dir)
+        self.assertTrue(success, f"Avro C# with decimal failed: {message}")
+    
+    def test_130_avro_csharp_nested(self):
+        """Avro to C# with nested records should compile."""
+        temp_dir = self.get_temp_dir("test_130")
+        schema = {
+            "type": "record",
+            "name": "OuterRecord",
+            "namespace": "MyTest.Nested",
+            "fields": [
+                {
+                    "name": "inner",
+                    "type": {
+                        "type": "record",
+                        "name": "InnerRecord",
+                        "fields": [
+                            {"name": "value", "type": "string"},
+                            {"name": "count", "type": "int"}
+                        ]
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "nested.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_csharp(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_csharp_compiles(output_dir)
+        self.assertTrue(success, f"Avro C# with nested records failed: {message}")
+
+
+class TestAvroToRustCompilation(RobustnessTestBase):
+    """
+    Tests for Avro to Rust code generation.
+    """
+    
+    def verify_rust_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Rust code compiles using cargo check."""
+        cargo_toml = os.path.join(output_dir, "Cargo.toml")
+        if not os.path.exists(cargo_toml):
+            for root, dirs, files in os.walk(output_dir):
+                if "Cargo.toml" in files:
+                    cargo_toml = os.path.join(root, "Cargo.toml")
+                    break
+        
+        if not os.path.exists(cargo_toml):
+            return False, "No Cargo.toml found"
+        
+        cargo_dir = os.path.dirname(cargo_toml)
+        try:
+            result = subprocess.run(
+                ["cargo", "check"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=cargo_dir
+            )
+            if result.returncode != 0:
+                errors = [line for line in result.stderr.split('\n') if 'error' in line.lower()][:10]
+                return False, f"Rust compilation error:\n" + "\n".join(errors)
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "cargo not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_131_avro_rust_logical_types(self):
+        """Avro to Rust with logical types should compile."""
+        temp_dir = self.get_temp_dir("test_131")
+        schema = {
+            "type": "record",
+            "name": "LogicalRecord",
+            "namespace": "mytest.logical",
+            "fields": [
+                {"name": "created", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+                {"name": "eventDate", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "id", "type": {"type": "string", "logicalType": "uuid"}}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "logical.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_rust(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_rust_compiles(output_dir)
+        self.assertTrue(success, f"Avro Rust with logical types failed: {message}")
+    
+    def test_132_avro_rust_decimal(self):
+        """Avro to Rust with decimal logical type should compile."""
+        temp_dir = self.get_temp_dir("test_132")
+        schema = {
+            "type": "record",
+            "name": "DecimalRecord",
+            "namespace": "mytest.decimal",
+            "fields": [
+                {"name": "amount", "type": {"type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2}},
+                {"name": "id", "type": "string"}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "decimal.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_rust(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_rust_compiles(output_dir)
+        self.assertTrue(success, f"Avro Rust with decimal failed: {message}")
+    
+    def test_133_avro_rust_nested(self):
+        """Avro to Rust with nested records should compile."""
+        temp_dir = self.get_temp_dir("test_133")
+        schema = {
+            "type": "record",
+            "name": "OuterRecord",
+            "namespace": "mytest.nested",
+            "fields": [
+                {
+                    "name": "inner",
+                    "type": {
+                        "type": "record",
+                        "name": "InnerRecord",
+                        "fields": [
+                            {"name": "value", "type": "string"},
+                            {"name": "count", "type": "int"}
+                        ]
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "nested.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_rust(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_rust_compiles(output_dir)
+        self.assertTrue(success, f"Avro Rust with nested records failed: {message}")
+
+
+class TestAdditionalPropertiesHandling(RobustnessTestBase):
+    """
+    Tests for JSON Schema additionalProperties handling.
+    """
+    
+    def verify_python_syntax(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code has correct syntax."""
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    filepath = os.path.join(root, f)
+                    try:
+                        with open(filepath, 'r') as fp:
+                            code = fp.read()
+                            compile(code, filepath, 'exec')
+                    except SyntaxError as e:
+                        return False, f"Syntax error in {f}: {e}"
+        return True, "OK"
+    
+    def test_134_additional_properties_true(self):
+        """Schema with additionalProperties: true should compile."""
+        temp_dir = self.get_temp_dir("test_134")
+        schema = {
+            "type": "object",
+            "title": "OpenType",
+            "properties": {
+                "name": {"type": "string"}
+            },
+            "additionalProperties": True
+        }
+        schema_path = self.write_json_file(temp_dir, "open.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.open"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"additionalProperties: true failed: {message}")
+    
+    def test_135_additional_properties_typed(self):
+        """Schema with typed additionalProperties should compile."""
+        temp_dir = self.get_temp_dir("test_135")
+        schema = {
+            "type": "object",
+            "title": "DictType",
+            "properties": {
+                "name": {"type": "string"}
+            },
+            "additionalProperties": {"type": "integer"}
+        }
+        schema_path = self.write_json_file(temp_dir, "dict.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.dict"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"additionalProperties typed failed: {message}")
+    
+    def test_136_pattern_properties(self):
+        """Schema with patternProperties should compile."""
+        temp_dir = self.get_temp_dir("test_136")
+        schema = {
+            "type": "object",
+            "title": "PatternType",
+            "properties": {
+                "name": {"type": "string"}
+            },
+            "patternProperties": {
+                "^x-": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "pattern.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.pattern"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"patternProperties failed: {message}")
+
+
+class TestEdgeCaseFieldNames(RobustnessTestBase):
+    """
+    Tests for unusual field names.
+    """
+    
+    def verify_python_syntax(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code has correct syntax."""
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    filepath = os.path.join(root, f)
+                    try:
+                        with open(filepath, 'r') as fp:
+                            code = fp.read()
+                            compile(code, filepath, 'exec')
+                    except SyntaxError as e:
+                        return False, f"Syntax error in {f}: {e}"
+        return True, "OK"
+    
+    def verify_java_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Java code compiles."""
+        java_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.java'):
+                    java_files.append(os.path.join(root, f))
+        
+        if not java_files:
+            return False, "No .java files found"
+        
+        try:
+            result = subprocess.run(
+                ["javac", "-Xlint:none"] + java_files,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if result.returncode != 0:
+                return False, f"Java compilation error:\n{result.stderr}"
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "javac not available, skipping"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_137_very_long_field_names(self):
+        """Schema with very long field names should compile."""
+        temp_dir = self.get_temp_dir("test_137")
+        long_name = "a" * 200
+        schema = {
+            "type": "object",
+            "title": "LongNames",
+            "properties": {
+                long_name: {"type": "string"},
+                f"prefix_{long_name}_suffix": {"type": "integer"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "long.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.long"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Very long field names failed: {message}")
+    
+    def test_138_unicode_field_names(self):
+        """Schema with unicode field names should compile."""
+        temp_dir = self.get_temp_dir("test_138")
+        schema = {
+            "type": "object",
+            "title": "UnicodeNames",
+            "properties": {
+                "名前": {"type": "string"},
+                "übung": {"type": "string"},
+                "テスト": {"type": "integer"},
+                "данные": {"type": "boolean"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "unicode.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.unicode"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Unicode field names failed: {message}")
+    
+    def test_139_empty_property_name(self):
+        """Schema with empty property name should be handled gracefully."""
+        temp_dir = self.get_temp_dir("test_139")
+        schema = {
+            "type": "object",
+            "title": "EmptyProp",
+            "properties": {
+                "": {"type": "string"},
+                " ": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "empty.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        try:
+            convert_structure_to_python(
+                schema_path,
+                output_dir,
+                package_name="mytest.empty"
+            )
+            # Check if it generated valid syntax
+            success, message = self.verify_python_syntax(output_dir)
+            self.assertTrue(success, f"Empty property name generated invalid syntax: {message}")
+        except Exception as e:
+            # Should not crash with a stack trace
+            if "RecursionError" in str(type(e).__name__) or "stack" in str(e).lower():
+                self.fail(f"Empty property name caused crash: {type(e).__name__}: {e}")
+    
+    def test_140_special_characters_only(self):
+        """Schema with only special characters in property names should compile."""
+        temp_dir = self.get_temp_dir("test_140")
+        schema = {
+            "type": "object",
+            "title": "SpecialOnly",
+            "properties": {
+                "!@#": {"type": "string"},
+                "$%^": {"type": "string"},
+                "&*()": {"type": "integer"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "special.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.special"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Special characters only failed: {message}")
+
+
+class TestAvroEnumEdgeCases(RobustnessTestBase):
+    """
+    Tests for Avro enum edge cases.
+    """
+    
+    def verify_python_syntax(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code has correct syntax."""
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    filepath = os.path.join(root, f)
+                    try:
+                        with open(filepath, 'r') as fp:
+                            code = fp.read()
+                            compile(code, filepath, 'exec')
+                    except SyntaxError as e:
+                        return False, f"Syntax error in {f}: {e}"
+        return True, "OK"
+    
+    def test_141_avro_empty_enum(self):
+        """Avro with empty enum symbols should be handled gracefully."""
+        temp_dir = self.get_temp_dir("test_141")
+        schema = {
+            "type": "record",
+            "name": "EmptyEnumRecord",
+            "namespace": "mytest.emptyenum",
+            "fields": [
+                {
+                    "name": "status",
+                    "type": {
+                        "type": "enum",
+                        "name": "Status",
+                        "symbols": []
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "emptyenum.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        try:
+            convert_avro_to_python(
+                schema_path,
+                output_dir
+            )
+            success, message = self.verify_python_syntax(output_dir)
+            self.assertTrue(success, f"Empty enum generated invalid syntax: {message}")
+        except Exception as e:
+            # Should handle gracefully, not crash
+            error_name = type(e).__name__
+            if error_name in ["RecursionError", "SystemError"]:
+                self.fail(f"Empty enum caused crash: {error_name}: {e}")
+    
+    def test_142_avro_enum_with_symbols_like_python_builtins(self):
+        """Avro enum with Python builtin-like symbols should compile."""
+        temp_dir = self.get_temp_dir("test_142")
+        schema = {
+            "type": "record",
+            "name": "BuiltinEnumRecord",
+            "namespace": "mytest.builtinenum",
+            "fields": [
+                {
+                    "name": "value",
+                    "type": {
+                        "type": "enum",
+                        "name": "Builtin",
+                        "symbols": ["True", "False", "None", "print", "list", "dict", "str", "int"]
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "builtinenum.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Builtin-like enum symbols failed: {message}")
+
+
+class TestAvroMapTypes(RobustnessTestBase):
+    """
+    Tests for Avro map type handling.
+    """
+    
+    def verify_python_syntax(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code has correct syntax."""
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    filepath = os.path.join(root, f)
+                    try:
+                        with open(filepath, 'r') as fp:
+                            code = fp.read()
+                            compile(code, filepath, 'exec')
+                    except SyntaxError as e:
+                        return False, f"Syntax error in {f}: {e}"
+        return True, "OK"
+    
+    def test_143_avro_map_of_records(self):
+        """Avro with map of records should compile."""
+        temp_dir = self.get_temp_dir("test_143")
+        schema = {
+            "type": "record",
+            "name": "MapOfRecordsRecord",
+            "namespace": "mytest.mapofrecords",
+            "fields": [
+                {
+                    "name": "items",
+                    "type": {
+                        "type": "map",
+                        "values": {
+                            "type": "record",
+                            "name": "Item",
+                            "fields": [
+                                {"name": "value", "type": "string"}
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "mapofrecords.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Map of records failed: {message}")
+    
+    def test_144_avro_nested_maps(self):
+        """Avro with nested maps should compile."""
+        temp_dir = self.get_temp_dir("test_144")
+        schema = {
+            "type": "record",
+            "name": "NestedMapRecord",
+            "namespace": "mytest.nestedmap",
+            "fields": [
+                {
+                    "name": "data",
+                    "type": {
+                        "type": "map",
+                        "values": {
+                            "type": "map",
+                            "values": "string"
+                        }
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "nestedmap.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Nested maps failed: {message}")
+
+
+class TestAvroArrayTypes(RobustnessTestBase):
+    """
+    Tests for Avro array type handling.
+    """
+    
+    def verify_python_syntax(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code has correct syntax."""
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    filepath = os.path.join(root, f)
+                    try:
+                        with open(filepath, 'r') as fp:
+                            code = fp.read()
+                            compile(code, filepath, 'exec')
+                    except SyntaxError as e:
+                        return False, f"Syntax error in {f}: {e}"
+        return True, "OK"
+    
+    def test_145_avro_array_of_records(self):
+        """Avro with array of records should compile."""
+        temp_dir = self.get_temp_dir("test_145")
+        schema = {
+            "type": "record",
+            "name": "ArrayOfRecordsRecord",
+            "namespace": "mytest.arrayofrecords",
+            "fields": [
+                {
+                    "name": "items",
+                    "type": {
+                        "type": "array",
+                        "items": {
+                            "type": "record",
+                            "name": "Item",
+                            "fields": [
+                                {"name": "value", "type": "string"}
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "arrayofrecords.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Array of records failed: {message}")
+    
+    def test_146_avro_nested_arrays(self):
+        """Avro with nested arrays should compile."""
+        temp_dir = self.get_temp_dir("test_146")
+        schema = {
+            "type": "record",
+            "name": "NestedArrayRecord",
+            "namespace": "mytest.nestedarray",
+            "fields": [
+                {
+                    "name": "matrix",
+                    "type": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": "int"
+                        }
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "nestedarray.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_avro_to_python(
+            schema_path,
+            output_dir
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Nested arrays failed: {message}")
+
+
+class TestStructureToRustCompilation(RobustnessTestBase):
+    """
+    Tests for Structure to Rust code generation.
+    """
+    
+    def verify_rust_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Rust code compiles using cargo check."""
+        cargo_toml = os.path.join(output_dir, "Cargo.toml")
+        if not os.path.exists(cargo_toml):
+            for root, dirs, files in os.walk(output_dir):
+                if "Cargo.toml" in files:
+                    cargo_toml = os.path.join(root, "Cargo.toml")
+                    break
+        
+        if not os.path.exists(cargo_toml):
+            return False, "No Cargo.toml found"
+        
+        cargo_dir = os.path.dirname(cargo_toml)
+        try:
+            result = subprocess.run(
+                ["cargo", "check"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=cargo_dir
+            )
+            if result.returncode != 0:
+                errors = [line for line in result.stderr.split('\n') if 'error' in line.lower()][:10]
+                return False, f"Rust compilation error:\n" + "\n".join(errors)
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "cargo not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_147_struct_rust_reserved_keywords(self):
+        """Structure to Rust with reserved keywords should compile."""
+        temp_dir = self.get_temp_dir("test_147")
+        schema = {
+            "type": "object",
+            "title": "RustKeywords",
+            "properties": {
+                "fn": {"type": "string"},
+                "let": {"type": "string"},
+                "mut": {"type": "string"},
+                "pub": {"type": "string"},
+                "impl": {"type": "string"},
+                "trait": {"type": "string"},
+                "struct": {"type": "string"},
+                "enum": {"type": "string"},
+                "mod": {"type": "string"},
+                "crate": {"type": "string"},
+                "self": {"type": "string"},
+                "super": {"type": "string"},
+                "match": {"type": "string"},
+                "loop": {"type": "string"},
+                "break": {"type": "string"},
+                "continue": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "keywords.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_rust(
+            schema_path,
+            output_dir,
+            package_name="test_pkg"
+        )
+        
+        success, message = self.verify_rust_compiles(output_dir)
+        self.assertTrue(success, f"Rust with reserved keywords failed: {message}")
+    
+    def test_148_struct_rust_nullable_types(self):
+        """Structure to Rust with nullable types should compile."""
+        temp_dir = self.get_temp_dir("test_148")
+        schema = {
+            "type": "object",
+            "title": "NullableTypes",
+            "properties": {
+                "optString": {"type": ["string", "null"]},
+                "optInt": {"type": ["integer", "null"]},
+                "optBool": {"type": ["boolean", "null"]},
+                "optNumber": {"type": ["number", "null"]}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "nullable.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_rust(
+            schema_path,
+            output_dir,
+            package_name="test_pkg"
+        )
+        
+        success, message = self.verify_rust_compiles(output_dir)
+        self.assertTrue(success, f"Rust with nullable types failed: {message}")
+
+
+class TestStructureToTypeScriptCompilation(RobustnessTestBase):
+    """
+    Tests for Structure to TypeScript code generation.
+    """
+    
+    def verify_ts_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify TypeScript code compiles."""
+        ts_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.ts') and not f.endswith('.d.ts'):
+                    ts_files.append(os.path.join(root, f))
+        
+        if not ts_files:
+            return False, "No .ts files found"
+        
+        try:
+            result = subprocess.run(
+                ["npx", "tsc", "--noEmit", "--skipLibCheck", "--target", "ES2020", 
+                 "--module", "ESNext", "--moduleResolution", "node", "--esModuleInterop", 
+                 "--strict"] + ts_files,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=output_dir
+            )
+            if result.returncode != 0:
+                return False, f"TypeScript error:\n{result.stdout}\n{result.stderr}"
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "npx/tsc not available, skipping"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_149_struct_ts_reserved_keywords(self):
+        """Structure to TypeScript with reserved keywords should compile."""
+        temp_dir = self.get_temp_dir("test_149")
+        schema = {
+            "type": "object",
+            "title": "TSKeywords",
+            "properties": {
+                "class": {"type": "string"},
+                "function": {"type": "string"},
+                "interface": {"type": "string"},
+                "type": {"type": "string"},
+                "enum": {"type": "string"},
+                "namespace": {"type": "string"},
+                "module": {"type": "string"},
+                "declare": {"type": "string"},
+                "abstract": {"type": "string"},
+                "implements": {"type": "string"},
+                "private": {"type": "string"},
+                "public": {"type": "string"},
+                "protected": {"type": "string"},
+                "readonly": {"type": "string"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "keywords.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_typescript(
+            schema_path,
+            output_dir,
+            package_name="mytest.keywords"
+        )
+        
+        success, message = self.verify_ts_compiles(output_dir)
+        self.assertTrue(success, f"TypeScript with reserved keywords failed: {message}")
+    
+    def test_150_struct_ts_optional_properties(self):
+        """Structure to TypeScript with optional properties should compile."""
+        temp_dir = self.get_temp_dir("test_150")
+        schema = {
+            "type": "object",
+            "title": "OptionalProps",
+            "properties": {
+                "required": {"type": "string"},
+                "optional": {"type": "string"}
+            },
+            "required": ["required"]
+        }
+        schema_path = self.write_json_file(temp_dir, "optional.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_typescript(
+            schema_path,
+            output_dir,
+            package_name="mytest.optional"
+        )
+        
+        success, message = self.verify_ts_compiles(output_dir)
+        self.assertTrue(success, f"TypeScript with optional properties failed: {message}")
+
+
+class TestProtoToAvro(RobustnessTestBase):
+    """
+    Tests for Protobuf to Avro conversion.
+    """
+    
+    def write_proto_file(self, temp_dir: str, filename: str, content: str) -> str:
+        """Write a proto file and return its path."""
+        filepath = os.path.join(temp_dir, filename)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return filepath
+    
+    def test_151_proto3_simple(self):
+        """Simple proto3 file should convert to Avro."""
+        temp_dir = self.get_temp_dir("test_151")
+        proto_content = '''
+syntax = "proto3";
+
+package mytest;
+
+message Person {
+    string name = 1;
+    int32 age = 2;
+    bool active = 3;
+}
+'''
+        proto_path = self.write_proto_file(temp_dir, "person.proto", proto_content)
+        output_path = os.path.join(temp_dir, "person.avsc")
+        
+        from avrotize.prototoavro import convert_proto_to_avro
+        try:
+            convert_proto_to_avro(proto_path, output_path)
+            self.assertTrue(os.path.exists(output_path), "Avro schema was not created")
+        except Exception as e:
+            self.fail(f"Proto to Avro conversion failed: {type(e).__name__}: {e}")
+    
+    def test_152_proto3_nested_message(self):
+        """Proto3 with nested messages should convert to Avro."""
+        temp_dir = self.get_temp_dir("test_152")
+        proto_content = '''
+syntax = "proto3";
+
+package mytest;
+
+message Outer {
+    message Inner {
+        string value = 1;
+    }
+    Inner nested = 1;
+    string name = 2;
+}
+'''
+        proto_path = self.write_proto_file(temp_dir, "nested.proto", proto_content)
+        output_path = os.path.join(temp_dir, "nested.avsc")
+        
+        from avrotize.prototoavro import convert_proto_to_avro
+        try:
+            convert_proto_to_avro(proto_path, output_path)
+            self.assertTrue(os.path.exists(output_path), "Avro schema was not created")
+        except Exception as e:
+            self.fail(f"Nested proto to Avro conversion failed: {type(e).__name__}: {e}")
+    
+    def test_153_proto3_enum(self):
+        """Proto3 with enum should convert to Avro."""
+        temp_dir = self.get_temp_dir("test_153")
+        proto_content = '''
+syntax = "proto3";
+
+package mytest;
+
+enum Status {
+    UNKNOWN = 0;
+    ACTIVE = 1;
+    INACTIVE = 2;
+}
+
+message Record {
+    string name = 1;
+    Status status = 2;
+}
+'''
+        proto_path = self.write_proto_file(temp_dir, "enum.proto", proto_content)
+        output_path = os.path.join(temp_dir, "enum.avsc")
+        
+        from avrotize.prototoavro import convert_proto_to_avro
+        try:
+            convert_proto_to_avro(proto_path, output_path)
+            self.assertTrue(os.path.exists(output_path), "Avro schema was not created")
+        except Exception as e:
+            self.fail(f"Enum proto to Avro conversion failed: {type(e).__name__}: {e}")
+    
+    def test_154_proto3_repeated(self):
+        """Proto3 with repeated fields should convert to Avro."""
+        temp_dir = self.get_temp_dir("test_154")
+        proto_content = '''
+syntax = "proto3";
+
+package mytest;
+
+message Container {
+    repeated string items = 1;
+    repeated int32 numbers = 2;
+}
+'''
+        proto_path = self.write_proto_file(temp_dir, "repeated.proto", proto_content)
+        output_path = os.path.join(temp_dir, "repeated.avsc")
+        
+        from avrotize.prototoavro import convert_proto_to_avro
+        try:
+            convert_proto_to_avro(proto_path, output_path)
+            self.assertTrue(os.path.exists(output_path), "Avro schema was not created")
+        except Exception as e:
+            self.fail(f"Repeated proto to Avro conversion failed: {type(e).__name__}: {e}")
+    
+    def test_155_proto3_map(self):
+        """Proto3 with map fields should convert to Avro."""
+        temp_dir = self.get_temp_dir("test_155")
+        proto_content = '''
+syntax = "proto3";
+
+package mytest;
+
+message Container {
+    map<string, string> data = 1;
+    map<string, int32> counts = 2;
+}
+'''
+        proto_path = self.write_proto_file(temp_dir, "map.proto", proto_content)
+        output_path = os.path.join(temp_dir, "map.avsc")
+        
+        from avrotize.prototoavro import convert_proto_to_avro
+        try:
+            convert_proto_to_avro(proto_path, output_path)
+            self.assertTrue(os.path.exists(output_path), "Avro schema was not created")
+        except Exception as e:
+            self.fail(f"Map proto to Avro conversion failed: {type(e).__name__}: {e}")
+    
+    def test_156_proto3_oneof(self):
+        """Proto3 with oneof should convert to Avro."""
+        temp_dir = self.get_temp_dir("test_156")
+        proto_content = '''
+syntax = "proto3";
+
+package mytest;
+
+message Response {
+    string name = 1;
+    oneof result {
+        string success = 2;
+        string error = 3;
+    }
+}
+'''
+        proto_path = self.write_proto_file(temp_dir, "oneof.proto", proto_content)
+        output_path = os.path.join(temp_dir, "oneof.avsc")
+        
+        from avrotize.prototoavro import convert_proto_to_avro
+        try:
+            convert_proto_to_avro(proto_path, output_path)
+            self.assertTrue(os.path.exists(output_path), "Avro schema was not created")
+        except Exception as e:
+            self.fail(f"Oneof proto to Avro conversion failed: {type(e).__name__}: {e}")
+
+
+class TestXsdToAvro(RobustnessTestBase):
+    """
+    Tests for XSD to Avro conversion.
+    """
+    
+    def write_xsd_file(self, temp_dir: str, filename: str, content: str) -> str:
+        """Write an XSD file and return its path."""
+        filepath = os.path.join(temp_dir, filename)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return filepath
+    
+    def test_157_xsd_simple(self):
+        """Simple XSD should convert to Avro."""
+        temp_dir = self.get_temp_dir("test_157")
+        xsd_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/person">
+    <xs:element name="person">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="name" type="xs:string"/>
+                <xs:element name="age" type="xs:int"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>
+'''
+        xsd_path = self.write_xsd_file(temp_dir, "person.xsd", xsd_content)
+        output_path = os.path.join(temp_dir, "person.avsc")
+        
+        from avrotize.xsdtoavro import convert_xsd_to_avro
+        try:
+            convert_xsd_to_avro(xsd_path, output_path)
+            self.assertTrue(os.path.exists(output_path), "Avro schema was not created")
+        except Exception as e:
+            self.fail(f"XSD to Avro conversion failed: {type(e).__name__}: {e}")
+    
+    def test_158_xsd_complex_type(self):
+        """XSD with named complex type should convert to Avro."""
+        temp_dir = self.get_temp_dir("test_158")
+        xsd_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/address">
+    <xs:complexType name="AddressType">
+        <xs:sequence>
+            <xs:element name="street" type="xs:string"/>
+            <xs:element name="city" type="xs:string"/>
+            <xs:element name="zip" type="xs:string"/>
+        </xs:sequence>
+    </xs:complexType>
+    
+    <xs:element name="address" type="AddressType"/>
+</xs:schema>
+'''
+        xsd_path = self.write_xsd_file(temp_dir, "address.xsd", xsd_content)
+        output_path = os.path.join(temp_dir, "address.avsc")
+        
+        from avrotize.xsdtoavro import convert_xsd_to_avro
+        try:
+            convert_xsd_to_avro(xsd_path, output_path)
+            self.assertTrue(os.path.exists(output_path), "Avro schema was not created")
+        except Exception as e:
+            self.fail(f"XSD complex type to Avro conversion failed: {type(e).__name__}: {e}")
+    
+    def test_159_xsd_enumeration(self):
+        """XSD with enumeration should convert to Avro."""
+        temp_dir = self.get_temp_dir("test_159")
+        xsd_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/status">
+    <xs:simpleType name="StatusType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="ACTIVE"/>
+            <xs:enumeration value="INACTIVE"/>
+            <xs:enumeration value="PENDING"/>
+        </xs:restriction>
+    </xs:simpleType>
+    
+    <xs:element name="status" type="StatusType"/>
+</xs:schema>
+'''
+        xsd_path = self.write_xsd_file(temp_dir, "status.xsd", xsd_content)
+        output_path = os.path.join(temp_dir, "status.avsc")
+        
+        from avrotize.xsdtoavro import convert_xsd_to_avro
+        try:
+            convert_xsd_to_avro(xsd_path, output_path)
+            self.assertTrue(os.path.exists(output_path), "Avro schema was not created")
+        except Exception as e:
+            self.fail(f"XSD enumeration to Avro conversion failed: {type(e).__name__}: {e}")
+
+
+class TestAvroToGraphQL(RobustnessTestBase):
+    """
+    Tests for Avro to GraphQL conversion.
+    """
+    
+    def verify_graphql_syntax(self, output_path: str) -> Tuple[bool, str]:
+        """Basic check that GraphQL output is valid."""
+        if not os.path.exists(output_path):
+            return False, "Output file not created"
+        
+        with open(output_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        if not content.strip():
+            return False, "Output file is empty"
+        
+        # Basic GraphQL syntax check - should have type definitions
+        if 'type ' not in content and 'input ' not in content:
+            return False, "No type definitions found in GraphQL output"
+        
+        return True, "OK"
+    
+    def test_160_avro_graphql_simple(self):
+        """Simple Avro record should convert to GraphQL."""
+        temp_dir = self.get_temp_dir("test_160")
+        schema = {
+            "type": "record",
+            "name": "Person",
+            "namespace": "mytest",
+            "fields": [
+                {"name": "name", "type": "string"},
+                {"name": "age", "type": "int"}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "person.avsc", schema)
+        output_path = os.path.join(temp_dir, "schema.graphql")
+        
+        from avrotize.avrotographql import convert_avro_to_graphql
+        try:
+            convert_avro_to_graphql(schema_path, output_path)
+            success, message = self.verify_graphql_syntax(output_path)
+            self.assertTrue(success, f"GraphQL output invalid: {message}")
+        except Exception as e:
+            self.fail(f"Avro to GraphQL conversion failed: {type(e).__name__}: {e}")
+    
+    def test_161_avro_graphql_nested(self):
+        """Avro with nested records should convert to GraphQL."""
+        temp_dir = self.get_temp_dir("test_161")
+        schema = {
+            "type": "record",
+            "name": "Outer",
+            "namespace": "mytest",
+            "fields": [
+                {
+                    "name": "inner",
+                    "type": {
+                        "type": "record",
+                        "name": "Inner",
+                        "fields": [
+                            {"name": "value", "type": "string"}
+                        ]
+                    }
+                }
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "nested.avsc", schema)
+        output_path = os.path.join(temp_dir, "schema.graphql")
+        
+        from avrotize.avrotographql import convert_avro_to_graphql
+        try:
+            convert_avro_to_graphql(schema_path, output_path)
+            success, message = self.verify_graphql_syntax(output_path)
+            self.assertTrue(success, f"GraphQL nested output invalid: {message}")
+        except Exception as e:
+            self.fail(f"Nested Avro to GraphQL conversion failed: {type(e).__name__}: {e}")
+
+
+class TestAvroToCpp(RobustnessTestBase):
+    """
+    Tests for Avro to C++ conversion.
+    """
+    
+    def test_162_avro_cpp_simple(self):
+        """Simple Avro record should convert to C++."""
+        temp_dir = self.get_temp_dir("test_162")
+        schema = {
+            "type": "record",
+            "name": "Person",
+            "namespace": "mytest",
+            "fields": [
+                {"name": "name", "type": "string"},
+                {"name": "age", "type": "int"}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "person.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        from avrotize.avrotocpp import convert_avro_to_cpp
+        try:
+            convert_avro_to_cpp(schema_path, output_dir)
+            # Check that some C++ file was created
+            cpp_files = [f for f in os.listdir(output_dir) if f.endswith('.hpp') or f.endswith('.cpp') or f.endswith('.h')]
+            self.assertTrue(len(cpp_files) > 0 or any(os.listdir(output_dir)), "No C++ files created")
+        except Exception as e:
+            self.fail(f"Avro to C++ conversion failed: {type(e).__name__}: {e}")
+    
+    def test_163_avro_cpp_logical_types(self):
+        """Avro with logical types should convert to C++."""
+        temp_dir = self.get_temp_dir("test_163")
+        schema = {
+            "type": "record",
+            "name": "TimestampRecord",
+            "namespace": "mytest",
+            "fields": [
+                {"name": "created", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+                {"name": "id", "type": {"type": "string", "logicalType": "uuid"}}
+            ]
+        }
+        schema_path = self.write_json_file(temp_dir, "timestamp.avsc", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        from avrotize.avrotocpp import convert_avro_to_cpp
+        try:
+            convert_avro_to_cpp(schema_path, output_dir)
+            # Just verify it doesn't crash
+            self.assertTrue(True)
+        except Exception as e:
+            self.fail(f"Avro C++ with logical types failed: {type(e).__name__}: {e}")
+
+
+class TestJsonSchemaEdgeCases(RobustnessTestBase):
+    """
+    Tests for JSON Schema edge cases.
+    """
+    
+    def verify_python_syntax(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Python code has correct syntax."""
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.py') and f != '__init__.py':
+                    filepath = os.path.join(root, f)
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as fp:
+                            code = fp.read()
+                            compile(code, filepath, 'exec')
+                    except SyntaxError as e:
+                        return False, f"Syntax error in {f}: {e}"
+        return True, "OK"
+    
+    def test_164_default_values(self):
+        """Schema with default values should compile."""
+        temp_dir = self.get_temp_dir("test_164")
+        schema = {
+            "type": "object",
+            "title": "DefaultValues",
+            "properties": {
+                "name": {"type": "string", "default": "unknown"},
+                "count": {"type": "integer", "default": 0},
+                "active": {"type": "boolean", "default": True},
+                "score": {"type": "number", "default": 0.0}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "defaults.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.defaults"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Default values failed: {message}")
+    
+    def test_165_min_max_constraints(self):
+        """Schema with min/max constraints should compile."""
+        temp_dir = self.get_temp_dir("test_165")
+        schema = {
+            "type": "object",
+            "title": "Constraints",
+            "properties": {
+                "age": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 150
+                },
+                "score": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 100.0
+                },
+                "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                }
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "constraints.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.constraints"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Min/max constraints failed: {message}")
+    
+    def test_166_format_types(self):
+        """Schema with format annotations should compile."""
+        temp_dir = self.get_temp_dir("test_166")
+        schema = {
+            "type": "object",
+            "title": "Formats",
+            "properties": {
+                "email": {"type": "string", "format": "email"},
+                "uri": {"type": "string", "format": "uri"},
+                "date": {"type": "string", "format": "date"},
+                "datetime": {"type": "string", "format": "date-time"},
+                "uuid": {"type": "string", "format": "uuid"},
+                "ipv4": {"type": "string", "format": "ipv4"},
+                "ipv6": {"type": "string", "format": "ipv6"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "formats.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.formats"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Format types failed: {message}")
+    
+    def test_167_const_value(self):
+        """Schema with const value should compile."""
+        temp_dir = self.get_temp_dir("test_167")
+        schema = {
+            "type": "object",
+            "title": "ConstValue",
+            "properties": {
+                "type": {"const": "fixed_type"},
+                "version": {"const": 1}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "const.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        convert_structure_to_python(
+            schema_path,
+            output_dir,
+            package_name="mytest.const"
+        )
+        
+        success, message = self.verify_python_syntax(output_dir)
+        self.assertTrue(success, f"Const value failed: {message}")
+    
+    def test_168_recursive_ref(self):
+        """Schema with recursive $ref should not cause infinite loop."""
+        temp_dir = self.get_temp_dir("test_168")
+        schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "title": "LinkedList",
+            "$defs": {
+                "Node": {
+                    "type": "object",
+                    "properties": {
+                        "value": {"type": "string"},
+                        "next": {"$ref": "#/$defs/Node"}
+                    }
+                }
+            },
+            "properties": {
+                "head": {"$ref": "#/$defs/Node"}
+            }
+        }
+        schema_path = self.write_json_file(temp_dir, "recursive.struct.json", schema)
+        output_dir = os.path.join(temp_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        try:
+            convert_structure_to_python(
+                schema_path,
+                output_dir,
+                package_name="mytest.recursive"
+            )
+            success, message = self.verify_python_syntax(output_dir)
+            self.assertTrue(success, f"Recursive ref failed: {message}")
+        except RecursionError:
+            self.fail("Recursive $ref caused RecursionError")
 
 
 if __name__ == '__main__':
