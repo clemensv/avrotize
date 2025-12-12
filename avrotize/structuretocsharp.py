@@ -9,10 +9,12 @@ from typing import Any, Dict, List, Tuple, Union, cast, Optional
 import uuid
 
 from avrotize.common import pascal, process_template
+from avrotize.jstructtoavro import JsonStructureToAvro
 from avrotize.constants import (
     NEWTONSOFT_JSON_VERSION,
     SYSTEM_TEXT_JSON_VERSION,
     SYSTEM_MEMORY_DATA_VERSION,
+    CSHARP_AVRO_VERSION,
     NUNIT_VERSION,
     NUNIT_ADAPTER_VERSION,
     MSTEST_SDK_VERSION,
@@ -37,6 +39,7 @@ class StructureToCSharp:
         self.system_text_json_annotation = False
         self.newtonsoft_json_annotation = False
         self.system_xml_annotation = False
+        self.avro_annotation = False
         self.generated_types: Dict[str,str] = {}
         self.generated_structure_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
         self.type_dict: Dict[str, Dict] = {}
@@ -419,14 +422,26 @@ class StructureToCSharp:
             constructor_modifier = "protected" if is_abstract else "public"
             class_definition += f"{INDENT}{constructor_modifier} {class_name}()\n{INDENT}{{\n{INDENT}}}"
 
+        # Convert JSON Structure schema to Avro schema if avro_annotation is enabled
+        avro_schema_json = ''
+        if self.avro_annotation:
+            # Use JsonStructureToAvro to convert the schema
+            converter = JsonStructureToAvro()
+            schema_copy = structure_schema.copy()
+            avro_schema = converter.convert(schema_copy)
+            # Escape the JSON for C# string literal (escape backslashes and quotes)
+            avro_schema_json = json.dumps(avro_schema).replace('\\', '\\\\').replace('"', '\\"')
+
         # Add helper methods from template if any annotations are enabled
-        if self.system_text_json_annotation or self.newtonsoft_json_annotation or self.system_xml_annotation:
+        if self.system_text_json_annotation or self.newtonsoft_json_annotation or self.system_xml_annotation or self.avro_annotation:
             class_definition += process_template(
                 "structuretocsharp/dataclass_core.jinja",
                 class_name=class_name,
                 system_text_json_annotation=self.system_text_json_annotation,
                 newtonsoft_json_annotation=self.newtonsoft_json_annotation,
-                system_xml_annotation=self.system_xml_annotation
+                system_xml_annotation=self.system_xml_annotation,
+                avro_annotation=self.avro_annotation,
+                avro_schema_json=avro_schema_json
             )
 
         # Generate Equals and GetHashCode
@@ -1486,6 +1501,10 @@ class StructureToCSharp:
                 file_content += "using Newtonsoft.Json;\n"
             if self.system_xml_annotation:  # Add XML serialization using directive
                 file_content += "using System.Xml.Serialization;\n"
+            if self.avro_annotation:  # Add Avro using directives
+                file_content += "using Avro;\n"
+                file_content += "using Avro.Generic;\n"
+                file_content += "using Avro.IO;\n"
 
             if namespace:
                 # Namespace declaration with correct indentation for the definition
@@ -1562,9 +1581,11 @@ class StructureToCSharp:
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
                         newtonsoft_json_annotation=self.newtonsoft_json_annotation,
+                        avro_annotation=self.avro_annotation,
                         NEWTONSOFT_JSON_VERSION=NEWTONSOFT_JSON_VERSION,
                         SYSTEM_TEXT_JSON_VERSION=SYSTEM_TEXT_JSON_VERSION,
                         SYSTEM_MEMORY_DATA_VERSION=SYSTEM_MEMORY_DATA_VERSION,
+                        CSHARP_AVRO_VERSION=CSHARP_AVRO_VERSION,
                         NUNIT_VERSION=NUNIT_VERSION,
                         NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
                         MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
@@ -2268,7 +2289,8 @@ def convert_structure_to_csharp(
     pascal_properties: bool = False, 
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
-    system_xml_annotation: bool = False
+    system_xml_annotation: bool = False,
+    avro_annotation: bool = False
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2281,6 +2303,7 @@ def convert_structure_to_csharp(
         system_text_json_annotation (bool, optional): Use System.Text.Json annotations. Defaults to False.
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
+        avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
     """
 
     if not base_namespace:
@@ -2292,6 +2315,7 @@ def convert_structure_to_csharp(
     structtocs.system_text_json_annotation = system_text_json_annotation
     structtocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     structtocs.system_xml_annotation = system_xml_annotation
+    structtocs.avro_annotation = avro_annotation
     structtocs.convert(structure_schema_path, cs_file_path)
 
 
@@ -2303,7 +2327,8 @@ def convert_structure_schema_to_csharp(
     pascal_properties: bool = False, 
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
-    system_xml_annotation: bool = False
+    system_xml_annotation: bool = False,
+    avro_annotation: bool = False
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2316,6 +2341,7 @@ def convert_structure_schema_to_csharp(
         system_text_json_annotation (bool, optional): Use System.Text.Json annotations. Defaults to False.
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
+        avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
     """
     structtocs = StructureToCSharp(base_namespace)
     structtocs.project_name = project_name
@@ -2323,4 +2349,5 @@ def convert_structure_schema_to_csharp(
     structtocs.system_text_json_annotation = system_text_json_annotation
     structtocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     structtocs.system_xml_annotation = system_xml_annotation
+    structtocs.avro_annotation = avro_annotation
     structtocs.convert_schema(structure_schema, output_dir)

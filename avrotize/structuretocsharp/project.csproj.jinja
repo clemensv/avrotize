@@ -11,6 +11,9 @@
         {%- if system_text_json_annotation %}
         <PackageReference Include="System.Text.Json" Version="{{ SYSTEM_TEXT_JSON_VERSION }}" />
         {%- endif %}
+        {%- if avro_annotation %}
+        <PackageReference Include="Apache.Avro" Version="{{ CSHARP_AVRO_VERSION }}" />
+        {%- endif %}
         <PackageReference Include="System.Memory.Data" Version="{{ SYSTEM_MEMORY_DATA_VERSION }}" />
     </ItemGroup>
 </Project>  
