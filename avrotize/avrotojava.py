@@ -1920,6 +1920,21 @@ class AvroToJava:
             'Double': 'Double.valueOf(3.14)',
             'byte[]': 'new byte[] { 0x01, 0x02, 0x03 }',
             'Object': 'null',  # Use null for Object types (Avro unions) to avoid reference equality issues
+            # Java time types - use factory methods, not constructors
+            'Instant': 'java.time.Instant.now()',
+            'java.time.Instant': 'java.time.Instant.now()',
+            'LocalDate': 'java.time.LocalDate.now()',
+            'java.time.LocalDate': 'java.time.LocalDate.now()',
+            'LocalTime': 'java.time.LocalTime.now()',
+            'java.time.LocalTime': 'java.time.LocalTime.now()',
+            'LocalDateTime': 'java.time.LocalDateTime.now()',
+            'java.time.LocalDateTime': 'java.time.LocalDateTime.now()',
+            'Duration': 'java.time.Duration.ofSeconds(42)',
+            'java.time.Duration': 'java.time.Duration.ofSeconds(42)',
+            'UUID': 'java.util.UUID.randomUUID()',
+            'java.util.UUID': 'java.util.UUID.randomUUID()',
+            'BigDecimal': 'new java.math.BigDecimal("42.00")',
+            'java.math.BigDecimal': 'new java.math.BigDecimal("42.00")',
         }
         
         # Handle generic types
