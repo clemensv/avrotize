@@ -429,15 +429,19 @@ class StructureToCSharp:
             converter = JsonStructureToAvro()
             schema_copy = structure_schema.copy()
             avro_schema = converter.convert(schema_copy)
-            # Escape the JSON for C# string literal (escape backslashes and quotes)
-            avro_schema_json = json.dumps(avro_schema).replace('\\', '\\\\').replace('"', '\\"')
+            # Escape the JSON for C# string literal
+            # json.dumps produces compact JSON that only needs backslash and quote escaping
+            avro_schema_json = json.dumps(avro_schema, separators=(',', ':')).replace('\\', '\\\\').replace('"', '\\"')
+            # Also enable system_text_json_annotation internally for Avro serialization helpers
+            # since ToAvroRecord and FromAvroRecord use System.Text.Json
+            needs_json_for_avro = not self.system_text_json_annotation and not self.newtonsoft_json_annotation
 
         # Add helper methods from template if any annotations are enabled
         if self.system_text_json_annotation or self.newtonsoft_json_annotation or self.system_xml_annotation or self.avro_annotation:
             class_definition += process_template(
                 "structuretocsharp/dataclass_core.jinja",
                 class_name=class_name,
-                system_text_json_annotation=self.system_text_json_annotation,
+                system_text_json_annotation=self.system_text_json_annotation or (self.avro_annotation and needs_json_for_avro),
                 newtonsoft_json_annotation=self.newtonsoft_json_annotation,
                 system_xml_annotation=self.system_xml_annotation,
                 avro_annotation=self.avro_annotation,
@@ -1579,7 +1583,8 @@ class StructureToCSharp:
                         "structuretocsharp/project.csproj.jinja",
                         project_name=project_name, 
                         system_xml_annotation=self.system_xml_annotation,
-                        system_text_json_annotation=self.system_text_json_annotation,
+                        # Avro annotation requires System.Text.Json for intermediate conversions
+                        system_text_json_annotation=self.system_text_json_annotation or self.avro_annotation,
                         newtonsoft_json_annotation=self.newtonsoft_json_annotation,
                         avro_annotation=self.avro_annotation,
                         NEWTONSOFT_JSON_VERSION=NEWTONSOFT_JSON_VERSION,
