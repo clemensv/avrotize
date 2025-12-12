@@ -44,11 +44,30 @@ class StructureToGo:
             return f"{name}_"
         return name
 
-    def safe_identifier(self, name: str) -> str:
-        """Converts a name to a safe Go identifier"""
-        if name in self.GO_RESERVED_WORDS:
-            return f"{name}_"
-        return name
+    def safe_identifier(self, name: str, fallback_prefix: str = 'field') -> str:
+        """Converts a name to a safe Go identifier.
+        
+        Handles:
+        - Reserved words (append _)
+        - Numeric prefixes (prepend _)
+        - Special characters (replace with _)
+        - All-special-char names (use fallback_prefix)
+        """
+        import re
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', str(name))
+        # Remove leading/trailing underscores from sanitization
+        safe = safe.strip('_') if safe != name else safe
+        # If nothing left after removing special chars, use fallback
+        if not safe or not re.match(r'^[a-zA-Z_]', safe):
+            if safe and re.match(r'^[0-9]', safe):
+                safe = '_' + safe  # Numeric prefix
+            else:
+                safe = fallback_prefix + '_' + (safe if safe else 'unnamed')
+        # Handle reserved words
+        if safe in self.GO_RESERVED_WORDS:
+            safe = safe + '_'
+        return safe
 
     def go_type_name(self, name: str, namespace: str = '') -> str:
         """Returns a qualified name for a Go struct or enum"""
