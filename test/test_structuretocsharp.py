@@ -391,10 +391,8 @@ class TestStructureToCSharp(unittest.TestCase):
             
             # Check combined validations (EmailAddress + StringLength + RegularExpression)
             # The combinedValidations field should have all three attributes
-            combined_section = content[content.find("combinedValidations"):content.find("combinedValidations") + 500] if "combinedValidations" in content else ""
-            assert "[System.ComponentModel.DataAnnotations.EmailAddress]" in combined_section or \
-                   content.count("[System.ComponentModel.DataAnnotations.EmailAddress]") >= 2, \
-                "combinedValidations should have EmailAddress attribute"
+            assert content.count("[System.ComponentModel.DataAnnotations.EmailAddress]") >= 2, \
+                "combinedValidations should have EmailAddress attribute (2 occurrences expected)"
         
         # Verify code compiles - build only the main project, not the test project
         src_project = os.path.join(cs_path, "src", "TestValidationExtensionsCs.csproj")

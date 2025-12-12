@@ -591,15 +591,8 @@ class StructureToCSharp:
                 max_is_exclusive = False
             
             # Convert to appropriate format
-            if isinstance(min_val, (int, float)):
-                min_str = str(min_val)
-            else:
-                min_str = str(min_val)
-            
-            if isinstance(max_val, (int, float)):
-                max_str = str(max_val)
-            else:
-                max_str = str(max_val)
+            min_str = str(min_val)
+            max_str = str(max_val)
             
             # Build the Range attribute with exclusive parameters if needed
             range_params = f'{min_str}, {max_str}'
