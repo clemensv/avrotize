@@ -15,6 +15,38 @@ JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
 INDENT = '    '
 
+# Python standard library modules that should not be shadowed by package names
+PYTHON_STDLIB_MODULES = {
+    'abc', 'aifc', 'argparse', 'array', 'ast', 'asynchat', 'asyncio', 'asyncore',
+    'atexit', 'audioop', 'base64', 'bdb', 'binascii', 'binhex', 'bisect', 'builtins',
+    'bz2', 'calendar', 'cgi', 'cgitb', 'chunk', 'cmath', 'cmd', 'code', 'codecs',
+    'codeop', 'collections', 'colorsys', 'compileall', 'concurrent', 'configparser',
+    'contextlib', 'contextvars', 'copy', 'copyreg', 'cProfile', 'crypt', 'csv',
+    'ctypes', 'curses', 'dataclasses', 'datetime', 'dbm', 'decimal', 'difflib',
+    'dis', 'distutils', 'doctest', 'email', 'encodings', 'enum', 'errno', 'faulthandler',
+    'fcntl', 'filecmp', 'fileinput', 'fnmatch', 'fractions', 'ftplib', 'functools',
+    'gc', 'getopt', 'getpass', 'gettext', 'glob', 'graphlib', 'grp', 'gzip',
+    'hashlib', 'heapq', 'hmac', 'html', 'http', 'imaplib', 'imghdr', 'imp',
+    'importlib', 'inspect', 'io', 'ipaddress', 'itertools', 'json', 'keyword',
+    'lib2to3', 'linecache', 'locale', 'logging', 'lzma', 'mailbox', 'mailcap',
+    'marshal', 'math', 'mimetypes', 'mmap', 'modulefinder', 'multiprocessing',
+    'netrc', 'nis', 'nntplib', 'numbers', 'operator', 'optparse', 'os', 'ossaudiodev',
+    'pathlib', 'pdb', 'pickle', 'pickletools', 'pipes', 'pkgutil', 'platform',
+    'plistlib', 'poplib', 'posix', 'posixpath', 'pprint', 'profile', 'pstats',
+    'pty', 'pwd', 'py_compile', 'pyclbr', 'pydoc', 'queue', 'quopri', 'random',
+    're', 'readline', 'reprlib', 'resource', 'rlcompleter', 'runpy', 'sched',
+    'secrets', 'select', 'selectors', 'shelve', 'shlex', 'shutil', 'signal',
+    'site', 'smtpd', 'smtplib', 'sndhdr', 'socket', 'socketserver', 'spwd',
+    'sqlite3', 'ssl', 'stat', 'statistics', 'string', 'stringprep', 'struct',
+    'subprocess', 'sunau', 'symtable', 'sys', 'sysconfig', 'syslog', 'tabnanny',
+    'tarfile', 'telnetlib', 'tempfile', 'termios', 'test', 'textwrap', 'threading',
+    'time', 'timeit', 'tkinter', 'token', 'tokenize', 'trace', 'traceback',
+    'tracemalloc', 'tty', 'turtle', 'turtledemo', 'types', 'typing', 'unicodedata',
+    'unittest', 'urllib', 'uu', 'uuid', 'venv', 'warnings', 'wave', 'weakref',
+    'webbrowser', 'winreg', 'winsound', 'wsgiref', 'xdrlib', 'xml', 'xmlrpc',
+    'zipapp', 'zipfile', 'zipimport', 'zlib', 'zoneinfo',
+}
+
 
 def is_python_reserved_word(word: str) -> bool:
     """Checks if a word is a Python reserved word"""
@@ -26,6 +58,13 @@ def is_python_reserved_word(word: str) -> bool:
         'try', 'while', 'with', 'yield', 'record', 'self', 'cls'
     ]
     return word in reserved_words
+
+
+def safe_package_name(name: str) -> str:
+    """Converts a name to a safe Python package name that won't shadow stdlib"""
+    if name.lower() in PYTHON_STDLIB_MODULES:
+        return f"{name}_types"
+    return name
 
 
 class StructureToPython:
@@ -786,6 +825,7 @@ def convert_structure_to_python(structure_schema_path, py_file_path, package_nam
         if base_name.endswith('.struct'):
             base_name = base_name[:-7]  # Remove '.struct' suffix
         package_name = base_name.lower().replace('-', '_')
+    package_name = safe_package_name(package_name)
 
     structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
     structure_to_python.convert(structure_schema_path, py_file_path)
@@ -793,6 +833,7 @@ def convert_structure_to_python(structure_schema_path, py_file_path, package_nam
 
 def convert_structure_schema_to_python(structure_schema, py_file_path, package_name='', dataclasses_json_annotation=False):
     """Converts JSON Structure schema to Python dataclasses"""
+    package_name = safe_package_name(package_name) if package_name else package_name
     structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation)
     if isinstance(structure_schema, dict):
         structure_schema = [structure_schema]
