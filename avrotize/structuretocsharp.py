@@ -522,18 +522,39 @@ class StructureToCSharp:
                 self.needs_json_structure_converters = True
         
         # Add validation attributes based on schema constraints
-        # StringLength attribute for maxLength
-        if 'maxLength' in prop_schema:
-            max_length = prop_schema['maxLength']
-            if 'minLength' in prop_schema:
+        # Get the property type to determine which attributes to apply
+        prop_type_base = prop_schema.get('type', '')
+        if isinstance(prop_type_base, list):
+            # Handle type unions - use the first non-null type
+            non_null_types = [t for t in prop_type_base if t != 'null']
+            prop_type_base = non_null_types[0] if non_null_types else ''
+        
+        # EmailAddress attribute for format: "email"
+        if prop_schema.get('format') == 'email':
+            property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.EmailAddress]\n'
+        
+        # String length constraints (for string types)
+        if prop_type_base == 'string' or (not prop_type_base and ('minLength' in prop_schema or 'maxLength' in prop_schema)):
+            if 'maxLength' in prop_schema:
+                max_length = prop_schema['maxLength']
+                if 'minLength' in prop_schema:
+                    min_length = prop_schema['minLength']
+                    property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.StringLength({max_length}, MinimumLength = {min_length})]\n'
+                else:
+                    property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.StringLength({max_length})]\n'
+            elif 'minLength' in prop_schema:
+                # MinLength only (no max)
                 min_length = prop_schema['minLength']
-                property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.StringLength({max_length}, MinimumLength = {min_length})]\n'
-            else:
-                property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.StringLength({max_length})]\n'
-        elif 'minLength' in prop_schema:
-            # MinLength only (no max)
-            min_length = prop_schema['minLength']
-            property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.MinLength({min_length})]\n'
+                property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.MinLength({min_length})]\n'
+        
+        # Array length constraints (for array types)
+        if prop_type_base == 'array':
+            if 'minItems' in prop_schema:
+                min_items = prop_schema['minItems']
+                property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.MinLength({min_items})]\n'
+            if 'maxItems' in prop_schema:
+                max_items = prop_schema['maxItems']
+                property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.MaxLength({max_items})]\n'
         
         # RegularExpression attribute for pattern
         if 'pattern' in prop_schema:
@@ -541,22 +562,49 @@ class StructureToCSharp:
             property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.RegularExpression(@"{pattern}")]\n'
         
         # Range attribute for minimum/maximum on numeric types
-        if 'minimum' in prop_schema or 'maximum' in prop_schema:
-            min_val = prop_schema.get('minimum', prop_schema.get('exclusiveMinimum', 'double.MinValue'))
-            max_val = prop_schema.get('maximum', prop_schema.get('exclusiveMaximum', 'double.MaxValue'))
+        if 'minimum' in prop_schema or 'maximum' in prop_schema or 'exclusiveMinimum' in prop_schema or 'exclusiveMaximum' in prop_schema:
+            # Determine the minimum and maximum values
+            has_min = 'minimum' in prop_schema
+            has_max = 'maximum' in prop_schema
+            has_exclusive_min = 'exclusiveMinimum' in prop_schema
+            has_exclusive_max = 'exclusiveMaximum' in prop_schema
+            
+            # Use minimum/maximum if present, otherwise use exclusiveMinimum/exclusiveMaximum
+            if has_min:
+                min_val = prop_schema['minimum']
+                min_is_exclusive = False
+            elif has_exclusive_min:
+                min_val = prop_schema['exclusiveMinimum']
+                min_is_exclusive = True
+            else:
+                min_val = 'double.MinValue'
+                min_is_exclusive = False
+            
+            if has_max:
+                max_val = prop_schema['maximum']
+                max_is_exclusive = False
+            elif has_exclusive_max:
+                max_val = prop_schema['exclusiveMaximum']
+                max_is_exclusive = True
+            else:
+                max_val = 'double.MaxValue'
+                max_is_exclusive = False
             
             # Convert to appropriate format
-            if isinstance(min_val, (int, float)):
-                min_str = str(min_val)
-            else:
-                min_str = str(min_val)
+            min_str = str(min_val)
+            max_str = str(max_val)
             
-            if isinstance(max_val, (int, float)):
-                max_str = str(max_val)
-            else:
-                max_str = str(max_val)
+            # Build the Range attribute with exclusive parameters if needed
+            range_params = f'{min_str}, {max_str}'
+            if min_is_exclusive or max_is_exclusive:
+                extra_params = []
+                if min_is_exclusive:
+                    extra_params.append('MinimumIsExclusive = true')
+                if max_is_exclusive:
+                    extra_params.append('MaximumIsExclusive = true')
+                range_params += ', ' + ', '.join(extra_params)
             
-            property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.Range({min_str}, {max_str})]\n'
+            property_definition += f'{INDENT}[System.ComponentModel.DataAnnotations.Range({range_params})]\n'
         
         # Add Obsolete attribute if deprecated
         if prop_schema.get('deprecated', False):

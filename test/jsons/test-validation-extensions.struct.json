@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/test-validation-extensions",
+  "name": "ValidationExtensions",
+  "type": "object",
+  "description": "Test schema for JSON Structure validation extension keywords",
+  "properties": {
+    "emailField": {
+      "type": "string",
+      "format": "email",
+      "description": "Email address field"
+    },
+    "rangeWithExclusiveMin": {
+      "type": "int32",
+      "exclusiveMinimum": 0,
+      "maximum": 100,
+      "description": "Integer with exclusive minimum"
+    },
+    "rangeWithExclusiveMax": {
+      "type": "double",
+      "minimum": 0.0,
+      "exclusiveMaximum": 100.0,
+      "description": "Double with exclusive maximum"
+    },
+    "rangeWithBothExclusive": {
+      "type": "double",
+      "exclusiveMinimum": 0.0,
+      "exclusiveMaximum": 1.0,
+      "description": "Range with both bounds exclusive"
+    },
+    "arrayWithMinItems": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "description": "Array with minimum items constraint"
+    },
+    "arrayWithMaxItems": {
+      "type": "array",
+      "items": {"type": "int32"},
+      "maxItems": 10,
+      "description": "Array with maximum items constraint"
+    },
+    "arrayWithBothConstraints": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 2,
+      "maxItems": 5,
+      "description": "Array with both min and max items"
+    },
+    "combinedValidations": {
+      "type": "string",
+      "format": "email",
+      "minLength": 5,
+      "maxLength": 100,
+      "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+      "description": "Field with multiple validation attributes"
+    }
+  },
+  "required": ["emailField", "combinedValidations"]
+}

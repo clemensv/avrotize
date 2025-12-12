@@ -337,6 +337,69 @@ class TestStructureToCSharp(unittest.TestCase):
         
         print(f"✓ Validation attributes generated correctly")
 
+    def test_validation_extensions(self):
+        """Test JSON Structure validation extension keywords (exclusiveMinimum, exclusiveMaximum, minItems, maxItems, format: email)"""
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "jsons", "test-validation-extensions.struct.json")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "test-validation-extensions-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+        
+        convert_structure_to_csharp(
+            struct_path,
+            cs_path,
+            system_text_json_annotation=True,
+            pascal_properties=True
+        )
+        
+        # Verify ValidationExtensions class has all the new validation attributes
+        validated_file = os.path.join(cs_path, "src", "TestValidationExtensionsCs", "ValidationExtensions.cs")
+        assert os.path.exists(validated_file), "ValidationExtensions.cs should be generated"
+        
+        with open(validated_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+            # Check EmailAddress attribute for format: email
+            assert "[System.ComponentModel.DataAnnotations.EmailAddress]" in content, \
+                "emailField should have EmailAddress attribute"
+            
+            # Check Range with exclusive minimum
+            assert "[System.ComponentModel.DataAnnotations.Range(0, 100, MinimumIsExclusive = true)]" in content, \
+                "rangeWithExclusiveMin should have Range with MinimumIsExclusive"
+            
+            # Check Range with exclusive maximum
+            assert "[System.ComponentModel.DataAnnotations.Range(0.0, 100.0, MaximumIsExclusive = true)]" in content or \
+                   "[System.ComponentModel.DataAnnotations.Range(0, 100, MaximumIsExclusive = true)]" in content, \
+                "rangeWithExclusiveMax should have Range with MaximumIsExclusive"
+            
+            # Check Range with both exclusive
+            assert "MinimumIsExclusive = true, MaximumIsExclusive = true" in content, \
+                "rangeWithBothExclusive should have Range with both exclusive parameters"
+            
+            # Check MinLength for arrays (minItems)
+            assert content.count("[System.ComponentModel.DataAnnotations.MinLength(1)]") >= 1, \
+                "arrayWithMinItems should have MinLength(1)"
+            assert content.count("[System.ComponentModel.DataAnnotations.MinLength(2)]") >= 1, \
+                "arrayWithBothConstraints should have MinLength(2)"
+            
+            # Check MaxLength for arrays (maxItems)
+            assert "[System.ComponentModel.DataAnnotations.MaxLength(10)]" in content, \
+                "arrayWithMaxItems should have MaxLength(10)"
+            assert "[System.ComponentModel.DataAnnotations.MaxLength(5)]" in content, \
+                "arrayWithBothConstraints should have MaxLength(5)"
+            
+            # Check combined validations (EmailAddress + StringLength + RegularExpression)
+            # The combinedValidations field should have all three attributes
+            assert content.count("[System.ComponentModel.DataAnnotations.EmailAddress]") >= 2, \
+                "combinedValidations should have EmailAddress attribute (2 occurrences expected)"
+        
+        # Verify code compiles - build only the main project, not the test project
+        src_project = os.path.join(cs_path, "src", "TestValidationExtensionsCs.csproj")
+        assert subprocess.check_call(["dotnet", "build", src_project], cwd=cs_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+        
+        print(f"✓ Validation extension attributes generated correctly")
+
     def test_convert_with_namespace(self):
         """Test conversion with custom namespace"""
         cwd = os.getcwd()
