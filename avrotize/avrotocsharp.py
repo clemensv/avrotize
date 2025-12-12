@@ -765,9 +765,12 @@ class AvroToCSharp:
         field_default = field.get('const', field.get('default', None))
         annotation_name = field['name']
         # Sanitize the field name for C# (handles numeric prefixes, special chars, reserved words)
-        field_name = self.safe_identifier(field['name'], class_name)
+        field_name = self.safe_identifier(field['name'])
         if self.pascal_properties:
             field_name = pascal(field_name)
+        # Check for collision with class name after pascal casing is applied
+        if field_name == class_name:
+            field_name += "_"
         prop = ''
         prop += f"{INDENT}/// <summary>\n{INDENT}/// { field.get('doc', field_name) }\n{INDENT}/// </summary>\n"
         
