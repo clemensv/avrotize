@@ -23,7 +23,7 @@ class TestAvroToCSharp(unittest.TestCase):
     # Timeout in seconds for dotnet commands
     DOTNET_TIMEOUT = 120
     
-    def run_convert_avsc_to_csharp(self, avsc_name, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False, system_xml_annotation=False, msgpack_annotation=False, pascal_properties=False, protobuf_net_annotation=False):
+    def run_convert_avsc_to_csharp(self, avsc_name, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False, system_xml_annotation=False, msgpack_annotation=False, cbor_annotation=False, pascal_properties=False, protobuf_net_annotation=False):
         """ Test converting an avsc file to C# """
         cwd = os.getcwd()
         avro_path = os.path.join(cwd, "test", "avsc", avsc_name + ".avsc")
@@ -32,7 +32,7 @@ class TestAvroToCSharp(unittest.TestCase):
             shutil.rmtree(cs_path, ignore_errors=True)
         os.makedirs(cs_path, exist_ok=True)
 
-        convert_avro_to_csharp(avro_path, cs_path, pascal_properties=pascal_properties, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, system_xml_annotation=system_xml_annotation, msgpack_annotation=msgpack_annotation, protobuf_net_annotation=protobuf_net_annotation)
+        convert_avro_to_csharp(avro_path, cs_path, pascal_properties=pascal_properties, system_text_json_annotation=system_text_json_annotation, newtonsoft_json_annotation=newtonsoft_json_annotation, avro_annotation=avro_annotation, system_xml_annotation=system_xml_annotation, msgpack_annotation=msgpack_annotation, cbor_annotation=cbor_annotation, protobuf_net_annotation=protobuf_net_annotation)
         assert subprocess.check_call(
             ['dotnet', 'test'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.DOTNET_TIMEOUT) == 0
     
@@ -319,3 +319,45 @@ class TestAvroToCSharp(unittest.TestCase):
     def test_convert_telemetry_avsc_to_csharp_msgpack(self):
         """ Test converting an telemetry.avsc file to C# with MessagePack annotations """
         self.run_convert_avsc_to_csharp("telemetry", msgpack_annotation=True)
+
+    def test_convert_address_avsc_to_csharp_cbor(self):
+        """ Test converting an address.avsc file to C# with CBOR annotations """
+        self.run_convert_avsc_to_csharp("address", cbor_annotation=True)
+
+    def test_convert_telemetry_avsc_to_csharp_cbor(self):
+        """ Test converting an telemetry.avsc file to C# with CBOR annotations """
+        self.run_convert_avsc_to_csharp("telemetry", cbor_annotation=True)
+
+    def test_convert_address_avsc_to_csharp_cbor_with_verification(self):
+        """ Test converting an address.avsc file to C# with CBOR annotations and verify CborProperty attributes """
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-cbor-verify-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+
+        # Generate C# code with CBOR annotation
+        convert_avro_to_csharp(avro_path, cs_path, cbor_annotation=True)
+        
+        # Verify CborProperty attributes are present in generated files
+        import glob
+        cs_files = glob.glob(os.path.join(cs_path, "src", "**", "*.cs"), recursive=True)
+        assert len(cs_files) > 0, "No C# files were generated"
+        
+        found_cbor_property = False
+        found_cbor_using = False
+        for cs_file in cs_files:
+            with open(cs_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                if "CborProperty" in content:
+                    found_cbor_property = True
+                if "Dahomey.Cbor.Attributes" in content:
+                    found_cbor_using = True
+        
+        assert found_cbor_property, "CborProperty attribute not found in generated code"
+        assert found_cbor_using, "Dahomey.Cbor.Attributes using directive not found in generated code"
+        
+        # Verify the code compiles and tests pass
+        assert subprocess.check_call(
+            ['dotnet', 'test'], cwd=cs_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.DOTNET_TIMEOUT) == 0
