@@ -288,7 +288,7 @@ class StructureToTypeScript:
         import_types: Set[str] = set()
 
         # Get name and namespace
-        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'))
+        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name') or structure_schema.get('title', 'UnnamedClass'))
         schema_namespace = structure_schema.get('namespace', parent_namespace)
         namespace = self.concat_namespace(self.base_package, schema_namespace).lower()
         typescript_qualified_name = self.typescript_fully_qualified_name_from_structure_type(schema_namespace, class_name)

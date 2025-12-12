@@ -43,7 +43,8 @@ class TestDecimalImportFix(unittest.TestCase):
             convert_avro_to_python(schema_path, output_dir)
             
             # Check that the generated code imports decimal
-            py_file = os.path.join(output_dir, "mytest", "decimal", "decimal_record.py")
+            # The file is in src/<package_name>/<namespace>/<classname>.py
+            py_file = os.path.join(output_dir, "src", "decimal", "mytest", "decimal", "decimalrecord.py")
             self.assertTrue(os.path.exists(py_file), f"Expected {py_file} to exist")
             
             with open(py_file, 'r') as f:
@@ -52,8 +53,9 @@ class TestDecimalImportFix(unittest.TestCase):
             self.assertIn("import decimal", content, "Missing 'import decimal' statement")
             
             # Verify it can be imported
+            src_dir = os.path.join(output_dir, "src", "decimal")
             result = subprocess.run(
-                [sys.executable, "-c", f"import sys; sys.path.insert(0, '{output_dir}'); from mytest.decimal.decimal_record import DecimalRecord"],
+                [sys.executable, "-c", f"import sys; sys.path.insert(0, '{src_dir}'); from mytest.decimal.decimalrecord import DecimalRecord"],
                 capture_output=True, text=True
             )
             self.assertEqual(result.returncode, 0, f"Import failed: {result.stderr}")
@@ -83,12 +85,14 @@ class TestIdentifierSanitization(unittest.TestCase):
             output_dir = os.path.join(temp_dir, "output")
             convert_avro_to_python(schema_path, output_dir)
             
-            py_file = os.path.join(output_dir, "mytest", "numeric_field_record.py")
+            # The file is in src/<package_name>/<namespace>/<classname>.py
+            py_file = os.path.join(output_dir, "src", "numeric", "mytest", "numericfieldrecord.py")
             self.assertTrue(os.path.exists(py_file), f"Expected {py_file} to exist")
             
             # Verify it can be imported
+            src_dir = os.path.join(output_dir, "src", "numeric")
             result = subprocess.run(
-                [sys.executable, "-c", f"import sys; sys.path.insert(0, '{output_dir}'); from mytest.numeric_field_record import NumericFieldRecord"],
+                [sys.executable, "-c", f"import sys; sys.path.insert(0, '{src_dir}'); from mytest.numericfieldrecord import NumericFieldRecord"],
                 capture_output=True, text=True
             )
             self.assertEqual(result.returncode, 0, f"Import failed: {result.stderr}")
@@ -114,12 +118,14 @@ class TestIdentifierSanitization(unittest.TestCase):
             output_dir = os.path.join(temp_dir, "output")
             convert_avro_to_python(schema_path, output_dir)
             
-            py_file = os.path.join(output_dir, "mytest", "hyphen_field_record.py")
+            # The file is in src/<package_name>/<namespace>/<classname>.py
+            py_file = os.path.join(output_dir, "src", "hyphen", "mytest", "hyphenfieldrecord.py")
             self.assertTrue(os.path.exists(py_file), f"Expected {py_file} to exist")
             
             # Verify it can be imported
+            src_dir = os.path.join(output_dir, "src", "hyphen")
             result = subprocess.run(
-                [sys.executable, "-c", f"import sys; sys.path.insert(0, '{output_dir}'); from mytest.hyphen_field_record import HyphenFieldRecord"],
+                [sys.executable, "-c", f"import sys; sys.path.insert(0, '{src_dir}'); from mytest.hyphenfieldrecord import HyphenFieldRecord"],
                 capture_output=True, text=True
             )
             self.assertEqual(result.returncode, 0, f"Import failed: {result.stderr}")

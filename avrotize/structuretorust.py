@@ -274,7 +274,7 @@ class StructureToRust:
     def generate_class(self, structure_schema: Dict, parent_namespace: str, write_file: bool, explicit_name: str = '') -> str:
         """ Generates a Rust struct from JSON Structure object type """
         # Get name and namespace
-        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'))
+        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name') or structure_schema.get('title', 'UnnamedClass'))
         schema_namespace = structure_schema.get('namespace', parent_namespace)
         namespace = self.sanitize_namespace(schema_namespace.lower())
         

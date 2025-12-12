@@ -265,7 +265,7 @@ class StructureToGo:
     def generate_class(self, structure_schema: Dict, parent_namespace: str, 
                       write_file: bool, explicit_name: str = '') -> str:
         """ Generates a Go struct from JSON Structure object type """
-        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'))
+        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name') or structure_schema.get('title', 'UnnamedClass'))
         schema_namespace = structure_schema.get('namespace', parent_namespace)
         go_struct_name = self.go_type_name(class_name, schema_namespace)
 

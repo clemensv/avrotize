@@ -329,7 +329,7 @@ class StructureToJava:
         """ Generates a Java class from a JSON Structure object schema """
         
         # Get name and namespace
-        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'))
+        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name') or structure_schema.get('title', 'UnnamedClass'))
         schema_namespace = structure_schema.get('namespace', parent_package)
         if not 'namespace' in structure_schema:
             structure_schema['namespace'] = schema_namespace
@@ -337,7 +337,7 @@ class StructureToJava:
         package = package.replace('.', '/').lower()
         package = self.safe_package(package)
         class_name = self.safe_identifier(class_name)
-        namespace_qualified_name = self.qualified_name(schema_namespace, explicit_name or structure_schema.get('name', 'UnnamedClass'))
+        namespace_qualified_name = self.qualified_name(schema_namespace, explicit_name or structure_schema.get('name') or structure_schema.get('title', 'UnnamedClass'))
         qualified_class_name = self.qualified_name(package.replace('/', '.'), class_name)
         if namespace_qualified_name in self.generated_types_structure_namespace:
             return StructureToJava.JavaType(qualified_class_name, is_class=True)
