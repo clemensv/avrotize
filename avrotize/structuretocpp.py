@@ -254,7 +254,7 @@ class StructureToCpp:
         class_definition = ''
         
         # Get name and namespace
-        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'))
+        class_name = pascal(explicit_name if explicit_name else structure_schema.get('name') or structure_schema.get('title', 'UnnamedClass'))
         schema_namespace = structure_schema.get('namespace', parent_namespace)
         namespace = self.concat_namespace(self.base_namespace, schema_namespace.replace('.', '::'))
         
