@@ -16,8 +16,15 @@ INDENT = '    '
 class StructureToGo:
     """ Converts JSON Structure schema to Go structs """
 
+    # Go reserved keywords that cannot be used as package names
+    GO_RESERVED_WORDS = [
+        'break', 'default', 'func', 'interface', 'select', 'case', 'defer', 'go', 'map', 'struct', 'chan',
+        'else', 'goto', 'package', 'switch', 'const', 'fallthrough', 'if', 'range', 'type', 'continue', 'for',
+        'import', 'return', 'var',
+    ]
+
     def __init__(self, base_package: str = '') -> None:
-        self.base_package = base_package
+        self.base_package = self._safe_package_name(base_package) if base_package else base_package
         self.output_dir = os.getcwd()
         self.json_annotation = False
         self.avro_annotation = False
@@ -31,14 +38,15 @@ class StructureToGo:
         self.structs: List[Dict] = []
         self.enums: List[Dict] = []
 
+    def _safe_package_name(self, name: str) -> str:
+        """Converts a name to a safe Go package name"""
+        if name in self.GO_RESERVED_WORDS:
+            return f"{name}_"
+        return name
+
     def safe_identifier(self, name: str) -> str:
         """Converts a name to a safe Go identifier"""
-        reserved_words = [
-            'break', 'default', 'func', 'interface', 'select', 'case', 'defer', 'go', 'map', 'struct', 'chan',
-            'else', 'goto', 'package', 'switch', 'const', 'fallthrough', 'if', 'range', 'type', 'continue', 'for',
-            'import', 'return', 'var',
-        ]
-        if name in reserved_words:
+        if name in self.GO_RESERVED_WORDS:
             return f"{name}_"
         return name
 
@@ -675,7 +683,8 @@ class StructureToGo:
     def convert(self, structure_schema_path: str, output_dir: str):
         """Converts JSON Structure schema to Go"""
         if not self.base_package:
-            self.base_package = os.path.splitext(os.path.basename(structure_schema_path))[0].replace('-', '_').lower()
+            pkg_name = os.path.splitext(os.path.basename(structure_schema_path))[0].replace('-', '_').lower()
+            self.base_package = self._safe_package_name(pkg_name)
 
         with open(structure_schema_path, 'r', encoding='utf-8') as file:
             schema = json.load(file)

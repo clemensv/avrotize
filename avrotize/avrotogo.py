@@ -10,8 +10,15 @@ JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 class AvroToGo:
     """Converts Avro schema to Go structs, including JSON and Avro marshalling methods"""
 
+    # Go reserved keywords that cannot be used as package names
+    GO_RESERVED_WORDS = [
+        'break', 'default', 'func', 'interface', 'select', 'case', 'defer', 'go', 'map', 'struct', 'chan',
+        'else', 'goto', 'package', 'switch', 'const', 'fallthrough', 'if', 'range', 'type', 'continue', 'for',
+        'import', 'return', 'var',
+    ]
+
     def __init__(self, base_package: str = '') -> None:
-        self.base_package = base_package
+        self.base_package = self._safe_package_name(base_package) if base_package else base_package
         self.output_dir = os.getcwd()
         self.generated_types_avro_namespace: Dict[str, str] = {}
         self.generated_types_go_package: Dict[str, str] = {}
@@ -25,14 +32,15 @@ class AvroToGo:
         self.structs = []
         self.enums = []
 
+    def _safe_package_name(self, name: str) -> str:
+        """Converts a name to a safe Go package name"""
+        if name in self.GO_RESERVED_WORDS:
+            return f"{name}_"
+        return name
+
     def safe_identifier(self, name: str) -> str:
         """Converts a name to a safe Go identifier"""
-        reserved_words = [
-            'break', 'default', 'func', 'interface', 'select', 'case', 'defer', 'go', 'map', 'struct', 'chan',
-            'else', 'goto', 'package', 'switch', 'const', 'fallthrough', 'if', 'range', 'type', 'continue', 'for',
-            'import', 'return', 'var',
-        ]
-        if name in reserved_words:
+        if name in self.GO_RESERVED_WORDS:
             return f"{name}_"
         return name
 
@@ -157,6 +165,10 @@ class AvroToGo:
             'original_name': field['name']
         } for field in avro_schema.get('fields', [])]
 
+        # Collect imports from field types
+        go_types = [f['type'] for f in fields]
+        imports = self.get_imports_for_definition(go_types)
+
         context = {
             'doc': avro_schema.get('doc', ''),
             'struct_name': go_struct_name,
@@ -166,6 +178,7 @@ class AvroToGo:
             'avro_annotation': self.avro_annotation,
             'json_match_predicates': [self.get_is_json_match_clause(f['name'], f['type']) for f in fields],
             'base_package': self.base_package,
+            'imports': imports,
         }
 
         pkg_dir = os.path.join(self.output_dir, 'pkg', self.base_package)
@@ -430,7 +443,7 @@ class AvroToGo:
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Go"""
         if not self.base_package:
-            self.base_package = os.path.splitext(os.path.basename(avro_schema_path))[0]
+            self.base_package = self._safe_package_name(os.path.splitext(os.path.basename(avro_schema_path))[0])
 
         with open(avro_schema_path, 'r', encoding='utf-8') as file:
             schema = json.load(file)
