@@ -104,6 +104,26 @@ class AvroToCSharp:
         ]
         return word in reserved_words
 
+    def safe_identifier(self, name: str, class_name: str = '') -> str:
+        """ Converts a name to a safe C# identifier """
+        # Handle integer names
+        if isinstance(name, int):
+            name = '_' + str(name)
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+        # Ensure the name starts with a letter or underscore
+        if safe and re.match(r'^[0-9]', safe):
+            safe = '_' + safe
+        # Ensure we have a valid identifier (e.g., if name was all special chars)
+        if not safe or not re.match(r'^[a-zA-Z_]', safe):
+            safe = '_' + (safe if safe else 'field')
+        # Handle reserved words with @ prefix
+        if self.is_csharp_reserved_word(safe):
+            return f"@{safe}"
+        if class_name and safe == class_name:
+            return f"{safe}_"
+        return safe
+
     def is_csharp_primitive_type(self, csharp_type: str) -> bool:
         """ Checks if an Avro type is a C# primitive type """
         if csharp_type.endswith('?'):
@@ -743,13 +763,11 @@ class AvroToCSharp:
         field_type = self.convert_avro_type_to_csharp(
             class_name, field['name'], field['type'], parent_namespace)
         field_default = field.get('const', field.get('default', None))
-        annotation_name = field_name = field['name']
-        if self.is_csharp_reserved_word(field_name):
-            field_name = f"@{field_name}"
+        annotation_name = field['name']
+        # Sanitize the field name for C# (handles numeric prefixes, special chars, reserved words)
+        field_name = self.safe_identifier(field['name'], class_name)
         if self.pascal_properties:
             field_name = pascal(field_name)
-        if field_name == class_name:
-            field_name += "_"
         prop = ''
         prop += f"{INDENT}/// <summary>\n{INDENT}/// { field.get('doc', field_name) }\n{INDENT}/// </summary>\n"
         
