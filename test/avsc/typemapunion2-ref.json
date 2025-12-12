@@ -43,7 +43,10 @@
                     "format": "int64"
                 },
                 "fieldB": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
             "required": [

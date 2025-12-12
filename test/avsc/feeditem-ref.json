@@ -3,65 +3,133 @@
     "title": "FeedItem",
     "properties": {
         "author": {
-            "$ref": "#/definitions/FeedItemAuthor"
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "$ref": "#/definitions/FeedItemAuthor"
+                }
+            ]
         },
         "publisher": {
-            "$ref": "#/definitions/FeedItemPublisher"
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "$ref": "#/definitions/FeedItemPublisher"
+                }
+            ]
         },
         "summary": {
-            "$ref": "#/definitions/FeedItemSummary"
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "$ref": "#/definitions/FeedItemSummary"
+                }
+            ]
         },
         "title": {
-            "$ref": "#/definitions/FeedItemTitle"
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "$ref": "#/definitions/FeedItemTitle"
+                }
+            ]
         },
         "source": {
-            "$ref": "#/definitions/FeedItemSource"
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "$ref": "#/definitions/FeedItemSource"
+                }
+            ]
         },
         "content": {
-            "type": "array",
+            "type": [
+                "array",
+                "null"
+            ],
             "items": {
                 "$ref": "#/definitions/FeedItemContent"
             }
         },
         "enclosures": {
-            "type": "array",
+            "type": [
+                "array",
+                "null"
+            ],
             "items": {
                 "$ref": "#/definitions/FeedItemEnclosure"
             }
         },
         "published": {
-            "type": "integer",
+            "type": [
+                "integer",
+                "null"
+            ],
             "format": "int64"
         },
         "updated": {
-            "type": "integer",
+            "type": [
+                "integer",
+                "null"
+            ],
             "format": "int64"
         },
         "created": {
-            "type": "integer",
+            "type": [
+                "integer",
+                "null"
+            ],
             "format": "int64"
         },
         "expired": {
-            "type": "integer",
+            "type": [
+                "integer",
+                "null"
+            ],
             "format": "int64"
         },
         "id": {
-            "type": "string"
+            "type": [
+                "string",
+                "null"
+            ]
         },
         "license": {
-            "type": "string"
+            "type": [
+                "string",
+                "null"
+            ]
         },
         "comments": {
-            "type": "string"
+            "type": [
+                "string",
+                "null"
+            ]
         },
         "contributors": {
-            "type": "array",
+            "type": [
+                "array",
+                "null"
+            ],
             "items": {
                 "$ref": "#/definitions/FeedItemAuthor"
             }
         },
         "links": {
-            "type": "array",
+            "type": [
+                "array",
+                "null"
+            ],
             "items": {
                 "$ref": "#/definitions/Link"
             }
@@ -73,13 +141,22 @@
             "title": "FeedItemAuthor",
             "properties": {
                 "name": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "href": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "email": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             }
         },
@@ -88,13 +165,22 @@
             "title": "FeedItemPublisher",
             "properties": {
                 "name": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "href": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "email": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             }
         },
@@ -103,16 +189,28 @@
             "title": "FeedItemSummary",
             "properties": {
                 "value": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "type": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "language": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "base": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             }
         },
@@ -121,16 +219,28 @@
             "title": "FeedItemTitle",
             "properties": {
                 "value": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "type": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "language": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "base": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             }
         },
@@ -139,46 +249,86 @@
             "title": "FeedItemSource",
             "properties": {
                 "author": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "author_detail": {
-                    "$ref": "#/definitions/FeedItemAuthor"
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "$ref": "#/definitions/FeedItemAuthor"
+                        }
+                    ]
                 },
                 "contributors": {
-                    "type": "array",
+                    "type": [
+                        "array",
+                        "null"
+                    ],
                     "items": {
                         "$ref": "#/definitions/FeedItemAuthor"
                     }
                 },
                 "icon": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "id": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "link": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "links": {
-                    "type": "array",
+                    "type": [
+                        "array",
+                        "null"
+                    ],
                     "items": {
                         "$ref": "#/definitions/Link"
                     }
                 },
                 "logo": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "rights": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "subtitle": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "title": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "updated": {
-                    "type": "integer",
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "format": "int64"
                 }
             }
@@ -188,16 +338,28 @@
             "title": "Link",
             "properties": {
                 "rel": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "href": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "type": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "title": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             }
         },
@@ -206,16 +368,28 @@
             "title": "FeedItemContent",
             "properties": {
                 "value": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "type": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "language": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "base": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             }
         },
@@ -224,14 +398,23 @@
             "title": "FeedItemEnclosure",
             "properties": {
                 "href": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 },
                 "length": {
-                    "type": "integer",
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "format": "int64"
                 },
                 "type": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             }
         }

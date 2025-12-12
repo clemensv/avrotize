@@ -8,15 +8,24 @@
             "description": "The type of the record"
         },
         "postOfficeBox": {
-            "type": "string",
+            "type": [
+                "string",
+                "null"
+            ],
             "description": "The post office box number"
         },
         "extendedAddress": {
-            "type": "string",
+            "type": [
+                "string",
+                "null"
+            ],
             "description": "The extended address"
         },
         "streetAddress": {
-            "type": "string",
+            "type": [
+                "string",
+                "null"
+            ],
             "description": "The street address"
         },
         "locality": {
@@ -28,7 +37,10 @@
             "description": "The region"
         },
         "postalCode": {
-            "type": "string",
+            "type": [
+                "string",
+                "null"
+            ],
             "description": "The postal code"
         },
         "countryName": {
