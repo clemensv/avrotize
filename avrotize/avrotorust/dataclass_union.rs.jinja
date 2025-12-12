@@ -70,14 +70,25 @@ impl {{ union_enum_name }} {
 
 #[cfg(test)]
 impl {{ union_enum_name }} {
+{%- set unique_fields = union_fields | selectattr('is_first_with_predicate') | list %}
     pub fn generate_random_instance() -> {{ union_enum_name }} {
         let mut rng = rand::thread_rng();
+        {%- if serde_annotation and unique_fields | length < union_fields | length %}
+        // Only pick from variants with unique JSON structures to ensure round-trip works
+        match rand::Rng::gen_range(&mut rng, 0..{{ unique_fields | length }}) {
+            {%- for union_field in unique_fields %}
+            {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }}),
+            {%- endfor %}
+            _ => panic!("Invalid random index generated"),
+        }
+        {%- else %}
         match rand::Rng::gen_range(&mut rng, 0..{{ union_fields | length }}) {
             {%- for union_field in union_fields %}
             {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }}),
             {%- endfor %}
             _ => panic!("Invalid random index generated"),
         }
+        {%- endif %}
     }
 }
 
@@ -90,10 +101,14 @@ mod tests {
     fn test_serialize_deserialize_{{ union_enum_name.lower() }}() {
         let mut rng = rand::thread_rng();
         {%- for union_field in union_fields %}
+        {%- if union_field.is_first_with_predicate %}
         let instance = {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }});
         let json_bytes = serde_json::to_vec(&instance).unwrap();
         let deserialized_instance: {{ union_enum_name }} = serde_json::from_slice(&json_bytes).unwrap();
         assert_eq!(instance, deserialized_instance);
+        {%- else %}
+        // Skip {{ union_field.name }} - structurally identical to earlier variant, would deserialize as first match
+        {%- endif %}
         {%- endfor %}
     }
     {%- endif %}

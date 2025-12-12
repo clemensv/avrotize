@@ -276,14 +276,25 @@ class AvroToRust:
         ns = namespace.replace('.', '::').lower()
         union_enum_name = pascal(field_name) + 'Union'
         union_types = [self.convert_avro_type_to_rust(field_name + "Option" + str(i), t, namespace) for i, t in enumerate(avro_type) if t != 'null']
-        union_fields = [
-            {
+        
+        # Track seen predicates to identify structurally identical variants
+        seen_predicates: set = set()
+        union_fields = []
+        for i, t in enumerate(union_types):
+            predicate = self.get_is_json_match_clause(field_name, t, for_union=True)
+            # Mark if this is the first variant with this predicate structure
+            # Subsequent variants with same predicate can't be distinguished during JSON deserialization
+            is_first_with_predicate = predicate not in seen_predicates
+            seen_predicates.add(predicate)
+            union_fields.append({
                 'name': pascal(t.rsplit('::',1)[-1]), 
                 'type': t, 
                 'random_value': self.generate_random_value(t),
                 'default_value': 'Default::default()',
-                'json_match_predicate': self.get_is_json_match_clause(field_name, t, for_union=True),
-            } for i, t in enumerate(union_types)]
+                'json_match_predicate': predicate,
+                'is_first_with_predicate': is_first_with_predicate,
+            })
+        
         qualified_union_enum_name = self.safe_package(self.concat_package(ns, union_enum_name))
         context = {
             'serde_annotation': self.serde_annotation,
