@@ -37,6 +37,11 @@ from avrotize.avrotots import convert_avro_to_typescript
 from avrotize.avrotocsharp import convert_avro_to_csharp
 from avrotize.avrotogo import convert_avro_to_go
 from avrotize.avrotorust import convert_avro_to_rust
+from avrotize.structuretojs import convert_structure_to_javascript
+from avrotize.structuretocddl import convert_structure_to_cddl_files
+from avrotize.avrotokusto import convert_avro_to_kusto_file
+from avrotize.structuretoproto import convert_structure_to_proto
+from avrotize.avrotoiceberg import convert_avro_to_iceberg
 
 current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
@@ -201,6 +206,202 @@ class RobustnessTestBase(unittest.TestCase):
             self.bugs_found.append(result)
         
         return result
+
+    def verify_python_imports(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify generated Python code can be imported."""
+        src_dir = os.path.join(output_dir, "src")
+        if not os.path.exists(src_dir):
+            # Try output_dir directly
+            src_dir = output_dir
+        
+        # Find Python packages
+        packages = []
+        for item in os.listdir(src_dir):
+            item_path = os.path.join(src_dir, item)
+            if os.path.isdir(item_path):
+                init_file = os.path.join(item_path, '__init__.py')
+                if os.path.exists(init_file):
+                    packages.append(item)
+        
+        if not packages:
+            return True, "No packages to import"
+        
+        env = os.environ.copy()
+        env['PYTHONPATH'] = src_dir
+        
+        for pkg in packages:
+            try:
+                result = subprocess.run(
+                    [sys.executable, "-c", f"import {pkg}"],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                if result.returncode != 0:
+                    return False, f"Failed to import {pkg}: {result.stderr}"
+            except subprocess.TimeoutExpired:
+                return False, f"Import of {pkg} timed out"
+            except Exception as e:
+                return False, str(e)
+        
+        return True, "OK"
+
+    def verify_java_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Java code compiles using javac."""
+        java_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.java'):
+                    java_files.append(os.path.join(root, f))
+        
+        if not java_files:
+            return True, "No Java files to compile"
+        
+        try:
+            result = subprocess.run(
+                ["javac", "-source", "17", "-target", "17"] + java_files,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if result.returncode != 0:
+                error_lines = [line for line in result.stderr.split('\n') if 'error:' in line.lower()]
+                return False, "Java compilation error:\n" + "\n".join(error_lines[:10])
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "javac not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+
+    def verify_csharp_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify C# code compiles using dotnet build."""
+        csproj_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.csproj'):
+                    csproj_files.append(os.path.join(root, f))
+        
+        if not csproj_files:
+            return False, "No .csproj file found"
+        
+        try:
+            subprocess.run(
+                ["dotnet", "restore", csproj_files[0]],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            result = subprocess.run(
+                ["dotnet", "build", csproj_files[0], "--no-restore"],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if result.returncode != 0:
+                errors = [line for line in result.stdout.split('\n') if 'error' in line.lower()]
+                return False, f"C# compilation error:\n" + "\n".join(errors[:10])
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "dotnet not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+
+    def verify_typescript_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify TypeScript code compiles using tsc."""
+        ts_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.ts') and not f.endswith('.d.ts'):
+                    ts_files.append(os.path.join(root, f))
+        
+        if not ts_files:
+            return True, "No TypeScript files to compile"
+        
+        try:
+            result = subprocess.run(
+                ["npx", "tsc", "--noEmit", "--skipLibCheck", "--esModuleInterop", "--target", "ES2020", "--moduleResolution", "node"] + ts_files,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=output_dir
+            )
+            if result.returncode != 0:
+                error_lines = [line for line in result.stdout.split('\n') if 'error' in line.lower()]
+                if not error_lines:
+                    error_lines = result.stderr.split('\n')[:5]
+                return False, "TypeScript compilation error:\n" + "\n".join(error_lines[:10])
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "npx/tsc not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+
+    def verify_go_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Go code compiles using go build."""
+        go_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.go'):
+                    go_files.append(os.path.join(root, f))
+        
+        if not go_files:
+            return True, "No Go files to compile"
+        
+        # Create go.mod if not exists
+        go_mod_path = os.path.join(output_dir, "go.mod")
+        if not os.path.exists(go_mod_path):
+            with open(go_mod_path, 'w') as f:
+                f.write("module testmodule\n\ngo 1.21\n")
+        
+        try:
+            result = subprocess.run(
+                ["go", "build", "./..."],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=output_dir
+            )
+            if result.returncode != 0:
+                return False, f"Go compilation error:\n{result.stderr[:500]}"
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "go not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+
+    def verify_rust_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify Rust code compiles using cargo check."""
+        cargo_toml = os.path.join(output_dir, "Cargo.toml")
+        if not os.path.exists(cargo_toml):
+            return False, "No Cargo.toml found"
+        
+        try:
+            result = subprocess.run(
+                ["cargo", "check"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                cwd=output_dir
+            )
+            if result.returncode != 0:
+                error_lines = [line for line in result.stderr.split('\n') if 'error' in line.lower()]
+                return False, "Rust compilation error:\n" + "\n".join(error_lines[:10])
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "cargo not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
 
 
 class TestEmptyAndNullInputs(RobustnessTestBase):
@@ -6543,6 +6744,1622 @@ class TestJsonSchemaEdgeCases(RobustnessTestBase):
             self.assertTrue(success, f"Recursive ref failed: {message}")
         except RecursionError:
             self.fail("Recursive $ref caused RecursionError")
+
+
+class TestAvroToCSharpCompilation2(RobustnessTestBase):
+    """Tests for Avro-to-C# code generation compilation - additional tests"""
+    
+    def verify_csharp_compiles(self, output_dir: str) -> Tuple[bool, str]:
+        """Verify C# code compiles using dotnet build."""
+        csproj_files = []
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.endswith('.csproj'):
+                    csproj_files.append(os.path.join(root, f))
+        
+        if not csproj_files:
+            return False, "No .csproj file found"
+        
+        try:
+            subprocess.run(
+                ["dotnet", "restore", csproj_files[0]],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            result = subprocess.run(
+                ["dotnet", "build", csproj_files[0], "--no-restore"],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if result.returncode != 0:
+                errors = [line for line in result.stdout.split('\n') if 'error' in line.lower()]
+                return False, f"C# compilation error:\n" + "\n".join(errors[:10])
+            return True, "OK"
+        except FileNotFoundError:
+            return True, "dotnet not available, skipping"
+        except subprocess.TimeoutExpired:
+            return False, "Compilation timed out"
+        except Exception as e:
+            return False, str(e)
+    
+    def test_169_csharp_avro_bytes_type(self):
+        """Test C# compilation with Avro bytes type"""
+        avro_schema = {
+            "type": "record",
+            "name": "BinaryData",
+            "namespace": "test.binary",
+            "fields": [
+                {"name": "rawData", "type": "bytes"},
+                {"name": "optionalData", "type": ["null", "bytes"]}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "binary.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            out_dir = os.path.join(tmpdir, "csharp_output")
+            os.makedirs(out_dir)
+            
+            try:
+                convert_avro_to_csharp(avsc_file, out_dir, base_namespace="Test.Binary")
+            except Exception as e:
+                self.fail(f"Avro-to-C# conversion failed: {e}")
+            
+            # Check compilation
+            can_compile, error = self.verify_csharp_compiles(out_dir)
+            if not can_compile:
+                self.fail(f"Generated C# code doesn't compile: {error}")
+
+    def test_170_csharp_avro_fixed_type(self):
+        """Test C# compilation with Avro fixed type"""
+        avro_schema = {
+            "type": "record",
+            "name": "HashContainer",
+            "namespace": "test.hash",
+            "fields": [
+                {"name": "md5Hash", "type": {"type": "fixed", "name": "MD5", "size": 16}},
+                {"name": "sha256Hash", "type": {"type": "fixed", "name": "SHA256", "size": 32}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "hash.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            out_dir = os.path.join(tmpdir, "csharp_output")
+            os.makedirs(out_dir)
+            
+            try:
+                convert_avro_to_csharp(avsc_file, out_dir, base_namespace="Test.Hash")
+            except Exception as e:
+                self.fail(f"Avro-to-C# conversion failed: {e}")
+            
+            # Check compilation
+            can_compile, error = self.verify_csharp_compiles(out_dir)
+            if not can_compile:
+                self.fail(f"Generated C# code doesn't compile: {error}")
+
+    def test_171_csharp_avro_enum_with_namespace(self):
+        """Test C# compilation with enum in different namespace"""
+        avro_schema = {
+            "type": "record",
+            "name": "ColoredItem",
+            "namespace": "test.items",
+            "fields": [
+                {"name": "color", "type": {
+                    "type": "enum",
+                    "name": "Color",
+                    "namespace": "test.enums",
+                    "symbols": ["RED", "GREEN", "BLUE"]
+                }},
+                {"name": "name", "type": "string"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "colored.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            out_dir = os.path.join(tmpdir, "csharp_output")
+            os.makedirs(out_dir)
+            
+            try:
+                convert_avro_to_csharp(avsc_file, out_dir, base_namespace="Test")
+            except Exception as e:
+                self.fail(f"Avro-to-C# conversion failed: {e}")
+            
+            # Check compilation
+            can_compile, error = self.verify_csharp_compiles(out_dir)
+            if not can_compile:
+                self.fail(f"Generated C# code doesn't compile: {error}")
+
+
+class TestStructureToJavaScript(RobustnessTestBase):
+    """Tests for structure-to-JavaScript code generation"""
+    
+    def test_172_js_basic_object(self):
+        """Test JS generation with basic object"""
+        schema = {
+            "type": "object",
+            "title": "SimpleObject",
+            "properties": {
+                "name": {"type": "string"},
+                "count": {"type": "integer"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "simple.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            out_dir = os.path.join(tmpdir, "js_output")
+            os.makedirs(out_dir)
+            
+            try:
+                convert_structure_to_javascript(schema_file, out_dir)
+            except Exception as e:
+                self.fail(f"Structure-to-JS conversion failed: {e}")
+            
+            # Check files were generated
+            self.assertTrue(os.listdir(out_dir), "No files generated")
+
+    def test_173_js_reserved_keywords(self):
+        """Test JS generation with reserved keyword field names"""
+        schema = {
+            "type": "object",
+            "title": "ReservedWords",
+            "properties": {
+                "class": {"type": "string"},
+                "function": {"type": "string"},
+                "var": {"type": "string"},
+                "let": {"type": "string"},
+                "const": {"type": "string"},
+                "yield": {"type": "string"},
+                "await": {"type": "string"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "reserved.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            out_dir = os.path.join(tmpdir, "js_output")
+            os.makedirs(out_dir)
+            
+            try:
+                convert_structure_to_javascript(schema_file, out_dir)
+            except Exception as e:
+                self.fail(f"Structure-to-JS conversion failed: {e}")
+            
+            # Files should be generated - check if they contain invalid code
+            for root, dirs, files in os.walk(out_dir):
+                for file in files:
+                    if file.endswith('.js'):
+                        with open(os.path.join(root, file), 'r') as f:
+                            content = f.read()
+                        # Check that reserved words are not used as bare identifiers
+                        if 'class:' in content or 'function:' in content:
+                            self.fail("Reserved words used as bare identifiers in JS")
+
+    def test_174_js_numeric_prefix_fields(self):
+        """Test JS generation with numeric prefix field names"""
+        schema = {
+            "type": "object",
+            "title": "NumericFields",
+            "properties": {
+                "1stItem": {"type": "string"},
+                "2ndItem": {"type": "string"},
+                "3rdItem": {"type": "string"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "numeric.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            out_dir = os.path.join(tmpdir, "js_output")
+            os.makedirs(out_dir)
+            
+            try:
+                convert_structure_to_javascript(schema_file, out_dir)
+            except Exception as e:
+                self.fail(f"Structure-to-JS conversion failed: {e}")
+
+
+class TestStructureToCddl(RobustnessTestBase):
+    """Tests for structure-to-CDDL conversion"""
+    
+    def test_175_cddl_basic_object(self):
+        """Test CDDL generation with basic object"""
+        schema = {
+            "type": "object",
+            "title": "SimpleCddl",
+            "properties": {
+                "name": {"type": "string"},
+                "age": {"type": "integer"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "simple.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            out_file = os.path.join(tmpdir, "output.cddl")
+            
+            try:
+                convert_structure_to_cddl_files(schema_file, out_file)
+            except Exception as e:
+                self.fail(f"Structure-to-CDDL conversion failed: {e}")
+            
+            self.assertTrue(os.path.exists(out_file), "CDDL file not created")
+
+    def test_176_cddl_complex_types(self):
+        """Test CDDL generation with complex nested types"""
+        schema = {
+            "type": "object",
+            "title": "ComplexCddl",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "integer"},
+                            "name": {"type": "string"}
+                        }
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"}
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "complex.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            out_file = os.path.join(tmpdir, "output.cddl")
+            
+            try:
+                convert_structure_to_cddl_files(schema_file, out_file)
+            except Exception as e:
+                self.fail(f"Structure-to-CDDL conversion failed: {e}")
+
+
+class TestAvroToKusto(RobustnessTestBase):
+    """Tests for Avro-to-Kusto conversion"""
+    
+    def test_177_kusto_basic_record(self):
+        """Test Kusto generation with basic record"""
+        avro_schema = {
+            "type": "record",
+            "name": "KustoRecord",
+            "fields": [
+                {"name": "id", "type": "string"},
+                {"name": "value", "type": "double"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "kusto.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            out_file = os.path.join(tmpdir, "output.kql")
+            
+            try:
+                convert_avro_to_kusto_file(avsc_file, "KustoRecord", out_file)
+            except Exception as e:
+                self.fail(f"Avro-to-Kusto conversion failed: {e}")
+            
+            self.assertTrue(os.path.exists(out_file), "Kusto file not created")
+
+    def test_178_kusto_logical_types(self):
+        """Test Kusto generation with logical types"""
+        avro_schema = {
+            "type": "record",
+            "name": "LogicalKusto",
+            "fields": [
+                {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+                {"name": "date", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "uuid", "type": {"type": "string", "logicalType": "uuid"}},
+                {"name": "decimal", "type": {"type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "logical.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            out_file = os.path.join(tmpdir, "output.kql")
+            
+            try:
+                convert_avro_to_kusto_file(avsc_file, "LogicalKusto", out_file)
+            except Exception as e:
+                self.fail(f"Avro-to-Kusto conversion failed: {e}")
+
+
+class TestComplexNesting(RobustnessTestBase):
+    """Tests for complex nesting scenarios across generators"""
+    
+    def test_179_deeply_nested_arrays(self):
+        """Test handling of deeply nested array types"""
+        schema = {
+            "type": "object",
+            "title": "DeeplyNested",
+            "properties": {
+                "level1": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "string"}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "nested_arrays.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test Python
+            py_dir = os.path.join(tmpdir, "py_output")
+            os.makedirs(py_dir)
+            try:
+                convert_structure_to_python(schema_file, py_dir)
+            except Exception as e:
+                self.fail(f"Python conversion failed with deeply nested arrays: {e}")
+            
+            # Check if generated Python imports correctly
+            can_import, error = self.verify_python_imports(py_dir)
+            if not can_import:
+                self.fail(f"Generated Python doesn't import: {error}")
+
+    def test_180_map_of_arrays(self):
+        """Test handling of maps containing arrays"""
+        schema = {
+            "type": "object",
+            "title": "MapOfArrays",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": {"type": "string"},
+                                "value": {"type": "integer"}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "map_arrays.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test TypeScript
+            ts_dir = os.path.join(tmpdir, "ts_output")
+            os.makedirs(ts_dir)
+            try:
+                convert_structure_to_typescript(schema_file, ts_dir)
+            except Exception as e:
+                self.fail(f"TypeScript conversion failed with map of arrays: {e}")
+
+
+class TestMultipleFileSchemas(RobustnessTestBase):
+    """Tests for schemas that generate multiple files"""
+    
+    def test_181_multiple_named_types(self):
+        """Test schema with multiple named types"""
+        schema = {
+            "definitions": {
+                "Address": {
+                    "type": "object",
+                    "properties": {
+                        "street": {"type": "string"},
+                        "city": {"type": "string"}
+                    }
+                },
+                "Person": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "address": {"$ref": "#/definitions/Address"}
+                    }
+                },
+                "Company": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "address": {"$ref": "#/definitions/Address"},
+                        "employees": {
+                            "type": "array",
+                            "items": {"$ref": "#/definitions/Person"}
+                        }
+                    }
+                }
+            },
+            "type": "object",
+            "title": "Organization",
+            "properties": {
+                "company": {"$ref": "#/definitions/Company"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "org.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test Java
+            java_dir = os.path.join(tmpdir, "java_output")
+            os.makedirs(java_dir)
+            try:
+                convert_structure_to_java(schema_file, java_dir, package_name="com.test.org")
+            except Exception as e:
+                self.fail(f"Java conversion failed with multiple named types: {e}")
+            
+            # Check compilation
+            can_compile, error = self.verify_java_compiles(java_dir)
+            if not can_compile:
+                self.fail(f"Generated Java doesn't compile: {error}")
+
+    def test_182_cross_referencing_types(self):
+        """Test schema with cross-referencing types"""
+        schema = {
+            "definitions": {
+                "Node": {
+                    "type": "object",
+                    "properties": {
+                        "value": {"type": "string"},
+                        "children": {
+                            "type": "array",
+                            "items": {"$ref": "#/definitions/Node"}
+                        },
+                        "parent": {"$ref": "#/definitions/Node"}
+                    }
+                }
+            },
+            "type": "object",
+            "title": "Tree",
+            "properties": {
+                "root": {"$ref": "#/definitions/Node"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "tree.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test Go
+            go_dir = os.path.join(tmpdir, "go_output")
+            os.makedirs(go_dir)
+            try:
+                convert_structure_to_go(schema_file, go_dir, package_name="tree")
+            except Exception as e:
+                self.fail(f"Go conversion failed with cross-referencing types: {e}")
+
+
+class TestAvroComplexUnions(RobustnessTestBase):
+    """Tests for complex Avro union types"""
+    
+    def test_183_union_with_multiple_records(self):
+        """Test union containing multiple record types"""
+        avro_schema = {
+            "type": "record",
+            "name": "Container",
+            "namespace": "test.union",
+            "fields": [
+                {
+                    "name": "payload",
+                    "type": [
+                        "null",
+                        {
+                            "type": "record",
+                            "name": "TextPayload",
+                            "fields": [{"name": "text", "type": "string"}]
+                        },
+                        {
+                            "type": "record",
+                            "name": "BinaryPayload",
+                            "fields": [{"name": "data", "type": "bytes"}]
+                        },
+                        {
+                            "type": "record",
+                            "name": "NumericPayload",
+                            "fields": [{"name": "value", "type": "double"}]
+                        }
+                    ]
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "union.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            # Test Python
+            py_dir = os.path.join(tmpdir, "py_output")
+            os.makedirs(py_dir)
+            try:
+                convert_avro_to_python(avsc_file, py_dir)
+            except Exception as e:
+                self.fail(f"Python conversion failed with union of records: {e}")
+            
+            can_import, error = self.verify_python_imports(py_dir)
+            if not can_import:
+                self.fail(f"Generated Python doesn't import: {error}")
+
+    def test_184_union_with_arrays_and_maps(self):
+        """Test union containing arrays and maps"""
+        avro_schema = {
+            "type": "record",
+            "name": "FlexibleData",
+            "namespace": "test.flex",
+            "fields": [
+                {
+                    "name": "data",
+                    "type": [
+                        "null",
+                        {"type": "array", "items": "string"},
+                        {"type": "map", "values": "int"}
+                    ]
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "flex.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            # Test TypeScript
+            ts_dir = os.path.join(tmpdir, "ts_output")
+            os.makedirs(ts_dir)
+            try:
+                convert_avro_to_typescript(avsc_file, ts_dir)
+            except Exception as e:
+                self.fail(f"TypeScript conversion failed with union of arrays/maps: {e}")
+            
+            # Check compilation
+            can_compile, error = self.verify_typescript_compiles(ts_dir)
+            if not can_compile:
+                self.fail(f"Generated TypeScript doesn't compile: {error}")
+
+
+class TestAvroRecordNameConflicts(RobustnessTestBase):
+    """Tests for Avro schemas with potential name conflicts"""
+    
+    def test_185_same_name_different_namespace(self):
+        """Test records with same name but different namespace"""
+        avro_schema = {
+            "type": "record",
+            "name": "Container",
+            "namespace": "test.main",
+            "fields": [
+                {
+                    "name": "item1",
+                    "type": {
+                        "type": "record",
+                        "name": "Item",
+                        "namespace": "test.ns1",
+                        "fields": [{"name": "value", "type": "string"}]
+                    }
+                },
+                {
+                    "name": "item2",
+                    "type": {
+                        "type": "record",
+                        "name": "Item",
+                        "namespace": "test.ns2",
+                        "fields": [{"name": "count", "type": "int"}]
+                    }
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "conflict.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            # Test Java - namespace handling is important
+            java_dir = os.path.join(tmpdir, "java_output")
+            os.makedirs(java_dir)
+            try:
+                convert_avro_to_java(avsc_file, java_dir)
+            except Exception as e:
+                self.fail(f"Java conversion failed with same name different namespace: {e}")
+            
+            can_compile, error = self.verify_java_compiles(java_dir)
+            if not can_compile:
+                self.fail(f"Generated Java doesn't compile: {error}")
+
+    def test_186_nested_record_same_name(self):
+        """Test nested records with same name as parent"""
+        avro_schema = {
+            "type": "record",
+            "name": "Data",
+            "namespace": "test.nested",
+            "fields": [
+                {
+                    "name": "nestedData",
+                    "type": {
+                        "type": "record",
+                        "name": "Data",
+                        "namespace": "test.nested.inner",
+                        "fields": [{"name": "value", "type": "string"}]
+                    }
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "nested_same.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            # Test C#
+            csharp_dir = os.path.join(tmpdir, "csharp_output")
+            os.makedirs(csharp_dir)
+            try:
+                convert_avro_to_csharp(avsc_file, csharp_dir, base_namespace="Test.Nested")
+            except Exception as e:
+                self.fail(f"C# conversion failed with nested same name: {e}")
+            
+            can_compile, error = self.verify_csharp_compiles(csharp_dir)
+            if not can_compile:
+                self.fail(f"Generated C# doesn't compile: {error}")
+
+
+class TestStructureToProto(RobustnessTestBase):
+    """Tests for structure-to-proto conversion"""
+    
+    def test_187_proto_basic_message(self):
+        """Test proto generation with basic message"""
+        schema = {
+            "type": "object",
+            "title": "BasicMessage",
+            "properties": {
+                "id": {"type": "integer"},
+                "name": {"type": "string"},
+                "active": {"type": "boolean"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "basic.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            out_file = os.path.join(tmpdir, "output.proto")
+            
+            try:
+                convert_structure_to_proto(schema_file, out_file)
+            except Exception as e:
+                self.fail(f"Structure-to-proto conversion failed: {e}")
+            
+            self.assertTrue(os.path.exists(out_file), "Proto file not created")
+
+    def test_188_proto_nested_messages(self):
+        """Test proto generation with nested messages"""
+        schema = {
+            "type": "object",
+            "title": "NestedMessage",
+            "properties": {
+                "inner": {
+                    "type": "object",
+                    "properties": {
+                        "deep": {
+                            "type": "object",
+                            "properties": {
+                                "value": {"type": "string"}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "nested.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            out_file = os.path.join(tmpdir, "output.proto")
+            
+            try:
+                convert_structure_to_proto(schema_file, out_file)
+            except Exception as e:
+                self.fail(f"Structure-to-proto conversion failed with nesting: {e}")
+
+
+class TestStructureToIceberg(RobustnessTestBase):
+    """Tests for structure-to-Iceberg conversion"""
+    
+    def test_189_iceberg_basic_schema(self):
+        """Test Iceberg generation with basic schema"""
+        avro_schema = {
+            "type": "record",
+            "name": "IcebergRecord",
+            "fields": [
+                {"name": "id", "type": "long"},
+                {"name": "name", "type": "string"},
+                {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "iceberg.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            out_file = os.path.join(tmpdir, "output.json")
+            
+            try:
+                convert_avro_to_iceberg(avsc_file, "IcebergRecord", out_file)
+            except Exception as e:
+                self.fail(f"Avro-to-Iceberg conversion failed: {e}")
+            
+            self.assertTrue(os.path.exists(out_file), "Iceberg file not created")
+
+
+class TestBinaryAndNumericTypes(RobustnessTestBase):
+    """Tests for binary and numeric type handling"""
+    
+    def test_190_python_bytes_handling(self):
+        """Test Python generation with bytes type"""
+        schema = {
+            "type": "object",
+            "title": "BinarySchema",
+            "properties": {
+                "binaryData": {
+                    "type": "string",
+                    "contentEncoding": "base64"
+                },
+                "rawBytes": {
+                    "type": "string",
+                    "format": "byte"
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "binary.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            py_dir = os.path.join(tmpdir, "py_output")
+            os.makedirs(py_dir)
+            
+            try:
+                convert_structure_to_python(schema_file, py_dir)
+            except Exception as e:
+                self.fail(f"Python conversion failed with binary types: {e}")
+            
+            can_import, error = self.verify_python_imports(py_dir)
+            if not can_import:
+                self.fail(f"Generated Python doesn't import: {error}")
+
+    def test_191_large_numbers(self):
+        """Test handling of large number constraints"""
+        schema = {
+            "type": "object",
+            "title": "LargeNumbers",
+            "properties": {
+                "bigInt": {
+                    "type": "integer",
+                    "minimum": -9223372036854775808,
+                    "maximum": 9223372036854775807
+                },
+                "preciseDecimal": {
+                    "type": "number",
+                    "multipleOf": 0.0001
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "large.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test Java
+            java_dir = os.path.join(tmpdir, "java_output")
+            os.makedirs(java_dir)
+            try:
+                convert_structure_to_java(schema_file, java_dir, package_name="com.test.large")
+            except Exception as e:
+                self.fail(f"Java conversion failed with large numbers: {e}")
+
+
+class TestEmptySchemas(RobustnessTestBase):
+    """Tests for edge cases with empty or minimal schemas"""
+    
+    def test_192_empty_properties(self):
+        """Test schema with empty properties object"""
+        schema = {
+            "type": "object",
+            "title": "EmptyProps",
+            "properties": {}
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "empty.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            py_dir = os.path.join(tmpdir, "py_output")
+            os.makedirs(py_dir)
+            
+            try:
+                convert_structure_to_python(schema_file, py_dir)
+            except Exception as e:
+                self.fail(f"Python conversion failed with empty properties: {e}")
+
+    def test_193_only_additional_properties(self):
+        """Test schema with only additionalProperties"""
+        schema = {
+            "type": "object",
+            "title": "MapOnly",
+            "additionalProperties": {
+                "type": "string"
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "map.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            ts_dir = os.path.join(tmpdir, "ts_output")
+            os.makedirs(ts_dir)
+            
+            try:
+                convert_structure_to_typescript(schema_file, ts_dir)
+            except Exception as e:
+                self.fail(f"TypeScript conversion failed with only additionalProperties: {e}")
+
+
+class TestNullableFields(RobustnessTestBase):
+    """Tests for nullable field handling"""
+    
+    def test_194_all_nullable_fields(self):
+        """Test schema where all fields are nullable"""
+        schema = {
+            "type": "object",
+            "title": "AllNullable",
+            "properties": {
+                "field1": {"type": ["string", "null"]},
+                "field2": {"type": ["integer", "null"]},
+                "field3": {"type": ["boolean", "null"]},
+                "field4": {"type": ["array", "null"], "items": {"type": "string"}}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "nullable.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test C#
+            csharp_dir = os.path.join(tmpdir, "csharp_output")
+            os.makedirs(csharp_dir)
+            try:
+                convert_structure_to_csharp(schema_file, csharp_dir, base_namespace="Test.Nullable")
+            except Exception as e:
+                self.fail(f"C# conversion failed with nullable fields: {e}")
+            
+            can_compile, error = self.verify_csharp_compiles(csharp_dir)
+            if not can_compile:
+                self.fail(f"Generated C# doesn't compile: {error}")
+
+    def test_195_avro_null_default(self):
+        """Test Avro schema with null defaults"""
+        avro_schema = {
+            "type": "record",
+            "name": "NullDefaults",
+            "namespace": "test.nulls",
+            "fields": [
+                {"name": "opt1", "type": ["null", "string"], "default": None},
+                {"name": "opt2", "type": ["null", "int"], "default": None},
+                {"name": "opt3", "type": ["null", {"type": "array", "items": "string"}], "default": None}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "nulldefaults.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            # Test Go
+            go_dir = os.path.join(tmpdir, "go_output")
+            os.makedirs(go_dir)
+            try:
+                convert_avro_to_go(avsc_file, go_dir, package_name="nulls")
+            except Exception as e:
+                self.fail(f"Go conversion failed with null defaults: {e}")
+
+
+class TestSpecialTypeNames(RobustnessTestBase):
+    """Tests for special type name handling"""
+    
+    def test_196_type_name_with_underscores(self):
+        """Test type names with underscores"""
+        schema = {
+            "type": "object",
+            "title": "my_type_name",
+            "properties": {
+                "my_field_name": {"type": "string"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "underscores.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test Go - which uses PascalCase
+            go_dir = os.path.join(tmpdir, "go_output")
+            os.makedirs(go_dir)
+            try:
+                convert_structure_to_go(schema_file, go_dir, package_name="underscores")
+            except Exception as e:
+                self.fail(f"Go conversion failed with underscore names: {e}")
+
+    def test_197_type_name_all_caps(self):
+        """Test type names that are ALL CAPS"""
+        schema = {
+            "type": "object",
+            "title": "ALLCAPS",
+            "properties": {
+                "ID": {"type": "string"},
+                "URL": {"type": "string"},
+                "API_KEY": {"type": "string"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "caps.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test Rust
+            rust_dir = os.path.join(tmpdir, "rust_output")
+            os.makedirs(rust_dir)
+            try:
+                convert_structure_to_rust(schema_file, rust_dir)
+            except Exception as e:
+                self.fail(f"Rust conversion failed with ALL CAPS names: {e}")
+
+
+class TestDefaultValues(RobustnessTestBase):
+    """Tests for default value handling"""
+    
+    def test_198_complex_defaults(self):
+        """Test schema with complex default values"""
+        schema = {
+            "type": "object",
+            "title": "ComplexDefaults",
+            "properties": {
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": ["default", "tags"]
+                },
+                "config": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {"type": "boolean"}
+                    },
+                    "default": {"enabled": True}
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "defaults.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test Python
+            py_dir = os.path.join(tmpdir, "py_output")
+            os.makedirs(py_dir)
+            try:
+                convert_structure_to_python(schema_file, py_dir)
+            except Exception as e:
+                self.fail(f"Python conversion failed with complex defaults: {e}")
+            
+            can_import, error = self.verify_python_imports(py_dir)
+            if not can_import:
+                self.fail(f"Generated Python doesn't import: {error}")
+
+    def test_199_avro_record_default(self):
+        """Test Avro schema with record default value"""
+        avro_schema = {
+            "type": "record",
+            "name": "WithRecordDefault",
+            "namespace": "test.defaults",
+            "fields": [
+                {
+                    "name": "config",
+                    "type": {
+                        "type": "record",
+                        "name": "Config",
+                        "fields": [
+                            {"name": "enabled", "type": "boolean"},
+                            {"name": "count", "type": "int"}
+                        ]
+                    },
+                    "default": {"enabled": True, "count": 0}
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "record_default.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            # Test Java
+            java_dir = os.path.join(tmpdir, "java_output")
+            os.makedirs(java_dir)
+            try:
+                convert_avro_to_java(avsc_file, java_dir)
+            except Exception as e:
+                self.fail(f"Java conversion failed with record default: {e}")
+
+
+class TestPatternProperties(RobustnessTestBase):
+    """Tests for patternProperties handling"""
+    
+    def test_200_simple_pattern_properties(self):
+        """Test schema with simple patternProperties"""
+        schema = {
+            "type": "object",
+            "title": "PatternSchema",
+            "patternProperties": {
+                "^S_": {"type": "string"},
+                "^I_": {"type": "integer"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "pattern.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            # Test TypeScript
+            ts_dir = os.path.join(tmpdir, "ts_output")
+            os.makedirs(ts_dir)
+            try:
+                convert_structure_to_typescript(schema_file, ts_dir)
+            except Exception as e:
+                self.fail(f"TypeScript conversion failed with patternProperties: {e}")
+
+
+class TestAvroLogicalTypesCompilation(RobustnessTestBase):
+    """Tests for Avro logical types compilation across languages"""
+    
+    def test_201_python_all_logical_types(self):
+        """Test Python compilation with all Avro logical types"""
+        avro_schema = {
+            "type": "record",
+            "name": "AllLogicalTypes",
+            "namespace": "test.logical",
+            "fields": [
+                {"name": "date_field", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "time_millis", "type": {"type": "int", "logicalType": "time-millis"}},
+                {"name": "time_micros", "type": {"type": "long", "logicalType": "time-micros"}},
+                {"name": "timestamp_millis", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+                {"name": "timestamp_micros", "type": {"type": "long", "logicalType": "timestamp-micros"}},
+                {"name": "decimal_field", "type": {"type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2}},
+                {"name": "uuid_field", "type": {"type": "string", "logicalType": "uuid"}},
+                {"name": "duration_field", "type": {"type": "fixed", "name": "Duration", "size": 12, "logicalType": "duration"}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "logical.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            py_dir = os.path.join(tmpdir, "py_output")
+            os.makedirs(py_dir)
+            
+            try:
+                convert_avro_to_python(avsc_file, py_dir)
+            except Exception as e:
+                self.fail(f"Python conversion failed: {e}")
+            
+            can_import, error = self.verify_python_imports(py_dir)
+            if not can_import:
+                self.fail(f"Generated Python doesn't import: {error}")
+
+    def test_202_go_all_logical_types(self):
+        """Test Go compilation with all Avro logical types"""
+        avro_schema = {
+            "type": "record",
+            "name": "AllLogicalTypes",
+            "namespace": "test.logical",
+            "fields": [
+                {"name": "date_field", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "timestamp_millis", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+                {"name": "decimal_field", "type": {"type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2}},
+                {"name": "uuid_field", "type": {"type": "string", "logicalType": "uuid"}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "logical.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            go_dir = os.path.join(tmpdir, "go_output")
+            os.makedirs(go_dir)
+            
+            try:
+                convert_avro_to_go(avsc_file, go_dir, package_name="logical")
+            except Exception as e:
+                self.fail(f"Go conversion failed: {e}")
+            
+            can_compile, error = self.verify_go_compiles(go_dir)
+            if not can_compile:
+                self.fail(f"Generated Go doesn't compile: {error}")
+
+
+class TestTypeScriptEdgeCases(RobustnessTestBase):
+    """Tests for TypeScript generation edge cases"""
+    
+    def test_203_ts_union_types(self):
+        """Test TypeScript with JSON Schema oneOf"""
+        schema = {
+            "type": "object",
+            "title": "UnionContainer",
+            "properties": {
+                "data": {
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "number"},
+                        {"type": "object", "properties": {"value": {"type": "string"}}}
+                    ]
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "union.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            ts_dir = os.path.join(tmpdir, "ts_output")
+            os.makedirs(ts_dir)
+            
+            try:
+                convert_structure_to_typescript(schema_file, ts_dir)
+            except Exception as e:
+                self.fail(f"TypeScript conversion failed: {e}")
+            
+            can_compile, error = self.verify_typescript_compiles(ts_dir)
+            if not can_compile:
+                self.fail(f"Generated TypeScript doesn't compile: {error}")
+
+    def test_204_ts_avro_unions(self):
+        """Test TypeScript compilation with Avro union types"""
+        avro_schema = {
+            "type": "record",
+            "name": "UnionRecord",
+            "namespace": "test.unions",
+            "fields": [
+                {
+                    "name": "stringOrNull",
+                    "type": ["null", "string"]
+                },
+                {
+                    "name": "intOrLongOrDouble",
+                    "type": ["int", "long", "double"]
+                },
+                {
+                    "name": "complexUnion",
+                    "type": [
+                        "null",
+                        "string",
+                        {"type": "array", "items": "string"},
+                        {"type": "map", "values": "int"}
+                    ]
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "unions.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            ts_dir = os.path.join(tmpdir, "ts_output")
+            os.makedirs(ts_dir)
+            
+            try:
+                convert_avro_to_typescript(avsc_file, ts_dir)
+            except Exception as e:
+                self.fail(f"TypeScript conversion failed: {e}")
+            
+            can_compile, error = self.verify_typescript_compiles(ts_dir)
+            if not can_compile:
+                self.fail(f"Generated TypeScript doesn't compile: {error}")
+
+
+class TestGoEdgeCases2(RobustnessTestBase):
+    """Additional tests for Go generation edge cases"""
+    
+    def test_205_go_json_schema_allof(self):
+        """Test Go with JSON Schema allOf"""
+        schema = {
+            "type": "object",
+            "title": "AllOfSchema",
+            "allOf": [
+                {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}}
+                },
+                {
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}}
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "allof.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            go_dir = os.path.join(tmpdir, "go_output")
+            os.makedirs(go_dir)
+            
+            try:
+                convert_structure_to_go(schema_file, go_dir, package_name="allof")
+            except Exception as e:
+                self.fail(f"Go conversion failed: {e}")
+            
+            can_compile, error = self.verify_go_compiles(go_dir)
+            if not can_compile:
+                self.fail(f"Generated Go doesn't compile: {error}")
+
+    def test_206_go_avro_maps(self):
+        """Test Go compilation with Avro map types"""
+        avro_schema = {
+            "type": "record",
+            "name": "MapRecord",
+            "namespace": "test.maps",
+            "fields": [
+                {"name": "stringMap", "type": {"type": "map", "values": "string"}},
+                {"name": "intMap", "type": {"type": "map", "values": "int"}},
+                {"name": "recordMap", "type": {"type": "map", "values": {
+                    "type": "record",
+                    "name": "MapValue",
+                    "fields": [{"name": "value", "type": "string"}]
+                }}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "maps.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            go_dir = os.path.join(tmpdir, "go_output")
+            os.makedirs(go_dir)
+            
+            try:
+                convert_avro_to_go(avsc_file, go_dir, package_name="maps")
+            except Exception as e:
+                self.fail(f"Go conversion failed: {e}")
+            
+            can_compile, error = self.verify_go_compiles(go_dir)
+            if not can_compile:
+                self.fail(f"Generated Go doesn't compile: {error}")
+
+
+class TestCSharpSpecialCases(RobustnessTestBase):
+    """Tests for C# generation special cases"""
+    
+    def test_207_csharp_nullable_primitives(self):
+        """Test C# with nullable primitive types from JSON Schema"""
+        schema = {
+            "type": "object",
+            "title": "NullablePrimitives",
+            "properties": {
+                "nullableInt": {"type": ["integer", "null"]},
+                "nullableString": {"type": ["string", "null"]},
+                "nullableBool": {"type": ["boolean", "null"]},
+                "nullableNumber": {"type": ["number", "null"]}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "nullable.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            csharp_dir = os.path.join(tmpdir, "csharp_output")
+            os.makedirs(csharp_dir)
+            
+            try:
+                convert_structure_to_csharp(schema_file, csharp_dir, base_namespace="Test.Nullable")
+            except Exception as e:
+                self.fail(f"C# conversion failed: {e}")
+            
+            can_compile, error = self.verify_csharp_compiles(csharp_dir)
+            if not can_compile:
+                self.fail(f"Generated C# doesn't compile: {error}")
+
+    def test_208_csharp_avro_arrays(self):
+        """Test C# compilation with various Avro array types"""
+        avro_schema = {
+            "type": "record",
+            "name": "ArrayRecord",
+            "namespace": "test.arrays",
+            "fields": [
+                {"name": "stringArray", "type": {"type": "array", "items": "string"}},
+                {"name": "intArray", "type": {"type": "array", "items": "int"}},
+                {"name": "nestedArray", "type": {"type": "array", "items": {"type": "array", "items": "string"}}},
+                {"name": "recordArray", "type": {"type": "array", "items": {
+                    "type": "record",
+                    "name": "ArrayItem",
+                    "fields": [{"name": "value", "type": "string"}]
+                }}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "arrays.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            csharp_dir = os.path.join(tmpdir, "csharp_output")
+            os.makedirs(csharp_dir)
+            
+            try:
+                convert_avro_to_csharp(avsc_file, csharp_dir, base_namespace="Test.Arrays")
+            except Exception as e:
+                self.fail(f"C# conversion failed: {e}")
+            
+            can_compile, error = self.verify_csharp_compiles(csharp_dir)
+            if not can_compile:
+                self.fail(f"Generated C# doesn't compile: {error}")
+
+
+class TestRustSpecialCases(RobustnessTestBase):
+    """Tests for Rust generation special cases"""
+    
+    def test_209_rust_json_schema_enums(self):
+        """Test Rust with JSON Schema enum values"""
+        schema = {
+            "type": "object",
+            "title": "EnumContainer",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["active", "inactive", "pending"]
+                },
+                "priority": {
+                    "type": "integer",
+                    "enum": [1, 2, 3]
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "enums.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            rust_dir = os.path.join(tmpdir, "rust_output")
+            os.makedirs(rust_dir)
+            
+            try:
+                convert_structure_to_rust(schema_file, rust_dir)
+            except Exception as e:
+                self.fail(f"Rust conversion failed: {e}")
+            
+            can_compile, error = self.verify_rust_compiles(rust_dir)
+            if not can_compile:
+                self.fail(f"Generated Rust doesn't compile: {error}")
+
+
+class TestAvroRecursiveTypes(RobustnessTestBase):
+    """Tests for recursive/self-referencing Avro types"""
+    
+    def test_210_avro_self_reference_python(self):
+        """Test Python with self-referencing Avro type"""
+        avro_schema = {
+            "type": "record",
+            "name": "TreeNode",
+            "namespace": "test.tree",
+            "fields": [
+                {"name": "value", "type": "string"},
+                {"name": "children", "type": {"type": "array", "items": "TreeNode"}},
+                {"name": "parent", "type": ["null", "TreeNode"], "default": None}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "tree.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            py_dir = os.path.join(tmpdir, "py_output")
+            os.makedirs(py_dir)
+            
+            try:
+                convert_avro_to_python(avsc_file, py_dir)
+            except Exception as e:
+                self.fail(f"Python conversion failed: {e}")
+            
+            can_import, error = self.verify_python_imports(py_dir)
+            if not can_import:
+                self.fail(f"Generated Python doesn't import: {error}")
+
+    def test_211_avro_self_reference_go(self):
+        """Test Go with self-referencing Avro type"""
+        avro_schema = {
+            "type": "record",
+            "name": "LinkedNode",
+            "namespace": "test.linked",
+            "fields": [
+                {"name": "value", "type": "int"},
+                {"name": "next", "type": ["null", "LinkedNode"], "default": None}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "linked.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            go_dir = os.path.join(tmpdir, "go_output")
+            os.makedirs(go_dir)
+            
+            try:
+                convert_avro_to_go(avsc_file, go_dir, package_name="linked")
+            except Exception as e:
+                self.fail(f"Go conversion failed: {e}")
+            
+            can_compile, error = self.verify_go_compiles(go_dir)
+            if not can_compile:
+                self.fail(f"Generated Go doesn't compile: {error}")
+
+
+class TestEdgeCaseInputFilenames(RobustnessTestBase):
+    """Tests for schemas with edge-case input filenames"""
+    
+    def test_212_python_input_file_named_typing(self):
+        """Test Python when input file would shadow 'typing' module"""
+        schema = {
+            "type": "object",
+            "title": "SimpleType",
+            "properties": {
+                "value": {"type": "string"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create file named 'typing.json' - this could cause shadowing issues
+            schema_file = os.path.join(tmpdir, "typing.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            py_dir = os.path.join(tmpdir, "py_output")
+            os.makedirs(py_dir)
+            
+            try:
+                convert_structure_to_python(schema_file, py_dir)
+            except Exception as e:
+                self.fail(f"Python conversion failed: {e}")
+            
+            can_import, error = self.verify_python_imports(py_dir)
+            if not can_import:
+                self.fail(f"Generated Python doesn't import (typing shadowing): {error}")
+
+    def test_213_python_input_file_named_json(self):
+        """Test Python when input file would shadow 'json' module"""
+        schema = {
+            "type": "object",
+            "title": "JsonData",
+            "properties": {
+                "data": {"type": "string"}
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create file named 'json_data.json' - less problematic but still test
+            schema_file = os.path.join(tmpdir, "json.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            py_dir = os.path.join(tmpdir, "py_output")
+            os.makedirs(py_dir)
+            
+            try:
+                convert_structure_to_python(schema_file, py_dir)
+            except Exception as e:
+                self.fail(f"Python conversion failed: {e}")
+            
+            can_import, error = self.verify_python_imports(py_dir)
+            if not can_import:
+                self.fail(f"Generated Python doesn't import (json shadowing): {error}")
+
+
+class TestComplexTypeConversions(RobustnessTestBase):
+    """Tests for complex type conversion scenarios"""
+    
+    def test_214_java_deeply_nested_objects(self):
+        """Test Java with deeply nested objects"""
+        schema = {
+            "type": "object",
+            "title": "DeepNest",
+            "properties": {
+                "level1": {
+                    "type": "object",
+                    "properties": {
+                        "level2": {
+                            "type": "object",
+                            "properties": {
+                                "level3": {
+                                    "type": "object",
+                                    "properties": {
+                                        "level4": {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            schema_file = os.path.join(tmpdir, "deep.json")
+            with open(schema_file, 'w') as f:
+                json.dump(schema, f)
+            
+            java_dir = os.path.join(tmpdir, "java_output")
+            os.makedirs(java_dir)
+            
+            try:
+                convert_structure_to_java(schema_file, java_dir, package_name="com.test.deep")
+            except Exception as e:
+                self.fail(f"Java conversion failed: {e}")
+            
+            can_compile, error = self.verify_java_compiles(java_dir)
+            if not can_compile:
+                self.fail(f"Generated Java doesn't compile: {error}")
+
+    def test_215_csharp_avro_multiple_enums(self):
+        """Test C# with multiple enum types in Avro"""
+        avro_schema = {
+            "type": "record",
+            "name": "MultiEnum",
+            "namespace": "test.enums",
+            "fields": [
+                {
+                    "name": "status",
+                    "type": {"type": "enum", "name": "Status", "symbols": ["ACTIVE", "INACTIVE"]}
+                },
+                {
+                    "name": "priority",
+                    "type": {"type": "enum", "name": "Priority", "symbols": ["LOW", "MEDIUM", "HIGH"]}
+                },
+                {
+                    "name": "category",
+                    "type": {"type": "enum", "name": "Category", "symbols": ["A", "B", "C", "D"]}
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            avsc_file = os.path.join(tmpdir, "multienum.avsc")
+            with open(avsc_file, 'w') as f:
+                json.dump(avro_schema, f)
+            
+            csharp_dir = os.path.join(tmpdir, "csharp_output")
+            os.makedirs(csharp_dir)
+            
+            try:
+                convert_avro_to_csharp(avsc_file, csharp_dir, base_namespace="Test.Enums")
+            except Exception as e:
+                self.fail(f"C# conversion failed: {e}")
+            
+            can_compile, error = self.verify_csharp_compiles(csharp_dir)
+            if not can_compile:
+                self.fail(f"Generated C# doesn't compile: {error}")
 
 
 if __name__ == '__main__':
