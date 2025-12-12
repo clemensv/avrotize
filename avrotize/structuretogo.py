@@ -4,6 +4,7 @@
 
 import json
 import os
+import re
 from typing import Any, Dict, List, Set, Union, Optional, cast
 
 from avrotize.common import pascal, render_template
@@ -38,9 +39,21 @@ class StructureToGo:
             'else', 'goto', 'package', 'switch', 'const', 'fallthrough', 'if', 'range', 'type', 'continue', 'for',
             'import', 'return', 'var',
         ]
-        if name in reserved_words:
-            return f"{name}_"
-        return name
+        # Handle integer names
+        if isinstance(name, int):
+            name = '_' + str(name)
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+        # Ensure the name starts with a letter or underscore
+        if safe and re.match(r'^[0-9]', safe):
+            safe = '_' + safe
+        # Ensure we have a valid identifier (e.g., if name was all special chars)
+        if not safe or not re.match(r'^[a-zA-Z_]', safe):
+            safe = '_' + (safe if safe else 'field')
+        # Handle reserved words
+        if safe in reserved_words:
+            return f"{safe}_"
+        return safe
 
     def go_type_name(self, name: str, namespace: str = '') -> str:
         """Returns a qualified name for a Go struct or enum"""
@@ -303,7 +316,7 @@ class StructureToGo:
                 field_type = f'*{field_type}'
             
             fields.append({
-                'name': pascal(prop_name),
+                'name': pascal(self.safe_identifier(prop_name)),
                 'type': field_type,
                 'original_name': prop_name
             })
@@ -412,7 +425,7 @@ class StructureToGo:
         
         methods = []
         for prop_name, prop_schema in properties.items():
-            go_prop_name = pascal(prop_name)
+            go_prop_name = pascal(self.safe_identifier(prop_name))
             is_required = prop_name in required_props if not isinstance(required_props, list) or \
                          len(required_props) == 0 or not isinstance(required_props[0], list) else \
                          any(prop_name in req_set for req_set in required_props)

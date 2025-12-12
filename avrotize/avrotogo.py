@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Dict, List, Union, Set
 from avrotize.common import get_longest_namespace_prefix, is_generic_avro_type, pascal, render_template
 
@@ -32,9 +33,21 @@ class AvroToGo:
             'else', 'goto', 'package', 'switch', 'const', 'fallthrough', 'if', 'range', 'type', 'continue', 'for',
             'import', 'return', 'var',
         ]
-        if name in reserved_words:
-            return f"{name}_"
-        return name
+        # Handle integer names
+        if isinstance(name, int):
+            name = '_' + str(name)
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+        # Ensure the name starts with a letter or underscore
+        if safe and re.match(r'^[0-9]', safe):
+            safe = '_' + safe
+        # Ensure we have a valid identifier (e.g., if name was all special chars)
+        if not safe or not re.match(r'^[a-zA-Z_]', safe):
+            safe = '_' + (safe if safe else 'field')
+        # Handle reserved words
+        if safe in reserved_words:
+            return f"{safe}_"
+        return safe
 
     def go_type_name(self, name: str, namespace: str) -> str:
         """Returns a qualified name for a Go struct or enum"""
@@ -152,10 +165,14 @@ class AvroToGo:
         self.generated_types_go_package[go_struct_name] = "struct"
 
         fields = [{
-            'name': pascal(field['name']),
+            'name': pascal(self.safe_identifier(field['name'])),
             'type': self.convert_avro_type_to_go(field['name'], field['type'], parent_namespace=namespace),
             'original_name': field['name']
         } for field in avro_schema.get('fields', [])]
+
+        # Collect Go types to determine required imports
+        go_types = [f['type'] for f in fields]
+        imports = self.get_imports_for_definition(go_types)
 
         context = {
             'doc': avro_schema.get('doc', ''),
@@ -166,6 +183,7 @@ class AvroToGo:
             'avro_annotation': self.avro_annotation,
             'json_match_predicates': [self.get_is_json_match_clause(f['name'], f['type']) for f in fields],
             'base_package': self.base_package,
+            'imports': imports,
         }
 
         pkg_dir = os.path.join(self.output_dir, 'pkg', self.base_package)
