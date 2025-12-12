@@ -18,6 +18,7 @@
         <PackageReference Include="System.Memory.Data" Version="9.0.3" />
         <PackageReference Include="protobuf-net" Version="3.2.30" />
         <PackageReference Include="MessagePack" Version="3.1.4" />
+        <PackageReference Include="Dahomey.Cbor" Version="1.25.1" />
     </ItemGroup>
 
     <!-- Testing -->

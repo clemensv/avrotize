@@ -16,6 +16,7 @@ from avrotize.constants import (
     SYSTEM_MEMORY_DATA_VERSION,
     PROTOBUF_NET_VERSION,
     MSGPACK_VERSION,
+    CBOR_VERSION,
     NUNIT_VERSION,
     NUNIT_ADAPTER_VERSION,
     MSTEST_SDK_VERSION,
@@ -53,6 +54,7 @@ class AvroToCSharp:
         self.newtonsoft_json_annotation = False
         self.system_xml_annotation = False
         self.msgpack_annotation = False
+        self.cbor_annotation = False
         self.avro_annotation = False
         self.protobuf_net_annotation = False
         self.generated_types: Dict[str,str] = {}
@@ -267,6 +269,7 @@ class AvroToCSharp:
             newtonsoft_json_annotation=self.newtonsoft_json_annotation,
             system_xml_annotation=self.system_xml_annotation,
             msgpack_annotation=self.msgpack_annotation,
+            cbor_annotation=self.cbor_annotation,
             json_match_clauses=self.create_is_json_match_clauses(avro_schema, avro_namespace, class_name)
         )
 
@@ -768,6 +771,10 @@ class AvroToCSharp:
         if self.msgpack_annotation:
             prop += f"{INDENT}[Key({field_index})]\n"
 
+        # Add CBOR serialization attribute if enabled
+        if self.cbor_annotation:
+            prop += f"{INDENT}[Dahomey.Cbor.Serialization.CborProperty(\"{annotation_name}\")]\n"
+
         if self.system_text_json_annotation:
             prop += f"{INDENT}[System.Text.Json.Serialization.JsonPropertyName(\"{annotation_name}\")]\n"
             if is_enum_type:
@@ -831,6 +838,8 @@ class AvroToCSharp:
                 file_content += "using System.Xml.Serialization;\n"
             if self.msgpack_annotation:  # Add MessagePack serialization using directive
                 file_content += "using MessagePack;\n"
+            if self.cbor_annotation:  # Add CBOR serialization using directive
+                file_content += "using Dahomey.Cbor.Serialization;\n"
 
             if namespace:
                 # Namespace declaration with correct indentation for the definition
@@ -874,7 +883,8 @@ class AvroToCSharp:
                 system_text_json_annotation=self.system_text_json_annotation,
                 newtonsoft_json_annotation=self.newtonsoft_json_annotation,
                 protobuf_net_annotation=self.protobuf_net_annotation,
-                msgpack_annotation=self.msgpack_annotation
+                msgpack_annotation=self.msgpack_annotation,
+                cbor_annotation=self.cbor_annotation
             )
         elif type_kind == "enum":
             test_class_definition = process_template(
@@ -1028,12 +1038,14 @@ class AvroToCSharp:
                         newtonsoft_json_annotation=self.newtonsoft_json_annotation,
                         protobuf_net_annotation=self.protobuf_net_annotation,
                         msgpack_annotation=self.msgpack_annotation,
+                        cbor_annotation=self.cbor_annotation,
                         CSHARP_AVRO_VERSION=CSHARP_AVRO_VERSION,
                         NEWTONSOFT_JSON_VERSION=NEWTONSOFT_JSON_VERSION,
                         SYSTEM_TEXT_JSON_VERSION=SYSTEM_TEXT_JSON_VERSION,
                         SYSTEM_MEMORY_DATA_VERSION=SYSTEM_MEMORY_DATA_VERSION,
                         PROTOBUF_NET_VERSION=PROTOBUF_NET_VERSION,
                         MSGPACK_VERSION=MSGPACK_VERSION,
+                        CBOR_VERSION=CBOR_VERSION,
                         NUNIT_VERSION=NUNIT_VERSION,
                         NUNIT_ADAPTER_VERSION=NUNIT_ADAPTER_VERSION,
                         MSTEST_SDK_VERSION=MSTEST_SDK_VERSION))
@@ -1107,6 +1119,7 @@ def convert_avro_to_csharp(
     newtonsoft_json_annotation=False, 
     system_xml_annotation=False,
     msgpack_annotation=False,
+    cbor_annotation=False,
     avro_annotation=False,
     protobuf_net_annotation=False
 ):
@@ -1122,6 +1135,7 @@ def convert_avro_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         msgpack_annotation (bool, optional): Use MessagePack annotations. Defaults to False.
+        cbor_annotation (bool, optional): Use Dahomey.Cbor annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
         protobuf_net_annotation (bool, optional): Use protobuf-net annotations. Defaults to False.
     """
@@ -1135,6 +1149,7 @@ def convert_avro_to_csharp(
     avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     avrotocs.system_xml_annotation = system_xml_annotation
     avrotocs.msgpack_annotation = msgpack_annotation
+    avrotocs.cbor_annotation = cbor_annotation
     avrotocs.avro_annotation = avro_annotation
     avrotocs.protobuf_net_annotation = protobuf_net_annotation
     avrotocs.convert(avro_schema_path, cs_file_path)
@@ -1150,6 +1165,7 @@ def convert_avro_schema_to_csharp(
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,
     msgpack_annotation: bool = False,
+    cbor_annotation: bool = False,
     avro_annotation: bool = False,
     protobuf_net_annotation: bool = False
 ):
@@ -1165,6 +1181,7 @@ def convert_avro_schema_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         msgpack_annotation (bool, optional): Use MessagePack annotations. Defaults to False.
+        cbor_annotation (bool, optional): Use Dahomey.Cbor annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
         protobuf_net_annotation (bool, optional): Use protobuf-net annotations. Defaults to False.
     """
@@ -1175,6 +1192,7 @@ def convert_avro_schema_to_csharp(
     avrotocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     avrotocs.system_xml_annotation = system_xml_annotation
     avrotocs.msgpack_annotation = msgpack_annotation
+    avrotocs.cbor_annotation = cbor_annotation
     avrotocs.avro_annotation = avro_annotation
     avrotocs.protobuf_net_annotation = protobuf_net_annotation
     avrotocs.convert_schema(avro_schema, output_dir)
