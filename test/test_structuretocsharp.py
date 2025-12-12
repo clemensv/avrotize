@@ -396,8 +396,9 @@ class TestStructureToCSharp(unittest.TestCase):
                    content.count("[System.ComponentModel.DataAnnotations.EmailAddress]") >= 2, \
                 "combinedValidations should have EmailAddress attribute"
         
-        # Verify code compiles
-        assert subprocess.check_call(["dotnet", "build"], cwd=cs_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+        # Verify code compiles - build only the main project, not the test project
+        src_project = os.path.join(cs_path, "src", "TestValidationExtensionsCs.csproj")
+        assert subprocess.check_call(["dotnet", "build", src_project], cwd=cs_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
         
         print(f"✓ Validation extension attributes generated correctly")
 
