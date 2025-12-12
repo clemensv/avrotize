@@ -363,6 +363,8 @@ class AvroToGo:
             v = f'map[string]{go_type[11:]}{{"key": {self.random_value(go_type[11:])}}}'
         elif go_type in self.generated_types_go_package:
             v = f'random{go_type}()'
+        elif go_type == 'time.Time':
+            v = 'time.Now()'
         elif go_type == 'interface{}':
             v = 'nil'
         else:
