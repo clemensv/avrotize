@@ -190,38 +190,51 @@ class AvroToRust:
     def get_is_json_match_clause(self, field_name: str, field_type: str, for_union=False) -> str:
         """Generates the is_json_match clause for a field"""
         ref = f'node[\"{field_name}\"]' if not for_union else 'node'
-        if field_type == 'String' or field_type == 'Option<String>':
-            return f"{ref}.is_string()"
-        elif field_type == 'bool' or field_type == 'Option<bool>':
-            return f"{ref}.is_boolean()"
-        elif field_type == 'i32' or field_type == 'Option<i32>':
-            return f"{ref}.is_i64()"
-        elif field_type == 'i64' or field_type == 'Option<i64>':
-            return f"{ref}.is_i64()"
-        elif field_type == 'f32' or field_type == 'Option<f32>':
-            return f"{ref}.is_f64()"
-        elif field_type == 'f64' or field_type == 'Option<f64>':
-            return f"{ref}.is_f64()"
-        elif field_type == 'Vec<u8>' or field_type == 'Option<Vec<u8>>':
-            return f"{ref}.is_array()"
-        elif field_type == 'serde_json::Value' or field_type == 'std::collections::HashMap<String, String>':
-            return f"{ref}.is_object()"
-        elif field_type.startswith('std::collections::HashMap<String, '):
-            return f"{ref}.is_object()"
-        elif field_type.startswith('Vec<'):
-            return f"{ref}.is_array()"
+        
+        # Check if type is optional - if so, we need to allow null values
+        is_optional = field_type.startswith('Option<')
+        base_type = field_type[7:-1] if is_optional else field_type
+        null_check = f" || {ref}.is_null()" if is_optional else ""
+        
+        # serde_json::Value can be any JSON type, so always return true
+        if base_type == 'serde_json::Value':
+            return "true"
+        
+        if base_type == 'String':
+            return f"({ref}.is_string(){null_check})"
+        elif base_type == 'bool':
+            return f"({ref}.is_boolean(){null_check})"
+        elif base_type == 'i32':
+            return f"({ref}.is_i64(){null_check})"
+        elif base_type == 'i64':
+            return f"({ref}.is_i64(){null_check})"
+        elif base_type == 'f32':
+            return f"({ref}.is_f64(){null_check})"
+        elif base_type == 'f64':
+            return f"({ref}.is_f64(){null_check})"
+        elif base_type == 'Vec<u8>':
+            return f"({ref}.is_array(){null_check})"
+        elif base_type == 'std::collections::HashMap<String, String>':
+            return f"({ref}.is_object(){null_check})"
+        elif base_type.startswith('std::collections::HashMap<String, '):
+            return f"({ref}.is_object(){null_check})"
+        elif base_type.startswith('Vec<'):
+            return f"({ref}.is_array(){null_check})"
         # chrono types - check for string (ISO 8601 format) or number (timestamp)
-        elif 'chrono::NaiveDateTime' in field_type or 'NaiveDateTime' in field_type:
-            return f"({ref}.is_string() || {ref}.is_i64())"
-        elif 'chrono::NaiveDate' in field_type or 'NaiveDate' in field_type:
-            return f"({ref}.is_string() || {ref}.is_i64())"
-        elif 'chrono::NaiveTime' in field_type or 'NaiveTime' in field_type:
-            return f"({ref}.is_string() || {ref}.is_i64())"
+        elif 'chrono::NaiveDateTime' in base_type or 'NaiveDateTime' in base_type:
+            return f"({ref}.is_string() || {ref}.is_i64(){null_check})"
+        elif 'chrono::NaiveDate' in base_type or 'NaiveDate' in base_type:
+            return f"({ref}.is_string() || {ref}.is_i64(){null_check})"
+        elif 'chrono::NaiveTime' in base_type or 'NaiveTime' in base_type:
+            return f"({ref}.is_string() || {ref}.is_i64(){null_check})"
         # uuid type - check for string
-        elif 'uuid::Uuid' in field_type or 'Uuid' in field_type:
-            return f"{ref}.is_string()"
+        elif 'uuid::Uuid' in base_type or 'Uuid' in base_type:
+            return f"({ref}.is_string(){null_check})"
         else:
-            return f"{field_type}::is_json_match(&{ref})"
+            # Custom types - call their is_json_match method
+            if is_optional:
+                return f"({base_type}::is_json_match(&{ref}) || {ref}.is_null())"
+            return f"{base_type}::is_json_match(&{ref})"
 
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str) -> str:
