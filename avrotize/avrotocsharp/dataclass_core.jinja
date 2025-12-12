@@ -160,7 +160,7 @@
                 System.BinaryData bd => bd.ToArray(),
                 _ => throw new NotSupportedException("Data type not supported for CBOR")
             };
-            return Dahomey.Cbor.Cbor.Deserialize<{{ class_name }}>(bytes);
+            return Dahomey.Cbor.Cbor.Deserialize<{{ class_name }}>(new ReadOnlySpan<byte>(bytes));
         }
     {%- endif %}
         throw new System.NotSupportedException($"Unsupported media type {contentType.MediaType}");
@@ -279,7 +279,9 @@
     {%- if cbor_annotation %}
         if (contentType.MediaType.StartsWith("application/cbor"))
         {
-            result = Dahomey.Cbor.Cbor.Serialize(this);
+            var bufferWriter = new System.Buffers.ArrayBufferWriter<byte>();
+            Dahomey.Cbor.Cbor.Serialize(this, bufferWriter);
+            result = bufferWriter.WrittenSpan.ToArray();
         }
     {%- endif %}
     {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation or msgpack_annotation or cbor_annotation %}

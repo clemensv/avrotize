@@ -773,7 +773,7 @@ class AvroToCSharp:
 
         # Add CBOR serialization attribute if enabled
         if self.cbor_annotation:
-            prop += f"{INDENT}[Dahomey.Cbor.Serialization.CborProperty(\"{annotation_name}\")]\n"
+            prop += f"{INDENT}[Dahomey.Cbor.Attributes.CborProperty(\"{annotation_name}\")]\n"
 
         if self.system_text_json_annotation:
             prop += f"{INDENT}[System.Text.Json.Serialization.JsonPropertyName(\"{annotation_name}\")]\n"
@@ -839,7 +839,7 @@ class AvroToCSharp:
             if self.msgpack_annotation:  # Add MessagePack serialization using directive
                 file_content += "using MessagePack;\n"
             if self.cbor_annotation:  # Add CBOR serialization using directive
-                file_content += "using Dahomey.Cbor.Serialization;\n"
+                file_content += "using Dahomey.Cbor.Attributes;\n"
 
             if namespace:
                 # Namespace declaration with correct indentation for the definition
