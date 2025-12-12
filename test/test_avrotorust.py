@@ -64,9 +64,6 @@ class TestAvroToRust(unittest.TestCase):
         self.run_convert_to_rust("telemetry", False, True)
         self.run_convert_to_rust("telemetry", False, False)
 
-    @pytest.mark.skip(reason="jfrog schema has structurally identical union variants (Auto1/Auto2 with same fields) "
-                             "that cannot be distinguished during untagged JSON deserialization. "
-                             "This is a fundamental schema limitation, not a code generator bug.")
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
         cwd = getcwd()        
@@ -83,8 +80,6 @@ class TestAvroToRust(unittest.TestCase):
         assert subprocess.check_call(
             ['cargo', 'test'], cwd=rust_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.CARGO_TIMEOUT) == 0
 
-    @pytest.mark.skip(reason="jfrog schema has structurally identical union variants that cannot be "
-                             "distinguished during JSON deserialization")
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust_typed_json(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
         cwd = getcwd()        
@@ -100,8 +95,6 @@ class TestAvroToRust(unittest.TestCase):
         assert subprocess.check_call(
             ['cargo', 'test'], cwd=rust_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.CARGO_TIMEOUT) == 0
 
-    @pytest.mark.skip(reason="jfrog schema has structurally identical union variants that cannot be "
-                             "distinguished during JSON deserialization")
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust_avro_annotations(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
         cwd = getcwd()        
