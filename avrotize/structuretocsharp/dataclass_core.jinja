@@ -142,17 +142,19 @@
     /// </summary>
     /// <param name="record">The Avro record</param>
     /// <returns>The converted object</returns>
-    private static {{ class_name }} FromAvroRecord(Avro.Generic.GenericRecord record)
+    private static {{ class_name }}? FromAvroRecord(Avro.Generic.GenericRecord record)
     {
         // Convert Avro record to JSON and then deserialize
         // This approach works for simple cases; for complex types, you may need custom mapping
-        var jsonWriter = new System.IO.StringWriter();
-        var jsonEncoder = new Avro.IO.JsonEncoder(AvroSchema, jsonWriter);
-        var writer = new Avro.Generic.GenericDatumWriter<Avro.Generic.GenericRecord>(AvroSchema);
-        writer.Write(record, jsonEncoder);
-        jsonEncoder.Flush();
-        var json = jsonWriter.ToString();
-        return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>(json) ?? new {{ class_name }}();
+        using (var jsonStream = new System.IO.MemoryStream())
+        {
+            var jsonEncoder = new Avro.IO.JsonEncoder(AvroSchema, jsonStream);
+            var writer = new Avro.Generic.GenericDatumWriter<Avro.Generic.GenericRecord>(AvroSchema);
+            writer.Write(record, jsonEncoder);
+            jsonEncoder.Flush();
+            jsonStream.Position = 0;
+            return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>(jsonStream);
+        }
     }
     {%- endif %}
 
@@ -237,12 +239,12 @@
     {
         // Convert to JSON first, then use Avro's JSON decoder
         // This approach works for simple cases; for complex types, you may need custom mapping
-        var json = System.Text.Json.JsonSerializer.Serialize(this, this.GetType());
-        using (var jsonReader = new System.IO.StringReader(json))
+        var jsonBytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(this, this.GetType());
+        using (var jsonStream = new System.IO.MemoryStream(jsonBytes))
         {
-            var decoder = new Avro.IO.JsonDecoder(AvroSchema, jsonReader);
+            var decoder = new Avro.IO.JsonDecoder(AvroSchema, jsonStream);
             var reader = new Avro.Generic.GenericDatumReader<Avro.Generic.GenericRecord>(AvroSchema, AvroSchema);
-            return reader.Read(null, decoder);
+            return reader.Read(reuse: null, decoder);
         }
     }
     {%- endif %}
