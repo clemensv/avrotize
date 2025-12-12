@@ -3,6 +3,7 @@
 """ Generates Java classes from Avro schema """
 import json
 import os
+import re
 from typing import Dict, List, Tuple, Union
 from avrotize.constants import (AVRO_VERSION, JACKSON_VERSION, JDK_VERSION, 
                                   JUNIT_VERSION, MAVEN_COMPILER_VERSION, MAVEN_SUREFIRE_VERSION)
@@ -278,11 +279,23 @@ class AvroToJava:
 
     def safe_identifier(self, name: str, class_name: str = '') -> str:
         """Converts a name to a safe Java identifier"""
-        if is_java_reserved_word(name):
-            return f"_{name}"
-        if class_name and name == class_name:
-            return f"{name}_"
-        return name
+        # Handle integer names
+        if isinstance(name, int):
+            name = '_' + str(name)
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+        # Ensure the name starts with a letter or underscore
+        if safe and re.match(r'^[0-9]', safe):
+            safe = '_' + safe
+        # Ensure we have a valid identifier (e.g., if name was all special chars)
+        if not safe or not re.match(r'^[a-zA-Z_]', safe):
+            safe = '_' + (safe if safe else 'field')
+        # Handle reserved words
+        if is_java_reserved_word(safe):
+            return f"_{safe}"
+        if class_name and safe == class_name:
+            return f"{safe}_"
+        return safe
 
     def safe_package(self, packageName: str) -> str:
         """Converts a name to a safe Java identifier by checking each path segment"""
@@ -1920,6 +1933,13 @@ class AvroToJava:
             'Double': 'Double.valueOf(3.14)',
             'byte[]': 'new byte[] { 0x01, 0x02, 0x03 }',
             'Object': 'null',  # Use null for Object types (Avro unions) to avoid reference equality issues
+            # Logical types
+            'Instant': 'java.time.Instant.now()',
+            'LocalDate': 'java.time.LocalDate.now()',
+            'LocalTime': 'java.time.LocalTime.now()',
+            'LocalDateTime': 'java.time.LocalDateTime.now()',
+            'UUID': 'java.util.UUID.randomUUID()',
+            'BigDecimal': 'java.math.BigDecimal.valueOf(123.45)',
         }
         
         # Handle generic types
