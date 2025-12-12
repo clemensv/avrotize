@@ -142,6 +142,12 @@
     /// </summary>
     /// <param name="record">The Avro record</param>
     /// <returns>The converted object</returns>
+    /// <remarks>
+    /// This method uses JSON as an intermediate format for conversion. This approach works well
+    /// for simple types but may have limitations with complex Avro union types that use 
+    /// different JSON encoding than System.Text.Json. For complex schemas with unions,
+    /// consider implementing custom mapping logic directly from GenericRecord properties.
+    /// </remarks>
     private static {{ class_name }}? FromAvroRecord(Avro.Generic.GenericRecord record)
     {
         // Convert Avro record to JSON and then deserialize
@@ -235,6 +241,13 @@
     /// Converts this object to an Avro GenericRecord
     /// </summary>
     /// <returns>The Avro record</returns>
+    /// <remarks>
+    /// This method uses JSON as an intermediate format for conversion. This approach works well
+    /// for simple types but may have limitations with complex types containing unions, as
+    /// Avro's JSON encoding for unions differs from System.Text.Json's encoding. For complex
+    /// schemas with unions or other advanced Avro features, consider implementing custom
+    /// mapping logic directly to GenericRecord properties.
+    /// </remarks>
     private Avro.Generic.GenericRecord ToAvroRecord()
     {
         // Convert to JSON first, then use Avro's JSON decoder
