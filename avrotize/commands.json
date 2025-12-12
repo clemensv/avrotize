@@ -1255,6 +1255,8 @@
         "system_text_json_annotation": "args.system_text_json_annotation",
         "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
         "system_xml_annotation": "args.system_xml_annotation",
+        "msgpack_annotation": "args.msgpack_annotation",
+        "cbor_annotation": "args.cbor_annotation",
         "pascal_properties": "args.pascal_properties",
         "base_namespace": "args.namespace"
       }
@@ -1320,6 +1322,20 @@
         "name": "--newtonsoft-json-annotation",
         "type": "bool",
         "help": "Use Newtonsoft.Json annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--msgpack-annotation",
+        "type": "bool",
+        "help": "Use MessagePack annotations",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--cbor-annotation",
+        "type": "bool",
+        "help": "Use Dahomey.Cbor annotations",
         "default": false,
         "required": false
       },

@@ -70,6 +70,11 @@ try:
 except ValueError:
     MSGPACK_VERSION = '2.5.187'
 
+try:
+    CBOR_VERSION = get_dependency_version('cs', 'net90', 'Dahomey.Cbor')
+except ValueError:
+    CBOR_VERSION = '1.25.1'
+
 # Java test dependencies
 try:
     JUNIT_VERSION = get_dependency_version('java', 'jdk21', 'org.junit.jupiter:junit-jupiter-api')

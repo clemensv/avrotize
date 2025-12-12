@@ -166,7 +166,18 @@ public class {{ test_class_name }}
         Assert.That(newInstance, Is.EqualTo(_instance));
     }
     {%- endif %}
-    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or msgpack_annotation or protobuf_net_annotation %}
+    {%- if cbor_annotation %}
+    /// <summary> Testing CBOR serializer </summary>
+    [Test]
+    public void Test_ToByteArray_FromData_Cbor()
+    {
+        var mediaType = "application/cbor";
+        var bytes = _instance.ToByteArray(mediaType);
+        var newInstance = {{ class_base_name }}.FromData(bytes, mediaType);
+        Assert.That(newInstance, Is.EqualTo(_instance));
+    }
+    {%- endif %}
+    {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or msgpack_annotation or cbor_annotation or protobuf_net_annotation %}
 
     /// <summary> Testing FromData with edge cases </summary>
     [Test]
@@ -188,6 +199,9 @@ public class {{ test_class_name }}
         {%- elif msgpack_annotation %}
         // Test null data - FromData returns null for null input
         Assert.That({{ class_base_name }}.FromData((byte[])null!, "application/msgpack"), Is.Null);
+        {%- elif cbor_annotation %}
+        // Test null data - FromData returns null for null input
+        Assert.That({{ class_base_name }}.FromData((byte[])null!, "application/cbor"), Is.Null);
         {%- elif protobuf_net_annotation %}
         // Test null data - FromData returns null for null input
         Assert.That({{ class_base_name }}.FromData((byte[])null!, "application/x-protobuf"), Is.Null);
@@ -242,7 +256,24 @@ public class {{ test_class_name }}
         Assert.That(newInstance, Is.EqualTo(_instance));
     }
     {%- endif %}
-    {%- if protobuf_net_annotation and not (system_text_json_annotation or newtonsoft_json_annotation or msgpack_annotation) %}
+    {%- if cbor_annotation and not (system_text_json_annotation or newtonsoft_json_annotation or msgpack_annotation) %}
+
+    /// <summary> Testing Gzip compression with CBOR </summary>
+    [Test]
+    public void Test_ToByteArray_Gzip_Cbor()
+    {
+        var mediaType = "application/cbor";
+        var gzipMediaType = "application/cbor+gzip";
+        var plainBytes = _instance.ToByteArray(mediaType);
+        var gzipBytes = _instance.ToByteArray(gzipMediaType);
+        // Gzip compressed data should start with magic bytes 0x1f 0x8b
+        Assert.That(gzipBytes.Length >= 2 && gzipBytes[0] == 0x1f && gzipBytes[1] == 0x8b, Is.True,
+            "Gzip compressed data should have correct magic bytes");
+        var newInstance = {{ class_base_name }}.FromData(gzipBytes, gzipMediaType);
+        Assert.That(newInstance, Is.EqualTo(_instance));
+    }
+    {%- endif %}
+    {%- if protobuf_net_annotation and not (system_text_json_annotation or newtonsoft_json_annotation or msgpack_annotation or cbor_annotation) %}
 
     /// <summary> Testing Gzip compression with Protobuf </summary>
     [Test]

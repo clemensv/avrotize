@@ -20,6 +20,9 @@
         {%- if msgpack_annotation %}
         <PackageReference Include="MessagePack" Version="{{ MSGPACK_VERSION }}" />
         {%- endif %}
+        {%- if cbor_annotation %}
+        <PackageReference Include="Dahomey.Cbor" Version="{{ CBOR_VERSION }}" />
+        {%- endif %}
         <PackageReference Include="System.Memory.Data" Version="{{ SYSTEM_MEMORY_DATA_VERSION }}" />
     </ItemGroup>
     <ItemGroup>
