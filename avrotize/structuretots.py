@@ -329,7 +329,7 @@ class StructureToTypeScript:
         fields = []
         for prop_name, prop_schema in properties.items():
             field_type = self.convert_structure_type_to_typescript(
-                class_name, prop_name, prop_schema, namespace, import_types)
+                class_name, prop_name, prop_schema, schema_namespace, import_types)
             is_required = prop_name in required_props
             is_optional = not is_required
             field_type_no_null = self.strip_nullable(field_type)
@@ -479,6 +479,7 @@ class StructureToTypeScript:
         """ Generates a TypeScript tuple type from JSON Structure tuple type """
         tuple_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'Tuple'))
         namespace = self.concat_namespace(self.base_package, structure_schema.get('namespace', parent_namespace)).lower()
+        schema_namespace = structure_schema.get('namespace', parent_namespace)
         typescript_qualified_name = self.typescript_fully_qualified_name_from_structure_type(parent_namespace, tuple_name)
         
         if typescript_qualified_name in self.generated_types:
@@ -489,7 +490,7 @@ class StructureToTypeScript:
         item_types = []
         for idx, item in enumerate(tuple_items):
             item_type = self.convert_structure_type_to_typescript(
-                tuple_name, f'item{idx}', item, namespace, import_types)
+                tuple_name, f'item{idx}', item, schema_namespace, import_types)
             item_types.append(item_type)
 
         # TypeScript tuples are just arrays with fixed length and types
