@@ -112,9 +112,21 @@ class StructureToPython:
 
     def safe_name(self, name: str) -> str:
         """Converts a name to a safe Python name"""
-        if is_python_reserved_word(name):
-            return name + "_"
-        return name
+        # Handle integer names
+        if isinstance(name, int):
+            name = '_' + str(name)
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+        # Ensure the name starts with a letter or underscore
+        if safe and re.match(r'^[0-9]', safe):
+            safe = '_' + safe
+        # Ensure we have a valid identifier (e.g., if name was all special chars)
+        if not safe or not re.match(r'^[a-zA-Z_]', safe):
+            safe = '_' + (safe if safe else 'field')
+        # Handle reserved words
+        if is_python_reserved_word(safe):
+            return safe + "_"
+        return safe
 
     def pascal_type_name(self, ref: str) -> str:
         """Converts a reference to a type name"""
@@ -313,9 +325,19 @@ class StructureToPython:
         required_props = structure_schema.get('required', [])
 
         fields = []
+        used_names = set()  # Track used field names to avoid duplicates
         for prop_name, prop_schema in properties.items():
             field_def = self.generate_field(prop_name, prop_schema, class_name, schema_namespace, 
                                            required_props, import_types)
+            # Ensure unique field names
+            safe_field_name = self.safe_name(field_def['name'])
+            original_safe_name = safe_field_name
+            counter = 1
+            while safe_field_name in used_names:
+                safe_field_name = f"{original_safe_name}_{counter}"
+                counter += 1
+            used_names.add(safe_field_name)
+            field_def['safe_name'] = safe_field_name
             fields.append(field_def)
 
         # Get docstring
@@ -323,7 +345,7 @@ class StructureToPython:
 
         # Generate field docstrings
         field_docstrings = [{
-            'name': self.safe_name(field['name']),
+            'name': field['safe_name'],
             'original_name': field['name'],
             'type': field['type'],
             'is_primitive': field['is_primitive'],

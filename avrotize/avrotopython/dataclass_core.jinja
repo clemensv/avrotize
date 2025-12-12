@@ -25,12 +25,22 @@ import avro.schema
 import avro.name
 import avro.io
 {%- endif %}
-{%- for import_type in import_types if import_type not in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta', 'decimal.Decimal'] %}
+{%- for import_type in import_types if import_type not in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta', 'decimal.Decimal', 'uuid.UUID'] %}
 from {{ '.'.join(import_type.split('.')[:-1]) | lower }} import {{ import_type.split('.')[-1] }}
 {%- endfor %}
 {%- for import_type in import_types if import_type in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta'] %}
 {%- if loop.first %}
 import datetime
+{%- endif %}
+{%- endfor %}
+{%- for import_type in import_types if import_type == 'decimal.Decimal' %}
+{%- if loop.first %}
+import decimal
+{%- endif %}
+{%- endfor %}
+{%- for import_type in import_types if import_type == 'uuid.UUID' %}
+{%- if loop.first %}
+import uuid
 {%- endif %}
 {%- endfor %}
 

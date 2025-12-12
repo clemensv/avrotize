@@ -10,7 +10,7 @@ sys.path.append(os.path.realpath(os.path.join(os.path.dirname(__file__), '../src
 
 from {{ package_name | lower }} import {{ class_name }}
 
-{%- for import_type in import_types if import_type not in ['decimal.Decimal', 'datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta'] %}
+{%- for import_type in import_types if import_type not in ['decimal.Decimal', 'uuid.UUID', 'datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta'] %}
 {%- set import_type_name = 'Test_'+import_type.split('.')[-1] %}
 {%- set flat_package = '_'.join(import_type.split('.')[:-1]) | lower %}
 {%- set import_package_name = flat_package if flat_package.startswith('test_') else 'test_' + flat_package %}
@@ -24,6 +24,16 @@ from {{ import_package_name }} import {{ import_type_name }}
 {%- for import_type in import_types if import_type in ['datetime.datetime', 'datetime.date', 'datetime.time', 'datetime.timedelta'] %}
 {%- if loop.first %}
 import datetime
+{%- endif %}
+{%- endfor %}
+{%- for import_type in import_types if import_type == 'decimal.Decimal' %}
+{%- if loop.first %}
+import decimal
+{%- endif %}
+{%- endfor %}
+{%- for import_type in import_types if import_type == 'uuid.UUID' %}
+{%- if loop.first %}
+import uuid
 {%- endif %}
 {%- endfor %}
 

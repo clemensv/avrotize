@@ -47,9 +47,21 @@ class AvroToPython:
 
     def safe_name(self, name: str) -> str:
         """Converts a name to a safe Python name"""
-        if is_python_reserved_word(name):
-            return name + "_"
-        return name
+        # Handle integer names
+        if isinstance(name, int):
+            name = '_' + str(name)
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+        # Ensure the name starts with a letter or underscore
+        if safe and re.match(r'^[0-9]', safe):
+            safe = '_' + safe
+        # Ensure we have a valid identifier (e.g., if name was all special chars)
+        if not safe or not re.match(r'^[a-zA-Z_]', safe):
+            safe = '_' + (safe if safe else 'field')
+        # Handle reserved words
+        if is_python_reserved_word(safe):
+            return safe + "_"
+        return safe
 
     def pascal_type_name(self, ref: str) -> str:
         """Converts a reference to a type name"""
@@ -134,6 +146,9 @@ class AvroToPython:
         elif avro_type['logicalType'] == 'duration':
             import_types.add('datetime.timedelta')
             return 'datetime.timedelta'
+        elif avro_type['logicalType'] == 'uuid':
+            import_types.add('uuid.UUID')
+            return 'uuid.UUID'
         return 'typing.Any'
 
     def convert_avro_type_to_python(self, avro_type: Union[str, Dict, List], parent_package: str, import_types: set) -> str:
@@ -246,15 +261,28 @@ class AvroToPython:
             'definition': self.generate_field(field, avro_schema.get('namespace', parent_package), import_types),
             'docstring': self.generate_field_docstring(field, avro_schema.get('namespace', parent_package))
         } for field in avro_schema.get('fields', [])]
-        fields = [{
-            'name': self.safe_name(field['definition']['name']),
-            'original_name': field['definition']['name'],
-            'type': field['definition']['type'],
-            'is_primitive': field['definition']['is_primitive'],
-            'is_enum': field['definition']['is_enum'],
-            'docstring': field['docstring'],
-            'test_value': self.generate_test_value(field),
-        } for field in fields]
+        
+        # Build fields with unique safe names to avoid duplicates
+        used_names = set()
+        processed_fields = []
+        for field in fields:
+            safe_field_name = self.safe_name(field['definition']['name'])
+            original_safe_name = safe_field_name
+            counter = 1
+            while safe_field_name in used_names:
+                safe_field_name = f"{original_safe_name}_{counter}"
+                counter += 1
+            used_names.add(safe_field_name)
+            processed_fields.append({
+                'name': safe_field_name,
+                'original_name': field['definition']['name'],
+                'type': field['definition']['type'],
+                'is_primitive': field['definition']['is_primitive'],
+                'is_enum': field['definition']['is_enum'],
+                'docstring': field['docstring'],
+                'test_value': self.generate_test_value(field),
+            })
+        fields = processed_fields
 
         # we are including a copy of the avro schema of this type. Since that may
         # depend on other types, we need to inline all references to other types
