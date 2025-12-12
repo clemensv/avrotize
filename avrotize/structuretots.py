@@ -125,7 +125,7 @@ class StructureToTypeScript:
             namespace_package = '.'.join([part.lower() for part in namespace.split('.')]) if namespace else ''
             package = namespace_package
         if self.base_package:
-            package = self.base_package + ('.' if package else '') + package
+            package = self.base_package.lower() + ('.' if package else '') + package
         return package
 
     def typescript_type_from_structure_type(self, type_name: str) -> str:
