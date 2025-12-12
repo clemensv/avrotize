@@ -14,7 +14,10 @@
             ]
         },
         "test2": {
-            "type": "integer",
+            "type": [
+                "integer",
+                "null"
+            ],
             "format": "int32"
         },
         "test3": {

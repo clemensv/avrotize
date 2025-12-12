@@ -12,6 +12,9 @@
                     "additionalProperties": {
                         "oneOf": [
                             {
+                                "type": "null"
+                            },
+                            {
                                 "type": "string"
                             },
                             {
@@ -51,7 +54,10 @@
                     "format": "int64"
                 },
                 "fieldB": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
             "required": [

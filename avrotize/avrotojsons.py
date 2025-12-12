@@ -184,16 +184,38 @@ class AvroToJsonSchemaConverter:
     def handle_type_union(self, types: List[Union[str, Dict[str, Any]]]) -> Dict[str, Any] | List[Dict[str, Any]| str] | str:
         """
         Handle Avro type unions, returning a JSON schema that validates against any of the types.
+        Preserves nullability from Avro unions containing 'null'.
         """
+        is_nullable = 'null' in types
         non_null_types = [t for t in types if t != 'null']
+        
         if len(non_null_types) == 1:
-            # Single non-null type
-            return self.parse_avro_schema(non_null_types[0])
+            # Single non-null type - check if it's a primitive that can use type array
+            single_type = non_null_types[0]
+            json_schema = self.parse_avro_schema(single_type)
+            
+            if is_nullable and isinstance(json_schema, dict):
+                # For primitives with a simple 'type' field, we can use type array notation
+                if 'type' in json_schema and isinstance(json_schema['type'], str) and '$ref' not in json_schema:
+                    # Primitive type - add null to type array
+                    json_schema = copy.deepcopy(json_schema)
+                    json_schema['type'] = [json_schema['type'], 'null']
+                elif '$ref' in json_schema:
+                    # Reference type - use oneOf with null
+                    json_schema = {
+                        'oneOf': [
+                            {'type': 'null'},
+                            json_schema
+                        ]
+                    }
+            return json_schema
         else:
             # Multiple non-null types
-            union_types = [self.convert_reference(t) if isinstance(t,str) and t in self.defined_types else self.avro_primitive_to_json_type(t)
+            union_types = [self.convert_reference(t) if isinstance(t, str) and t in self.defined_types else self.avro_primitive_to_json_type(t)
                             if isinstance(t, str) else self.parse_avro_schema(t)
                                 for t in non_null_types]
+            if is_nullable:
+                union_types.insert(0, {'type': 'null'})
             return {
                 'oneOf': union_types
             }

@@ -4,7 +4,10 @@
     "description": "Represents a telemetry record for a race car.",
     "properties": {
         "id": {
-            "type": "string",
+            "type": [
+                "string",
+                "null"
+            ],
             "description": "The unique identifier of the telemetry record."
         },
         "version": {
@@ -17,11 +20,17 @@
             "description": "The channel of the telemetry record."
         },
         "carId": {
-            "type": "string",
+            "type": [
+                "string",
+                "null"
+            ],
             "description": "The identifier of the race car."
         },
         "intervalId": {
-            "type": "string",
+            "type": [
+                "string",
+                "null"
+            ],
             "description": "The interval identifier of the telemetry record."
         },
         "sampleCount": {
@@ -35,7 +44,10 @@
             "description": "The frequency of the telemetry record."
         },
         "created": {
-            "type": "integer",
+            "type": [
+                "integer",
+                "null"
+            ],
             "format": "int64",
             "description": "The creation timestamp of the telemetry record."
         },
@@ -52,7 +64,10 @@
             "description": "The telemetry data."
         },
         "lapId": {
-            "type": "string",
+            "type": [
+                "string",
+                "null"
+            ],
             "description": "The identifier of the lap."
         }
     },

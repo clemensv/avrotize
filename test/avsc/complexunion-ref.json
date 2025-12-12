@@ -56,7 +56,10 @@
                     "format": "int64"
                 },
                 "fieldB": {
-                    "type": "string"
+                    "type": [
+                        "string",
+                        "null"
+                    ]
                 }
             },
             "required": [
@@ -82,11 +85,17 @@
                     "type": "boolean"
                 },
                 "field4": {
-                    "type": "number",
+                    "type": [
+                        "number",
+                        "null"
+                    ],
                     "format": "double"
                 },
                 "field5": {
-                    "type": "integer",
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "format": "int64"
                 },
                 "fieldA": {
@@ -115,11 +124,17 @@
                     "type": "boolean"
                 },
                 "field4": {
-                    "type": "number",
+                    "type": [
+                        "number",
+                        "null"
+                    ],
                     "format": "double"
                 },
                 "field5": {
-                    "type": "integer",
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "format": "int64"
                 },
                 "fieldA": {
@@ -151,11 +166,17 @@
                     "type": "boolean"
                 },
                 "field4": {
-                    "type": "number",
+                    "type": [
+                        "number",
+                        "null"
+                    ],
                     "format": "double"
                 },
                 "field5": {
-                    "type": "integer",
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "format": "int64"
                 },
                 "fieldA": {
@@ -188,11 +209,17 @@
                     "type": "boolean"
                 },
                 "field4": {
-                    "type": "number",
+                    "type": [
+                        "number",
+                        "null"
+                    ],
                     "format": "double"
                 },
                 "field5": {
-                    "type": "integer",
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "format": "int64"
                 },
                 "fieldA": {
@@ -241,11 +268,17 @@
                     "type": "boolean"
                 },
                 "field4": {
-                    "type": "number",
+                    "type": [
+                        "number",
+                        "null"
+                    ],
                     "format": "double"
                 },
                 "field5": {
-                    "type": "integer",
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "format": "int64"
                 },
                 "fieldA": {
