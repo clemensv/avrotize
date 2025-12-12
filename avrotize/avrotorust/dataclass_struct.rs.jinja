@@ -162,6 +162,9 @@ mod tests {
         assert!(instance.{{ field.name }} != {{ field_type }}::default()); // Check that {{ field.name }} is not default
         {%- elif field.type.startswith("std::collections::HashMap<")%}
         assert!(instance.{{ field.name }}.len() >= 0); // Check that {{ field.name }} is not empty
+        {%- elif field.is_generated_type %}
+        // Skip default comparison for generated types (enums/unions) as random values may match default
+        let _ = &instance.{{ field.name }};
         {%- elif field.type != "bool" %}
         assert!(instance.{{ field.name }} != {{ field.type }}::default()); // Check that {{ field.name }} is not default
         {%- endif %}

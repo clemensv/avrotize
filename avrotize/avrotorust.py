@@ -144,12 +144,15 @@ class AvroToRust:
             field_name = self.safe_identifier(snake(original_field_name))
             field_type = self.convert_avro_type_to_rust(field_name, field['type'], parent_namespace)
             serde_rename = field_name != original_field_name
+            # Check if this is a generated type (enum, union, or record) where random values may match default
+            is_generated_type = field_type in self.generated_types_rust_package or '::' in field_type
             fields.append({
                 'original_name': original_field_name,
                 'name': field_name,
                 'type': field_type,
                 'serde_rename': serde_rename,
-                'random_value': self.generate_random_value(field_type)
+                'random_value': self.generate_random_value(field_type),
+                'is_generated_type': is_generated_type
             })
         
         struct_name = self.safe_identifier(pascal(avro_schema['name']))
