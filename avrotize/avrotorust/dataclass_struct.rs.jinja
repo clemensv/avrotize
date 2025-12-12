@@ -4,28 +4,28 @@ use apache_avro::Schema;
 {%- endif %}
 {%- if serde_annotation or avro_annotation %}
 use serde::{Serialize, Deserialize};
-{%- endif %}
 use std::io::Write;
 use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
+{%- endif %}
 {%- set uses_chrono = false %}
 {%- set uses_uuid = false %}
 {%- set uses_hashmap = false%}
 {%- for field in fields %}
-{%- if field.type == "NaiveDate" or field.type == "NaiveTime" or field.type == "NaiveDateTime" %}
+{%- if field.type == "NaiveDate" or field.type == "NaiveTime" or field.type == "NaiveDateTime" or "chrono::" in field.type %}
 {%- set uses_chrono = true %}
 {%- endif %}
-{%- if field.type == "Uuid" %}
+{%- if field.type == "Uuid" or "uuid::" in field.type %}
 {%- set uses_uuid = true %}
 {%- endif %}
-{%- if field.type.startswith("HashMap<") %}
+{%- if field.type.startswith("HashMap<") or "HashMap<" in field.type %}
 {%- set uses_hashmap = true %}
 {%- endif %}
 {%- endfor %}
 {%- if uses_chrono %}
 use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
 {%- endif %}
-{%- if uuid %}
+{%- if uses_uuid %}
 use uuid::Uuid;
 {%- endif %}
 {%- if uses_hashmap %}
@@ -39,7 +39,7 @@ use std::collections::HashMap;
 #[derive(Debug{%- if serde_annotation or avro_annotation %}, Serialize, Deserialize{%- endif %}, PartialEq, Clone, Default)]
 pub struct {{ struct_name }} {
 {%- for field in fields %}
-    {%- if field.serde_rename %}
+    {%- if field.serde_rename and (serde_annotation or avro_annotation) %}
     #[serde(rename = "{{ field.original_name }}")]
     {%- endif %}
     pub {{ field.name }}: {{ field.type }},
@@ -55,6 +55,7 @@ lazy_static! {
 {%- endif %}
 
 impl {{ struct_name }} {
+{%- if serde_annotation or avro_annotation %}
    /// Serializes the struct to a byte array based on the provided content type
     pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let result: Vec<u8>;
@@ -70,14 +71,10 @@ impl {{ struct_name }} {
             let value = apache_avro::to_value(self).unwrap();
             result = apache_avro::to_avro_datum(&SCHEMA, value).unwrap();
         }
-        {%- endif %}
-        {%- if avro_annotation or serde_annotation %}
+        else {% endif -%}
         {
-        {%- endif %}
             return Err(format!("unsupported media type: {}", media_type).into())
-        {%- if avro_annotation or serde_annotation %}
         }
-        {%- endif %}
         if media_type.ends_with("+gzip") {
             let mut encoder = GzEncoder::new(Vec::new(), flate2::Compression::default());
             encoder.write_all(&result)?;
@@ -87,7 +84,9 @@ impl {{ struct_name }} {
             return Ok(result)
         }
     }
+{%- endif %}
 
+{%- if serde_annotation or avro_annotation %}
     /// Deserializes the struct from a byte array based on the provided content type
     pub fn from_data(data: impl AsRef<[u8]>, content_type: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let media_type = content_type.split(';').next().unwrap_or("");
@@ -114,7 +113,9 @@ impl {{ struct_name }} {
         {%- endif %}
         Err(format!("unsupported media type: {}", media_type).into())
     }
+{%- endif %}
 
+{%- if serde_annotation %}
     /// Checks if the given JSON value matches the schema of the struct
     pub fn is_json_match(node: &serde_json::Value) -> bool {
         {%- for predicate in json_match_predicates %}
@@ -122,6 +123,7 @@ impl {{ struct_name }} {
         {%- endfor %}
         true
     }
+{%- endif %}
 
     /// Returns the struct instance itself
     pub fn to_object(&self) -> &Self {

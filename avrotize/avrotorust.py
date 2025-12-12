@@ -207,6 +207,16 @@ class AvroToRust:
             return f"{ref}.is_object()"
         elif field_type.startswith('Vec<'):
             return f"{ref}.is_array()"
+        # chrono types - check for string (ISO 8601 format) or number (timestamp)
+        elif 'chrono::NaiveDateTime' in field_type or 'NaiveDateTime' in field_type:
+            return f"({ref}.is_string() || {ref}.is_i64())"
+        elif 'chrono::NaiveDate' in field_type or 'NaiveDate' in field_type:
+            return f"({ref}.is_string() || {ref}.is_i64())"
+        elif 'chrono::NaiveTime' in field_type or 'NaiveTime' in field_type:
+            return f"({ref}.is_string() || {ref}.is_i64())"
+        # uuid type - check for string
+        elif 'uuid::Uuid' in field_type or 'Uuid' in field_type:
+            return f"{ref}.is_string()"
         else:
             return f"{field_type}::is_json_match(&{ref})"
 

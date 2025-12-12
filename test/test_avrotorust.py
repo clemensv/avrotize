@@ -1,5 +1,6 @@
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from os import path, getcwd
@@ -19,8 +20,11 @@ import pytest
 
 class TestAvroToRust(unittest.TestCase):
     
+    # Timeout in seconds for cargo commands
+    CARGO_TIMEOUT = 300
+    
     def run_convert_to_rust(self, name:str, avro_annotation:bool=False, serde_annotation:bool=False):
-        """ Test converting an address.avsc file to Rust """
+        """ Test converting an avsc file to Rust and compiling/testing it """
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", f"{name}.avsc")
         rust_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{name}-rs{'' if not avro_annotation else '-avro'}{'' if not serde_annotation else '-serde'}")
@@ -28,6 +32,8 @@ class TestAvroToRust(unittest.TestCase):
             shutil.rmtree(rust_path, ignore_errors=True)
         os.makedirs(rust_path, exist_ok=True)        
         convert_avro_to_rust(avro_path, rust_path, package_name=name, avro_annotation=avro_annotation, serde_annotation=serde_annotation)
+        assert subprocess.check_call(
+            ['cargo', 'test'], cwd=rust_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.CARGO_TIMEOUT) == 0
         
     def test_convert_address_avsc_to_rust(self):
         """ Test converting an address.avsc file to Rust """
@@ -71,6 +77,8 @@ class TestAvroToRust(unittest.TestCase):
         
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_rust(avro_path, rust_path, package_name="jfrog_pipelines")
+        assert subprocess.check_call(
+            ['cargo', 'test'], cwd=rust_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.CARGO_TIMEOUT) == 0
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust_typed_json(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
@@ -84,6 +92,8 @@ class TestAvroToRust(unittest.TestCase):
         
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_rust(avro_path, rust_path, package_name="jfrog_pipelines", serde_annotation=True)
+        assert subprocess.check_call(
+            ['cargo', 'test'], cwd=rust_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.CARGO_TIMEOUT) == 0
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust_avro_annotations(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
@@ -98,3 +108,5 @@ class TestAvroToRust(unittest.TestCase):
         
         convert_jsons_to_avro(jsons_path, avro_path)
         convert_avro_to_rust(avro_path, rust_path, package_name="jfrog_pipelines", avro_annotation=True)
+        assert subprocess.check_call(
+            ['cargo', 'test'], cwd=rust_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.CARGO_TIMEOUT) == 0
