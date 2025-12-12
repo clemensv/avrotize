@@ -165,6 +165,9 @@ mod tests {
         {%- elif field.is_generated_type %}
         // Skip default comparison for generated types (enums/unions) as random values may match default
         let _ = &instance.{{ field.name }};
+        {%- elif field.type in ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "isize", "usize"] %}
+        // Skip default comparison for numeric types as random values can legitimately be 0
+        let _ = instance.{{ field.name }};
         {%- elif field.type != "bool" %}
         assert!(instance.{{ field.name }} != {{ field.type }}::default()); // Check that {{ field.name }} is not default
         {%- endif %}
