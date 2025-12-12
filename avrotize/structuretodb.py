@@ -443,6 +443,27 @@ def structure_type_to_sql_type(structure_type: Any, dialect: str) -> str:
         struct_type = structure_type.get("type", "string")
         if struct_type in ["array", "set", "map", "object", "choice", "tuple"]:
             return type_map[dialect][struct_type]
+        
+        # Handle string type with maxLength annotation
+        if struct_type == "string" and "maxLength" in structure_type:
+            max_length = structure_type["maxLength"]
+            if dialect == "sqlserver" or dialect == "sqlanywhere":
+                return f"NVARCHAR({max_length})"
+            elif dialect in ["postgres", "redshift", "db2"]:
+                return f"VARCHAR({max_length})"
+            elif dialect in ["mysql", "mariadb"]:
+                return f"VARCHAR({max_length})"
+            elif dialect == "sqlite":
+                return f"VARCHAR({max_length})"
+            elif dialect == "oracle":
+                return f"VARCHAR2({max_length})"
+            elif dialect == "bigquery":
+                return f"STRING({max_length})"
+            elif dialect == "snowflake":
+                return f"VARCHAR({max_length})"
+            else:
+                return f"VARCHAR({max_length})"
+        
         return structure_type_to_sql_type(struct_type, dialect)
     
     return type_map.get(dialect, type_map["postgres"])["string"]

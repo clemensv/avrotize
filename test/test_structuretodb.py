@@ -342,6 +342,67 @@ class TestStructureToDB(unittest.TestCase):
             if os.path.exists(sql_path):
                 os.remove(sql_path)
 
+    def test_string_maxlength_annotation(self):
+        """Test that maxLength annotation is applied to string columns"""
+        schema_with_maxlength = {
+            "type": "object",
+            "name": "Product",
+            "properties": {
+                "id": {"type": "int32"},
+                "name": {"type": "string", "maxLength": 100},
+                "description": {"type": "string", "maxLength": 2000},
+                "sku": {"type": "string"}  # No maxLength, should use default
+            },
+            "required": ["id"]
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "maxlength_schema.struct.json")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(schema_with_maxlength, f)
+            
+            # Test SQL Server (uses NVARCHAR)
+            sql_path = os.path.join(tempfile.gettempdir(), "maxlength_sqlserver.sql")
+            convert_structure_to_sql(schema_path, sql_path, "sqlserver", emit_cloudevents_columns=False)
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            self.assertIn("NVARCHAR(100)", sql_content)
+            self.assertIn("NVARCHAR(2000)", sql_content)
+            self.assertIn("NVARCHAR(512)", sql_content)  # Default for sku
+            os.remove(sql_path)
+            
+            # Test PostgreSQL (uses VARCHAR)
+            sql_path = os.path.join(tempfile.gettempdir(), "maxlength_postgres.sql")
+            convert_structure_to_sql(schema_path, sql_path, "postgres", emit_cloudevents_columns=False)
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            self.assertIn("VARCHAR(100)", sql_content)
+            self.assertIn("VARCHAR(2000)", sql_content)
+            self.assertIn("VARCHAR(512)", sql_content)  # Default for sku
+            os.remove(sql_path)
+            
+            # Test MySQL (uses VARCHAR)
+            sql_path = os.path.join(tempfile.gettempdir(), "maxlength_mysql.sql")
+            convert_structure_to_sql(schema_path, sql_path, "mysql", emit_cloudevents_columns=False)
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            self.assertIn("VARCHAR(100)", sql_content)
+            self.assertIn("VARCHAR(2000)", sql_content)
+            os.remove(sql_path)
+            
+            # Test Oracle (uses VARCHAR2)
+            sql_path = os.path.join(tempfile.gettempdir(), "maxlength_oracle.sql")
+            convert_structure_to_sql(schema_path, sql_path, "oracle", emit_cloudevents_columns=False)
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            self.assertIn("VARCHAR2(100)", sql_content)
+            self.assertIn("VARCHAR2(2000)", sql_content)
+            os.remove(sql_path)
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+
 
 if __name__ == '__main__':
     unittest.main()
