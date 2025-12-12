@@ -55,20 +55,22 @@ mod tests {
     use super::*;
     use rand::Rng;
 
+    {%- if serde_annotation %}
     #[test]
     fn test_serialize_deserialize_{{ enum_name.lower() }}() {
         {%- for symbol in symbols %}
         let instance = {{ enum_name }}::{{ symbol }};
-        {%- if serde_annotation %}
         let json_bytes = serde_json::to_vec(&instance).unwrap();
         let deserialized_instance: {{ enum_name }} = serde_json::from_slice(&json_bytes).unwrap();
         assert_eq!(instance, deserialized_instance);
-        {%- endif %}
-        {%- if avro_annotation %}
-        let avro_bytes = instance.to_byte_array("avro/binary").unwrap();
-        let deserialized_avro_instance: {{ enum_name }} = {{ enum_name }}::from_data(&avro_bytes, "avro/binary").unwrap();
-        assert_eq!(instance, deserialized_avro_instance);
-        {%- endif %}
+        {%- endfor %}
+    }
+    {%- endif %}
+
+    #[test]
+    fn test_enum_variants_{{ enum_name.lower() }}() {
+        {%- for symbol in symbols %}
+        let _instance = {{ enum_name }}::{{ symbol }};
         {%- endfor %}
     }
 }

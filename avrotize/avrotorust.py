@@ -271,6 +271,7 @@ class AvroToRust:
         qualified_union_enum_name = self.safe_package(self.concat_package(ns, union_enum_name))
         context = {
             'serde_annotation': self.serde_annotation,
+            'avro_annotation': self.avro_annotation,
             'union_enum_name': union_enum_name,
             'union_fields': union_fields,
             'json_match_predicates': [self.get_is_json_match_clause(f['name'], f['type'], for_union=True) for f in union_fields]

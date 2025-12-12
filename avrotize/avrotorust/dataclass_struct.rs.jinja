@@ -115,7 +115,7 @@ impl {{ struct_name }} {
     }
 {%- endif %}
 
-{%- if serde_annotation %}
+{%- if serde_annotation or avro_annotation %}
     /// Checks if the given JSON value matches the schema of the struct
     pub fn is_json_match(node: &serde_json::Value) -> bool {
         {%- for predicate in json_match_predicates %}
