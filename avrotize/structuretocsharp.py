@@ -143,6 +143,35 @@ class StructureToCSharp:
         ]
         return word in reserved_words
 
+    def safe_identifier(self, name: str, class_name: str = '', fallback_prefix: str = 'field') -> str:
+        """Converts a name to a safe C# identifier.
+        
+        Handles:
+        - Reserved words (prepend @)
+        - Numeric prefixes (prepend _)
+        - Special characters (replace with _)
+        - All-special-char names (use fallback_prefix)
+        - Class name collision (append _)
+        """
+        import re
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', str(name))
+        # Remove leading/trailing underscores from sanitization
+        safe = safe.strip('_') if safe != name else safe
+        # If nothing left after removing special chars, use fallback
+        if not safe or not re.match(r'^[a-zA-Z_@]', safe):
+            if safe and re.match(r'^[0-9]', safe):
+                safe = '_' + safe  # Numeric prefix
+            else:
+                safe = fallback_prefix + '_' + (safe if safe else 'unnamed')
+        # Handle reserved words with @ prefix
+        if self.is_csharp_reserved_word(safe):
+            safe = '@' + safe
+        # Handle class name collision
+        if class_name and safe == class_name:
+            safe = safe + '_'
+        return safe
+
     def is_csharp_primitive_type(self, csharp_type: str) -> bool:
         """ Checks if a type is a C# primitive type """
         if csharp_type.endswith('?'):
@@ -416,16 +445,18 @@ class StructureToCSharp:
         """ Generates a property for a class """
         property_definition = ''
         
-        # Resolve property name
-        field_name = prop_name
-        if self.is_csharp_reserved_word(field_name):
-            field_name = f"@{field_name}"
+        # Resolve property name using safe_identifier for special chars, numeric prefixes, etc.
+        field_name = self.safe_identifier(prop_name, class_name)
         if self.pascal_properties:
-            field_name_cs = pascal(field_name)
+            field_name_cs = pascal(field_name.lstrip('@'))
+            # Re-check for class name collision after pascal casing
+            if field_name_cs == class_name:
+                field_name_cs += "_"
         else:
             field_name_cs = field_name
-        if field_name_cs == class_name:
-            field_name_cs += "_"
+        
+        # Track if field name differs from original for JSON annotation
+        needs_json_annotation = field_name_cs != prop_name
         
         # Check if this is a const field
         if 'const' in prop_schema:
@@ -442,9 +473,9 @@ class StructureToCSharp:
             
             # Add JSON property name annotation when property name differs from schema name
             # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
-            if field_name != field_name_cs:
+            if needs_json_annotation:
                 property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
-            if self.newtonsoft_json_annotation and field_name != field_name_cs:
+            if self.newtonsoft_json_annotation and needs_json_annotation:
                 property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
             
             # Add XML element annotation if enabled
@@ -473,9 +504,9 @@ class StructureToCSharp:
         
         # Add JSON property name annotation when property name differs from schema name
         # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
-        if field_name != field_name_cs:
+        if needs_json_annotation:
             property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
-        if self.newtonsoft_json_annotation and field_name != field_name_cs:
+        if self.newtonsoft_json_annotation and needs_json_annotation:
             property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
         
         # Add XML element annotation if enabled

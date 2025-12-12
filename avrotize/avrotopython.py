@@ -206,6 +206,9 @@ class AvroToPython:
                 enum_ref = self.generate_enum(avro_type, parent_package, write_file=True)
                 import_types.add(enum_ref)
                 return self.strip_package_from_fully_qualified_name(enum_ref)
+            elif avro_type['type'] == 'fixed':
+                # Fixed types are represented as bytes in Python
+                return 'bytes'
             elif avro_type['type'] == 'array':
                 return f"typing.List[{self.convert_avro_type_to_python(avro_type['items'], parent_package, import_types)}]"
             elif avro_type['type'] == 'map':

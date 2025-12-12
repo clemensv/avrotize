@@ -113,8 +113,7 @@ public class {{ test_class_name }} {
             "Instances with different {{ field.field_name }} should not be equal");
         {%- elif field.is_enum %}
         // Enum - try to get a different enum value if more than one value exists
-        {%- set simple_type = base_type.split('.')[-1] if '.' in base_type else base_type %}
-        {{ simple_type }}[] enumValues = {{ simple_type }}.values();
+        {{ base_type }}[] enumValues = {{ base_type }}.values();
         if (enumValues.length > 1) {
             instance2.set{{ field.field_name | pascal }}(enumValues[(instance2.get{{ field.field_name | pascal }}().ordinal() + 1) % enumValues.length]);
             assertNotEquals(instance1, instance2, 
@@ -150,8 +149,7 @@ public class {{ test_class_name }} {
         {%- if '<' in field.field_type %}
         {{ field.field_type }} testValue = {{ field.test_value }};
         {%- else %}
-        {%- set simple_field_type = field.field_type.split('.')[-1] if '.' in field.field_type else field.field_type %}
-        {{ simple_field_type }} testValue = {{ field.test_value }};
+        {{ field.field_type }} testValue = {{ field.test_value }};
         {%- endif %}
         {%- if not field.is_const %}
         instance.set{{ field.field_name | pascal }}(testValue);

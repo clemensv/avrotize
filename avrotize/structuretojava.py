@@ -71,13 +71,34 @@ class StructureToJava:
             self.is_class = is_class
             self.is_enum = is_enum
 
-    def safe_identifier(self, name: str, class_name: str = '') -> str:
-        """Converts a name to a safe Java identifier"""
-        if is_java_reserved_word(name):
-            return f"_{name}"
-        if class_name and name == class_name:
-            return f"{name}_"
-        return name
+    def safe_identifier(self, name: str, class_name: str = '', fallback_prefix: str = 'field') -> str:
+        """Converts a name to a safe Java identifier.
+        
+        Handles:
+        - Reserved words (prepend _)
+        - Numeric prefixes (prepend _)
+        - Special characters (replace with _)
+        - All-special-char names (use fallback_prefix)
+        - Class name collision (append _)
+        """
+        import re
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', str(name))
+        # Remove leading/trailing underscores from sanitization
+        safe = safe.strip('_') if safe != name else safe
+        # If nothing left after removing special chars, use fallback
+        if not safe or not re.match(r'^[a-zA-Z_]', safe):
+            if safe and re.match(r'^[0-9]', safe):
+                safe = '_' + safe  # Numeric prefix
+            else:
+                safe = fallback_prefix + '_' + (safe if safe else 'unnamed')
+        # Handle reserved words
+        if is_java_reserved_word(safe):
+            safe = '_' + safe
+        # Handle class name collision
+        if class_name and safe == class_name:
+            safe = safe + '_'
+        return safe
 
     def safe_package(self, packageName: str) -> str:
         """Converts a name to a safe Java identifier by checking each path segment"""

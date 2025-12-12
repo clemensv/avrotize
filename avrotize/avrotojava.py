@@ -1721,6 +1721,51 @@ class AvroToJava:
     def get_test_imports(self, fields: List) -> List[str]:
         """ Gets the necessary imports for the test class """
         imports = []
+        
+        # Track simple names to detect conflicts
+        # Map: simple_name -> list of FQNs that have that simple name
+        simple_name_to_fqns: Dict[str, List[str]] = {}
+        
+        # First pass: collect all custom type FQNs and their simple names
+        for field in fields:
+            inner_types = []
+            if field.field_type.startswith("List<"):
+                inner_type = field.field_type[5:-1]
+                if inner_type.startswith("Map<"):
+                    start = inner_type.index('<') + 1
+                    end = inner_type.rindex('>')
+                    map_types = inner_type[start:end].split(',')
+                    if len(map_types) > 1:
+                        inner_types.append(map_types[1].strip())
+                else:
+                    inner_types.append(inner_type)
+            elif field.field_type.startswith("Map<"):
+                start = field.field_type.index('<') + 1
+                end = field.field_type.rindex('>')
+                map_types = field.field_type[start:end].split(',')
+                if len(map_types) > 1:
+                    inner_types.append(map_types[1].strip())
+            if not field.field_type.startswith(("List<", "Map<")):
+                inner_types.append(field.field_type)
+            if hasattr(field, 'java_type_obj') and field.java_type_obj and field.java_type_obj.union_types:
+                for union_member_type in field.java_type_obj.union_types:
+                    inner_types.append(union_member_type.type_name)
+            
+            for type_to_check in inner_types:
+                if type_to_check in self.generated_types_java_package and '.' in type_to_check:
+                    simple_name = type_to_check.split('.')[-1]
+                    if simple_name not in simple_name_to_fqns:
+                        simple_name_to_fqns[simple_name] = []
+                    if type_to_check not in simple_name_to_fqns[simple_name]:
+                        simple_name_to_fqns[simple_name].append(type_to_check)
+        
+        # Find conflicting simple names (same simple name, different FQNs)
+        conflicting_fqns: set = set()
+        for simple_name, fqns in simple_name_to_fqns.items():
+            if len(fqns) > 1:
+                # This simple name has conflicts - mark all FQNs as conflicting
+                conflicting_fqns.update(fqns)
+        
         for field in fields:
             # Extract inner types from generic collections
             inner_types = []
@@ -1772,7 +1817,8 @@ class AvroToJava:
                 if type_to_check in self.generated_types_java_package:
                     type_kind = self.generated_types_java_package[type_to_check]
                     # Only import if it's a fully qualified name with a package
-                    if '.' in type_to_check:
+                    # Skip imports for types with conflicting simple names - they'll use FQN
+                    if '.' in type_to_check and type_to_check not in conflicting_fqns:
                         import_stmt = f"import {type_to_check};"
                         if import_stmt not in imports:
                             imports.append(import_stmt)
@@ -1809,10 +1855,11 @@ class AvroToJava:
                                     if java_qualified_name:
                                         if java_qualified_name in self.generated_types_java_package or java_qualified_name.split('.')[-1] in self.generated_types_java_package:
                                             member_type_kind = self.generated_types_java_package.get(java_qualified_name, self.generated_types_java_package.get(java_qualified_name.split('.')[-1], None))
-                                            # Import the class/enum
-                                            class_import = f"import {java_qualified_name};"
-                                            if class_import not in imports:
-                                                imports.append(class_import)
+                                            # Import the class/enum only if not conflicting
+                                            if java_qualified_name not in conflicting_fqns:
+                                                class_import = f"import {java_qualified_name};"
+                                                if class_import not in imports:
+                                                    imports.append(class_import)
                                             # No longer import test classes - we instantiate classes directly
         return imports
 

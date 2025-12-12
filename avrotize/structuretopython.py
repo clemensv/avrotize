@@ -149,11 +149,38 @@ class StructureToPython:
                type_name.startswith('typing.Optional[') or type_name.startswith('typing.Union[') or \
                type_name == 'typing.Any'
 
+    def safe_identifier(self, name: str, class_name: str = '', fallback_prefix: str = 'field') -> str:
+        """Converts a name to a safe Python identifier.
+        
+        Handles:
+        - Reserved words (append _)
+        - Numeric prefixes (prepend _)
+        - Special characters (replace with _)
+        - All-special-char names (use fallback_prefix)
+        - Class name collision (append _)
+        """
+        import re
+        # Replace invalid characters with underscores
+        safe = re.sub(r'[^a-zA-Z0-9_]', '_', str(name))
+        # Remove leading/trailing underscores from sanitization, but keep intentional ones
+        safe = safe.strip('_') if safe != name else safe
+        # If nothing left after removing special chars, use fallback
+        if not safe or not re.match(r'^[a-zA-Z_]', safe):
+            if safe and re.match(r'^[0-9]', safe):
+                safe = '_' + safe  # Numeric prefix
+            else:
+                safe = fallback_prefix + '_' + (safe if safe else 'unnamed')
+        # Handle reserved words
+        if is_python_reserved_word(safe):
+            safe = safe + '_'
+        # Handle class name collision
+        if class_name and safe == class_name:
+            safe = safe + '_'
+        return safe
+
     def safe_name(self, name: str) -> str:
-        """Converts a name to a safe Python name"""
-        if is_python_reserved_word(name):
-            return name + "_"
-        return name
+        """Converts a name to a safe Python name (legacy wrapper)"""
+        return self.safe_identifier(name)
 
     def pascal_type_name(self, ref: str) -> str:
         """Converts a reference to a type name"""
@@ -363,7 +390,7 @@ class StructureToPython:
         # Generate field docstrings
         field_docstrings = [{
             'name': self.safe_name(field['name']),
-            'original_name': field['name'],
+            'original_name': field.get('json_name') or field['name'],
             'type': field['type'],
             'is_primitive': field['is_primitive'],
             'is_enum': field['is_enum'],
@@ -408,7 +435,10 @@ class StructureToPython:
     def generate_field(self, prop_name: str, prop_schema: Dict, class_name: str, 
                       parent_namespace: str, required_props: List, import_types: Set[str]) -> Dict:
         """ Generates a field for a Python dataclass """
-        field_name = prop_name
+        # Sanitize field name for Python identifier validity
+        field_name = self.safe_identifier(prop_name, class_name)
+        # Track if we need a field_name annotation for JSON serialization
+        needs_field_name_annotation = field_name != prop_name
 
         # Check if this is a const field
         if 'const' in prop_schema:
@@ -417,6 +447,7 @@ class StructureToPython:
                 class_name, field_name, prop_schema, parent_namespace, import_types)
             return {
                 'name': field_name,
+                'json_name': prop_name if needs_field_name_annotation else None,
                 'type': prop_type,
                 'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
                 'is_enum': False,
@@ -443,6 +474,7 @@ class StructureToPython:
 
         return {
             'name': field_name,
+            'json_name': prop_name if needs_field_name_annotation else None,
             'type': prop_type,
             'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
             'is_enum': prop_type in self.generated_types and self.generated_types[prop_type] == 'enum',
