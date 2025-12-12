@@ -1375,6 +1375,7 @@
         "system_text_json_annotation": "args.system_text_json_annotation",
         "newtonsoft_json_annotation": "args.newtonsoft_json_annotation",
         "system_xml_annotation": "args.system_xml_annotation",
+        "avro_annotation": "args.avro_annotation",
         "pascal_properties": "args.pascal_properties",
         "base_namespace": "args.namespace",
         "project_name": "args.project_name"
@@ -1438,6 +1439,13 @@
         "required": false
       },
       {
+        "name": "--avro-annotation",
+        "type": "bool",
+        "help": "Use Avro annotations",
+        "default": false,
+        "required": false
+      },
+      {
         "name": "--pascal-properties",
         "type": "bool",
         "help": "Use PascalCase properties",
@@ -1464,6 +1472,13 @@
       {
         "name": "--system_text_json_annotation",
         "message": "Use System.Text.Json annotations?",
+        "type": "bool",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--avro-annotation",
+        "message": "Use Avro annotations?",
         "type": "bool",
         "default": false,
         "required": false

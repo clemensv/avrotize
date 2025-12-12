@@ -1,4 +1,11 @@
-    {%- if system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+    {%- if avro_annotation %}
+    /// <summary>
+    /// The Avro schema for this class
+    /// </summary>
+    private static readonly Avro.Schema AvroSchema = Avro.Schema.Parse("{{ avro_schema_json }}");
+    {%- endif %}
+
+    {%- if system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or avro_annotation %}
     /// <summary>
     /// Creates an object from the data
     /// </summary>
@@ -11,7 +18,7 @@
         if ( data is {{ class_name }}) return ({{ class_name }})data;
         if ( contentTypeString == null ) contentTypeString = System.Net.Mime.MediaTypeNames.Application.Octet;
         var contentType = new System.Net.Mime.ContentType(contentTypeString);
-    {%- if system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+    {%- if system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or avro_annotation %}
         if ( contentType.MediaType.EndsWith("+gzip"))
         {
             var stream = data switch
@@ -93,11 +100,71 @@
             }
         }
     {%- endif %}
+    {%- if avro_annotation %}
+        if ( contentType.MediaType == "avro/binary" || contentType.MediaType == "application/vnd.apache.avro+avro")
+        {
+            if (data is byte[])
+            {
+                using (var stream = new System.IO.MemoryStream((byte[])data))
+                {
+                    var reader = new Avro.Generic.GenericDatumReader<Avro.Generic.GenericRecord>(AvroSchema, AvroSchema);
+                    var decoder = new Avro.IO.BinaryDecoder(stream);
+                    var record = reader.Read(null, decoder);
+                    return FromAvroRecord(record);
+                }
+            }
+            else if (data is System.IO.Stream)
+            {
+                var reader = new Avro.Generic.GenericDatumReader<Avro.Generic.GenericRecord>(AvroSchema, AvroSchema);
+                var decoder = new Avro.IO.BinaryDecoder((System.IO.Stream)data);
+                var record = reader.Read(null, decoder);
+                return FromAvroRecord(record);
+            }
+            else if (data is System.BinaryData)
+            {
+                using (var stream = new System.IO.MemoryStream(((System.BinaryData)data).ToArray()))
+                {
+                    var reader = new Avro.Generic.GenericDatumReader<Avro.Generic.GenericRecord>(AvroSchema, AvroSchema);
+                    var decoder = new Avro.IO.BinaryDecoder(stream);
+                    var record = reader.Read(null, decoder);
+                    return FromAvroRecord(record);
+                }
+            }
+        }
+    {%- endif %}
         throw new System.NotSupportedException($"Unsupported media type {contentType.MediaType}");
     }
     {%- endif %}
 
-    {%- if system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation %}
+    {%- if avro_annotation %}
+    /// <summary>
+    /// Creates an instance from an Avro GenericRecord
+    /// </summary>
+    /// <param name="record">The Avro record</param>
+    /// <returns>The converted object</returns>
+    /// <remarks>
+    /// This method uses JSON as an intermediate format for conversion. This approach works well
+    /// for simple types but may have limitations with complex Avro union types that use 
+    /// different JSON encoding than System.Text.Json. For complex schemas with unions,
+    /// consider implementing custom mapping logic directly from GenericRecord properties.
+    /// </remarks>
+    private static {{ class_name }}? FromAvroRecord(Avro.Generic.GenericRecord record)
+    {
+        // Convert Avro record to JSON and then deserialize
+        // This approach works for simple cases; for complex types, you may need custom mapping
+        using (var jsonStream = new System.IO.MemoryStream())
+        {
+            var jsonEncoder = new Avro.IO.JsonEncoder(AvroSchema, jsonStream);
+            var writer = new Avro.Generic.GenericDatumWriter<Avro.Generic.GenericRecord>(AvroSchema);
+            writer.Write(record, jsonEncoder);
+            jsonEncoder.Flush();
+            jsonStream.Position = 0;
+            return System.Text.Json.JsonSerializer.Deserialize<{{ class_name }}>(jsonStream);
+        }
+    }
+    {%- endif %}
+
+    {%- if system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or avro_annotation %}
     /// <summary>
     /// Converts the object to a byte array
     /// </summary>
@@ -139,6 +206,20 @@
             }
         }
     {%- endif %}
+    {%- if avro_annotation %}
+        if (contentType.MediaType == "avro/binary" || contentType.MediaType == "application/vnd.apache.avro+avro")
+        {
+            using (var stream = new System.IO.MemoryStream())
+            {
+                var record = ToAvroRecord();
+                var writer = new Avro.Generic.GenericDatumWriter<Avro.Generic.GenericRecord>(AvroSchema);
+                var encoder = new Avro.IO.BinaryEncoder(stream);
+                writer.Write(record, encoder);
+                encoder.Flush();
+                result = stream.ToArray();
+            }
+        }
+    {%- endif %}
         if ( result == null ) throw new System.NotSupportedException($"Unsupported media type {contentType.MediaType}");
         if ( contentType.MediaType.EndsWith("+gzip"))
         {
@@ -152,5 +233,31 @@
             }
         }
         return result;
+    }
+    {%- endif %}
+
+    {%- if avro_annotation %}
+    /// <summary>
+    /// Converts this object to an Avro GenericRecord
+    /// </summary>
+    /// <returns>The Avro record</returns>
+    /// <remarks>
+    /// This method uses JSON as an intermediate format for conversion. This approach works well
+    /// for simple types but may have limitations with complex types containing unions, as
+    /// Avro's JSON encoding for unions differs from System.Text.Json's encoding. For complex
+    /// schemas with unions or other advanced Avro features, consider implementing custom
+    /// mapping logic directly to GenericRecord properties.
+    /// </remarks>
+    private Avro.Generic.GenericRecord ToAvroRecord()
+    {
+        // Convert to JSON first, then use Avro's JSON decoder
+        // This approach works for simple cases; for complex types, you may need custom mapping
+        var jsonBytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(this, this.GetType());
+        using (var jsonStream = new System.IO.MemoryStream(jsonBytes))
+        {
+            var decoder = new Avro.IO.JsonDecoder(AvroSchema, jsonStream);
+            var reader = new Avro.Generic.GenericDatumReader<Avro.Generic.GenericRecord>(AvroSchema, AvroSchema);
+            return reader.Read(reuse: null, decoder);
+        }
     }
     {%- endif %}

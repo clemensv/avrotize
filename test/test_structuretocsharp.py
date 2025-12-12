@@ -748,6 +748,82 @@ class TestStructureToCSharp(unittest.TestCase):
             == 0
         )
 
+    def test_avro_annotation(self):
+        """Test that --avro-annotation flag generates Avro schema and serialization methods"""
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "jsons", "address-ref.struct.json")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-avro-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+        
+        # Convert with avro_annotation flag
+        convert_structure_to_csharp(
+            struct_path,
+            cs_path,
+            avro_annotation=True
+        )
+        
+        # Verify the Document class file exists
+        document_file = os.path.join(cs_path, "src", "AddressAvroCs", "Document.cs")
+        assert os.path.exists(document_file), "Document.cs should be generated"
+        
+        with open(document_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+            # 1. Verify embedded Avro schema field
+            assert "private static readonly Avro.Schema AvroSchema" in content, \
+                "Generated code should contain embedded Avro schema field"
+            assert "Avro.Schema.Parse(" in content, \
+                "Avro schema should be parsed from JSON string"
+            
+            # 2. Verify Avro using statements
+            assert "using Avro;" in content, \
+                "Generated code should include 'using Avro;'"
+            assert "using Avro.Generic;" in content, \
+                "Generated code should include 'using Avro.Generic;'"
+            assert "using Avro.IO;" in content, \
+                "Generated code should include 'using Avro.IO;'"
+            
+            # 3. Verify ToByteArray method supports avro/binary
+            assert "public byte[] ToByteArray(string contentTypeString)" in content, \
+                "Generated code should have ToByteArray method"
+            assert 'contentType.MediaType == "avro/binary"' in content or \
+                   'contentType.MediaType == "application/vnd.apache.avro+avro"' in content, \
+                "ToByteArray should support avro/binary content type"
+            
+            # 4. Verify FromData method supports avro/binary
+            assert "public static Document? FromData(object? data, string? contentTypeString" in content, \
+                "Generated code should have FromData method"
+            
+            # 5. Verify helper methods for Avro conversion
+            assert "ToAvroRecord()" in content, \
+                "Generated code should have ToAvroRecord helper method"
+            assert "FromAvroRecord(" in content, \
+                "Generated code should have FromAvroRecord helper method"
+        
+        # Verify the .csproj includes Apache.Avro package
+        csproj_file = os.path.join(cs_path, "src", "AddressAvroCs.csproj")
+        assert os.path.exists(csproj_file), "Project file should be generated"
+        
+        with open(csproj_file, 'r', encoding='utf-8') as f:
+            csproj_content = f.read()
+            assert 'PackageReference Include="Apache.Avro"' in csproj_content, \
+                "Project file should reference Apache.Avro package"
+            assert 'PackageReference Include="System.Text.Json"' in csproj_content, \
+                "Project file should reference System.Text.Json package (required for Avro helpers)"
+        
+        # 6. Verify code compiles successfully
+        assert subprocess.check_call(
+            ["dotnet", "build"], 
+            cwd=cs_path, 
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.DEVNULL
+        ) == 0, "Generated code with avro_annotation should compile successfully"
+        
+        print(f"✓ Avro annotation test passed")
+
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
