@@ -836,7 +836,7 @@
     ]
   },
   {
-    "command": "struct2sql",
+    "command": "s2sql",
     "description": "Convert JSON Structure schema to SQL schema",
     "group": "5_SQL",
     "function": {
@@ -2147,7 +2147,7 @@
     ]
   },
   {
-    "command": "struct2gql",
+    "command": "s2gql",
     "description": "Convert JSON Structure schema to GraphQL schema",
     "group": "1_Schemas",
     "function": {
@@ -2824,7 +2824,7 @@
     ]
   },
   {
-    "command": "struct2cassandra",
+    "command": "s2cassandra",
     "description": "Convert JSON Structure schema to Cassandra schema",
     "group": "5_SQL",
     "function": {
@@ -3368,7 +3368,7 @@
     "prompts": []
   },
   {
-    "command": "struct2md",
+    "command": "s2md",
     "description": "Convert JSON Structure schema to Markdown documentation",
     "group": "7_Utility",
     "function": {

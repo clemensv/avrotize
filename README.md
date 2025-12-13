@@ -42,13 +42,13 @@ Converting from Avrotize Schema:
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
 - [`avrotize s2k`](#convert-json-structure-schema-to-kusto-table-declaration) - Convert JSON Structure Schema to Kusto table definition.
 - [`avrotize a2sql`](#convert-avrotize-schema-to-sql-table-definition) - Convert Avrotize Schema to SQL table definition.
-- [`avrotize struct2sql`](#convert-json-structure-schema-to-sql-schema) - Convert JSON Structure Schema to SQL table definition.
+- [`avrotize s2sql`](#convert-json-structure-schema-to-sql-schema) - Convert JSON Structure Schema to SQL table definition.
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
 - [`avrotize s2ib`](#convert-json-structure-to-iceberg-schema) - Convert JSON Structure to Iceberg schema.
 - [`avrotize a2mongo`](#convert-avrotize-schema-to-mongodb-schema) - Convert Avrotize Schema to MongoDB schema.
 - [`avrotize a2cassandra`](#convert-avrotize-schema-to-cassandra-schema) - Convert Avrotize Schema to Cassandra schema.
-- [`avrotize struct2cassandra`](#convert-json-structure-schema-to-cassandra-schema) - Convert JSON Structure Schema to Cassandra schema.
+- [`avrotize s2cassandra`](#convert-json-structure-schema-to-cassandra-schema) - Convert JSON Structure Schema to Cassandra schema.
 - [`avrotize a2es`](#convert-avrotize-schema-to-elasticsearch-schema) - Convert Avrotize Schema to Elasticsearch schema.
 - [`avrotize a2dynamodb`](#convert-avrotize-schema-to-dynamodb-schema) - Convert Avrotize Schema to DynamoDB schema.
 - [`avrotize a2cosmos`](#convert-avrotize-schema-to-cosmosdb-schema) - Convert Avrotize Schema to CosmosDB schema.
@@ -58,7 +58,7 @@ Converting from Avrotize Schema:
 - [`avrotize a2neo4j`](#convert-avrotize-schema-to-neo4j-schema) - Convert Avrotize Schema to Neo4j schema.
 - [`avrotize a2dp`](#convert-avrotize-schema-to-datapackage-schema) - Convert Avrotize Schema to Datapackage schema.
 - [`avrotize a2md`](#convert-avrotize-schema-to-markdown-documentation) - Convert Avrotize Schema to Markdown documentation.
-- [`avrotize struct2md`](#convert-json-structure-schema-to-markdown-documentation) - Convert JSON Structure schema to Markdown documentation.
+- [`avrotize s2md`](#convert-json-structure-schema-to-markdown-documentation) - Convert JSON Structure schema to Markdown documentation.
 
 Direct conversions (JSON Structure):
 
@@ -101,7 +101,7 @@ JSON Structure conversions:
 
 Direct conversions (not via Avrotize Schema):
 
-- [`avrotize struct2gql`](#convert-json-structure-schema-to-graphql-schema) - Convert JSON Structure schema to GraphQL schema.
+- [`avrotize s2gql`](#convert-json-structure-schema-to-graphql-schema) - Convert JSON Structure schema to GraphQL schema.
 
 ## Overview
 
@@ -441,7 +441,7 @@ For detailed conversion rules and type mappings for each SQL dialect, refer to t
 ### Convert JSON Structure Schema to SQL Schema
 
 ```bash
-avrotize struct2sql [input] --out <path_to_sql_script> --dialect <dialect> [--emit-cloudevents-columns]
+avrotize s2sql [input] --out <path_to_sql_script> --dialect <dialect> [--emit-cloudevents-columns]
 ```
 
 Parameters:
@@ -497,7 +497,7 @@ Refer to the detailed conversion notes for Cassandra in the [NoSQL Conversion No
 ### Convert JSON Structure Schema to Cassandra Schema
 
 ```bash
-avrotize struct2cassandra [input] --out <output_file> [--emit-cloudevents-columns]
+avrotize s2cassandra [input] --out <output_file> [--emit-cloudevents-columns]
 ```
 
 Parameters:
@@ -1105,7 +1105,7 @@ Conversion notes:
 ### Convert JSON Structure schema to Markdown documentation
 
 ```bash
-avrotize struct2md <path_to_structure_schema_file> [--out <path_to_markdown_file>]
+avrotize s2md <path_to_structure_schema_file> [--out <path_to_markdown_file>]
 ```
 
 Parameters:
@@ -1235,7 +1235,7 @@ Conversion notes:
 ### Convert JSON Structure schema to GraphQL schema
 
 ```bash
-avrotize struct2gql [input] --out <path_to_graphql_schema_file>
+avrotize s2gql [input] --out <path_to_graphql_schema_file>
 ```
 
 Parameters:
@@ -1260,10 +1260,10 @@ Example:
 
 ```bash
 # Convert a JSON Structure schema to GraphQL
-avrotize struct2gql myschema.struct.json --out myschema.graphql
+avrotize s2gql myschema.struct.json --out myschema.graphql
 
 # Read from stdin and write to stdout
-cat myschema.struct.json | avrotize struct2gql > myschema.graphql
+cat myschema.struct.json | avrotize s2gql > myschema.graphql
 ```
 
 
