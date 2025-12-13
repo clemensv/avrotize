@@ -1271,22 +1271,59 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
             return f"https://github.com/clemensv/avrotize/blob/master/README.md#{anchor}"
         return "https://github.com/clemensv/avrotize"
     
-    # Categorize items
-    avro_input = []  # X -> Avro
-    avro_output = []  # Avro -> X
-    struct_input = []  # X -> Struct
-    struct_output = []  # Struct -> X
+    # Categorize items into subcategories
+    # Avrotize categories
+    avro_input = []           # X -> Avro (schema conversions to Avro)
+    avro_schema_output = []   # Avro -> schema formats
+    avro_code_output = []     # Avro -> code generation
+    avro_db_output = []       # Avro -> database/data formats
+    avro_doc_output = []      # Avro -> documentation
+    
+    # Structurize categories  
+    struct_input = []         # X -> Struct
+    struct_schema_output = [] # Struct -> schema formats
+    struct_code_output = []   # Struct -> code generation
+    struct_db_output = []     # Struct -> database/data formats
+    struct_doc_output = []    # Struct -> documentation
+    
+    # Code generation commands
+    code_gen_cmds = {'a2py', 'a2cs', 'a2java', 'a2ts', 'a2js', 'a2go', 'a2rust', 'a2cpp',
+                     's2py', 's2cs', 's2java', 's2ts', 's2js', 's2go', 's2rust', 's2cpp'}
+    
+    # Database/data format commands
+    db_cmds = {'a2sql', 'a2k', 'a2pq', 'a2ib', 'a2mongo', 'a2cassandra', 'a2dynamodb', 
+               'a2es', 'a2cosmos', 'a2neo4j', 'a2firebase', 'a2couchdb', 'a2hbase',
+               's2sql', 's2k', 's2ib', 's2cassandra', 's2csv', 'a2csv'}
+    
+    # Documentation commands
+    doc_cmds = {'a2md', 's2md'}
     
     for item in successful_items:
         item_id = item["id"]
+        cmd = get_command(item)
+        
         if item_id.endswith("-to-avro"):
             avro_input.append(item)
         elif item_id.startswith("avro-to-"):
-            avro_output.append(item)
+            if cmd in code_gen_cmds:
+                avro_code_output.append(item)
+            elif cmd in db_cmds or any(db in item_id for db in ['sql', 'kusto', 'parquet', 'iceberg', 'mongo', 'cassandra', 'dynamodb', 'elasticsearch', 'cosmos', 'neo4j', 'firebase', 'couchdb', 'hbase', 'csv']):
+                avro_db_output.append(item)
+            elif cmd in doc_cmds or 'markdown' in item_id:
+                avro_doc_output.append(item)
+            else:
+                avro_schema_output.append(item)
         elif item_id.endswith("-to-struct"):
             struct_input.append(item)
         elif item_id.startswith("struct-to-"):
-            struct_output.append(item)
+            if cmd in code_gen_cmds:
+                struct_code_output.append(item)
+            elif cmd in db_cmds or any(db in item_id for db in ['sql', 'kusto', 'iceberg', 'cassandra', 'csv']):
+                struct_db_output.append(item)
+            elif cmd in doc_cmds or 'markdown' in item_id:
+                struct_doc_output.append(item)
+            else:
+                struct_schema_output.append(item)
     
     def build_example_command(item: dict, is_structurize: bool) -> str:
         """Build a full example command string."""
@@ -1393,11 +1430,11 @@ permalink: /gallery/
 <section class="gallery-index">
   <!-- Tab Navigation -->
   <div class="gallery-tabs">
-    <button class="gallery-tab active" data-tab="avrotize">
+    <button class="gallery-tab active" data-tab="avrotize" id="tab-avrotize">
       <span class="tab-title">Avrotize</span>
       <span class="tab-subtitle">Avro Schema as pivot</span>
     </button>
-    <button class="gallery-tab" data-tab="structurize">
+    <button class="gallery-tab" data-tab="structurize" id="tab-structurize">
       <span class="tab-title">Structurize</span>
       <span class="tab-subtitle">JSON Structure as pivot</span>
     </button>
@@ -1407,20 +1444,44 @@ permalink: /gallery/
   <div id="avrotize-content" class="gallery-tab-content active">
 '''
     
-    # Add Avrotize sections
+    # Add Avrotize sections - subdivided by category
     page_content += render_section(
         "avro-input",
-        "Input Formats -> Avro",
+        "Input Formats → Avro",
         "Convert various schema formats to Avro Schema",
         avro_input,
         is_structurize=False
     )
     
     page_content += render_section(
-        "avro-output", 
-        "Avro -> Output Formats",
-        "Generate code and schemas from Avro Schema",
-        avro_output,
+        "avro-schema-output",
+        "Avro → Schema Formats",
+        "Convert Avro Schema to other schema formats",
+        avro_schema_output,
+        is_structurize=False
+    )
+    
+    page_content += render_section(
+        "avro-code-output", 
+        "Avro → Code Generation",
+        "Generate typed code from Avro Schema",
+        avro_code_output,
+        is_structurize=False
+    )
+    
+    page_content += render_section(
+        "avro-db-output", 
+        "Avro → Database & Data Formats",
+        "Generate database schemas and data format definitions",
+        avro_db_output,
+        is_structurize=False
+    )
+    
+    page_content += render_section(
+        "avro-doc-output", 
+        "Avro → Documentation",
+        "Generate documentation from Avro Schema",
+        avro_doc_output,
         is_structurize=False
     )
     
@@ -1431,20 +1492,44 @@ permalink: /gallery/
   <div id="structurize-content" class="gallery-tab-content">
 '''
     
-    # Add Structurize sections
+    # Add Structurize sections - subdivided by category
     page_content += render_section(
         "struct-input",
-        "Input Formats -> JSON Structure", 
+        "Input Formats → JSON Structure", 
         "Convert various schema formats to JSON Structure",
         struct_input,
         is_structurize=True
     )
     
     page_content += render_section(
-        "struct-output",
-        "JSON Structure -> Output Formats",
-        "Generate code and schemas from JSON Structure", 
-        struct_output,
+        "struct-schema-output",
+        "JSON Structure → Schema Formats",
+        "Convert JSON Structure to other schema formats",
+        struct_schema_output,
+        is_structurize=True
+    )
+    
+    page_content += render_section(
+        "struct-code-output",
+        "JSON Structure → Code Generation",
+        "Generate typed code from JSON Structure", 
+        struct_code_output,
+        is_structurize=True
+    )
+    
+    page_content += render_section(
+        "struct-db-output",
+        "JSON Structure → Database & Data Formats",
+        "Generate database schemas and data format definitions",
+        struct_db_output,
+        is_structurize=True
+    )
+    
+    page_content += render_section(
+        "struct-doc-output",
+        "JSON Structure → Documentation",
+        "Generate documentation from JSON Structure", 
+        struct_doc_output,
         is_structurize=True
     )
     
@@ -1457,18 +1542,42 @@ document.addEventListener('DOMContentLoaded', function() {
   const tabs = document.querySelectorAll('.gallery-tab');
   const contents = document.querySelectorAll('.gallery-tab-content');
   
+  function switchTab(tabName) {
+    const targetId = tabName + '-content';
+    
+    // Update active tab
+    tabs.forEach(t => t.classList.remove('active'));
+    const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
+    if (activeTab) activeTab.classList.add('active');
+    
+    // Update visible content
+    contents.forEach(c => c.classList.remove('active'));
+    const targetContent = document.getElementById(targetId);
+    if (targetContent) targetContent.classList.add('active');
+    
+    // Update URL hash without scrolling
+    history.replaceState(null, null, '#' + tabName);
+  }
+  
+  // Handle tab clicks
   tabs.forEach(tab => {
     tab.addEventListener('click', function() {
-      const targetId = this.dataset.tab + '-content';
-      
-      // Update active tab
-      tabs.forEach(t => t.classList.remove('active'));
-      this.classList.add('active');
-      
-      // Update visible content
-      contents.forEach(c => c.classList.remove('active'));
-      document.getElementById(targetId).classList.add('active');
+      switchTab(this.dataset.tab);
     });
+  });
+  
+  // Handle initial hash on page load
+  const hash = window.location.hash.slice(1); // Remove #
+  if (hash === 'structurize' || hash === 'avrotize') {
+    switchTab(hash);
+  }
+  
+  // Handle hash changes (e.g., back/forward navigation)
+  window.addEventListener('hashchange', function() {
+    const newHash = window.location.hash.slice(1);
+    if (newHash === 'structurize' || newHash === 'avrotize') {
+      switchTab(newHash);
+    }
   });
 });
 </script>
