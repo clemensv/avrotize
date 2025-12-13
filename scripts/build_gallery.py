@@ -664,15 +664,6 @@ GALLERY_ITEMS = [
         "source_language": "json",
         "conversions": [{"cmd": "a2sql", "args": ["--dialect", "db2", "--out", "{out}/telemetry_db2.sql"]}]
     },
-    {
-        "id": "avro-to-sql-sqlanywhere",
-        "title": "Avro -> SQL Anywhere",
-        "description": "IoT telemetry to SAP SQL Anywhere table schema",
-        "source_file": "telemetry.avsc",
-        "source_path": GALLERY_SOURCES / "telemetry.avsc",
-        "source_language": "json",
-        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "sqlanywhere", "--out", "{out}/telemetry_sqlanywhere.sql"]}]
-    },
     
     # ============================================================
     # MISSING SQL DIALECTS - s2sql
@@ -757,15 +748,6 @@ GALLERY_ITEMS = [
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
         "conversions": [{"cmd": "s2sql", "args": ["--dialect", "db2", "--out", "{out}/inventory_db2.sql"]}]
-    },
-    {
-        "id": "struct-to-sql-sqlanywhere",
-        "title": "Structure -> SQL Anywhere",
-        "description": "Inventory management to SAP SQL Anywhere table schema",
-        "source_file": "inventory.struct.json",
-        "source_path": GALLERY_SOURCES / "inventory.struct.json",
-        "source_language": "json",
-        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "sqlanywhere", "--out", "{out}/inventory_sqlanywhere.sql"]}]
     },
     
     # ============================================================

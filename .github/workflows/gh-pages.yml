@@ -51,6 +51,17 @@ jobs:
 
       - name: Build gallery content
         run: |
+          # Use the gallery script from gh-pages (where it's maintained)
+          # but run it from master context (where avrotize source is)
+          cp gh-pages/scripts/build_gallery.py master/scripts/build_gallery.py
+          
+          # Copy gallery sources from gh-pages to master for the build
+          mkdir -p master/gallery/sources
+          cp -r gh-pages/gallery/sources/* master/gallery/sources/
+          
+          # Create pages directory in master if needed
+          mkdir -p master/pages
+          
           cd master
           python scripts/build_gallery.py
           
