@@ -1295,7 +1295,10 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
                 avro_doc_output.append(item)
             else:
                 avro_schema_output.append(item)
-        elif item_id.endswith("-to-struct"):
+            # a2s also appears as input for Structurize section
+            if cmd == 'a2s' or 'structure' in item_id:
+                struct_input.append(item)
+        elif item_id.endswith("-to-struct") or item_id.endswith("-to-structure"):
             struct_input.append(item)
         elif item_id.startswith("struct-to-"):
             if cmd in code_gen_cmds:
