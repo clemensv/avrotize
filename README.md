@@ -1,5 +1,13 @@
 # Avrotize & Structurize
 
+[![PyPI version](https://img.shields.io/pypi/v/avrotize)](https://pypi.org/project/avrotize/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/avrotize)](https://pypi.org/project/avrotize/)
+[![Build Status](https://github.com/clemensv/avrotize/actions/workflows/build_deploy.yml/badge.svg)](https://github.com/clemensv/avrotize/actions/workflows/build_deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://img.shields.io/pypi/dm/avrotize)](https://pypi.org/project/avrotize/)
+
+**[📚 Documentation & Examples](https://clemensv.github.io/avrotize/)** | **[🎨 Conversion Gallery](https://clemensv.github.io/avrotize/gallery/)**
+
 Avrotize is a ["Rosetta Stone"](https://en.wikipedia.org/wiki/Rosetta_Stone) for data structure definitions, allowing you to convert between numerous data and database schema formats and to generate code for different programming languages.
 
 It is, for instance, a well-documented and predictable converter and code generator for data structures originally defined in JSON Schema (of arbitrary complexity).
