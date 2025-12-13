@@ -39,7 +39,23 @@ class AvroToCSVSchemaConverter:
 
         :param avro_schema: Avro schema as a dictionary.
         :return: CSV schema as a dictionary.
+        :raises ValueError: If the schema is not a single record type.
         """
+        # Handle schema arrays (unions of records) - not supported
+        if isinstance(avro_schema, list):
+            raise ValueError(
+                "CSV schema conversion only supports single record schemas. "
+                "The provided schema is an array/union of multiple types. "
+                "Use --record-type to specify a single record type if available."
+            )
+        
+        # Ensure it's a record type with fields
+        if not isinstance(avro_schema, dict) or 'fields' not in avro_schema:
+            raise ValueError(
+                "CSV schema conversion only supports Avro record types with 'fields'. "
+                f"The provided schema has type: {avro_schema.get('type', 'unknown') if isinstance(avro_schema, dict) else type(avro_schema).__name__}"
+            )
+        
         csv_schema = {
             "fields": []
         }
