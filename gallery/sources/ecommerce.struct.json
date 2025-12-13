@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://api.example.com/schemas/ecommerce",
+  "name": "ECommerceSchema",
+  "type": "object",
+  "description": "E-commerce domain with Customer, Product, and Order entities",
+  "$defs": {
+    "Address": {
+      "type": "object",
+      "name": "Address",
+      "description": "Postal address",
+      "properties": {
+        "street": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "country": { "type": "string" }
+      },
+      "required": ["street", "city", "country"]
+    },
+    "Customer": {
+      "type": "object",
+      "name": "Customer",
+      "description": "Customer account information",
+      "properties": {
+        "customerId": { "type": "string", "description": "Unique customer identifier" },
+        "email": { "type": "string", "format": "email" },
+        "fullName": { "type": "string" },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "address": { "$ref": "#/$defs/Address" },
+        "tier": {
+          "type": "string",
+          "enum": ["bronze", "silver", "gold", "platinum"],
+          "default": "bronze"
+        }
+      },
+      "required": ["customerId", "email", "fullName"]
+    },
+    "Product": {
+      "type": "object",
+      "name": "Product",
+      "description": "Product catalog item",
+      "properties": {
+        "productId": { "type": "string", "description": "Unique product identifier" },
+        "sku": { "type": "string", "description": "Stock keeping unit" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": ["electronics", "clothing", "home", "sports", "toys", "books", "other"]
+        },
+        "price": { "type": "number", "format": "decimal" },
+        "currency": { "type": "string", "default": "USD" },
+        "stockQuantity": { "type": "integer" },
+        "active": { "type": "boolean", "default": true },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["productId", "sku", "name", "category", "price"]
+    },
+    "OrderItem": {
+      "type": "object",
+      "name": "OrderItem",
+      "description": "Line item in an order",
+      "properties": {
+        "productId": { "type": "string" },
+        "quantity": { "type": "integer" },
+        "unitPrice": { "type": "number", "format": "decimal" },
+        "discount": { "type": "number", "format": "decimal" }
+      },
+      "required": ["productId", "quantity", "unitPrice"]
+    },
+    "Order": {
+      "type": "object",
+      "name": "Order",
+      "description": "Customer order with line items",
+      "properties": {
+        "orderId": { "type": "string", "description": "Unique order identifier" },
+        "customerId": { "type": "string", "description": "Reference to Customer" },
+        "orderDate": { "type": "string", "format": "date-time" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"]
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OrderItem" }
+        },
+        "shippingAddress": { "$ref": "#/$defs/Address" },
+        "subtotal": { "type": "number", "format": "decimal" },
+        "tax": { "type": "number", "format": "decimal" },
+        "total": { "type": "number", "format": "decimal" },
+        "notes": { "type": "string" }
+      },
+      "required": ["orderId", "customerId", "orderDate", "status", "items", "total"]
+    }
+  },
+  "properties": {
+    "customers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Customer" }
+    },
+    "products": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Product" }
+    },
+    "orders": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Order" }
+    }
+  }
+}

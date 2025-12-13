@@ -1,0 +1,107 @@
+[
+  {
+    "type": "record",
+    "name": "Customer",
+    "namespace": "com.example.ecommerce",
+    "doc": "Customer account information",
+    "fields": [
+      { "name": "customerId", "type": "string", "doc": "Unique customer identifier" },
+      { "name": "email", "type": "string", "doc": "Customer email address" },
+      { "name": "fullName", "type": "string", "doc": "Customer's full name" },
+      { "name": "phone", "type": ["null", "string"], "default": null },
+      { "name": "createdAt", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+      {
+        "name": "address",
+        "type": ["null", {
+          "type": "record",
+          "name": "Address",
+          "fields": [
+            { "name": "street", "type": "string" },
+            { "name": "city", "type": "string" },
+            { "name": "state", "type": "string" },
+            { "name": "postalCode", "type": "string" },
+            { "name": "country", "type": "string" }
+          ]
+        }],
+        "default": null
+      },
+      {
+        "name": "tier",
+        "type": {
+          "type": "enum",
+          "name": "CustomerTier",
+          "symbols": ["BRONZE", "SILVER", "GOLD", "PLATINUM"]
+        },
+        "default": "BRONZE"
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Product",
+    "namespace": "com.example.ecommerce",
+    "doc": "Product catalog item",
+    "fields": [
+      { "name": "productId", "type": "string", "doc": "Unique product identifier" },
+      { "name": "sku", "type": "string", "doc": "Stock keeping unit" },
+      { "name": "name", "type": "string" },
+      { "name": "description", "type": ["null", "string"], "default": null },
+      {
+        "name": "category",
+        "type": {
+          "type": "enum",
+          "name": "ProductCategory",
+          "symbols": ["ELECTRONICS", "CLOTHING", "HOME", "SPORTS", "TOYS", "BOOKS", "OTHER"]
+        }
+      },
+      { "name": "price", "type": { "type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2 } },
+      { "name": "currency", "type": "string", "default": "USD" },
+      { "name": "stockQuantity", "type": "int" },
+      { "name": "active", "type": "boolean", "default": true },
+      { "name": "tags", "type": { "type": "array", "items": "string" }, "default": [] }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Order",
+    "namespace": "com.example.ecommerce",
+    "doc": "Customer order with line items",
+    "fields": [
+      { "name": "orderId", "type": "string", "doc": "Unique order identifier" },
+      { "name": "customerId", "type": "string", "doc": "Reference to Customer" },
+      { "name": "orderDate", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+      {
+        "name": "status",
+        "type": {
+          "type": "enum",
+          "name": "OrderStatus",
+          "symbols": ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"]
+        }
+      },
+      {
+        "name": "items",
+        "type": {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "OrderItem",
+            "fields": [
+              { "name": "productId", "type": "string" },
+              { "name": "quantity", "type": "int" },
+              { "name": "unitPrice", "type": { "type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2 } },
+              { "name": "discount", "type": ["null", { "type": "bytes", "logicalType": "decimal", "precision": 5, "scale": 2 }], "default": null }
+            ]
+          }
+        }
+      },
+      {
+        "name": "shippingAddress",
+        "type": "com.example.ecommerce.Address"
+      },
+      { "name": "subtotal", "type": { "type": "bytes", "logicalType": "decimal", "precision": 12, "scale": 2 } },
+      { "name": "tax", "type": { "type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2 } },
+      { "name": "total", "type": { "type": "bytes", "logicalType": "decimal", "precision": 12, "scale": 2 } },
+      { "name": "notes", "type": ["null", "string"], "default": null }
+    ]
+  }
+]

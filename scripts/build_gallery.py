@@ -178,11 +178,11 @@ GALLERY_ITEMS = [
     {
         "id": "avro-to-csharp",
         "title": "Avro -> C#",
-        "description": "C# classes with Avro, System.Text.Json, and Newtonsoft.Json annotations",
+        "description": "C# classes with Avro and System.Text.Json annotations",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--avro-annotation", "--system-text-json-annotation", "--newtonsoft-json-annotation", "--pascal-properties"]}]
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--avro-annotation", "--system-text-json-annotation", "--pascal-properties"]}]
     },
     {
         "id": "avro-to-java",
@@ -401,7 +401,7 @@ GALLERY_ITEMS = [
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "struct2gql", "args": ["--out", "{out}/schema.graphql"]}]
+        "conversions": [{"cmd": "s2graphql", "args": ["--out", "{out}/schema.graphql"]}]
     },
     {
         "id": "struct-to-proto",
@@ -450,11 +450,11 @@ GALLERY_ITEMS = [
     {
         "id": "struct-to-csharp",
         "title": "Structure -> C#",
-        "description": "C# classes with System.Text.Json and Newtonsoft.Json annotations",
+        "description": "C# classes with System.Text.Json annotations",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp", "--system-text-json-annotation", "--newtonsoft-json-annotation", "--pascal-properties"]}]
+        "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp", "--system-text-json-annotation", "--pascal-properties"]}]
     },
     {
         "id": "struct-to-python",
@@ -503,7 +503,7 @@ GALLERY_ITEMS = [
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "struct2sql", "args": ["--dialect", "postgres", "--out", "{out}/inventory.sql"]}]
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "postgres", "--out", "{out}/inventory.sql"]}]
     },
     {
         "id": "struct-to-cassandra",
@@ -512,7 +512,7 @@ GALLERY_ITEMS = [
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "struct2cassandra", "args": ["--out", "{out}/inventory.cql"]}]
+        "conversions": [{"cmd": "s2cassandra", "args": ["--out", "{out}/inventory.cql"]}]
     },
     {
         "id": "struct-to-iceberg",
@@ -534,7 +534,7 @@ GALLERY_ITEMS = [
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "struct2md", "args": ["--out", "{out}/inventory.md"]}]
+        "conversions": [{"cmd": "s2md", "args": ["--out", "{out}/inventory.md"]}]
     },
     
     # ============================================================
@@ -623,6 +623,220 @@ GALLERY_ITEMS = [
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
         "conversions": [{"cmd": "s2k", "args": ["--out", "{out}/inventory.kql"]}]
+    },
+    
+    # ============================================================
+    # MISSING SQL DIALECTS - a2sql
+    # ============================================================
+    {
+        "id": "avro-to-sql-bigquery",
+        "title": "Avro -> BigQuery",
+        "description": "IoT telemetry to Google BigQuery table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "bigquery", "--out", "{out}/telemetry_bigquery.sql"]}]
+    },
+    {
+        "id": "avro-to-sql-snowflake",
+        "title": "Avro -> Snowflake",
+        "description": "IoT telemetry to Snowflake table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "snowflake", "--out", "{out}/telemetry_snowflake.sql"]}]
+    },
+    {
+        "id": "avro-to-sql-redshift",
+        "title": "Avro -> Redshift",
+        "description": "IoT telemetry to AWS Redshift table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "redshift", "--out", "{out}/telemetry_redshift.sql"]}]
+    },
+    {
+        "id": "avro-to-sql-db2",
+        "title": "Avro -> DB2",
+        "description": "IoT telemetry to IBM DB2 table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "db2", "--out", "{out}/telemetry_db2.sql"]}]
+    },
+    {
+        "id": "avro-to-sql-sqlanywhere",
+        "title": "Avro -> SQL Anywhere",
+        "description": "IoT telemetry to SAP SQL Anywhere table schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "sqlanywhere", "--out", "{out}/telemetry_sqlanywhere.sql"]}]
+    },
+    
+    # ============================================================
+    # MISSING SQL DIALECTS - s2sql
+    # ============================================================
+    {
+        "id": "struct-to-sql-mysql",
+        "title": "Structure -> MySQL",
+        "description": "Inventory management to MySQL table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "mysql", "--out", "{out}/inventory_mysql.sql"]}]
+    },
+    {
+        "id": "struct-to-sql-sqlserver",
+        "title": "Structure -> SQL Server",
+        "description": "Inventory management to SQL Server table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "sqlserver", "--out", "{out}/inventory_mssql.sql"]}]
+    },
+    {
+        "id": "struct-to-sql-sqlite",
+        "title": "Structure -> SQLite",
+        "description": "Inventory management to SQLite table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "sqlite", "--out", "{out}/inventory_sqlite.sql"]}]
+    },
+    {
+        "id": "struct-to-sql-oracle",
+        "title": "Structure -> Oracle",
+        "description": "Inventory management to Oracle database table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "oracle", "--out", "{out}/inventory_oracle.sql"]}]
+    },
+    {
+        "id": "struct-to-sql-mariadb",
+        "title": "Structure -> MariaDB",
+        "description": "Inventory management to MariaDB table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "mariadb", "--out", "{out}/inventory_maria.sql"]}]
+    },
+    {
+        "id": "struct-to-sql-bigquery",
+        "title": "Structure -> BigQuery",
+        "description": "Inventory management to Google BigQuery table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "bigquery", "--out", "{out}/inventory_bigquery.sql"]}]
+    },
+    {
+        "id": "struct-to-sql-snowflake",
+        "title": "Structure -> Snowflake",
+        "description": "Inventory management to Snowflake table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "snowflake", "--out", "{out}/inventory_snowflake.sql"]}]
+    },
+    {
+        "id": "struct-to-sql-redshift",
+        "title": "Structure -> Redshift",
+        "description": "Inventory management to AWS Redshift table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "redshift", "--out", "{out}/inventory_redshift.sql"]}]
+    },
+    {
+        "id": "struct-to-sql-db2",
+        "title": "Structure -> DB2",
+        "description": "Inventory management to IBM DB2 table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "db2", "--out", "{out}/inventory_db2.sql"]}]
+    },
+    {
+        "id": "struct-to-sql-sqlanywhere",
+        "title": "Structure -> SQL Anywhere",
+        "description": "Inventory management to SAP SQL Anywhere table schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "sqlanywhere", "--out", "{out}/inventory_sqlanywhere.sql"]}]
+    },
+    
+    # ============================================================
+    # MISSING COMMANDS
+    # ============================================================
+    {
+        "id": "avro-to-csv",
+        "title": "Avro -> CSV Template",
+        "description": "Generate CSV template from Avro schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2csv", "args": ["--out", "{out}/telemetry_template.csv"]}]
+    },
+    {
+        "id": "avro-to-graphql",
+        "title": "Avro -> GraphQL",
+        "description": "IoT telemetry to GraphQL type definitions",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2graphql", "args": ["--out", "{out}/telemetry.graphql"]}]
+    },
+    {
+        "id": "struct-to-javascript",
+        "title": "Structure -> JavaScript",
+        "description": "JavaScript classes with Avro serialization support",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2js", "args": ["--out", "{out}/javascript", "--avro-annotation"]}]
+    },
+    
+    # ============================================================
+    # CLOUDEVENTS DATABASE EXAMPLES (Multi-table with CE columns)
+    # ============================================================
+    {
+        "id": "avro-to-sql-postgres-cloudevents",
+        "title": "Avro -> PostgreSQL (CloudEvents)",
+        "description": "E-commerce multi-table schema with CloudEvents envelope columns",
+        "source_file": "ecommerce.avsc",
+        "source_path": GALLERY_SOURCES / "ecommerce.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2sql", "args": ["--dialect", "postgres", "--emit-cloudevents-columns", "--out", "{out}/ecommerce_ce.sql"]}]
+    },
+    {
+        "id": "avro-to-kusto-cloudevents",
+        "title": "Avro -> Kusto (CloudEvents)",
+        "description": "E-commerce multi-table schema with CloudEvents envelope columns",
+        "source_file": "ecommerce.avsc",
+        "source_path": GALLERY_SOURCES / "ecommerce.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2k", "args": ["--emit-cloudevents-columns", "--out", "{out}/ecommerce_ce.kql"]}]
+    },
+    {
+        "id": "struct-to-sql-postgres-cloudevents",
+        "title": "Structure -> PostgreSQL (CloudEvents)",
+        "description": "E-commerce multi-table schema with CloudEvents envelope columns",
+        "source_file": "ecommerce.struct.json",
+        "source_path": GALLERY_SOURCES / "ecommerce.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2sql", "args": ["--dialect", "postgres", "--emit-cloudevents-columns", "--out", "{out}/ecommerce_ce.sql"]}]
+    },
+    {
+        "id": "struct-to-kusto-cloudevents",
+        "title": "Structure -> Kusto (CloudEvents)",
+        "description": "E-commerce multi-table schema with CloudEvents envelope columns",
+        "source_file": "ecommerce.struct.json",
+        "source_path": GALLERY_SOURCES / "ecommerce.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2k", "args": ["--emit-cloudevents-columns", "--out", "{out}/ecommerce_ce.kql"]}]
     },
 ]
 
@@ -991,6 +1205,8 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         "a2sql": "convert-avro-schema-to-sql",
         "a2nosql": "convert-avro-schema-to-nosql",
         "a2gql": "convert-avro-schema-to-graphql",
+        "a2graphql": "convert-avro-schema-to-graphql",
+        "a2csv": "convert-avro-schema-to-csv",
         "a2s": "convert-avro-schema-to-json-structure",
         # Structurize commands
         "j2s": "convert-json-schema-to-json-structure",
@@ -998,6 +1214,7 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         "s2x": "convert-json-structure-to-xsd",
         "s2p": "convert-json-structure-to-proto",
         "s2gql": "convert-json-structure-to-graphql",
+        "s2graphql": "convert-json-structure-to-graphql",
         "s2dp": "convert-json-structure-to-datapackage",
         "s2ib": "convert-json-structure-to-iceberg",
         "s2csv": "convert-json-structure-to-csv",
@@ -1007,6 +1224,7 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         "s2cs": "convert-json-structure-to-c",
         "s2java": "convert-json-structure-to-java",
         "s2ts": "convert-json-structure-to-typescript",
+        "s2js": "convert-json-structure-to-javascript",
         "s2go": "convert-json-structure-to-go",
         "s2rust": "convert-json-structure-to-rust",
         "s2cpp": "convert-json-structure-to-c-1",
