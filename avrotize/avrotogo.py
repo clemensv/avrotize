@@ -466,8 +466,8 @@ def convert_avro_to_go(avro_schema_path, go_file_path, package_name='', avro_ann
     avrotogo = AvroToGo(package_name)
     avrotogo.avro_annotation = avro_annotation
     avrotogo.json_annotation = json_annotation
-    avrotogo.package_site = package_site
-    avrotogo.package_username = package_username
+    avrotogo.package_site = package_site if package_site else 'github.com'
+    avrotogo.package_username = package_username if package_username else 'username'
     avrotogo.convert(avro_schema_path, go_file_path)
 
 
@@ -484,6 +484,6 @@ def convert_avro_schema_to_go(avro_schema: JsonNode, output_dir: str, package_na
     avrotogo = AvroToGo(package_name)
     avrotogo.avro_annotation = avro_annotation
     avrotogo.json_annotation = json_annotation
-    avrotogo.package_site = package_site
-    avrotogo.package_username = package_username
+    avrotogo.package_site = package_site if package_site else 'github.com'
+    avrotogo.package_username = package_username if package_username else 'username'
     avrotogo.convert_schema(avro_schema, output_dir)

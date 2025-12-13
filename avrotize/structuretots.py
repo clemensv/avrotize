@@ -32,7 +32,7 @@ class StructureToTypeScript:
     """ Converts JSON Structure schema to TypeScript classes """
 
     def __init__(self, base_package: str = '', typedjson_annotation=False, avro_annotation=False) -> None:
-        self.base_package = base_package
+        self.base_package = base_package or ''
         self.typedjson_annotation = typedjson_annotation
         self.avro_annotation = avro_annotation
         self.output_dir = os.getcwd()

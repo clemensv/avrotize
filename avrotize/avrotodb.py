@@ -685,7 +685,10 @@ def convert_avro_to_nosql(avro_schema_path, nosql_file_path, nosql_dialect, emit
         file_name = os.path.join(
             nosql_file_path, get_file_name(schema_list, get_nosql_file_extension(nosql_dialect)))
         with open(file_name, "w", encoding="utf-8") as nosql_file:
-            nosql_file.write(model)
+            if isinstance(model, list):
+                nosql_file.write("\n".join(model))
+            else:
+                nosql_file.write(model)
 
 def get_nosql_file_extension(nosql_dialect):
     """
