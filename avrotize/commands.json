@@ -650,6 +650,108 @@
     ]
   },
   {
+    "command": "s2k",
+    "description": "Convert JSON Structure schema to Kusto table schemas",
+    "group": "4_RTDB",
+    "function": {
+      "name": "avrotize.structuretokusto.convert_structure_to_kusto",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "kusto_file_path": "output_file_path",
+        "kusto_uri": "args.kusto_uri",
+        "kusto_database": "args.kusto_database",
+        "structure_record_type": "args.record_type",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns",
+        "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Kusto table schema file",
+        "required": false
+      },
+      {
+        "name": "--struct",
+        "type": "str",
+        "help": "Deprecated: Path to the JSON Structure schema file (for backcompat)",
+        "required": false
+      },
+      {
+        "name": "--kusto-uri",
+        "type": "str",
+        "help": "Kusto Cluster URI to apply the generated schema to.",
+        "required": false
+      },
+      {
+        "name": "--kusto-database",
+        "type": "str",
+        "help": "Kusto database name to apply the generated schema to",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Record type in the JSON Structure schema",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns to the Kusto table",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents-dispatch",
+        "type": "bool",
+        "help": "Emit a _cloudevents_dispatch ingestion table and update policies for each generated table",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.kql",
+    "prompts": [
+      {
+        "name": "--kusto-uri",
+        "message": "Enter the Kusto Cluster URI (optional)",
+        "type": "str",
+        "required": false
+      },
+      {
+        "name": "--kusto-database",
+        "message": "Enter the Kusto database name (optional)",
+        "type": "str",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "message": "Add CloudEvents columns to the Kusto table?",
+        "type": "bool",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents-dispatch",
+        "message": "Emit a _cloudevents_dispatch ingestion table and update policies?",
+        "type": "bool",
+        "default": false,
+        "required": false
+      }
+    ]
+  },
+  {
     "command": "k2a",
     "description": "Convert Kusto schema to Avrotize schema",
     "group": "1_Schemas",
