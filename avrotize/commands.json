@@ -1924,6 +1924,44 @@
     "prompts": []
   },
   {
+    "command": "a2csv",
+    "description": "Convert Avrotize schema to CSV schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotocsv.convert_avro_to_csv_schema",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "csv_schema_path": "output_file_path"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Output path for the CSV schema file",
+        "required": false
+      },
+      {
+        "name": "--avsc",
+        "type": "str",
+        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.csv.json",
+    "prompts": []
+  },
+  {
     "command": "s2rust",
     "description": "Convert JSON Structure to Rust classes",
     "group": "2_ProgLanguages",
@@ -2249,7 +2287,7 @@
     ]
   },
   {
-    "command": "s2gql",
+    "command": "s2graphql",
     "description": "Convert JSON Structure schema to GraphQL schema",
     "group": "1_Schemas",
     "function": {
@@ -2275,6 +2313,44 @@
         "name": "--out",
         "type": "str",
         "help": "Path to the GraphQL schema file",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.graphql",
+    "prompts": []
+  },
+  {
+    "command": "a2graphql",
+    "description": "Convert Avrotize schema to GraphQL schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotographql.convert_avro_to_graphql",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "graphql_schema_path": "output_file_path"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the GraphQL schema file",
+        "required": false
+      },
+      {
+        "name": "--avsc",
+        "type": "str",
+        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
         "required": false
       }
     ],

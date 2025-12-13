@@ -89,7 +89,10 @@ Generate code from JSON Structure:
 Direct JSON Structure conversions:
 
 - [`avrotize s2csv`](#convert-json-structure-to-csv-schema) - Convert JSON Structure schema to CSV schema.
+- [`avrotize a2csv`](#convert-avrotize-schema-to-csv-schema) - Convert Avrotize schema to CSV schema.
 - [`avrotize s2x`](#convert-json-structure-to-xml-schema-xsd) - Convert JSON Structure to XML Schema (XSD).
+- [`avrotize s2graphql`](#convert-json-structure-schema-to-graphql-schema) - Convert JSON Structure schema to GraphQL schema.
+- [`avrotize a2graphql`](#convert-avrotize-schema-to-graphql-schema) - Convert Avrotize schema to GraphQL schema.
 
 Other commands:
 
@@ -98,10 +101,6 @@ Other commands:
 JSON Structure conversions:
 
 - [`avrotize s2dp`](#convert-json-structure-schema-to-datapackage-schema) - Convert JSON Structure schema to Datapackage schema.
-
-Direct conversions (not via Avrotize Schema):
-
-- [`avrotize s2gql`](#convert-json-structure-schema-to-graphql-schema) - Convert JSON Structure schema to GraphQL schema.
 
 ## Overview
 
@@ -1153,6 +1152,25 @@ Conversion notes:
 - Enum and const keywords are supported and preserved in the output.
 - JSON Structure-specific features like `$ref`, `$extends`, definitions, and namespaces are resolved during conversion.
 
+### Convert Avrotize Schema to CSV Schema
+
+```bash
+avrotize a2csv <path_to_avro_schema_file> [--out <path_to_csv_schema_file>]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The path to the Avrotize schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the CSV schema file to write the conversion result to. If omitted, the output is directed to stdout.
+
+Conversion notes:
+
+- The tool converts Avrotize schemas to CSV Schema format.
+- Avro primitive types (string, int, long, float, double, boolean, bytes) are mapped to appropriate CSV schema types.
+- Avro logical types (date, timestamp-millis, decimal, uuid) are preserved in the output.
+- Complex types (records, arrays, maps) are represented as strings in CSV schema, as CSV format doesn't have native support for nested structures.
+- Only single record types can be converted to CSV schema.
+
 ### Convert JSON Structure to Protocol Buffers
 
 ```bash
@@ -1235,7 +1253,7 @@ Conversion notes:
 ### Convert JSON Structure schema to GraphQL schema
 
 ```bash
-avrotize s2gql [input] --out <path_to_graphql_schema_file>
+avrotize s2graphql [input] --out <path_to_graphql_schema_file>
 ```
 
 Parameters:
@@ -1260,11 +1278,42 @@ Example:
 
 ```bash
 # Convert a JSON Structure schema to GraphQL
-avrotize s2gql myschema.struct.json --out myschema.graphql
+avrotize s2graphql myschema.struct.json --out myschema.graphql
 
 # Read from stdin and write to stdout
-cat myschema.struct.json | avrotize s2gql > myschema.graphql
+cat myschema.struct.json | avrotize s2graphql > myschema.graphql
 ```
 
+### Convert Avrotize schema to GraphQL schema
+
+```bash
+avrotize a2graphql [input] --out <path_to_graphql_schema_file>
+```
+
+Parameters:
+
+- `[input]`: The path to the Avrotize schema file. If omitted, the file is read from stdin.
+- `--out <path_to_graphql_schema_file>`: The path to the output GraphQL schema file.
+
+Conversion notes:
+
+- Converts Avrotize schema to GraphQL schema language (SDL)
+- Avro primitive types (string, int, long, float, double, boolean, bytes) are mapped to GraphQL scalar types
+- Avro logical types (date, timestamp-millis, decimal, uuid) are mapped to custom GraphQL scalars
+- Avro record types become GraphQL object types
+- Avro arrays become GraphQL lists `[Type]`
+- Avro maps are represented using the JSON scalar type
+- Avro unions are converted to GraphQL union types
+- Avro enums become GraphQL enum types
+
+Example:
+
+```bash
+# Convert an Avrotize schema to GraphQL
+avrotize a2graphql myschema.avsc --out myschema.graphql
+
+# Read from stdin and write to stdout
+cat myschema.avsc | avrotize a2graphql > myschema.graphql
+```
 
 This document provides an overview of the usage and functionality of Avrotize. For more detailed information, please refer to the [Avrotize Schema documentation](specs/avrotize-schema.md) and the individual command help messages.
