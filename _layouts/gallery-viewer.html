@@ -704,6 +704,11 @@ window.galleryPageData = {
   // Initialize
   loadState();
   updateLayout();
+  
+  // Listen for layout updates from other scripts
+  window.addEventListener('gallery-layout-update', function() {
+    updateLayout();
+  });
 })();
 </script>
 
@@ -759,6 +764,17 @@ window.galleryPageData = {
   }
   
   document.addEventListener('DOMContentLoaded', function() {
+    // Check if there's only a single file - if so, collapse the tree panel
+    const fileItems = document.querySelectorAll('.tree-item.file');
+    if (fileItems.length === 1) {
+      const treePanel = document.getElementById('treePanel');
+      if (treePanel && !treePanel.classList.contains('collapsed')) {
+        treePanel.classList.add('collapsed');
+        // Trigger layout update via custom event
+        window.dispatchEvent(new CustomEvent('gallery-layout-update'));
+      }
+    }
+    
     // Set source content
     const sourcePanel = document.querySelector('.source-panel .panel-content');
     if (sourcePanel) {
