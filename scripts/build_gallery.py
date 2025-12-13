@@ -161,82 +161,284 @@ GALLERY_ITEMS = [
     
     # ============================================================
     # AVRO -> CODE GENERATION
-    # All code generators include their full feature set:
-    # - Avro annotations for binary serialization support
-    # - JSON annotations for JSON serialization
-    # - PascalCase properties where applicable
+    # One example per annotation option, plus a combined example
     # ============================================================
+    
+    # --- Python ---
     {
-        "id": "avro-to-python",
-        "title": "Avro -> Python",
-        "description": "Python dataclasses with Avro serialization and dataclasses-json support",
+        "id": "avro-to-python-avro",
+        "title": "Avro -> Python (Avro)",
+        "description": "Python dataclasses with Apache Avro serialization support",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2py", "args": ["--out", "{out}/python", "--avro-annotation"]}]
+    },
+    {
+        "id": "avro-to-python-json",
+        "title": "Avro -> Python (JSON)",
+        "description": "Python dataclasses with dataclasses-json for JSON serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2py", "args": ["--out", "{out}/python", "--dataclasses-json-annotation"]}]
+    },
+    {
+        "id": "avro-to-python-all",
+        "title": "Avro -> Python (All)",
+        "description": "Python dataclasses with Avro and dataclasses-json annotations",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [{"cmd": "a2py", "args": ["--out", "{out}/python", "--avro-annotation", "--dataclasses-json-annotation"]}]
     },
+    
+    # --- C# ---
     {
-        "id": "avro-to-csharp",
-        "title": "Avro -> C#",
-        "description": "C# classes with Avro and System.Text.Json annotations",
+        "id": "avro-to-csharp-avro",
+        "title": "Avro -> C# (Avro)",
+        "description": "C# classes with Apache Avro binary serialization",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
-        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--avro-annotation", "--system-text-json-annotation", "--pascal-properties"]}]
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--avro-annotation"]}]
     },
     {
-        "id": "avro-to-java",
-        "title": "Avro -> Java",
+        "id": "avro-to-csharp-stjson",
+        "title": "Avro -> C# (System.Text.Json)",
+        "description": "C# classes with System.Text.Json annotations",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--system-text-json-annotation", "--pascal-properties"]}]
+    },
+    {
+        "id": "avro-to-csharp-newtonsoft",
+        "title": "Avro -> C# (Newtonsoft)",
+        "description": "C# classes with Newtonsoft.Json annotations",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--newtonsoft-json-annotation", "--pascal-properties"]}]
+    },
+    {
+        "id": "avro-to-csharp-protobuf",
+        "title": "Avro -> C# (protobuf-net)",
+        "description": "C# classes with protobuf-net binary serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--protobuf-net-annotation"]}]
+    },
+    {
+        "id": "avro-to-csharp-xml",
+        "title": "Avro -> C# (System.Xml)",
+        "description": "C# classes with System.Xml serialization attributes",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--system-xml-annotation"]}]
+    },
+    {
+        "id": "avro-to-csharp-msgpack",
+        "title": "Avro -> C# (MessagePack)",
+        "description": "C# classes with MessagePack binary serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--msgpack-annotation"]}]
+    },
+    {
+        "id": "avro-to-csharp-cbor",
+        "title": "Avro -> C# (CBOR)",
+        "description": "C# classes with Dahomey.Cbor serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--cbor-annotation"]}]
+    },
+    {
+        "id": "avro-to-csharp-all",
+        "title": "Avro -> C# (All)",
+        "description": "C# classes with Avro, System.Text.Json, XML, MessagePack, CBOR, and protobuf-net",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cs", "args": ["--out", "{out}/csharp", "--avro-annotation", "--system-text-json-annotation", "--system-xml-annotation", "--msgpack-annotation", "--cbor-annotation", "--protobuf-net-annotation", "--pascal-properties"]}]
+    },
+    
+    # --- Java ---
+    {
+        "id": "avro-to-java-avro",
+        "title": "Avro -> Java (Avro)",
+        "description": "Java POJOs with Apache Avro binary serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2java", "args": ["--out", "{out}/java", "--avro-annotation"]}]
+    },
+    {
+        "id": "avro-to-java-jackson",
+        "title": "Avro -> Java (Jackson)",
+        "description": "Java POJOs with Jackson JSON annotations",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2java", "args": ["--out", "{out}/java", "--jackson-annotation", "--pascal-properties"]}]
+    },
+    {
+        "id": "avro-to-java-all",
+        "title": "Avro -> Java (All)",
         "description": "Java POJOs with Avro and Jackson annotations",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [{"cmd": "a2java", "args": ["--out", "{out}/java", "--avro-annotation", "--jackson-annotation", "--pascal-properties"]}]
     },
+    
+    # --- TypeScript ---
     {
-        "id": "avro-to-typescript",
-        "title": "Avro -> TypeScript",
+        "id": "avro-to-typescript-avro",
+        "title": "Avro -> TypeScript (Avro)",
+        "description": "TypeScript interfaces with Apache Avro serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2ts", "args": ["--out", "{out}/typescript", "--avro-annotation"]}]
+    },
+    {
+        "id": "avro-to-typescript-typedjson",
+        "title": "Avro -> TypeScript (TypedJSON)",
+        "description": "TypeScript interfaces with TypedJSON runtime type info",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2ts", "args": ["--out", "{out}/typescript", "--typedjson-annotation"]}]
+    },
+    {
+        "id": "avro-to-typescript-all",
+        "title": "Avro -> TypeScript (All)",
         "description": "TypeScript interfaces with Avro and TypedJSON annotations",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [{"cmd": "a2ts", "args": ["--out", "{out}/typescript", "--avro-annotation", "--typedjson-annotation"]}]
     },
+    
+    # --- JavaScript ---
     {
         "id": "avro-to-javascript",
         "title": "Avro -> JavaScript",
-        "description": "JavaScript classes with Avro serialization support",
+        "description": "JavaScript classes (no annotations)",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [{"cmd": "a2js", "args": ["--out", "{out}/javascript"]}]
     },
     {
-        "id": "avro-to-rust",
-        "title": "Avro -> Rust",
-        "description": "Rust structs with serde and Avro serialization support",
+        "id": "avro-to-javascript-avro",
+        "title": "Avro -> JavaScript (Avro)",
+        "description": "JavaScript classes with Apache Avro serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2js", "args": ["--out", "{out}/javascript", "--avro-annotation"]}]
+    },
+    
+    # --- Rust ---
+    {
+        "id": "avro-to-rust-avro",
+        "title": "Avro -> Rust (Avro)",
+        "description": "Rust structs with Apache Avro binary serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2rust", "args": ["--out", "{out}/rust", "--avro-annotation"]}]
+    },
+    {
+        "id": "avro-to-rust-json",
+        "title": "Avro -> Rust (Serde JSON)",
+        "description": "Rust structs with serde JSON serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2rust", "args": ["--out", "{out}/rust", "--json-annotation"]}]
+    },
+    {
+        "id": "avro-to-rust-all",
+        "title": "Avro -> Rust (All)",
+        "description": "Rust structs with Avro and serde JSON support",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [{"cmd": "a2rust", "args": ["--out", "{out}/rust", "--avro-annotation", "--json-annotation"]}]
     },
+    
+    # --- Go ---
     {
-        "id": "avro-to-go",
-        "title": "Avro -> Go",
-        "description": "Go structs with JSON tags and Avro serialization support",
+        "id": "avro-to-go-avro",
+        "title": "Avro -> Go (Avro)",
+        "description": "Go structs with Apache Avro binary serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2go", "args": ["--out", "{out}/go", "--avro-annotation"]}]
+    },
+    {
+        "id": "avro-to-go-json",
+        "title": "Avro -> Go (JSON)",
+        "description": "Go structs with JSON struct tags",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2go", "args": ["--out", "{out}/go", "--json-annotation"]}]
+    },
+    {
+        "id": "avro-to-go-all",
+        "title": "Avro -> Go (All)",
+        "description": "Go structs with Avro and JSON tags",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [{"cmd": "a2go", "args": ["--out", "{out}/go", "--avro-annotation", "--json-annotation"]}]
     },
+    
+    # --- C++ ---
     {
         "id": "avro-to-cpp",
         "title": "Avro -> C++",
-        "description": "C++ classes with Avro serialization support",
+        "description": "C++ classes (no annotations)",
         "source_file": "telemetry.avsc",
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [{"cmd": "a2cpp", "args": ["--out", "{out}/cpp"]}]
+    },
+    {
+        "id": "avro-to-cpp-avro",
+        "title": "Avro -> C++ (Avro)",
+        "description": "C++ classes with Apache Avro binary serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cpp", "args": ["--out", "{out}/cpp", "--avro-annotation"]}]
+    },
+    {
+        "id": "avro-to-cpp-json",
+        "title": "Avro -> C++ (JSON)",
+        "description": "C++ classes with nlohmann/json serialization",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cpp", "args": ["--out", "{out}/cpp", "--json-annotation"]}]
+    },
+    {
+        "id": "avro-to-cpp-all",
+        "title": "Avro -> C++ (All)",
+        "description": "C++ classes with Avro and JSON support",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cpp", "args": ["--out", "{out}/cpp", "--avro-annotation", "--json-annotation"]}]
     },
     
     # ============================================================
@@ -424,32 +626,51 @@ GALLERY_ITEMS = [
     
     # ============================================================
     # JSON STRUCTURE -> CODE GENERATION
-    # All code generators include their full feature set:
-    # - Avro annotations for binary serialization support (where available)
-    # - JSON annotations for JSON serialization
-    # - PascalCase properties where applicable
+    # One example per annotation option, plus a combined example
     # ============================================================
+    
+    # --- Python ---
     {
-        "id": "struct-to-rust",
-        "title": "Structure -> Rust",
-        "description": "Rust structs with serde JSON support",
+        "id": "struct-to-python-avro",
+        "title": "Structure -> Python (Avro)",
+        "description": "Python dataclasses with Apache Avro serialization support",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "s2rust", "args": ["--out", "{out}/rust"]}]
+        "conversions": [{"cmd": "s2py", "args": ["--out", "{out}/python", "--avro-annotation"]}]
     },
     {
-        "id": "struct-to-go",
-        "title": "Structure -> Go",
-        "description": "Go structs with JSON tags",
+        "id": "struct-to-python-json",
+        "title": "Structure -> Python (JSON)",
+        "description": "Python dataclasses with dataclasses-json for JSON serialization",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "s2go", "args": ["--out", "{out}/go"]}]
+        "conversions": [{"cmd": "s2py", "args": ["--out", "{out}/python", "--dataclasses-json-annotation"]}]
     },
     {
-        "id": "struct-to-csharp",
-        "title": "Structure -> C#",
+        "id": "struct-to-python-all",
+        "title": "Structure -> Python (All)",
+        "description": "Python dataclasses with Avro and dataclasses-json annotations",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2py", "args": ["--out", "{out}/python", "--avro-annotation", "--dataclasses-json-annotation"]}]
+    },
+    
+    # --- C# ---
+    {
+        "id": "struct-to-csharp-avro",
+        "title": "Structure -> C# (Avro)",
+        "description": "C# classes with Apache Avro binary serialization",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp", "--avro-annotation"]}]
+    },
+    {
+        "id": "struct-to-csharp-stjson",
+        "title": "Structure -> C# (System.Text.Json)",
         "description": "C# classes with System.Text.Json annotations",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
@@ -457,40 +678,187 @@ GALLERY_ITEMS = [
         "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp", "--system-text-json-annotation", "--pascal-properties"]}]
     },
     {
-        "id": "struct-to-python",
-        "title": "Structure -> Python",
-        "description": "Python dataclasses with dataclasses-json and Avro annotations",
+        "id": "struct-to-csharp-newtonsoft",
+        "title": "Structure -> C# (Newtonsoft)",
+        "description": "C# classes with Newtonsoft.Json annotations",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
-        "conversions": [{"cmd": "s2py", "args": ["--out", "{out}/python", "--dataclasses-json-annotation", "--avro-annotation"]}]
+        "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp", "--newtonsoft-json-annotation", "--pascal-properties"]}]
     },
+    {
+        "id": "struct-to-csharp-xml",
+        "title": "Structure -> C# (System.Xml)",
+        "description": "C# classes with System.Xml serialization attributes",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp", "--system-xml-annotation"]}]
+    },
+    {
+        "id": "struct-to-csharp-all",
+        "title": "Structure -> C# (All)",
+        "description": "C# classes with Avro, System.Text.Json, and XML annotations",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2cs", "args": ["--out", "{out}/csharp", "--avro-annotation", "--system-text-json-annotation", "--system-xml-annotation", "--pascal-properties"]}]
+    },
+    
+    # --- Java ---
     {
         "id": "struct-to-java",
         "title": "Structure -> Java",
-        "description": "Java POJOs with Jackson annotations",
+        "description": "Java POJOs (no annotations)",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
         "conversions": [{"cmd": "s2java", "args": ["--out", "{out}/java"]}]
     },
     {
+        "id": "struct-to-java-jackson",
+        "title": "Structure -> Java (Jackson)",
+        "description": "Java POJOs with Jackson JSON annotations",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2java", "args": ["--out", "{out}/java", "--jackson-annotation", "--pascal-properties"]}]
+    },
+    
+    # --- TypeScript ---
+    {
         "id": "struct-to-typescript",
         "title": "Structure -> TypeScript",
-        "description": "TypeScript interfaces with type-safe definitions",
+        "description": "TypeScript interfaces (no annotations)",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
         "conversions": [{"cmd": "s2ts", "args": ["--out", "{out}/typescript"]}]
     },
     {
+        "id": "struct-to-typescript-avro",
+        "title": "Structure -> TypeScript (Avro)",
+        "description": "TypeScript interfaces with Apache Avro serialization",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2ts", "args": ["--out", "{out}/typescript", "--avro-annotation"]}]
+    },
+    {
+        "id": "struct-to-typescript-typedjson",
+        "title": "Structure -> TypeScript (TypedJSON)",
+        "description": "TypeScript interfaces with TypedJSON runtime type info",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2ts", "args": ["--out", "{out}/typescript", "--typedjson-annotation"]}]
+    },
+    {
+        "id": "struct-to-typescript-all",
+        "title": "Structure -> TypeScript (All)",
+        "description": "TypeScript interfaces with Avro and TypedJSON annotations",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2ts", "args": ["--out", "{out}/typescript", "--avro-annotation", "--typedjson-annotation"]}]
+    },
+    
+    # --- JavaScript ---
+    {
+        "id": "struct-to-javascript",
+        "title": "Structure -> JavaScript",
+        "description": "JavaScript classes (no annotations)",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2js", "args": ["--out", "{out}/javascript"]}]
+    },
+    {
+        "id": "struct-to-javascript-avro",
+        "title": "Structure -> JavaScript (Avro)",
+        "description": "JavaScript classes with Apache Avro serialization",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2js", "args": ["--out", "{out}/javascript", "--avro-annotation"]}]
+    },
+    
+    # --- Rust ---
+    {
+        "id": "struct-to-rust",
+        "title": "Structure -> Rust",
+        "description": "Rust structs (no annotations)",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2rust", "args": ["--out", "{out}/rust"]}]
+    },
+    {
+        "id": "struct-to-rust-json",
+        "title": "Structure -> Rust (Serde JSON)",
+        "description": "Rust structs with serde JSON serialization",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2rust", "args": ["--out", "{out}/rust", "--json-annotation"]}]
+    },
+    
+    # --- Go ---
+    {
+        "id": "struct-to-go",
+        "title": "Structure -> Go",
+        "description": "Go structs (no annotations)",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2go", "args": ["--out", "{out}/go"]}]
+    },
+    {
+        "id": "struct-to-go-avro",
+        "title": "Structure -> Go (Avro)",
+        "description": "Go structs with Apache Avro binary serialization",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2go", "args": ["--out", "{out}/go", "--avro-annotation"]}]
+    },
+    {
+        "id": "struct-to-go-json",
+        "title": "Structure -> Go (JSON)",
+        "description": "Go structs with JSON struct tags",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2go", "args": ["--out", "{out}/go", "--json-annotation"]}]
+    },
+    {
+        "id": "struct-to-go-all",
+        "title": "Structure -> Go (All)",
+        "description": "Go structs with Avro and JSON tags",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2go", "args": ["--out", "{out}/go", "--avro-annotation", "--json-annotation"]}]
+    },
+    
+    # --- C++ ---
+    {
         "id": "struct-to-cpp",
         "title": "Structure -> C++",
-        "description": "C++ classes with modern C++ features",
+        "description": "C++ classes (no annotations)",
         "source_file": "inventory.struct.json",
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
         "conversions": [{"cmd": "s2cpp", "args": ["--out", "{out}/cpp"]}]
+    },
+    {
+        "id": "struct-to-cpp-json",
+        "title": "Structure -> C++ (JSON)",
+        "description": "C++ classes with nlohmann/json serialization",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2cpp", "args": ["--out", "{out}/cpp", "--json-annotation"]}]
     },
     
     # ============================================================
