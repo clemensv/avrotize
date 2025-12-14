@@ -3,7 +3,9 @@
 import json
 import sys
 from typing import Dict, List, Any, Optional
+import pyarrow as pa
 from pyiceberg.schema import Schema, NestedField
+from pyiceberg.io.pyarrow import PyArrowFileIO, schema_to_pyarrow
 from pyiceberg.types import (
     BooleanType,
     IntegerType,
@@ -109,8 +111,16 @@ class StructureToIcebergConverter:
         """Get the full name of a record type."""
         return f"{namespace}.{name}" if namespace else name
 
-    def convert_structure_to_iceberg(self, structure_schema_path: str, structure_record_type: Optional[str], output_path: str, emit_cloudevents_columns: bool=False):
-        """Convert a JSON Structure schema to an Iceberg schema."""
+    def convert_structure_to_iceberg(self, structure_schema_path: str, structure_record_type: Optional[str], output_path: str, emit_cloudevents_columns: bool=False, output_format: str="schema"):
+        """Convert a JSON Structure schema to an Iceberg schema.
+        
+        Args:
+            structure_schema_path: Path to the JSON Structure schema file
+            structure_record_type: Record type to convert (or None for the root)
+            output_path: Path to write the Iceberg schema
+            emit_cloudevents_columns: Whether to add CloudEvents columns
+            output_format: Output format - 'schema' for JSON (default), 'parquet' for binary PyArrow
+        """
         schema_file = structure_schema_path
         if not schema_file:
             print("Please specify the JSON Structure schema file")
@@ -180,22 +190,30 @@ class StructureToIcebergConverter:
         iceberg_schema = Schema(*iceberg_fields)
         print(f"Iceberg schema created: {iceberg_schema}")
 
-        # Write Iceberg schema as spec-compliant JSON (per Iceberg Table Spec Appendix C)
-        schema_json = {
-            "type": "struct",
-            "schema-id": 0,
-            "fields": [
-                {
-                    "id": field.field_id,
-                    "name": field.name,
-                    "required": field.required,
-                    "type": iceberg_type_to_json(field.field_type)
-                }
-                for field in iceberg_schema.fields
-            ]
-        }
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(schema_json, f, indent=2)
+        if output_format == "parquet":
+            # Write as binary PyArrow schema
+            arrow_schema = schema_to_pyarrow(iceberg_schema)
+            file_io = PyArrowFileIO()
+            output_file = file_io.new_output("file://" + output_path)
+            with output_file.create(overwrite=True) as f:
+                pa.output_stream(f).write(arrow_schema.serialize().to_pybytes())
+        else:
+            # Write Iceberg schema as spec-compliant JSON (per Iceberg Table Spec Appendix C)
+            schema_json = {
+                "type": "struct",
+                "schema-id": 0,
+                "fields": [
+                    {
+                        "id": field.field_id,
+                        "name": field.name,
+                        "required": field.required,
+                        "type": iceberg_type_to_json(field.field_type)
+                    }
+                    for field in iceberg_schema.fields
+                ]
+            }
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(schema_json, f, indent=2)
 
     def resolve_ref(self, ref: str) -> Dict[str, Any]:
         """Resolve a $ref reference."""
@@ -422,8 +440,16 @@ class StructureToIcebergConverter:
         return type_mapping.get(type_name, StringType())
 
 
-def convert_structure_to_iceberg(structure_schema_path, structure_record_type, output_path, emit_cloudevents_columns=False):
-    """Convert a JSON Structure schema to an Iceberg schema."""
+def convert_structure_to_iceberg(structure_schema_path, structure_record_type, output_path, emit_cloudevents_columns=False, output_format="schema"):
+    """Convert a JSON Structure schema to an Iceberg schema.
+    
+    Args:
+        structure_schema_path: Path to the JSON Structure schema file
+        structure_record_type: Record type to convert (or None for the root)
+        output_path: Path to write the Iceberg schema
+        emit_cloudevents_columns: Whether to add CloudEvents columns
+        output_format: Output format - 'schema' for JSON (default), 'parquet' for binary PyArrow
+    """
     converter = StructureToIcebergConverter()
     converter.convert_structure_to_iceberg(
-        structure_schema_path, structure_record_type, output_path, emit_cloudevents_columns)
+        structure_schema_path, structure_record_type, output_path, emit_cloudevents_columns, output_format)
