@@ -95,7 +95,7 @@ class TestIcebergSchemaValidation(unittest.TestCase):
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
         
-        convert_avro_to_iceberg(avro_path, None, iceberg_path, False)
+        convert_avro_to_iceberg(avro_path, None, iceberg_path, False, output_format="schema")
         
         with open(iceberg_path, "r", encoding="utf-8") as f:
             schema_json = json.load(f)
@@ -125,7 +125,7 @@ class TestIcebergSchemaValidation(unittest.TestCase):
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
         
-        convert_avro_to_iceberg(avro_path, None, iceberg_path, False)
+        convert_avro_to_iceberg(avro_path, None, iceberg_path, False, output_format="schema")
         
         # This will raise an exception if pyiceberg can't parse it
         schema = self._load_and_validate_iceberg_schema(iceberg_path)
@@ -143,7 +143,7 @@ class TestIcebergSchemaValidation(unittest.TestCase):
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
         
-        convert_avro_to_iceberg(avro_path, None, iceberg_path, False)
+        convert_avro_to_iceberg(avro_path, None, iceberg_path, False, output_format="schema")
         
         with open(iceberg_path, "r", encoding="utf-8") as f:
             schema_json = json.load(f)
@@ -177,7 +177,7 @@ class TestIcebergSchemaValidation(unittest.TestCase):
             os.makedirs(dir, exist_ok=True)
         
         convert_jsons_to_avro(jsons_path, avro_path)
-        convert_avro_to_iceberg(avro_path, None, iceberg_path, False)
+        convert_avro_to_iceberg(avro_path, None, iceberg_path, False, output_format="schema")
         
         with open(iceberg_path, "r", encoding="utf-8") as f:
             schema_json = json.load(f)
@@ -213,7 +213,7 @@ class TestIcebergSchemaValidation(unittest.TestCase):
             os.makedirs(dir, exist_ok=True)
         
         convert_jsons_to_avro(jsons_path, avro_path)
-        convert_avro_to_iceberg(avro_path, None, iceberg_path, False)
+        convert_avro_to_iceberg(avro_path, None, iceberg_path, False, output_format="schema")
         
         with open(iceberg_path, "r", encoding="utf-8") as f:
             schema_json = json.load(f)
@@ -251,7 +251,7 @@ class TestIcebergSchemaValidation(unittest.TestCase):
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
         
-        convert_avro_to_iceberg(avro_path, None, iceberg_path, emit_cloudevents_columns=True)
+        convert_avro_to_iceberg(avro_path, None, iceberg_path, emit_cloudevents_columns=True, output_format="schema")
         
         schema = self._load_and_validate_iceberg_schema(iceberg_path)
         
@@ -278,7 +278,7 @@ class TestIcebergSchemaValidation(unittest.TestCase):
             os.makedirs(dir, exist_ok=True)
         
         convert_jsons_to_avro(jsons_path, avro_path)
-        convert_avro_to_iceberg(avro_path, "HelmBlueGreenDeploy", iceberg_path, False)
+        convert_avro_to_iceberg(avro_path, "HelmBlueGreenDeploy", iceberg_path, False, output_format="schema")
         
         with open(iceberg_path, "r", encoding="utf-8") as f:
             schema_json = json.load(f)
@@ -317,7 +317,7 @@ class TestIcebergSchemaValidation(unittest.TestCase):
         if not os.path.exists(dir):
             os.makedirs(dir, exist_ok=True)
         
-        convert_avro_to_iceberg(avro_path, None, iceberg_path, False)
+        convert_avro_to_iceberg(avro_path, None, iceberg_path, False, output_format="schema")
         
         schema = self._load_and_validate_iceberg_schema(iceberg_path)
         
