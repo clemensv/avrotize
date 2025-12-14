@@ -404,5 +404,265 @@ class TestStructureToDB(unittest.TestCase):
                 os.remove(schema_path)
 
 
+class TestRedshiftSchemaGeneration(unittest.TestCase):
+    """Test cases specifically for Redshift schema generation and type mappings"""
+
+    def test_redshift_basic_schema(self):
+        """Test basic Redshift schema generation"""
+        schema = {
+            "type": "object",
+            "name": "RedshiftTest",
+            "properties": {
+                "id": {"type": "int32"},
+                "name": {"type": "string"},
+                "active": {"type": "boolean"}
+            },
+            "required": ["id"]
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "redshift_basic.struct.json")
+        sql_path = os.path.join(tempfile.gettempdir(), "redshift_basic.sql")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(schema, f)
+            
+            convert_structure_to_sql(schema_path, sql_path, "redshift", emit_cloudevents_columns=False)
+            
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            
+            # Verify basic Redshift DDL structure
+            self.assertIn("CREATE TABLE", sql_content)
+            self.assertIn('"RedshiftTest"', sql_content)
+            self.assertIn('"id"', sql_content)
+            self.assertIn('"name"', sql_content)
+            self.assertIn("INTEGER", sql_content)
+            self.assertIn("VARCHAR", sql_content)
+            self.assertIn("BOOLEAN", sql_content)
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+            if os.path.exists(sql_path):
+                os.remove(sql_path)
+
+    def test_redshift_super_type_for_complex_fields(self):
+        """Test that Redshift uses SUPER type for arrays, maps, and nested objects"""
+        schema = {
+            "type": "object",
+            "name": "SuperTypeTest",
+            "properties": {
+                "id": {"type": "int32"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "metadata": {"type": "map", "values": {"type": "string"}},
+                "nested_object": {
+                    "type": "object",
+                    "properties": {
+                        "inner_field": {"type": "string"}
+                    }
+                }
+            }
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "redshift_super.struct.json")
+        sql_path = os.path.join(tempfile.gettempdir(), "redshift_super.sql")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(schema, f)
+            
+            convert_structure_to_sql(schema_path, sql_path, "redshift", emit_cloudevents_columns=False)
+            
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            
+            # Redshift should use SUPER for complex types, not JSONB
+            self.assertIn("SUPER", sql_content)
+            self.assertNotIn("JSONB", sql_content, "Redshift should use SUPER, not JSONB")
+            
+            # Count SUPER occurrences - should be 3 (array, map, nested object)
+            super_count = sql_content.count("SUPER")
+            self.assertGreaterEqual(super_count, 3, 
+                f"Expected at least 3 SUPER types for complex fields, found {super_count}")
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+            if os.path.exists(sql_path):
+                os.remove(sql_path)
+
+    def test_redshift_vs_postgres_super_vs_jsonb(self):
+        """Test that Redshift uses SUPER while PostgreSQL uses JSONB for the same schema"""
+        schema = {
+            "type": "object",
+            "name": "CompareTypes",
+            "properties": {
+                "data": {"type": "array", "items": {"type": "string"}}
+            }
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "compare_types.struct.json")
+        redshift_path = os.path.join(tempfile.gettempdir(), "compare_redshift.sql")
+        postgres_path = os.path.join(tempfile.gettempdir(), "compare_postgres.sql")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(schema, f)
+            
+            convert_structure_to_sql(schema_path, redshift_path, "redshift", emit_cloudevents_columns=False)
+            convert_structure_to_sql(schema_path, postgres_path, "postgres", emit_cloudevents_columns=False)
+            
+            with open(redshift_path, "r", encoding="utf-8") as f:
+                redshift_sql = f.read()
+            with open(postgres_path, "r", encoding="utf-8") as f:
+                postgres_sql = f.read()
+            
+            # Redshift should use SUPER
+            self.assertIn("SUPER", redshift_sql)
+            self.assertNotIn("JSONB", redshift_sql)
+            
+            # PostgreSQL should use JSONB
+            self.assertIn("JSONB", postgres_sql)
+            self.assertNotIn("SUPER", postgres_sql)
+        finally:
+            for path in [schema_path, redshift_path, postgres_path]:
+                if os.path.exists(path):
+                    os.remove(path)
+
+    def test_redshift_all_primitive_types(self):
+        """Test all primitive type mappings for Redshift"""
+        schema = {
+            "type": "object",
+            "name": "AllTypes",
+            "properties": {
+                "bool_field": {"type": "boolean"},
+                "int8_field": {"type": "int8"},
+                "int16_field": {"type": "int16"},
+                "int32_field": {"type": "int32"},
+                "int64_field": {"type": "int64"},
+                "float_field": {"type": "float"},
+                "double_field": {"type": "double"},
+                "string_field": {"type": "string"},
+                "binary_field": {"type": "binary"},
+                "date_field": {"type": "date"},
+                "time_field": {"type": "time"},
+                "datetime_field": {"type": "datetime"},
+                "uuid_field": {"type": "uuid"}
+            }
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "redshift_alltypes.struct.json")
+        sql_path = os.path.join(tempfile.gettempdir(), "redshift_alltypes.sql")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(schema, f)
+            
+            convert_structure_to_sql(schema_path, sql_path, "redshift", emit_cloudevents_columns=False)
+            
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            
+            # Verify Redshift-compatible types
+            self.assertIn("BOOLEAN", sql_content)
+            self.assertIn("SMALLINT", sql_content)  # int8 and int16
+            self.assertIn("INTEGER", sql_content)   # int32
+            self.assertIn("BIGINT", sql_content)    # int64
+            self.assertIn("REAL", sql_content)      # float
+            self.assertIn("DOUBLE PRECISION", sql_content)  # double
+            self.assertIn("VARCHAR", sql_content)   # string
+            self.assertIn("DATE", sql_content)
+            self.assertIn("TIMESTAMP", sql_content)
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+            if os.path.exists(sql_path):
+                os.remove(sql_path)
+
+    def test_redshift_cloudevents_columns(self):
+        """Test CloudEvents columns are added correctly for Redshift"""
+        schema = {
+            "type": "object",
+            "name": "EventData",
+            "properties": {
+                "payload": {"type": "string"}
+            }
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "redshift_ce.struct.json")
+        sql_path = os.path.join(tempfile.gettempdir(), "redshift_ce.sql")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(schema, f)
+            
+            convert_structure_to_sql(schema_path, sql_path, "redshift", emit_cloudevents_columns=True)
+            
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            
+            # Verify CloudEvents columns
+            self.assertIn("___type", sql_content)
+            self.assertIn("___source", sql_content)
+            self.assertIn("___id", sql_content)
+            self.assertIn("___time", sql_content)
+            self.assertIn("___subject", sql_content)
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+            if os.path.exists(sql_path):
+                os.remove(sql_path)
+
+    def test_redshift_ddl_syntax_validity(self):
+        """Test that Redshift DDL has valid syntax structure"""
+        schema = {
+            "type": "object",
+            "name": "SyntaxTest",
+            "properties": {
+                "id": {"type": "int32"},
+                "name": {"type": "string"},
+                "items": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": ["id"]
+        }
+        
+        schema_path = os.path.join(tempfile.gettempdir(), "redshift_syntax.struct.json")
+        sql_path = os.path.join(tempfile.gettempdir(), "redshift_syntax.sql")
+        
+        try:
+            with open(schema_path, "w", encoding="utf-8") as f:
+                json.dump(schema, f)
+            
+            convert_structure_to_sql(schema_path, sql_path, "redshift", emit_cloudevents_columns=False)
+            
+            with open(sql_path, "r", encoding="utf-8") as f:
+                sql_content = f.read()
+            
+            # Validate basic DDL structure
+            # 1. Has CREATE TABLE statement
+            self.assertIn("CREATE TABLE", sql_content)
+            
+            # 2. Uses double quotes for identifiers (Redshift standard)
+            self.assertIn('"SyntaxTest"', sql_content)
+            
+            # 3. Each column definition has a type
+            lines = [l.strip() for l in sql_content.split('\n') if l.strip()]
+            for line in lines:
+                if '"id"' in line or '"name"' in line or '"items"' in line:
+                    # Column lines should have a type after the name
+                    parts = line.split()
+                    self.assertGreater(len(parts), 1, f"Column line should have type: {line}")
+            
+            # 4. Statement ends properly (semicolon or closing paren)
+            self.assertTrue(
+                sql_content.rstrip().endswith(';') or sql_content.rstrip().endswith(')'),
+                "DDL should end with semicolon or closing parenthesis"
+            )
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+            if os.path.exists(sql_path):
+                os.remove(sql_path)
+
+
 if __name__ == '__main__':
     unittest.main()
