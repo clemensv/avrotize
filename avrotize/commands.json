@@ -1152,9 +1152,9 @@
       {
         "name": "--format",
         "type": "str",
-        "help": "Output format: 'schema' for JSON (default), 'arrow' for binary Arrow IPC",
+        "help": "Output format: 'arrow' for binary Arrow IPC (default), 'schema' for JSON",
         "choices": ["schema", "arrow"],
-        "default": "schema",
+        "default": "arrow",
         "required": false
       }
     ],
@@ -1216,9 +1216,9 @@
       {
         "name": "--format",
         "type": "str",
-        "help": "Output format: 'schema' for JSON (default), 'arrow' for binary Arrow IPC",
+        "help": "Output format: 'arrow' for binary Arrow IPC (default), 'schema' for JSON",
         "choices": ["schema", "arrow"],
-        "default": "schema",
+        "default": "arrow",
         "required": false
       }
     ],

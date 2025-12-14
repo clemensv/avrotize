@@ -111,7 +111,7 @@ class StructureToIcebergConverter:
         """Get the full name of a record type."""
         return f"{namespace}.{name}" if namespace else name
 
-    def convert_structure_to_iceberg(self, structure_schema_path: str, structure_record_type: Optional[str], output_path: str, emit_cloudevents_columns: bool=False, output_format: str="schema"):
+    def convert_structure_to_iceberg(self, structure_schema_path: str, structure_record_type: Optional[str], output_path: str, emit_cloudevents_columns: bool=False, output_format: str="arrow"):
         """Convert a JSON Structure schema to an Iceberg schema.
         
         Args:
@@ -119,7 +119,7 @@ class StructureToIcebergConverter:
             structure_record_type: Record type to convert (or None for the root)
             output_path: Path to write the Iceberg schema
             emit_cloudevents_columns: Whether to add CloudEvents columns
-            output_format: Output format - 'schema' for JSON (default), 'parquet' for binary PyArrow
+            output_format: Output format - 'arrow' for binary Arrow IPC (default), 'schema' for JSON
         """
         schema_file = structure_schema_path
         if not schema_file:
@@ -440,7 +440,7 @@ class StructureToIcebergConverter:
         return type_mapping.get(type_name, StringType())
 
 
-def convert_structure_to_iceberg(structure_schema_path, structure_record_type, output_path, emit_cloudevents_columns=False, output_format="schema"):
+def convert_structure_to_iceberg(structure_schema_path, structure_record_type, output_path, emit_cloudevents_columns=False, output_format="arrow"):
     """Convert a JSON Structure schema to an Iceberg schema.
     
     Args:
@@ -448,7 +448,7 @@ def convert_structure_to_iceberg(structure_schema_path, structure_record_type, o
         structure_record_type: Record type to convert (or None for the root)
         output_path: Path to write the Iceberg schema
         emit_cloudevents_columns: Whether to add CloudEvents columns
-        output_format: Output format - 'schema' for JSON (default), 'parquet' for binary PyArrow
+        output_format: Output format - 'arrow' for binary Arrow IPC (default), 'schema' for JSON
     """
     converter = StructureToIcebergConverter()
     converter.convert_structure_to_iceberg(

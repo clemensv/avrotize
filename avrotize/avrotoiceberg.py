@@ -106,7 +106,7 @@ class AvroToIcebergConverter:
         """Get the full name of a record type."""
         return f"{namespace}.{name}" if namespace else name
 
-    def convert_avro_to_iceberg(self, avro_schema_path: str, avro_record_type: str, output_path: str, emit_cloudevents_columns: bool=False, output_format: str="schema"):
+    def convert_avro_to_iceberg(self, avro_schema_path: str, avro_record_type: str, output_path: str, emit_cloudevents_columns: bool=False, output_format: str="arrow"):
         """Convert an Avro schema to an Iceberg schema.
         
         Args:
@@ -114,7 +114,7 @@ class AvroToIcebergConverter:
             avro_record_type: Record type to convert (or None for the root)
             output_path: Path to write the Iceberg schema
             emit_cloudevents_columns: Whether to add CloudEvents columns
-            output_format: Output format - 'schema' for JSON (default), 'parquet' for binary PyArrow
+            output_format: Output format - 'arrow' for binary Arrow IPC (default), 'schema' for JSON
         """
         schema_file = avro_schema_path
         if not schema_file:
@@ -293,7 +293,7 @@ class AvroToIcebergConverter:
             return StringType()
 
 
-def convert_avro_to_iceberg(avro_schema_path, avro_record_type, output_path, emit_cloudevents_columns=False, output_format="schema"):
+def convert_avro_to_iceberg(avro_schema_path, avro_record_type, output_path, emit_cloudevents_columns=False, output_format="arrow"):
     """Convert an Avro schema to an Iceberg schema.
     
     Args:
@@ -301,7 +301,7 @@ def convert_avro_to_iceberg(avro_schema_path, avro_record_type, output_path, emi
         avro_record_type: Record type to convert (or None for the root)
         output_path: Path to write the Iceberg schema
         emit_cloudevents_columns: Whether to add CloudEvents columns
-        output_format: Output format - 'schema' for JSON (default), 'parquet' for binary PyArrow
+        output_format: Output format - 'arrow' for binary Arrow IPC (default), 'schema' for JSON
     """
     converter = AvroToIcebergConverter()
     converter.convert_avro_to_iceberg(
