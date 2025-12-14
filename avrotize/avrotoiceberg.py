@@ -3,7 +3,6 @@
 import json
 import sys
 from typing import Dict, List
-import pyarrow as pa
 from pyiceberg.schema import Schema, NestedField
 from pyiceberg.types import (
     BooleanType,
@@ -21,7 +20,6 @@ from pyiceberg.types import (
     MapType,
     StructType
 )
-from pyiceberg.io.pyarrow import PyArrowFileIO, schema_to_pyarrow
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 
@@ -96,14 +94,24 @@ class AvroToIcebergConverter:
             ])
 
         iceberg_schema = Schema(*iceberg_fields)
-        arrow_schema = schema_to_pyarrow(iceberg_schema)
-        print(f"Iceberg schema created: {arrow_schema}")
+        print(f"Iceberg schema created: {iceberg_schema}")
 
-        # Write to Iceberg table (for demonstration, using local file system)
-        file_io = PyArrowFileIO()
-        output_file = file_io.new_output("file://"+output_path)
-        with output_file.create(overwrite=True) as f:
-            pa.output_stream(f).write(arrow_schema.serialize().to_pybytes())
+        # Write Iceberg schema as readable JSON
+        schema_json = {
+            "type": "struct",
+            "schema-id": 0,
+            "fields": [
+                {
+                    "id": field.field_id,
+                    "name": field.name,
+                    "required": field.required,
+                    "type": str(field.field_type)
+                }
+                for field in iceberg_schema.fields
+            ]
+        }
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(schema_json, f, indent=2)
 
     def convert_avro_type_to_iceberg_type(self, avro_type):
         """Convert an Avro type to an Iceberg type."""

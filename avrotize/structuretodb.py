@@ -426,7 +426,7 @@ def structure_type_to_sql_type(structure_type: Any, dialect: str) -> str:
     type_map["sqlanywhere"] = type_map["sqlserver"].copy()
     type_map["bigquery"] = {k: v.replace("VARCHAR", "STRING").replace("JSONB", "STRING").replace("BYTEA", "BYTES") for k, v in type_map["postgres"].items()}
     type_map["snowflake"] = {k: v.replace("JSONB", "VARIANT").replace("BYTEA", "BINARY") for k, v in type_map["postgres"].items()}
-    type_map["redshift"] = type_map["postgres"].copy()
+    type_map["redshift"] = {k: v.replace("JSONB", "SUPER").replace("BYTEA", "VARBYTE") for k, v in type_map["postgres"].items()}
 
     # Handle type resolution
     if isinstance(structure_type, str):
