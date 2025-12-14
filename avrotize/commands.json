@@ -1152,7 +1152,8 @@
       {
         "name": "--format",
         "type": "str",
-        "help": "Output format: 'schema' for JSON (default), 'parquet' for binary PyArrow",
+        "help": "Output format: 'schema' for JSON (default), 'arrow' for binary Arrow IPC",
+        "choices": ["schema", "arrow"],
         "default": "schema",
         "required": false
       }
@@ -1215,7 +1216,8 @@
       {
         "name": "--format",
         "type": "str",
-        "help": "Output format: 'schema' for JSON (default), 'parquet' for binary PyArrow",
+        "help": "Output format: 'schema' for JSON (default), 'arrow' for binary Arrow IPC",
+        "choices": ["schema", "arrow"],
         "default": "schema",
         "required": false
       }

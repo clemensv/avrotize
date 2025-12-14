@@ -62,13 +62,13 @@ class TestStructureToIceberg(unittest.TestCase):
         # Ensure destination directory exists
         os.makedirs(os.path.dirname(iceberg_full_path), exist_ok=True)
 
-        # Perform conversion with parquet format for binary comparison with reference files
+        # Perform conversion with arrow format for binary comparison with reference files
         convert_structure_to_iceberg(
             struct_full_path,
             record_type,
             iceberg_full_path,
             emit_cloudevents,
-            output_format="parquet"
+            output_format="arrow"
         )
 
         # If a reference file exists, compare generated output against it
@@ -127,8 +127,8 @@ class TestStructureToIceberg(unittest.TestCase):
         # Ensure destination directory exists
         os.makedirs(os.path.dirname(iceberg_full_path), exist_ok=True)
 
-        # Perform conversion with CloudEvents columns (using parquet format for binary output)
-        convert_structure_to_iceberg(struct_full_path, None, iceberg_full_path, True, output_format="parquet")
+        # Perform conversion with CloudEvents columns (using arrow format for binary output)
+        convert_structure_to_iceberg(struct_full_path, None, iceberg_full_path, True, output_format="arrow")
 
         # Read the generated schema
         with open(iceberg_full_path, 'rb') as f:

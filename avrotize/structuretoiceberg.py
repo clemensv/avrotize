@@ -190,7 +190,7 @@ class StructureToIcebergConverter:
         iceberg_schema = Schema(*iceberg_fields)
         print(f"Iceberg schema created: {iceberg_schema}")
 
-        if output_format == "parquet":
+        if output_format == "arrow":
             # Write as binary PyArrow schema
             arrow_schema = schema_to_pyarrow(iceberg_schema)
             file_io = PyArrowFileIO()
