@@ -1115,7 +1115,8 @@
         "avro_schema_path": "input_file_path",
         "output_path": "output_file_path",
         "avro_record_type": "args.record_type",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns",
+        "output_format": "args.format"
       }
     },
     "extensions": [
@@ -1147,6 +1148,14 @@
         "help": "Add CloudEvents columns to the Iceberg schema",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--format",
+        "type": "str",
+        "help": "Output format: 'arrow' for binary Arrow IPC (default), 'schema' for JSON",
+        "choices": ["schema", "arrow"],
+        "default": "arrow",
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}.iceberg",
@@ -1169,7 +1178,8 @@
         "structure_schema_path": "input_file_path",
         "output_path": "output_file_path",
         "structure_record_type": "args.record_type",
-        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns",
+        "output_format": "args.format"
       }
     },
     "extensions": [
@@ -1201,6 +1211,14 @@
         "type": "bool",
         "help": "Add CloudEvents columns to the Iceberg schema",
         "default": false,
+        "required": false
+      },
+      {
+        "name": "--format",
+        "type": "str",
+        "help": "Output format: 'arrow' for binary Arrow IPC (default), 'schema' for JSON",
+        "choices": ["schema", "arrow"],
+        "default": "arrow",
         "required": false
       }
     ],

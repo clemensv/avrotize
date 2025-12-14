@@ -628,7 +628,7 @@ Conversion notes:
 ### Convert Avrotize Schema to Iceberg schema
 
 ```bash
-avrotize a2ib <path_to_avro_schema_file> [--out <path_to_iceberg_schema_file>] [--record-type <record-type-from-avro>] [--emit-cloudevents-columns]
+avrotize a2ib <path_to_avro_schema_file> [--out <path_to_iceberg_schema_file>] [--record-type <record-type-from-avro>] [--emit-cloudevents-columns] [--format schema|arrow]
 ```
 
 Parameters:
@@ -637,6 +637,7 @@ Parameters:
 - `--out`: The path to the Iceberg schema file to write the conversion result to. If omitted, the output is directed to stdout.
 - `--record-type`: (optional) The name of the Avro record type to convert to an Iceberg schema.
 - `--emit-cloudevents-columns`: (optional) If set, the tool will add [CloudEvents](https://cloudevents.io) attribute columns to the Iceberg schema: `__id`, `__source`, `__subject`, `__type`, and `__time`.
+- `--format`: (optional) Output format. `schema` (default) outputs JSON per the [Iceberg Table Spec Appendix C](https://iceberg.apache.org/spec/#appendix-c-json-serialization). `arrow` outputs a binary Arrow IPC serialized schema.
 
 Conversion notes:
 
@@ -647,7 +648,7 @@ Conversion notes:
 ### Convert JSON Structure to Iceberg schema
 
 ```bash
-avrotize s2ib <path_to_structure_schema_file> [--out <path_to_iceberg_schema_file>] [--record-type <record-type-from-structure>] [--emit-cloudevents-columns]
+avrotize s2ib <path_to_structure_schema_file> [--out <path_to_iceberg_schema_file>] [--record-type <record-type-from-structure>] [--emit-cloudevents-columns] [--format schema|arrow]
 ```
 
 Parameters:
@@ -656,6 +657,7 @@ Parameters:
 - `--out`: The path to the Iceberg schema file to write the conversion result to. If omitted, the output is directed to stdout.
 - `--record-type`: (optional) The name of the record type in definitions to convert to an Iceberg schema.
 - `--emit-cloudevents-columns`: (optional) If set, the tool will add [CloudEvents](https://cloudevents.io) attribute columns to the Iceberg schema: `___id`, `___source`, `___subject`, `___type`, and `___time`.
+- `--format`: (optional) Output format. `schema` (default) outputs JSON per the [Iceberg Table Spec Appendix C](https://iceberg.apache.org/spec/#appendix-c-json-serialization). `arrow` outputs a binary Arrow IPC serialized schema.
 
 Conversion notes:
 

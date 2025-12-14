@@ -5,6 +5,7 @@ import sys
 from typing import Dict, List
 import pyarrow as pa
 from pyiceberg.schema import Schema, NestedField
+from pyiceberg.io.pyarrow import PyArrowFileIO, schema_to_pyarrow
 from pyiceberg.types import (
     BooleanType,
     IntegerType,
@@ -21,9 +22,72 @@ from pyiceberg.types import (
     MapType,
     StructType
 )
-from pyiceberg.io.pyarrow import PyArrowFileIO, schema_to_pyarrow
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
+
+
+def iceberg_type_to_json(iceberg_type) -> str | Dict:
+    """
+    Serialize an Iceberg type to JSON per Iceberg Table Spec Appendix C.
+    
+    Primitive types are serialized as strings. Complex types (struct, list, map)
+    are serialized as JSON objects with their nested structure.
+    """
+    # Primitive types map to simple strings
+    if isinstance(iceberg_type, BooleanType):
+        return "boolean"
+    elif isinstance(iceberg_type, IntegerType):
+        return "int"
+    elif isinstance(iceberg_type, LongType):
+        return "long"
+    elif isinstance(iceberg_type, FloatType):
+        return "float"
+    elif isinstance(iceberg_type, DoubleType):
+        return "double"
+    elif isinstance(iceberg_type, StringType):
+        return "string"
+    elif isinstance(iceberg_type, BinaryType):
+        return "binary"
+    elif isinstance(iceberg_type, DateType):
+        return "date"
+    elif isinstance(iceberg_type, TimestampType):
+        return "timestamp"
+    elif isinstance(iceberg_type, DecimalType):
+        return f"decimal({iceberg_type.precision},{iceberg_type.scale})"
+    elif isinstance(iceberg_type, FixedType):
+        return f"fixed[{iceberg_type.length}]"
+    elif isinstance(iceberg_type, ListType):
+        return {
+            "type": "list",
+            "element-id": iceberg_type.element_id,
+            "element-required": iceberg_type.element_required,
+            "element": iceberg_type_to_json(iceberg_type.element_type)
+        }
+    elif isinstance(iceberg_type, MapType):
+        return {
+            "type": "map",
+            "key-id": iceberg_type.key_id,
+            "key": iceberg_type_to_json(iceberg_type.key_type),
+            "value-id": iceberg_type.value_id,
+            "value-required": iceberg_type.value_required,
+            "value": iceberg_type_to_json(iceberg_type.value_type)
+        }
+    elif isinstance(iceberg_type, StructType):
+        return {
+            "type": "struct",
+            "fields": [
+                {
+                    "id": field.field_id,
+                    "name": field.name,
+                    "required": field.required,
+                    "type": iceberg_type_to_json(field.field_type)
+                }
+                for field in iceberg_type.fields
+            ]
+        }
+    else:
+        # Fallback for unknown types
+        return str(iceberg_type)
 
 
 class AvroToIcebergConverter:
@@ -42,8 +106,16 @@ class AvroToIcebergConverter:
         """Get the full name of a record type."""
         return f"{namespace}.{name}" if namespace else name
 
-    def convert_avro_to_iceberg(self, avro_schema_path: str, avro_record_type: str, output_path: str, emit_cloudevents_columns: bool=False):
-        """Convert an Avro schema to an Iceberg schema."""
+    def convert_avro_to_iceberg(self, avro_schema_path: str, avro_record_type: str, output_path: str, emit_cloudevents_columns: bool=False, output_format: str="arrow"):
+        """Convert an Avro schema to an Iceberg schema.
+        
+        Args:
+            avro_schema_path: Path to the Avro schema file
+            avro_record_type: Record type to convert (or None for the root)
+            output_path: Path to write the Iceberg schema
+            emit_cloudevents_columns: Whether to add CloudEvents columns
+            output_format: Output format - 'arrow' for binary Arrow IPC (default), 'schema' for JSON
+        """
         schema_file = avro_schema_path
         if not schema_file:
             print("Please specify the avro schema file")
@@ -96,14 +168,32 @@ class AvroToIcebergConverter:
             ])
 
         iceberg_schema = Schema(*iceberg_fields)
-        arrow_schema = schema_to_pyarrow(iceberg_schema)
-        print(f"Iceberg schema created: {arrow_schema}")
+        print(f"Iceberg schema created: {iceberg_schema}")
 
-        # Write to Iceberg table (for demonstration, using local file system)
-        file_io = PyArrowFileIO()
-        output_file = file_io.new_output("file://"+output_path)
-        with output_file.create(overwrite=True) as f:
-            pa.output_stream(f).write(arrow_schema.serialize().to_pybytes())
+        if output_format == "arrow":
+            # Write as binary PyArrow schema
+            arrow_schema = schema_to_pyarrow(iceberg_schema)
+            file_io = PyArrowFileIO()
+            output_file = file_io.new_output("file://" + output_path)
+            with output_file.create(overwrite=True) as f:
+                pa.output_stream(f).write(arrow_schema.serialize().to_pybytes())
+        else:
+            # Write Iceberg schema as spec-compliant JSON (per Iceberg Table Spec Appendix C)
+            schema_json = {
+                "type": "struct",
+                "schema-id": 0,
+                "fields": [
+                    {
+                        "id": field.field_id,
+                        "name": field.name,
+                        "required": field.required,
+                        "type": iceberg_type_to_json(field.field_type)
+                    }
+                    for field in iceberg_schema.fields
+                ]
+            }
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(schema_json, f, indent=2)
 
     def convert_avro_type_to_iceberg_type(self, avro_type):
         """Convert an Avro type to an Iceberg type."""
@@ -203,8 +293,16 @@ class AvroToIcebergConverter:
             return StringType()
 
 
-def convert_avro_to_iceberg(avro_schema_path, avro_record_type, output_path, emit_cloudevents_columns=False):
-    """Convert an Avro schema to an Iceberg schema."""
+def convert_avro_to_iceberg(avro_schema_path, avro_record_type, output_path, emit_cloudevents_columns=False, output_format="arrow"):
+    """Convert an Avro schema to an Iceberg schema.
+    
+    Args:
+        avro_schema_path: Path to the Avro schema file
+        avro_record_type: Record type to convert (or None for the root)
+        output_path: Path to write the Iceberg schema
+        emit_cloudevents_columns: Whether to add CloudEvents columns
+        output_format: Output format - 'arrow' for binary Arrow IPC (default), 'schema' for JSON
+    """
     converter = AvroToIcebergConverter()
     converter.convert_avro_to_iceberg(
-        avro_schema_path, avro_record_type, output_path, emit_cloudevents_columns)
+        avro_schema_path, avro_record_type, output_path, emit_cloudevents_columns, output_format)
