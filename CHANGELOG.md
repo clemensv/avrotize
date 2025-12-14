@@ -2,6 +2,20 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.0.2] - 2025-12-14
+
+### Fixed
+
+- **Redshift SUPER type**: Use `SUPER` type for Redshift instead of `JSONB` (Redshift doesn't support JSONB) in `s2db` command
+- **Iceberg schema output**: Output spec-compliant JSON schema format per Appendix C instead of binary format
+
+### Added
+
+- **Iceberg --format option**: New `--format` flag for Iceberg converters (`a2ib`, `s2ib`) to choose between:
+  - `arrow` (default): Arrow IPC schema format for backward compatibility
+  - `schema`: Human-readable JSON schema format per Iceberg Table Spec Appendix C
+- **pyiceberg validation tests**: Comprehensive tests verifying Iceberg schema output can be parsed by `pyiceberg`
+
 ## [3.0.0] - 2025-12-13
 
 ### 🚀 Major New Feature: JSON Structure Schema Support
