@@ -24,6 +24,70 @@ from pyiceberg.types import (
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 
 
+def iceberg_type_to_json(iceberg_type) -> str | Dict:
+    """
+    Serialize an Iceberg type to JSON per Iceberg Table Spec Appendix C.
+    
+    Primitive types are serialized as strings. Complex types (struct, list, map)
+    are serialized as JSON objects with their nested structure.
+    """
+    # Primitive types map to simple strings
+    if isinstance(iceberg_type, BooleanType):
+        return "boolean"
+    elif isinstance(iceberg_type, IntegerType):
+        return "int"
+    elif isinstance(iceberg_type, LongType):
+        return "long"
+    elif isinstance(iceberg_type, FloatType):
+        return "float"
+    elif isinstance(iceberg_type, DoubleType):
+        return "double"
+    elif isinstance(iceberg_type, StringType):
+        return "string"
+    elif isinstance(iceberg_type, BinaryType):
+        return "binary"
+    elif isinstance(iceberg_type, DateType):
+        return "date"
+    elif isinstance(iceberg_type, TimestampType):
+        return "timestamp"
+    elif isinstance(iceberg_type, DecimalType):
+        return f"decimal({iceberg_type.precision},{iceberg_type.scale})"
+    elif isinstance(iceberg_type, FixedType):
+        return f"fixed[{iceberg_type.length}]"
+    elif isinstance(iceberg_type, ListType):
+        return {
+            "type": "list",
+            "element-id": iceberg_type.element_id,
+            "element-required": iceberg_type.element_required,
+            "element": iceberg_type_to_json(iceberg_type.element_type)
+        }
+    elif isinstance(iceberg_type, MapType):
+        return {
+            "type": "map",
+            "key-id": iceberg_type.key_id,
+            "key": iceberg_type_to_json(iceberg_type.key_type),
+            "value-id": iceberg_type.value_id,
+            "value-required": iceberg_type.value_required,
+            "value": iceberg_type_to_json(iceberg_type.value_type)
+        }
+    elif isinstance(iceberg_type, StructType):
+        return {
+            "type": "struct",
+            "fields": [
+                {
+                    "id": field.field_id,
+                    "name": field.name,
+                    "required": field.required,
+                    "type": iceberg_type_to_json(field.field_type)
+                }
+                for field in iceberg_type.fields
+            ]
+        }
+    else:
+        # Fallback for unknown types
+        return str(iceberg_type)
+
+
 class AvroToIcebergConverter:
     """Class to convert Avro schema to Iceberg schema."""
 
@@ -96,7 +160,7 @@ class AvroToIcebergConverter:
         iceberg_schema = Schema(*iceberg_fields)
         print(f"Iceberg schema created: {iceberg_schema}")
 
-        # Write Iceberg schema as readable JSON
+        # Write Iceberg schema as spec-compliant JSON (per Iceberg Table Spec Appendix C)
         schema_json = {
             "type": "struct",
             "schema-id": 0,
@@ -105,7 +169,7 @@ class AvroToIcebergConverter:
                     "id": field.field_id,
                     "name": field.name,
                     "required": field.required,
-                    "type": str(field.field_type)
+                    "type": iceberg_type_to_json(field.field_type)
                 }
                 for field in iceberg_schema.fields
             ]
