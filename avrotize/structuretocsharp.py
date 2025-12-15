@@ -1743,6 +1743,9 @@ class StructureToCSharp:
             self.generate_tuple_converter(output_dir)
             self.generate_json_structure_converters(output_dir)
         
+        # Generate Option<T> class if needed
+        self.generate_option_class(output_dir)
+        
         # Generate tests
         self.generate_tests(output_dir)
         
@@ -2122,6 +2125,30 @@ class StructureToCSharp:
         
         with open(converter_file_path, 'w', encoding='utf-8') as converter_file:
             converter_file.write(converter_definition)
+
+    def generate_option_class(self, output_dir: str) -> None:
+        """ Generates Option<T> class for optional properties when use_optional is enabled """
+        if not self.use_optional:
+            return  # Not using Option<T> pattern
+
+        # Convert base namespace to PascalCase for consistency with other generated classes
+        namespace_pascal = pascal(self.base_namespace)
+        
+        # Generate the Option class
+        option_definition = process_template(
+            "structuretocsharp/option.cs.jinja",
+            namespace=namespace_pascal
+        )
+
+        # Write to the same directory structure as other classes (using PascalCase path)
+        directory_path = os.path.join(
+            output_dir, os.path.join('src', namespace_pascal.replace('.', os.sep)))
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path, exist_ok=True)
+        option_file_path = os.path.join(directory_path, "Option.cs")
+        
+        with open(option_file_path, 'w', encoding='utf-8') as option_file:
+            option_file.write(option_definition)
 
     def generate_instance_serializer(self, output_dir: str) -> None:
         """ Generates InstanceSerializer.cs that creates instances and serializes them to JSON """

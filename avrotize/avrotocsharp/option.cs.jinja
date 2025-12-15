@@ -1,0 +1,159 @@
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+{% if namespace %}
+namespace {{ namespace }}
+{
+{% endif %}
+{% set ind=4 if namespace else 0 %}
+{% filter indent(width=ind, first=True) %}
+/// <summary>
+/// Represents an optional value wrapper that tracks whether a value has been set.
+/// This allows distinguishing between null (explicitly set to null) and unset (not provided).
+/// </summary>
+/// <typeparam name="T">The type of the value</typeparam>
+public struct Option<T>
+{
+    private T? _value;
+    private bool _isSet;
+
+    /// <summary>
+    /// Gets or sets whether the value has been explicitly set (either to null or a value)
+    /// </summary>
+    [JsonIgnore]
+    public bool IsSet
+    {
+        get => _isSet;
+        set => _isSet = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the underlying value
+    /// </summary>
+    [JsonIgnore]
+    public T? Value
+    {
+        get => _value;
+        set
+        {
+            _value = value;
+            _isSet = true;
+        }
+    }
+
+    /// <summary>
+    /// Creates an unset Option
+    /// </summary>
+    public Option()
+    {
+        _value = default;
+        _isSet = false;
+    }
+
+    /// <summary>
+    /// Creates an Option with a value
+    /// </summary>
+    /// <param name="value">The value to wrap</param>
+    public Option(T? value)
+    {
+        _value = value;
+        _isSet = true;
+    }
+
+    /// <summary>
+    /// Implicitly converts a value to an Option
+    /// </summary>
+    public static implicit operator Option<T>(T? value)
+    {
+        return new Option<T>(value);
+    }
+
+    /// <summary>
+    /// Explicitly converts an Option to its value
+    /// </summary>
+    public static explicit operator T?(Option<T> option)
+    {
+        return option._value;
+    }
+
+    /// <summary>
+    /// Gets the value if set, otherwise returns the default value
+    /// </summary>
+    public T? GetValueOrDefault(T? defaultValue = default)
+    {
+        return _isSet ? _value : defaultValue;
+    }
+
+    /// <summary>
+    /// Returns a string representation of the Option
+    /// </summary>
+    public override string ToString()
+    {
+        if (!_isSet) return "<not set>";
+        if (_value == null) return "null";
+        return _value.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Checks equality with another Option
+    /// </summary>
+    public override bool Equals(object? obj)
+    {
+        if (obj is not Option<T> other) return false;
+        if (_isSet != other._isSet) return false;
+        if (!_isSet) return true; // Both unset
+        return EqualityComparer<T?>.Default.Equals(_value, other._value);
+    }
+
+    /// <summary>
+    /// Gets the hash code
+    /// </summary>
+    public override int GetHashCode()
+    {
+        if (!_isSet) return 0;
+        return HashCode.Combine(_isSet, _value);
+    }
+}
+
+/// <summary>
+/// JSON converter for Option&lt;T&gt; that handles serialization and deserialization
+/// </summary>
+public class OptionJsonConverter<T> : JsonConverter<Option<T>>
+{
+    /// <inheritdoc/>
+    public override Option<T> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return new Option<T>(default(T));
+        }
+        
+        var value = JsonSerializer.Deserialize<T>(ref reader, options);
+        return new Option<T>(value);
+    }
+
+    /// <inheritdoc/>
+    public override void Write(Utf8JsonWriter writer, Option<T> value, JsonSerializerOptions options)
+    {
+        if (!value.IsSet)
+        {
+            // Skip writing the property entirely if not set
+            return;
+        }
+        
+        if (value.Value == null)
+        {
+            writer.WriteNullValue();
+        }
+        else
+        {
+            JsonSerializer.Serialize(writer, value.Value, options);
+        }
+    }
+}
+{% endfilter %}
+{% if namespace %}
+}
+{% endif %}
