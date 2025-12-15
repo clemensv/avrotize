@@ -224,10 +224,12 @@ class TestAvroToTypeScript(unittest.TestCase):
         # Check for essential type declarations
         self.assertIn("declare module 'avro-js'", content,
                      "Type definition should declare the avro-js module")
-        self.assertIn("export class Type", content,
-                     "Type definition should export the Type class")
-        self.assertIn("export function parse", content,
-                     "Type definition should export the parse function")
+        self.assertIn("export interface Type", content,
+                     "Type definition should export the Type interface")
+        self.assertIn("parse(schema: string | any, options?: any): Type", content,
+                     "Type definition should include the parse function in the Avro interface")
+        self.assertIn("export default avro", content,
+                     "Type definition should export default avro object")
         
         # Test without avro_annotation - file should NOT be generated
         ts_path_no_avro = os.path.join(tempfile.gettempdir(), "avrotize", "address-ts-no-avro-types-test")
