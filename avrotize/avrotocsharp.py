@@ -853,6 +853,30 @@ class AvroToCSharp:
                 file_content += definition
             file.write(file_content)
 
+    def generate_option_class(self, output_dir: str) -> None:
+        """ Generates Option<T> class for optional properties when use_optional is enabled """
+        if not self.use_optional:
+            return  # Not using Option<T> pattern
+
+        # Convert base namespace to PascalCase for consistency with other generated classes
+        namespace_pascal = pascal(self.base_namespace)
+        
+        # Generate the Option class
+        option_definition = process_template(
+            "avrotocsharp/option.cs.jinja",
+            namespace=namespace_pascal
+        )
+
+        # Write to the same directory structure as other classes (using PascalCase path)
+        directory_path = os.path.join(
+            output_dir, os.path.join('src', namespace_pascal.replace('.', os.sep)))
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path, exist_ok=True)
+        option_file_path = os.path.join(directory_path, "Option.cs")
+        
+        with open(option_file_path, 'w', encoding='utf-8') as option_file:
+            option_file.write(option_definition)
+
     def generate_tests(self, output_dir: str) -> None:
         """ Generates unit tests for all the generated C# classes and enums """
         test_directory_path = os.path.join(output_dir, "test")
@@ -1102,6 +1126,10 @@ class AvroToCSharp:
         self.output_dir = output_dir
         for avro_schema in (avs for avs in schema if isinstance(avs, dict)):
             self.generate_class_or_enum(avro_schema, '')
+        
+        # Generate Option<T> class if needed
+        self.generate_option_class(output_dir)
+        
         self.generate_tests(output_dir)
 
     def convert(self, avro_schema_path: str, output_dir: str):
