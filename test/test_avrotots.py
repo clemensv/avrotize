@@ -224,10 +224,12 @@ class TestAvroToTypeScript(unittest.TestCase):
         # Check for essential type declarations
         self.assertIn("declare module 'avro-js'", content,
                      "Type definition should declare the avro-js module")
-        self.assertIn("export class Type", content,
-                     "Type definition should export the Type class")
-        self.assertIn("export function parse", content,
-                     "Type definition should export the parse function")
+        self.assertIn("export interface Type", content,
+                     "Type definition should export the Type interface")
+        self.assertIn("parse(schema: string | any, options?: any): Type", content,
+                     "Type definition should include the parse function in the Avro interface")
+        self.assertIn("export default avro", content,
+                     "Type definition should export default avro object")
         
         # Test without avro_annotation - file should NOT be generated
         ts_path_no_avro = os.path.join(tempfile.gettempdir(), "avrotize", "address-ts-no-avro-types-test")
@@ -403,3 +405,278 @@ process.exit(0);
         
         self.assertIn('SUCCESS', result.stdout,
             f"Test script should report success. Output: {result.stdout}")
+
+    def test_typescript_commonjs_runtime(self):
+        """
+        Test that generated TypeScript code works with CommonJS module system.
+        Verifies compatibility with projects using CommonJS instead of ESM.
+        """
+        import subprocess
+        
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-ts-cjs-runtime")
+        
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+        os.makedirs(ts_path, exist_ok=True)
+        
+        # Generate TypeScript with Avro annotations
+        convert_avro_to_typescript(avro_path, ts_path, "addresstypes", 
+                                   typedjson_annotation=False, 
+                                   avro_annotation=True)
+        
+        # Modify package.json to use CommonJS (remove "type": "module")
+        package_json_path = os.path.join(ts_path, 'package.json')
+        with open(package_json_path, 'r', encoding='utf-8') as f:
+            package_json = json.load(f)
+        package_json.pop('type', None)  # Remove "type": "module" for CommonJS
+        with open(package_json_path, 'w', encoding='utf-8') as f:
+            json.dump(package_json, f, indent=2)
+        
+        # Modify tsconfig.json to use CommonJS
+        tsconfig_path = os.path.join(ts_path, 'tsconfig.json')
+        with open(tsconfig_path, 'r', encoding='utf-8') as f:
+            tsconfig = json.load(f)
+        tsconfig['compilerOptions']['module'] = 'CommonJS'
+        with open(tsconfig_path, 'w', encoding='utf-8') as f:
+            json.dump(tsconfig, f, indent=2)
+        
+        # Install and build
+        use_shell = sys.platform == 'win32'
+        result = subprocess.run(['npm', 'install'], cwd=ts_path,
+                               capture_output=True, text=True, shell=use_shell)
+        self.assertEqual(result.returncode, 0, f"npm install failed: {result.stderr}")
+        
+        result = subprocess.run(['npm', 'run', 'build'], cwd=ts_path,
+                               capture_output=True, text=True, shell=use_shell)
+        self.assertEqual(result.returncode, 0, f"TypeScript build failed: {result.stderr}")
+        
+        # Create CommonJS test script
+        test_script = '''
+const { Addresstypes_Example_Com_Record } = require('./dist/index.js');
+
+console.log('Testing CommonJS module...');
+
+if (typeof Addresstypes_Example_Com_Record.AvroType === 'undefined') {
+    console.error('FAIL: AvroType is undefined');
+    process.exit(1);
+}
+
+if (typeof Addresstypes_Example_Com_Record.AvroType.toBuffer !== 'function') {
+    console.error('FAIL: toBuffer is not a function');
+    process.exit(1);
+}
+
+console.log('SUCCESS: CommonJS module works correctly');
+process.exit(0);
+'''
+        test_script_path = os.path.join(ts_path, 'test-cjs.js')
+        with open(test_script_path, 'w', encoding='utf-8') as f:
+            f.write(test_script)
+        
+        result = subprocess.run(['node', 'test-cjs.js'], cwd=ts_path,
+                               capture_output=True, text=True, shell=use_shell)
+        
+        self.assertEqual(result.returncode, 0,
+            f"CommonJS test failed.\nstdout: {result.stdout}\nstderr: {result.stderr}")
+        self.assertIn('SUCCESS', result.stdout)
+
+    def test_plain_javascript_usage(self):
+        """
+        Test that generated code can be used directly from plain JavaScript
+        without TypeScript compilation.
+        """
+        import subprocess
+        
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-plain-js")
+        
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+        os.makedirs(ts_path, exist_ok=True)
+        
+        # Generate TypeScript
+        convert_avro_to_typescript(avro_path, ts_path, "addresstypes",
+                                   typedjson_annotation=False,
+                                   avro_annotation=True)
+        
+        # Install dependencies and build
+        use_shell = sys.platform == 'win32'
+        result = subprocess.run(['npm', 'install'], cwd=ts_path,
+                               capture_output=True, text=True, shell=use_shell)
+        self.assertEqual(result.returncode, 0)
+        
+        result = subprocess.run(['npm', 'run', 'build'], cwd=ts_path,
+                               capture_output=True, text=True, shell=use_shell)
+        self.assertEqual(result.returncode, 0)
+        
+        # Test using the compiled JavaScript directly (no TS in consuming code)
+        js_test_script = '''
+// Plain JavaScript consumer - no TypeScript involved
+import { Addresstypes_Example_Com_Record as Record } from './dist/index.js';
+
+console.log('Testing plain JavaScript usage...');
+
+// Create instance using the static factory
+const instance = Record.createInstance();
+console.log('Instance created:', instance.constructor.name);
+
+// Verify avro functionality is available
+if (typeof Record.AvroType === 'undefined') {
+    console.error('FAIL: AvroType not available');
+    process.exit(1);
+}
+
+// Verify AvroType has expected methods
+if (typeof Record.AvroType.toBuffer !== 'function') {
+    console.error('FAIL: toBuffer method not available');
+    process.exit(1);
+}
+
+if (typeof Record.AvroType.fromBuffer !== 'function') {
+    console.error('FAIL: fromBuffer method not available');
+    process.exit(1);
+}
+
+console.log('SUCCESS: Plain JavaScript usage works');
+process.exit(0);
+'''
+        test_path = os.path.join(ts_path, 'test-plain-js.mjs')
+        with open(test_path, 'w', encoding='utf-8') as f:
+            f.write(js_test_script)
+        
+        result = subprocess.run(['node', 'test-plain-js.mjs'], cwd=ts_path,
+                               capture_output=True, text=True, shell=use_shell)
+        
+        self.assertEqual(result.returncode, 0,
+            f"Plain JS test failed.\nstdout: {result.stdout}\nstderr: {result.stderr}")
+        self.assertIn('SUCCESS', result.stdout)
+
+    def test_different_typescript_targets(self):
+        """
+        Test that generated code compiles with different TypeScript target versions
+        (ES2015, ES2020, ES2022, ESNext).
+        """
+        import subprocess
+        
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
+        
+        # Test with different ES targets
+        targets = ['ES2015', 'ES2020', 'ES2022', 'ESNext']
+        use_shell = sys.platform == 'win32'
+        
+        for target in targets:
+            with self.subTest(target=target):
+                ts_path = os.path.join(tempfile.gettempdir(), "avrotize", f"address-ts-{target.lower()}")
+                
+                if os.path.exists(ts_path):
+                    shutil.rmtree(ts_path, ignore_errors=True)
+                os.makedirs(ts_path, exist_ok=True)
+                
+                # Generate TypeScript
+                convert_avro_to_typescript(avro_path, ts_path, "addresstypes",
+                                           typedjson_annotation=False,
+                                           avro_annotation=True)
+                
+                # Modify tsconfig to use different target
+                tsconfig_path = os.path.join(ts_path, 'tsconfig.json')
+                with open(tsconfig_path, 'r', encoding='utf-8') as f:
+                    tsconfig = json.load(f)
+                tsconfig['compilerOptions']['target'] = target
+                with open(tsconfig_path, 'w', encoding='utf-8') as f:
+                    json.dump(tsconfig, f, indent=2)
+                
+                # Install and build
+                result = subprocess.run(['npm', 'install'], cwd=ts_path,
+                                       capture_output=True, text=True, shell=use_shell)
+                self.assertEqual(result.returncode, 0,
+                    f"npm install failed for {target}: {result.stderr}")
+                
+                result = subprocess.run(['npm', 'run', 'build'], cwd=ts_path,
+                                       capture_output=True, text=True, shell=use_shell)
+                self.assertEqual(result.returncode, 0,
+                    f"Build failed for {target}.\nstderr: {result.stderr}\nstdout: {result.stdout}")
+                
+                # Quick runtime verification
+                test_script = '''
+import { Addresstypes_Example_Com_Record as Record } from './dist/index.js';
+if (typeof Record.AvroType === 'undefined') process.exit(1);
+console.log('SUCCESS');
+'''
+                test_path = os.path.join(ts_path, 'test.mjs')
+                with open(test_path, 'w', encoding='utf-8') as f:
+                    f.write(test_script)
+                
+                result = subprocess.run(['node', 'test.mjs'], cwd=ts_path,
+                                       capture_output=True, text=True, shell=use_shell)
+                self.assertEqual(result.returncode, 0,
+                    f"Runtime test failed for {target}")
+
+    def test_different_module_systems(self):
+        """
+        Test compilation with different TypeScript module systems
+        (CommonJS, ES2015, ES2020, ESNext, Node16, NodeNext).
+        """
+        import subprocess
+        
+        cwd = os.getcwd()
+        avro_path = os.path.join(cwd, "test", "avsc", "address.avsc")
+        
+        # Test different module systems that TypeScript supports
+        # Skip some that may not be compatible with our package type
+        module_systems = [
+            ('CommonJS', False),  # No "type": "module"
+            ('ES2015', True),
+            ('ES2020', True),
+            ('ES2022', True),
+            ('ESNext', True),
+        ]
+        
+        use_shell = sys.platform == 'win32'
+        
+        for module_system, use_esm in module_systems:
+            with self.subTest(module=module_system):
+                ts_path = os.path.join(tempfile.gettempdir(), "avrotize",
+                                      f"address-module-{module_system.lower()}")
+                
+                if os.path.exists(ts_path):
+                    shutil.rmtree(ts_path, ignore_errors=True)
+                os.makedirs(ts_path, exist_ok=True)
+                
+                # Generate TypeScript
+                convert_avro_to_typescript(avro_path, ts_path, "addresstypes",
+                                           typedjson_annotation=False,
+                                           avro_annotation=True)
+                
+                # Modify package.json based on module type
+                package_json_path = os.path.join(ts_path, 'package.json')
+                with open(package_json_path, 'r', encoding='utf-8') as f:
+                    package_json = json.load(f)
+                
+                if not use_esm:
+                    package_json.pop('type', None)
+                
+                with open(package_json_path, 'w', encoding='utf-8') as f:
+                    json.dump(package_json, f, indent=2)
+                
+                # Modify tsconfig
+                tsconfig_path = os.path.join(ts_path, 'tsconfig.json')
+                with open(tsconfig_path, 'r', encoding='utf-8') as f:
+                    tsconfig = json.load(f)
+                tsconfig['compilerOptions']['module'] = module_system
+                with open(tsconfig_path, 'w', encoding='utf-8') as f:
+                    json.dump(tsconfig, f, indent=2)
+                
+                # Install and build
+                result = subprocess.run(['npm', 'install'], cwd=ts_path,
+                                       capture_output=True, text=True, shell=use_shell)
+                self.assertEqual(result.returncode, 0,
+                    f"npm install failed for module {module_system}")
+                
+                result = subprocess.run(['npm', 'run', 'build'], cwd=ts_path,
+                                       capture_output=True, text=True, shell=use_shell)
+                self.assertEqual(result.returncode, 0,
+                    f"Build failed for module {module_system}.\nstderr: {result.stderr}")
