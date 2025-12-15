@@ -500,7 +500,8 @@ class AvroToTypeScript:
         """Generate TypeScript type declaration file for avro-js module."""
         avro_js_types = '''declare module 'avro-js' {
     /**
-     * Avro Type representation.
+     * Avro Type interface.
+     * Represents the structure of Type instances returned by avro.parse().
      * Provides methods for encoding, decoding, and validating Avro data.
      */
     export interface Type {
