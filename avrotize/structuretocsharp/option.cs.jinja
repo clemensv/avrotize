@@ -10,56 +10,77 @@ namespace {{ namespace }}
 {% set ind=4 if namespace else 0 %}
 {% filter indent(width=ind, first=True) %}
 /// <summary>
-/// Represents an optional value wrapper that tracks whether a value has been set.
-/// This allows distinguishing between null (explicitly set to null) and unset (not provided).
+/// Represents an optional value wrapper that distinguishes between undefined, null, and a value.
+/// Compatible with DotNext.Optional API.
 /// </summary>
 /// <typeparam name="T">The type of the value</typeparam>
 public struct Option<T>
 {
     private T? _value;
-    private bool _isSet;
+    private bool _isDefined;
 
     /// <summary>
-    /// Gets or sets whether the value has been explicitly set (either to null or a value)
+    /// Gets a value indicating whether the optional value is defined (either null or a value).
     /// </summary>
     [JsonIgnore]
-    public bool IsSet
-    {
-        get => _isSet;
-        set => _isSet = value;
-    }
+    public readonly bool IsDefined => _isDefined;
 
     /// <summary>
-    /// Gets or sets the underlying value
+    /// Gets a value indicating whether the optional value is undefined (not set).
     /// </summary>
     [JsonIgnore]
-    public T? Value
+    public readonly bool IsUndefined => !_isDefined;
+
+    /// <summary>
+    /// Gets a value indicating whether the optional value has a non-null value.
+    /// </summary>
+    [JsonIgnore]
+    public readonly bool HasValue => _isDefined && _value != null;
+
+    /// <summary>
+    /// Gets a value indicating whether the optional value is null (but defined).
+    /// </summary>
+    [JsonIgnore]
+    public readonly bool IsNull => _isDefined && _value == null;
+
+    /// <summary>
+    /// Gets whether the value has been explicitly set (either to null or a value).
+    /// Alias for IsDefined for backward compatibility.
+    /// </summary>
+    [JsonIgnore]
+    public readonly bool IsSet => _isDefined;
+
+    /// <summary>
+    /// Gets the underlying value. Throws if the value is undefined.
+    /// </summary>
+    [JsonIgnore]
+    public readonly T? Value
     {
-        get => _value;
-        set
+        get
         {
-            _value = value;
-            _isSet = true;
+            if (!_isDefined)
+                throw new InvalidOperationException("Optional value is not defined");
+            return _value;
         }
     }
 
     /// <summary>
-    /// Creates an unset Option
+    /// Creates an undefined Option
     /// </summary>
     public Option()
     {
         _value = default;
-        _isSet = false;
+        _isDefined = false;
     }
 
     /// <summary>
-    /// Creates an Option with a value
+    /// Creates an Option with a value (which may be null)
     /// </summary>
     /// <param name="value">The value to wrap</param>
     public Option(T? value)
     {
         _value = value;
-        _isSet = true;
+        _isDefined = true;
     }
 
     /// <summary>
@@ -79,19 +100,41 @@ public struct Option<T>
     }
 
     /// <summary>
-    /// Gets the value if set, otherwise returns the default value
+    /// Gets the value if defined, otherwise returns the default value
     /// </summary>
-    public T? GetValueOrDefault(T? defaultValue = default)
+    public readonly T? ValueOrDefault => _isDefined ? _value : default;
+
+    /// <summary>
+    /// Gets the value if defined, otherwise returns the specified default value
+    /// </summary>
+    public readonly T Or(T defaultValue)
     {
-        return _isSet ? _value : defaultValue;
+        return _isDefined && _value != null ? _value : defaultValue;
+    }
+
+    /// <summary>
+    /// Gets the value if defined, otherwise returns the default value
+    /// </summary>
+    public readonly T? GetValueOrDefault(T? defaultValue = default)
+    {
+        return _isDefined ? _value : defaultValue;
+    }
+
+    /// <summary>
+    /// Tries to get the value if it is defined
+    /// </summary>
+    public readonly bool TryGet(out T? value)
+    {
+        value = _value;
+        return _isDefined;
     }
 
     /// <summary>
     /// Returns a string representation of the Option
     /// </summary>
-    public override string ToString()
+    public override readonly string ToString()
     {
-        if (!_isSet) return "<not set>";
+        if (!_isDefined) return "<undefined>";
         if (_value == null) return "null";
         return _value.ToString() ?? string.Empty;
     }
@@ -99,21 +142,21 @@ public struct Option<T>
     /// <summary>
     /// Checks equality with another Option
     /// </summary>
-    public override bool Equals(object? obj)
+    public override readonly bool Equals(object? obj)
     {
         if (obj is not Option<T> other) return false;
-        if (_isSet != other._isSet) return false;
-        if (!_isSet) return true; // Both unset
+        if (_isDefined != other._isDefined) return false;
+        if (!_isDefined) return true; // Both undefined
         return EqualityComparer<T?>.Default.Equals(_value, other._value);
     }
 
     /// <summary>
     /// Gets the hash code
     /// </summary>
-    public override int GetHashCode()
+    public override readonly int GetHashCode()
     {
-        if (!_isSet) return 0;
-        return HashCode.Combine(_isSet, _value);
+        if (!_isDefined) return 0;
+        return HashCode.Combine(_isDefined, _value);
     }
 }
 
@@ -137,13 +180,13 @@ public class OptionJsonConverter<T> : JsonConverter<Option<T>>
     /// <inheritdoc/>
     public override void Write(Utf8JsonWriter writer, Option<T> value, JsonSerializerOptions options)
     {
-        if (!value.IsSet)
+        if (value.IsUndefined)
         {
-            // Skip writing the property entirely if not set
+            // Skip writing the property entirely if undefined
             return;
         }
         
-        if (value.Value == null)
+        if (value.IsNull)
         {
             writer.WriteNullValue();
         }
