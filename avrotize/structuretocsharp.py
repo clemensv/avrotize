@@ -40,6 +40,8 @@ class StructureToCSharp:
         self.newtonsoft_json_annotation = False
         self.system_xml_annotation = False
         self.avro_annotation = False
+        self.use_optional = False
+        self.use_ivalidatableobject = False
         self.generated_types: Dict[str,str] = {}
         self.generated_structure_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
         self.type_dict: Dict[str, Dict] = {}
@@ -2343,7 +2345,9 @@ def convert_structure_to_csharp(
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,
-    avro_annotation: bool = False
+    avro_annotation: bool = False,
+    use_optional: bool = False,
+    use_ivalidatableobject: bool = False
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2357,6 +2361,8 @@ def convert_structure_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
+        use_optional (bool, optional): Use Option<T> wrapper for optional properties. Defaults to False.
+        use_ivalidatableobject (bool, optional): Implement IValidatableObject interface. Defaults to False.
     """
 
     if not base_namespace:
@@ -2369,6 +2375,8 @@ def convert_structure_to_csharp(
     structtocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
+    structtocs.use_optional = use_optional
+    structtocs.use_ivalidatableobject = use_ivalidatableobject
     structtocs.convert(structure_schema_path, cs_file_path)
 
 
@@ -2381,7 +2389,9 @@ def convert_structure_schema_to_csharp(
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,
-    avro_annotation: bool = False
+    avro_annotation: bool = False,
+    use_optional: bool = False,
+    use_ivalidatableobject: bool = False
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2395,6 +2405,8 @@ def convert_structure_schema_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
+        use_optional (bool, optional): Use Option<T> wrapper for optional properties. Defaults to False.
+        use_ivalidatableobject (bool, optional): Implement IValidatableObject interface. Defaults to False.
     """
     structtocs = StructureToCSharp(base_namespace)
     structtocs.project_name = project_name
@@ -2403,4 +2415,6 @@ def convert_structure_schema_to_csharp(
     structtocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
+    structtocs.use_optional = use_optional
+    structtocs.use_ivalidatableobject = use_ivalidatableobject
     structtocs.convert_schema(structure_schema, output_dir)
