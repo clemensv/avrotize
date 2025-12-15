@@ -8,7 +8,7 @@ import { jsonObject, jsonMember, TypedJSON } from 'typedjson';
 {%- endif %}
 {%- endif %}
 {%- if avro_annotation %}
-import avro from 'avro-js';
+import avro, { type Type } from 'avro-js';
 {%- endif %}
 {%- for import_type, import_path in imports.items() %}
 import { {{ import_type }} } from '{{ import_path }}';
@@ -22,7 +22,7 @@ import pako from 'pako';
 {%- endif %}
 export class {{ class_name }} {
     {%- if avro_annotation %}
-    public static AvroType: avro.Type = avro.parse({{ avro_schema_json }});
+    public static AvroType: Type = avro.parse({{ avro_schema_json }});
     {%- endif %}
 
     {%- for field in fields %}

@@ -503,7 +503,7 @@ class AvroToTypeScript:
      * Avro Type representation.
      * Provides methods for encoding, decoding, and validating Avro data.
      */
-    export class Type {
+    export interface Type {
         /**
          * Encode a value to a Buffer.
          * @param obj - Value to encode
@@ -575,12 +575,66 @@ class AvroToTypeScript:
     }
 
     /**
-     * Parse an Avro schema and return a Type instance.
-     * @param schema - Schema as string or object
-     * @param options - Parse options
-     * @returns Type instance
+     * avro-js default export interface.
+     * This module is CommonJS, so in ESM context it only has a default export.
      */
-    export function parse(schema: string | any, options?: any): Type;
+    export interface Avro {
+        /**
+         * Type class constructor.
+         */
+        Type: any;
+
+        /**
+         * Parse an Avro schema and return a Type instance.
+         * @param schema - Schema as string or object
+         * @param options - Parse options
+         * @returns Type instance
+         */
+        parse(schema: string | any, options?: any): Type;
+
+        /**
+         * Protocol class constructor.
+         */
+        Protocol: any;
+
+        /**
+         * Create a file decoder.
+         */
+        createFileDecoder(path: string, options?: any): any;
+
+        /**
+         * Create a file encoder.
+         */
+        createFileEncoder(path: string, schema: any, options?: any): any;
+
+        /**
+         * Extract file header.
+         */
+        extractFileHeader(buffer: Buffer): any;
+
+        /**
+         * Streams utilities.
+         */
+        streams: any;
+
+        /**
+         * Built-in types.
+         */
+        types: any;
+
+        /**
+         * Validator (deprecated).
+         */
+        Validator: any;
+
+        /**
+         * ProtocolValidator (deprecated).
+         */
+        ProtocolValidator: any;
+    }
+
+    const avro: Avro;
+    export default avro;
 }
 '''
         
