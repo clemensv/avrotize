@@ -150,7 +150,7 @@ Avro Schema ...
 
 > It needs to be noted here that while Avro Schema is great for defining data structures, and data classes generated from Avro Schema using this tool or other tools can be used to with the most popular JSON serialization libraries, the Apache Avro project's own JSON encoding has fairly grave interoperability issues with common usage of JSON. Avrotize defines an alternate JSON encoding
 
- in [`avrojson.md`](specs/avrojson.md).
+ in [`avrojson.md`](avrojson.md).
 
 Avro Schema does not support all the bells and whistles of XML Schema or JSON Schema, but that is a feature, not a bug, as it ensures the portability of the schemas across different systems and infrastructures. Specifically, Avro Schema does not support many of the data validation features found in JSON Schema or XML Schema. There are no `pattern`, `format`, `minimum`, `maximum`, or `required` keywords in Avro Schema, and Avro does not support conditional validation.
 
@@ -218,7 +218,7 @@ Parameters:
 
 Conversion notes:
 
-- [JSON Schema Handling in Avrotize](specs/jsonschema.md)
+- [JSON Schema Handling in Avrotize](jsonschema.md)
 
 ### Convert Avrotize Schema to JSON schema
 
@@ -234,7 +234,7 @@ Parameters:
 
 Conversion notes:
 
-- [JSON Schema Handling in Avrotize](specs/jsonschema.md)
+- [JSON Schema Handling in Avrotize](jsonschema.md)
 
 ### Convert XML Schema (XSD) to Avrotize Schema
 
