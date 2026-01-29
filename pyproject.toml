@@ -36,6 +36,24 @@ dependencies = [
     "json-structure>=0.1.8"
 ]
 [project.optional-dependencies]
+postgres = [
+    "psycopg2-binary>=2.9.9"
+]
+mysql = [
+    "pymysql>=1.1.1"
+]
+sqlserver = [
+    "pyodbc>=5.1.0"
+]
+oracle = [
+    "oracledb>=2.3.0"
+]
+all-sql = [
+    "psycopg2-binary>=2.9.9",
+    "pymysql>=1.1.1",
+    "pyodbc>=5.1.0",
+    "oracledb>=2.3.0"
+]
 dev = [
     "pytest>=8.3.2",
     "fastavro>=1.9.5",
@@ -48,7 +66,7 @@ dev = [
     "avro>=1.12.0",
     "testcontainers>=4.7.2",
     "pymysql>=1.1.1",
-    "psycopg2>=2.9.9",
+    "psycopg2-binary>=2.9.9",
     "pyodbc>=5.1.0",
     "pymongo>=4.8.0",
     "oracledb>=2.3.0",
