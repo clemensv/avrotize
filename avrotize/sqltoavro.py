@@ -927,6 +927,15 @@ class SqlToAvro:
                 "scale": scale
             }
 
+        # Handle MySQL bit(n) where n > 1 should be bytes, not boolean
+        if self.dialect == 'mysql' and data_type == 'bit':
+            # character_maximum_length holds the bit width for MySQL bit type
+            bit_width = column.get('character_maximum_length') or 1
+            if bit_width > 1:
+                return "bytes"
+            # bit(1) is commonly used as boolean
+            return "boolean"
+
         # Look up in type map
         type_map = self.get_type_map()
         
