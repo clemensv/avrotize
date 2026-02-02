@@ -927,12 +927,12 @@ class SqlToAvro:
                 "scale": scale
             }
 
-        # Handle MySQL bit(n) where n > 1 should be bytes, not boolean
+        # Handle MySQL bit(n) where n > 1 should be array of booleans
         if self.dialect == 'mysql' and data_type == 'bit':
             # character_maximum_length holds the bit width for MySQL bit type
             bit_width = column.get('character_maximum_length') or 1
             if bit_width > 1:
-                return "bytes"
+                return {"type": "array", "items": "boolean"}
             # bit(1) is commonly used as boolean
             return "boolean"
 

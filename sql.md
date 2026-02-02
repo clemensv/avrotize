@@ -143,7 +143,7 @@ PostgreSQL array types (e.g., `integer[]`, `text[]`) are mapped to Avro arrays w
 | MySQL Type | Avro Type | Notes |
 |------------|-----------|-------|
 | `bit(1)` | `boolean` | Single bit, commonly used as boolean |
-| `bit(n)` (n > 1) | `bytes` | Multi-bit field stored as bytes |
+| `bit(n)` (n > 1) | `array` of `boolean` | Multi-bit field as array of booleans |
 | `boolean`, `bool` | `boolean` | Alias for `tinyint(1)` |
 
 ### Character Types

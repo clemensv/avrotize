@@ -1646,6 +1646,99 @@ class TestSqlToAvro(unittest.TestCase):
             cursor.close()
             conn.close()
 
+    def test_postgres_inference_switches(self):
+        """Test that --infer-json and --infer-xml switches work correctly."""
+        with PostgresContainer() as postgres:
+            conn = psycopg2.connect(
+                host=postgres.get_container_host_ip(),
+                port=postgres.get_exposed_port(5432),
+                user=postgres.username,
+                password=postgres.password,
+                database=postgres.dbname
+            )
+            cursor = conn.cursor()
+
+            # Create a table with JSON and XML columns
+            cursor.execute("""
+                CREATE TABLE inference_test (
+                    id SERIAL PRIMARY KEY,
+                    json_data JSONB,
+                    xml_data XML
+                );
+            """)
+
+            # Insert data to allow inference
+            cursor.execute("""
+                INSERT INTO inference_test (json_data, xml_data) VALUES
+                ('{"name": "test", "count": 42}'::jsonb, '<root><item>value</item></root>'::xml);
+            """)
+            conn.commit()
+
+            # Test 1: With inference enabled (default)
+            output_path_infer = os.path.join(tempfile.gettempdir(), "avrotize", "test_inference_enabled.avsc")
+            os.makedirs(os.path.dirname(output_path_infer), exist_ok=True)
+
+            connection_string = f"postgresql://{postgres.username}:{postgres.password}@{postgres.get_container_host_ip()}:{postgres.get_exposed_port(5432)}/{postgres.dbname}"
+            convert_sql_to_avro(
+                connection_string=connection_string,
+                avro_schema_file=output_path_infer,
+                dialect='postgres',
+                table_name='inference_test',
+                avro_namespace='com.example.test',
+                infer_json_schema=True,
+                infer_xml_schema=True
+            )
+
+            with open(output_path_infer, 'r', encoding='utf-8') as f:
+                schema_with_inference = json.load(f)
+
+            fields_infer = {f['name']: f for f in schema_with_inference['fields']}
+            
+            # With inference, json_data should be a record type, not just string
+            json_type_infer = fields_infer['json_data']['type']
+            if isinstance(json_type_infer, list):
+                non_null = [t for t in json_type_infer if t != 'null'][0]
+            else:
+                non_null = json_type_infer
+            self.assertIsInstance(non_null, dict, "JSON column with inference should be a complex type")
+            self.assertEqual(non_null.get('type'), 'record', "JSON column with inference should be a record")
+
+            # Test 2: With inference disabled
+            output_path_no_infer = os.path.join(tempfile.gettempdir(), "avrotize", "test_inference_disabled.avsc")
+            convert_sql_to_avro(
+                connection_string=connection_string,
+                avro_schema_file=output_path_no_infer,
+                dialect='postgres',
+                table_name='inference_test',
+                avro_namespace='com.example.test',
+                infer_json_schema=False,
+                infer_xml_schema=False
+            )
+
+            with open(output_path_no_infer, 'r', encoding='utf-8') as f:
+                schema_no_inference = json.load(f)
+
+            fields_no_infer = {f['name']: f for f in schema_no_inference['fields']}
+            
+            # Without inference, json_data should fall back to string type
+            json_type_no_infer = fields_no_infer['json_data']['type']
+            if isinstance(json_type_no_infer, list):
+                non_null = [t for t in json_type_no_infer if t != 'null'][0]
+            else:
+                non_null = json_type_no_infer
+            self.assertEqual(non_null, 'string', "JSON column without inference should be string")
+            
+            # Without inference, xml_data should be string too
+            xml_type_no_infer = fields_no_infer['xml_data']['type']
+            if isinstance(xml_type_no_infer, list):
+                non_null = [t for t in xml_type_no_infer if t != 'null'][0]
+            else:
+                non_null = xml_type_no_infer
+            self.assertEqual(non_null, 'string', "XML column without inference should be string")
+
+            cursor.close()
+            conn.close()
+
 
 @unittest.skipUnless(MYSQL_AVAILABLE, "pymysql and testcontainers-mysql not installed")
 class TestSqlToAvroMySQL(unittest.TestCase):
