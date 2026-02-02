@@ -1,0 +1,41 @@
+{
+  "type": "record",
+  "name": "test_decimal",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "price",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 12,
+          "scale": 4
+        }
+      ]
+    },
+    {
+      "name": "quantity",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 8,
+          "scale": 2
+        }
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "test_decimal"
+  },
+  "namespace": "com.example.test"
+}

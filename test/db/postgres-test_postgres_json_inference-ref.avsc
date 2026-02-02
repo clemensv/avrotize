@@ -1,0 +1,46 @@
+{
+  "type": "record",
+  "name": "events",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "event_type",
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "payload",
+        "namespace": "com.example.events.eventsTypes",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "email",
+            "type": "string"
+          },
+          {
+            "name": "user_id",
+            "type": "long"
+          }
+        ]
+      }
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "events"
+  },
+  "namespace": "com.example.events"
+}

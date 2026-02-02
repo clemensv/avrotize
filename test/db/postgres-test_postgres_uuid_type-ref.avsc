@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "test_uuid",
+  "fields": [
+    {
+      "name": "id",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "name",
+      "type": [
+        "null",
+        "string"
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "test_uuid"
+  },
+  "namespace": "com.example.test"
+}

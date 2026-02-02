@@ -1,0 +1,37 @@
+{
+  "type": "record",
+  "name": "test_arrays",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "tags",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ]
+    },
+    {
+      "name": "scores",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "int"
+        }
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "test_arrays"
+  },
+  "namespace": "com.example.test"
+}

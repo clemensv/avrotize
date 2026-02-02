@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "name": "roundtrip_test",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "value",
+      "type": [
+        "null",
+        "int"
+      ]
+    },
+    {
+      "name": "created_at",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "roundtrip_test"
+  },
+  "namespace": "com.example.roundtrip"
+}

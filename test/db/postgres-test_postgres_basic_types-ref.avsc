@@ -1,0 +1,104 @@
+{
+  "type": "record",
+  "name": "test_basic_types",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "The name of the entity"
+    },
+    {
+      "name": "description",
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    {
+      "name": "age",
+      "type": [
+        "null",
+        "int"
+      ]
+    },
+    {
+      "name": "salary",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 10,
+          "scale": 2
+        }
+      ]
+    },
+    {
+      "name": "is_active",
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    {
+      "name": "birth_date",
+      "type": [
+        "null",
+        {
+          "type": "int",
+          "logicalType": "date"
+        }
+      ]
+    },
+    {
+      "name": "created_at",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ]
+    },
+    {
+      "name": "data",
+      "type": [
+        "null",
+        "bytes"
+      ]
+    },
+    {
+      "name": "rating",
+      "type": [
+        "null",
+        "float"
+      ]
+    },
+    {
+      "name": "score",
+      "type": [
+        "null",
+        "double"
+      ]
+    },
+    {
+      "name": "big_number",
+      "type": [
+        "null",
+        "long"
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "test_basic_types"
+  },
+  "namespace": "com.example.test",
+  "doc": "A test table with various PostgreSQL types"
+}

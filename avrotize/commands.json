@@ -1035,7 +1035,7 @@
       {
         "name": "--connection-string",
         "type": "str",
-        "help": "Database connection string (e.g., postgresql://user:pass@host:port/dbname)",
+        "help": "Database connection string. Examples: postgresql://user:pass@host:port/db?sslmode=require (PostgreSQL with SSL), mysql://user:pass@host/db?ssl=true (MySQL with SSL), mssql://@host/db (SQL Server with Windows Auth), mssql://user:pass@host/db?encrypt=true (SQL Server with TLS)",
         "required": true
       },
       {

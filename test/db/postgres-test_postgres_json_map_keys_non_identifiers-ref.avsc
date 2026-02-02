@@ -1,0 +1,659 @@
+{
+  "type": "record",
+  "name": "map_json",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "data",
+      "type": {
+        "type": "record",
+        "name": "data",
+        "namespace": "com.example.maps.map_jsonTypes",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "events_by_id",
+            "type": {
+              "type": "record",
+              "name": "events_by_id",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "_550e8400_e29b_41d4_a716_446655440000",
+                  "type": {
+                    "type": "record",
+                    "name": "_550e8400_e29b_41d4_a716_446655440000",
+                    "namespace": "com.example.maps.map_json.data.events_by_idTypes",
+                    "fields": [
+                      {
+                        "name": "data",
+                        "type": "string"
+                      },
+                      {
+                        "name": "type",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "550e8400-e29b-41d4-a716-446655440000"
+                  }
+                },
+                {
+                  "name": "_6ba7b810_9dad_11d1_80b4_00c04fd430c8",
+                  "type": {
+                    "type": "record",
+                    "name": "_6ba7b810_9dad_11d1_80b4_00c04fd430c8",
+                    "namespace": "com.example.maps.map_json.data.events_by_idTypes",
+                    "fields": [
+                      {
+                        "name": "data",
+                        "type": "string"
+                      },
+                      {
+                        "name": "type",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "handlers",
+            "type": {
+              "type": "record",
+              "name": "handlers",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "_api_users",
+                  "type": {
+                    "type": "record",
+                    "name": "_api_users",
+                    "namespace": "com.example.maps.map_json.data.handlersTypes",
+                    "fields": [
+                      {
+                        "name": "auth",
+                        "type": "boolean"
+                      },
+                      {
+                        "name": "method",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "/api/users"
+                  }
+                },
+                {
+                  "name": "_api_orders__id_",
+                  "type": {
+                    "type": "record",
+                    "name": "_api_orders__id_",
+                    "namespace": "com.example.maps.map_json.data.handlersTypes",
+                    "fields": [
+                      {
+                        "name": "auth",
+                        "type": "boolean"
+                      },
+                      {
+                        "name": "method",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "/api/orders/{id}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "values",
+            "type": {
+              "type": "record",
+              "name": "values",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "cpu_usage",
+                  "type": "double",
+                  "altnames": {
+                    "sql": "cpu.usage"
+                  }
+                },
+                {
+                  "name": "disk_read_s",
+                  "type": "long",
+                  "altnames": {
+                    "sql": "disk.read/s"
+                  }
+                },
+                {
+                  "name": "memory_free",
+                  "type": "long",
+                  "altnames": {
+                    "sql": "memory.free"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "data_by_year",
+            "type": {
+              "type": "record",
+              "name": "data_by_year",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "_2022",
+                  "type": {
+                    "type": "record",
+                    "name": "_2022",
+                    "namespace": "com.example.maps.map_json.data.data_by_yearTypes",
+                    "fields": [
+                      {
+                        "name": "revenue",
+                        "type": "long"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "2022"
+                  }
+                },
+                {
+                  "name": "_2023",
+                  "type": {
+                    "type": "record",
+                    "name": "_2023",
+                    "namespace": "com.example.maps.map_json.data.data_by_yearTypes",
+                    "fields": [
+                      {
+                        "name": "revenue",
+                        "type": "long"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "2023"
+                  }
+                },
+                {
+                  "name": "_2024",
+                  "type": {
+                    "type": "record",
+                    "name": "_2024",
+                    "namespace": "com.example.maps.map_json.data.data_by_yearTypes",
+                    "fields": [
+                      {
+                        "name": "revenue",
+                        "type": "long"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "2024"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "rules",
+            "type": {
+              "type": "record",
+              "name": "rules",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "_1st_priority",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "1st_priority"
+                  }
+                },
+                {
+                  "name": "_2nd_priority",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "2nd_priority"
+                  }
+                },
+                {
+                  "name": "_3rd_priority",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "3rd_priority"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "messages",
+            "type": {
+              "type": "record",
+              "name": "messages",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "good_bye",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "good bye"
+                  }
+                },
+                {
+                  "name": "hello_world",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "hello-world"
+                  }
+                },
+                {
+                  "name": "welcome_message",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "welcome message"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "stats",
+            "type": {
+              "type": "record",
+              "name": "stats",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "_2024_01_15",
+                  "type": {
+                    "type": "record",
+                    "name": "_2024_01_15",
+                    "namespace": "com.example.maps.map_json.data.statsTypes",
+                    "fields": [
+                      {
+                        "name": "visits",
+                        "type": "long"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "2024-01-15"
+                  }
+                },
+                {
+                  "name": "_2024_01_16",
+                  "type": {
+                    "type": "record",
+                    "name": "_2024_01_16",
+                    "namespace": "com.example.maps.map_json.data.statsTypes",
+                    "fields": [
+                      {
+                        "name": "visits",
+                        "type": "long"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "2024-01-16"
+                  }
+                },
+                {
+                  "name": "_2024_01_17",
+                  "type": {
+                    "type": "record",
+                    "name": "_2024_01_17",
+                    "namespace": "com.example.maps.map_json.data.statsTypes",
+                    "fields": [
+                      {
+                        "name": "visits",
+                        "type": "long"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "2024-01-17"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "settings",
+            "type": {
+              "type": "record",
+              "name": "settings",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "user_example_com",
+                  "type": {
+                    "type": "record",
+                    "name": "user_example_com",
+                    "namespace": "com.example.maps.map_json.data.settingsTypes",
+                    "fields": [
+                      {
+                        "name": "theme",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "user@example.com"
+                  }
+                },
+                {
+                  "name": "admin_example_com",
+                  "type": {
+                    "type": "record",
+                    "name": "admin_example_com",
+                    "namespace": "com.example.maps.map_json.data.settingsTypes",
+                    "fields": [
+                      {
+                        "name": "theme",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "admin@example.com"
+                  }
+                },
+                {
+                  "name": "normal_key",
+                  "type": "long"
+                },
+                {
+                  "name": "key_with_dash",
+                  "type": "long",
+                  "altnames": {
+                    "sql": "key-with-dash"
+                  }
+                },
+                {
+                  "name": "key_with_dots",
+                  "type": "long",
+                  "altnames": {
+                    "sql": "key.with.dots"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "valid_field",
+            "type": "string"
+          },
+          {
+            "name": "level1",
+            "type": {
+              "type": "record",
+              "name": "level1",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "key_1",
+                  "type": {
+                    "type": "record",
+                    "name": "key_1",
+                    "namespace": "com.example.maps.map_json.data.level1Types",
+                    "fields": [
+                      {
+                        "name": "level2",
+                        "type": {
+                          "type": "record",
+                          "name": "level2",
+                          "namespace": "com.example.maps.map_json.data.level1.key_1Types",
+                          "fields": [
+                            {
+                              "name": "key_2",
+                              "type": {
+                                "type": "record",
+                                "name": "key_2",
+                                "namespace": "com.example.maps.map_json.data.level1.key_1.level2Types",
+                                "fields": [
+                                  {
+                                    "name": "value",
+                                    "type": "long"
+                                  }
+                                ]
+                              },
+                              "altnames": {
+                                "sql": "key.2"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "key/1"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "items",
+            "type": {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "items",
+                "namespace": "com.example.maps.map_json.dataTypes",
+                "fields": [
+                  {
+                    "name": "item_1",
+                    "type": "string",
+                    "altnames": {
+                      "sql": "item-1"
+                    }
+                  },
+                  {
+                    "name": "item_2",
+                    "type": "string",
+                    "altnames": {
+                      "sql": "item-2"
+                    }
+                  },
+                  {
+                    "name": "item_3",
+                    "type": "string",
+                    "altnames": {
+                      "sql": "item-3"
+                    }
+                  },
+                  {
+                    "name": "item_4",
+                    "type": "string",
+                    "altnames": {
+                      "sql": "item-4"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "labels",
+            "type": {
+              "type": "record",
+              "name": "labels",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "__",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "\u4e2d\u6587"
+                  }
+                },
+                {
+                  "name": "___",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "\u65e5\u672c\u8a9e"
+                  }
+                },
+                {
+                  "name": "___",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "\ud55c\uad6d\uc5b4"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "mapping",
+            "type": {
+              "type": "record",
+              "name": "mapping",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": []
+            }
+          },
+          {
+            "name": "codes",
+            "type": {
+              "type": "record",
+              "name": "codes",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "DE_BE",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "DE-BE"
+                  }
+                },
+                {
+                  "name": "DE_BY",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "DE-BY"
+                  }
+                },
+                {
+                  "name": "US_CA",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "US-CA"
+                  }
+                },
+                {
+                  "name": "US_NY",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "US-NY"
+                  }
+                },
+                {
+                  "name": "US_TX",
+                  "type": "string",
+                  "altnames": {
+                    "sql": "US-TX"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "regions",
+            "type": {
+              "type": "record",
+              "name": "regions",
+              "namespace": "com.example.maps.map_json.dataTypes",
+              "fields": [
+                {
+                  "name": "us_west",
+                  "type": {
+                    "type": "record",
+                    "name": "us_west",
+                    "namespace": "com.example.maps.map_json.data.regionsTypes",
+                    "fields": [
+                      {
+                        "name": "zones",
+                        "type": {
+                          "type": "record",
+                          "name": "zones",
+                          "namespace": "com.example.maps.map_json.data.regions.us_westTypes",
+                          "fields": [
+                            {
+                              "name": "us_west_1a",
+                              "type": {
+                                "type": "record",
+                                "name": "us_west_1a",
+                                "namespace": "com.example.maps.map_json.data.regions.us_west.zonesTypes",
+                                "fields": [
+                                  {
+                                    "name": "capacity",
+                                    "type": "long"
+                                  }
+                                ]
+                              },
+                              "altnames": {
+                                "sql": "us-west-1a"
+                              }
+                            },
+                            {
+                              "name": "us_west_1b",
+                              "type": {
+                                "type": "record",
+                                "name": "us_west_1b",
+                                "namespace": "com.example.maps.map_json.data.regions.us_west.zonesTypes",
+                                "fields": [
+                                  {
+                                    "name": "capacity",
+                                    "type": "long"
+                                  }
+                                ]
+                              },
+                              "altnames": {
+                                "sql": "us-west-1b"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "altnames": {
+                    "sql": "us-west"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "map_json"
+  },
+  "namespace": "com.example.maps"
+}

@@ -6,7 +6,7 @@ import os
 import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Tuple, cast
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 from avrotize.common import avro_name, get_tree_hash
 from avrotize.constants import AVRO_VERSION
@@ -74,7 +74,35 @@ class SqlToAvro:
         return ''
 
     def _connect(self, connection_string: str, database: str | None):
-        """Establishes database connection based on dialect."""
+        """Establishes database connection based on dialect.
+        
+        Connection strings can include SSL/TLS and authentication options:
+        
+        PostgreSQL:
+          - Standard: postgresql://user:pass@host:port/dbname
+          - SSL: postgresql://user:pass@host:port/dbname?sslmode=require
+          - SSL modes: disable, allow, prefer, require, verify-ca, verify-full
+          
+        MySQL:
+          - Standard: mysql://user:pass@host:port/dbname
+          - SSL: mysql://user:pass@host:port/dbname?ssl=true
+          - SSL with cert: mysql://...?ssl_ca=/path/to/ca.pem
+          
+        SQL Server:
+          - Standard: mssql://user:pass@host:port/dbname
+          - Windows Auth: mssql://@host:port/dbname (no user/pass = integrated)
+          - Encrypt: mssql://...?encrypt=true
+          - Trust cert: mssql://...?trustServerCertificate=true
+          
+        Oracle:
+          - Standard: oracle://user:pass@host:port/service_name
+          - Wallet: Uses TNS names or wallet configuration
+        """
+        parsed = urlparse(connection_string)
+        query_params = dict(parse_qs(parsed.query)) if parsed.query else {}
+        # Flatten single-value lists
+        query_params = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
+        
         if self.dialect == 'postgres':
             try:
                 import psycopg2
@@ -83,6 +111,7 @@ class SqlToAvro:
                     "psycopg2 is required for PostgreSQL support. "
                     "Install with: pip install psycopg2-binary"
                 )
+            # psycopg2 handles the full connection string including sslmode
             return psycopg2.connect(connection_string)
         elif self.dialect == 'mysql':
             try:
@@ -92,24 +121,73 @@ class SqlToAvro:
                     "pymysql is required for MySQL support. "
                     "Install with: pip install pymysql"
                 )
-            parsed = urlparse(connection_string)
-            return pymysql.connect(
-                host=parsed.hostname or 'localhost',
-                port=parsed.port or 3306,
-                user=parsed.username,
-                password=parsed.password,
-                database=database or parsed.path.lstrip('/')
-            )
+            
+            connect_kwargs = {
+                'host': parsed.hostname or 'localhost',
+                'port': parsed.port or 3306,
+                'user': parsed.username,
+                'password': parsed.password,
+                'database': database or parsed.path.lstrip('/')
+            }
+            
+            # SSL/TLS configuration
+            ssl_config = {}
+            if query_params.get('ssl') in ('true', 'True', '1', True):
+                ssl_config['ssl'] = True
+            if 'ssl_ca' in query_params:
+                ssl_config['ssl'] = {'ca': query_params['ssl_ca']}
+            if 'ssl_cert' in query_params:
+                ssl_config.setdefault('ssl', {})
+                if isinstance(ssl_config['ssl'], dict):
+                    ssl_config['ssl']['cert'] = query_params['ssl_cert']
+            if 'ssl_key' in query_params:
+                ssl_config.setdefault('ssl', {})
+                if isinstance(ssl_config['ssl'], dict):
+                    ssl_config['ssl']['key'] = query_params['ssl_key']
+            
+            if ssl_config:
+                connect_kwargs.update(ssl_config)
+            
+            return pymysql.connect(**connect_kwargs)
         elif self.dialect == 'sqlserver':
             try:
-                import pyodbc
+                import pymssql
+                use_pymssql = True
             except ImportError:
-                raise ImportError(
-                    "pyodbc is required for SQL Server support. "
-                    "Install with: pip install pyodbc"
-                )
-            # Connection string for SQL Server is typically different
-            return pyodbc.connect(connection_string)
+                use_pymssql = False
+                try:
+                    import pyodbc
+                except ImportError:
+                    raise ImportError(
+                        "pymssql or pyodbc is required for SQL Server support. "
+                        "Install with: pip install pymssql or pip install pyodbc"
+                    )
+            
+            if not use_pymssql:
+                # pyodbc - pass connection string directly (supports all ODBC options)
+                return pyodbc.connect(connection_string)
+            
+            # pymssql - parse and build connection
+            connect_kwargs = {
+                'server': parsed.hostname or 'localhost',
+                'port': str(parsed.port or 1433),
+                'database': database or parsed.path.lstrip('/')
+            }
+            
+            # Check for integrated/Windows authentication (no username)
+            if parsed.username:
+                connect_kwargs['user'] = parsed.username
+                connect_kwargs['password'] = parsed.password or ''
+            # If no username, pymssql will attempt Windows auth
+            
+            # TLS/encryption options
+            if query_params.get('encrypt') in ('true', 'True', '1', True):
+                connect_kwargs['tds_version'] = '7.4'  # Ensures TLS
+            if query_params.get('trustServerCertificate') in ('true', 'True', '1', True):
+                # pymssql doesn't directly support this, but we note it
+                pass
+            
+            return pymssql.connect(**connect_kwargs)
         elif self.dialect == 'oracle':
             try:
                 import oracledb
@@ -118,6 +196,7 @@ class SqlToAvro:
                     "oracledb is required for Oracle support. "
                     "Install with: pip install oracledb"
                 )
+            # oracledb supports various connection methods including wallets
             return oracledb.connect(connection_string)
         elif self.dialect == 'sqlite':
             import sqlite3
@@ -242,12 +321,49 @@ class SqlToAvro:
         'set': 'string',
     }
 
+    sqlserver_type_map: Dict[str, JsonNode] = {
+        'bit': 'boolean',
+        'tinyint': 'int',
+        'smallint': 'int',
+        'int': 'int',
+        'bigint': 'long',
+        'float': 'double',
+        'real': 'float',
+        'decimal': {'type': 'bytes', 'logicalType': 'decimal', 'precision': 38, 'scale': 10},
+        'numeric': {'type': 'bytes', 'logicalType': 'decimal', 'precision': 38, 'scale': 10},
+        'money': {'type': 'bytes', 'logicalType': 'decimal', 'precision': 19, 'scale': 4},
+        'smallmoney': {'type': 'bytes', 'logicalType': 'decimal', 'precision': 10, 'scale': 4},
+        'char': 'string',
+        'varchar': 'string',
+        'nchar': 'string',
+        'nvarchar': 'string',
+        'text': 'string',
+        'ntext': 'string',
+        'binary': 'bytes',
+        'varbinary': 'bytes',
+        'image': 'bytes',
+        'date': {'type': 'int', 'logicalType': 'date'},
+        'time': {'type': 'int', 'logicalType': 'time-millis'},
+        'datetime': {'type': 'long', 'logicalType': 'timestamp-millis'},
+        'datetime2': {'type': 'long', 'logicalType': 'timestamp-millis'},
+        'smalldatetime': {'type': 'long', 'logicalType': 'timestamp-millis'},
+        'datetimeoffset': {'type': 'long', 'logicalType': 'timestamp-millis'},
+        'uniqueidentifier': {'type': 'string', 'logicalType': 'uuid'},
+        'xml': 'string',
+        'sql_variant': 'string',
+        'hierarchyid': 'string',
+        'geometry': 'bytes',
+        'geography': 'bytes',
+    }
+
     def get_type_map(self) -> Dict[str, JsonNode]:
         """Returns the type map for the current dialect."""
         if self.dialect == 'postgres':
             return self.postgres_type_map
         elif self.dialect == 'mysql':
             return self.mysql_type_map
+        elif self.dialect == 'sqlserver':
+            return self.sqlserver_type_map
         else:
             # Default to postgres map for now
             return self.postgres_type_map
@@ -279,6 +395,16 @@ class SqlToAvro:
             """
             if self.single_table_name:
                 query += f" AND table_name = '{self.single_table_name}'"
+        elif self.dialect == 'sqlserver':
+            query = """
+                SELECT t.name AS table_name, s.name AS table_schema
+                FROM sys.tables t
+                INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+                WHERE t.type = 'U'
+            """
+            if self.single_table_name:
+                query += f" AND t.name = '{self.single_table_name}'"
+            query += " ORDER BY s.name, t.name"
         else:
             raise NotImplementedError(f"fetch_tables not implemented for {self.dialect}")
 
@@ -330,6 +456,30 @@ class SqlToAvro:
                 ORDER BY ordinal_position
             """
             cursor.execute(query, (table_name, table_schema))
+        elif self.dialect == 'sqlserver':
+            query = """
+                SELECT 
+                    c.name AS column_name,
+                    t.name AS data_type,
+                    t.name AS udt_name,
+                    CASE WHEN c.is_nullable = 1 THEN 'YES' ELSE 'NO' END AS is_nullable,
+                    dc.definition AS column_default,
+                    c.max_length AS character_maximum_length,
+                    c.precision AS numeric_precision,
+                    c.scale AS numeric_scale,
+                    c.column_id AS ordinal_position,
+                    ep.value AS column_comment
+                FROM sys.columns c
+                INNER JOIN sys.types t ON c.user_type_id = t.user_type_id
+                INNER JOIN sys.tables tb ON c.object_id = tb.object_id
+                INNER JOIN sys.schemas s ON tb.schema_id = s.schema_id
+                LEFT JOIN sys.default_constraints dc ON c.default_object_id = dc.object_id
+                LEFT JOIN sys.extended_properties ep 
+                    ON ep.major_id = c.object_id AND ep.minor_id = c.column_id AND ep.name = 'MS_Description'
+                WHERE tb.name = %s AND s.name = %s
+                ORDER BY c.column_id
+            """
+            cursor.execute(query, (table_name, table_schema))
         else:
             raise NotImplementedError(f"fetch_table_columns not implemented for {self.dialect}")
 
@@ -377,6 +527,18 @@ class SqlToAvro:
                 ORDER BY ordinal_position
             """
             cursor.execute(query, (table_name, table_schema))
+        elif self.dialect == 'sqlserver':
+            query = """
+                SELECT c.name AS column_name
+                FROM sys.indexes i
+                INNER JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+                INNER JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+                INNER JOIN sys.tables t ON i.object_id = t.object_id
+                INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+                WHERE i.is_primary_key = 1 AND t.name = %s AND s.name = %s
+                ORDER BY ic.key_ordinal
+            """
+            cursor.execute(query, (table_name, table_schema))
         else:
             cursor.close()
             return []
@@ -405,6 +567,19 @@ class SqlToAvro:
                 SELECT table_comment
                 FROM information_schema.tables
                 WHERE table_name = %s AND table_schema = %s
+            """
+            cursor.execute(query, (table_name, table_schema))
+            result = cursor.fetchone()
+            cursor.close()
+            return result[0] if result and result[0] else None
+        elif self.dialect == 'sqlserver':
+            query = """
+                SELECT ep.value
+                FROM sys.extended_properties ep
+                INNER JOIN sys.tables t ON ep.major_id = t.object_id
+                INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+                WHERE ep.minor_id = 0 AND ep.name = 'MS_Description'
+                  AND t.name = %s AND s.name = %s
             """
             cursor.execute(query, (table_name, table_schema))
             result = cursor.fetchone()

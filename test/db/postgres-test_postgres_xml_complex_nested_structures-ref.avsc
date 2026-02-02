@@ -1,0 +1,353 @@
+{
+  "type": "record",
+  "name": "complex_xml",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "content",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "content",
+          "namespace": "com.example.complexxml.complex_xmlTypes",
+          "fields": [
+            {
+              "name": "_id",
+              "type": "string",
+              "altnames": {
+                "sql": "@id"
+              }
+            },
+            {
+              "name": "_status",
+              "type": "string",
+              "altnames": {
+                "sql": "@status"
+              }
+            },
+            {
+              "name": "customer",
+              "type": {
+                "type": "record",
+                "name": "customer",
+                "namespace": "com.example.complexxml.complex_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "name",
+                    "type": "string"
+                  },
+                  {
+                    "name": "contact",
+                    "type": {
+                      "type": "record",
+                      "name": "contact",
+                      "namespace": "com.example.complexxml.complex_xml.content.customerTypes",
+                      "fields": [
+                        {
+                          "name": "email",
+                          "type": "string"
+                        },
+                        {
+                          "name": "phone",
+                          "type": {
+                            "type": "record",
+                            "name": "phone",
+                            "namespace": "com.example.complexxml.complex_xml.content.customer.contactTypes",
+                            "fields": [
+                              {
+                                "name": "_type",
+                                "type": "string",
+                                "altnames": {
+                                  "sql": "@type"
+                                }
+                              },
+                              {
+                                "name": "_text",
+                                "type": "string",
+                                "altnames": {
+                                  "sql": "#text"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "loyalty",
+                    "type": {
+                      "type": "record",
+                      "name": "loyalty",
+                      "namespace": "com.example.complexxml.complex_xml.content.customerTypes",
+                      "fields": [
+                        {
+                          "name": "_tier",
+                          "type": "string",
+                          "altnames": {
+                            "sql": "@tier"
+                          }
+                        },
+                        {
+                          "name": "_points",
+                          "type": "string",
+                          "altnames": {
+                            "sql": "@points"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "items",
+              "type": {
+                "type": "record",
+                "name": "items",
+                "namespace": "com.example.complexxml.complex_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "item",
+                    "type": {
+                      "type": "array",
+                      "items": {
+                        "type": "record",
+                        "name": "item",
+                        "namespace": "com.example.complexxml.complex_xml.content.itemsTypes",
+                        "fields": [
+                          {
+                            "name": "_sku",
+                            "type": "string",
+                            "altnames": {
+                              "sql": "@sku"
+                            }
+                          },
+                          {
+                            "name": "_qty",
+                            "type": "string",
+                            "altnames": {
+                              "sql": "@qty"
+                            }
+                          },
+                          {
+                            "name": "name",
+                            "type": "string"
+                          },
+                          {
+                            "name": "price",
+                            "type": {
+                              "type": "record",
+                              "name": "price",
+                              "namespace": "com.example.complexxml.complex_xml.content.items.itemTypes",
+                              "fields": [
+                                {
+                                  "name": "_currency",
+                                  "type": "string",
+                                  "altnames": {
+                                    "sql": "@currency"
+                                  }
+                                },
+                                {
+                                  "name": "_text",
+                                  "type": "string",
+                                  "altnames": {
+                                    "sql": "#text"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      "fields": []
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "shipping",
+              "type": {
+                "type": "record",
+                "name": "shipping",
+                "namespace": "com.example.complexxml.complex_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "address",
+                    "type": {
+                      "type": "record",
+                      "name": "address",
+                      "namespace": "com.example.complexxml.complex_xml.content.shippingTypes",
+                      "fields": [
+                        {
+                          "name": "street",
+                          "type": "string"
+                        },
+                        {
+                          "name": "city",
+                          "type": "string"
+                        },
+                        {
+                          "name": "state",
+                          "type": "string"
+                        },
+                        {
+                          "name": "zip",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "method",
+                    "type": {
+                      "type": "record",
+                      "name": "method",
+                      "namespace": "com.example.complexxml.complex_xml.content.shippingTypes",
+                      "fields": [
+                        {
+                          "name": "_priority",
+                          "type": "string",
+                          "altnames": {
+                            "sql": "@priority"
+                          }
+                        },
+                        {
+                          "name": "_text",
+                          "type": "string",
+                          "altnames": {
+                            "sql": "#text"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "payment",
+              "type": {
+                "type": "record",
+                "name": "payment",
+                "namespace": "com.example.complexxml.complex_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "method",
+                    "type": "string"
+                  },
+                  {
+                    "name": "card",
+                    "type": {
+                      "type": "record",
+                      "name": "card",
+                      "namespace": "com.example.complexxml.complex_xml.content.paymentTypes",
+                      "fields": [
+                        {
+                          "name": "_last4",
+                          "type": "string",
+                          "altnames": {
+                            "sql": "@last4"
+                          }
+                        },
+                        {
+                          "name": "_type",
+                          "type": "string",
+                          "altnames": {
+                            "sql": "@type"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "_priority",
+              "type": "string",
+              "altnames": {
+                "sql": "@priority"
+              }
+            },
+            {
+              "name": "notes",
+              "type": {
+                "type": "record",
+                "name": "notes",
+                "namespace": "com.example.complexxml.complex_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "note",
+                    "type": {
+                      "type": "array",
+                      "items": {
+                        "type": "record",
+                        "name": "note",
+                        "namespace": "com.example.complexxml.complex_xml.content.notesTypes",
+                        "fields": [
+                          {
+                            "name": "_author",
+                            "type": "string",
+                            "altnames": {
+                              "sql": "@author"
+                            }
+                          },
+                          {
+                            "name": "_timestamp",
+                            "type": "string",
+                            "altnames": {
+                              "sql": "@timestamp"
+                            }
+                          },
+                          {
+                            "name": "_text",
+                            "type": "string",
+                            "altnames": {
+                              "sql": "#text"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "metadata",
+              "type": {
+                "type": "record",
+                "name": "metadata",
+                "namespace": "com.example.complexxml.complex_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "source",
+                    "type": "string"
+                  },
+                  {
+                    "name": "campaign",
+                    "type": "string"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "complex_xml"
+  },
+  "namespace": "com.example.complexxml"
+}

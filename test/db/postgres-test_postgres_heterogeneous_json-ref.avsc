@@ -1,0 +1,52 @@
+{
+  "type": "record",
+  "name": "mixed_json",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "data",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "data",
+          "namespace": "com.example.mixed.mixed_jsonTypes",
+          "fields": [
+            {
+              "name": "type",
+              "type": "string"
+            },
+            {
+              "name": "count",
+              "type": "long"
+            },
+            {
+              "name": "child",
+              "type": {
+                "type": "record",
+                "name": "child",
+                "namespace": "com.example.mixed.mixed_json.dataTypes",
+                "fields": [
+                  {
+                    "name": "name",
+                    "type": "string"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "mixed_json"
+  },
+  "namespace": "com.example.mixed"
+}

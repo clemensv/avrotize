@@ -1,0 +1,311 @@
+{
+  "type": "record",
+  "name": "complex_json",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "data",
+      "type": {
+        "type": "record",
+        "name": "data",
+        "namespace": "com.example.complex.complex_jsonTypes",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "tags",
+            "type": {
+              "type": "array",
+              "items": "string",
+              "fields": []
+            }
+          },
+          {
+            "name": "scores",
+            "type": {
+              "type": "array",
+              "items": "long"
+            }
+          },
+          {
+            "name": "items",
+            "type": {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "items",
+                "namespace": "com.example.complex.complex_json.dataTypes",
+                "fields": [
+                  {
+                    "name": "id",
+                    "type": "long"
+                  },
+                  {
+                    "name": "value",
+                    "type": "string"
+                  }
+                ]
+              },
+              "fields": []
+            }
+          },
+          {
+            "name": "config",
+            "type": {
+              "type": "record",
+              "name": "config",
+              "namespace": "com.example.complex.complex_json.dataTypes",
+              "fields": [
+                {
+                  "name": "database",
+                  "type": {
+                    "type": "record",
+                    "name": "database",
+                    "namespace": "com.example.complex.complex_json.data.configTypes",
+                    "fields": [
+                      {
+                        "name": "host",
+                        "type": "string"
+                      },
+                      {
+                        "name": "port",
+                        "type": "long"
+                      },
+                      {
+                        "name": "credentials",
+                        "type": {
+                          "type": "record",
+                          "name": "credentials",
+                          "namespace": "com.example.complex.complex_json.data.config.databaseTypes",
+                          "fields": [
+                            {
+                              "name": "user",
+                              "type": "string"
+                            },
+                            {
+                              "name": "encrypted",
+                              "type": "boolean"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "mixed_array",
+            "type": {
+              "type": "array",
+              "items": [
+                "long",
+                "string",
+                "double",
+                "boolean"
+              ]
+            }
+          },
+          {
+            "name": "matrix",
+            "type": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  "long"
+                ]
+              }
+            }
+          },
+          {
+            "name": "nested_items",
+            "type": {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "nested_items",
+                "namespace": "com.example.complex.complex_json.dataTypes",
+                "fields": [
+                  {
+                    "name": "children",
+                    "type": {
+                      "type": "array",
+                      "items": {
+                        "type": "record",
+                        "name": "children",
+                        "namespace": "com.example.complex.complex_json.data.nested_itemsTypes",
+                        "fields": [
+                          {
+                            "name": "name",
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "events",
+            "type": {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "events",
+                "namespace": "com.example.complex.complex_json.dataTypes",
+                "fields": [
+                  {
+                    "name": "data",
+                    "type": {
+                      "type": "record",
+                      "name": "data",
+                      "namespace": "com.example.complex.complex_json.data.eventsTypes",
+                      "fields": [
+                        {
+                          "name": "x",
+                          "type": "long"
+                        },
+                        {
+                          "name": "y",
+                          "type": "long"
+                        },
+                        {
+                          "name": "offset",
+                          "type": "long"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "type",
+                    "type": "string"
+                  }
+                ]
+              },
+              "fields": []
+            }
+          },
+          {
+            "name": "organization",
+            "type": {
+              "type": "record",
+              "name": "organization",
+              "namespace": "com.example.complex.complex_json.dataTypes",
+              "fields": [
+                {
+                  "name": "name",
+                  "type": "string"
+                },
+                {
+                  "name": "departments",
+                  "type": {
+                    "type": "array",
+                    "items": {
+                      "type": "record",
+                      "name": "departments",
+                      "namespace": "com.example.complex.complex_json.data.organizationTypes",
+                      "fields": [
+                        {
+                          "name": "name",
+                          "type": "string"
+                        },
+                        {
+                          "name": "teams",
+                          "type": {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "teams",
+                              "namespace": "com.example.complex.complex_json.data.organization.departmentsTypes",
+                              "fields": [
+                                {
+                                  "name": "name",
+                                  "type": "string"
+                                },
+                                {
+                                  "name": "members",
+                                  "type": "long"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "catalog",
+            "type": {
+              "type": "record",
+              "name": "catalog",
+              "namespace": "com.example.complex.complex_json.dataTypes",
+              "fields": [
+                {
+                  "name": "categories",
+                  "type": {
+                    "type": "array",
+                    "items": {
+                      "type": "record",
+                      "name": "categories",
+                      "namespace": "com.example.complex.complex_json.data.catalogTypes",
+                      "fields": [
+                        {
+                          "name": "name",
+                          "type": "string"
+                        },
+                        {
+                          "name": "products",
+                          "type": {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "products",
+                              "namespace": "com.example.complex.complex_json.data.catalog.categoriesTypes",
+                              "fields": [
+                                {
+                                  "name": "sku",
+                                  "type": "string"
+                                },
+                                {
+                                  "name": "variants",
+                                  "type": {
+                                    "type": "array",
+                                    "items": "string"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "complex_json"
+  },
+  "namespace": "com.example.complex"
+}
