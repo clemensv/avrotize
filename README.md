@@ -126,6 +126,7 @@ Direct JSON Structure conversions:
 Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
+- [`avrotize validate`](#validate-json-instances-against-schemas) - Validate JSON instances against Avro or JSON Structure schemas.
 
 JSON Structure conversions:
 
@@ -1424,6 +1425,45 @@ Conversion notes:
 
 - The tool generates the Parsing Canonical Form (PCF) of the Avrotize Schema. The PCF is a normalized form of the schema that is used for schema comparison and compatibility checking.
 - The PCF is a JSON object that is written to stdout.
+
+### Validate JSON instances against schemas
+
+```bash
+avrotize validate <json_files...> --schema <schema_file> [--schema-type <type>] [--quiet]
+```
+
+Parameters:
+
+- `<json_files...>`: One or more JSON files to validate. Supports single JSON objects, JSON arrays, and JSONL (newline-delimited JSON) formats.
+- `--schema <schema_file>`: Path to the schema file (`.avsc` for Avro, `.jstruct.json` for JSON Structure).
+- `--schema-type`: (optional) Schema type: `avro` or `jstruct`. Auto-detected from file extension if omitted.
+- `--quiet`: (optional) Suppress output. Exit code 0 if all instances are valid, 1 if any are invalid.
+
+Validation notes:
+
+- Validates JSON instances against Avro schemas per the [Avrotize Schema specification](specs/avrotize-schema.md).
+- Supports all Avro primitive types: null, boolean, int, long, float, double, bytes, string.
+- Supports all Avro complex types: record, enum, array, map, fixed.
+- Supports logical types with both native and string encodings: decimal, uuid, date, time-millis, time-micros, timestamp-millis, timestamp-micros, duration.
+- Supports field `altnames` for JSON field name mapping.
+- Supports enum `altsymbols` for JSON symbol mapping.
+- For JSON Structure validation, requires the `json-structure` package.
+
+Example:
+
+```bash
+# Validate JSON file against Avro schema
+avrotize validate data.json --schema schema.avsc
+
+# Validate multiple files
+avrotize validate file1.json file2.json --schema schema.avsc
+
+# Validate JSONL file against JSON Structure schema
+avrotize validate events.jsonl --schema events.jstruct.json
+
+# Quiet mode for CI/CD pipelines (exit code only)
+avrotize validate data.json --schema schema.avsc --quiet
+```
 
 ### Convert JSON Structure schema to GraphQL schema
 
