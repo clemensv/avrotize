@@ -372,8 +372,8 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
 
         if isinstance(python_value, list):
             if len(python_value) > 0:
-                item_types = self.consolidated_type_list(
-                    type_name, python_value, self.python_type_to_jstruct_type)
+                item_types = self.consolidated_jstruct_type_list(
+                    type_name, python_value)
                 # Simplify single-type arrays
                 if len(item_types) == 1:
                     items = item_types[0]

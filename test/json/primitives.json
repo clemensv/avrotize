@@ -1,0 +1,20 @@
+[
+    {
+        "string_field": "hello world",
+        "integer_field": 42,
+        "negative_integer": -100,
+        "float_field": 3.14159,
+        "boolean_true": true,
+        "boolean_false": false,
+        "null_field": null
+    },
+    {
+        "string_field": "another string",
+        "integer_field": 0,
+        "negative_integer": -1,
+        "float_field": -2.718,
+        "boolean_true": true,
+        "boolean_false": false,
+        "null_field": null
+    }
+]

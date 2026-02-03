@@ -1,0 +1,8 @@
+{
+    "single_record": true,
+    "name": "SingleObject",
+    "value": 42,
+    "nested": {
+        "inner_field": "inner_value"
+    }
+}

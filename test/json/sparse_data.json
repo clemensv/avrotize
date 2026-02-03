@@ -1,0 +1,20 @@
+[
+    {
+        "name": "Record 1",
+        "field_a": "value_a"
+    },
+    {
+        "name": "Record 2",
+        "field_b": 42
+    },
+    {
+        "name": "Record 3",
+        "field_c": true
+    },
+    {
+        "name": "Record 4",
+        "field_a": "another_value",
+        "field_b": 100,
+        "field_c": false
+    }
+]

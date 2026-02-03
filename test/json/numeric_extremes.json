@@ -1,0 +1,14 @@
+[
+    {
+        "small_int": 1,
+        "max_int32": 2147483647,
+        "min_int32": -2147483648,
+        "large_int": 9007199254740992,
+        "zero": 0,
+        "negative_large": -9007199254740991,
+        "small_float": 0.1,
+        "large_float": 1.7976931348623157e+308,
+        "small_negative_float": -0.000001,
+        "scientific_notation": 1.23e-10
+    }
+]

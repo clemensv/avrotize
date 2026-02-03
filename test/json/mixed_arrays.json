@@ -1,0 +1,13 @@
+[
+    {
+        "homogeneous_array": [1, 2, 3],
+        "mixed_array": ["string", 42, true, null],
+        "array_with_objects": [
+            {"type": "A", "value": 1},
+            {"type": "B", "extra": "field"}
+        ],
+        "array_with_arrays": [[1, 2], [3, 4, 5], [6]],
+        "single_element": [42],
+        "null_element_array": [null, null, null]
+    }
+]
