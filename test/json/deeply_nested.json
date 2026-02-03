@@ -1,0 +1,16 @@
+[
+    {
+        "level1": {
+            "level2": {
+                "level3": {
+                    "level4": {
+                        "level5": {
+                            "deep_value": "I am deeply nested",
+                            "deep_number": 12345
+                        }
+                    }
+                }
+            }
+        }
+    }
+]

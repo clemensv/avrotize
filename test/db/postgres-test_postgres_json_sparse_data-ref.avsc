@@ -19,93 +19,165 @@
           },
           {
             "name": "email",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "phone",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "address",
-            "type": {
-              "type": "record",
-              "name": "address",
-              "namespace": "com.example.sparse.sparse_json.dataTypes",
-              "fields": [
-                {
-                  "name": "city",
-                  "type": "string"
-                },
-                {
-                  "name": "street",
-                  "type": "string"
-                },
-                {
-                  "name": "zip",
-                  "type": "string"
-                },
-                {
-                  "name": "state",
-                  "type": "string"
-                }
-              ]
-            }
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "address",
+                "namespace": "com.example.sparse.sparse_json.dataTypes",
+                "fields": [
+                  {
+                    "name": "city",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "street",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "zip",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "state",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  }
+                ]
+              }
+            ],
+            "default": null
           },
           {
             "name": "metadata",
-            "type": {
-              "type": "record",
-              "name": "metadata",
-              "namespace": "com.example.sparse.sparse_json.dataTypes",
-              "fields": [
-                {
-                  "name": "source",
-                  "type": "string"
-                },
-                {
-                  "name": "version",
-                  "type": "string"
-                },
-                {
-                  "name": "campaign",
-                  "type": "string"
-                },
-                {
-                  "name": "referrer",
-                  "type": "string"
-                },
-                {
-                  "name": "tier",
-                  "type": "string"
-                }
-              ]
-            }
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "metadata",
+                "namespace": "com.example.sparse.sparse_json.dataTypes",
+                "fields": [
+                  {
+                    "name": "source",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "version",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "campaign",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "referrer",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "tier",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  }
+                ]
+              }
+            ],
+            "default": null
           },
           {
             "name": "preferences",
-            "type": {
-              "type": "record",
-              "name": "preferences",
-              "namespace": "com.example.sparse.sparse_json.dataTypes",
-              "fields": [
-                {
-                  "name": "theme",
-                  "type": "string"
-                },
-                {
-                  "name": "language",
-                  "type": "string"
-                },
-                {
-                  "name": "notifications",
-                  "type": "boolean"
-                },
-                {
-                  "name": "fontSize",
-                  "type": "long"
-                }
-              ]
-            }
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "preferences",
+                "namespace": "com.example.sparse.sparse_json.dataTypes",
+                "fields": [
+                  {
+                    "name": "theme",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "language",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "notifications",
+                    "type": [
+                      "null",
+                      "boolean"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "fontSize",
+                    "type": [
+                      "null",
+                      "long"
+                    ],
+                    "default": null
+                  }
+                ]
+              }
+            ],
+            "default": null
           }
         ]
       }

@@ -55,6 +55,10 @@ Converting to Avrotize Schema:
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
 - [`avrotize k2a`](#convert-kusto-table-definition-to-avrotize-schema) - Convert Kusto table definitions to Avrotize Schema.
 - [`avrotize sql2a`](#convert-sql-database-schema-to-avrotize-schema) - Convert SQL database schema to Avrotize Schema.
+- [`avrotize json2a`](#infer-avro-schema-from-json-files) - Infer Avro schema from JSON files.
+- [`avrotize json2s`](#infer-json-structure-schema-from-json-files) - Infer JSON Structure schema from JSON files.
+- [`avrotize xml2a`](#infer-avro-schema-from-xml-files) - Infer Avro schema from XML files.
+- [`avrotize xml2s`](#infer-json-structure-schema-from-xml-files) - Infer JSON Structure schema from XML files.
 - [`avrotize pq2a`](#convert-parquet-schema-to-avrotize-schema) - Convert Parquet schema to Avrotize Schema.
 - [`avrotize csv2a`](#convert-csv-file-to-avrotize-schema) - Convert CSV file to Avrotize Schema.
 - [`avrotize kstruct2a`](#convert-kafka-connect-schema-to-avrotize-schema) - Convert Kafka Connect Schema to Avrotize Schema.
@@ -122,6 +126,7 @@ Direct JSON Structure conversions:
 Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
+- [`avrotize validate`](#validate-json-instances-against-schemas) - Validate JSON instances against Avro or JSON Structure schemas.
 
 JSON Structure conversions:
 
@@ -452,6 +457,92 @@ Conversion notes:
 - For columns with keys that cannot be valid Avro identifiers (UUIDs, URLs, special characters), the tool generates `map<string, T>` types instead of record types.
 - Table and column comments are preserved as Avro `doc` attributes where available.
 - Primary key columns are noted in the schema's `unique` attribute.
+
+### Infer Avro schema from JSON files
+
+```bash
+avrotize json2a <json_files...> [--out <path_to_avro_schema_file>] [--type-name <name>] [--namespace <namespace>] [--sample-size <n>]
+```
+
+Parameters:
+
+- `<json_files...>`: One or more JSON files to analyze. Supports JSON arrays, single objects, and JSONL (JSON Lines) format.
+- `--out`: The path to the Avro schema file. If omitted, output goes to stdout.
+- `--type-name`: (optional) Name for the root type (default: "Document").
+- `--namespace`: (optional) Avro namespace for generated types.
+- `--sample-size`: (optional) Maximum number of records to sample (0 = all, default: 0).
+
+Example:
+
+```bash
+# Infer schema from multiple JSON files
+avrotize json2a data1.json data2.json --out schema.avsc --type-name Event --namespace com.example
+
+# Infer schema from JSONL file
+avrotize json2a events.jsonl --out events.avsc --type-name LogEntry
+```
+
+### Infer JSON Structure schema from JSON files
+
+```bash
+avrotize json2s <json_files...> [--out <path_to_jstruct_schema_file>] [--type-name <name>] [--base-id <uri>] [--sample-size <n>]
+```
+
+Parameters:
+
+- `<json_files...>`: One or more JSON files to analyze.
+- `--out`: The path to the JSON Structure schema file. If omitted, output goes to stdout.
+- `--type-name`: (optional) Name for the root type (default: "Document").
+- `--base-id`: (optional) Base URI for $id generation (default: "https://example.com/").
+- `--sample-size`: (optional) Maximum number of records to sample (0 = all, default: 0).
+
+Example:
+
+```bash
+avrotize json2s data.json --out schema.jstruct.json --type-name Person --base-id https://myapi.example.com/schemas/
+```
+
+### Infer Avro schema from XML files
+
+```bash
+avrotize xml2a <xml_files...> [--out <path_to_avro_schema_file>] [--type-name <name>] [--namespace <namespace>] [--sample-size <n>]
+```
+
+Parameters:
+
+- `<xml_files...>`: One or more XML files to analyze.
+- `--out`: The path to the Avro schema file. If omitted, output goes to stdout.
+- `--type-name`: (optional) Name for the root type (default: "Document").
+- `--namespace`: (optional) Avro namespace for generated types.
+- `--sample-size`: (optional) Maximum number of documents to sample (0 = all, default: 0).
+
+Example:
+
+```bash
+avrotize xml2a config.xml --out config.avsc --type-name Configuration --namespace com.example.config
+```
+
+### Infer JSON Structure schema from XML files
+
+```bash
+avrotize xml2s <xml_files...> [--out <path_to_jstruct_schema_file>] [--type-name <name>] [--base-id <uri>] [--sample-size <n>]
+```
+
+Parameters:
+
+- `<xml_files...>`: One or more XML files to analyze.
+- `--out`: The path to the JSON Structure schema file. If omitted, output goes to stdout.
+- `--type-name`: (optional) Name for the root type (default: "Document").
+- `--base-id`: (optional) Base URI for $id generation (default: "https://example.com/").
+- `--sample-size`: (optional) Maximum number of documents to sample (0 = all, default: 0).
+
+Conversion notes (applies to all inference commands):
+
+- XML attributes are converted to fields prefixed with `@` (normalized to valid identifiers).
+- Text content in mixed-content elements becomes a `#text` field.
+- Repeated elements are inferred as arrays.
+- Multiple files with different structures are merged into a unified schema.
+- Sparse data (fields that appear in some but not all records) is folded into a single type.
 
 ### Convert Avrotize Schema to Kusto table declaration
 
@@ -1334,6 +1425,45 @@ Conversion notes:
 
 - The tool generates the Parsing Canonical Form (PCF) of the Avrotize Schema. The PCF is a normalized form of the schema that is used for schema comparison and compatibility checking.
 - The PCF is a JSON object that is written to stdout.
+
+### Validate JSON instances against schemas
+
+```bash
+avrotize validate <json_files...> --schema <schema_file> [--schema-type <type>] [--quiet]
+```
+
+Parameters:
+
+- `<json_files...>`: One or more JSON files to validate. Supports single JSON objects, JSON arrays, and JSONL (newline-delimited JSON) formats.
+- `--schema <schema_file>`: Path to the schema file (`.avsc` for Avro, `.jstruct.json` for JSON Structure).
+- `--schema-type`: (optional) Schema type: `avro` or `jstruct`. Auto-detected from file extension if omitted.
+- `--quiet`: (optional) Suppress output. Exit code 0 if all instances are valid, 1 if any are invalid.
+
+Validation notes:
+
+- Validates JSON instances against Avro schemas per the [Avrotize Schema specification](specs/avrotize-schema.md).
+- Supports all Avro primitive types: null, boolean, int, long, float, double, bytes, string.
+- Supports all Avro complex types: record, enum, array, map, fixed.
+- Supports logical types with both native and string encodings: decimal, uuid, date, time-millis, time-micros, timestamp-millis, timestamp-micros, duration.
+- Supports field `altnames` for JSON field name mapping.
+- Supports enum `altsymbols` for JSON symbol mapping.
+- For JSON Structure validation, requires the `json-structure` package.
+
+Example:
+
+```bash
+# Validate JSON file against Avro schema
+avrotize validate data.json --schema schema.avsc
+
+# Validate multiple files
+avrotize validate file1.json file2.json --schema schema.avsc
+
+# Validate JSONL file against JSON Structure schema
+avrotize validate events.jsonl --schema events.jstruct.json
+
+# Quiet mode for CI/CD pipelines (exit code only)
+avrotize validate data.json --schema schema.avsc --quiet
+```
 
 ### Convert JSON Structure schema to GraphQL schema
 

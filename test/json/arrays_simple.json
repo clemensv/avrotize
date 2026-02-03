@@ -1,0 +1,9 @@
+[
+    {
+        "string_array": ["apple", "banana", "cherry"],
+        "integer_array": [1, 2, 3, 4, 5],
+        "float_array": [1.1, 2.2, 3.3],
+        "boolean_array": [true, false, true],
+        "empty_array": []
+    }
+]

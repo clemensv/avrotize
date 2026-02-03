@@ -15,7 +15,11 @@
         "fields": [
           {
             "name": "name",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "type",
@@ -23,106 +27,186 @@
           },
           {
             "name": "email",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "userId",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "items",
-            "type": {
-              "type": "array",
-              "items": {
-                "type": "record",
-                "name": "items",
-                "namespace": "com.example.events.union_json.eventTypes",
-                "fields": [
-                  {
-                    "name": "qty",
-                    "type": "long"
-                  },
-                  {
-                    "name": "sku",
-                    "type": "string"
-                  }
-                ]
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "items",
+                  "namespace": "com.example.events.union_json.eventTypes",
+                  "fields": [
+                    {
+                      "name": "qty",
+                      "type": "long"
+                    },
+                    {
+                      "name": "sku",
+                      "type": "string"
+                    }
+                  ]
+                }
               }
-            }
+            ],
+            "default": null
           },
           {
             "name": "total",
-            "type": "double"
+            "type": [
+              "null",
+              "double"
+            ],
+            "default": null
           },
           {
             "name": "orderId",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "last4",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "amount",
-            "type": "double"
+            "type": [
+              "null",
+              "double"
+            ],
+            "default": null
           },
           {
             "name": "method",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "paymentId",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "paypalEmail",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "carrier",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "shipmentId",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "trackingNumber",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "changes",
-            "type": {
-              "type": "record",
-              "name": "changes",
-              "namespace": "com.example.events.union_json.eventTypes",
-              "fields": [
-                {
-                  "name": "email",
-                  "type": "string"
-                },
-                {
-                  "name": "name",
-                  "type": "string"
-                }
-              ]
-            }
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "changes",
+                "namespace": "com.example.events.union_json.eventTypes",
+                "fields": [
+                  {
+                    "name": "email",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  },
+                  {
+                    "name": "name",
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "default": null
+                  }
+                ]
+              }
+            ],
+            "default": null
           },
           {
             "name": "sku",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "reason",
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           },
           {
             "name": "adjustment",
-            "type": "long"
+            "type": [
+              "null",
+              "long"
+            ],
+            "default": null
           },
           {
             "name": "newQuantity",
-            "type": "long"
+            "type": [
+              "null",
+              "long"
+            ],
+            "default": null
           }
         ]
       }

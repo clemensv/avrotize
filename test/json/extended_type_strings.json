@@ -1,0 +1,13 @@
+[
+    {
+        "uuid_like": "550e8400-e29b-41d4-a716-446655440000",
+        "date_like": "2024-12-15",
+        "datetime_like": "2024-12-15T10:30:00Z",
+        "time_like": "10:30:00",
+        "uri_like": "https://example.com/path?query=value",
+        "email_like": "user@example.com",
+        "ip_address": "192.168.1.1",
+        "duration_like": "P1Y2M3DT4H5M6S",
+        "base64_like": "SGVsbG8gV29ybGQh"
+    }
+]

@@ -1,0 +1,13 @@
+[
+    {
+        "field-with-dashes": "value1",
+        "field.with.dots": "value2",
+        "field with spaces": "value3",
+        "123_starts_with_number": "value4",
+        "_underscore_prefix": "value5",
+        "CamelCase": "value6",
+        "ALLCAPS": "value7",
+        "$dollar": "value8",
+        "@at_sign": "value9"
+    }
+]

@@ -1,0 +1,38 @@
+[
+    {
+        "user": {
+            "profile": {
+                "personal": {
+                    "name": "Alice",
+                    "age": 30
+                },
+                "contact": {
+                    "email": "alice@example.com",
+                    "phone": "555-1234"
+                }
+            },
+            "settings": {
+                "theme": "dark",
+                "notifications": true
+            }
+        }
+    },
+    {
+        "user": {
+            "profile": {
+                "personal": {
+                    "name": "Bob",
+                    "age": 25
+                },
+                "contact": {
+                    "email": "bob@example.com",
+                    "phone": "555-5678"
+                }
+            },
+            "settings": {
+                "theme": "light",
+                "notifications": false
+            }
+        }
+    }
+]

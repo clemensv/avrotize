@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "name": "Document",
+  "fields": [
+    {
+      "name": "string_field",
+      "type": "string"
+    },
+    {
+      "name": "integer_field",
+      "type": "integer"
+    },
+    {
+      "name": "negative_integer",
+      "type": "integer"
+    },
+    {
+      "name": "float_field",
+      "type": "double"
+    },
+    {
+      "name": "boolean_true",
+      "type": "boolean"
+    },
+    {
+      "name": "boolean_false",
+      "type": "boolean"
+    },
+    {
+      "name": "null_field",
+      "type": [
+        "null",
+        "null"
+      ],
+      "default": null
+    }
+  ]
+}
