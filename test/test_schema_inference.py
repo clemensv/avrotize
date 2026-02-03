@@ -144,7 +144,7 @@ class TestJsonToJstruct(unittest.TestCase):
         self.assertIn('active', schema['properties'])
         
         self.assertEqual(schema['properties']['name']['type'], 'string')
-        self.assertEqual(schema['properties']['age']['type'], 'int64')
+        self.assertEqual(schema['properties']['age']['type'], 'integer')
         self.assertEqual(schema['properties']['active']['type'], 'boolean')
 
     def test_nested_object(self):
@@ -245,6 +245,32 @@ class TestJsonToJstruct(unittest.TestCase):
         errors = validator.validate(schema)
         
         self.assertEqual(errors, [], f"Schema validation failed: {errors}")
+
+    def test_jstruct_instance_validates_with_sdk(self):
+        """Test that input JSON instances validate against generated JSON Structure schemas."""
+        try:
+            from json_structure import InstanceValidator, SchemaValidator
+        except ImportError:
+            self.skipTest("json-structure SDK not installed")
+
+        values = [
+            {"name": "Alice", "age": 30, "active": True},
+            {"name": "Bob", "age": 25, "active": False},
+            {"name": "Charlie", "age": 35, "active": True, "email": "charlie@example.com"}
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='Person', base_id='https://example.com/')
+        
+        # Schema should be valid
+        schema_validator = SchemaValidator()
+        schema_errors = schema_validator.validate(schema)
+        self.assertEqual(schema_errors, [], f"Schema validation failed: {schema_errors}")
+        
+        # All input instances should validate against the schema
+        instance_validator = InstanceValidator(schema)
+        for i, instance in enumerate(values):
+            errors = instance_validator.validate_instance(instance)
+            self.assertEqual(errors, [], f"Instance {i} validation failed: {errors}")
 
 
 class TestXmlToAvro(unittest.TestCase):

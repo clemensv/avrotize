@@ -301,8 +301,10 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
     """Infers JSON Structure schemas from JSON and XML data."""
 
     # JSON Structure primitive type mapping
+    # Use 'integer' for general integers (accepts native JSON numbers)
+    # int64/uint64 etc. are string-encoded for JSON safety with large numbers
     PYTHON_TO_JSTRUCT_TYPES = {
-        int: "int64",  # Use int64 for safety with large integers
+        int: "integer",
         float: "double",
         str: "string",
         bool: "boolean",
