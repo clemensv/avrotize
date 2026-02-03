@@ -38,6 +38,10 @@ def create_subparsers(subparsers, commands):
                 kwargs['choices'] = arg['choices']
             if 'default' in arg:
                 kwargs['default'] = arg['default']
+            # Handle dest for optional arguments only (positional args can't have dest)
+            arg_is_positional = not arg['name'].startswith('-')
+            if 'dest' in arg and not arg_is_positional:
+                kwargs['dest'] = arg['dest']
             if arg['type'] == 'bool':
                 kwargs['action'] = 'store_true'
                 del kwargs['type']

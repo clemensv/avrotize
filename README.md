@@ -55,6 +55,10 @@ Converting to Avrotize Schema:
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
 - [`avrotize k2a`](#convert-kusto-table-definition-to-avrotize-schema) - Convert Kusto table definitions to Avrotize Schema.
 - [`avrotize sql2a`](#convert-sql-database-schema-to-avrotize-schema) - Convert SQL database schema to Avrotize Schema.
+- [`avrotize json2a`](#infer-avro-schema-from-json-files) - Infer Avro schema from JSON files.
+- [`avrotize json2s`](#infer-json-structure-schema-from-json-files) - Infer JSON Structure schema from JSON files.
+- [`avrotize xml2a`](#infer-avro-schema-from-xml-files) - Infer Avro schema from XML files.
+- [`avrotize xml2s`](#infer-json-structure-schema-from-xml-files) - Infer JSON Structure schema from XML files.
 - [`avrotize pq2a`](#convert-parquet-schema-to-avrotize-schema) - Convert Parquet schema to Avrotize Schema.
 - [`avrotize csv2a`](#convert-csv-file-to-avrotize-schema) - Convert CSV file to Avrotize Schema.
 - [`avrotize kstruct2a`](#convert-kafka-connect-schema-to-avrotize-schema) - Convert Kafka Connect Schema to Avrotize Schema.
@@ -452,6 +456,92 @@ Conversion notes:
 - For columns with keys that cannot be valid Avro identifiers (UUIDs, URLs, special characters), the tool generates `map<string, T>` types instead of record types.
 - Table and column comments are preserved as Avro `doc` attributes where available.
 - Primary key columns are noted in the schema's `unique` attribute.
+
+### Infer Avro schema from JSON files
+
+```bash
+avrotize json2a <json_files...> [--out <path_to_avro_schema_file>] [--type-name <name>] [--namespace <namespace>] [--sample-size <n>]
+```
+
+Parameters:
+
+- `<json_files...>`: One or more JSON files to analyze. Supports JSON arrays, single objects, and JSONL (JSON Lines) format.
+- `--out`: The path to the Avro schema file. If omitted, output goes to stdout.
+- `--type-name`: (optional) Name for the root type (default: "Document").
+- `--namespace`: (optional) Avro namespace for generated types.
+- `--sample-size`: (optional) Maximum number of records to sample (0 = all, default: 0).
+
+Example:
+
+```bash
+# Infer schema from multiple JSON files
+avrotize json2a data1.json data2.json --out schema.avsc --type-name Event --namespace com.example
+
+# Infer schema from JSONL file
+avrotize json2a events.jsonl --out events.avsc --type-name LogEntry
+```
+
+### Infer JSON Structure schema from JSON files
+
+```bash
+avrotize json2s <json_files...> [--out <path_to_jstruct_schema_file>] [--type-name <name>] [--base-id <uri>] [--sample-size <n>]
+```
+
+Parameters:
+
+- `<json_files...>`: One or more JSON files to analyze.
+- `--out`: The path to the JSON Structure schema file. If omitted, output goes to stdout.
+- `--type-name`: (optional) Name for the root type (default: "Document").
+- `--base-id`: (optional) Base URI for $id generation (default: "https://example.com/").
+- `--sample-size`: (optional) Maximum number of records to sample (0 = all, default: 0).
+
+Example:
+
+```bash
+avrotize json2s data.json --out schema.jstruct.json --type-name Person --base-id https://myapi.example.com/schemas/
+```
+
+### Infer Avro schema from XML files
+
+```bash
+avrotize xml2a <xml_files...> [--out <path_to_avro_schema_file>] [--type-name <name>] [--namespace <namespace>] [--sample-size <n>]
+```
+
+Parameters:
+
+- `<xml_files...>`: One or more XML files to analyze.
+- `--out`: The path to the Avro schema file. If omitted, output goes to stdout.
+- `--type-name`: (optional) Name for the root type (default: "Document").
+- `--namespace`: (optional) Avro namespace for generated types.
+- `--sample-size`: (optional) Maximum number of documents to sample (0 = all, default: 0).
+
+Example:
+
+```bash
+avrotize xml2a config.xml --out config.avsc --type-name Configuration --namespace com.example.config
+```
+
+### Infer JSON Structure schema from XML files
+
+```bash
+avrotize xml2s <xml_files...> [--out <path_to_jstruct_schema_file>] [--type-name <name>] [--base-id <uri>] [--sample-size <n>]
+```
+
+Parameters:
+
+- `<xml_files...>`: One or more XML files to analyze.
+- `--out`: The path to the JSON Structure schema file. If omitted, output goes to stdout.
+- `--type-name`: (optional) Name for the root type (default: "Document").
+- `--base-id`: (optional) Base URI for $id generation (default: "https://example.com/").
+- `--sample-size`: (optional) Maximum number of documents to sample (0 = all, default: 0).
+
+Conversion notes (applies to all inference commands):
+
+- XML attributes are converted to fields prefixed with `@` (normalized to valid identifiers).
+- Text content in mixed-content elements becomes a `#text` field.
+- Repeated elements are inferred as arrays.
+- Multiple files with different structures are merged into a unified schema.
+- Sparse data (fields that appear in some but not all records) is folded into a single type.
 
 ### Convert Avrotize Schema to Kusto table declaration
 

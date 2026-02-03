@@ -1142,6 +1142,282 @@
     ]
   },
   {
+    "command": "json2a",
+    "description": "Infer Avro schema from JSON files",
+    "group": "6_Inference",
+    "skip_input_file_handling": true,
+    "function": {
+      "name": "avrotize.jsontoschema.convert_json_to_avro",
+      "args": {
+        "input_files": "args.input",
+        "avro_schema_file": "output_file_path",
+        "type_name": "args.type_name",
+        "avro_namespace": "args.namespace",
+        "sample_size": "args.sample_size"
+      }
+    },
+    "extensions": [".json", ".jsonl", ".ndjson"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "+",
+        "help": "JSON file(s) to analyze for schema inference",
+        "required": true
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the output Avro schema file",
+        "required": false
+      },
+      {
+        "name": "--type-name",
+        "type": "str",
+        "help": "Name for the root type",
+        "default": "Document",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avro schema",
+        "required": false
+      },
+      {
+        "name": "--sample-size",
+        "type": "int",
+        "help": "Maximum number of records to sample (0 = all)",
+        "default": 0,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": [
+      {
+        "name": "--type-name",
+        "message": "Enter the name for the root type",
+        "type": "str",
+        "default": "Document",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "message": "Enter the namespace for the Avro schema",
+        "type": "str",
+        "required": false
+      }
+    ]
+  },
+  {
+    "command": "json2s",
+    "description": "Infer JSON Structure schema from JSON files",
+    "group": "6_Inference",
+    "skip_input_file_handling": true,
+    "function": {
+      "name": "avrotize.jsontoschema.convert_json_to_jstruct",
+      "args": {
+        "input_files": "args.input",
+        "jstruct_schema_file": "output_file_path",
+        "type_name": "args.type_name",
+        "base_id": "args.base_id",
+        "sample_size": "args.sample_size"
+      }
+    },
+    "extensions": [".json", ".jsonl", ".ndjson"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "+",
+        "help": "JSON file(s) to analyze for schema inference",
+        "required": true
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the output JSON Structure schema file",
+        "required": false
+      },
+      {
+        "name": "--type-name",
+        "type": "str",
+        "help": "Name for the root type",
+        "default": "Document",
+        "required": false
+      },
+      {
+        "name": "--base-id",
+        "type": "str",
+        "help": "Base URI for $id generation",
+        "default": "https://example.com/",
+        "required": false
+      },
+      {
+        "name": "--sample-size",
+        "type": "int",
+        "help": "Maximum number of records to sample (0 = all)",
+        "default": 0,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.jstruct.json",
+    "prompts": [
+      {
+        "name": "--type-name",
+        "message": "Enter the name for the root type",
+        "type": "str",
+        "default": "Document",
+        "required": false
+      },
+      {
+        "name": "--base-id",
+        "message": "Enter the base URI for $id generation",
+        "type": "str",
+        "default": "https://example.com/",
+        "required": false
+      }
+    ]
+  },
+  {
+    "command": "xml2a",
+    "description": "Infer Avro schema from XML files",
+    "group": "6_Inference",
+    "skip_input_file_handling": true,
+    "function": {
+      "name": "avrotize.xmltoschema.convert_xml_to_avro",
+      "args": {
+        "input_files": "args.input",
+        "avro_schema_file": "output_file_path",
+        "type_name": "args.type_name",
+        "avro_namespace": "args.namespace",
+        "sample_size": "args.sample_size"
+      }
+    },
+    "extensions": [".xml"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "+",
+        "help": "XML file(s) to analyze for schema inference",
+        "required": true
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the output Avro schema file",
+        "required": false
+      },
+      {
+        "name": "--type-name",
+        "type": "str",
+        "help": "Name for the root type",
+        "default": "Document",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avro schema",
+        "required": false
+      },
+      {
+        "name": "--sample-size",
+        "type": "int",
+        "help": "Maximum number of documents to sample (0 = all)",
+        "default": 0,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": [
+      {
+        "name": "--type-name",
+        "message": "Enter the name for the root type",
+        "type": "str",
+        "default": "Document",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "message": "Enter the namespace for the Avro schema",
+        "type": "str",
+        "required": false
+      }
+    ]
+  },
+  {
+    "command": "xml2s",
+    "description": "Infer JSON Structure schema from XML files",
+    "group": "6_Inference",
+    "skip_input_file_handling": true,
+    "function": {
+      "name": "avrotize.xmltoschema.convert_xml_to_jstruct",
+      "args": {
+        "input_files": "args.input",
+        "jstruct_schema_file": "output_file_path",
+        "type_name": "args.type_name",
+        "base_id": "args.base_id",
+        "sample_size": "args.sample_size"
+      }
+    },
+    "extensions": [".xml"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "+",
+        "help": "XML file(s) to analyze for schema inference",
+        "required": true
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the output JSON Structure schema file",
+        "required": false
+      },
+      {
+        "name": "--type-name",
+        "type": "str",
+        "help": "Name for the root type",
+        "default": "Document",
+        "required": false
+      },
+      {
+        "name": "--base-id",
+        "type": "str",
+        "help": "Base URI for $id generation",
+        "default": "https://example.com/",
+        "required": false
+      },
+      {
+        "name": "--sample-size",
+        "type": "int",
+        "help": "Maximum number of documents to sample (0 = all)",
+        "default": 0,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.jstruct.json",
+    "prompts": [
+      {
+        "name": "--type-name",
+        "message": "Enter the name for the root type",
+        "type": "str",
+        "default": "Document",
+        "required": false
+      },
+      {
+        "name": "--base-id",
+        "message": "Enter the base URI for $id generation",
+        "type": "str",
+        "default": "https://example.com/",
+        "required": false
+      }
+    ]
+  },
+  {
     "command": "a2mongo",
     "description": "Convert Avrotize schema to MongoDB schema",
     "group": "6_NoSQL",
