@@ -19,15 +19,17 @@ JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | float |
 class SchemaInferrer:
     """Base class for schema inference from JSON and XML data."""
 
-    def __init__(self, namespace: str = '', type_name_prefix: str = ''):
+    def __init__(self, namespace: str = '', type_name_prefix: str = '', altnames_key: str = 'json'):
         """Initialize the schema inferrer.
 
         Args:
             namespace: Namespace for generated types (Avro) or $id base (JSON Structure)
             type_name_prefix: Prefix for generated type names
+            altnames_key: Key to use for altnames mapping (e.g., 'json', 'sql', 'xml')
         """
         self.namespace = namespace
         self.type_name_prefix = type_name_prefix
+        self.altnames_key = altnames_key
         self.generated_types: List[str] = []
 
     def fold_record_types(self, base_record: dict, new_record: dict) -> Tuple[bool, dict]:
@@ -184,7 +186,7 @@ class AvroSchemaInferrer(SchemaInferrer):
                     "type": self.python_type_to_avro_type(f"{type_name}.{key}", value)
                 }
                 if original_key != key:
-                    field["altnames"] = {"json": original_key}
+                    field["altnames"] = {self.altnames_key: original_key}
                 fields.append(field)
             record["fields"] = fields
             return record
@@ -354,7 +356,7 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
 
                 # Add altnames if key was transformed
                 if original_key != safe_key:
-                    properties[safe_key]["altnames"] = {"json": original_key}
+                    properties[safe_key]["altnames"] = {self.altnames_key: original_key}
 
                 # All inferred properties are required unless null
                 if prop_type != "null":

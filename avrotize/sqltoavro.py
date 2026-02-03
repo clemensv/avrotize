@@ -4,12 +4,12 @@ import copy
 import json
 import os
 import re
-import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Dict, List, cast
 from urllib.parse import urlparse, parse_qs
 
-from avrotize.common import avro_name, get_tree_hash
+from avrotize.common import avro_name
 from avrotize.constants import AVRO_VERSION
+from avrotize.schema_inference import AvroSchemaInferrer
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | float | None
 
@@ -61,6 +61,9 @@ class SqlToAvro:
         self.infer_json_schema = infer_json_schema
         self.infer_xml_schema = infer_xml_schema
         self.generated_types: List[str] = []
+        
+        # Schema inferrer for JSON/XML columns (use 'sql' altnames for SQL source)
+        self._inferrer = AvroSchemaInferrer(namespace=avro_namespace, altnames_key='sql')
 
         if self.emit_xregistry and not self.avro_namespace:
             raise ValueError(
@@ -615,138 +618,8 @@ class SqlToAvro:
         return None
 
     # -------------------------------------------------------------------------
-    # JSON/XML Schema Inference (following k2a patterns)
+    # JSON/XML Schema Inference (delegated to shared AvroSchemaInferrer)
     # -------------------------------------------------------------------------
-
-    def fold_record_types(self, base_record: dict, new_record: dict) -> Tuple[bool, dict]:
-        """Merges two record types following k2a pattern."""
-        base_fields = copy.deepcopy(base_record).get("fields", [])
-        new_fields = new_record.get("fields", [])
-
-        for field in new_fields:
-            base_field = next(
-                (f for f in base_fields if f["name"] == field["name"]), None)
-            if not base_field:
-                base_fields.append(field)
-            else:
-                if isinstance(base_field["type"], str) and base_field["type"] != field["type"]:
-                    return False, new_record
-                elif isinstance(base_field["type"], dict) and isinstance(field["type"], dict):
-                    if base_field["type"].get("type") == field["type"].get("type"):
-                        result, record_type = self.fold_record_types(
-                            base_field["type"], field["type"])
-                        if not result:
-                            return False, new_record
-                        base_field["type"] = record_type
-        base_record["fields"] = base_fields
-        return True, base_record
-
-    def python_type_to_avro_type(self, type_name: str, python_value: Any) -> JsonNode:
-        """Maps Python types to Avro types (following k2a pattern)."""
-        simple_types = {
-            int: "long",  # Use long for safety with large integers
-            float: "double",
-            str: "string",
-            bool: "boolean",
-            bytes: "bytes"
-        }
-        
-        if python_value is None:
-            return "null"
-        
-        if isinstance(python_value, dict):
-            type_name_name = avro_name(type_name.rsplit('.', 1)[-1])
-            type_name_namespace = (type_name.rsplit('.', 1)[0]) + "Types" if '.' in type_name else ''
-            type_namespace = self.avro_namespace + ('.' if self.avro_namespace and type_name_namespace else '') + type_name_namespace
-            record: Dict[str, JsonNode] = {
-                "type": "record",
-                "name": type_name_name,
-            }
-            if type_namespace:
-                record["namespace"] = type_namespace
-            fields: List[JsonNode] = []
-            for key, value in python_value.items():
-                original_key = key
-                key = avro_name(key)
-                field: Dict[str, JsonNode] = {
-                    "name": key,
-                    "type": self.python_type_to_avro_type(f"{type_name}.{key}", value)
-                }
-                if original_key != key:
-                    field["altnames"] = {"sql": original_key}
-                fields.append(field)
-            record["fields"] = fields
-            return record
-        
-        if isinstance(python_value, list):
-            if len(python_value) > 0:
-                item_types = self.consolidated_type_list(type_name, python_value)
-            else:
-                item_types = ["string"]
-            if len(item_types) == 1:
-                return {"type": "array", "items": item_types[0]}
-            else:
-                return {"type": "array", "items": item_types}
-        
-        return simple_types.get(type(python_value), "string")
-
-    def consolidated_type_list(self, type_name: str, python_values: list) -> List[JsonNode]:
-        """Consolidates a list of types (following k2a pattern)."""
-        list_types = [self.python_type_to_avro_type(type_name, item) for item in python_values]
-
-        # Eliminate duplicates using tree hashing
-        tree_hashes = {}
-        for item in list_types:
-            tree_hash = get_tree_hash(item)
-            if tree_hash.hash_value not in tree_hashes:
-                tree_hashes[tree_hash.hash_value] = item
-        list_types = list(tree_hashes.values())
-
-        # Try to fold record types together
-        unique_types = []
-        prior_record = None
-        for item in list_types:
-            if isinstance(item, dict) and item.get("type") == "record":
-                if prior_record is None:
-                    prior_record = item
-                else:
-                    folded, record = self.fold_record_types(prior_record, item)
-                    if not folded:
-                        unique_types.append(item)
-                    else:
-                        prior_record = record
-            else:
-                unique_types.append(item)
-        if prior_record is not None:
-            unique_types.append(prior_record)
-
-        # Consolidate array and map types
-        array_types = [item["items"] for item in unique_types 
-                       if isinstance(item, dict) and item.get("type") == "array"]
-        map_types = [item["values"] for item in unique_types 
-                     if isinstance(item, dict) and item.get("type") == "map"]
-        list_types = [item for item in unique_types 
-                      if not isinstance(item, dict) or item.get("type") not in ["array", "map"]]
-
-        item_types: List[JsonNode] = []
-        for item2 in array_types:
-            if isinstance(item2, list):
-                item_types.extend(item2)
-            else:
-                item_types.append(item2)
-        if len(item_types) > 0:
-            list_types.append({"type": "array", "items": item_types})
-
-        value_types: List[JsonNode] = []
-        for item3 in map_types:
-            if isinstance(item3, list):
-                value_types.extend(item3)
-            else:
-                value_types.append(item3)
-        if len(value_types) > 0:
-            list_types.append({"type": "map", "values": value_types})
-
-        return list_types
 
     def infer_json_column_schema(
         self,
@@ -811,14 +684,7 @@ class SqlToAvro:
             return "string"
 
         type_name = type_value if type_value else f"{table_name}.{column_name}"
-        unique_types = self.consolidated_type_list(type_name, values)
-
-        if len(unique_types) > 1:
-            return unique_types
-        elif len(unique_types) == 1:
-            return unique_types[0]
-        else:
-            return "string"
+        return self._inferrer.infer_from_json_values(type_name, values)
 
     def infer_xml_column_schema(
         self,
@@ -841,68 +707,17 @@ class SqlToAvro:
             cursor.close()
             return "string"
 
-        xml_structures: List[Dict[str, Any]] = []
+        xml_strings: List[str] = []
         for row in cursor.fetchall():
             if row[0]:
-                try:
-                    structure = self._parse_xml_to_dict(row[0])
-                    if structure:
-                        xml_structures.append(structure)
-                except ET.ParseError:
-                    pass
+                xml_strings.append(row[0])
         cursor.close()
 
-        if not xml_structures:
+        if not xml_strings:
             return "string"
 
         type_name = f"{table_name}.{column_name}"
-        unique_types = self.consolidated_type_list(type_name, xml_structures)
-
-        if len(unique_types) > 1:
-            return unique_types
-        elif len(unique_types) == 1:
-            return unique_types[0]
-        else:
-            return "string"
-
-    def _parse_xml_to_dict(self, xml_string: str) -> Dict[str, Any] | None:
-        """Parses XML string to a dictionary structure for schema inference."""
-        try:
-            root = ET.fromstring(xml_string)
-            return self._element_to_dict(root)
-        except ET.ParseError:
-            return None
-
-    def _element_to_dict(self, element: ET.Element) -> Dict[str, Any]:
-        """Converts an XML element to a dictionary."""
-        result: Dict[str, Any] = {}
-
-        # Handle attributes
-        for attr_name, attr_value in element.attrib.items():
-            # Strip namespace from attribute name
-            attr_name = attr_name.split('}')[-1] if '}' in attr_name else attr_name
-            result[f"@{attr_name}"] = attr_value
-
-        # Handle text content
-        if element.text and element.text.strip():
-            if len(element) == 0 and not element.attrib:
-                return element.text.strip()  # type: ignore
-            result["#text"] = element.text.strip()
-
-        # Handle child elements
-        for child in element:
-            child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-            child_dict = self._element_to_dict(child)
-
-            if child_tag in result:
-                # Convert to list if multiple children with same tag
-                if not isinstance(result[child_tag], list):
-                    result[child_tag] = [result[child_tag]]
-                result[child_tag].append(child_dict)
-            else:
-                result[child_tag] = child_dict
-
-        return result
+        return self._inferrer.infer_from_xml_values(type_name, xml_strings)
 
     # -------------------------------------------------------------------------
     # Type Conversion
