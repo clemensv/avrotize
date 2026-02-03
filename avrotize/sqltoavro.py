@@ -29,7 +29,9 @@ class SqlToAvro:
         emit_cloudevents_xregistry: bool,
         sample_size: int = 100,
         infer_json_schema: bool = True,
-        infer_xml_schema: bool = True
+        infer_xml_schema: bool = True,
+        username: str | None = None,
+        password: str | None = None
     ):
         """Initializes the SqlToAvro class with database connection parameters.
 
@@ -45,6 +47,8 @@ class SqlToAvro:
             sample_size: Number of rows to sample for JSON/XML inference
             infer_json_schema: Whether to infer schema for JSON columns
             infer_xml_schema: Whether to infer schema for XML columns
+            username: Database username (overrides connection string if provided)
+            password: Database password (overrides connection string if provided)
         """
         self.connection_string = connection_string
         self.dialect = dialect.lower()
@@ -61,6 +65,10 @@ class SqlToAvro:
         if self.emit_xregistry and not self.avro_namespace:
             raise ValueError(
                 "The avro_namespace must be specified when emit_cloudevents_xregistry is True")
+
+        # Store credentials for connection
+        self.username = username
+        self.password = password
 
         # Parse connection string and establish connection
         self.connection = self._connect(connection_string, database)
@@ -111,6 +119,19 @@ class SqlToAvro:
                     "psycopg2 is required for PostgreSQL support. "
                     "Install with: pip install psycopg2-binary"
                 )
+            # If separate credentials provided, use them instead of URL credentials
+            if self.username is not None:
+                connect_kwargs = {
+                    'host': parsed.hostname or 'localhost',
+                    'port': parsed.port or 5432,
+                    'user': self.username,
+                    'password': self.password or '',
+                    'database': database or parsed.path.lstrip('/')
+                }
+                # Handle sslmode from query params
+                if 'sslmode' in query_params:
+                    connect_kwargs['sslmode'] = query_params['sslmode']
+                return psycopg2.connect(**connect_kwargs)
             # psycopg2 handles the full connection string including sslmode
             return psycopg2.connect(connection_string)
         elif self.dialect == 'mysql':
@@ -125,8 +146,8 @@ class SqlToAvro:
             connect_kwargs = {
                 'host': parsed.hostname or 'localhost',
                 'port': parsed.port or 3306,
-                'user': parsed.username,
-                'password': parsed.password,
+                'user': self.username if self.username is not None else parsed.username,
+                'password': self.password if self.username is not None else parsed.password,
                 'database': database or parsed.path.lstrip('/')
             }
             
@@ -175,7 +196,11 @@ class SqlToAvro:
             }
             
             # Check for integrated/Windows authentication (no username)
-            if parsed.username:
+            # Separate credentials override URL credentials
+            if self.username is not None:
+                connect_kwargs['user'] = self.username
+                connect_kwargs['password'] = self.password or ''
+            elif parsed.username:
                 connect_kwargs['user'] = parsed.username
                 connect_kwargs['password'] = parsed.password or ''
             # If no username, pymssql will attempt Windows auth
@@ -1273,7 +1298,9 @@ def convert_sql_to_avro(
     emit_cloudevents_xregistry: bool = False,
     sample_size: int = 100,
     infer_json_schema: bool = True,
-    infer_xml_schema: bool = True
+    infer_xml_schema: bool = True,
+    username: str | None = None,
+    password: str | None = None
 ):
     """Converts SQL database schemas to Avro schema format.
 
@@ -1289,6 +1316,8 @@ def convert_sql_to_avro(
         sample_size: Number of rows to sample for JSON/XML inference
         infer_json_schema: Whether to infer schema for JSON columns
         infer_xml_schema: Whether to infer schema for XML columns
+        username: Database username (overrides connection string credentials)
+        password: Database password (overrides connection string credentials)
     """
     if not connection_string:
         raise ValueError("connection_string is required")
@@ -1307,7 +1336,9 @@ def convert_sql_to_avro(
         emit_cloudevents_xregistry=emit_cloudevents_xregistry,
         sample_size=sample_size,
         infer_json_schema=infer_json_schema,
-        infer_xml_schema=infer_xml_schema
+        infer_xml_schema=infer_xml_schema,
+        username=username,
+        password=password
     )
 
     return converter.process_all_tables()

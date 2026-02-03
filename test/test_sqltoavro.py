@@ -176,6 +176,54 @@ class TestSqlToAvro(unittest.TestCase):
             cursor.close()
             conn.close()
 
+    def test_postgres_separate_credentials(self):
+        """Test that separate --username and --password options work correctly."""
+        with PostgresContainer() as postgres:
+            conn = psycopg2.connect(
+                host=postgres.get_container_host_ip(),
+                port=postgres.get_exposed_port(5432),
+                user=postgres.username,
+                password=postgres.password,
+                database=postgres.dbname
+            )
+            cursor = conn.cursor()
+
+            # Create a simple test table
+            cursor.execute("""
+                CREATE TABLE test_separate_creds (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL
+                );
+            """)
+            conn.commit()
+
+            # Convert to Avro using separate username/password (not in connection string)
+            output_path = os.path.join(tempfile.gettempdir(), "avrotize", "test_separate_creds.avsc")
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+            # Connection string WITHOUT credentials
+            connection_string = f"postgresql://{postgres.get_container_host_ip()}:{postgres.get_exposed_port(5432)}/{postgres.dbname}"
+            
+            convert_sql_to_avro(
+                connection_string=connection_string,
+                avro_schema_file=output_path,
+                dialect='postgres',
+                avro_namespace='com.example.test',
+                username=postgres.username,  # Separate username
+                password=postgres.password   # Separate password
+            )
+
+            # Verify the output
+            with open(output_path, 'r', encoding='utf-8') as f:
+                schema = json.load(f)
+
+            self.assertEqual(schema['type'], 'record')
+            self.assertEqual(schema['name'], 'test_separate_creds')
+            self.assertEqual(schema['namespace'], 'com.example.test')
+
+            cursor.close()
+            conn.close()
+
     def test_postgres_json_inference(self):
         """Test JSON column schema inference from PostgreSQL."""
         with PostgresContainer() as postgres:

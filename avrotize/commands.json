@@ -1014,7 +1014,9 @@
         "emit_cloudevents_xregistry": "args.emit_xregistry",
         "sample_size": "args.sample_size",
         "infer_json_schema": "args.infer_json",
-        "infer_xml_schema": "args.infer_xml"
+        "infer_xml_schema": "args.infer_xml",
+        "username": "args.username",
+        "password": "args.password"
       }
     },
     "extensions": [],
@@ -1035,8 +1037,20 @@
       {
         "name": "--connection-string",
         "type": "str",
-        "help": "Database connection string. Examples: postgresql://user:pass@host:port/db?sslmode=require (PostgreSQL with SSL), mysql://user:pass@host/db?ssl=true (MySQL with SSL), mssql://@host/db (SQL Server with Windows Auth), mssql://user:pass@host/db?encrypt=true (SQL Server with TLS)",
+        "help": "Database connection string. Examples: postgresql://host:port/db (credentials via --username/--password), postgresql://user:pass@host:port/db?sslmode=require (PostgreSQL with SSL), mysql://user:pass@host/db?ssl=true (MySQL with SSL), mssql://@host/db (SQL Server with Windows Auth)",
         "required": true
+      },
+      {
+        "name": "--username",
+        "type": "str",
+        "help": "Database username (overrides credentials in connection string, avoids credentials in command history)",
+        "required": false
+      },
+      {
+        "name": "--password",
+        "type": "str",
+        "help": "Database password (overrides credentials in connection string, avoids credentials in command history)",
+        "required": false
       },
       {
         "name": "--database",

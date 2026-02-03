@@ -398,12 +398,14 @@ Conversion notes:
 ### Convert SQL database schema to Avrotize Schema
 
 ```bash
-avrotize sql2a --connection-string <connection_string> [--dialect <dialect>] [--database <database>] [--table-name <table>] [--out <path_to_avro_schema_file>] [--namespace <namespace>] [--infer-json] [--infer-xml] [--sample-size <n>] [--emit-cloudevents] [--emit-xregistry]
+avrotize sql2a --connection-string <connection_string> [--username <user>] [--password <pass>] [--dialect <dialect>] [--database <database>] [--table-name <table>] [--out <path_to_avro_schema_file>] [--namespace <namespace>] [--infer-json] [--infer-xml] [--sample-size <n>] [--emit-cloudevents] [--emit-xregistry]
 ```
 
 Parameters:
 
 - `--connection-string`: The database connection string. Supports SSL/TLS and integrated authentication options (see examples below).
+- `--username`: (optional) Database username. Overrides any username in the connection string. Use this to avoid credentials in command history.
+- `--password`: (optional) Database password. Overrides any password in the connection string. Use this to avoid credentials in command history.
 - `--dialect`: (optional) The SQL dialect: `postgres` (default), `mysql`, `sqlserver`, `oracle`, or `sqlite`.
 - `--database`: (optional) The database name if not specified in the connection string.
 - `--table-name`: (optional) A specific table to convert. If omitted, all tables are converted.
@@ -418,7 +420,10 @@ Parameters:
 Connection string examples:
 
 ```bash
-# PostgreSQL with SSL
+# PostgreSQL with separate credentials (preferred for security)
+avrotize sql2a --connection-string "postgresql://host:5432/mydb?sslmode=require" --username myuser --password mypass --out schema.avsc
+
+# PostgreSQL with SSL (credentials in URL)
 avrotize sql2a --connection-string "postgresql://user:pass@host:5432/mydb?sslmode=require" --out schema.avsc
 
 # MySQL with SSL
