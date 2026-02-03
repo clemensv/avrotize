@@ -37,7 +37,7 @@ class SchemaInferrer:
 
         When two records have overlapping fields with compatible types, they
         are folded into a single record with all fields. Fields that don't
-        appear in all records become optional (nullable).
+        appear in all records become optional (nullable with null default).
 
         Args:
             base_record: The base record to merge into
@@ -49,24 +49,119 @@ class SchemaInferrer:
         """
         base_fields = copy.deepcopy(base_record).get("fields", [])
         new_fields = new_record.get("fields", [])
+        
+        # Track field names present in each record
+        base_field_names = {f["name"] for f in base_fields}
+        new_field_names = {f["name"] for f in new_fields}
 
+        # Process fields from the new record
         for field in new_fields:
             base_field = next(
                 (f for f in base_fields if f["name"] == field["name"]), None)
             if not base_field:
-                base_fields.append(field)
+                # Field only in new record - add it as nullable
+                new_field = copy.deepcopy(field)
+                new_field["type"] = self._make_nullable(new_field["type"])
+                new_field["default"] = None
+                base_fields.append(new_field)
             else:
-                if isinstance(base_field["type"], str) and base_field["type"] != field["type"]:
+                # Field in both records - merge types
+                merged_type = self._merge_field_types(base_field["type"], field["type"])
+                if merged_type is None:
                     return False, new_record
-                elif isinstance(base_field["type"], dict) and isinstance(field["type"], dict):
-                    if base_field["type"].get("type") == field["type"].get("type"):
-                        result, record_type = self.fold_record_types(
-                            base_field["type"], field["type"])
-                        if not result:
-                            return False, new_record
-                        base_field["type"] = record_type
+                base_field["type"] = merged_type
+        
+        # Make fields that are only in base record nullable
+        for base_field in base_fields:
+            if base_field["name"] not in new_field_names and base_field["name"] in base_field_names:
+                if not self._is_nullable(base_field["type"]):
+                    base_field["type"] = self._make_nullable(base_field["type"])
+                    base_field["default"] = None
+
         base_record["fields"] = base_fields
         return True, base_record
+
+    def _is_nullable(self, avro_type: JsonNode) -> bool:
+        """Check if an Avro type is nullable (contains null in union)."""
+        if avro_type == "null":
+            return True
+        if isinstance(avro_type, list):
+            return "null" in avro_type
+        return False
+
+    def _make_nullable(self, avro_type: JsonNode) -> JsonNode:
+        """Make an Avro type nullable by wrapping in union with null."""
+        if self._is_nullable(avro_type):
+            return avro_type
+        if avro_type == "null":
+            return "null"
+        if isinstance(avro_type, list):
+            # Already a union, add null if not present
+            if "null" not in avro_type:
+                return ["null"] + list(avro_type)
+            return avro_type
+        # Wrap in union with null first (for Avro default null)
+        return ["null", avro_type]
+
+    def _merge_field_types(self, type1: JsonNode, type2: JsonNode) -> JsonNode | None:
+        """Merge two Avro types into a compatible type.
+        
+        Returns the merged type, or None if types are incompatible.
+        """
+        # If types are identical, return as-is
+        if type1 == type2:
+            return type1
+        
+        # Handle null combinations - create nullable type
+        if type1 == "null":
+            return self._make_nullable(type2)
+        if type2 == "null":
+            return self._make_nullable(type1)
+        
+        # If one is already nullable and other is compatible base type
+        if isinstance(type1, list) and "null" in type1:
+            non_null_types = [t for t in type1 if t != "null"]
+            if len(non_null_types) == 1 and non_null_types[0] == type2:
+                return type1
+            # Check if type2 is compatible with any non-null type
+            for t in non_null_types:
+                if t == type2:
+                    return type1
+                if isinstance(t, dict) and isinstance(type2, dict):
+                    if t.get("type") == type2.get("type") == "record":
+                        success, merged = self.fold_record_types(t, type2)
+                        if success:
+                            return ["null", merged]
+            # Add type2 to the union
+            return type1 + [type2] if type2 not in type1 else type1
+        
+        if isinstance(type2, list) and "null" in type2:
+            non_null_types = [t for t in type2 if t != "null"]
+            if len(non_null_types) == 1 and non_null_types[0] == type1:
+                return type2
+            # Add type1 to the union
+            return type2 + [type1] if type1 not in type2 else type2
+        
+        # Both are primitives but different - try to create union
+        if isinstance(type1, str) and isinstance(type2, str):
+            # Create a nullable union with both types
+            return ["null", type1, type2]
+        
+        # Both are records - try to fold
+        if isinstance(type1, dict) and isinstance(type2, dict):
+            if type1.get("type") == type2.get("type") == "record":
+                success, merged = self.fold_record_types(type1, type2)
+                if success:
+                    return merged
+            elif type1.get("type") == type2.get("type") == "array":
+                # Merge array item types
+                items1 = type1.get("items", "string")
+                items2 = type2.get("items", "string")
+                merged_items = self._merge_field_types(items1, items2)
+                if merged_items is not None:
+                    return {"type": "array", "items": merged_items}
+        
+        return None
 
     def consolidated_type_list(self, type_name: str, python_values: list, 
                                 type_converter: Callable[[str, Any], JsonNode]) -> List[JsonNode]:
@@ -221,7 +316,14 @@ class AvroSchemaInferrer(SchemaInferrer):
             type_name, values, self.python_type_to_avro_type)
 
         if len(unique_types) > 1:
-            return unique_types
+            # Try to merge all types into a single compatible type
+            merged = unique_types[0]
+            for t in unique_types[1:]:
+                merged = self._merge_field_types(merged, t)
+                if merged is None:
+                    # Can't merge - return as union
+                    return unique_types
+            return merged
         elif len(unique_types) == 1:
             return unique_types[0]
         else:
@@ -253,7 +355,14 @@ class AvroSchemaInferrer(SchemaInferrer):
             type_name, xml_structures, self.python_type_to_avro_type)
 
         if len(unique_types) > 1:
-            return unique_types
+            # Try to merge all types into a single compatible type
+            merged = unique_types[0]
+            for t in unique_types[1:]:
+                merged = self._merge_field_types(merged, t)
+                if merged is None:
+                    # Can't merge - return as union
+                    return unique_types
+            return merged
         elif len(unique_types) == 1:
             return unique_types[0]
         else:

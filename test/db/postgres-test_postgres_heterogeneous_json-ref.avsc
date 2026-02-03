@@ -21,21 +21,29 @@
             },
             {
               "name": "count",
-              "type": "long"
+              "type": [
+                "null",
+                "long"
+              ],
+              "default": null
             },
             {
               "name": "child",
-              "type": {
-                "type": "record",
-                "name": "child",
-                "namespace": "com.example.mixed.mixed_json.dataTypes",
-                "fields": [
-                  {
-                    "name": "name",
-                    "type": "string"
-                  }
-                ]
-              }
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "child",
+                  "namespace": "com.example.mixed.mixed_json.dataTypes",
+                  "fields": [
+                    {
+                      "name": "name",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ],
+              "default": null
             }
           ]
         }

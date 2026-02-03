@@ -25,11 +25,19 @@
             },
             {
               "name": "email",
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
             },
             {
               "name": "phone",
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
             }
           ]
         }

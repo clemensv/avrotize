@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "Primitives",
+  "fields": [
+    {"name": "string_field", "type": "string"},
+    {"name": "integer_field", "type": "int"},
+    {"name": "negative_integer", "type": "int"},
+    {"name": "float_field", "type": "double"},
+    {"name": "boolean_true", "type": "boolean"},
+    {"name": "boolean_false", "type": "boolean"},
+    {"name": "null_field", "type": ["null", "string"]}
+  ]
+}

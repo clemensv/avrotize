@@ -1418,6 +1418,51 @@
     ]
   },
   {
+    "command": "validate",
+    "description": "Validate JSON instances against Avro or JSON Structure schemas",
+    "group": "6_Inference",
+    "skip_input_file_handling": true,
+    "function": {
+      "name": "avrotize.validate.validate",
+      "args": {
+        "input": "args.input",
+        "schema": "args.schema",
+        "schema_type": "args.schema_type",
+        "quiet": "args.quiet"
+      }
+    },
+    "extensions": [".json", ".jsonl"],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "+",
+        "help": "JSON file(s) to validate",
+        "required": true
+      },
+      {
+        "name": "--schema",
+        "type": "str",
+        "help": "Path to schema file (.avsc for Avro, .jstruct.json for JSON Structure)",
+        "required": true
+      },
+      {
+        "name": "--schema-type",
+        "type": "str",
+        "help": "Schema type: 'avro' or 'jstruct'. Auto-detected from file extension if omitted.",
+        "required": false
+      },
+      {
+        "name": "--quiet",
+        "type": "bool",
+        "help": "Suppress output. Exit code 0 if valid, 1 if invalid.",
+        "default": false,
+        "required": false
+      }
+    ],
+    "prompts": []
+  },
+  {
     "command": "a2mongo",
     "description": "Convert Avrotize schema to MongoDB schema",
     "group": "6_NoSQL",

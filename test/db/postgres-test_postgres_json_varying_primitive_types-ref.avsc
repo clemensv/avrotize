@@ -8,208 +8,49 @@
     },
     {
       "name": "data",
-      "type": [
-        {
-          "type": "record",
-          "name": "data",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "value",
-              "type": "long"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data1",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "value",
-              "type": "double"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data2",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "value",
-              "type": "null"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data3",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "count",
-              "type": "long"
-            },
-            {
-              "name": "value",
-              "type": "boolean"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data4",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "count",
-              "type": "string"
-            },
-            {
-              "name": "value",
-              "type": "boolean"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data5",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "count",
-              "type": "long"
-            },
-            {
-              "name": "value",
-              "type": "long"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data6",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "status",
-              "type": "long"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data7",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "status",
-              "type": "boolean"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data8",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "score",
-              "type": "double"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data9",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "score",
-              "type": "string"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data10",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "id",
-              "type": "string"
-            },
-            {
-              "name": "name",
-              "type": "string"
-            }
-          ]
-        },
-        {
-          "type": "record",
-          "name": "data11",
-          "namespace": "com.example.varying.varying_typesTypes",
-          "fields": [
-            {
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "name": "value",
-              "type": "string"
-            },
-            {
-              "name": "count",
-              "type": "string"
-            },
-            {
-              "name": "status",
-              "type": "string"
-            },
-            {
-              "name": "metadata",
-              "type": {
+      "type": {
+        "type": "record",
+        "name": "data",
+        "namespace": "com.example.varying.varying_typesTypes",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "value",
+            "type": [
+              "null",
+              "string",
+              "long",
+              "double",
+              "boolean"
+            ]
+          },
+          {
+            "name": "count",
+            "type": [
+              "null",
+              "long",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "status",
+            "type": [
+              "null",
+              "string",
+              "long",
+              "boolean"
+            ],
+            "default": null
+          },
+          {
+            "name": "metadata",
+            "type": [
+              "null",
+              {
                 "type": "record",
                 "name": "metadata",
                 "namespace": "com.example.varying.varying_types.dataTypes",
@@ -219,19 +60,36 @@
                     "type": "string"
                   }
                 ]
-              }
-            },
-            {
-              "name": "score",
-              "type": "long"
-            },
-            {
-              "name": "id",
-              "type": "long"
-            }
-          ]
-        }
-      ]
+              },
+              {
+                "type": "array",
+                "items": "string"
+              },
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "score",
+            "type": [
+              "null",
+              "long",
+              "double",
+              "string"
+            ],
+            "default": null
+          },
+          {
+            "name": "id",
+            "type": [
+              "null",
+              "long",
+              "string"
+            ],
+            "default": null
+          }
+        ]
+      }
     }
   ],
   "unique": [

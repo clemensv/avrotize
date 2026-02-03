@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/Document",
+  "type": "object",
+  "name": "Document",
+  "properties": {
+    "string_field": {
+      "type": "string"
+    },
+    "integer_field": {
+      "type": "integer"
+    },
+    "negative_integer": {
+      "type": "integer"
+    },
+    "float_field": {
+      "type": "double"
+    },
+    "boolean_true": {
+      "type": "boolean"
+    },
+    "boolean_false": {
+      "type": "boolean"
+    },
+    "null_field": {
+      "type": "null"
+    }
+  },
+  "required": [
+    "string_field",
+    "integer_field",
+    "negative_integer",
+    "float_field",
+    "boolean_true",
+    "boolean_false"
+  ]
+}

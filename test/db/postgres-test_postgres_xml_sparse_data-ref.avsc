@@ -24,10 +24,14 @@
             },
             {
               "name": "_status",
-              "type": "string",
+              "type": [
+                "null",
+                "string"
+              ],
               "altnames": {
                 "sql": "@status"
-              }
+              },
+              "default": null
             },
             {
               "name": "name",
@@ -35,129 +39,209 @@
             },
             {
               "name": "email",
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
             },
             {
               "name": "phone",
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
             },
             {
               "name": "address",
-              "type": {
-                "type": "record",
-                "name": "address",
-                "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
-                "fields": [
-                  {
-                    "name": "street",
-                    "type": "string"
-                  },
-                  {
-                    "name": "city",
-                    "type": "string"
-                  },
-                  {
-                    "name": "zip",
-                    "type": "string"
-                  },
-                  {
-                    "name": "state",
-                    "type": "string"
-                  },
-                  {
-                    "name": "country",
-                    "type": "string"
-                  },
-                  {
-                    "name": "apartment",
-                    "type": "string"
-                  }
-                ]
-              }
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "address",
+                  "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
+                  "fields": [
+                    {
+                      "name": "street",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    {
+                      "name": "city",
+                      "type": "string"
+                    },
+                    {
+                      "name": "zip",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    {
+                      "name": "state",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    {
+                      "name": "country",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    {
+                      "name": "apartment",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    }
+                  ]
+                }
+              ],
+              "default": null
             },
             {
               "name": "_tier",
-              "type": "string",
+              "type": [
+                "null",
+                "string"
+              ],
               "altnames": {
                 "sql": "@tier"
-              }
+              },
+              "default": null
             },
             {
               "name": "preferences",
-              "type": {
-                "type": "record",
-                "name": "preferences",
-                "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
-                "fields": [
-                  {
-                    "name": "theme",
-                    "type": "string"
-                  },
-                  {
-                    "name": "language",
-                    "type": "string"
-                  },
-                  {
-                    "name": "notifications",
-                    "type": "string"
-                  },
-                  {
-                    "name": "fontSize",
-                    "type": "string"
-                  }
-                ]
-              }
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "preferences",
+                  "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
+                  "fields": [
+                    {
+                      "name": "theme",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    {
+                      "name": "language",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    {
+                      "name": "notifications",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    {
+                      "name": "fontSize",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    }
+                  ]
+                }
+              ],
+              "default": null
             },
             {
               "name": "metadata",
-              "type": {
-                "type": "record",
-                "name": "metadata",
-                "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
-                "fields": [
-                  {
-                    "name": "source",
-                    "type": "string"
-                  },
-                  {
-                    "name": "created",
-                    "type": "string"
-                  },
-                  {
-                    "name": "version",
-                    "type": "string"
-                  }
-                ]
-              }
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "metadata",
+                  "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
+                  "fields": [
+                    {
+                      "name": "source",
+                      "type": "string"
+                    },
+                    {
+                      "name": "created",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    {
+                      "name": "version",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    }
+                  ]
+                }
+              ],
+              "default": null
             },
             {
               "name": "_verified",
-              "type": "string",
+              "type": [
+                "null",
+                "string"
+              ],
               "altnames": {
                 "sql": "@verified"
-              }
+              },
+              "default": null
             },
             {
               "name": "work",
-              "type": {
-                "type": "record",
-                "name": "work",
-                "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
-                "fields": [
-                  {
-                    "name": "company",
-                    "type": "string"
-                  },
-                  {
-                    "name": "title",
-                    "type": "string"
-                  }
-                ]
-              }
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "work",
+                  "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
+                  "fields": [
+                    {
+                      "name": "company",
+                      "type": "string"
+                    },
+                    {
+                      "name": "title",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ],
+              "default": null
             },
             {
               "name": "notes",
-              "type": "string"
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
             }
           ]
         }
