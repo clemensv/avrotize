@@ -2,6 +2,37 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.1.0] - 2026-02-03
+
+### Added
+
+- **`validate` command**: New command to validate JSON instances against Avro or JSON Structure schemas
+  - Validates JSON files against Avro schemas (`.avsc`) per the Avrotize Schema specification
+  - Validates JSON files against JSON Structure schemas (`.jstruct.json`) via json-structure SDK
+  - Supports single JSON objects, JSON arrays, and JSONL (newline-delimited JSON) formats
+  - Auto-detects schema type from file extension
+  - Supports `--quiet` mode for CI/CD pipelines (exit code 0 if valid, 1 if invalid)
+  - Full Avro type support: primitives, records, enums, arrays, maps, fixed, unions
+  - Logical type validation: decimal, uuid, date, time, timestamp, duration (both int/long and string base types)
+  - Altnames/altsymbols support for JSON field and symbol mapping
+
+- **Avro JSON Validator** (`avrovalidator.py`): New module implementing JSON validation against Avro schemas
+  - Validates all Avro primitive types with proper range checking (int32, int64)
+  - Validates complex types: record, enum, array, map, fixed
+  - Validates logical types with RFC 3339 patterns for string-encoded dates/times
+  - Supports field `altnames` and enum `altsymbols` for JSON encoding
+
+### Fixed
+
+- **Schema inference for sparse data**: Fields missing in some JSON/XML records are now correctly made nullable with `["null", type]` unions and `"default": null`
+- **Type merging in inference**: Different primitive types (string vs null, int vs string) now correctly merge into union types instead of causing folding failures
+- **Record folding**: `fold_record_types()` now tracks field presence across all records and makes partial fields optional
+- **Shared inference logic**: JSON/XML schema inference now uses shared `SchemaInferrer` base class used by `json2a`, `json2s`, `xml2a`, `xml2s`, and `sql2a` commands
+
+### Changed
+
+- **SQL to Avro inference**: `sql2a` now uses the shared `AvroSchemaInferrer` via composition for JSON/XML column inference, ensuring consistent behavior across all inference commands
+
 ## [3.0.2] - 2025-12-14
 
 ### Fixed
