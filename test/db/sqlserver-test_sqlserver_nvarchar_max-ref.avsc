@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "name": "text_types",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "short_text",
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    {
+      "name": "long_text",
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    {
+      "name": "xml_data",
+      "type": [
+        "null",
+        "string"
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "dbo.text_types"
+  },
+  "namespace": "com.example.sqlserver"
+}

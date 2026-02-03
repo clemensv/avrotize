@@ -998,6 +998,150 @@
     "prompts": []
   },
   {
+    "command": "sql2a",
+    "description": "Convert SQL schema to Avrotize schema (connects to live database)",
+    "group": "5_SQL",
+    "function": {
+      "name": "avrotize.sqltoavro.convert_sql_to_avro",
+      "args": {
+        "connection_string": "args.connection_string",
+        "database": "args.database",
+        "table_name": "args.table_name",
+        "avro_namespace": "args.namespace",
+        "avro_schema_file": "output_file_path",
+        "dialect": "args.dialect",
+        "emit_cloudevents": "args.emit_cloudevents",
+        "emit_cloudevents_xregistry": "args.emit_xregistry",
+        "sample_size": "args.sample_size",
+        "infer_json_schema": "args.infer_json",
+        "infer_xml_schema": "args.infer_xml",
+        "username": "args.username",
+        "password": "args.password"
+      }
+    },
+    "extensions": [],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Not used (database connection is live)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--connection-string",
+        "type": "str",
+        "help": "Database connection string. Examples: postgresql://host:port/db (credentials via --username/--password), postgresql://user:pass@host:port/db?sslmode=require (PostgreSQL with SSL), mysql://user:pass@host/db?ssl=true (MySQL with SSL), mssql://@host/db (SQL Server with Windows Auth)",
+        "required": true
+      },
+      {
+        "name": "--username",
+        "type": "str",
+        "help": "Database username (overrides credentials in connection string, avoids credentials in command history)",
+        "required": false
+      },
+      {
+        "name": "--password",
+        "type": "str",
+        "help": "Database password (overrides credentials in connection string, avoids credentials in command history)",
+        "required": false
+      },
+      {
+        "name": "--database",
+        "type": "str",
+        "help": "Database name (if not in connection string)",
+        "required": false
+      },
+      {
+        "name": "--table-name",
+        "type": "str",
+        "help": "Specific table name (omit for all tables)",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      },
+      {
+        "name": "--dialect",
+        "type": "str",
+        "help": "SQL dialect",
+        "choices": [
+          "postgres",
+          "mysql",
+          "sqlserver",
+          "oracle",
+          "sqlite"
+        ],
+        "default": "postgres",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents",
+        "type": "bool",
+        "help": "Emit CloudEvents declarations for tables with type/source/data/id columns",
+        "required": false
+      },
+      {
+        "name": "--emit-xregistry",
+        "type": "bool",
+        "help": "Emit an xRegistry manifest instead of a single Avrotize schema",
+        "required": false
+      },
+      {
+        "name": "--sample-size",
+        "type": "int",
+        "help": "Number of rows to sample for JSON/XML inference",
+        "default": 100,
+        "required": false
+      },
+      {
+        "name": "--infer-json",
+        "type": "bool",
+        "help": "Infer schema for JSON/JSONB columns",
+        "default": true,
+        "required": false
+      },
+      {
+        "name": "--infer-xml",
+        "type": "bool",
+        "help": "Infer schema for XML columns",
+        "default": true,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{database}.avsc",
+    "prompts": [
+      {
+        "name": "--namespace",
+        "message": "Enter the namespace for the Avro schema",
+        "type": "str",
+        "required": false
+      },
+      {
+        "name": "--dialect",
+        "message": "Select the SQL dialect",
+        "choices": [
+          "postgres",
+          "mysql",
+          "sqlserver",
+          "oracle",
+          "sqlite"
+        ],
+        "default": "postgres",
+        "required": true
+      }
+    ]
+  },
+  {
     "command": "a2mongo",
     "description": "Convert Avrotize schema to MongoDB schema",
     "group": "6_NoSQL",

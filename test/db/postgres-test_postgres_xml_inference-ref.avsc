@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "name": "xml_data",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "content",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "content",
+          "namespace": "com.example.xml.xml_dataTypes",
+          "fields": [
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "age",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "xml_data"
+  },
+  "namespace": "com.example.xml"
+}

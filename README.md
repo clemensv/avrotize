@@ -27,6 +27,22 @@ You can install Avrotize from PyPI, [having installed Python 3.10 or later](http
 pip install avrotize
 ```
 
+For SQL database support (`sql2a` command), install the optional database drivers:
+
+```bash
+# PostgreSQL
+pip install avrotize[postgres]
+
+# MySQL
+pip install avrotize[mysql]
+
+# SQL Server
+pip install avrotize[sqlserver]
+
+# All SQL databases
+pip install avrotize[all-sql]
+```
+
 ## Usage
 
 Avrotize provides several commands for converting schema formats via Avrotize Schema.
@@ -38,6 +54,7 @@ Converting to Avrotize Schema:
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
 - [`avrotize k2a`](#convert-kusto-table-definition-to-avrotize-schema) - Convert Kusto table definitions to Avrotize Schema.
+- [`avrotize sql2a`](#convert-sql-database-schema-to-avrotize-schema) - Convert SQL database schema to Avrotize Schema.
 - [`avrotize pq2a`](#convert-parquet-schema-to-avrotize-schema) - Convert Parquet schema to Avrotize Schema.
 - [`avrotize csv2a`](#convert-csv-file-to-avrotize-schema) - Convert CSV file to Avrotize Schema.
 - [`avrotize kstruct2a`](#convert-kafka-connect-schema-to-avrotize-schema) - Convert Kafka Connect Schema to Avrotize Schema.
@@ -377,6 +394,64 @@ Conversion notes:
   - `timespan` is mapped to a logical Avro type with the `logicalType` set to `duration`.
 - For `dynamic` columns, the tool will sample the data in the table to determine the structure of the dynamic column. The tool will map the dynamic column to an Avro record type with fields that correspond to the fields found in the dynamic column. If the dynamic column contains nested dynamic columns, the tool will recursively map those to Avro record types. If records with conflicting structures are found in the dynamic column, the tool will emit a union of record types for the dynamic column.
 - If the `--emit-cloudevents-xregistry` option is set, the tool will emit an [xRegistry](http://xregistry.io) registry manifest file with a CloudEvent message definition for each table in the Kusto database and a separate Avro Schema for each table in the embedded schema registry. If one or more tables are found to contain CloudEvent data (as indicated by the presence of the CloudEvents attribute columns), the tool will inspect the content of the `type` (or `__type` or `__type`) columns to determine which CloudEvent types have been stored in the table and will emit a CloudEvent definition and schema for each unique type.
+
+### Convert SQL database schema to Avrotize Schema
+
+```bash
+avrotize sql2a --connection-string <connection_string> [--username <user>] [--password <pass>] [--dialect <dialect>] [--database <database>] [--table-name <table>] [--out <path_to_avro_schema_file>] [--namespace <namespace>] [--infer-json] [--infer-xml] [--sample-size <n>] [--emit-cloudevents] [--emit-xregistry]
+```
+
+Parameters:
+
+- `--connection-string`: The database connection string. Supports SSL/TLS and integrated authentication options (see examples below).
+- `--username`: (optional) Database username. Overrides any username in the connection string. Use this to avoid credentials in command history.
+- `--password`: (optional) Database password. Overrides any password in the connection string. Use this to avoid credentials in command history.
+- `--dialect`: (optional) The SQL dialect: `postgres` (default), `mysql`, `sqlserver`, `oracle`, or `sqlite`.
+- `--database`: (optional) The database name if not specified in the connection string.
+- `--table-name`: (optional) A specific table to convert. If omitted, all tables are converted.
+- `--out`: The path to the Avrotize Schema file. If omitted, output goes to stdout.
+- `--namespace`: (optional) The Avro namespace for the generated schema.
+- `--infer-json`: (optional, default: true) Infer schema for JSON/JSONB columns by sampling data.
+- `--infer-xml`: (optional, default: true) Infer schema for XML columns by sampling data.
+- `--sample-size`: (optional, default: 100) Number of rows to sample for JSON/XML schema inference.
+- `--emit-cloudevents`: (optional) Detect CloudEvents tables and emit CloudEvents declarations.
+- `--emit-xregistry`: (optional) Emit an xRegistry manifest instead of a single schema file.
+
+Connection string examples:
+
+```bash
+# PostgreSQL with separate credentials (preferred for security)
+avrotize sql2a --connection-string "postgresql://host:5432/mydb?sslmode=require" --username myuser --password mypass --out schema.avsc
+
+# PostgreSQL with SSL (credentials in URL)
+avrotize sql2a --connection-string "postgresql://user:pass@host:5432/mydb?sslmode=require" --out schema.avsc
+
+# MySQL with SSL
+avrotize sql2a --connection-string "mysql://user:pass@host:3306/mydb?ssl=true" --dialect mysql --out schema.avsc
+
+# SQL Server with Windows Authentication (omit user/password)
+avrotize sql2a --connection-string "mssql://@host:1433/mydb" --dialect sqlserver --out schema.avsc
+
+# SQL Server with TLS encryption
+avrotize sql2a --connection-string "mssql://user:pass@host:1433/mydb?encrypt=true" --dialect sqlserver --out schema.avsc
+
+# SQLite file
+avrotize sql2a --connection-string "/path/to/database.db" --dialect sqlite --out schema.avsc
+```
+
+Conversion notes:
+
+- The tool connects to a live database and reads the schema from the information schema or system catalogs.
+- Type mappings for each dialect:
+  - **PostgreSQL**: All standard types including `uuid`, `jsonb`, `xml`, arrays, and custom types.
+  - **MySQL**: Standard types including `json`, `enum`, `set`, and spatial types.
+  - **SQL Server**: Standard types including `uniqueidentifier`, `xml`, `money`, and `hierarchyid`.
+  - **Oracle**: Standard types including `number`, `clob`, `blob`, and Oracle-specific types.
+  - **SQLite**: Dynamic typing mapped based on declared type affinity.
+- For JSON/JSONB columns (PostgreSQL, MySQL) and XML columns, the tool samples data to infer the structure. Fields that appear in some but not all records are folded together. If field types conflict across records, the tool emits a union of record types.
+- For columns with keys that cannot be valid Avro identifiers (UUIDs, URLs, special characters), the tool generates `map<string, T>` types instead of record types.
+- Table and column comments are preserved as Avro `doc` attributes where available.
+- Primary key columns are noted in the schema's `unique` attribute.
 
 ### Convert Avrotize Schema to Kusto table declaration
 

@@ -1,0 +1,121 @@
+{
+  "type": "record",
+  "name": "sparse_json",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "data",
+      "type": {
+        "type": "record",
+        "name": "data",
+        "namespace": "com.example.sparse.sparse_jsonTypes",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "email",
+            "type": "string"
+          },
+          {
+            "name": "phone",
+            "type": "string"
+          },
+          {
+            "name": "address",
+            "type": {
+              "type": "record",
+              "name": "address",
+              "namespace": "com.example.sparse.sparse_json.dataTypes",
+              "fields": [
+                {
+                  "name": "city",
+                  "type": "string"
+                },
+                {
+                  "name": "street",
+                  "type": "string"
+                },
+                {
+                  "name": "zip",
+                  "type": "string"
+                },
+                {
+                  "name": "state",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "name": "metadata",
+            "type": {
+              "type": "record",
+              "name": "metadata",
+              "namespace": "com.example.sparse.sparse_json.dataTypes",
+              "fields": [
+                {
+                  "name": "source",
+                  "type": "string"
+                },
+                {
+                  "name": "version",
+                  "type": "string"
+                },
+                {
+                  "name": "campaign",
+                  "type": "string"
+                },
+                {
+                  "name": "referrer",
+                  "type": "string"
+                },
+                {
+                  "name": "tier",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "name": "preferences",
+            "type": {
+              "type": "record",
+              "name": "preferences",
+              "namespace": "com.example.sparse.sparse_json.dataTypes",
+              "fields": [
+                {
+                  "name": "theme",
+                  "type": "string"
+                },
+                {
+                  "name": "language",
+                  "type": "string"
+                },
+                {
+                  "name": "notifications",
+                  "type": "boolean"
+                },
+                {
+                  "name": "fontSize",
+                  "type": "long"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "sparse_json"
+  },
+  "namespace": "com.example.sparse"
+}

@@ -1,0 +1,138 @@
+{
+  "type": "record",
+  "name": "union_json",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "event",
+      "type": {
+        "type": "record",
+        "name": "event",
+        "namespace": "com.example.events.union_jsonTypes",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "type",
+            "type": "string"
+          },
+          {
+            "name": "email",
+            "type": "string"
+          },
+          {
+            "name": "userId",
+            "type": "string"
+          },
+          {
+            "name": "items",
+            "type": {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "items",
+                "namespace": "com.example.events.union_json.eventTypes",
+                "fields": [
+                  {
+                    "name": "qty",
+                    "type": "long"
+                  },
+                  {
+                    "name": "sku",
+                    "type": "string"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "total",
+            "type": "double"
+          },
+          {
+            "name": "orderId",
+            "type": "string"
+          },
+          {
+            "name": "last4",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "double"
+          },
+          {
+            "name": "method",
+            "type": "string"
+          },
+          {
+            "name": "paymentId",
+            "type": "string"
+          },
+          {
+            "name": "paypalEmail",
+            "type": "string"
+          },
+          {
+            "name": "carrier",
+            "type": "string"
+          },
+          {
+            "name": "shipmentId",
+            "type": "string"
+          },
+          {
+            "name": "trackingNumber",
+            "type": "string"
+          },
+          {
+            "name": "changes",
+            "type": {
+              "type": "record",
+              "name": "changes",
+              "namespace": "com.example.events.union_json.eventTypes",
+              "fields": [
+                {
+                  "name": "email",
+                  "type": "string"
+                },
+                {
+                  "name": "name",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "name": "sku",
+            "type": "string"
+          },
+          {
+            "name": "reason",
+            "type": "string"
+          },
+          {
+            "name": "adjustment",
+            "type": "long"
+          },
+          {
+            "name": "newQuantity",
+            "type": "long"
+          }
+        ]
+      }
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "union_json"
+  },
+  "namespace": "com.example.events"
+}

@@ -1,0 +1,174 @@
+{
+  "type": "record",
+  "name": "sparse_xml",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "content",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "content",
+          "namespace": "com.example.sparsexml.sparse_xmlTypes",
+          "fields": [
+            {
+              "name": "_id",
+              "type": "string",
+              "altnames": {
+                "sql": "@id"
+              }
+            },
+            {
+              "name": "_status",
+              "type": "string",
+              "altnames": {
+                "sql": "@status"
+              }
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "type": "string"
+            },
+            {
+              "name": "address",
+              "type": {
+                "type": "record",
+                "name": "address",
+                "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "street",
+                    "type": "string"
+                  },
+                  {
+                    "name": "city",
+                    "type": "string"
+                  },
+                  {
+                    "name": "zip",
+                    "type": "string"
+                  },
+                  {
+                    "name": "state",
+                    "type": "string"
+                  },
+                  {
+                    "name": "country",
+                    "type": "string"
+                  },
+                  {
+                    "name": "apartment",
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "_tier",
+              "type": "string",
+              "altnames": {
+                "sql": "@tier"
+              }
+            },
+            {
+              "name": "preferences",
+              "type": {
+                "type": "record",
+                "name": "preferences",
+                "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "theme",
+                    "type": "string"
+                  },
+                  {
+                    "name": "language",
+                    "type": "string"
+                  },
+                  {
+                    "name": "notifications",
+                    "type": "string"
+                  },
+                  {
+                    "name": "fontSize",
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "metadata",
+              "type": {
+                "type": "record",
+                "name": "metadata",
+                "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "source",
+                    "type": "string"
+                  },
+                  {
+                    "name": "created",
+                    "type": "string"
+                  },
+                  {
+                    "name": "version",
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "_verified",
+              "type": "string",
+              "altnames": {
+                "sql": "@verified"
+              }
+            },
+            {
+              "name": "work",
+              "type": {
+                "type": "record",
+                "name": "work",
+                "namespace": "com.example.sparsexml.sparse_xml.contentTypes",
+                "fields": [
+                  {
+                    "name": "company",
+                    "type": "string"
+                  },
+                  {
+                    "name": "title",
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "notes",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "sparse_xml"
+  },
+  "namespace": "com.example.sparsexml"
+}

@@ -1,0 +1,46 @@
+{
+  "type": "record",
+  "name": "json_data",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    },
+    {
+      "name": "data",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "data",
+          "namespace": "com.example.mysql.json_dataTypes",
+          "fields": [
+            {
+              "name": "age",
+              "type": "long"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "type": "string"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "unique": [
+    "id"
+  ],
+  "altnames": {
+    "sql": "test.json_data"
+  },
+  "namespace": "com.example.mysql"
+}
