@@ -1001,6 +1001,7 @@
     "command": "sql2a",
     "description": "Convert SQL schema to Avrotize schema (connects to live database)",
     "group": "5_SQL",
+    "skip_input_file_handling": true,
     "function": {
       "name": "avrotize.sqltoavro.convert_sql_to_avro",
       "args": {
