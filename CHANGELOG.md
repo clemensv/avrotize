@@ -2,6 +2,29 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.2.0] - 2026-02-04
+
+### Added
+
+- **`--infer-choices` flag**: New option for `json2a`, `json2s`, and `sql2a` commands to automatically detect discriminated unions in JSON data during schema inference
+  - Detects discriminator fields that correlate with schema variants (e.g., `event_type`, `kind`, `$type`, `__typename`)
+  - Emits Avro unions with discriminator field defaults per variant type
+  - Emits JSON Structure `choice` types with discriminator field defaults
+  - Supports nested discriminators for envelope patterns (e.g., CloudEvents with typed payload, Kafka message envelopes)
+  - Uses Jaccard similarity clustering on field signatures with two-pass refinement
+  - Includes unique-ID penalty to avoid false positives on identifier fields
+
+- **Choice Inference Module** (`choice_inference.py`): New algorithm for detecting discriminated unions
+  - Clusters documents by field signature similarity
+  - Identifies fields whose values correlate strongly with cluster membership
+  - Detects nested discriminators in object fields (up to 2 levels deep)
+  - Distinguishes sparse data (optional fields) from distinct variant types
+
+### Changed
+
+- **Schema inference classes**: `AvroSchemaInferrer` and `JsonStructureSchemaInferrer` now accept optional `infer_choices` parameter
+- **SQL to Avro**: `sql2a` passes `infer_choices` to internal inferrer for JSON/XML column schema inference
+
 ## [3.1.0] - 2026-02-03
 
 ### Added
