@@ -27,6 +27,39 @@ from avrotize.choice_inference import (
     ChoiceInferenceResult,
 )
 
+# JSON Structure SDK for validation
+try:
+    from json_structure import SchemaValidator, InstanceValidator, ValidationError
+    HAS_JSTRUCT_SDK = True
+except ImportError:
+    HAS_JSTRUCT_SDK = False
+
+
+def validate_jstruct_schema(schema: dict) -> List[str]:
+    """Validate that a schema is a valid JSON Structure schema."""
+    if not HAS_JSTRUCT_SDK:
+        return []
+    errors = []
+    validator = SchemaValidator(extended=True)
+    for err in validator.validate(schema):
+        if isinstance(err, ValidationError):
+            errors.append(f"{err.code}: {err.message}")
+        else:
+            errors.append(str(err))
+    return errors
+
+
+def validate_jstruct_instances(schema: dict, instances: list) -> List[str]:
+    """Validate instances against a JSON Structure schema."""
+    if not HAS_JSTRUCT_SDK:
+        return []
+    errors = []
+    validator = InstanceValidator(schema, extended=True)
+    for i, instance in enumerate(instances):
+        for err in validator.validate(instance):
+            errors.append(f"Instance {i}: {err}")
+    return errors
+
 
 def get_test_file_path(filename: str) -> str:
     """Get the path to a choice inference test file."""
@@ -319,16 +352,39 @@ class TestChoiceInferenceIntegration(unittest.TestCase):
         inferrer = JsonStructureSchemaInferrer(infer_choices=True)
         schema = inferrer.infer_from_json_values('Event', values)
         
-        # Should have choice type
+        # Should have choice type with inline union format
         self.assertEqual(schema.get('type'), 'choice')
         self.assertIn('choices', schema)
         self.assertGreater(len(schema['choices']), 1)
         
-        # Each choice should have discriminator with default
-        for choice in schema['choices']:
-            self.assertEqual(choice['type'], 'object')
-            self.assertIn('event_type', choice['properties'])
-            self.assertIn('default', choice['properties']['event_type'])
+        # Inline unions have $extends and selector
+        self.assertIn('$extends', schema)
+        self.assertIn('selector', schema)
+        self.assertEqual(schema['selector'], 'event_type')
+        
+        # Definitions should contain base type and variants
+        self.assertIn('definitions', schema)
+        base_name = schema['$extends'].split('/')[-1]
+        self.assertIn(base_name, schema['definitions'])
+        
+        # Base type should be abstract
+        self.assertTrue(schema['definitions'][base_name].get('abstract'))
+        
+        # Each choice should reference a variant via $ref
+        for choice_name, choice_schema in schema['choices'].items():
+            self.assertIn('type', choice_schema)
+            self.assertIn('$ref', choice_schema['type'])
+            # The referenced type should exist in definitions
+            ref_name = choice_schema['type']['$ref'].split('/')[-1]
+            self.assertIn(ref_name, schema['definitions'])
+        
+        # Validate schema with SDK
+        schema_errors = validate_jstruct_schema(schema)
+        self.assertEqual(schema_errors, [], f"Schema validation errors: {schema_errors}")
+        
+        # Validate instances with SDK
+        instance_errors = validate_jstruct_instances(schema, values)
+        self.assertEqual(instance_errors, [], f"Instance validation errors: {instance_errors}")
 
     def test_nested_discriminator_avro_schema(self):
         """Test Avro schema generation for nested discriminator."""

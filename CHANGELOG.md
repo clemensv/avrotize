@@ -2,6 +2,23 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.2.1] - 2026-02-04
+
+### Fixed
+
+- **JSON Structure `choice` type output**: Fixed inline union format to be spec-compliant
+  - `choices` now uses map format (object) instead of array, per JSON Structure spec
+  - Choice keys match actual discriminator values from source data (not PascalCase type names)
+  - Inline unions now include `$extends` (abstract base type), `selector` (discriminator field), and `definitions`
+  - Variant-specific fields are now correctly typed by scanning all documents (not just first sample)
+  - Discriminator field no longer marked as required in base type (handled by selector mechanism)
+
+- **Integer range detection**: Large integers beyond int32 range now infer as `double` instead of `integer`
+  - Per JSON Structure spec, `int64` requires string encoding which doesn't match native JSON numbers
+  - This allows source instances to validate correctly against inferred schemas
+
+- **SDK validation in tests**: All json2s tests now use the json-structure SDK to validate both schemas and instances
+
 ## [3.2.0] - 2026-02-04
 
 ### Added

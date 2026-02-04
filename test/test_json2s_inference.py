@@ -19,7 +19,7 @@ from avrotize.schema_inference import infer_jstruct_schema_from_json
 
 # JSON Structure SDK for validation
 try:
-    from json_structure import SchemaValidator, InstanceValidator
+    from json_structure import SchemaValidator, InstanceValidator, ValidationError
     HAS_JSTRUCT_SDK = True
 except ImportError:
     HAS_JSTRUCT_SDK = False
@@ -53,33 +53,64 @@ def load_json_values(path: str) -> list:
     return values
 
 
+def validate_schema(schema: dict) -> list:
+    """Validate that a schema is a valid JSON Structure schema.
+    
+    Returns list of validation error strings, empty if valid.
+    """
+    if not HAS_JSTRUCT_SDK:
+        return []
+    
+    errors = []
+    schema_validator = SchemaValidator(extended=True)
+    validation_errors = schema_validator.validate(schema)
+    
+    for err in validation_errors:
+        if isinstance(err, ValidationError):
+            errors.append(f"{err.code}: {err.message} at {err.path}")
+        else:
+            errors.append(str(err))
+    
+    return errors
+
+
+def validate_instances(schema: dict, instances: list) -> list:
+    """Validate instances against a schema.
+    
+    Returns list of validation error strings, empty if all pass.
+    """
+    if not HAS_JSTRUCT_SDK:
+        return []
+    
+    errors = []
+    instance_validator = InstanceValidator(schema, extended=True)
+    
+    for i, instance in enumerate(instances):
+        validation_errors = instance_validator.validate(instance)
+        for err in validation_errors:
+            if isinstance(err, str):
+                errors.append(f"Instance {i}: {err}")
+            else:
+                errors.append(f"Instance {i}: {err}")
+    
+    return errors
+
+
 def validate_schema_and_instances(schema: dict, instances: list) -> list:
     """Validate schema correctness and instances against schema.
     
     Returns list of validation errors, empty if all pass.
     """
     if not HAS_JSTRUCT_SDK:
-        return []  # Skip validation if SDK not available
+        return []
     
-    errors = []
+    # First validate the schema itself
+    schema_errors = validate_schema(schema)
+    if schema_errors:
+        return [f"Schema: {e}" for e in schema_errors]
     
-    # Validate schema itself
-    schema_validator = SchemaValidator()
-    try:
-        schema_validator.validate(schema)
-    except Exception as e:
-        errors.append(f"Schema validation failed: {e}")
-        return errors
-    
-    # Validate each instance
-    instance_validator = InstanceValidator(schema)
-    for i, instance in enumerate(instances):
-        try:
-            instance_validator.validate(instance)
-        except Exception as e:
-            errors.append(f"Instance {i} validation failed: {e}")
-    
-    return errors
+    # Then validate instances
+    return validate_instances(schema, instances)
 
 
 @unittest.skipUnless(HAS_JSTRUCT_SDK, "json-structure SDK not available")
@@ -289,12 +320,14 @@ class TestJson2sInference(unittest.TestCase):
         
         props = schema['properties']
         
-        # All integers should be 'integer' type
+        # Small integers should be 'integer' type (int32)
         for field in ['small_int', 'max_int32', 'min_int32', 'zero']:
             self.assertEqual(props[field]['type'], 'integer', f"Field {field} should be integer")
         
-        # Large integers beyond int32 range - still 'integer' as we infer from JSON numbers
-        self.assertEqual(props['large_int']['type'], 'integer')
+        # Large integers beyond int32 range inferred as 'double' 
+        # (int64 would require string encoding which doesn't match JSON source)
+        self.assertEqual(props['large_int']['type'], 'double')
+        self.assertEqual(props['negative_large']['type'], 'double')
         
         # Floats should be 'double' type
         for field in ['small_float', 'large_float', 'small_negative_float', 'scientific_notation']:
@@ -416,6 +449,10 @@ class TestJson2sInference(unittest.TestCase):
         
         # Single element array
         self.assertEqual(props['single_element']['type'], 'array')
+        
+        # Validate schema structure
+        schema_errors = validate_schema(schema)
+        self.assertEqual(schema_errors, [], f"Schema validation errors: {schema_errors}")
 
     def test_file_conversion(self):
         """Test full file conversion via convert_json_to_jstruct."""

@@ -648,6 +648,22 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         if python_value is None:
             return "null"
 
+        # Handle integers with proper range detection
+        # bool is subclass of int in Python, so check bool first
+        if isinstance(python_value, bool):
+            return "boolean"
+        
+        if isinstance(python_value, int):
+            # Check if value fits in int32 range
+            if -2147483648 <= python_value <= 2147483647:
+                return "integer"  # int32 alias
+            else:
+                # Per JSON Structure spec, int64 values are string-encoded
+                # Since we're inferring from JSON native numbers (which can't exceed
+                # double precision ~2^53), use 'double' for large integers from JSON
+                # This allows validation of the source data as-is
+                return "double"
+
         if isinstance(python_value, dict):
             # Generate an object type
             safe_name = avro_name(type_name.rsplit('.', 1)[-1])
@@ -691,7 +707,16 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                     items = item_types[0]
                 else:
                     # Use choice for multiple item types
-                    items = {"type": "choice", "choices": item_types}
+                    # choices must be a map with type names as keys
+                    choices_map: Dict[str, Any] = {}
+                    for it in item_types:
+                        if isinstance(it, str):
+                            choices_map[it] = {"type": it}
+                        elif isinstance(it, dict):
+                            # For object types, use name if available
+                            name = it.get("name", f"type{len(choices_map)}")
+                            choices_map[name] = it
+                    items = {"type": "choice", "choices": choices_map}
             else:
                 items = {"type": "string"}
 
@@ -808,7 +833,15 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             if len(item_types) == 1:
                 list_types.append({"type": "array", "items": item_types[0]})
             else:
-                list_types.append({"type": "array", "items": {"type": "choice", "choices": item_types}})
+                # Build choices map from item types
+                choices_map: Dict[str, Any] = {}
+                for it in item_types:
+                    if isinstance(it, str):
+                        choices_map[it] = {"type": it}
+                    elif isinstance(it, dict):
+                        name = it.get("name", f"type{len(choices_map)}")
+                        choices_map[name] = it
+                list_types.append({"type": "array", "items": {"type": "choice", "choices": choices_map}})
 
         value_types: List[Any] = []
         for item3 in map_types:
@@ -944,9 +977,14 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                 
                 if field_name == parent_field:
                     if len(variant_types) > 1:
+                        # Build choices as a map (object) per JSON Structure spec
+                        # Each value is a schema directly (the object type definition)
+                        choices_map: Dict[str, Any] = {}
+                        for vt in variant_types:
+                            choices_map[vt["name"]] = vt
                         envelope_properties[safe_name] = {
                             "type": "choice",
-                            "choices": variant_types
+                            "choices": choices_map
                         }
                     else:
                         envelope_properties[safe_name] = variant_types[0] if variant_types else {"type": "object"}
@@ -975,9 +1013,13 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             
             return envelope_record
         
-        # Handle top-level discriminated union
+        # Handle top-level discriminated union as inline union
+        # Inline unions match the actual instance format where the discriminator
+        # is a property value, not a key wrapper (tagged union)
         if result.discriminator_field:
-            variant_types = []
+            # Collect all fields from all variants to find common vs variant-specific
+            all_variant_fields: Dict[str, Set[str]] = {}  # variant_value -> field names
+            variant_docs: Dict[str, Dict[str, Any]] = {}  # variant_value -> sample doc
             
             for value in sorted(result.discriminator_values):
                 cluster_docs = [c for c in result.clusters 
@@ -986,27 +1028,98 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                 if not cluster_docs:
                     continue
                 cluster = cluster_docs[0]
+                all_variant_fields[value] = set(cluster.merged_signature)
+                variant_docs[value] = cluster.documents[0].data if cluster.documents else {}
+            
+            if not all_variant_fields:
+                return None
+            
+            # Find common fields (present in ALL variants)
+            common_fields = set.intersection(*all_variant_fields.values()) if all_variant_fields else set()
+            
+            # Build abstract base type with common fields
+            base_name = avro_name(type_name) + "Base"
+            base_properties: Dict[str, Any] = {}
+            base_required: List[str] = []
+            
+            # Use first variant's doc for type inference of common fields
+            first_value = sorted(result.discriminator_values)[0]
+            rep_doc = variant_docs.get(first_value, {})
+            
+            for field_name in sorted(common_fields):
+                safe_name = avro_name(field_name)
+                field_value = rep_doc.get(field_name)
+                field_type = self.python_type_to_jstruct_type(f"{type_name}.{safe_name}", field_value)
                 
+                if isinstance(field_type, str):
+                    base_properties[safe_name] = {"type": field_type}
+                else:
+                    base_properties[safe_name] = field_type
+                
+                if field_name != safe_name:
+                    base_properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+                
+                # Check if required in all clusters
+                # Note: discriminator field is NOT required as it's handled by selector
+                all_required = all(
+                    field_name in c.required_fields 
+                    for c in result.clusters if c.merged_signature
+                )
+                if all_required and field_name != result.discriminator_field:
+                    base_required.append(safe_name)
+            
+            base_type: Dict[str, Any] = {
+                "abstract": True,
+                "type": "object",
+                "name": base_name,
+                "properties": base_properties
+            }
+            if base_required:
+                base_type["required"] = base_required
+            
+            # Build variant types that extend the base
+            definitions: Dict[str, Any] = {base_name: base_type}
+            choices_map: Dict[str, Any] = {}
+            
+            for value in sorted(result.discriminator_values):
+                if value not in all_variant_fields:
+                    continue
+                
+                # Type name is PascalCase for definitions
                 variant_name = avro_name(''.join(word.capitalize() for word in value.replace('_', ' ').split()))
-                variant_doc = cluster.documents[0].data if cluster.documents else {}
+                # Choice key must match actual selector value in instances
+                choice_key = value
+                
+                variant_doc = variant_docs.get(value, {})
+                variant_specific = all_variant_fields[value] - common_fields
+                
+                # Get cluster with all documents for this variant
+                cluster_for_variant = next(
+                    (c for c in result.clusters 
+                     if any(d.field_values.get(result.discriminator_field) == value 
+                           for d in c.documents)),
+                    None
+                )
                 
                 properties: Dict[str, Any] = {}
                 required: List[str] = []
                 
-                # Add discriminator field with default
-                disc_safe = avro_name(result.discriminator_field)
-                properties[disc_safe] = {
-                    "type": "string",
-                    "default": value
-                }
-                required.append(disc_safe)
-                
-                # Add other fields
-                for field_name in sorted(cluster.merged_signature):
-                    if field_name == result.discriminator_field:
-                        continue
+                # Add variant-specific fields only (common fields inherited from base)
+                for field_name in sorted(variant_specific):
                     safe_name = avro_name(field_name)
-                    field_value = variant_doc.get(field_name)
+                    
+                    # Find the first non-null value across all documents in this variant
+                    # to properly infer the type
+                    field_value = None
+                    if cluster_for_variant:
+                        for doc in cluster_for_variant.documents:
+                            val = doc.data.get(field_name)
+                            if val is not None:
+                                field_value = val
+                                break
+                    if field_value is None:
+                        field_value = variant_doc.get(field_name)
+                    
                     field_type = self.python_type_to_jstruct_type(f"{type_name}.{safe_name}", field_value)
                     
                     if isinstance(field_type, str):
@@ -1017,25 +1130,36 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                     if field_name != safe_name:
                         properties[safe_name]["altnames"] = {self.altnames_key: field_name}
                     
-                    if field_name in cluster.required_fields:
+                    # Field is required only if present in all documents of this variant
+                    if cluster_for_variant and field_name in cluster_for_variant.required_fields:
                         required.append(safe_name)
                 
                 variant_record: Dict[str, Any] = {
                     "type": "object",
                     "name": variant_name,
+                    "$extends": f"#/definitions/{base_name}",
                     "properties": properties
                 }
                 if required:
                     variant_record["required"] = required
-                variant_types.append(variant_record)
+                
+                definitions[variant_name] = variant_record
+                # Use actual discriminator value as choice key (must match selector in instances)
+                choices_map[choice_key] = {"type": {"$ref": f"#/definitions/{variant_name}"}}
             
-            if len(variant_types) == 1:
-                return variant_types[0]
+            if len(choices_map) == 1:
+                # Single variant - just return it directly
+                return list(definitions.values())[1]  # Skip base, return the variant
             
+            # Build inline union choice type
+            disc_safe = avro_name(result.discriminator_field)
             return {
                 "type": "choice",
                 "name": avro_name(type_name),
-                "choices": variant_types
+                "$extends": f"#/definitions/{base_name}",
+                "selector": disc_safe,
+                "choices": choices_map,
+                "definitions": definitions
             }
         
         # Undiscriminated union - fall back to standard inference
