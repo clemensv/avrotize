@@ -78,9 +78,9 @@ jobs:
             echo "Copied gallery pages"
           fi
           
-          # Copy generated gallery index page (pages/gallery.html)
-          if [ -f "source/pages/gallery.html" ]; then
-            cp source/pages/gallery.html site/pages/gallery.html
+          # Copy generated gallery index page
+          if [ -f "source/gallery.html" ]; then
+            cp source/gallery.html site/gallery.html
             echo "Copied gallery index page"
           fi
           

@@ -59,9 +59,6 @@ jobs:
           mkdir -p master/gallery/sources
           cp -r gh-pages/gallery/sources/* master/gallery/sources/
           
-          # Create pages directory in master if needed
-          mkdir -p master/pages
-          
           cd master
           python scripts/build_gallery.py
           
@@ -71,7 +68,7 @@ jobs:
           cp -r master/gallery/* gh-pages/gallery/ 2>/dev/null || true
           
           # Copy generated gallery index page (overwrites static version)
-          cp master/pages/gallery.html gh-pages/pages/gallery.html
+          cp master/gallery.html gh-pages/gallery.html
           
           # Copy gallery data files
           mkdir -p gh-pages/gallery/_data
