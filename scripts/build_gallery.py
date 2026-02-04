@@ -1936,10 +1936,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 '''
     
-    # Write to pages/gallery.html
-    pages_dir = PROJECT_ROOT / "pages"
-    pages_dir.mkdir(parents=True, exist_ok=True)
-    output_path = pages_dir / "gallery.html"
+    # Write to gallery.html at root level
+    output_path = PROJECT_ROOT / "gallery.html"
     output_path.write_text(page_content, encoding="utf-8")
     print(f"\nGenerated gallery index: {output_path}")
 
