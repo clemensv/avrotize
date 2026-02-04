@@ -1,0 +1,7 @@
+{"__typename": "Query", "operation": "getUser", "variables": {"id": 1}}
+{"__typename": "Query", "operation": "listUsers", "variables": {"limit": 10, "offset": 0}}
+{"__typename": "Mutation", "operation": "createUser", "variables": {"name": "Alice"}, "optimistic": true}
+{"__typename": "Mutation", "operation": "deleteUser", "variables": {"id": 1}}
+{"__typename": "Subscription", "operation": "onUserCreated", "channel": "users", "filter": {"role": "admin"}}
+{"__typename": "Subscription", "operation": "onMessage", "channel": "chat"}
+{"__typename": "Fragment", "name": "UserFields", "on": "User", "fields": ["id", "name", "email"]}

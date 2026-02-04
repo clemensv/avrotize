@@ -1,0 +1,6 @@
+{"specversion": "1.0", "type": "com.example.events", "source": "/api", "id": "evt-001", "data": {"kind": "user", "userId": 1, "name": "Alice", "email": "alice@example.com"}}
+{"specversion": "1.0", "type": "com.example.events", "source": "/api", "id": "evt-002", "data": {"kind": "user", "userId": 2, "name": "Bob", "email": "bob@example.com", "verified": true}}
+{"specversion": "1.0", "type": "com.example.events", "source": "/api", "id": "evt-003", "data": {"kind": "order", "orderId": 100, "total": 50.0, "items": 3}}
+{"specversion": "1.0", "type": "com.example.events", "source": "/api", "id": "evt-004", "data": {"kind": "order", "orderId": 101, "total": 75.0, "items": 5, "discount": 10}}
+{"specversion": "1.0", "type": "com.example.events", "source": "/api", "id": "evt-005", "data": {"kind": "payment", "paymentId": "PAY-001", "amount": 50.0, "method": "card"}}
+{"specversion": "1.0", "type": "com.example.events", "source": "/api", "id": "evt-006", "data": {"kind": "payment", "paymentId": "PAY-002", "amount": 75.0, "method": "paypal", "status": "completed"}}

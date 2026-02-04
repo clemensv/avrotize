@@ -1,0 +1,10 @@
+{"nodeKind": "Program", "body": [1, 2, 3], "sourceType": "module"}
+{"nodeKind": "FunctionDeclaration", "id": {"name": "foo"}, "params": [], "body": {"type": "BlockStatement"}, "async": false}
+{"nodeKind": "FunctionDeclaration", "id": {"name": "bar"}, "params": [{"name": "x"}], "body": {"type": "BlockStatement"}, "async": true, "generator": true}
+{"nodeKind": "VariableDeclaration", "declarations": [{"id": "x", "init": 42}], "kind": "const"}
+{"nodeKind": "VariableDeclaration", "declarations": [{"id": "y", "init": "hello"}], "kind": "let"}
+{"nodeKind": "IfStatement", "test": {"type": "Identifier"}, "consequent": {"type": "BlockStatement"}, "alternate": null}
+{"nodeKind": "IfStatement", "test": {"type": "BinaryExpression"}, "consequent": {"type": "BlockStatement"}, "alternate": {"type": "IfStatement"}}
+{"nodeKind": "ReturnStatement", "argument": {"type": "Literal", "value": 42}}
+{"nodeKind": "ReturnStatement", "argument": null}
+{"nodeKind": "BinaryExpression", "operator": "+", "left": {"type": "Identifier"}, "right": {"type": "Literal"}}

@@ -1,0 +1,6 @@
+{"format": "json", "version": "1.0", "data": {"key": "value"}}
+{"format": "json", "version": "2.0", "data": {"items": [1, 2]}, "schema": "array"}
+{"format": "xml", "version": "1.0", "root": "document", "encoding": "utf-8"}
+{"format": "xml", "version": "1.1", "root": "config", "encoding": "utf-8", "namespace": "http://example.com"}
+{"format": "csv", "version": "1.0", "delimiter": ",", "headers": ["a", "b", "c"]}
+{"format": "csv", "version": "1.0", "delimiter": ";", "headers": ["x", "y"], "quoteChar": "\""}

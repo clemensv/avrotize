@@ -1,0 +1,6 @@
+{"active": true, "name": "Widget A", "price": 10.0, "stock": 100, "lastSold": "2024-01-15"}
+{"active": true, "name": "Widget B", "price": 15.0, "stock": 50}
+{"active": true, "name": "Widget C", "price": 20.0, "stock": 200, "lastSold": "2024-01-10"}
+{"active": false, "name": "Widget X", "discontinuedDate": "2023-06-01", "replacedBy": "Widget A"}
+{"active": false, "name": "Widget Y", "discontinuedDate": "2022-12-15", "replacedBy": "Widget B", "reason": "low sales"}
+{"active": false, "name": "Widget Z", "discontinuedDate": "2023-01-01"}

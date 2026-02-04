@@ -1,0 +1,8 @@
+{"source": "sensor", "device": "temp-01", "reading": 23.5, "unit": "C", "timestamp": "2024-01-01T10:00:00Z"}
+{"source": "sensor", "device": "temp-02", "reading": 24.1, "unit": "C", "timestamp": "2024-01-01T10:00:01Z", "battery": 85}
+{"source": "manual", "operator": "john", "value": 100, "notes": "Calibration check"}
+{"source": "sensor", "device": "humid-01", "reading": 65, "unit": "%", "timestamp": "2024-01-01T10:00:02Z"}
+{"source": "computed", "formula": "avg(temp-*)", "result": 23.8, "inputs": ["temp-01", "temp-02"]}
+{"source": "manual", "operator": "jane", "value": 50}
+{"source": "computed", "formula": "max(humid-*)", "result": 65, "inputs": ["humid-01"], "confidence": 0.99}
+{"source": "sensor", "device": "press-01", "reading": 1013.25, "unit": "hPa", "timestamp": "2024-01-01T10:00:05Z"}

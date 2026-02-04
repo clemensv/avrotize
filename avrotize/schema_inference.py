@@ -238,6 +238,19 @@ class SchemaInferrer:
 class AvroSchemaInferrer(SchemaInferrer):
     """Infers Avro schemas from JSON and XML data."""
 
+    def __init__(self, namespace: str = '', type_name_prefix: str = '', altnames_key: str = 'json',
+                 infer_choices: bool = False):
+        """Initialize the Avro schema inferrer.
+
+        Args:
+            namespace: Namespace for generated types
+            type_name_prefix: Prefix for generated type names
+            altnames_key: Key to use for altnames mapping
+            infer_choices: Whether to detect discriminated unions (choice types)
+        """
+        super().__init__(namespace, type_name_prefix, altnames_key)
+        self.infer_choices = infer_choices
+
     def python_type_to_avro_type(self, type_name: str, python_value: Any) -> JsonNode:
         """Maps Python types to Avro types.
 
@@ -312,6 +325,12 @@ class AvroSchemaInferrer(SchemaInferrer):
         if not values:
             return "string"
 
+        # Check for discriminated unions if enabled
+        if self.infer_choices:
+            choice_result = self._infer_choice_type(type_name, values)
+            if choice_result is not None:
+                return choice_result
+
         unique_types = self.consolidated_type_list(
             type_name, values, self.python_type_to_avro_type)
 
@@ -328,6 +347,185 @@ class AvroSchemaInferrer(SchemaInferrer):
             return unique_types[0]
         else:
             return "string"
+
+    def _infer_choice_type(self, type_name: str, values: List[Any]) -> JsonNode | None:
+        """Detect and generate schema for discriminated unions.
+        
+        Returns an Avro union schema if a discriminated union is detected,
+        or None to fall back to standard inference.
+        """
+        from avrotize.choice_inference import infer_choice_type
+        from avrotize.common import avro_name
+        
+        result = infer_choice_type(values)
+        
+        if not result.is_choice:
+            return None
+        
+        # Handle nested discriminator (envelope pattern)
+        if result.nested_discriminator:
+            nested = result.nested_discriminator
+            parent_field = nested.field_path.split('.')[0]
+            
+            # Build the envelope type with the nested union
+            envelope_cluster = result.clusters[0] if result.clusters else None
+            if not envelope_cluster:
+                return None
+            
+            # Get representative document
+            rep_doc = envelope_cluster.documents[0].data if envelope_cluster.documents else {}
+            
+            # Build variant types from nested clusters
+            variant_types = []
+            for value in sorted(nested.values):
+                # Find cluster for this value
+                cluster_docs = [c for c in nested.nested_clusters 
+                               if any(d.field_values.get(nested.discriminator_field) == value 
+                                     for d in c.documents)]
+                if not cluster_docs:
+                    continue
+                cluster = cluster_docs[0]
+                
+                # Build variant record
+                variant_name = avro_name(''.join(word.capitalize() for word in value.replace('_', ' ').split()))
+                variant_namespace = self.namespace + '.' + avro_name(type_name) + 'Types' if self.namespace else avro_name(type_name) + 'Types'
+                
+                # Get fields from cluster's representative document
+                variant_doc = cluster.documents[0].data if cluster.documents else {}
+                variant_fields = []
+                
+                # Add discriminator field with default value
+                variant_fields.append({
+                    "name": avro_name(nested.discriminator_field),
+                    "type": "string",
+                    "default": value
+                })
+                
+                # Add other fields
+                for field_name in sorted(cluster.merged_signature):
+                    if field_name == nested.discriminator_field:
+                        continue
+                    safe_name = avro_name(field_name)
+                    field_value = variant_doc.get(field_name)
+                    field_type = self.python_type_to_avro_type(f"{type_name}.{parent_field}.{safe_name}", field_value)
+                    
+                    is_required = field_name in cluster.required_fields
+                    if not is_required:
+                        field_type = self._make_nullable(field_type)
+                    
+                    field_def: Dict[str, JsonNode] = {"name": safe_name, "type": field_type}
+                    if not is_required:
+                        field_def["default"] = None
+                    if field_name != safe_name:
+                        field_def["altnames"] = {self.altnames_key: field_name}
+                    variant_fields.append(field_def)
+                
+                variant_record: Dict[str, JsonNode] = {
+                    "type": "record",
+                    "name": variant_name,
+                    "namespace": variant_namespace,
+                    "fields": variant_fields
+                }
+                variant_types.append(variant_record)
+            
+            # Build envelope record
+            envelope_fields = []
+            for field_name in sorted(envelope_cluster.merged_signature):
+                safe_name = avro_name(field_name)
+                
+                if field_name == parent_field:
+                    # This is the union field
+                    envelope_fields.append({
+                        "name": safe_name,
+                        "type": variant_types if len(variant_types) > 1 else variant_types[0]
+                    })
+                else:
+                    field_value = rep_doc.get(field_name)
+                    field_type = self.python_type_to_avro_type(f"{type_name}.{safe_name}", field_value)
+                    
+                    is_required = field_name in envelope_cluster.required_fields
+                    if not is_required:
+                        field_type = self._make_nullable(field_type)
+                    
+                    field_def = {"name": safe_name, "type": field_type}
+                    if not is_required:
+                        field_def["default"] = None
+                    if field_name != safe_name:
+                        field_def["altnames"] = {self.altnames_key: field_name}
+                    envelope_fields.append(field_def)
+            
+            envelope_namespace = self.namespace if self.namespace else ''
+            envelope_record: Dict[str, JsonNode] = {
+                "type": "record",
+                "name": avro_name(type_name),
+                "fields": envelope_fields
+            }
+            if envelope_namespace:
+                envelope_record["namespace"] = envelope_namespace
+            
+            return envelope_record
+        
+        # Handle top-level discriminated union
+        if result.discriminator_field:
+            variant_types = []
+            
+            for value in sorted(result.discriminator_values):
+                # Find cluster for this value
+                cluster_docs = [c for c in result.clusters 
+                               if any(d.field_values.get(result.discriminator_field) == value 
+                                     for d in c.documents)]
+                if not cluster_docs:
+                    continue
+                cluster = cluster_docs[0]
+                
+                # Build variant record
+                variant_name = avro_name(''.join(word.capitalize() for word in value.replace('_', ' ').split()))
+                variant_namespace = self.namespace + '.' + avro_name(type_name) + 'Types' if self.namespace else avro_name(type_name) + 'Types'
+                
+                variant_doc = cluster.documents[0].data if cluster.documents else {}
+                variant_fields = []
+                
+                # Add discriminator field with default value first
+                disc_safe = avro_name(result.discriminator_field)
+                variant_fields.append({
+                    "name": disc_safe,
+                    "type": "string",
+                    "default": value
+                })
+                
+                # Add other fields
+                for field_name in sorted(cluster.merged_signature):
+                    if field_name == result.discriminator_field:
+                        continue
+                    safe_name = avro_name(field_name)
+                    field_value = variant_doc.get(field_name)
+                    field_type = self.python_type_to_avro_type(f"{type_name}.{safe_name}", field_value)
+                    
+                    is_required = field_name in cluster.required_fields
+                    if not is_required:
+                        field_type = self._make_nullable(field_type)
+                    
+                    field_def: Dict[str, JsonNode] = {"name": safe_name, "type": field_type}
+                    if not is_required:
+                        field_def["default"] = None
+                    if field_name != safe_name:
+                        field_def["altnames"] = {self.altnames_key: field_name}
+                    variant_fields.append(field_def)
+                
+                variant_record: Dict[str, JsonNode] = {
+                    "type": "record",
+                    "name": variant_name,
+                    "namespace": variant_namespace,
+                    "fields": variant_fields
+                }
+                variant_types.append(variant_record)
+            
+            if len(variant_types) == 1:
+                return variant_types[0]
+            return variant_types
+        
+        # Undiscriminated union - fall back to standard inference
+        return None
 
     def infer_from_xml_values(self, type_name: str, xml_strings: List[str]) -> JsonNode:
         """Infers Avro schema from a list of XML strings.
@@ -422,17 +620,20 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         bytes: "binary"
     }
 
-    def __init__(self, namespace: str = '', type_name_prefix: str = '', base_id: str = ''):
+    def __init__(self, namespace: str = '', type_name_prefix: str = '', base_id: str = '',
+                 infer_choices: bool = False):
         """Initialize the JSON Structure schema inferrer.
 
         Args:
             namespace: Namespace for generated types
             type_name_prefix: Prefix for generated type names
             base_id: Base URI for $id generation
+            infer_choices: Whether to detect discriminated unions (choice types)
         """
         super().__init__(namespace, type_name_prefix)
         self.base_id = base_id or 'https://example.com/'
         self.definitions: Dict[str, Any] = {}
+        self.infer_choices = infer_choices
 
     def python_type_to_jstruct_type(self, type_name: str, python_value: Any) -> Dict[str, Any] | str:
         """Maps Python types to JSON Structure types.
@@ -636,6 +837,12 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         if not values:
             return self._wrap_schema({"type": "string"}, type_name)
 
+        # Check for discriminated unions if enabled
+        if self.infer_choices:
+            choice_result = self._infer_choice_type(type_name, values)
+            if choice_result is not None:
+                return self._wrap_schema(choice_result, type_name)
+
         unique_types = self.consolidated_jstruct_type_list(type_name, values)
 
         if len(unique_types) > 1:
@@ -651,6 +858,188 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             schema = {"type": "string", "name": avro_name(type_name)}
 
         return self._wrap_schema(schema, type_name)
+
+    def _infer_choice_type(self, type_name: str, values: List[Any]) -> Dict[str, Any] | None:
+        """Detect and generate schema for discriminated unions.
+        
+        Returns a JSON Structure choice schema if a discriminated union is detected,
+        or None to fall back to standard inference.
+        """
+        from avrotize.choice_inference import infer_choice_type
+        from avrotize.common import avro_name
+        
+        result = infer_choice_type(values)
+        
+        if not result.is_choice:
+            return None
+        
+        # Handle nested discriminator (envelope pattern)
+        if result.nested_discriminator:
+            nested = result.nested_discriminator
+            parent_field = nested.field_path.split('.')[0]
+            
+            envelope_cluster = result.clusters[0] if result.clusters else None
+            if not envelope_cluster:
+                return None
+            
+            rep_doc = envelope_cluster.documents[0].data if envelope_cluster.documents else {}
+            
+            # Build variant types from nested clusters
+            variant_types = []
+            for value in sorted(nested.values):
+                cluster_docs = [c for c in nested.nested_clusters 
+                               if any(d.field_values.get(nested.discriminator_field) == value 
+                                     for d in c.documents)]
+                if not cluster_docs:
+                    continue
+                cluster = cluster_docs[0]
+                
+                variant_name = avro_name(''.join(word.capitalize() for word in value.replace('_', ' ').split()))
+                variant_doc = cluster.documents[0].data if cluster.documents else {}
+                
+                properties: Dict[str, Any] = {}
+                required: List[str] = []
+                
+                # Add discriminator field with default
+                properties[avro_name(nested.discriminator_field)] = {
+                    "type": "string",
+                    "default": value
+                }
+                required.append(avro_name(nested.discriminator_field))
+                
+                # Add other fields
+                for field_name in sorted(cluster.merged_signature):
+                    if field_name == nested.discriminator_field:
+                        continue
+                    safe_name = avro_name(field_name)
+                    field_value = variant_doc.get(field_name)
+                    field_type = self.python_type_to_jstruct_type(f"{type_name}.{parent_field}.{safe_name}", field_value)
+                    
+                    if isinstance(field_type, str):
+                        properties[safe_name] = {"type": field_type}
+                    else:
+                        properties[safe_name] = field_type
+                    
+                    if field_name != safe_name:
+                        properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+                    
+                    if field_name in cluster.required_fields:
+                        required.append(safe_name)
+                
+                variant_record: Dict[str, Any] = {
+                    "type": "object",
+                    "name": variant_name,
+                    "properties": properties
+                }
+                if required:
+                    variant_record["required"] = required
+                variant_types.append(variant_record)
+            
+            # Build envelope with choice payload
+            envelope_properties: Dict[str, Any] = {}
+            envelope_required: List[str] = []
+            
+            for field_name in sorted(envelope_cluster.merged_signature):
+                safe_name = avro_name(field_name)
+                
+                if field_name == parent_field:
+                    if len(variant_types) > 1:
+                        envelope_properties[safe_name] = {
+                            "type": "choice",
+                            "choices": variant_types
+                        }
+                    else:
+                        envelope_properties[safe_name] = variant_types[0] if variant_types else {"type": "object"}
+                else:
+                    field_value = rep_doc.get(field_name)
+                    field_type = self.python_type_to_jstruct_type(f"{type_name}.{safe_name}", field_value)
+                    
+                    if isinstance(field_type, str):
+                        envelope_properties[safe_name] = {"type": field_type}
+                    else:
+                        envelope_properties[safe_name] = field_type
+                    
+                    if field_name != safe_name:
+                        envelope_properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+                
+                if field_name in envelope_cluster.required_fields:
+                    envelope_required.append(safe_name)
+            
+            envelope_record: Dict[str, Any] = {
+                "type": "object",
+                "name": avro_name(type_name),
+                "properties": envelope_properties
+            }
+            if envelope_required:
+                envelope_record["required"] = envelope_required
+            
+            return envelope_record
+        
+        # Handle top-level discriminated union
+        if result.discriminator_field:
+            variant_types = []
+            
+            for value in sorted(result.discriminator_values):
+                cluster_docs = [c for c in result.clusters 
+                               if any(d.field_values.get(result.discriminator_field) == value 
+                                     for d in c.documents)]
+                if not cluster_docs:
+                    continue
+                cluster = cluster_docs[0]
+                
+                variant_name = avro_name(''.join(word.capitalize() for word in value.replace('_', ' ').split()))
+                variant_doc = cluster.documents[0].data if cluster.documents else {}
+                
+                properties: Dict[str, Any] = {}
+                required: List[str] = []
+                
+                # Add discriminator field with default
+                disc_safe = avro_name(result.discriminator_field)
+                properties[disc_safe] = {
+                    "type": "string",
+                    "default": value
+                }
+                required.append(disc_safe)
+                
+                # Add other fields
+                for field_name in sorted(cluster.merged_signature):
+                    if field_name == result.discriminator_field:
+                        continue
+                    safe_name = avro_name(field_name)
+                    field_value = variant_doc.get(field_name)
+                    field_type = self.python_type_to_jstruct_type(f"{type_name}.{safe_name}", field_value)
+                    
+                    if isinstance(field_type, str):
+                        properties[safe_name] = {"type": field_type}
+                    else:
+                        properties[safe_name] = field_type
+                    
+                    if field_name != safe_name:
+                        properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+                    
+                    if field_name in cluster.required_fields:
+                        required.append(safe_name)
+                
+                variant_record: Dict[str, Any] = {
+                    "type": "object",
+                    "name": variant_name,
+                    "properties": properties
+                }
+                if required:
+                    variant_record["required"] = required
+                variant_types.append(variant_record)
+            
+            if len(variant_types) == 1:
+                return variant_types[0]
+            
+            return {
+                "type": "choice",
+                "name": avro_name(type_name),
+                "choices": variant_types
+            }
+        
+        # Undiscriminated union - fall back to standard inference
+        return None
 
     def infer_from_xml_values(self, type_name: str, xml_strings: List[str]) -> Dict[str, Any]:
         """Infers JSON Structure schema from a list of XML strings.

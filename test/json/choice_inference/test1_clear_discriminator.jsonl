@@ -1,0 +1,9 @@
+{"event_type": "user_signup", "name": "Alice", "email": "alice@example.com", "age": 30}
+{"event_type": "user_signup", "name": "Bob", "email": "bob@example.com"}
+{"event_type": "user_signup", "name": "Charlie", "email": "charlie@example.com", "age": 25, "phone": "+1234"}
+{"event_type": "order_placed", "orderId": "ORD-001", "items": [{"sku": "A1", "qty": 2}], "total": 39.98}
+{"event_type": "order_placed", "orderId": "ORD-002", "items": [{"sku": "B2", "qty": 1}], "total": 99.00, "discount": 10}
+{"event_type": "order_placed", "orderId": "ORD-003", "items": [{"sku": "C3", "qty": 3}], "total": 150.00}
+{"event_type": "metric", "name": "cpu", "value": 75.5, "unit": "percent"}
+{"event_type": "metric", "name": "memory", "value": 1024, "unit": "MB", "host": "server-1"}
+{"event_type": "metric", "name": "disk", "value": 50.0, "tags": {"env": "prod"}}

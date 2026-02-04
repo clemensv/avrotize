@@ -1,0 +1,6 @@
+{"data": {"user": {"id": 1, "name": "Alice"}}, "errors": null}
+{"data": {"users": [{"id": 1}, {"id": 2}]}, "errors": null, "extensions": {"tracing": {"duration": 50}}}
+{"data": null, "errors": [{"message": "User not found", "path": ["user"], "extensions": {"code": "NOT_FOUND"}}]}
+{"data": null, "errors": [{"message": "Unauthorized", "extensions": {"code": "UNAUTHORIZED"}}, {"message": "Token expired"}]}
+{"data": {"user": {"id": 1, "name": null}}, "errors": [{"message": "Name field failed", "path": ["user", "name"]}]}
+{"data": {"createUser": {"id": 3}}, "errors": null}

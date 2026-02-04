@@ -1,0 +1,6 @@
+{"type": "domestic", "id": 1, "origin": "NYC", "destination": "LA", "weight": 10.5, "cost": 25.0, "carrier": "UPS"}
+{"type": "domestic", "id": 2, "origin": "CHI", "destination": "MIA", "weight": 5.0, "cost": 15.0, "carrier": "FedEx"}
+{"type": "domestic", "id": 3, "origin": "SEA", "destination": "DEN", "weight": 20.0, "cost": 35.0, "carrier": "USPS", "insurance": true}
+{"type": "international", "id": 4, "origin": "NYC", "destination": "LON", "weight": 10.5, "cost": 75.0, "carrier": "DHL", "customsValue": 500.0, "hsCode": "8471.30"}
+{"type": "international", "id": 5, "origin": "LA", "destination": "TYO", "weight": 15.0, "cost": 95.0, "carrier": "FedEx", "customsValue": 1000.0, "hsCode": "6403.99", "dutiesPaid": true}
+{"type": "international", "id": 6, "origin": "MIA", "destination": "PAR", "weight": 8.0, "cost": 65.0, "carrier": "UPS", "customsValue": 200.0, "hsCode": "9503.00"}

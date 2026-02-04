@@ -1,0 +1,6 @@
+{"type": "", "data": {"unknown": true}}
+{"type": "user", "id": 1, "name": "Alice"}
+{"type": "user", "id": 2, "name": "Bob"}
+{"type": "group", "id": 100, "name": "Admins", "members": [1, 2]}
+{"type": "group", "id": 101, "name": "Users", "members": []}
+{"type": "", "data": {"legacy": true, "migrated": false}}

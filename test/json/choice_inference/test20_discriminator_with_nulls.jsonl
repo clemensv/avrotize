@@ -1,0 +1,7 @@
+{"kind": "user", "id": 1, "name": "Alice", "email": "alice@example.com"}
+{"kind": "user", "id": 2, "name": "Bob", "email": "bob@example.com"}
+{"kind": "bot", "id": 100, "name": "HelperBot", "model": "gpt-4", "temperature": 0.7}
+{"kind": "bot", "id": 101, "name": "AssistBot", "model": "claude-3"}
+{"id": 999, "name": "Unknown", "legacy": true}
+{"kind": null, "id": 998, "name": "NullKind", "legacy": true}
+{"kind": "system", "id": 0, "name": "System", "permissions": ["all"]}

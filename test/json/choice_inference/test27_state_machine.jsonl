@@ -1,0 +1,9 @@
+{"state": "draft", "orderId": 1, "items": [], "createdAt": "2024-01-01"}
+{"state": "draft", "orderId": 2, "items": [{"sku": "A", "qty": 1}], "createdAt": "2024-01-02"}
+{"state": "pending", "orderId": 3, "items": [{"sku": "B", "qty": 2}], "submittedAt": "2024-01-03", "paymentMethod": "card"}
+{"state": "pending", "orderId": 4, "items": [{"sku": "C", "qty": 1}], "submittedAt": "2024-01-04", "paymentMethod": "paypal"}
+{"state": "confirmed", "orderId": 5, "confirmedAt": "2024-01-05", "paymentId": "PAY-001", "estimatedDelivery": "2024-01-10"}
+{"state": "confirmed", "orderId": 6, "confirmedAt": "2024-01-06", "paymentId": "PAY-002", "estimatedDelivery": "2024-01-11", "priority": true}
+{"state": "shipped", "orderId": 7, "shippedAt": "2024-01-07", "trackingNumber": "TRK-001", "carrier": "FedEx"}
+{"state": "delivered", "orderId": 8, "deliveredAt": "2024-01-08", "signedBy": "Alice", "photo": "delivery-001.jpg"}
+{"state": "cancelled", "orderId": 9, "cancelledAt": "2024-01-09", "reason": "customer request", "refundAmount": 50.0}

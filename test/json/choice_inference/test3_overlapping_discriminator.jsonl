@@ -1,0 +1,6 @@
+{"type": "person", "name": "Alice", "email": "alice@example.com", "age": 30}
+{"type": "person", "name": "Bob", "email": "bob@example.com", "phone": "+1234"}
+{"type": "company", "name": "Acme Inc", "email": "info@acme.com", "employees": 50, "industry": "tech"}
+{"type": "company", "name": "Globex", "email": "contact@globex.com", "employees": 200}
+{"type": "person", "name": "Charlie", "email": "charlie@example.com"}
+{"type": "company", "name": "Initech", "email": "hr@initech.com", "employees": 30, "founded": 1999}

@@ -1,0 +1,8 @@
+{"category": "electronics", "item": "laptop", "brand": "Dell", "specs": {"cpu": "i7", "ram": 16}}
+{"category": "electronics", "item": "phone", "brand": "Apple", "specs": {"storage": 256, "color": "black"}}
+{"category": "clothing", "item": "shirt", "size": "M", "material": "cotton", "color": "blue"}
+{"category": "clothing", "item": "pants", "size": "32", "material": "denim"}
+{"category": "electronics", "item": "tablet", "brand": "Samsung", "specs": {"screen": 10.5}}
+{"category": "food", "item": "apple", "quantity": 5, "unit": "kg", "organic": true}
+{"category": "food", "item": "bread", "quantity": 2, "unit": "loaf"}
+{"category": "clothing", "item": "jacket", "size": "L", "material": "leather", "waterproof": true}

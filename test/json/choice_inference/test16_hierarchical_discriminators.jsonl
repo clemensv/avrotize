@@ -1,0 +1,7 @@
+{"schema": "v1", "type": "create", "entity": "user", "data": {"name": "Alice"}}
+{"schema": "v1", "type": "update", "entity": "user", "id": 1, "data": {"name": "Alicia"}}
+{"schema": "v1", "type": "delete", "entity": "user", "id": 1}
+{"schema": "v2", "type": "create", "entity": "user", "data": {"name": "Bob", "email": "bob@example.com"}, "metadata": {"source": "api"}}
+{"schema": "v2", "type": "create", "entity": "order", "data": {"items": [{"sku": "A1", "qty": 2}]}, "metadata": {"source": "web"}}
+{"schema": "v1", "type": "create", "entity": "order", "data": {"product": "Widget", "count": 5}}
+{"schema": "v2", "type": "update", "entity": "order", "id": 100, "data": {"status": "shipped"}, "metadata": {"source": "system"}}

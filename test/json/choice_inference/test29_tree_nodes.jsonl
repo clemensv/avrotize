@@ -1,0 +1,8 @@
+{"nodeType": "folder", "id": 1, "name": "root", "children": [2, 3, 4]}
+{"nodeType": "folder", "id": 2, "name": "documents", "children": [5, 6], "parent": 1}
+{"nodeType": "folder", "id": 3, "name": "images", "children": [7], "parent": 1}
+{"nodeType": "folder", "id": 4, "name": "empty", "children": [], "parent": 1}
+{"nodeType": "file", "id": 5, "name": "readme.txt", "size": 1024, "mimeType": "text/plain", "parent": 2}
+{"nodeType": "file", "id": 6, "name": "data.json", "size": 2048, "mimeType": "application/json", "parent": 2}
+{"nodeType": "file", "id": 7, "name": "logo.png", "size": 50000, "mimeType": "image/png", "parent": 3, "dimensions": {"w": 200, "h": 100}}
+{"nodeType": "symlink", "id": 8, "name": "readme-link", "target": 5, "parent": 1}

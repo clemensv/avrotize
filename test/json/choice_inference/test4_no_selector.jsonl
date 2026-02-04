@@ -1,0 +1,6 @@
+{"firstName": "Alice", "lastName": "Smith", "birthDate": "1990-01-15"}
+{"firstName": "Bob", "lastName": "Jones", "birthDate": "1985-03-20", "ssn": "123-45-6789"}
+{"companyName": "Acme Corp", "taxId": "12-3456789", "founded": "2000-05-01"}
+{"companyName": "Globex LLC", "taxId": "98-7654321", "employees": 500}
+{"firstName": "Charlie", "lastName": "Brown", "birthDate": "1995-07-10"}
+{"companyName": "Initech", "taxId": "55-1234567", "industry": "consulting"}

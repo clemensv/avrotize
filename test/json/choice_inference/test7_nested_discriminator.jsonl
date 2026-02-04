@@ -1,0 +1,7 @@
+{"version": 1, "payload": {"type": "text", "content": "Hello"}}
+{"version": 1, "payload": {"type": "text", "content": "World", "format": "plain"}}
+{"version": 1, "payload": {"type": "image", "url": "http://example.com/img.png", "width": 800, "height": 600}}
+{"version": 1, "payload": {"type": "image", "url": "http://example.com/photo.jpg"}}
+{"version": 2, "payload": {"type": "video", "url": "http://example.com/vid.mp4", "duration": 120, "codec": "h264"}}
+{"version": 1, "payload": {"type": "text", "content": "Test"}}
+{"version": 2, "payload": {"type": "audio", "url": "http://example.com/song.mp3", "duration": 180}}

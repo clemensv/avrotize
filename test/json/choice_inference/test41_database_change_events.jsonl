@@ -1,0 +1,7 @@
+{"op": "c", "table": "users", "before": null, "after": {"id": 1, "name": "Alice"}, "ts_ms": 1704067200000}
+{"op": "c", "table": "users", "before": null, "after": {"id": 2, "name": "Bob"}, "ts_ms": 1704067201000, "source": {"connector": "mysql"}}
+{"op": "u", "table": "users", "before": {"id": 1, "name": "Alice"}, "after": {"id": 1, "name": "Alicia"}, "ts_ms": 1704067202000}
+{"op": "u", "table": "orders", "before": {"id": 100, "status": "pending"}, "after": {"id": 100, "status": "confirmed"}, "ts_ms": 1704067203000}
+{"op": "d", "table": "users", "before": {"id": 2, "name": "Bob"}, "after": null, "ts_ms": 1704067204000}
+{"op": "r", "table": "users", "before": null, "after": {"id": 1, "name": "Alicia"}, "ts_ms": 1704067205000}
+{"op": "t", "table": "orders", "before": null, "after": null, "ts_ms": 1704067206000}

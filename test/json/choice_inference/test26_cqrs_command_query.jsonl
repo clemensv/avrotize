@@ -1,0 +1,8 @@
+{"messageType": "command", "command": "CreateOrder", "payload": {"customerId": 1, "items": ["A", "B"]}, "correlationId": "cmd-001"}
+{"messageType": "command", "command": "CancelOrder", "payload": {"orderId": 123}, "correlationId": "cmd-002", "reason": "customer request"}
+{"messageType": "command", "command": "UpdateInventory", "payload": {"sku": "X1", "delta": -5}, "correlationId": "cmd-003"}
+{"messageType": "query", "query": "GetOrderStatus", "parameters": {"orderId": 123}, "correlationId": "qry-001"}
+{"messageType": "query", "query": "ListOrders", "parameters": {"customerId": 1, "limit": 10}, "correlationId": "qry-002"}
+{"messageType": "event", "event": "OrderCreated", "data": {"orderId": 124, "customerId": 1}, "timestamp": "2024-01-01T10:00:00Z", "sequence": 1}
+{"messageType": "event", "event": "OrderShipped", "data": {"orderId": 124, "trackingNumber": "TRK123"}, "timestamp": "2024-01-02T10:00:00Z", "sequence": 2}
+{"messageType": "event", "event": "InventoryUpdated", "data": {"sku": "X1", "newQuantity": 95}, "timestamp": "2024-01-01T10:05:00Z", "sequence": 3}
