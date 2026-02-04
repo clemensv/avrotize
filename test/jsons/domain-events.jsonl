@@ -1,0 +1,6 @@
+{"event_type": "user_created", "user_id": "u123", "email": "alice@example.com", "created_at": "2026-02-04T10:00:00Z"}
+{"event_type": "user_created", "user_id": "u456", "email": "bob@example.com", "created_at": "2026-02-04T11:00:00Z"}
+{"event_type": "order_placed", "order_id": "ord-001", "user_id": "u123", "total": 99.5, "items": [{"sku": "A1", "qty": 2}]}
+{"event_type": "order_placed", "order_id": "ord-002", "user_id": "u456", "total": 150.0, "items": [{"sku": "B2", "qty": 1}]}
+{"event_type": "payment_received", "payment_id": "pay-001", "order_id": "ord-001", "amount": 99.5, "method": "card"}
+{"event_type": "payment_received", "payment_id": "pay-002", "order_id": "ord-002", "amount": 150.0, "method": "paypal"}

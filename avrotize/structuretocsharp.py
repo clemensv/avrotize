@@ -47,6 +47,7 @@ class StructureToCSharp:
         self.schema_registry: Dict[str, Dict] = {}  # Maps $id URIs to schemas
         self.offers: Dict[str, Any] = {}  # Maps add-in names to property definitions from $offers
         self.needs_json_structure_converters = False  # Track if any types need JSON Structure converters
+        self.discriminator_properties: Dict[str, str] = {}  # Maps type ref -> discriminator property name (for inline unions)
 
     def get_qualified_name(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
@@ -390,9 +391,13 @@ class StructureToCSharp:
         # Check additionalProperties setting (Section 3.7.8)
         additional_props = structure_schema.get('additionalProperties', True if is_abstract else None)
         
+        # Check if any property in this class is a discriminator for an inline union
+        discriminator_prop = self.discriminator_properties.get(ref, None)
+        
         fields_str = []
         for prop_name, prop_schema in properties.items():
-            field_def = self.generate_property(prop_name, prop_schema, class_name, schema_namespace, required_props)
+            is_discriminator = (prop_name == discriminator_prop)
+            field_def = self.generate_property(prop_name, prop_schema, class_name, schema_namespace, required_props, is_discriminator=is_discriminator)
             fields_str.append(field_def)
         
         # Add dictionary for additional properties if needed
@@ -460,7 +465,7 @@ class StructureToCSharp:
         self.generated_structure_types[ref] = structure_schema
         return ref
 
-    def generate_property(self, prop_name: str, prop_schema: Dict, class_name: str, parent_namespace: str, required_props: List) -> str:
+    def generate_property(self, prop_name: str, prop_schema: Dict, class_name: str, parent_namespace: str, required_props: List, is_discriminator: bool = False) -> str:
         """ Generates a property for a class """
         property_definition = ''
         
@@ -521,9 +526,13 @@ class StructureToCSharp:
         doc = prop_schema.get('description', prop_schema.get('doc', field_name_cs))
         property_definition += f"{INDENT}/// <summary>\n{INDENT}/// {doc}\n{INDENT}/// </summary>\n"
         
+        # If this property is used as a discriminator in an inline union, add JsonIgnore
+        # because JsonPolymorphic handles it as metadata
+        if is_discriminator and self.system_text_json_annotation:
+            property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonIgnore]\n'
         # Add JSON property name annotation when property name differs from schema name
         # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
-        if needs_json_annotation:
+        elif needs_json_annotation:
             property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
         if self.newtonsoft_json_annotation and needs_json_annotation:
             property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
@@ -1027,17 +1036,29 @@ class StructureToCSharp:
             # Fallback to tagged union if no base
             return self.generate_tagged_union(structure_schema, parent_namespace, write_file, explicit_name)
         
-        # First, ensure base class is generated (if it's abstract, it won't be referenced directly)
+        choices = structure_schema.get('choices', {})
+        selector = structure_schema.get('selector', 'type')
+        
+        # Mark the selector property as a discriminator BEFORE generating the base class
+        # This allows generate_class to add [JsonIgnore] to the property
         base_schema_copy = base_schema.copy()
         if 'name' not in base_schema_copy:
             # Extract name from $extends ref
             base_name = extends_ref.split('/')[-1]
             base_schema_copy['name'] = base_name
+        
+        # Calculate what the base class ref will be
+        base_namespace_for_ref = pascal(self.concat_namespace(self.base_namespace, base_schema_copy.get('namespace', schema_namespace)))
+        base_class_name_for_ref = pascal(base_schema_copy['name'])
+        pending_base_ref = 'global::'+self.get_qualified_name(base_namespace_for_ref, base_class_name_for_ref)
+        
+        # Record that this base type's selector property is a discriminator
+        if self.system_text_json_annotation and selector in base_schema.get('properties', {}):
+            self.discriminator_properties[pending_base_ref] = selector
+        
+        # Now generate the base class (it will check discriminator_properties)
         base_class_ref = self.generate_class(base_schema_copy, schema_namespace, write_file)
         base_class_name = base_class_ref.split('::')[-1].split('.')[-1]
-        
-        choices = structure_schema.get('choices', {})
-        selector = structure_schema.get('selector', 'type')
         
         # Generate abstract base class with selector property
         class_definition = f"/// <summary>\n/// {structure_schema.get('description', class_name + ' (inline union base)')}\n/// </summary>\n"
@@ -1056,16 +1077,15 @@ class StructureToCSharp:
         
         class_definition += "\n{\n"
         
-        # Add selector property (not required since derived classes set it in constructor)
-        class_definition += f"{INDENT}/// <summary>\n{INDENT}/// Type discriminator\n{INDENT}/// </summary>\n"
-        if self.system_text_json_annotation:
-            class_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{selector}")]\n'
-        
         # Check if selector is already in base properties
         base_has_selector = selector in base_schema.get('properties', {})
-        if base_has_selector:
-            class_definition += f"{INDENT}public new string {pascal(selector)} {{ get; set; }} = \"\";\n"
-        else:
+        
+        # Only add selector property if base class doesn't already have it
+        # If base has the selector, JsonPolymorphic will use it directly
+        if not base_has_selector:
+            class_definition += f"{INDENT}/// <summary>\n{INDENT}/// Type discriminator\n{INDENT}/// </summary>\n"
+            if self.system_text_json_annotation:
+                class_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{selector}")]\n'
             class_definition += f"{INDENT}public string {pascal(selector)} {{ get; set; }} = \"\";\n"
         
         class_definition += "}"
@@ -1076,11 +1096,21 @@ class StructureToCSharp:
         # Generate derived classes for each choice with property merging
         for choice_name, choice_schema_ref in choices.items():
             # Resolve the choice schema
-            if isinstance(choice_schema_ref, dict) and '$ref' in choice_schema_ref:
-                choice_schema = self.resolve_ref(choice_schema_ref['$ref'], self.schema_doc)
+            # Handle both formats:
+            # 1. Direct $ref: {"$ref": "#/definitions/Type"}
+            # 2. Nested in type: {"type": {"$ref": "#/definitions/Type"}}
+            ref_to_resolve = None
+            if isinstance(choice_schema_ref, dict):
+                if '$ref' in choice_schema_ref:
+                    ref_to_resolve = choice_schema_ref['$ref']
+                elif 'type' in choice_schema_ref and isinstance(choice_schema_ref['type'], dict) and '$ref' in choice_schema_ref['type']:
+                    ref_to_resolve = choice_schema_ref['type']['$ref']
+            
+            if ref_to_resolve:
+                choice_schema = self.resolve_ref(ref_to_resolve, self.schema_doc)
                 if not choice_schema:
                     # Try resolving relative to the structure_schema itself
-                    choice_schema = self.resolve_ref(choice_schema_ref['$ref'], structure_schema)
+                    choice_schema = self.resolve_ref(ref_to_resolve, structure_schema)
             else:
                 choice_schema = choice_schema_ref
             
@@ -1219,9 +1249,19 @@ class StructureToCSharp:
             class_definition += field_def
         
         # Add constructor that sets the discriminator
+        # If the selector exists in the base schema, use the original property name (snake_case)
+        # Otherwise use the PascalCase version we defined in the union class
+        base_properties = schema.get('$base_properties', [])
+        if selector in base_properties:
+            # Use the snake_case name from the base class
+            selector_prop_name = selector
+        else:
+            # Use PascalCase name we defined in the union class
+            selector_prop_name = pascal(selector)
+        
         class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Constructor that sets the discriminator value\n{INDENT}/// </summary>\n"
         class_definition += f"{INDENT}public {class_name}()\n{INDENT}{{\n"
-        class_definition += f"{INDENT*2}this.{pascal(selector)} = \"{choice_name}\";\n"
+        class_definition += f"{INDENT*2}this.{selector_prop_name} = \"{choice_name}\";\n"
         class_definition += f"{INDENT}}}\n"
         
         # Generate Equals and GetHashCode

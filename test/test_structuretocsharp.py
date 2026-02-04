@@ -823,6 +823,85 @@ class TestStructureToCSharp(unittest.TestCase):
         
         print(f"✓ Avro annotation test passed")
 
+    def test_inline_union_json_roundtrip(self):
+        """Test that inline unions with wrapped $ref format work correctly with JSON serialization"""
+        from avrotize.schema_inference import JsonStructureSchemaInferrer
+        
+        cwd = os.getcwd()
+        jsonl_path = os.path.join(cwd, "test", "jsons", "domain-events.jsonl")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "inline-union-roundtrip-cs")
+        
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+        
+        # Load JSON values from JSONL file
+        values = []
+        with open(jsonl_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    values.append(json.loads(line))
+        
+        # 1. Infer schema from JSONL with --infer-choices
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True)
+        schema = inferrer.infer_from_json_values("DomainEvent", values)
+        
+        # Verify schema has choice type
+        assert schema.get('type') == 'choice', "Schema should be a choice type"
+        assert schema.get('selector') == 'event_type', "Selector should be event_type"
+        
+        # Save schema to file
+        schema_path = os.path.join(cs_path, "domain-events.jstruct.json")
+        with open(schema_path, 'w', encoding='utf-8') as f:
+            json.dump(schema, f, indent=2)
+        
+        # 2. Generate C# classes with System.Text.Json annotations
+        convert_structure_to_csharp(
+            schema_path,
+            cs_path,
+            system_text_json_annotation=True,
+            pascal_properties=False  # Keep snake_case for JSON compat
+        )
+        
+        # 3. Verify the DomainEventBase has [JsonIgnore] on event_type
+        base_file = os.path.join(cs_path, "src", "InlineUnionRoundtripCs", "DomainEventBase.cs")
+        assert os.path.exists(base_file), "DomainEventBase.cs should be generated"
+        
+        with open(base_file, 'r', encoding='utf-8') as f:
+            base_content = f.read()
+            assert "[System.Text.Json.Serialization.JsonIgnore]" in base_content, \
+                "Discriminator property should have [JsonIgnore] attribute"
+        
+        # 4. Verify DomainEvent has [JsonPolymorphic] attribute
+        union_file = os.path.join(cs_path, "src", "InlineUnionRoundtripCs", "DomainEvent.cs")
+        assert os.path.exists(union_file), "DomainEvent.cs should be generated"
+        
+        with open(union_file, 'r', encoding='utf-8') as f:
+            union_content = f.read()
+            assert "[System.Text.Json.Serialization.JsonPolymorphic" in union_content, \
+                "Inline union should have [JsonPolymorphic] attribute"
+            assert 'TypeDiscriminatorPropertyName = "event_type"' in union_content, \
+                "JsonPolymorphic should use event_type as discriminator"
+        
+        # 5. Verify derived classes have their properties
+        for variant_name in ["OrderPlaced", "UserCreated", "PaymentReceived"]:
+            variant_file = os.path.join(cs_path, "src", "InlineUnionRoundtripCs", f"{variant_name}.cs")
+            assert os.path.exists(variant_file), f"{variant_name}.cs should be generated"
+            
+            with open(variant_file, 'r', encoding='utf-8') as f:
+                variant_content = f.read()
+                assert f"class {variant_name} : DomainEvent" in variant_content, \
+                    f"{variant_name} should extend DomainEvent"
+        
+        # 6. Build the project
+        assert subprocess.check_call(
+            ["dotnet", "build"], 
+            cwd=cs_path, 
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.DEVNULL
+        ) == 0, "Generated code should compile successfully"
+        
+        print(f"✓ Inline union JSON round-trip test passed")
 
 
 if __name__ == "__main__":
