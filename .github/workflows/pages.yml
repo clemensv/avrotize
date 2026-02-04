@@ -122,7 +122,7 @@ jobs:
         run: |
           cd site
           bundle install
-          bundle exec jekyll build --baseurl "/avrotize"
+          bundle exec jekyll build
         env:
           JEKYLL_ENV: production
 

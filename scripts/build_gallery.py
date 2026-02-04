@@ -2040,7 +2040,7 @@ def build_gallery() -> None:
         
         if success:
             # Files base URL for the generated page - use 'files' subdirectory (not _data which Jekyll ignores)
-            files_base_url = f"/avrotize/gallery/files/{item['id']}"
+            files_base_url = f"/gallery/files/{item['id']}"
             
             # Generate the gallery page
             generate_gallery_page(item, output_dir, files_base_url)

@@ -1,8 +1,8 @@
 # Avrotize & Structurize Documentation Site
 title: Avrotize & Structurize
 description: A universal schema converter and code generator for data structures
-baseurl: "/avrotize"
-url: "https://clemensv.github.io"
+baseurl: ""
+url: "https://avrotize.com"
 
 # Build settings
 markdown: kramdown
