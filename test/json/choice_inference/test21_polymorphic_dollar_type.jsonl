@@ -1,0 +1,7 @@
+{"$type": "com.example.Person", "firstName": "Alice", "lastName": "Smith", "age": 30}
+{"$type": "com.example.Person", "firstName": "Bob", "lastName": "Jones", "age": 25, "title": "Dr"}
+{"$type": "com.example.Company", "name": "Acme Corp", "taxId": "12-345", "employees": 100}
+{"$type": "com.example.Company", "name": "BigCo", "taxId": "67-890", "employees": 5000, "public": true}
+{"$type": "com.example.Address", "street": "123 Main St", "city": "NYC", "zip": "10001"}
+{"$type": "com.example.Address", "street": "456 Oak Ave", "city": "LA", "zip": "90001", "apt": "4B"}
+{"$type": "com.example.PhoneNumber", "country": "+1", "number": "555-1234", "type": "mobile"}

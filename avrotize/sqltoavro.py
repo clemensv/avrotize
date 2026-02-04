@@ -31,7 +31,8 @@ class SqlToAvro:
         infer_json_schema: bool = True,
         infer_xml_schema: bool = True,
         username: str | None = None,
-        password: str | None = None
+        password: str | None = None,
+        infer_choices: bool = False
     ):
         """Initializes the SqlToAvro class with database connection parameters.
 
@@ -49,6 +50,7 @@ class SqlToAvro:
             infer_xml_schema: Whether to infer schema for XML columns
             username: Database username (overrides connection string if provided)
             password: Database password (overrides connection string if provided)
+            infer_choices: Whether to detect discriminated unions in JSON/XML columns
         """
         self.connection_string = connection_string
         self.dialect = dialect.lower()
@@ -60,10 +62,11 @@ class SqlToAvro:
         self.sample_size = sample_size
         self.infer_json_schema = infer_json_schema
         self.infer_xml_schema = infer_xml_schema
+        self.infer_choices = infer_choices
         self.generated_types: List[str] = []
         
         # Schema inferrer for JSON/XML columns (use 'sql' altnames for SQL source)
-        self._inferrer = AvroSchemaInferrer(namespace=avro_namespace, altnames_key='sql')
+        self._inferrer = AvroSchemaInferrer(namespace=avro_namespace, altnames_key='sql', infer_choices=infer_choices)
 
         if self.emit_xregistry and not self.avro_namespace:
             raise ValueError(
@@ -1115,7 +1118,8 @@ def convert_sql_to_avro(
     infer_json_schema: bool = True,
     infer_xml_schema: bool = True,
     username: str | None = None,
-    password: str | None = None
+    password: str | None = None,
+    infer_choices: bool = False
 ):
     """Converts SQL database schemas to Avro schema format.
 
@@ -1133,6 +1137,7 @@ def convert_sql_to_avro(
         infer_xml_schema: Whether to infer schema for XML columns
         username: Database username (overrides connection string credentials)
         password: Database password (overrides connection string credentials)
+        infer_choices: Whether to detect discriminated unions in JSON/XML columns
     """
     if not connection_string:
         raise ValueError("connection_string is required")
@@ -1153,7 +1158,8 @@ def convert_sql_to_avro(
         infer_json_schema=infer_json_schema,
         infer_xml_schema=infer_xml_schema,
         username=username,
-        password=password
+        password=password,
+        infer_choices=infer_choices
     )
 
     return converter.process_all_tables()

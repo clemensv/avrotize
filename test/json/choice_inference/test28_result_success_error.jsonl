@@ -1,0 +1,7 @@
+{"success": true, "data": {"userId": 1, "name": "Alice"}, "requestId": "req-001"}
+{"success": true, "data": {"userId": 2, "name": "Bob"}, "requestId": "req-002", "cached": true}
+{"success": true, "data": {"orderId": 100, "total": 50.0}, "requestId": "req-003"}
+{"success": false, "error": {"code": "NOT_FOUND", "message": "User not found"}, "requestId": "req-004"}
+{"success": false, "error": {"code": "UNAUTHORIZED", "message": "Invalid token"}, "requestId": "req-005", "retryAfter": 60}
+{"success": false, "error": {"code": "VALIDATION", "message": "Invalid input", "fields": ["email", "phone"]}, "requestId": "req-006"}
+{"success": false, "error": {"code": "RATE_LIMIT", "message": "Too many requests"}, "requestId": "req-007", "retryAfter": 3600}

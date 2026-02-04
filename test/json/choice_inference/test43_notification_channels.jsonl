@@ -1,0 +1,8 @@
+{"channel": "email", "to": "alice@example.com", "subject": "Welcome!", "body": "Thanks for signing up", "from": "noreply@example.com"}
+{"channel": "email", "to": "bob@example.com", "subject": "Order Shipped", "body": "Your order is on the way", "from": "orders@example.com", "cc": ["support@example.com"]}
+{"channel": "sms", "to": "+1555123456", "body": "Your code is 123456", "sender": "MYAPP"}
+{"channel": "sms", "to": "+1555789012", "body": "Order confirmed", "sender": "ORDERS"}
+{"channel": "push", "deviceToken": "abc123...", "title": "New Message", "body": "You have a new message", "badge": 1}
+{"channel": "push", "deviceToken": "def456...", "title": "Sale!", "body": "50% off today", "badge": 0, "sound": "default", "data": {"promo": "SALE50"}}
+{"channel": "webhook", "url": "https://example.com/hook", "method": "POST", "payload": {"event": "user.created"}, "headers": {"X-Api-Key": "secret"}}
+{"channel": "slack", "channel": "#general", "text": "Deployment complete", "username": "DeployBot", "icon_emoji": ":rocket:"}

@@ -1,0 +1,10 @@
+{"eventType": "A", "data": {"x": 1}}
+{"eventType": "B", "data": {"y": 2}}
+{"eventType": "C", "data": {"z": 3}}
+{"eventType": "D", "data": {"w": 4}}
+{"eventType": "E", "data": {"v": 5}}
+{"eventType": "F", "data": {"u": 6}}
+{"eventType": "G", "data": {"t": 7}}
+{"eventType": "H", "data": {"s": 8}}
+{"eventType": "A", "data": {"x": 10}}
+{"eventType": "B", "data": {"y": 20, "extra": true}}

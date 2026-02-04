@@ -21,7 +21,8 @@ def convert_json_to_avro(
     avro_schema_file: str,
     type_name: str = 'Document',
     avro_namespace: str = '',
-    sample_size: int = 0
+    sample_size: int = 0,
+    infer_choices: bool = False
 ) -> None:
     """Infers Avro schema from JSON files.
 
@@ -35,6 +36,7 @@ def convert_json_to_avro(
         type_name: Name for the root type
         avro_namespace: Namespace for generated Avro types
         sample_size: Maximum number of records to sample (0 = all)
+        infer_choices: Detect discriminated unions and emit as Avro unions with discriminator defaults
     """
     if not input_files:
         raise ValueError("At least one input file is required")
@@ -44,7 +46,7 @@ def convert_json_to_avro(
     if not values:
         raise ValueError("No valid JSON data found in input files")
 
-    inferrer = AvroSchemaInferrer(namespace=avro_namespace)
+    inferrer = AvroSchemaInferrer(namespace=avro_namespace, infer_choices=infer_choices)
     schema = inferrer.infer_from_json_values(type_name, values)
 
     # Ensure output directory exists
@@ -61,7 +63,8 @@ def convert_json_to_jstruct(
     jstruct_schema_file: str,
     type_name: str = 'Document',
     base_id: str = 'https://example.com/',
-    sample_size: int = 0
+    sample_size: int = 0,
+    infer_choices: bool = False
 ) -> None:
     """Infers JSON Structure schema from JSON files.
 
@@ -74,6 +77,7 @@ def convert_json_to_jstruct(
         type_name: Name for the root type
         base_id: Base URI for $id generation
         sample_size: Maximum number of records to sample (0 = all)
+        infer_choices: Detect discriminated unions and emit as choice types with discriminator defaults
     """
     if not input_files:
         raise ValueError("At least one input file is required")
@@ -83,7 +87,7 @@ def convert_json_to_jstruct(
     if not values:
         raise ValueError("No valid JSON data found in input files")
 
-    inferrer = JsonStructureSchemaInferrer(base_id=base_id)
+    inferrer = JsonStructureSchemaInferrer(base_id=base_id, infer_choices=infer_choices)
     schema = inferrer.infer_from_json_values(type_name, values)
 
     # Ensure output directory exists

@@ -1,0 +1,6 @@
+{"version": "1.0", "user": "alice", "action": "login"}
+{"version": "1.0", "user": "bob", "action": "logout"}
+{"version": "2.0", "userId": 1, "userName": "alice", "action": "login", "timestamp": "2024-01-01T10:00:00Z"}
+{"version": "2.0", "userId": 2, "userName": "bob", "action": "logout", "timestamp": "2024-01-01T11:00:00Z"}
+{"version": "3.0", "userId": 1, "userName": "alice", "action": {"type": "login", "method": "oauth"}, "timestamp": "2024-01-01T10:00:00Z", "metadata": {"ip": "1.2.3.4"}}
+{"version": "3.0", "userId": 2, "userName": "bob", "action": {"type": "logout", "reason": "timeout"}, "timestamp": "2024-01-01T11:00:00Z", "metadata": {"ip": "5.6.7.8"}}

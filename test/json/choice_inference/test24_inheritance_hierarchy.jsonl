@@ -1,0 +1,7 @@
+{"entityType": "vehicle", "id": 1, "make": "Toyota", "model": "Camry", "year": 2020}
+{"entityType": "car", "id": 2, "make": "Honda", "model": "Civic", "year": 2021, "doors": 4, "bodyType": "sedan"}
+{"entityType": "car", "id": 3, "make": "Ford", "model": "Mustang", "year": 2022, "doors": 2, "bodyType": "coupe"}
+{"entityType": "truck", "id": 4, "make": "Ford", "model": "F-150", "year": 2021, "bedLength": 6.5, "towingCapacity": 13000}
+{"entityType": "truck", "id": 5, "make": "Chevy", "model": "Silverado", "year": 2020, "bedLength": 5.8, "towingCapacity": 12000, "crewCab": true}
+{"entityType": "motorcycle", "id": 6, "make": "Harley", "model": "Sportster", "year": 2019, "engineCC": 1200, "type": "cruiser"}
+{"entityType": "motorcycle", "id": 7, "make": "Kawasaki", "model": "Ninja", "year": 2023, "engineCC": 650, "type": "sport"}

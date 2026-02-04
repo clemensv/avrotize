@@ -1,0 +1,10 @@
+{"op": "add", "path": "/name", "value": "Alice"}
+{"op": "add", "path": "/age", "value": 30}
+{"op": "remove", "path": "/temp"}
+{"op": "replace", "path": "/status", "value": "active", "old": "pending"}
+{"op": "move", "from": "/old_addr", "path": "/address"}
+{"op": "copy", "from": "/template", "path": "/config"}
+{"op": "test", "path": "/version", "value": 2}
+{"op": "add", "path": "/tags/-", "value": "important"}
+{"op": "remove", "path": "/cache"}
+{"op": "replace", "path": "/count", "value": 5, "old": 4}

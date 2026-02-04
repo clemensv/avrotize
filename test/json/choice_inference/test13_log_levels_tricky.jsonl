@@ -1,0 +1,8 @@
+{"level": "info", "msg": "Started", "pid": 1234}
+{"level": "info", "msg": "Connected", "pid": 1234, "host": "localhost"}
+{"level": "warn", "msg": "Slow query", "pid": 1234, "duration_ms": 5000, "query": "SELECT *"}
+{"level": "error", "msg": "Failed", "pid": 1234, "error": {"code": "E001", "stack": "..."}}
+{"level": "debug", "msg": "Cache hit", "pid": 1234, "key": "user:1", "ttl": 300}
+{"level": "info", "msg": "Request", "pid": 1234, "method": "GET", "path": "/api"}
+{"level": "warn", "msg": "Retry", "pid": 1234, "attempt": 2, "max": 3}
+{"level": "error", "msg": "Crash", "pid": 1234, "error": {"code": "E999"}, "fatal": true}

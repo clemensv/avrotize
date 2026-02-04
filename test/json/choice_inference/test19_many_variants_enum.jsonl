@@ -1,0 +1,16 @@
+{"shape": "circle", "radius": 10}
+{"shape": "circle", "radius": 25, "filled": true}
+{"shape": "square", "side": 15}
+{"shape": "square", "side": 30, "rotation": 45}
+{"shape": "rectangle", "width": 10, "height": 20}
+{"shape": "rectangle", "width": 50, "height": 30, "cornerRadius": 5}
+{"shape": "triangle", "base": 10, "height": 15}
+{"shape": "triangle", "base": 20, "height": 25, "type": "isoceles"}
+{"shape": "ellipse", "rx": 10, "ry": 20}
+{"shape": "ellipse", "rx": 30, "ry": 15, "rotation": 30}
+{"shape": "polygon", "sides": 5, "radius": 20}
+{"shape": "polygon", "sides": 6, "radius": 15, "rotation": 15}
+{"shape": "line", "x1": 0, "y1": 0, "x2": 100, "y2": 100}
+{"shape": "line", "x1": 10, "y1": 20, "x2": 50, "y2": 80, "strokeWidth": 2}
+{"shape": "arc", "cx": 50, "cy": 50, "radius": 30, "startAngle": 0, "endAngle": 90}
+{"shape": "bezier", "points": [[0,0], [50,100], [100,0]], "tension": 0.5}

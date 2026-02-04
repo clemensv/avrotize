@@ -1,0 +1,8 @@
+{"componentType": "schema", "name": "User", "type": "object", "properties": {"id": "integer", "name": "string"}, "required": ["id"]}
+{"componentType": "schema", "name": "Order", "type": "object", "properties": {"orderId": "integer", "total": "number"}, "required": ["orderId", "total"]}
+{"componentType": "parameter", "name": "userId", "in": "path", "required": true, "schema": {"type": "integer"}}
+{"componentType": "parameter", "name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "default": 10}}
+{"componentType": "response", "name": "NotFound", "description": "Resource not found", "content": {"application/json": {"schema": "Error"}}}
+{"componentType": "response", "name": "Success", "description": "Operation successful", "content": {"application/json": {"schema": "Result"}}}
+{"componentType": "securityScheme", "name": "bearerAuth", "type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+{"componentType": "requestBody", "name": "CreateUser", "required": true, "content": {"application/json": {"schema": "UserInput"}}}

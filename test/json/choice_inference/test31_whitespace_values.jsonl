@@ -1,0 +1,6 @@
+{"type": "simple value", "data": {"a": 1}}
+{"type": "simple value", "data": {"a": 2, "b": 3}}
+{"type": "value with  spaces", "items": [1, 2, 3], "count": 3}
+{"type": "value with  spaces", "items": [4, 5], "count": 2}
+{"type": "trailing space ", "result": true, "message": "ok"}
+{"type": " leading space", "result": false, "error": "failed"}

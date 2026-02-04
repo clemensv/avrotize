@@ -1,0 +1,8 @@
+{"kind": "request", "method": "GET", "url": "/api/users", "headers": {"accept": "application/json"}}
+{"kind": "request", "method": "POST", "url": "/api/users", "body": {"name": "Alice"}, "headers": {"content-type": "application/json"}}
+{"kind": "response", "status": 200, "body": {"id": 1, "name": "Alice"}, "headers": {"content-type": "application/json"}}
+{"kind": "response", "status": 404, "error": "Not found"}
+{"kind": "request", "method": "DELETE", "url": "/api/users/1"}
+{"kind": "response", "status": 204}
+{"kind": "error", "code": "TIMEOUT", "message": "Connection timed out", "retryable": true}
+{"kind": "error", "code": "AUTH_FAILED", "message": "Invalid token", "retryable": false, "details": {"realm": "api"}}

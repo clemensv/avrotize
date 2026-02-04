@@ -1017,7 +1017,8 @@
         "infer_json_schema": "args.infer_json",
         "infer_xml_schema": "args.infer_xml",
         "username": "args.username",
-        "password": "args.password"
+        "password": "args.password",
+        "infer_choices": "args.infer_choices"
       }
     },
     "extensions": [],
@@ -1117,6 +1118,13 @@
         "help": "Infer schema for XML columns",
         "default": true,
         "required": false
+      },
+      {
+        "name": "--infer-choices",
+        "type": "bool",
+        "action": "store_true",
+        "help": "Detect discriminated unions in JSON/XML columns and emit as unions with discriminator field defaults",
+        "required": false
       }
     ],
     "suggested_output_file_path": "{database}.avsc",
@@ -1154,7 +1162,8 @@
         "avro_schema_file": "output_file_path",
         "type_name": "args.type_name",
         "avro_namespace": "args.namespace",
-        "sample_size": "args.sample_size"
+        "sample_size": "args.sample_size",
+        "infer_choices": "args.infer_choices"
       }
     },
     "extensions": [".json", ".jsonl", ".ndjson"],
@@ -1191,6 +1200,13 @@
         "help": "Maximum number of records to sample (0 = all)",
         "default": 0,
         "required": false
+      },
+      {
+        "name": "--infer-choices",
+        "type": "bool",
+        "action": "store_true",
+        "help": "Detect discriminated unions and emit as Avro unions with discriminator field defaults",
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}.avsc",
@@ -1222,7 +1238,8 @@
         "jstruct_schema_file": "output_file_path",
         "type_name": "args.type_name",
         "base_id": "args.base_id",
-        "sample_size": "args.sample_size"
+        "sample_size": "args.sample_size",
+        "infer_choices": "args.infer_choices"
       }
     },
     "extensions": [".json", ".jsonl", ".ndjson"],
@@ -1259,6 +1276,13 @@
         "type": "int",
         "help": "Maximum number of records to sample (0 = all)",
         "default": 0,
+        "required": false
+      },
+      {
+        "name": "--infer-choices",
+        "type": "bool",
+        "action": "store_true",
+        "help": "Detect discriminated unions and emit as choice types with discriminator field defaults",
         "required": false
       }
     ],

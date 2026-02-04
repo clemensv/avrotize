@@ -1,0 +1,10 @@
+{"action": "click", "target": "button", "x": 100, "y": 200}
+{"action": "click", "target": "link", "x": 150, "y": 250, "href": "/page2"}
+{"action": "scroll", "direction": "down", "amount": 500}
+{"action": "scroll", "direction": "up", "amount": 200, "smooth": true}
+{"action": "type", "target": "input", "text": "Hello", "field": "username"}
+{"action": "type", "target": "textarea", "text": "Long message...", "field": "message", "append": true}
+{"action": "hover", "target": "menu", "x": 50, "y": 10}
+{"action": "drag", "from": {"x": 0, "y": 0}, "to": {"x": 100, "y": 100}, "target": "slider"}
+{"action": "click", "target": "checkbox", "x": 20, "y": 300, "checked": true}
+{"action": "submit", "target": "form", "formId": "login"}

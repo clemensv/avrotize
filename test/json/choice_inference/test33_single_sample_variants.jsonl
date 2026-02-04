@@ -1,0 +1,6 @@
+{"recordType": "invoice", "invoiceNumber": "INV-001", "amount": 100.0, "dueDate": "2024-02-01"}
+{"recordType": "receipt", "receiptNumber": "REC-001", "amount": 100.0, "paidDate": "2024-01-15", "method": "card"}
+{"recordType": "quote", "quoteNumber": "QUO-001", "amount": 150.0, "validUntil": "2024-01-31", "items": 3}
+{"recordType": "order", "orderNumber": "ORD-001", "amount": 200.0, "status": "pending", "items": 5}
+{"recordType": "refund", "refundNumber": "REF-001", "amount": 50.0, "reason": "defective", "originalInvoice": "INV-001"}
+{"recordType": "credit", "creditNumber": "CRE-001", "amount": 25.0, "expiresAt": "2025-01-01"}

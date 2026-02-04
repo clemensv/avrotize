@@ -1,0 +1,9 @@
+{"method": "card", "brand": "visa", "last4": "4242", "expMonth": 12, "expYear": 2025, "funding": "credit"}
+{"method": "card", "brand": "mastercard", "last4": "5555", "expMonth": 6, "expYear": 2024, "funding": "debit"}
+{"method": "card", "brand": "amex", "last4": "0005", "expMonth": 3, "expYear": 2026, "funding": "credit", "cvcCheck": "pass"}
+{"method": "bank_account", "bankName": "Chase", "last4": "6789", "accountType": "checking", "routingNumber": "021000021"}
+{"method": "bank_account", "bankName": "BoA", "last4": "1234", "accountType": "savings", "routingNumber": "026009593"}
+{"method": "paypal", "email": "alice@example.com", "verified": true, "payerId": "PAY-001"}
+{"method": "paypal", "email": "bob@example.com", "verified": false, "payerId": "PAY-002"}
+{"method": "crypto", "currency": "BTC", "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "network": "mainnet"}
+{"method": "crypto", "currency": "ETH", "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f", "network": "mainnet"}

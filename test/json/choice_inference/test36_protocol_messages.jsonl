@@ -1,0 +1,8 @@
+{"opcode": 1, "seq": 100, "payload": {"token": "abc123"}, "timestamp": 1704067200}
+{"opcode": 1, "seq": 101, "payload": {"token": "def456"}, "timestamp": 1704067201, "retry": true}
+{"opcode": 2, "seq": 102, "heartbeat": true, "timestamp": 1704067202}
+{"opcode": 2, "seq": 103, "heartbeat": true, "timestamp": 1704067203}
+{"opcode": 3, "seq": 104, "channel": "general", "content": "Hello!", "timestamp": 1704067204}
+{"opcode": 3, "seq": 105, "channel": "random", "content": "Hi there", "timestamp": 1704067205, "mentions": ["user1"]}
+{"opcode": 4, "seq": 106, "error": {"code": 4001, "message": "Invalid token"}, "timestamp": 1704067206}
+{"opcode": 5, "seq": 107, "channels": ["general", "random"], "timestamp": 1704067207}

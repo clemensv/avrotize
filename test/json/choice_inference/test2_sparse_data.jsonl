@@ -1,0 +1,8 @@
+{"id": 1, "name": "Alice", "email": "alice@example.com"}
+{"id": 2, "name": "Bob", "email": "bob@example.com", "phone": "+1234567890"}
+{"id": 3, "name": "Charlie", "email": "charlie@example.com", "age": 25}
+{"id": 4, "name": "Diana", "email": "diana@example.com", "age": 30, "phone": "+9876543210"}
+{"id": 5, "name": "Eve", "email": "eve@example.com", "address": {"city": "NYC", "zip": "10001"}}
+{"id": 6, "name": "Frank", "email": "frank@example.com", "age": 35, "address": {"city": "LA"}}
+{"id": 7, "name": "Grace", "email": "grace@example.com", "phone": "+111222333", "verified": true}
+{"id": 8, "name": "Henry", "email": "henry@example.com", "verified": false}

@@ -1,0 +1,8 @@
+{"code": 1, "x": 10, "y": 20}
+{"code": 1, "x": 15, "y": 25, "z": 5}
+{"code": 2, "name": "origin", "coordinates": [0, 0]}
+{"code": 2, "name": "target", "coordinates": [100, 200], "label": "destination"}
+{"code": 3, "radius": 50, "center": {"x": 0, "y": 0}}
+{"code": 1, "x": -5, "y": 10}
+{"code": 3, "radius": 25, "center": {"x": 10, "y": 10}, "filled": true}
+{"code": 2, "name": "waypoint", "coordinates": [50, 75]}

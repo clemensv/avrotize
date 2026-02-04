@@ -262,5 +262,109 @@ class TestJson2aFileConversion(unittest.TestCase):
             os.unlink(output_path)
 
 
+class TestJson2aChoiceInference(unittest.TestCase):
+    """Test the --infer-choices feature for discriminated unions."""
+
+    def test_discriminated_union_inference(self):
+        """Test that infer_choices detects discriminated unions."""
+        json_path = get_test_json_path('choice_inference/test1_clear_discriminator.jsonl')
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.avsc', delete=False) as f:
+            output_path = f.name
+        
+        try:
+            convert_json_to_avro(
+                input_files=[json_path],
+                avro_schema_file=output_path,
+                type_name='Event',
+                avro_namespace='test.choice',
+                infer_choices=True
+            )
+            
+            with open(output_path, 'r') as f:
+                schema = json.load(f)
+            
+            # Should be a union of records (list)
+            self.assertIsInstance(schema, list)
+            self.assertGreater(len(schema), 1)
+            
+            # Each variant should have the discriminator field with default
+            for variant in schema:
+                self.assertEqual(variant['type'], 'record')
+                fields_by_name = {f['name']: f for f in variant['fields']}
+                self.assertIn('event_type', fields_by_name)
+                self.assertIn('default', fields_by_name['event_type'])
+        finally:
+            os.unlink(output_path)
+
+    def test_nested_discriminator_inference(self):
+        """Test that infer_choices detects nested discriminators (envelope pattern)."""
+        json_path = get_test_json_path('choice_inference/test7_nested_discriminator.jsonl')
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.avsc', delete=False) as f:
+            output_path = f.name
+        
+        try:
+            convert_json_to_avro(
+                input_files=[json_path],
+                avro_schema_file=output_path,
+                type_name='Envelope',
+                avro_namespace='test.nested',
+                infer_choices=True
+            )
+            
+            with open(output_path, 'r') as f:
+                schema = json.load(f)
+            
+            # Should be a record with payload field as union
+            self.assertEqual(schema['type'], 'record')
+            fields_by_name = {f['name']: f for f in schema['fields']}
+            
+            self.assertIn('payload', fields_by_name)
+            self.assertIn('version', fields_by_name)
+            
+            # payload should be a union of records
+            payload_type = fields_by_name['payload']['type']
+            self.assertIsInstance(payload_type, list)
+            
+            # Each variant should have type field with default
+            for variant in payload_type:
+                self.assertEqual(variant['type'], 'record')
+                variant_fields = {f['name']: f for f in variant['fields']}
+                self.assertIn('type', variant_fields)
+                self.assertIn('default', variant_fields['type'])
+        finally:
+            os.unlink(output_path)
+
+    def test_no_choice_inference_by_default(self):
+        """Test that choice inference is disabled by default."""
+        json_path = get_test_json_path('choice_inference/test1_clear_discriminator.jsonl')
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.avsc', delete=False) as f:
+            output_path = f.name
+        
+        try:
+            convert_json_to_avro(
+                input_files=[json_path],
+                avro_schema_file=output_path,
+                type_name='Event',
+                avro_namespace='test.nonchoice',
+                infer_choices=False  # Default
+            )
+            
+            with open(output_path, 'r') as f:
+                schema = json.load(f)
+            
+            # Without infer_choices, should be single merged record
+            self.assertEqual(schema['type'], 'record')
+            fields_by_name = {f['name']: f for f in schema['fields']}
+            
+            # event_type should NOT have a default (it's a regular field)
+            self.assertIn('event_type', fields_by_name)
+            self.assertNotIn('default', fields_by_name['event_type'])
+        finally:
+            os.unlink(output_path)
+
+
 if __name__ == '__main__':
     unittest.main()

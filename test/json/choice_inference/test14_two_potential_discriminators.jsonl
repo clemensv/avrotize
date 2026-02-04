@@ -1,0 +1,8 @@
+{"region": "us", "type": "standard", "sku": "SKU001", "price": 10.00, "currency": "USD"}
+{"region": "us", "type": "premium", "sku": "SKU002", "price": 25.00, "currency": "USD", "features": ["fast", "support"]}
+{"region": "eu", "type": "standard", "sku": "SKU001", "price": 9.00, "currency": "EUR", "vat": 19}
+{"region": "eu", "type": "premium", "sku": "SKU002", "price": 22.00, "currency": "EUR", "vat": 19, "features": ["fast", "support"]}
+{"region": "asia", "type": "standard", "sku": "SKU001", "price": 1100, "currency": "JPY"}
+{"region": "us", "type": "trial", "sku": "SKU003", "price": 0, "currency": "USD", "expires": "2024-12-31"}
+{"region": "eu", "type": "trial", "sku": "SKU003", "price": 0, "currency": "EUR", "expires": "2024-12-31", "vat": 0}
+{"region": "asia", "type": "premium", "sku": "SKU002", "price": 2800, "currency": "JPY", "features": ["fast"]}

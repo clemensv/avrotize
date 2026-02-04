@@ -1,0 +1,8 @@
+{"contentType": "application/json", "data": {"key": "value"}, "encoding": "utf-8"}
+{"contentType": "application/json", "data": {"items": [1, 2, 3]}, "encoding": "utf-8", "schema": "array"}
+{"contentType": "text/plain", "text": "Hello, World!", "length": 13}
+{"contentType": "text/plain", "text": "Another message", "length": 15, "language": "en"}
+{"contentType": "image/png", "width": 800, "height": 600, "url": "https://example.com/img.png"}
+{"contentType": "image/jpeg", "width": 1920, "height": 1080, "url": "https://example.com/photo.jpg", "exif": {"camera": "Canon"}}
+{"contentType": "application/octet-stream", "size": 1024, "checksum": "abc123", "filename": "data.bin"}
+{"contentType": "video/mp4", "width": 1920, "height": 1080, "duration": 120, "url": "https://example.com/video.mp4"}

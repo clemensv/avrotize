@@ -1,0 +1,7 @@
+{"@context": "https://schema.org/Person", "name": "Alice", "email": "alice@example.com", "birthDate": "1990-01-01"}
+{"@context": "https://schema.org/Person", "name": "Bob", "email": "bob@example.com"}
+{"@context": "https://schema.org/Organization", "name": "Acme Corp", "url": "https://acme.com", "employees": 100}
+{"@context": "https://schema.org/Organization", "name": "BigCo", "url": "https://bigco.com"}
+{"@context": "https://schema.org/Product", "name": "Widget", "sku": "W001", "price": 10.0}
+{"@context": "https://schema.org/Product", "name": "Gadget", "sku": "G001", "price": 25.0, "brand": "Acme"}
+{"@context": "https://schema.org/Event", "name": "Conference", "startDate": "2024-06-01", "location": "NYC"}

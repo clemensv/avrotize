@@ -1,0 +1,6 @@
+{"topic": "users", "key": "user-1", "value": {"id": 1, "name": "Alice"}, "headers": {"contentType": "application/json"}, "partition": 0, "offset": 1000}
+{"topic": "users", "key": "user-2", "value": {"id": 2, "name": "Bob"}, "headers": {"contentType": "application/json"}, "partition": 0, "offset": 1001}
+{"topic": "orders", "key": "order-1", "value": {"orderId": 100, "items": 3, "total": 50.0}, "headers": {"contentType": "application/json", "traceId": "abc"}, "partition": 1, "offset": 500}
+{"topic": "orders", "key": "order-2", "value": {"orderId": 101, "items": 1, "total": 25.0}, "headers": {"contentType": "application/json"}, "partition": 1, "offset": 501}
+{"topic": "metrics", "key": null, "value": {"name": "cpu", "value": 75.5}, "headers": {}, "partition": 2, "offset": 2000, "timestamp": 1704067200}
+{"topic": "metrics", "key": null, "value": {"name": "memory", "value": 60.0}, "headers": {}, "partition": 2, "offset": 2001, "timestamp": 1704067201}

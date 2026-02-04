@@ -1,0 +1,6 @@
+{"source": "aws.s3", "detail-type": "Object Created", "detail": {"bucket": "my-bucket", "key": "file.txt", "size": 1024}, "time": "2024-01-01T10:00:00Z", "region": "us-east-1"}
+{"source": "aws.s3", "detail-type": "Object Deleted", "detail": {"bucket": "my-bucket", "key": "old.txt"}, "time": "2024-01-01T11:00:00Z", "region": "us-east-1"}
+{"source": "aws.ec2", "detail-type": "EC2 Instance State-change Notification", "detail": {"instance-id": "i-123", "state": "running"}, "time": "2024-01-01T12:00:00Z", "region": "us-west-2"}
+{"source": "aws.ec2", "detail-type": "EC2 Instance State-change Notification", "detail": {"instance-id": "i-456", "state": "stopped"}, "time": "2024-01-01T13:00:00Z", "region": "us-west-2"}
+{"source": "aws.lambda", "detail-type": "Lambda Function Invocation Result", "detail": {"functionName": "my-func", "success": true, "duration": 150}, "time": "2024-01-01T14:00:00Z", "region": "eu-west-1"}
+{"source": "custom.app", "detail-type": "OrderPlaced", "detail": {"orderId": 100, "amount": 50.0}, "time": "2024-01-01T15:00:00Z", "region": "us-east-1", "account": "123456"}

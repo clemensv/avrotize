@@ -1,0 +1,6 @@
+{"specversion": "1.0", "type": "com.example.user.created", "source": "/users", "id": "evt-001", "data": {"userId": 1, "name": "Alice"}}
+{"specversion": "1.0", "type": "com.example.user.created", "source": "/users", "id": "evt-002", "data": {"userId": 2, "name": "Bob"}, "time": "2024-01-01T10:00:00Z"}
+{"specversion": "1.0", "type": "com.example.user.deleted", "source": "/users", "id": "evt-003", "data": {"userId": 1}, "time": "2024-01-02T10:00:00Z"}
+{"specversion": "1.0", "type": "com.example.order.placed", "source": "/orders", "id": "evt-004", "data": {"orderId": 100, "total": 50.0}, "datacontenttype": "application/json"}
+{"specversion": "1.0", "type": "com.example.order.shipped", "source": "/orders", "id": "evt-005", "data": {"orderId": 100, "trackingNumber": "TRK-001"}}
+{"specversion": "1.0", "type": "com.example.inventory.updated", "source": "/inventory", "id": "evt-006", "data": {"sku": "A1", "quantity": 100}, "subject": "warehouse-1"}

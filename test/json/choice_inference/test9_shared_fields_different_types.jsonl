@@ -1,0 +1,8 @@
+{"_type": "user", "id": 1, "name": "Alice", "email": "alice@example.com"}
+{"_type": "user", "id": 2, "name": "Bob", "email": "bob@example.com", "role": "admin"}
+{"_type": "user", "id": 3, "name": "Charlie", "email": "charlie@example.com"}
+{"_type": "group", "id": 100, "name": "Engineering", "members": [1, 2]}
+{"_type": "group", "id": 101, "name": "Sales", "members": [3], "budget": 50000}
+{"_type": "permission", "id": 1000, "name": "read", "resource": "documents"}
+{"_type": "permission", "id": 1001, "name": "write", "resource": "documents", "conditions": {"owner": true}}
+{"_type": "user", "id": 4, "name": "Diana", "email": "diana@example.com", "manager": 1}

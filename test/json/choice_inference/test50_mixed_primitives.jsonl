@@ -1,0 +1,8 @@
+{"key": "string_val", "value": "hello"}
+{"key": "number_val", "value": 42}
+{"key": "float_val", "value": 3.14159}
+{"key": "bool_true", "value": true}
+{"key": "bool_false", "value": false}
+{"key": "null_val", "value": null}
+{"key": "array_val", "value": [1, 2, 3]}
+{"key": "object_val", "value": {"nested": "data"}}
