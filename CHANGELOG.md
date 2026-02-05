@@ -2,6 +2,21 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.2.2] - 2026-02-05
+
+### Fixed
+
+- **C# inline union code generation for `s2cs`**: Fixed code generation for inline unions with wrapped `$ref` format
+  - `s2cs` now correctly handles `{"type": {"$ref": "..."}}` format emitted by `json2s --infer-choices`
+  - Discriminator properties in base classes now marked with `[JsonIgnore]` to avoid conflict with `JsonPolymorphic` metadata
+  - Derived class constructors now use correct property name (snake_case from base, not PascalCase)
+  - Generated C# classes correctly deserialize and reserialize JSON data via `System.Text.Json`
+
+### Added
+
+- **`test_inline_union_json_roundtrip` test**: Comprehensive test verifying end-to-end flow:
+  json2s infers schema → s2cs generates C# → C# compiles and handles JSON correctly
+
 ## [3.2.1] - 2026-02-04
 
 ### Fixed
