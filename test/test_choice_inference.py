@@ -731,6 +731,34 @@ class TestLargeDiscriminatorSets(unittest.TestCase):
         
         self.assertIn("other", b_required, "other should be required (all 3/3 docs have it)")
 
+    def test_null_values_use_first_non_null_type(self):
+        """Test that fields with some null values infer type from non-null values.
+        
+        If the first document has null for a field but later documents have actual
+        values, the type should be inferred from the non-null values, not as 'null'.
+        """
+        from avrotize.schema_inference import JsonStructureSchemaInferrer
+        
+        values = [
+            {"type": "A", "name": "first", "score": None},      # first doc has null
+            {"type": "A", "name": "second", "score": 100},      # later doc has int
+            {"type": "A", "name": "third", "score": 200},
+            {"type": "B", "name": "fourth", "value": "x"},
+        ]
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True)
+        schema = inferrer.infer_from_json_values("Event", values)
+        
+        # Navigate to variant A
+        definitions = schema.get("definitions", {})
+        a_def = definitions.get("A", {})
+        a_properties = a_def.get("properties", {})
+        
+        # 'score' should be inferred as 'integer', not 'null'
+        score_prop = a_properties.get("score", {})
+        self.assertEqual(score_prop.get("type"), "integer", 
+                        "score should be 'integer' (from non-null values), not 'null'")
+
 
 if __name__ == '__main__':
     unittest.main()

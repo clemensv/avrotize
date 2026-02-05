@@ -409,7 +409,15 @@ class AvroSchemaInferrer(SchemaInferrer):
                     if field_name == nested.discriminator_field:
                         continue
                     safe_name = avro_name(field_name)
-                    field_value = variant_doc.get(field_name)
+                    # Find first non-null value from cluster documents for type inference
+                    field_value = None
+                    for doc in cluster.documents:
+                        val = doc.data.get(field_name)
+                        if val is not None:
+                            field_value = val
+                            break
+                    if field_value is None:
+                        field_value = variant_doc.get(field_name)
                     field_type = self.python_type_to_avro_type(f"{type_name}.{parent_field}.{safe_name}", field_value)
                     
                     is_required = field_name in cluster.required_fields
@@ -501,7 +509,15 @@ class AvroSchemaInferrer(SchemaInferrer):
                     if field_name == result.discriminator_field:
                         continue
                     safe_name = avro_name(field_name)
-                    field_value = variant_doc.get(field_name)
+                    # Find first non-null value from cluster documents for type inference
+                    field_value = None
+                    for doc in cluster.documents:
+                        val = doc.data.get(field_name)
+                        if val is not None:
+                            field_value = val
+                            break
+                    if field_value is None:
+                        field_value = variant_doc.get(field_name)
                     field_type = self.python_type_to_avro_type(f"{type_name}.{safe_name}", field_value)
                     
                     is_required = field_name in cluster.required_fields
@@ -825,7 +841,15 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                                 continue
                 
                 # No choice detected or depth limit reached - use standard type inference
-                field_value = variant_doc.get(field_name)
+                # Find first non-null value from cluster values for type inference
+                field_value = None
+                for fv in field_values:
+                    if fv is not None:
+                        field_value = fv
+                        break
+                # Fall back to first doc value if all are null
+                if field_value is None:
+                    field_value = variant_doc.get(field_name)
                 field_type = self.python_type_to_jstruct_type(f"{type_name}.{safe_name}", field_value)
                 
                 # Still apply recursive processing for nested objects
@@ -1212,7 +1236,14 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                                     continue
                     
                     # No choice detected - standard type inference
-                    field_value = variant_doc.get(field_name)
+                    # Find first non-null value from cluster values for type inference
+                    field_value = None
+                    for fv in field_values:
+                        if fv is not None:
+                            field_value = fv
+                            break
+                    if field_value is None:
+                        field_value = variant_doc.get(field_name)
                     field_type = self.python_type_to_jstruct_type(f"{type_name}.{parent_field}.{safe_name}", field_value)
                     
                     if isinstance(field_type, str):
