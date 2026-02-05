@@ -202,10 +202,7 @@
           "type": "datetime"
         },
         "_type": {
-          "type": "string",
-          "enum": [
-            "event"
-          ]
+          "type": "string"
         },
         "eventId": {
           "type": "string"
@@ -1015,10 +1012,7 @@
                   "type": "datetime"
                 },
                 "_type": {
-                  "type": "string",
-                  "enum": [
-                    "freeKick"
-                  ]
+                  "type": "string"
                 },
                 "decisionTimestamp": {
                   "type": "datetime"
@@ -2046,10 +2040,7 @@
                   "type": "datetime"
                 },
                 "_type": {
-                  "type": "string",
-                  "enum": [
-                    "play"
-                  ]
+                  "type": "string"
                 },
                 "ballPossessionPhase": {
                   "type": "string"
@@ -2071,18 +2062,10 @@
                   ]
                 },
                 "flatCross": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "fromOpenPlay": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "goalKeeperAction": {
                   "type": "string",
@@ -2123,11 +2106,7 @@
                   ]
                 },
                 "penaltyBox": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "playAngle": {
                   "type": "string"
@@ -2154,11 +2133,7 @@
                   ]
                 },
                 "semiField": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "team": {
                   "type": "string"
@@ -2193,10 +2168,7 @@
                   "type": "datetime"
                 },
                 "_type": {
-                  "type": "string",
-                  "enum": [
-                    "play"
-                  ]
+                  "type": "string"
                 },
                 "ballPossessionPhase": {
                   "type": "string"
@@ -2236,38 +2208,22 @@
                   ]
                 },
                 "flatCross": {
-                  "type": "string",
-                  "enum": [
-                    "false"
-                  ]
+                  "type": "string"
                 },
                 "fromOpenPlay": {
-                  "type": "string",
-                  "enum": [
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "height": {
-                  "type": "string",
-                  "enum": [
-                    "high"
-                  ]
+                  "type": "string"
                 },
                 "penaltyBox": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "playAngle": {
                   "type": "string"
                 },
                 "playOrigin": {
-                  "type": "string",
-                  "enum": [
-                    "oppositionHalf"
-                  ]
+                  "type": "string"
                 },
                 "player": {
                   "type": "string"
@@ -2284,10 +2240,7 @@
                   ]
                 },
                 "semiField": {
-                  "type": "string",
-                  "enum": [
-                    "false"
-                  ]
+                  "type": "string"
                 },
                 "team": {
                   "type": "string"
@@ -2483,16 +2436,10 @@
                   "type": "datetime"
                 },
                 "_type": {
-                  "type": "string",
-                  "enum": [
-                    "shotAtGoal"
-                  ]
+                  "type": "string"
                 },
                 "afterFreeKick": {
-                  "type": "string",
-                  "enum": [
-                    "false"
-                  ]
+                  "type": "string"
                 },
                 "amountOfDefenders": {
                   "type": "string"
@@ -2538,11 +2485,7 @@
                   ]
                 },
                 "counterAttack": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "distanceToGoal": {
                   "type": "string"
@@ -2558,11 +2501,7 @@
                   "type": "string"
                 },
                 "insideBox": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "player": {
                   "type": "string"
@@ -2684,16 +2623,10 @@
                   "type": "datetime"
                 },
                 "_type": {
-                  "type": "string",
-                  "enum": [
-                    "shotAtGoal"
-                  ]
+                  "type": "string"
                 },
                 "afterFreeKick": {
-                  "type": "string",
-                  "enum": [
-                    "false"
-                  ]
+                  "type": "string"
                 },
                 "amountOfDefenders": {
                   "type": "string"
@@ -2763,11 +2696,7 @@
                   ]
                 },
                 "counterAttack": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "distanceToGoal": {
                   "type": "string"
@@ -2779,11 +2708,7 @@
                   "type": "string"
                 },
                 "insideBox": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "player": {
                   "type": "string"
@@ -3021,16 +2946,10 @@
                   "type": "datetime"
                 },
                 "_type": {
-                  "type": "string",
-                  "enum": [
-                    "shotAtGoal"
-                  ]
+                  "type": "string"
                 },
                 "afterFreeKick": {
-                  "type": "string",
-                  "enum": [
-                    "false"
-                  ]
+                  "type": "string"
                 },
                 "amountOfDefenders": {
                   "type": "string"
@@ -3066,11 +2985,7 @@
                   ]
                 },
                 "counterAttack": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "distanceToGoal": {
                   "type": "string"
@@ -3082,11 +2997,7 @@
                   "type": "string"
                 },
                 "insideBox": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "player": {
                   "type": "string"
@@ -3213,16 +3124,10 @@
                   "type": "datetime"
                 },
                 "_type": {
-                  "type": "string",
-                  "enum": [
-                    "shotAtGoal"
-                  ]
+                  "type": "string"
                 },
                 "afterFreeKick": {
-                  "type": "string",
-                  "enum": [
-                    "false"
-                  ]
+                  "type": "string"
                 },
                 "amountOfDefenders": {
                   "type": "string"
@@ -3259,11 +3164,7 @@
                   ]
                 },
                 "counterAttack": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "distanceToGoal": {
                   "type": "string"
@@ -3275,11 +3176,7 @@
                   "type": "string"
                 },
                 "insideBox": {
-                  "type": "string",
-                  "enum": [
-                    "false",
-                    "true"
-                  ]
+                  "type": "string"
                 },
                 "player": {
                   "type": "string"
@@ -3754,10 +3651,7 @@
                   "type": "datetime"
                 },
                 "_type": {
-                  "type": "string",
-                  "enum": [
-                    "throwIn"
-                  ]
+                  "type": "string"
                 },
                 "decisionTimestamp": {
                   "type": "datetime"

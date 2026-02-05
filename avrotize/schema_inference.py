@@ -764,6 +764,10 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         num_unique = len(unique_values)
         num_samples = len(string_values)
         
+        # Require at least 2 unique values - single-value enums are useless
+        if num_unique < 2:
+            return False, []
+        
         # Check cardinality constraints
         if num_unique > self.enum_max_values:
             return False, []
