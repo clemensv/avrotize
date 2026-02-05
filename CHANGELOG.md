@@ -2,6 +2,47 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.3.0] - 2026-02-05
+
+### Added
+
+- **Recursive choice inference with `--choice-depth`**: New option to detect discriminated unions in nested object properties
+  - `--choice-depth 1` (default): Only detect choices at root level
+  - `--choice-depth 2+`: Recursively detect choices in nested object properties
+  - Enables schema inference for complex nested data like event payloads with polymorphic fields
+
+- **Response file support (`@file`)**: All commands now support response files for long argument lists
+  - Use `@filelist.txt` to pass file paths from a text file (one per line)
+  - Essential for processing hundreds of input files without hitting shell limits
+
+- **Enum type inference with `--infer-enums`**: New option to detect enum types from repeated string values
+  - Detects low-cardinality string fields as enums (max 50 unique values, <10% ratio)
+  - Excludes ID-like fields, timestamps, and numeric strings from enum detection
+  - Requires at least 2 unique values (single-value enums are not useful)
+
+- **Datetime/date/time pattern detection**: String fields with ISO 8601 patterns are now typed correctly
+  - Detects `datetime` for ISO 8601 timestamps (e.g., `2024-01-15T10:30:00Z`)
+  - Detects `date` for date-only values (e.g., `2024-01-15`)
+  - Detects `time` for time-only values (e.g., `10:30:00`)
+  - Works on both single values and multi-value analysis
+
+### Fixed
+
+- **Nested array item schema merging**: Arrays within objects now merge items from all parent instances
+  - Previously, only the first parent object's array items were analyzed
+  - Now flattens and combines items from all parent objects before inferring schema
+  - Fields appearing in some array items (e.g., ball tracking vs player tracking frames) are correctly included as optional
+  - Required fields are those present in ALL array items across all parent objects
+
+- **Multi-value type inference**: Property types now inferred from first non-null value, not first document
+  - Fixes incorrect `type: null` inference when first document has missing fields
+
+- **Choice variant field typing**: Variant-specific fields now correctly typed by scanning all documents
+
+- **Discriminator field handling**: Discriminator fields no longer incorrectly marked as required in base types
+
+- **Sparse data detection**: Improved correlation analysis distinguishes optional fields from variant-specific fields
+
 ## [3.2.2] - 2026-02-05
 
 ### Fixed
