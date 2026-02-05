@@ -1,0 +1,6 @@
+{"id": 1, "event": {"_type": "play", "play": {"_subtype": "pass", "target": "player1"}}}
+{"id": 2, "event": {"_type": "play", "play": {"_subtype": "shot", "result": "goal"}}}
+{"id": 3, "event": {"_type": "play", "play": {"_subtype": "pass", "target": "player2"}}}
+{"id": 4, "event": {"_type": "foul", "foul": {"severity": "yellow"}}}
+{"id": 5, "event": {"_type": "foul", "foul": {"severity": "red"}}}
+{"id": 6, "event": {"_type": "play", "play": {"_subtype": "cross", "destination": "box"}}}

@@ -22,7 +22,8 @@ def convert_json_to_avro(
     type_name: str = 'Document',
     avro_namespace: str = '',
     sample_size: int = 0,
-    infer_choices: bool = False
+    infer_choices: bool = False,
+    choice_depth: int = 1
 ) -> None:
     """Infers Avro schema from JSON files.
 
@@ -37,6 +38,7 @@ def convert_json_to_avro(
         avro_namespace: Namespace for generated Avro types
         sample_size: Maximum number of records to sample (0 = all)
         infer_choices: Detect discriminated unions and emit as Avro unions with discriminator defaults
+        choice_depth: Maximum nesting depth for recursive choice inference (1 = root only)
     """
     if not input_files:
         raise ValueError("At least one input file is required")
@@ -46,7 +48,7 @@ def convert_json_to_avro(
     if not values:
         raise ValueError("No valid JSON data found in input files")
 
-    inferrer = AvroSchemaInferrer(namespace=avro_namespace, infer_choices=infer_choices)
+    inferrer = AvroSchemaInferrer(namespace=avro_namespace, infer_choices=infer_choices, choice_depth=choice_depth)
     schema = inferrer.infer_from_json_values(type_name, values)
 
     # Ensure output directory exists
@@ -64,7 +66,8 @@ def convert_json_to_jstruct(
     type_name: str = 'Document',
     base_id: str = 'https://example.com/',
     sample_size: int = 0,
-    infer_choices: bool = False
+    infer_choices: bool = False,
+    choice_depth: int = 1
 ) -> None:
     """Infers JSON Structure schema from JSON files.
 
@@ -78,6 +81,7 @@ def convert_json_to_jstruct(
         base_id: Base URI for $id generation
         sample_size: Maximum number of records to sample (0 = all)
         infer_choices: Detect discriminated unions and emit as choice types with discriminator defaults
+        choice_depth: Maximum nesting depth for recursive choice inference (1 = root only)
     """
     if not input_files:
         raise ValueError("At least one input file is required")
@@ -87,7 +91,7 @@ def convert_json_to_jstruct(
     if not values:
         raise ValueError("No valid JSON data found in input files")
 
-    inferrer = JsonStructureSchemaInferrer(base_id=base_id, infer_choices=infer_choices)
+    inferrer = JsonStructureSchemaInferrer(base_id=base_id, infer_choices=infer_choices, choice_depth=choice_depth)
     schema = inferrer.infer_from_json_values(type_name, values)
 
     # Ensure output directory exists

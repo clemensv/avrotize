@@ -1163,7 +1163,8 @@
         "type_name": "args.type_name",
         "avro_namespace": "args.namespace",
         "sample_size": "args.sample_size",
-        "infer_choices": "args.infer_choices"
+        "infer_choices": "args.infer_choices",
+        "choice_depth": "args.choice_depth"
       }
     },
     "extensions": [".json", ".jsonl", ".ndjson"],
@@ -1207,6 +1208,13 @@
         "action": "store_true",
         "help": "Detect discriminated unions and emit as Avro unions with discriminator field defaults",
         "required": false
+      },
+      {
+        "name": "--choice-depth",
+        "type": "int",
+        "help": "Maximum nesting depth for recursive choice inference (1 = root only, 2+ = nested objects)",
+        "default": 1,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}.avsc",
@@ -1239,7 +1247,8 @@
         "type_name": "args.type_name",
         "base_id": "args.base_id",
         "sample_size": "args.sample_size",
-        "infer_choices": "args.infer_choices"
+        "infer_choices": "args.infer_choices",
+        "choice_depth": "args.choice_depth"
       }
     },
     "extensions": [".json", ".jsonl", ".ndjson"],
@@ -1283,6 +1292,13 @@
         "type": "bool",
         "action": "store_true",
         "help": "Detect discriminated unions and emit as choice types with discriminator field defaults",
+        "required": false
+      },
+      {
+        "name": "--choice-depth",
+        "type": "int",
+        "help": "Maximum nesting depth for recursive choice inference (1 = root only, 2+ = nested objects)",
+        "default": 1,
         "required": false
       }
     ],

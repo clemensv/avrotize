@@ -405,5 +405,77 @@ class TestChoiceInferenceIntegration(unittest.TestCase):
         self.assertIn('data', fields_by_name)
 
 
+class TestRecursiveChoiceInference(unittest.TestCase):
+    """Tests for recursive choice inference with --choice-depth parameter."""
+    
+    def test_recursive_choice_depth_2(self):
+        """Test that nested discriminated unions are detected with choice_depth=2."""
+        from avrotize.schema_inference import JsonStructureSchemaInferrer
+        
+        # Nested choices: event._type (play vs foul) and play.play._subtype (pass vs shot vs cross)
+        values = [
+            {"id": 1, "event": {"_type": "play", "play": {"_subtype": "pass", "target": "player1"}}},
+            {"id": 2, "event": {"_type": "play", "play": {"_subtype": "shot", "result": "goal"}}},
+            {"id": 3, "event": {"_type": "play", "play": {"_subtype": "pass", "target": "player2"}}},
+            {"id": 4, "event": {"_type": "foul", "foul": {"severity": "yellow"}}},
+            {"id": 5, "event": {"_type": "foul", "foul": {"severity": "red"}}},
+            {"id": 6, "event": {"_type": "play", "play": {"_subtype": "cross", "destination": "box"}}},
+        ]
+        
+        # With choice_depth=1, nested play should be object, not choice
+        inferrer1 = JsonStructureSchemaInferrer(infer_choices=True, choice_depth=1)
+        schema1 = inferrer1.infer_from_json_values('Event', values)
+        
+        # Navigate to event.choices.Play.properties.play
+        event_prop = schema1.get('properties', {}).get('event', {})
+        self.assertEqual(event_prop.get('type'), 'choice', "event should be a choice")
+        play_variant = event_prop.get('choices', {}).get('Play', {})
+        play_prop = play_variant.get('properties', {}).get('play', {})
+        self.assertEqual(play_prop.get('type'), 'object', 
+                        "With depth=1, nested play should be object, not choice")
+        
+        # With choice_depth=2, nested play should be a choice
+        inferrer2 = JsonStructureSchemaInferrer(infer_choices=True, choice_depth=2)
+        schema2 = inferrer2.infer_from_json_values('Event', values)
+        
+        event_prop2 = schema2.get('properties', {}).get('event', {})
+        self.assertEqual(event_prop2.get('type'), 'choice', "event should be a choice")
+        play_variant2 = event_prop2.get('choices', {}).get('Play', {})
+        play_prop2 = play_variant2.get('properties', {}).get('play', {})
+        self.assertEqual(play_prop2.get('type'), 'choice', 
+                        "With depth=2, nested play should be a choice")
+        
+        # Verify nested choice variants
+        nested_choices = play_prop2.get('choices', {})
+        self.assertIn('Pass', nested_choices, "Should have Pass variant")
+        self.assertIn('Shot', nested_choices, "Should have Shot variant")
+        self.assertIn('Cross', nested_choices, "Should have Cross variant")
+        
+        # Verify discriminator defaults
+        pass_variant = nested_choices.get('Pass', {})
+        pass_subtype = pass_variant.get('properties', {}).get('_subtype', {})
+        self.assertEqual(pass_subtype.get('default'), 'pass', 
+                        "Pass variant should have _subtype default='pass'")
+    
+    def test_recursive_choice_default_depth(self):
+        """Test that default choice_depth=1 doesn't affect existing behavior."""
+        from avrotize.schema_inference import JsonStructureSchemaInferrer
+        
+        # Simple discriminated union at root
+        values = [
+            {"type": "user", "name": "Alice"},
+            {"type": "admin", "name": "Bob", "permissions": ["read", "write"]},
+        ]
+        
+        # Default parameters should still detect top-level choice
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True)
+        schema = inferrer.infer_from_json_values('Entity', values)
+        
+        self.assertEqual(schema.get('type'), 'choice', "Should detect top-level choice")
+        choices = schema.get('choices', {})
+        self.assertIn('user', choices, "Should have user variant")
+        self.assertIn('admin', choices, "Should have admin variant")
+
+
 if __name__ == '__main__':
     unittest.main()

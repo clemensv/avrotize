@@ -239,7 +239,7 @@ class AvroSchemaInferrer(SchemaInferrer):
     """Infers Avro schemas from JSON and XML data."""
 
     def __init__(self, namespace: str = '', type_name_prefix: str = '', altnames_key: str = 'json',
-                 infer_choices: bool = False):
+                 infer_choices: bool = False, choice_depth: int = 1):
         """Initialize the Avro schema inferrer.
 
         Args:
@@ -247,9 +247,12 @@ class AvroSchemaInferrer(SchemaInferrer):
             type_name_prefix: Prefix for generated type names
             altnames_key: Key to use for altnames mapping
             infer_choices: Whether to detect discriminated unions (choice types)
+            choice_depth: Maximum nesting depth for recursive choice inference (1 = root only)
         """
         super().__init__(namespace, type_name_prefix, altnames_key)
         self.infer_choices = infer_choices
+        self.choice_depth = choice_depth
+        self.current_depth = 0  # Track current recursion depth
 
     def python_type_to_avro_type(self, type_name: str, python_value: Any) -> JsonNode:
         """Maps Python types to Avro types.
@@ -621,7 +624,7 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
     }
 
     def __init__(self, namespace: str = '', type_name_prefix: str = '', base_id: str = '',
-                 infer_choices: bool = False):
+                 infer_choices: bool = False, choice_depth: int = 1):
         """Initialize the JSON Structure schema inferrer.
 
         Args:
@@ -629,11 +632,238 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             type_name_prefix: Prefix for generated type names
             base_id: Base URI for $id generation
             infer_choices: Whether to detect discriminated unions (choice types)
+            choice_depth: Maximum nesting depth for recursive choice inference (1 = root only)
         """
         super().__init__(namespace, type_name_prefix)
         self.base_id = base_id or 'https://example.com/'
         self.definitions: Dict[str, Any] = {}
         self.infer_choices = infer_choices
+        self.choice_depth = choice_depth
+        self.current_depth = 0  # Track current recursion depth
+
+    def _apply_recursive_choice_inference(self, type_name: str, schema: Dict[str, Any], 
+                                           source_values: List[Any], depth: int) -> Dict[str, Any]:
+        """Recursively apply choice inference to nested object properties.
+        
+        For each property in the object, collects all values from source data
+        and checks if they form a discriminated union.
+        
+        Args:
+            type_name: Name for the current type
+            schema: The schema to enhance with choice types
+            source_values: Original Python values (dicts) to analyze
+            depth: Current recursion depth
+            
+        Returns:
+            Enhanced schema with choice types where detected
+        """
+        if not self.infer_choices:
+            return schema
+        if depth >= self.choice_depth:
+            return schema
+        if not isinstance(schema, dict) or schema.get("type") != "object":
+            return schema
+        
+        properties = schema.get("properties", {})
+        if not properties:
+            return schema
+        
+        from avrotize.choice_inference import infer_choice_type
+        
+        # For each property, collect values from all source objects and check for choices
+        enhanced_properties: Dict[str, Any] = {}
+        for prop_name, prop_schema in properties.items():
+            # Collect all values for this property across all source objects
+            prop_values = []
+            for source in source_values:
+                if isinstance(source, dict) and prop_name in source:
+                    prop_values.append(source[prop_name])
+                elif isinstance(source, dict):
+                    # Check for altnames - property might have been renamed
+                    altname = prop_schema.get("altnames", {}).get(self.altnames_key)
+                    if altname and altname in source:
+                        prop_values.append(source[altname])
+            
+            if len(prop_values) < 2:
+                enhanced_properties[prop_name] = prop_schema
+                continue
+            
+            # Check if property values are all dicts (potential choice type)
+            if not all(isinstance(v, dict) for v in prop_values):
+                # Also recursively process arrays of objects
+                if all(isinstance(v, list) for v in prop_values):
+                    # Flatten array items and check for choices
+                    all_items = [item for v in prop_values for item in v if isinstance(item, dict)]
+                    if len(all_items) >= 2:
+                        result = infer_choice_type(all_items)
+                        if result.is_choice:
+                            # Generate choice type for array items
+                            choice_schema = self._build_choice_from_inference(
+                                f"{type_name}.{prop_name}", result, all_items, depth + 1)
+                            if choice_schema:
+                                enhanced_properties[prop_name] = {
+                                    "type": "array",
+                                    "items": choice_schema
+                                }
+                                continue
+                enhanced_properties[prop_name] = prop_schema
+                continue
+            
+            # Check for discriminated union in property values
+            result = infer_choice_type(prop_values)
+            if result.is_choice:
+                # Generate choice type
+                choice_schema = self._build_choice_from_inference(
+                    f"{type_name}.{prop_name}", result, prop_values, depth + 1)
+                if choice_schema:
+                    enhanced_properties[prop_name] = choice_schema
+                    continue
+            
+            # Not a choice - but still recursively process nested objects
+            if isinstance(prop_schema, dict) and prop_schema.get("type") == "object":
+                enhanced_properties[prop_name] = self._apply_recursive_choice_inference(
+                    f"{type_name}.{prop_name}", prop_schema, prop_values, depth + 1)
+            else:
+                enhanced_properties[prop_name] = prop_schema
+        
+        schema["properties"] = enhanced_properties
+        return schema
+    
+    def _build_choice_from_inference(self, type_name: str, result: Any, 
+                                      values: List[Any], depth: int) -> Dict[str, Any] | None:
+        """Build a choice schema from choice inference result.
+        
+        This is similar to _infer_choice_type but works at any depth level
+        and can be called recursively.
+        
+        Args:
+            type_name: Name for the choice type
+            result: ChoiceInferenceResult from infer_choice_type
+            values: Source values for this property
+            depth: Current depth for further recursion
+            
+        Returns:
+            Choice schema or None if unable to build
+        """
+        if not result.is_choice or not result.discriminator_field:
+            return None
+        
+        choices_map: Dict[str, Any] = {}
+        
+        for cluster in result.clusters:
+            if not cluster.documents:
+                continue
+            
+            # Get discriminator value for this cluster
+            disc_value = None
+            for doc in cluster.documents:
+                disc_value = doc.field_values.get(result.discriminator_field)
+                if disc_value:
+                    break
+            
+            if not disc_value or not isinstance(disc_value, str):
+                continue
+            
+            # Build variant name
+            variant_name = avro_name(''.join(word.capitalize() 
+                                            for word in disc_value.replace('_', ' ').replace('-', ' ').split()))
+            
+            # Get representative document for this variant
+            variant_doc = cluster.documents[0].data if cluster.documents else {}
+            
+            # Build properties for this variant
+            properties: Dict[str, Any] = {}
+            required: List[str] = []
+            
+            # Add discriminator field with default value
+            disc_safe_name = avro_name(result.discriminator_field)
+            properties[disc_safe_name] = {
+                "type": "string",
+                "default": disc_value
+            }
+            if result.discriminator_field != disc_safe_name:
+                properties[disc_safe_name]["altnames"] = {self.altnames_key: result.discriminator_field}
+            required.append(disc_safe_name)
+            
+            # Collect all values for each field across this cluster's documents
+            cluster_values_by_field: Dict[str, List[Any]] = {}
+            for doc in cluster.documents:
+                for field_name, field_value in doc.data.items():
+                    if field_name == result.discriminator_field:
+                        continue
+                    if field_name not in cluster_values_by_field:
+                        cluster_values_by_field[field_name] = []
+                    cluster_values_by_field[field_name].append(field_value)
+            
+            # Build field schemas with potential recursive choice inference
+            for field_name in sorted(cluster.merged_signature):
+                if field_name == result.discriminator_field:
+                    continue
+                safe_name = avro_name(field_name)
+                
+                # Collect all values for this field
+                field_values = cluster_values_by_field.get(field_name, [])
+                
+                # Check if field values form a discriminated union (only if we're within depth limit)
+                if depth < self.choice_depth and len(field_values) >= 2:
+                    # Filter to dict values only for choice inference
+                    dict_values = [v for v in field_values if isinstance(v, dict)]
+                    if len(dict_values) >= 2:
+                        from avrotize.choice_inference import infer_choice_type as _infer
+                        nested_choice_result = _infer(dict_values)
+                        if nested_choice_result.is_choice:
+                            # Build nested choice type
+                            nested_choice = self._build_choice_from_inference(
+                                f"{type_name}.{safe_name}", nested_choice_result, dict_values, depth + 1)
+                            if nested_choice:
+                                properties[safe_name] = nested_choice
+                                if field_name != safe_name:
+                                    if "altnames" not in properties[safe_name]:
+                                        properties[safe_name]["altnames"] = {}
+                                    properties[safe_name]["altnames"][self.altnames_key] = field_name
+                                required.append(safe_name)
+                                continue
+                
+                # No choice detected or depth limit reached - use standard type inference
+                field_value = variant_doc.get(field_name)
+                field_type = self.python_type_to_jstruct_type(f"{type_name}.{safe_name}", field_value)
+                
+                # Still apply recursive processing for nested objects
+                if depth < self.choice_depth and len(field_values) >= 2 and isinstance(field_type, dict) and field_type.get("type") == "object":
+                    field_type = self._apply_recursive_choice_inference(
+                        f"{type_name}.{safe_name}", field_type, field_values, depth + 1)
+                
+                if isinstance(field_type, str):
+                    properties[safe_name] = {"type": field_type}
+                else:
+                    properties[safe_name] = field_type
+                
+                if field_name != safe_name:
+                    if "altnames" not in properties[safe_name]:
+                        properties[safe_name]["altnames"] = {}
+                    properties[safe_name]["altnames"][self.altnames_key] = field_name
+                
+                if field_type != "null":
+                    required.append(safe_name)
+            
+            variant_schema: Dict[str, Any] = {
+                "type": "object",
+                "name": variant_name,
+                "properties": properties
+            }
+            if required:
+                variant_schema["required"] = required
+            
+            choices_map[variant_name] = variant_schema
+        
+        if not choices_map:
+            return None
+        
+        return {
+            "type": "choice",
+            "choices": choices_map,
+            "name": avro_name(type_name.rsplit('.', 1)[-1])
+        }
 
     def python_type_to_jstruct_type(self, type_name: str, python_value: Any) -> Dict[str, Any] | str:
         """Maps Python types to JSON Structure types.
@@ -940,11 +1170,46 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                 }
                 required.append(avro_name(nested.discriminator_field))
                 
-                # Add other fields
+                # Add other fields with potential recursive choice inference
+                # Collect values for each field across all documents in this cluster
+                cluster_values_by_field: Dict[str, List[Any]] = {}
+                for doc in cluster.documents:
+                    for fn, fv in doc.data.items():
+                        if fn == nested.discriminator_field:
+                            continue
+                        if fn not in cluster_values_by_field:
+                            cluster_values_by_field[fn] = []
+                        cluster_values_by_field[fn].append(fv)
+                
                 for field_name in sorted(cluster.merged_signature):
                     if field_name == nested.discriminator_field:
                         continue
                     safe_name = avro_name(field_name)
+                    
+                    # Collect all values for this field
+                    field_values = cluster_values_by_field.get(field_name, [])
+                    
+                    # Check if field values form a discriminated union
+                    if self.choice_depth > 1 and len(field_values) >= 2:
+                        dict_values = [v for v in field_values if isinstance(v, dict)]
+                        if len(dict_values) >= 2:
+                            from avrotize.choice_inference import infer_choice_type as _infer
+                            nested_choice_result = _infer(dict_values)
+                            if nested_choice_result.is_choice:
+                                nested_choice = self._build_choice_from_inference(
+                                    f"{type_name}.{parent_field}.{safe_name}", 
+                                    nested_choice_result, dict_values, 2)
+                                if nested_choice:
+                                    properties[safe_name] = nested_choice
+                                    if field_name != safe_name:
+                                        if "altnames" not in properties[safe_name]:
+                                            properties[safe_name]["altnames"] = {}
+                                        properties[safe_name]["altnames"][self.altnames_key] = field_name
+                                    if field_name in cluster.required_fields:
+                                        required.append(safe_name)
+                                    continue
+                    
+                    # No choice detected - standard type inference
                     field_value = variant_doc.get(field_name)
                     field_type = self.python_type_to_jstruct_type(f"{type_name}.{parent_field}.{safe_name}", field_value)
                     
@@ -1142,6 +1407,12 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                 }
                 if required:
                     variant_record["required"] = required
+                
+                # Apply recursive choice inference if depth allows
+                if self.choice_depth > 1 and cluster_for_variant:
+                    cluster_values = [d.data for d in cluster_for_variant.documents]
+                    variant_record = self._apply_recursive_choice_inference(
+                        f"{type_name}.{variant_name}", variant_record, cluster_values, 1)
                 
                 definitions[variant_name] = variant_record
                 # Use actual discriminator value as choice key (must match selector in instances)
