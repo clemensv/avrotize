@@ -849,23 +849,55 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                 else:
                     properties[safe_name] = inferred_type
             else:
-                # Fall back to standard single-value inference
-                # Find first non-null value
-                sample_value = None
-                for v in values:
-                    if v is not None:
-                        sample_value = v
-                        break
-                
-                if sample_value is None:
-                    properties[safe_name] = {"type": "null"}
-                else:
-                    prop_type = self.python_type_to_jstruct_type(
-                        f"{type_name}.{safe_name}", sample_value)
-                    if isinstance(prop_type, str):
-                        properties[safe_name] = {"type": prop_type}
+                # Check if all values are lists - if so, flatten and analyze combined items
+                non_null_values = [v for v in values if v is not None]
+                if non_null_values and all(isinstance(v, list) for v in non_null_values):
+                    # Flatten all list items together for analysis
+                    all_items = [item for lst in non_null_values for item in lst]
+                    if all_items and all(isinstance(item, dict) for item in all_items):
+                        # Use multi-value object inference on combined items
+                        items_schema = self._infer_object_type_from_values(
+                            f"{type_name}.{safe_name}", all_items)
+                        properties[safe_name] = {"type": "array", "items": items_schema}
+                    elif all_items:
+                        # Use consolidated type list on combined items
+                        item_types = self.consolidated_jstruct_type_list(
+                            f"{type_name}.{safe_name}", all_items)
+                        if len(item_types) == 1:
+                            items = item_types[0]
+                        else:
+                            choices_map: Dict[str, Any] = {}
+                            for it in item_types:
+                                if isinstance(it, str):
+                                    choices_map[it] = {"type": it}
+                                elif isinstance(it, dict):
+                                    name = it.get("name", f"type{len(choices_map)}")
+                                    choices_map[name] = it
+                            items = {"type": "choice", "choices": choices_map}
+                        if isinstance(items, str):
+                            properties[safe_name] = {"type": "array", "items": {"type": items}}
+                        else:
+                            properties[safe_name] = {"type": "array", "items": items}
                     else:
-                        properties[safe_name] = prop_type
+                        properties[safe_name] = {"type": "array", "items": {"type": "string"}}
+                else:
+                    # Fall back to standard single-value inference
+                    # Find first non-null value
+                    sample_value = None
+                    for v in values:
+                        if v is not None:
+                            sample_value = v
+                            break
+                    
+                    if sample_value is None:
+                        properties[safe_name] = {"type": "null"}
+                    else:
+                        prop_type = self.python_type_to_jstruct_type(
+                            f"{type_name}.{safe_name}", sample_value)
+                        if isinstance(prop_type, str):
+                            properties[safe_name] = {"type": prop_type}
+                        else:
+                            properties[safe_name] = prop_type
             
             # Add altnames if field was transformed
             if field_name != safe_name:
@@ -1281,6 +1313,19 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                             return False, new_record
                     else:
                         return False, new_record
+                elif base_type == "array":
+                    # Both are arrays - try to merge the item schemas
+                    base_items = base_props[prop_name].get("items", {})
+                    new_items = prop_schema.get("items", {})
+                    if isinstance(base_items, dict) and isinstance(new_items, dict):
+                        base_item_type = base_items.get("type")
+                        new_item_type = new_items.get("type")
+                        if base_item_type == "object" and new_item_type == "object":
+                            # Merge object item schemas
+                            success, merged_items = self.fold_jstruct_record_types(base_items, new_items)
+                            if success:
+                                base_props[prop_name] = copy.deepcopy(base_props[prop_name])
+                                base_props[prop_name]["items"] = merged_items
 
         # Update required - only properties in ALL records are required
         merged_required = base_required & new_required
