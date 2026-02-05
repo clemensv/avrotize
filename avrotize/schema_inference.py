@@ -1239,6 +1239,10 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             else:
                 return {"type": "array", "items": items}
 
+        # For strings, check if it's a datetime/date/time pattern
+        if isinstance(python_value, str):
+            return self._infer_string_type(python_value)
+
         return self.PYTHON_TO_JSTRUCT_TYPES.get(type(python_value), "string")
 
     def fold_jstruct_record_types(self, base_record: dict, new_record: dict) -> Tuple[bool, dict]:
