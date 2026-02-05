@@ -1,0 +1,2574 @@
+{
+  "$schema": "https://json-structure.org/meta/core/v0/#",
+  "$id": "https://example.com/Events",
+  "type": "choice",
+  "name": "Events",
+  "$extends": "#/definitions/EventsBase",
+  "selector": "_subtype",
+  "choices": {
+    "ballClaiming": {
+      "type": {
+        "$ref": "#/definitions/Ballclaiming"
+      }
+    },
+    "ballDeflection": {
+      "type": {
+        "$ref": "#/definitions/Balldeflection"
+      }
+    },
+    "caution": {
+      "type": {
+        "$ref": "#/definitions/Caution"
+      }
+    },
+    "cautionTeamofficial": {
+      "type": {
+        "$ref": "#/definitions/Cautionteamofficial"
+      }
+    },
+    "chanceWithoutShot": {
+      "type": {
+        "$ref": "#/definitions/Chancewithoutshot"
+      }
+    },
+    "cornerKick": {
+      "type": {
+        "$ref": "#/definitions/Cornerkick"
+      }
+    },
+    "delete": {
+      "type": {
+        "$ref": "#/definitions/Delete"
+      }
+    },
+    "fairPlay": {
+      "type": {
+        "$ref": "#/definitions/Fairplay"
+      }
+    },
+    "finalWhistle": {
+      "type": {
+        "$ref": "#/definitions/Finalwhistle"
+      }
+    },
+    "foul": {
+      "type": {
+        "$ref": "#/definitions/Foul"
+      }
+    },
+    "freeKick": {
+      "type": {
+        "$ref": "#/definitions/Freekick"
+      }
+    },
+    "goalDisallowed": {
+      "type": {
+        "$ref": "#/definitions/Goaldisallowed"
+      }
+    },
+    "goalKick": {
+      "type": {
+        "$ref": "#/definitions/Goalkick"
+      }
+    },
+    "kickOff": {
+      "type": {
+        "$ref": "#/definitions/Kickoff"
+      }
+    },
+    "nutmeg": {
+      "type": {
+        "$ref": "#/definitions/Nutmeg"
+      }
+    },
+    "offside": {
+      "type": {
+        "$ref": "#/definitions/Offside"
+      }
+    },
+    "otherBallAction": {
+      "type": {
+        "$ref": "#/definitions/Otherballaction"
+      }
+    },
+    "otherPlayerAction": {
+      "type": {
+        "$ref": "#/definitions/Otherplayeraction"
+      }
+    },
+    "ownGoal": {
+      "type": {
+        "$ref": "#/definitions/Owngoal"
+      }
+    },
+    "penalty": {
+      "type": {
+        "$ref": "#/definitions/Penalty"
+      }
+    },
+    "play": {
+      "type": {
+        "$ref": "#/definitions/Play"
+      }
+    },
+    "possessionLossBeforeGoal": {
+      "type": {
+        "$ref": "#/definitions/Possessionlossbeforegoal"
+      }
+    },
+    "refereeBall": {
+      "type": {
+        "$ref": "#/definitions/Refereeball"
+      }
+    },
+    "run": {
+      "type": {
+        "$ref": "#/definitions/Run"
+      }
+    },
+    "shotAtGoal": {
+      "type": {
+        "$ref": "#/definitions/Shotatgoal"
+      }
+    },
+    "spectacularPlay": {
+      "type": {
+        "$ref": "#/definitions/Spectacularplay"
+      }
+    },
+    "startPenaltyShootOut": {
+      "type": {
+        "$ref": "#/definitions/Startpenaltyshootout"
+      }
+    },
+    "substitution": {
+      "type": {
+        "$ref": "#/definitions/Substitution"
+      }
+    },
+    "tacklingGame": {
+      "type": {
+        "$ref": "#/definitions/Tacklinggame"
+      }
+    },
+    "throwIn": {
+      "type": {
+        "$ref": "#/definitions/Throwin"
+      }
+    }
+  },
+  "definitions": {
+    "EventsBase": {
+      "abstract": true,
+      "type": "object",
+      "name": "EventsBase",
+      "properties": {
+        "_subtype": {
+          "type": "string"
+        },
+        "_timestamp": {
+          "type": "string"
+        },
+        "_type": {
+          "type": "string"
+        },
+        "eventId": {
+          "type": "string"
+        },
+        "eventTime": {
+          "type": "string"
+        },
+        "matchId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "_timestamp",
+        "_type",
+        "eventId",
+        "eventTime",
+        "matchId"
+      ]
+    },
+    "Ballclaiming": {
+      "type": "object",
+      "name": "Ballclaiming",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "ballClaiming": {
+          "type": "object",
+          "name": "ballClaiming",
+          "properties": {
+            "player": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "ballPossessionPhase": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "player",
+            "type",
+            "team",
+            "ballPossessionPhase",
+            "_timestamp",
+            "_type"
+          ]
+        },
+        "calculatedFrame": {
+          "type": "string"
+        },
+        "calculatedTimestamp": {
+          "type": "string"
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xPositionFromTracking": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "yPositionFromTracking": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ballClaiming"
+      ]
+    },
+    "Balldeflection": {
+      "type": "object",
+      "name": "Balldeflection",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "ballDeflection": {
+          "type": "object",
+          "name": "ballDeflection",
+          "properties": {
+            "player": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "player",
+            "type",
+            "team",
+            "_timestamp",
+            "_type"
+          ]
+        },
+        "calculatedFrame": {
+          "type": "string"
+        },
+        "calculatedTimestamp": {
+          "type": "string"
+        },
+        "xPositionFromTracking": {
+          "type": "string"
+        },
+        "yPositionFromTracking": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ballDeflection"
+      ]
+    },
+    "Caution": {
+      "type": "object",
+      "name": "Caution",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "caution": {
+          "type": "object",
+          "name": "caution",
+          "properties": {
+            "player": {
+              "type": "string"
+            },
+            "cardRating": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "cardColor": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "player",
+            "cardRating",
+            "team",
+            "cardColor",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "caution"
+      ]
+    },
+    "Cautionteamofficial": {
+      "type": "object",
+      "name": "Cautionteamofficial",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "cautionTeamofficial": {
+          "type": "object",
+          "name": "cautionTeamofficial",
+          "properties": {
+            "team": {
+              "type": "string"
+            },
+            "personSentOff": {
+              "type": "string"
+            },
+            "cardColor": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "team",
+            "personSentOff",
+            "cardColor",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "cautionTeamofficial"
+      ]
+    },
+    "Chancewithoutshot": {
+      "type": "object",
+      "name": "Chancewithoutshot",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "chanceWithoutShot": {
+          "type": "object",
+          "name": "chanceWithoutShot",
+          "properties": {
+            "setupOrigin": {
+              "type": "string"
+            },
+            "chanceAssistType": {
+              "type": "string"
+            },
+            "counterAttack": {
+              "type": "string"
+            },
+            "situation": {
+              "type": "string"
+            },
+            "player": {
+              "type": "string"
+            },
+            "chanceAssist": {
+              "type": "string"
+            },
+            "preventionGoalkeeper": {
+              "type": "string"
+            },
+            "sitter": {
+              "type": "string"
+            },
+            "assistAction": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "takerSetup": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "setupOrigin",
+            "chanceAssistType",
+            "counterAttack",
+            "situation",
+            "player",
+            "chanceAssist",
+            "preventionGoalkeeper",
+            "sitter",
+            "assistAction",
+            "team",
+            "takerSetup",
+            "_timestamp",
+            "_type"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "chanceWithoutShot",
+        "xPosition",
+        "yPosition"
+      ]
+    },
+    "Cornerkick": {
+      "type": "object",
+      "name": "Cornerkick",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "cornerKick": {
+          "type": "object",
+          "name": "cornerKick",
+          "properties": {
+            "placing": {
+              "type": "string"
+            },
+            "postMarking": {
+              "type": "string"
+            },
+            "decisionTimestamp": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "side": {
+              "type": "string"
+            },
+            "targetArea": {
+              "type": "string"
+            },
+            "rotation": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            },
+            "_subtype": {
+              "type": "string"
+            },
+            "play": {
+              "type": "object",
+              "name": "play",
+              "properties": {
+                "player": {
+                  "type": "string"
+                },
+                "height": {
+                  "type": "string"
+                },
+                "semiField": {
+                  "type": "string"
+                },
+                "evaluation": {
+                  "type": "string"
+                },
+                "penaltyBox": {
+                  "type": "string"
+                },
+                "playAngle": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "fromOpenPlay": {
+                  "type": "string"
+                },
+                "recipient": {
+                  "type": "string"
+                },
+                "distance": {
+                  "type": "string"
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "playOrigin": {
+                  "type": "string"
+                },
+                "flatCross": {
+                  "type": "string"
+                },
+                "rotation": {
+                  "type": "string"
+                },
+                "_timestamp": {
+                  "type": "string"
+                },
+                "_type": {
+                  "type": "string"
+                },
+                "_subtype": {
+                  "type": "string"
+                },
+                "cross": {
+                  "type": "object",
+                  "name": "cross",
+                  "properties": {
+                    "side": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "side",
+                    "_timestamp",
+                    "_type"
+                  ]
+                }
+              },
+              "required": [
+                "player",
+                "height",
+                "semiField",
+                "evaluation",
+                "penaltyBox",
+                "playAngle",
+                "team",
+                "fromOpenPlay",
+                "recipient",
+                "distance",
+                "ballPossessionPhase",
+                "playOrigin",
+                "flatCross",
+                "rotation",
+                "_timestamp",
+                "_type",
+                "_subtype",
+                "cross"
+              ]
+            }
+          },
+          "required": [
+            "placing",
+            "postMarking",
+            "decisionTimestamp",
+            "team",
+            "side",
+            "targetArea",
+            "rotation",
+            "_timestamp",
+            "_type",
+            "_subtype",
+            "play"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cornerKick"
+      ]
+    },
+    "Delete": {
+      "type": "object",
+      "name": "Delete",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "delete": {
+          "type": "object",
+          "name": "delete",
+          "properties": {
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "_timestamp",
+            "_type"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "delete"
+      ]
+    },
+    "Fairplay": {
+      "type": "object",
+      "name": "Fairplay",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "fairPlay": {
+          "type": "object",
+          "name": "fairPlay",
+          "properties": {
+            "player": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "ballPossessionPhase": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "player",
+            "team",
+            "ballPossessionPhase",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "fairPlay"
+      ]
+    },
+    "Finalwhistle": {
+      "type": "object",
+      "name": "Finalwhistle",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "finalWhistle": {
+          "type": "object",
+          "name": "finalWhistle",
+          "properties": {
+            "gameSection": {
+              "type": "string"
+            },
+            "finalResult": {
+              "type": "string"
+            },
+            "breakingOff": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "gameSection",
+            "finalResult",
+            "breakingOff",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "finalWhistle"
+      ]
+    },
+    "Foul": {
+      "type": "object",
+      "name": "Foul",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "foul": {
+          "type": "object",
+          "name": "foul",
+          "properties": {
+            "teamFouler": {
+              "type": "string"
+            },
+            "fouled": {
+              "type": "string"
+            },
+            "fouler": {
+              "type": "string"
+            },
+            "foulType": {
+              "type": "string"
+            },
+            "teamFouled": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "teamFouler",
+            "fouled",
+            "fouler",
+            "foulType",
+            "teamFouled",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "foul"
+      ]
+    },
+    "Freekick": {
+      "type": "object",
+      "name": "Freekick",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "calculatedFrame": {
+          "type": "string"
+        },
+        "calculatedTimestamp": {
+          "type": "string"
+        },
+        "freeKick": {
+          "type": "object",
+          "name": "freeKick",
+          "properties": {
+            "executionMode": {
+              "type": "string"
+            },
+            "decisionTimestamp": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            },
+            "_subtype": {
+              "type": "string"
+            },
+            "shotAtGoal": {
+              "type": "object",
+              "name": "shotAtGoal",
+              "properties": {
+                "counterAttack": {
+                  "type": "string"
+                },
+                "takerBallControl": {
+                  "type": "string"
+                },
+                "insideBox": {
+                  "type": "string"
+                },
+                "xG": {
+                  "type": "string"
+                },
+                "chanceEvaluation": {
+                  "type": "string"
+                },
+                "angleToGoal": {
+                  "type": "string"
+                },
+                "directFreeKickIntention": {
+                  "type": "string"
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "typeOfShot": {
+                  "type": "string"
+                },
+                "setupOrigin": {
+                  "type": "string"
+                },
+                "afterFreeKick": {
+                  "type": "string"
+                },
+                "takerSetup": {
+                  "type": "string"
+                },
+                "shotCondition": {
+                  "type": "string"
+                },
+                "distanceToGoal": {
+                  "type": "string"
+                },
+                "shotOrigin": {
+                  "type": "string"
+                },
+                "buildUp": {
+                  "type": "string"
+                },
+                "player": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "rotation": {
+                  "type": "string"
+                },
+                "assistAction": {
+                  "type": "string"
+                },
+                "pressure": {
+                  "type": "string"
+                },
+                "shotAssistFouledPlayer": {
+                  "type": "string"
+                },
+                "_timestamp": {
+                  "type": "string"
+                },
+                "_type": {
+                  "type": "string"
+                },
+                "_subtype": {
+                  "type": "string"
+                },
+                "shotWide": {
+                  "type": "object",
+                  "name": "shotWide",
+                  "properties": {
+                    "placing": {
+                      "type": "string"
+                    },
+                    "pitchMarking": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "placing",
+                    "pitchMarking",
+                    "_timestamp",
+                    "_type"
+                  ]
+                }
+              },
+              "required": [
+                "counterAttack",
+                "takerBallControl",
+                "insideBox",
+                "xG",
+                "chanceEvaluation",
+                "angleToGoal",
+                "directFreeKickIntention",
+                "ballPossessionPhase",
+                "typeOfShot",
+                "setupOrigin",
+                "afterFreeKick",
+                "takerSetup",
+                "shotCondition",
+                "distanceToGoal",
+                "shotOrigin",
+                "buildUp",
+                "player",
+                "team",
+                "rotation",
+                "assistAction",
+                "pressure",
+                "shotAssistFouledPlayer",
+                "_timestamp",
+                "_type",
+                "_subtype",
+                "shotWide"
+              ]
+            }
+          },
+          "required": [
+            "executionMode",
+            "decisionTimestamp",
+            "team",
+            "_timestamp",
+            "_type",
+            "_subtype",
+            "shotAtGoal"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xPositionFromTracking": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "yPositionFromTracking": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "freeKick"
+      ]
+    },
+    "Goaldisallowed": {
+      "type": "object",
+      "name": "Goaldisallowed",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "goalDisallowed": {
+          "type": "object",
+          "name": "goalDisallowed",
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "player": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason",
+            "player",
+            "team",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "goalDisallowed"
+      ]
+    },
+    "Goalkick": {
+      "type": "object",
+      "name": "Goalkick",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "goalKick": {
+          "type": "object",
+          "name": "goalKick",
+          "properties": {
+            "decisionTimestamp": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            },
+            "_subtype": {
+              "type": "string"
+            },
+            "play": {
+              "type": "object",
+              "name": "play",
+              "properties": {
+                "player": {
+                  "type": "string"
+                },
+                "height": {
+                  "type": "string"
+                },
+                "semiField": {
+                  "type": "string"
+                },
+                "evaluation": {
+                  "type": "string"
+                },
+                "penaltyBox": {
+                  "type": "string"
+                },
+                "playAngle": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "fromOpenPlay": {
+                  "type": "string"
+                },
+                "recipient": {
+                  "type": "string"
+                },
+                "distance": {
+                  "type": "string"
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "playOrigin": {
+                  "type": "string"
+                },
+                "flatCross": {
+                  "type": "string"
+                },
+                "_timestamp": {
+                  "type": "string"
+                },
+                "_type": {
+                  "type": "string"
+                },
+                "_subtype": {
+                  "type": "string"
+                },
+                "pass": {
+                  "type": "object",
+                  "name": "pass",
+                  "properties": {
+                    "freeKickLayup": {
+                      "type": "string"
+                    },
+                    "direction": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "freeKickLayup",
+                    "direction",
+                    "_timestamp",
+                    "_type"
+                  ]
+                }
+              },
+              "required": [
+                "player",
+                "height",
+                "semiField",
+                "evaluation",
+                "penaltyBox",
+                "playAngle",
+                "team",
+                "fromOpenPlay",
+                "recipient",
+                "distance",
+                "ballPossessionPhase",
+                "playOrigin",
+                "flatCross",
+                "_timestamp",
+                "_type",
+                "_subtype",
+                "pass"
+              ]
+            }
+          },
+          "required": [
+            "decisionTimestamp",
+            "team",
+            "_timestamp",
+            "_type",
+            "_subtype",
+            "play"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "goalKick"
+      ]
+    },
+    "Kickoff": {
+      "type": "object",
+      "name": "Kickoff",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "kickOff": {
+          "type": "object",
+          "name": "kickOff",
+          "properties": {
+            "teamLeft": {
+              "type": "string"
+            },
+            "gameSection": {
+              "type": "string"
+            },
+            "teamRight": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            },
+            "_subtype": {
+              "type": "string"
+            },
+            "play": {
+              "type": "object",
+              "name": "play",
+              "properties": {
+                "player": {
+                  "type": "string"
+                },
+                "height": {
+                  "type": "string"
+                },
+                "semiField": {
+                  "type": "string"
+                },
+                "evaluation": {
+                  "type": "string"
+                },
+                "penaltyBox": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "fromOpenPlay": {
+                  "type": "string"
+                },
+                "recipient": {
+                  "type": "string"
+                },
+                "distance": {
+                  "type": "string"
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "playOrigin": {
+                  "type": "string"
+                },
+                "flatCross": {
+                  "type": "string"
+                },
+                "_timestamp": {
+                  "type": "string"
+                },
+                "_type": {
+                  "type": "string"
+                },
+                "_subtype": {
+                  "type": "string"
+                },
+                "pass": {
+                  "type": "object",
+                  "name": "pass",
+                  "properties": {
+                    "freeKickLayup": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "freeKickLayup",
+                    "_timestamp",
+                    "_type"
+                  ]
+                }
+              },
+              "required": [
+                "player",
+                "height",
+                "semiField",
+                "evaluation",
+                "penaltyBox",
+                "team",
+                "fromOpenPlay",
+                "recipient",
+                "distance",
+                "ballPossessionPhase",
+                "playOrigin",
+                "flatCross",
+                "_timestamp",
+                "_type",
+                "_subtype",
+                "pass"
+              ]
+            }
+          },
+          "required": [
+            "teamLeft",
+            "gameSection",
+            "teamRight",
+            "_timestamp",
+            "_type",
+            "_subtype",
+            "play"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kickOff"
+      ]
+    },
+    "Nutmeg": {
+      "type": "object",
+      "name": "Nutmeg",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "nutmeg": {
+          "type": "object",
+          "name": "nutmeg",
+          "properties": {
+            "affectedTeam": {
+              "type": "string"
+            },
+            "player": {
+              "type": "string"
+            },
+            "affectedPlayer": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "affectedTeam",
+            "player",
+            "affectedPlayer",
+            "team",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "nutmeg"
+      ]
+    },
+    "Offside": {
+      "type": "object",
+      "name": "Offside",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "offside": {
+          "type": "object",
+          "name": "offside",
+          "properties": {
+            "player": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "player",
+            "team",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "offside"
+      ]
+    },
+    "Otherballaction": {
+      "type": "object",
+      "name": "Otherballaction",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "calculatedFrame": {
+          "type": "string"
+        },
+        "calculatedTimestamp": {
+          "type": "string"
+        },
+        "otherBallAction": {
+          "type": "object",
+          "name": "otherBallAction",
+          "properties": {
+            "player": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "ballPossessionPhase": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "player",
+            "team",
+            "ballPossessionPhase",
+            "_timestamp",
+            "_type"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xPositionFromTracking": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "yPositionFromTracking": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "otherBallAction"
+      ]
+    },
+    "Otherplayeraction": {
+      "type": "object",
+      "name": "Otherplayeraction",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "otherPlayerAction": {
+          "type": "object",
+          "name": "otherPlayerAction",
+          "properties": {
+            "player": {
+              "type": "string"
+            },
+            "changeOfCaptain": {
+              "type": "string"
+            },
+            "playerBecomesGoalkeeper": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "changeContingentExhausted": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "player",
+            "changeOfCaptain",
+            "playerBecomesGoalkeeper",
+            "team",
+            "changeContingentExhausted",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "otherPlayerAction"
+      ]
+    },
+    "Owngoal": {
+      "type": "object",
+      "name": "Owngoal",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "ownGoal": {
+          "type": "object",
+          "name": "ownGoal",
+          "properties": {
+            "typeOfShot": {
+              "type": "string"
+            },
+            "shotOrigin": {
+              "type": "string"
+            },
+            "goalZone": {
+              "type": "string"
+            },
+            "teamOwnGoalCountsFor": {
+              "type": "string"
+            },
+            "setupOrigin": {
+              "type": "string"
+            },
+            "currentResult": {
+              "type": "string"
+            },
+            "scorerBallTouch": {
+              "type": "string"
+            },
+            "player": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "ownGoalFromCounterAttack": {
+              "type": "string"
+            },
+            "ballPossessionPhase": {
+              "type": "string"
+            },
+            "scorerSetup": {
+              "type": "string"
+            },
+            "buildUp": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "typeOfShot",
+            "shotOrigin",
+            "goalZone",
+            "teamOwnGoalCountsFor",
+            "setupOrigin",
+            "currentResult",
+            "scorerBallTouch",
+            "player",
+            "team",
+            "ownGoalFromCounterAttack",
+            "ballPossessionPhase",
+            "scorerSetup",
+            "buildUp",
+            "_timestamp",
+            "_type"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ownGoal",
+        "xPosition",
+        "xSourcePosition",
+        "yPosition",
+        "ySourcePosition"
+      ]
+    },
+    "Penalty": {
+      "type": "object",
+      "name": "Penalty",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "calculatedFrame": {
+          "type": "string"
+        },
+        "calculatedTimestamp": {
+          "type": "string"
+        },
+        "penalty": {
+          "type": "object",
+          "name": "penalty",
+          "properties": {
+            "team": {
+              "type": "string"
+            },
+            "fouledPlayer": {
+              "type": "string"
+            },
+            "retakenPenalty": {
+              "type": "string"
+            },
+            "causingPlayer": {
+              "type": "string"
+            },
+            "decisionTimestamp": {
+              "type": "string"
+            },
+            "prospectiveTaker": {
+              "type": "string"
+            },
+            "goalkeeperMovement": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            },
+            "_subtype": {
+              "type": "string"
+            },
+            "shotAtGoal": {
+              "type": "object",
+              "name": "shotAtGoal",
+              "properties": {
+                "chanceEvaluation": {
+                  "type": "string"
+                },
+                "shotOrigin": {
+                  "type": "string"
+                },
+                "insideBox": {
+                  "type": "string"
+                },
+                "shotCondition": {
+                  "type": "string"
+                },
+                "takerBallControl": {
+                  "type": "string"
+                },
+                "shotAssistFouledPlayer": {
+                  "type": "string"
+                },
+                "penaltyDirection": {
+                  "type": "string"
+                },
+                "setupOrigin": {
+                  "type": "string"
+                },
+                "yShotTracePosition": {
+                  "type": "string"
+                },
+                "shotSpeed": {
+                  "type": "string"
+                },
+                "buildUp": {
+                  "type": "string"
+                },
+                "typeOfShot": {
+                  "type": "string"
+                },
+                "assistAction": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "xG": {
+                  "type": "string"
+                },
+                "zShotTracePosition": {
+                  "type": "string"
+                },
+                "distanceToGoal": {
+                  "type": "string"
+                },
+                "afterFreeKick": {
+                  "type": "string"
+                },
+                "sitterContribution": {
+                  "type": "string"
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "pressure": {
+                  "type": "string"
+                },
+                "counterAttack": {
+                  "type": "string"
+                },
+                "angleToGoal": {
+                  "type": "string"
+                },
+                "penaltyExecution": {
+                  "type": "string"
+                },
+                "player": {
+                  "type": "string"
+                },
+                "takerSetup": {
+                  "type": "string"
+                },
+                "_timestamp": {
+                  "type": "string"
+                },
+                "_type": {
+                  "type": "string"
+                },
+                "_subtype": {
+                  "type": "string"
+                },
+                "successfulShot": {
+                  "type": "object",
+                  "name": "successfulShot",
+                  "properties": {
+                    "assistFouledPlayer": {
+                      "type": "string"
+                    },
+                    "solo": {
+                      "type": "string"
+                    },
+                    "currentResult": {
+                      "type": "string"
+                    },
+                    "goalZone": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "assistFouledPlayer",
+                    "solo",
+                    "currentResult",
+                    "goalZone",
+                    "_timestamp",
+                    "_type"
+                  ]
+                }
+              },
+              "required": [
+                "chanceEvaluation",
+                "shotOrigin",
+                "insideBox",
+                "shotCondition",
+                "takerBallControl",
+                "shotAssistFouledPlayer",
+                "penaltyDirection",
+                "setupOrigin",
+                "yShotTracePosition",
+                "shotSpeed",
+                "buildUp",
+                "typeOfShot",
+                "assistAction",
+                "team",
+                "xG",
+                "zShotTracePosition",
+                "distanceToGoal",
+                "afterFreeKick",
+                "sitterContribution",
+                "ballPossessionPhase",
+                "pressure",
+                "counterAttack",
+                "angleToGoal",
+                "penaltyExecution",
+                "player",
+                "takerSetup",
+                "_timestamp",
+                "_type",
+                "_subtype",
+                "successfulShot"
+              ]
+            }
+          },
+          "required": [
+            "team",
+            "fouledPlayer",
+            "retakenPenalty",
+            "causingPlayer",
+            "decisionTimestamp",
+            "prospectiveTaker",
+            "goalkeeperMovement",
+            "_timestamp",
+            "_type",
+            "_subtype",
+            "shotAtGoal"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xPositionFromTracking": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "yPositionFromTracking": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "penalty",
+        "xPosition",
+        "xSourcePosition",
+        "yPosition",
+        "ySourcePosition"
+      ]
+    },
+    "Play": {
+      "type": "object",
+      "name": "Play",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "calculatedFrame": {
+          "type": "string"
+        },
+        "calculatedTimestamp": {
+          "type": "string"
+        },
+        "play": {
+          "type": "object",
+          "name": "play",
+          "properties": {
+            "player": {
+              "type": "string"
+            },
+            "height": {
+              "type": "string"
+            },
+            "semiField": {
+              "type": "string"
+            },
+            "evaluation": {
+              "type": "string"
+            },
+            "penaltyBox": {
+              "type": "string"
+            },
+            "playAngle": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "fromOpenPlay": {
+              "type": "string"
+            },
+            "distance": {
+              "type": "string"
+            },
+            "ballPossessionPhase": {
+              "type": "string"
+            },
+            "playOrigin": {
+              "type": "string"
+            },
+            "flatCross": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            },
+            "_subtype": {
+              "type": "string"
+            },
+            "pass": {
+              "type": "object",
+              "name": "pass",
+              "properties": {
+                "freeKickLayup": {
+                  "type": "string"
+                },
+                "direction": {
+                  "type": "string"
+                },
+                "_timestamp": {
+                  "type": "string"
+                },
+                "_type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "freeKickLayup",
+                "direction",
+                "_timestamp",
+                "_type"
+              ]
+            }
+          },
+          "required": [
+            "player",
+            "height",
+            "semiField",
+            "evaluation",
+            "penaltyBox",
+            "playAngle",
+            "team",
+            "fromOpenPlay",
+            "distance",
+            "ballPossessionPhase",
+            "playOrigin",
+            "flatCross",
+            "_timestamp",
+            "_type",
+            "_subtype",
+            "pass"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xPositionFromTracking": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "yPositionFromTracking": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "play"
+      ]
+    },
+    "Possessionlossbeforegoal": {
+      "type": "object",
+      "name": "Possessionlossbeforegoal",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "possessionLossBeforeGoal": {
+          "type": "object",
+          "name": "possessionLossBeforeGoal",
+          "properties": {
+            "team": {
+              "type": "string"
+            },
+            "typeOfPossessionLoss": {
+              "type": "string"
+            },
+            "player": {
+              "type": "string"
+            },
+            "possessionLossOrigin": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "team",
+            "typeOfPossessionLoss",
+            "player",
+            "possessionLossOrigin",
+            "_timestamp",
+            "_type"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "possessionLossBeforeGoal",
+        "xPosition",
+        "yPosition"
+      ]
+    },
+    "Refereeball": {
+      "type": "object",
+      "name": "Refereeball",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "refereeBall": {
+          "type": "object",
+          "name": "refereeBall",
+          "properties": {
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "refereeBall"
+      ]
+    },
+    "Run": {
+      "type": "object",
+      "name": "Run",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "run": {
+          "type": "object",
+          "name": "run",
+          "properties": {
+            "team": {
+              "type": "string"
+            },
+            "player": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "team",
+            "player",
+            "_timestamp",
+            "_type"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "run",
+        "xPosition",
+        "yPosition"
+      ]
+    },
+    "Shotatgoal": {
+      "type": "object",
+      "name": "Shotatgoal",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "calculatedFrame": {
+          "type": "string"
+        },
+        "calculatedTimestamp": {
+          "type": "string"
+        },
+        "shotAtGoal": {
+          "type": "object",
+          "name": "shotAtGoal",
+          "properties": {
+            "counterAttack": {
+              "type": "string"
+            },
+            "takerBallControl": {
+              "type": "string"
+            },
+            "insideBox": {
+              "type": "string"
+            },
+            "xG": {
+              "type": "string"
+            },
+            "chanceEvaluation": {
+              "type": "string"
+            },
+            "angleToGoal": {
+              "type": "string"
+            },
+            "ballPossessionPhase": {
+              "type": "string"
+            },
+            "typeOfShot": {
+              "type": "string"
+            },
+            "setupOrigin": {
+              "type": "string"
+            },
+            "afterFreeKick": {
+              "type": "string"
+            },
+            "takerSetup": {
+              "type": "string"
+            },
+            "assistTypeShotAtGoal": {
+              "type": "string"
+            },
+            "shotContribution": {
+              "type": "string"
+            },
+            "shotCondition": {
+              "type": "string"
+            },
+            "distanceToGoal": {
+              "type": "string"
+            },
+            "shotOrigin": {
+              "type": "string"
+            },
+            "buildUp": {
+              "type": "string"
+            },
+            "player": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "assistShotAtGoal": {
+              "type": "string"
+            },
+            "assistAction": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            },
+            "_subtype": {
+              "type": "string"
+            },
+            "shotWide": {
+              "type": "object",
+              "name": "shotWide",
+              "properties": {
+                "placing": {
+                  "type": "string"
+                },
+                "pitchMarking": {
+                  "type": "string"
+                },
+                "_timestamp": {
+                  "type": "string"
+                },
+                "_type": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "placing",
+                "pitchMarking",
+                "_timestamp",
+                "_type"
+              ]
+            }
+          },
+          "required": [
+            "counterAttack",
+            "takerBallControl",
+            "insideBox",
+            "xG",
+            "chanceEvaluation",
+            "angleToGoal",
+            "ballPossessionPhase",
+            "typeOfShot",
+            "setupOrigin",
+            "afterFreeKick",
+            "takerSetup",
+            "assistTypeShotAtGoal",
+            "shotContribution",
+            "shotCondition",
+            "distanceToGoal",
+            "shotOrigin",
+            "buildUp",
+            "player",
+            "team",
+            "assistShotAtGoal",
+            "assistAction",
+            "_timestamp",
+            "_type",
+            "_subtype",
+            "shotWide"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xPositionFromTracking": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "yPositionFromTracking": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "shotAtGoal",
+        "xPosition",
+        "xSourcePosition",
+        "yPosition",
+        "ySourcePosition"
+      ]
+    },
+    "Spectacularplay": {
+      "type": "object",
+      "name": "Spectacularplay",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "spectacularPlay": {
+          "type": "object",
+          "name": "spectacularPlay",
+          "properties": {
+            "player": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "player",
+            "type",
+            "team",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "spectacularPlay"
+      ]
+    },
+    "Startpenaltyshootout": {
+      "type": "object",
+      "name": "Startpenaltyshootout",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "startPenaltyShootOut": {
+          "type": "object",
+          "name": "startPenaltyShootOut",
+          "properties": {
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "startPenaltyShootOut"
+      ]
+    },
+    "Substitution": {
+      "type": "object",
+      "name": "Substitution",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "substitution": {
+          "type": "object",
+          "name": "substitution",
+          "properties": {
+            "playingPosition": {
+              "type": "string"
+            },
+            "playerOut": {
+              "type": "string"
+            },
+            "playerIn": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "playingPosition",
+            "playerOut",
+            "playerIn",
+            "team",
+            "_timestamp",
+            "_type"
+          ]
+        }
+      },
+      "required": [
+        "substitution"
+      ]
+    },
+    "Tacklinggame": {
+      "type": "object",
+      "name": "Tacklinggame",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "tacklingGame": {
+          "type": "object",
+          "name": "tacklingGame",
+          "properties": {
+            "winnerResult": {
+              "type": "string"
+            },
+            "loser": {
+              "type": "string"
+            },
+            "goalKeeperInvolved": {
+              "type": "string"
+            },
+            "loserRole": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "winner": {
+              "type": "string"
+            },
+            "winnerTeam": {
+              "type": "string"
+            },
+            "possessionChange": {
+              "type": "string"
+            },
+            "winnerRole": {
+              "type": "string"
+            },
+            "loserTeam": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "winnerResult",
+            "loser",
+            "goalKeeperInvolved",
+            "loserRole",
+            "type",
+            "winner",
+            "winnerTeam",
+            "possessionChange",
+            "winnerRole",
+            "loserTeam",
+            "_timestamp",
+            "_type"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tacklingGame",
+        "xPosition",
+        "yPosition"
+      ]
+    },
+    "Throwin": {
+      "type": "object",
+      "name": "Throwin",
+      "$extends": "#/definitions/EventsBase",
+      "properties": {
+        "throwIn": {
+          "type": "object",
+          "name": "throwIn",
+          "properties": {
+            "decisionTimestamp": {
+              "type": "string"
+            },
+            "team": {
+              "type": "string"
+            },
+            "side": {
+              "type": "string"
+            },
+            "_timestamp": {
+              "type": "string"
+            },
+            "_type": {
+              "type": "string"
+            },
+            "_subtype": {
+              "type": "string"
+            },
+            "play": {
+              "type": "object",
+              "name": "play",
+              "properties": {
+                "player": {
+                  "type": "string"
+                },
+                "height": {
+                  "type": "string"
+                },
+                "semiField": {
+                  "type": "string"
+                },
+                "evaluation": {
+                  "type": "string"
+                },
+                "penaltyBox": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "fromOpenPlay": {
+                  "type": "string"
+                },
+                "recipient": {
+                  "type": "string"
+                },
+                "distance": {
+                  "type": "string"
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "flatCross": {
+                  "type": "string"
+                },
+                "_timestamp": {
+                  "type": "string"
+                },
+                "_type": {
+                  "type": "string"
+                },
+                "_subtype": {
+                  "type": "string"
+                },
+                "pass": {
+                  "type": "object",
+                  "name": "pass",
+                  "properties": {
+                    "freeKickLayup": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "freeKickLayup",
+                    "_timestamp",
+                    "_type"
+                  ]
+                }
+              },
+              "required": [
+                "player",
+                "height",
+                "semiField",
+                "evaluation",
+                "penaltyBox",
+                "team",
+                "fromOpenPlay",
+                "recipient",
+                "distance",
+                "ballPossessionPhase",
+                "flatCross",
+                "_timestamp",
+                "_type",
+                "_subtype",
+                "pass"
+              ]
+            }
+          },
+          "required": [
+            "decisionTimestamp",
+            "team",
+            "side",
+            "_timestamp",
+            "_type",
+            "_subtype",
+            "play"
+          ]
+        },
+        "xPosition": {
+          "type": "string"
+        },
+        "xSourcePosition": {
+          "type": "string"
+        },
+        "yPosition": {
+          "type": "string"
+        },
+        "ySourcePosition": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "throwIn"
+      ]
+    }
+  }
+}

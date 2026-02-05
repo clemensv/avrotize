@@ -861,6 +861,7 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         
         return {
             "type": "choice",
+            "selector": result.discriminator_field,
             "choices": choices_map,
             "name": avro_name(type_name.rsplit('.', 1)[-1])
         }
