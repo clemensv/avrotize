@@ -461,16 +461,18 @@ Conversion notes:
 ### Infer Avro schema from JSON files
 
 ```bash
-avrotize json2a <json_files...> [--out <path_to_avro_schema_file>] [--type-name <name>] [--namespace <namespace>] [--sample-size <n>]
+avrotize json2a <json_files...> [--out <path>] [--type-name <name>] [--namespace <namespace>] [--sample-size <n>] [--infer-choices] [--choice-depth <n>]
 ```
 
 Parameters:
 
-- `<json_files...>`: One or more JSON files to analyze. Supports JSON arrays, single objects, and JSONL (JSON Lines) format.
+- `<json_files...>`: One or more JSON files to analyze. Supports JSON arrays, single objects, and JSONL (JSON Lines) format. Use `@filelist.txt` to read file paths from a response file.
 - `--out`: The path to the Avro schema file. If omitted, output goes to stdout.
 - `--type-name`: (optional) Name for the root type (default: "Document").
 - `--namespace`: (optional) Avro namespace for generated types.
 - `--sample-size`: (optional) Maximum number of records to sample (0 = all, default: 0).
+- `--infer-choices`: (optional) Detect discriminated unions and emit as Avro unions with discriminator field defaults.
+- `--choice-depth`: (optional) Maximum nesting depth for choice inference (1 = root only, 2+ = nested objects, default: 1).
 
 Example:
 
@@ -478,39 +480,56 @@ Example:
 # Infer schema from multiple JSON files
 avrotize json2a data1.json data2.json --out schema.avsc --type-name Event --namespace com.example
 
-# Infer schema from JSONL file
-avrotize json2a events.jsonl --out events.avsc --type-name LogEntry
+# Infer schema from JSONL file with discriminated union detection
+avrotize json2a events.jsonl --out events.avsc --type-name LogEntry --infer-choices
+
+# Use response file for many input files
+avrotize json2a @file_list.txt --out schema.avsc --infer-choices --choice-depth 2
 ```
 
 ### Infer JSON Structure schema from JSON files
 
 ```bash
-avrotize json2s <json_files...> [--out <path_to_jstruct_schema_file>] [--type-name <name>] [--base-id <uri>] [--sample-size <n>]
+avrotize json2s <json_files...> [--out <path>] [--type-name <name>] [--base-id <uri>] [--sample-size <n>] [--infer-choices] [--choice-depth <n>] [--infer-enums]
 ```
 
 Parameters:
 
-- `<json_files...>`: One or more JSON files to analyze.
+- `<json_files...>`: One or more JSON files to analyze. Use `@filelist.txt` to read file paths from a response file.
 - `--out`: The path to the JSON Structure schema file. If omitted, output goes to stdout.
 - `--type-name`: (optional) Name for the root type (default: "Document").
 - `--base-id`: (optional) Base URI for $id generation (default: "https://example.com/").
 - `--sample-size`: (optional) Maximum number of records to sample (0 = all, default: 0).
+- `--infer-choices`: (optional) Detect discriminated unions and emit as `choice` types with discriminator field defaults.
+- `--choice-depth`: (optional) Maximum nesting depth for choice inference (1 = root only, 2+ = nested objects, default: 1).
+- `--infer-enums`: (optional) Detect enum types from repeated string values with low cardinality.
+
+The inferrer also automatically detects:
+- **Datetime patterns**: ISO 8601 timestamps, dates, and times are typed as `datetime`, `date`, or `time`.
+- **Required vs optional fields**: Fields present in all records are marked required; sparse fields are optional.
 
 Example:
 
 ```bash
+# Basic inference
 avrotize json2s data.json --out schema.jstruct.json --type-name Person --base-id https://myapi.example.com/schemas/
+
+# Full inference with choices and enums
+avrotize json2s events/*.json --out events.jstruct.json --type-name Event --infer-choices --choice-depth 2 --infer-enums
+
+# Process many files via response file
+avrotize json2s @file_list.txt --out schema.jstruct.json --infer-choices --infer-enums
 ```
 
 ### Infer Avro schema from XML files
 
 ```bash
-avrotize xml2a <xml_files...> [--out <path_to_avro_schema_file>] [--type-name <name>] [--namespace <namespace>] [--sample-size <n>]
+avrotize xml2a <xml_files...> [--out <path>] [--type-name <name>] [--namespace <namespace>] [--sample-size <n>]
 ```
 
 Parameters:
 
-- `<xml_files...>`: One or more XML files to analyze.
+- `<xml_files...>`: One or more XML files to analyze. Use `@filelist.txt` to read file paths from a response file.
 - `--out`: The path to the Avro schema file. If omitted, output goes to stdout.
 - `--type-name`: (optional) Name for the root type (default: "Document").
 - `--namespace`: (optional) Avro namespace for generated types.
@@ -525,12 +544,12 @@ avrotize xml2a config.xml --out config.avsc --type-name Configuration --namespac
 ### Infer JSON Structure schema from XML files
 
 ```bash
-avrotize xml2s <xml_files...> [--out <path_to_jstruct_schema_file>] [--type-name <name>] [--base-id <uri>] [--sample-size <n>]
+avrotize xml2s <xml_files...> [--out <path>] [--type-name <name>] [--base-id <uri>] [--sample-size <n>]
 ```
 
 Parameters:
 
-- `<xml_files...>`: One or more XML files to analyze.
+- `<xml_files...>`: One or more XML files to analyze. Use `@filelist.txt` to read file paths from a response file.
 - `--out`: The path to the JSON Structure schema file. If omitted, output goes to stdout.
 - `--type-name`: (optional) Name for the root type (default: "Document").
 - `--base-id`: (optional) Base URI for $id generation (default: "https://example.com/").
