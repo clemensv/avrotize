@@ -477,5 +477,158 @@ class TestRecursiveChoiceInference(unittest.TestCase):
         self.assertIn('admin', choices, "Should have admin variant")
 
 
+class TestLargeDiscriminatorSets(unittest.TestCase):
+    """Tests for datasets with many discriminator values and high field overlap.
+    
+    This tests the fallback discriminator detection that handles cases where
+    similarity-based clustering merges distinct types due to high Jaccard
+    similarity from shared fields.
+    """
+    
+    def test_many_variants_high_overlap(self):
+        """Test detection with 15+ variants sharing many common fields.
+        
+        Simulates event data where different event types share common metadata
+        fields but have distinct type-specific payload fields.
+        """
+        # Common fields that all events share (creates high Jaccard similarity)
+        common_fields = {
+            "timestamp": "2026-02-05T10:00:00Z",
+            "eventId": "evt-12345",
+            "source": "system-a",
+            "version": "1.0",
+            "correlationId": "corr-abc",
+            "userId": "user-123",
+        }
+        
+        # 15 different event types, each with 1-2 unique fields
+        event_types = [
+            ("user_created", {"email": "a@b.com"}),
+            ("user_updated", {"changes": ["name"]}),
+            ("user_deleted", {"reason": "requested"}),
+            ("order_placed", {"orderId": "ord-1", "total": 100}),
+            ("order_shipped", {"trackingNumber": "track-1"}),
+            ("order_cancelled", {"refundAmount": 50}),
+            ("payment_received", {"amount": 100, "method": "card"}),
+            ("payment_failed", {"errorCode": "declined"}),
+            ("item_added", {"itemId": "item-1", "quantity": 2}),
+            ("item_removed", {"itemId": "item-2"}),
+            ("cart_cleared", {"itemCount": 5}),
+            ("login_success", {"ipAddress": "1.2.3.4"}),
+            ("login_failed", {"attempts": 3}),
+            ("logout", {"sessionDuration": 3600}),
+            ("password_changed", {"lastChanged": "2026-01-01"}),
+        ]
+        
+        # Generate test data: 10 instances of each event type
+        values = []
+        for event_type, specific_fields in event_types:
+            for i in range(10):
+                event = {
+                    "_type": event_type,
+                    **common_fields,
+                    **specific_fields
+                }
+                # Vary some common fields slightly
+                event["eventId"] = f"evt-{event_type}-{i}"
+                values.append(event)
+        
+        # Total: 150 events with 15 different _type values
+        self.assertEqual(len(values), 150)
+        
+        result = infer_choice_type(values)
+        
+        # Should detect as discriminated union
+        self.assertTrue(result.is_choice, "Should detect as choice type")
+        self.assertEqual(result.discriminator_field, "_type", 
+                        "Should detect _type as discriminator")
+        self.assertEqual(len(result.discriminator_values), 15, 
+                        "Should have 15 discriminator values")
+        
+        # Verify all event types are in discriminator values
+        expected_types = {et[0] for et in event_types}
+        self.assertEqual(result.discriminator_values, expected_types)
+    
+    def test_very_high_overlap_still_detects_discriminator(self):
+        """Test with ~70% Jaccard similarity between variants.
+        
+        Even when most fields are shared, a clear discriminator should be found.
+        """
+        # 10 common fields
+        common = {f"field_{i}": f"value_{i}" for i in range(10)}
+        
+        # Each variant has the common fields plus 2-3 unique fields
+        # This creates ~70-80% Jaccard similarity
+        variants = [
+            ("alpha", {"alpha_data": "a1", "alpha_flag": True}),
+            ("beta", {"beta_data": "b1", "beta_count": 5}),
+            ("gamma", {"gamma_data": "g1", "gamma_list": [1, 2]}),
+            ("delta", {"delta_data": "d1", "delta_ref": "ref-1"}),
+            ("epsilon", {"epsilon_data": "e1"}),
+        ]
+        
+        values = []
+        for variant_type, specific in variants:
+            for i in range(50):  # 50 of each = 250 total
+                values.append({
+                    "kind": variant_type,
+                    **common,
+                    **specific,
+                    "seq": i  # Varying field
+                })
+        
+        result = infer_choice_type(values)
+        
+        self.assertTrue(result.is_choice)
+        self.assertEqual(result.discriminator_field, "kind")
+        self.assertEqual(len(result.discriminator_values), 5)
+    
+    def test_schema_generation_with_many_variants(self):
+        """Test full schema generation with many high-overlap variants."""
+        from avrotize.schema_inference import JsonStructureSchemaInferrer
+        
+        # Create 8 event types with shared metadata
+        metadata = {
+            "id": "123",
+            "timestamp": "2026-02-05T10:00:00Z",
+            "version": "1.0"
+        }
+        
+        events = []
+        event_configs = [
+            ("click", {"elementId": "btn-1", "x": 100, "y": 200}),
+            ("scroll", {"direction": "down", "amount": 500}),
+            ("keypress", {"key": "Enter", "modifiers": ["ctrl"]}),
+            ("focus", {"elementId": "input-1"}),
+            ("blur", {"elementId": "input-1"}),
+            ("submit", {"formId": "form-1", "success": True}),
+            ("navigate", {"from": "/a", "to": "/b"}),
+            ("error", {"message": "oops", "stack": "..."}),
+        ]
+        
+        for event_type, payload in event_configs:
+            for i in range(20):
+                events.append({
+                    "action": event_type,
+                    **metadata,
+                    **payload
+                })
+        
+        # 160 events total
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True)
+        schema = inferrer.infer_from_json_values('UIEvent', events)
+        
+        self.assertEqual(schema.get('type'), 'choice', 
+                        "Should generate choice schema")
+        
+        choices = schema.get('choices', {})
+        self.assertEqual(len(choices), 8, "Should have 8 variants")
+        
+        # Verify each event type has a variant
+        for event_type, _ in event_configs:
+            self.assertIn(event_type, choices, 
+                         f"Should have {event_type} variant")
+
+
 if __name__ == '__main__':
     unittest.main()

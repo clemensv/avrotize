@@ -222,6 +222,23 @@ def _detect_discriminators(
                     value_to_docs[doc.field_values[field_name]].append(doc)
             
             if len(value_to_docs) >= 2:
+                # Check 1: Does each value map to a consistent signature?
+                # A perfect discriminator has each value producing identical signatures
+                value_to_sigs: Dict[str, Set[tuple]] = {}
+                for val, val_docs in value_to_docs.items():
+                    sigs = set(tuple(sorted(d.field_signature)) for d in val_docs)
+                    value_to_sigs[val] = sigs
+                
+                # Count values with perfectly consistent signatures (all docs same sig)
+                consistent_values = sum(1 for sigs in value_to_sigs.values() if len(sigs) == 1)
+                consistency_ratio = consistent_values / len(value_to_sigs)
+                
+                # Check 2: Are signatures distinct across values?
+                all_primary_sigs = [list(sigs)[0] for sigs in value_to_sigs.values() if sigs]
+                distinct_sigs = set(all_primary_sigs)
+                distinctness_ratio = len(distinct_sigs) / len(all_primary_sigs) if all_primary_sigs else 0
+                
+                # Check 3: Original inter-similarity check (relaxed to 0.85)
                 all_values = list(value_to_docs.keys())
                 inter_sims = []
                 for i, v1 in enumerate(all_values):
@@ -234,13 +251,21 @@ def _detect_discriminators(
                 
                 avg_inter_sim = sum(inter_sims) / len(inter_sims) if inter_sims else 1.0
                 
-                if avg_inter_sim < 0.7:
+                # Accept if: (a) low similarity, OR (b) high consistency + distinct signatures
+                is_discriminator = (
+                    avg_inter_sim < 0.7 or 
+                    (consistency_ratio > 0.9 and distinctness_ratio > 0.9)
+                )
+                
+                if is_discriminator:
+                    # Use distinctness as correlation score when similarity is high
+                    score = max(1.0 - avg_inter_sim, distinctness_ratio)
                     correlation = {v: i for i, v in enumerate(all_values)}
                     candidates.append(DiscriminatorCandidate(
                         field_name=field_name,
                         values=values,
                         correlation=correlation,
-                        correlation_score=1.0 - avg_inter_sim
+                        correlation_score=score
                     ))
             continue
         
