@@ -628,6 +628,64 @@ class TestLargeDiscriminatorSets(unittest.TestCase):
         for event_type, _ in event_configs:
             self.assertIn(event_type, choices, 
                          f"Should have {event_type} variant")
+    
+    def test_sparse_binary_split_rejected(self):
+        """Test that binary splits with sparse data and no structural pattern are rejected.
+        
+        This catches false positives like cautionTeamofficial where:
+        - Only 2 discriminator values (yellow/red)
+        - Very few samples (1-3 each)
+        - Only 1 different optional field per variant
+        - No envelope pattern (field name doesn't match discriminator)
+        """
+        # Simulates cautionTeamofficial: yellow has personSentOff, red has unknownPerson
+        values = [
+            {"cardColor": "yellow", "_timestamp": "t1", "_type": "caution", "team": "A", "personSentOff": "John"},
+            {"cardColor": "yellow", "_timestamp": "t2", "_type": "caution", "team": "B", "personSentOff": "Jane"},
+            {"cardColor": "yellow", "_timestamp": "t3", "_type": "caution", "team": "A", "personSentOff": "Bob"},
+            {"cardColor": "red", "_timestamp": "t4", "_type": "caution", "team": "B", "unknownPerson": "Unknown"},
+        ]
+        
+        result = infer_choice_type(values)
+        
+        # Should NOT be detected as choice - this is sparse data noise
+        self.assertFalse(result.is_choice, 
+                        "Binary split with sparse samples and no envelope pattern should be rejected")
+    
+    def test_envelope_pattern_accepted(self):
+        """Test that envelope patterns are correctly detected even with few samples.
+        
+        Envelope pattern: discriminator value matches a nested field name.
+        e.g., _subtype: "play" -> has field "play" containing the payload
+        """
+        values = [
+            {"_subtype": "play", "_timestamp": "t1", "play": {"player": "A", "action": "pass"}},
+            {"_subtype": "play", "_timestamp": "t2", "play": {"player": "B", "action": "shot"}},
+            {"_subtype": "shotAtGoal", "_timestamp": "t3", "shotAtGoal": {"scorer": "C", "goal": True}},
+        ]
+        
+        result = infer_choice_type(values)
+        
+        # Should be detected as choice - envelope pattern is clear
+        self.assertTrue(result.is_choice, "Envelope pattern should be detected")
+        self.assertEqual(result.discriminator_field, "_subtype")
+    
+    def test_subset_pattern_accepted(self):
+        """Test that inheritance-like patterns are accepted even with few samples.
+        
+        Subset pattern: one variant's fields are a subset of another's.
+        e.g., user has {type, name}, admin has {type, name, permissions}
+        """
+        values = [
+            {"type": "user", "name": "Alice"},
+            {"type": "admin", "name": "Bob", "permissions": ["read", "write"]},
+        ]
+        
+        result = infer_choice_type(values)
+        
+        # Should be detected as choice - admin extends user
+        self.assertTrue(result.is_choice, "Subset/inheritance pattern should be detected")
+        self.assertEqual(result.discriminator_field, "type")
 
 
 if __name__ == '__main__':

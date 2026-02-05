@@ -251,15 +251,91 @@ def _detect_discriminators(
                 
                 avg_inter_sim = sum(inter_sims) / len(inter_sims) if inter_sims else 1.0
                 
-                # Accept if: (a) low similarity, OR (b) high consistency + distinct signatures
+                # Check 4: Discriminator-field correlation (envelope pattern)
+                # If discriminator value matches a unique payload field name, it's legitimate
+                # e.g., _subtype: "play" -> has field "play" that only appears for this value
+                discriminator_field_matches = 0
+                unique_fields_per_value: Dict[str, Set[str]] = {}
+                for disc_val, val_docs in value_to_docs.items():
+                    if not val_docs:
+                        continue
+                    # Get fields unique to this discriminator value
+                    this_sig = val_docs[0].field_signature
+                    other_sigs = [d.field_signature for v, docs in value_to_docs.items() 
+                                  if v != disc_val for d in docs[:1]]
+                    if other_sigs:
+                        common_with_others = this_sig.intersection(*other_sigs)
+                        unique_fields = this_sig - common_with_others - {field_name}
+                        unique_fields_per_value[disc_val] = unique_fields
+                        # Check if discriminator value matches any unique field (case-insensitive)
+                        disc_val_lower = disc_val.lower() if isinstance(disc_val, str) else str(disc_val).lower()
+                        if any(uf.lower() == disc_val_lower for uf in unique_fields):
+                            discriminator_field_matches += 1
+                
+                has_envelope_pattern = discriminator_field_matches >= len(value_to_docs) * 0.5
+                
+                # Check 5: Structural quality - detect sparse data false positives
+                # If unique fields are very few AND overlap across variants, it's likely sparse data
+                should_reject_sparse = False
+                if not has_envelope_pattern and unique_fields_per_value:
+                    all_unique_fields = [ufs for ufs in unique_fields_per_value.values() if ufs]
+                    if all_unique_fields:
+                        # Count total unique fields across all variants
+                        total_unique = set().union(*all_unique_fields)
+                        avg_unique = sum(len(ufs) for ufs in all_unique_fields) / len(all_unique_fields)
+                        
+                        # Check for "sparse optional field" pattern:
+                        # - Very few unique fields per variant (1-2)
+                        # - Moderate to high similarity (>0.6) 
+                        # - No envelope pattern
+                        # - Few total samples per variant (could be sample noise)
+                        # - Only 2 variants (binary split is more likely to be accidental)
+                        # - NOT a subset pattern (where one variant is just base + extras)
+                        min_samples = min(len(docs) for docs in value_to_docs.values())
+                        num_variants = len(value_to_docs)
+                        
+                        # Check for subset pattern (inheritance-like polymorphism)
+                        # If one variant's signature is a subset of another, it's likely real
+                        is_subset_pattern = False
+                        all_sigs = [list(sigs)[0] for v, sigs in value_to_sigs.items() if sigs and len(sigs) == 1]
+                        if len(all_sigs) >= 2:
+                            for i, sig1 in enumerate(all_sigs):
+                                for sig2 in all_sigs[i+1:]:
+                                    # Check if one is subset of the other (ignoring discriminator)
+                                    sig1_set = set(sig1) - {field_name}
+                                    sig2_set = set(sig2) - {field_name}
+                                    if sig1_set < sig2_set or sig2_set < sig1_set:
+                                        is_subset_pattern = True
+                                        break
+                                if is_subset_pattern:
+                                    break
+                        
+                        # Binary splits with few samples and minimal structural difference
+                        # are most likely sparse data artifacts (unless it's a subset pattern)
+                        if (num_variants == 2 and 
+                            avg_unique <= 1.5 and 
+                            avg_inter_sim > 0.6 and 
+                            min_samples < 5 and
+                            not is_subset_pattern):
+                            should_reject_sparse = True
+                
+                if should_reject_sparse:
+                    continue
+                
+                # Accept if: (a) low similarity, OR (b) high consistency + distinct signatures, 
+                # OR (c) envelope pattern detected
                 is_discriminator = (
                     avg_inter_sim < 0.7 or 
-                    (consistency_ratio > 0.9 and distinctness_ratio > 0.9)
+                    (consistency_ratio > 0.9 and distinctness_ratio > 0.9) or
+                    has_envelope_pattern
                 )
                 
                 if is_discriminator:
                     # Use distinctness as correlation score when similarity is high
+                    # Boost score if envelope pattern detected
                     score = max(1.0 - avg_inter_sim, distinctness_ratio)
+                    if has_envelope_pattern:
+                        score = max(score, 0.95)
                     correlation = {v: i for i, v in enumerate(all_values)}
                     candidates.append(DiscriminatorCandidate(
                         field_name=field_name,
