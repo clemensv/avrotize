@@ -421,10 +421,13 @@ class TestJson2sInference(unittest.TestCase):
         
         props = schema['properties']
         
-        # For now, inference should treat these as strings
-        # Future enhancement could detect patterns like UUID, date, etc.
-        for field in ['uuid_like', 'date_like', 'datetime_like', 'time_like', 
-                      'uri_like', 'email_like', 'ip_address', 'duration_like', 'base64_like']:
+        # Temporal types are now detected
+        self.assertEqual(props['date_like']['type'], 'date', "ISO 8601 date should be detected")
+        self.assertEqual(props['datetime_like']['type'], 'datetime', "ISO 8601 datetime should be detected")
+        self.assertEqual(props['time_like']['type'], 'time', "ISO 8601 time should be detected")
+        
+        # Other extended types remain as strings
+        for field in ['uuid_like', 'uri_like', 'email_like', 'ip_address', 'duration_like', 'base64_like']:
             self.assertEqual(props[field]['type'], 'string', f"Field {field} should be string")
         
         # Validate with SDK

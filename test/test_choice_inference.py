@@ -759,6 +759,103 @@ class TestLargeDiscriminatorSets(unittest.TestCase):
         self.assertEqual(score_prop.get("type"), "integer", 
                         "score should be 'integer' (from non-null values), not 'null'")
 
+    def test_enum_inference_from_repeated_values(self):
+        """Test that fields with low-cardinality repeated string values are detected as enums."""
+        from avrotize.schema_inference import JsonStructureSchemaInferrer
+        
+        # Generate enough samples to trigger enum detection
+        values = []
+        statuses = ["pending", "approved", "rejected"]
+        priorities = ["low", "medium", "high"]
+        for i in range(100):
+            values.append({
+                "type": "task",
+                "id": f"task-{i:04d}",  # High cardinality - not enum
+                "status": statuses[i % 3],  # Low cardinality - enum
+                "priority": priorities[i % 3],  # Low cardinality - enum
+                "created": f"2026-02-{(i % 28) + 1:02d}T10:00:00Z",  # Timestamps - not enum
+            })
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True, infer_enums=True)
+        schema = inferrer.infer_from_json_values("Task", values)
+        
+        # With uniform type, schema is a plain object (no choice)
+        props = schema.get("properties", {})
+        
+        # 'status' should be detected as enum
+        status_prop = props.get("status", {})
+        self.assertIn("enum", status_prop, "status should be detected as enum")
+        self.assertEqual(sorted(status_prop.get("enum", [])), ["approved", "pending", "rejected"])
+        
+        # 'priority' should be detected as enum
+        priority_prop = props.get("priority", {})
+        self.assertIn("enum", priority_prop, "priority should be detected as enum")
+        self.assertEqual(sorted(priority_prop.get("enum", [])), ["high", "low", "medium"])
+        
+        # 'id' should NOT be detected as enum (high cardinality)
+        id_prop = props.get("id", {})
+        self.assertNotIn("enum", id_prop, "id should NOT be detected as enum (high cardinality)")
+        
+        # 'created' should be detected as datetime (not enum)
+        created_prop = props.get("created", {})
+        self.assertNotIn("enum", created_prop, "created should NOT be detected as enum (timestamps)")
+        self.assertEqual(created_prop.get("type"), "datetime", "created should be datetime type")
+
+    def test_enum_excludes_ids_and_numeric_strings(self):
+        """Test that ID patterns and numeric strings are not detected as enums."""
+        from avrotize.schema_inference import JsonStructureSchemaInferrer
+        
+        values = []
+        teams = ["DFL-CLU-000001", "DFL-CLU-000002", "DFL-CLU-000003"]  # ID pattern
+        coords = ["0.00", "50.00", "100.00"]  # Numeric strings
+        for i in range(50):
+            values.append({
+                "type": "event",
+                "team": teams[i % 3],
+                "x": coords[i % 3],
+            })
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True, infer_enums=True)
+        schema = inferrer.infer_from_json_values("Event", values)
+        
+        # With uniform type, schema is a plain object (no choice)
+        props = schema.get("properties", {})
+        
+        # 'team' should NOT be enum (ID pattern)
+        team_prop = props.get("team", {})
+        self.assertNotIn("enum", team_prop, "team should NOT be detected as enum (ID pattern)")
+        
+        # 'x' should NOT be enum (numeric string)
+        x_prop = props.get("x", {})
+        self.assertNotIn("enum", x_prop, "x should NOT be detected as enum (numeric string)")
+
+    def test_datetime_detection(self):
+        """Test that ISO 8601 datetime, date, and time patterns are detected."""
+        from avrotize.schema_inference import JsonStructureSchemaInferrer
+        
+        values = []
+        for i in range(20):
+            values.append({
+                "datetime_field": f"2026-02-{(i % 28) + 1:02d}T10:30:45Z",  # Full datetime
+                "date_field": f"2026-02-{(i % 28) + 1:02d}",  # Date only
+                "time_field": f"10:{i % 60:02d}:45",  # Time only
+                "plain_string": f"hello-{i}",  # Not temporal
+            })
+        
+        inferrer = JsonStructureSchemaInferrer(infer_enums=True)
+        schema = inferrer.infer_from_json_values("Event", values)
+        
+        props = schema.get("properties", {})
+        
+        self.assertEqual(props.get("datetime_field", {}).get("type"), "datetime",
+                        "ISO 8601 datetime should be detected")
+        self.assertEqual(props.get("date_field", {}).get("type"), "date",
+                        "ISO 8601 date should be detected")
+        self.assertEqual(props.get("time_field", {}).get("type"), "time",
+                        "ISO 8601 time should be detected")
+        self.assertEqual(props.get("plain_string", {}).get("type"), "string",
+                        "Non-temporal string should remain string")
+
 
 if __name__ == '__main__':
     unittest.main()

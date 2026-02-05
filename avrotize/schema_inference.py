@@ -8,6 +8,7 @@ This module provides the core inference logic used by:
 
 import copy
 import json
+import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Tuple, Callable
 
@@ -640,7 +641,8 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
     }
 
     def __init__(self, namespace: str = '', type_name_prefix: str = '', base_id: str = '',
-                 infer_choices: bool = False, choice_depth: int = 1):
+                 infer_choices: bool = False, choice_depth: int = 1, infer_enums: bool = False,
+                 enum_max_values: int = 50, enum_max_ratio: float = 0.1):
         """Initialize the JSON Structure schema inferrer.
 
         Args:
@@ -649,6 +651,9 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             base_id: Base URI for $id generation
             infer_choices: Whether to detect discriminated unions (choice types)
             choice_depth: Maximum nesting depth for recursive choice inference (1 = root only)
+            infer_enums: Whether to detect enum types from repeated string values
+            enum_max_values: Maximum unique values to consider as enum (default 50)
+            enum_max_ratio: Maximum ratio of unique values to samples (default 0.1 = 10%)
         """
         super().__init__(namespace, type_name_prefix)
         self.base_id = base_id or 'https://example.com/'
@@ -656,6 +661,225 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         self.infer_choices = infer_choices
         self.choice_depth = choice_depth
         self.current_depth = 0  # Track current recursion depth
+        self.infer_enums = infer_enums
+        self.enum_max_values = enum_max_values
+        self.enum_max_ratio = enum_max_ratio
+
+    # Regex patterns for temporal types - compiled once for performance
+    _DATETIME_PATTERN = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$')
+    _DATE_PATTERN = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+    _TIME_PATTERN = re.compile(r'^\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$')
+    _ID_PATTERN = re.compile(r'^[A-Z]{2,5}-[A-Z]{2,5}-[A-Z0-9]+$')
+    _NUMERIC_STRING_PATTERN = re.compile(r'^-?\d+\.?\d*$')
+
+    def _infer_string_type(self, value: str) -> str:
+        """Infer the specific type for a string value (datetime, date, time, or string).
+        
+        Args:
+            value: String value to analyze
+            
+        Returns:
+            Type string: 'datetime', 'date', 'time', or 'string'
+        """
+        if self._DATETIME_PATTERN.match(value):
+            return 'datetime'
+        if self._DATE_PATTERN.match(value):
+            return 'date'
+        if self._TIME_PATTERN.match(value):
+            return 'time'
+        return 'string'
+
+    def _infer_type_from_values(self, values: List[Any]) -> Dict[str, Any] | str | None:
+        """Analyze multiple values to determine the best type.
+        
+        For string values: detect datetime, date, time patterns, or enum candidates.
+        For numeric values: use the largest value to determine int32 vs larger types.
+        
+        Args:
+            values: List of values for the same field
+            
+        Returns:
+            Type schema if a specialized type was detected, None otherwise
+        """
+        if not values:
+            return None
+        
+        # Filter out None values
+        non_null_values = [v for v in values if v is not None]
+        if not non_null_values:
+            return None
+        
+        # All strings? Check for temporal types or enum
+        string_values = [v for v in non_null_values if isinstance(v, str)]
+        if len(string_values) == len(non_null_values) and string_values:
+            # First check enum (high cardinality constraint means rare values)
+            is_enum, enum_values = self._is_enum_candidate(string_values)
+            if is_enum:
+                return {"type": "string", "enum": enum_values}
+            
+            # Check for temporal patterns - need consistency
+            inferred_types = [self._infer_string_type(v) for v in string_values]
+            type_counts = {}
+            for t in inferred_types:
+                type_counts[t] = type_counts.get(t, 0) + 1
+            
+            # If >80% of values are same temporal type, use it
+            for temporal_type in ['datetime', 'date', 'time']:
+                if type_counts.get(temporal_type, 0) / len(string_values) >= 0.8:
+                    return temporal_type
+            
+            return None  # Plain string
+        
+        # All integers? Check for range to pick type
+        int_values = [v for v in non_null_values if isinstance(v, int) and not isinstance(v, bool)]
+        if len(int_values) == len(non_null_values) and int_values:
+            min_val = min(int_values)
+            max_val = max(int_values)
+            # int32 range: -2147483648 to 2147483647
+            if min_val >= -2147483648 and max_val <= 2147483647:
+                return None  # Default integer inference handles this
+            else:
+                return 'double'  # Large values need double
+        
+        return None
+
+    def _is_enum_candidate(self, values: List[Any]) -> tuple[bool, List[str]]:
+        """Check if a list of values represents an enum type.
+        
+        Args:
+            values: List of field values from documents
+            
+        Returns:
+            Tuple of (is_enum, sorted_unique_values)
+        """
+        if not self.infer_enums:
+            return False, []
+        
+        # Filter to non-null string values
+        string_values = [v for v in values if isinstance(v, str)]
+        if len(string_values) < 5:  # Need sufficient samples
+            return False, []
+        
+        unique_values = set(string_values)
+        num_unique = len(unique_values)
+        num_samples = len(string_values)
+        
+        # Check cardinality constraints
+        if num_unique > self.enum_max_values:
+            return False, []
+        
+        ratio = num_unique / num_samples
+        if ratio > self.enum_max_ratio:
+            return False, []
+        
+        # Check if values look like enum values (not IDs, timestamps, etc.)
+        for val in unique_values:
+            # Skip if looks like UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+            if len(val) == 36 and val.count('-') == 4:
+                return False, []
+            # Skip if looks like an ID pattern (e.g., DFL-MAT-J041T9, DFL-CLU-000003)
+            if self._ID_PATTERN.match(val):
+                return False, []
+            # Skip if looks like ISO timestamp
+            if self._DATETIME_PATTERN.match(val):
+                return False, []
+            # Skip if too long (probably not an enum)
+            if len(val) > 50:
+                return False, []
+            # Skip if looks like a path or URL
+            if '/' in val and len(val) > 20:
+                return False, []
+            # Skip if looks like a numeric value as string (coordinates, etc.)
+            if self._NUMERIC_STRING_PATTERN.match(val):
+                return False, []
+        
+        return True, sorted(unique_values)
+
+    def _infer_object_type_from_values(self, type_name: str, obj_values: List[Dict]) -> Dict[str, Any]:
+        """Infer object type from multiple object values with multi-value analysis.
+        
+        This collects all values for each field across the objects and applies:
+        - Enum detection for repeated string values
+        - Datetime/date/time pattern detection
+        - Proper numeric range analysis
+        
+        Args:
+            type_name: Name for the generated type
+            obj_values: List of dict values to analyze
+            
+        Returns:
+            Object schema with enhanced type inference
+        """
+        if not obj_values:
+            return {"type": "object", "name": avro_name(type_name), "properties": {}}
+        
+        # Collect all values for each field
+        field_values: Dict[str, List[Any]] = {}
+        field_presence: Dict[str, int] = {}  # Count how many objects have this field
+        
+        for obj in obj_values:
+            for key, value in obj.items():
+                if key not in field_values:
+                    field_values[key] = []
+                    field_presence[key] = 0
+                field_values[key].append(value)
+                field_presence[key] += 1
+        
+        properties: Dict[str, Any] = {}
+        required: List[str] = []
+        total_objects = len(obj_values)
+        
+        for field_name in sorted(field_values.keys()):
+            safe_name = avro_name(field_name)
+            values = field_values[field_name]
+            
+            # Check if this field is required (present in all objects)
+            is_required = field_presence[field_name] == total_objects
+            
+            # Try multi-value type inference first
+            inferred_type = self._infer_type_from_values(values)
+            
+            if inferred_type is not None:
+                if isinstance(inferred_type, str):
+                    properties[safe_name] = {"type": inferred_type}
+                else:
+                    properties[safe_name] = inferred_type
+            else:
+                # Fall back to standard single-value inference
+                # Find first non-null value
+                sample_value = None
+                for v in values:
+                    if v is not None:
+                        sample_value = v
+                        break
+                
+                if sample_value is None:
+                    properties[safe_name] = {"type": "null"}
+                else:
+                    prop_type = self.python_type_to_jstruct_type(
+                        f"{type_name}.{safe_name}", sample_value)
+                    if isinstance(prop_type, str):
+                        properties[safe_name] = {"type": prop_type}
+                    else:
+                        properties[safe_name] = prop_type
+            
+            # Add altnames if field was transformed
+            if field_name != safe_name:
+                properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+            
+            # Track required fields
+            if is_required and properties[safe_name].get("type") != "null":
+                required.append(safe_name)
+        
+        result: Dict[str, Any] = {
+            "type": "object",
+            "name": avro_name(type_name),
+            "properties": properties
+        }
+        if required:
+            result["required"] = required
+        
+        return result
 
     def _apply_recursive_choice_inference(self, type_name: str, schema: Dict[str, Any], 
                                            source_values: List[Any], depth: int) -> Dict[str, Any]:
@@ -839,6 +1063,34 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                                     properties[safe_name]["altnames"][self.altnames_key] = field_name
                                 required.append(safe_name)
                                 continue
+                
+                # Check if field values form an enum (small set of repeated string values)
+                is_enum, enum_values = self._is_enum_candidate(field_values)
+                if is_enum:
+                    properties[safe_name] = {
+                        "type": "string",
+                        "enum": enum_values
+                    }
+                    if field_name != safe_name:
+                        properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+                    if field_name in cluster.required_fields:
+                        required.append(safe_name)
+                    continue
+                
+                # Try multi-value type inference (datetime detection, numeric range)
+                inferred_type = self._infer_type_from_values(field_values)
+                if inferred_type is not None:
+                    if isinstance(inferred_type, str):
+                        properties[safe_name] = {"type": inferred_type}
+                    else:
+                        properties[safe_name] = inferred_type
+                    if field_name != safe_name:
+                        if "altnames" not in properties[safe_name]:
+                            properties[safe_name]["altnames"] = {}
+                        properties[safe_name]["altnames"][self.altnames_key] = field_name
+                    if field_name in cluster.required_fields:
+                        required.append(safe_name)
+                    continue
                 
                 # No choice detected or depth limit reached - use standard type inference
                 # Find first non-null value from cluster values for type inference
@@ -1043,6 +1295,12 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         Returns:
             List of unique JSON Structure types
         """
+        # If all values are objects, use multi-value analysis for properties
+        if python_values and all(isinstance(v, dict) for v in python_values):
+            result = self._infer_object_type_from_values(type_name, python_values)
+            if result:
+                return [result]
+        
         list_types = [self.python_type_to_jstruct_type(type_name, item) for item in python_values]
 
         # Eliminate duplicates using tree hashing
@@ -1235,6 +1493,34 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                                         required.append(safe_name)
                                     continue
                     
+                    # Check if field values form an enum
+                    is_enum, enum_values = self._is_enum_candidate(field_values)
+                    if is_enum:
+                        properties[safe_name] = {
+                            "type": "string",
+                            "enum": enum_values
+                        }
+                        if field_name != safe_name:
+                            properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+                        if field_name in cluster.required_fields:
+                            required.append(safe_name)
+                        continue
+                    
+                    # Try multi-value type inference (datetime detection, numeric range)
+                    inferred_type = self._infer_type_from_values(field_values)
+                    if inferred_type is not None:
+                        if isinstance(inferred_type, str):
+                            properties[safe_name] = {"type": inferred_type}
+                        else:
+                            properties[safe_name] = inferred_type
+                        if field_name != safe_name:
+                            if "altnames" not in properties[safe_name]:
+                                properties[safe_name]["altnames"] = {}
+                            properties[safe_name]["altnames"][self.altnames_key] = field_name
+                        if field_name in cluster.required_fields:
+                            required.append(safe_name)
+                        continue
+                    
                     # No choice detected - standard type inference
                     # Find first non-null value from cluster values for type inference
                     field_value = None
@@ -1270,6 +1556,15 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             envelope_properties: Dict[str, Any] = {}
             envelope_required: List[str] = []
             
+            # Collect all values for envelope fields for multi-value inference
+            envelope_values_by_field: Dict[str, List[Any]] = {}
+            for doc in envelope_cluster.documents:
+                for fn, fv in doc.data.items():
+                    if fn not in envelope_values_by_field:
+                        envelope_values_by_field[fn] = []
+                    if fv is not None:
+                        envelope_values_by_field[fn].append(fv)
+            
             for field_name in sorted(envelope_cluster.merged_signature):
                 safe_name = avro_name(field_name)
                 
@@ -1287,7 +1582,45 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                     else:
                         envelope_properties[safe_name] = variant_types[0] if variant_types else {"type": "object"}
                 else:
-                    field_value = rep_doc.get(field_name)
+                    # Collect field values for multi-value inference
+                    field_values = envelope_values_by_field.get(field_name, [])
+                    
+                    # Check if field values form an enum
+                    is_enum, enum_values = self._is_enum_candidate(field_values)
+                    if is_enum:
+                        envelope_properties[safe_name] = {
+                            "type": "string",
+                            "enum": enum_values
+                        }
+                        if field_name != safe_name:
+                            envelope_properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+                        if field_name in envelope_cluster.required_fields:
+                            envelope_required.append(safe_name)
+                        continue
+                    
+                    # Try multi-value type inference
+                    inferred_type = self._infer_type_from_values(field_values)
+                    if inferred_type is not None:
+                        if isinstance(inferred_type, str):
+                            envelope_properties[safe_name] = {"type": inferred_type}
+                        else:
+                            envelope_properties[safe_name] = inferred_type
+                        if field_name != safe_name:
+                            if "altnames" not in envelope_properties[safe_name]:
+                                envelope_properties[safe_name]["altnames"] = {}
+                            envelope_properties[safe_name]["altnames"][self.altnames_key] = field_name
+                        if field_name in envelope_cluster.required_fields:
+                            envelope_required.append(safe_name)
+                        continue
+                    
+                    # Standard type inference from first non-null value
+                    field_value = None
+                    for fv in field_values:
+                        if fv is not None:
+                            field_value = fv
+                            break
+                    if field_value is None:
+                        field_value = rep_doc.get(field_name)
                     field_type = self.python_type_to_jstruct_type(f"{type_name}.{safe_name}", field_value)
                     
                     if isinstance(field_type, str):
@@ -1346,7 +1679,61 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             
             for field_name in sorted(common_fields):
                 safe_name = avro_name(field_name)
-                field_value = rep_doc.get(field_name)
+                
+                # Collect all values for this field across all clusters for enum detection
+                all_field_values: List[Any] = []
+                for cluster in result.clusters:
+                    for doc in cluster.documents:
+                        val = doc.data.get(field_name)
+                        if val is not None:
+                            all_field_values.append(val)
+                
+                # Check if field values form an enum
+                is_enum, enum_values = self._is_enum_candidate(all_field_values)
+                if is_enum:
+                    base_properties[safe_name] = {
+                        "type": "string",
+                        "enum": enum_values
+                    }
+                    if field_name != safe_name:
+                        base_properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+                    # Check if required in all clusters
+                    all_required = all(
+                        field_name in c.required_fields 
+                        for c in result.clusters if c.merged_signature
+                    )
+                    if all_required and field_name != result.discriminator_field:
+                        base_required.append(safe_name)
+                    continue
+                
+                # Try multi-value type inference (datetime detection, numeric range)
+                inferred_type = self._infer_type_from_values(all_field_values)
+                if inferred_type is not None:
+                    if isinstance(inferred_type, str):
+                        base_properties[safe_name] = {"type": inferred_type}
+                    else:
+                        base_properties[safe_name] = inferred_type
+                    if field_name != safe_name:
+                        if "altnames" not in base_properties[safe_name]:
+                            base_properties[safe_name]["altnames"] = {}
+                        base_properties[safe_name]["altnames"][self.altnames_key] = field_name
+                    # Check if required in all clusters
+                    all_required = all(
+                        field_name in c.required_fields 
+                        for c in result.clusters if c.merged_signature
+                    )
+                    if all_required and field_name != result.discriminator_field:
+                        base_required.append(safe_name)
+                    continue
+                
+                # Find first non-null value for type inference
+                field_value = None
+                for val in all_field_values:
+                    if val is not None:
+                        field_value = val
+                        break
+                if field_value is None:
+                    field_value = rep_doc.get(field_name)
                 field_type = self.python_type_to_jstruct_type(f"{type_name}.{safe_name}", field_value)
                 
                 if isinstance(field_type, str):
@@ -1417,6 +1804,42 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                                 break
                     if field_value is None:
                         field_value = variant_doc.get(field_name)
+                    
+                    # Collect all values for enum detection
+                    field_values = []
+                    if cluster_for_variant:
+                        for doc in cluster_for_variant.documents:
+                            val = doc.data.get(field_name)
+                            if val is not None:
+                                field_values.append(val)
+                    
+                    # Check if field values form an enum
+                    is_enum, enum_values = self._is_enum_candidate(field_values)
+                    if is_enum:
+                        properties[safe_name] = {
+                            "type": "string",
+                            "enum": enum_values
+                        }
+                        if field_name != safe_name:
+                            properties[safe_name]["altnames"] = {self.altnames_key: field_name}
+                        if cluster_for_variant and field_name in cluster_for_variant.required_fields:
+                            required.append(safe_name)
+                        continue
+                    
+                    # Try multi-value type inference (datetime detection, numeric range)
+                    inferred_type = self._infer_type_from_values(field_values)
+                    if inferred_type is not None:
+                        if isinstance(inferred_type, str):
+                            properties[safe_name] = {"type": inferred_type}
+                        else:
+                            properties[safe_name] = inferred_type
+                        if field_name != safe_name:
+                            if "altnames" not in properties[safe_name]:
+                                properties[safe_name]["altnames"] = {}
+                            properties[safe_name]["altnames"][self.altnames_key] = field_name
+                        if cluster_for_variant and field_name in cluster_for_variant.required_fields:
+                            required.append(safe_name)
+                        continue
                     
                     field_type = self.python_type_to_jstruct_type(f"{type_name}.{safe_name}", field_value)
                     

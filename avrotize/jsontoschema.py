@@ -67,7 +67,8 @@ def convert_json_to_jstruct(
     base_id: str = 'https://example.com/',
     sample_size: int = 0,
     infer_choices: bool = False,
-    choice_depth: int = 1
+    choice_depth: int = 1,
+    infer_enums: bool = False
 ) -> None:
     """Infers JSON Structure schema from JSON files.
 
@@ -82,6 +83,7 @@ def convert_json_to_jstruct(
         sample_size: Maximum number of records to sample (0 = all)
         infer_choices: Detect discriminated unions and emit as choice types with discriminator defaults
         choice_depth: Maximum nesting depth for recursive choice inference (1 = root only)
+        infer_enums: Detect enum types from repeated string values with low cardinality
     """
     if not input_files:
         raise ValueError("At least one input file is required")
@@ -91,7 +93,8 @@ def convert_json_to_jstruct(
     if not values:
         raise ValueError("No valid JSON data found in input files")
 
-    inferrer = JsonStructureSchemaInferrer(base_id=base_id, infer_choices=infer_choices, choice_depth=choice_depth)
+    inferrer = JsonStructureSchemaInferrer(base_id=base_id, infer_choices=infer_choices, 
+                                            choice_depth=choice_depth, infer_enums=infer_enums)
     schema = inferrer.infer_from_json_values(type_name, values)
 
     # Ensure output directory exists

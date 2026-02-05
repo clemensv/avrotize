@@ -1248,7 +1248,8 @@
         "base_id": "args.base_id",
         "sample_size": "args.sample_size",
         "infer_choices": "args.infer_choices",
-        "choice_depth": "args.choice_depth"
+        "choice_depth": "args.choice_depth",
+        "infer_enums": "args.infer_enums"
       }
     },
     "extensions": [".json", ".jsonl", ".ndjson"],
@@ -1299,6 +1300,13 @@
         "type": "int",
         "help": "Maximum nesting depth for recursive choice inference (1 = root only, 2+ = nested objects)",
         "default": 1,
+        "required": false
+      },
+      {
+        "name": "--infer-enums",
+        "type": "bool",
+        "action": "store_true",
+        "help": "Detect enum types from repeated string values with low cardinality",
         "required": false
       }
     ],

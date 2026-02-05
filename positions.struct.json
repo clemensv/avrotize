@@ -164,19 +164,54 @@
       "name": "EventsBase",
       "properties": {
         "_subtype": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ballClaiming",
+            "ballDeflection",
+            "caution",
+            "cautionTeamofficial",
+            "chanceWithoutShot",
+            "cornerKick",
+            "delete",
+            "fairPlay",
+            "finalWhistle",
+            "foul",
+            "freeKick",
+            "goalDisallowed",
+            "goalKick",
+            "kickOff",
+            "nutmeg",
+            "offside",
+            "otherBallAction",
+            "otherPlayerAction",
+            "ownGoal",
+            "penalty",
+            "play",
+            "possessionLossBeforeGoal",
+            "refereeBall",
+            "run",
+            "shotAtGoal",
+            "spectacularPlay",
+            "startPenaltyShootOut",
+            "substitution",
+            "tacklingGame",
+            "throwIn"
+          ]
         },
         "_timestamp": {
-          "type": "string"
+          "type": "datetime"
         },
         "_type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "event"
+          ]
         },
         "eventId": {
           "type": "string"
         },
         "eventTime": {
-          "type": "string"
+          "type": "datetime"
         },
         "matchId": {
           "type": "string"
@@ -231,7 +266,7 @@
           "type": "string"
         },
         "calculatedTimestamp": {
-          "type": "string"
+          "type": "datetime"
         },
         "xPosition": {
           "type": "string"
@@ -287,7 +322,7 @@
           "type": "string"
         },
         "calculatedTimestamp": {
-          "type": "string"
+          "type": "datetime"
         },
         "xPositionFromTracking": {
           "type": "string"
@@ -795,117 +830,100 @@
           "type": "string"
         },
         "calculatedTimestamp": {
-          "type": "string"
+          "type": "datetime"
         },
         "freeKick": {
-          "type": "object",
-          "name": "freeKick",
-          "properties": {
-            "executionMode": {
-              "type": "string"
-            },
-            "decisionTimestamp": {
-              "type": "string"
-            },
-            "team": {
-              "type": "string"
-            },
-            "_timestamp": {
-              "type": "string"
-            },
-            "_type": {
-              "type": "string"
-            },
-            "_subtype": {
-              "type": "string"
-            },
-            "shotAtGoal": {
+          "type": "choice",
+          "selector": "_subtype",
+          "choices": {
+            "Shotatgoal": {
               "type": "object",
-              "name": "shotAtGoal",
+              "name": "Shotatgoal",
               "properties": {
-                "counterAttack": {
-                  "type": "string"
-                },
-                "takerBallControl": {
-                  "type": "string"
-                },
-                "insideBox": {
-                  "type": "string"
-                },
-                "xG": {
-                  "type": "string"
-                },
-                "chanceEvaluation": {
-                  "type": "string"
-                },
-                "angleToGoal": {
-                  "type": "string"
-                },
-                "directFreeKickIntention": {
-                  "type": "string"
-                },
-                "ballPossessionPhase": {
-                  "type": "string"
-                },
-                "typeOfShot": {
-                  "type": "string"
-                },
-                "setupOrigin": {
-                  "type": "string"
-                },
-                "afterFreeKick": {
-                  "type": "string"
-                },
-                "takerSetup": {
-                  "type": "string"
-                },
-                "shotCondition": {
-                  "type": "string"
-                },
-                "distanceToGoal": {
-                  "type": "string"
-                },
-                "shotOrigin": {
-                  "type": "string"
-                },
-                "buildUp": {
-                  "type": "string"
-                },
-                "player": {
-                  "type": "string"
-                },
-                "team": {
-                  "type": "string"
-                },
-                "rotation": {
-                  "type": "string"
-                },
-                "assistAction": {
-                  "type": "string"
-                },
-                "pressure": {
-                  "type": "string"
-                },
-                "shotAssistFouledPlayer": {
-                  "type": "string"
+                "_subtype": {
+                  "type": "string",
+                  "default": "shotAtGoal"
                 },
                 "_timestamp": {
-                  "type": "string"
+                  "type": "datetime"
                 },
                 "_type": {
                   "type": "string"
                 },
-                "_subtype": {
+                "decisionTimestamp": {
+                  "type": "datetime"
+                },
+                "executionMode": {
                   "type": "string"
                 },
-                "shotWide": {
+                "shotAtGoal": {
                   "type": "object",
-                  "name": "shotWide",
+                  "name": "shotAtGoal",
                   "properties": {
-                    "placing": {
+                    "counterAttack": {
                       "type": "string"
                     },
-                    "pitchMarking": {
+                    "takerBallControl": {
+                      "type": "string"
+                    },
+                    "insideBox": {
+                      "type": "string"
+                    },
+                    "xG": {
+                      "type": "string"
+                    },
+                    "chanceEvaluation": {
+                      "type": "string"
+                    },
+                    "angleToGoal": {
+                      "type": "string"
+                    },
+                    "directFreeKickIntention": {
+                      "type": "string"
+                    },
+                    "ballPossessionPhase": {
+                      "type": "string"
+                    },
+                    "typeOfShot": {
+                      "type": "string"
+                    },
+                    "setupOrigin": {
+                      "type": "string"
+                    },
+                    "afterFreeKick": {
+                      "type": "string"
+                    },
+                    "takerSetup": {
+                      "type": "string"
+                    },
+                    "shotCondition": {
+                      "type": "string"
+                    },
+                    "distanceToGoal": {
+                      "type": "string"
+                    },
+                    "shotOrigin": {
+                      "type": "string"
+                    },
+                    "buildUp": {
+                      "type": "string"
+                    },
+                    "player": {
+                      "type": "string"
+                    },
+                    "team": {
+                      "type": "string"
+                    },
+                    "rotation": {
+                      "type": "string"
+                    },
+                    "assistAction": {
+                      "type": "string"
+                    },
+                    "pressure": {
+                      "type": "string"
+                    },
+                    "shotAssistFouledPlayer": {
                       "type": "string"
                     },
                     "_timestamp": {
@@ -913,55 +931,218 @@
                     },
                     "_type": {
                       "type": "string"
+                    },
+                    "_subtype": {
+                      "type": "string"
+                    },
+                    "shotWide": {
+                      "type": "object",
+                      "name": "shotWide",
+                      "properties": {
+                        "placing": {
+                          "type": "string"
+                        },
+                        "pitchMarking": {
+                          "type": "string"
+                        },
+                        "_timestamp": {
+                          "type": "string"
+                        },
+                        "_type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "placing",
+                        "pitchMarking",
+                        "_timestamp",
+                        "_type"
+                      ]
                     }
                   },
                   "required": [
-                    "placing",
-                    "pitchMarking",
+                    "counterAttack",
+                    "takerBallControl",
+                    "insideBox",
+                    "xG",
+                    "chanceEvaluation",
+                    "angleToGoal",
+                    "directFreeKickIntention",
+                    "ballPossessionPhase",
+                    "typeOfShot",
+                    "setupOrigin",
+                    "afterFreeKick",
+                    "takerSetup",
+                    "shotCondition",
+                    "distanceToGoal",
+                    "shotOrigin",
+                    "buildUp",
+                    "player",
+                    "team",
+                    "rotation",
+                    "assistAction",
+                    "pressure",
+                    "shotAssistFouledPlayer",
                     "_timestamp",
-                    "_type"
+                    "_type",
+                    "_subtype",
+                    "shotWide"
                   ]
+                },
+                "team": {
+                  "type": "string"
                 }
               },
               "required": [
-                "counterAttack",
-                "takerBallControl",
-                "insideBox",
-                "xG",
-                "chanceEvaluation",
-                "angleToGoal",
-                "directFreeKickIntention",
-                "ballPossessionPhase",
-                "typeOfShot",
-                "setupOrigin",
-                "afterFreeKick",
-                "takerSetup",
-                "shotCondition",
-                "distanceToGoal",
-                "shotOrigin",
-                "buildUp",
-                "player",
-                "team",
-                "rotation",
-                "assistAction",
-                "pressure",
-                "shotAssistFouledPlayer",
+                "_subtype",
                 "_timestamp",
                 "_type",
+                "decisionTimestamp",
+                "executionMode",
+                "shotAtGoal",
+                "team"
+              ]
+            },
+            "Play": {
+              "type": "object",
+              "name": "Play",
+              "properties": {
+                "_subtype": {
+                  "type": "string",
+                  "default": "play"
+                },
+                "_timestamp": {
+                  "type": "datetime"
+                },
+                "_type": {
+                  "type": "string",
+                  "enum": [
+                    "freeKick"
+                  ]
+                },
+                "decisionTimestamp": {
+                  "type": "datetime"
+                },
+                "executionMode": {
+                  "type": "string",
+                  "enum": [
+                    "direct",
+                    "indirect"
+                  ]
+                },
+                "play": {
+                  "type": "object",
+                  "name": "play",
+                  "properties": {
+                    "player": {
+                      "type": "string"
+                    },
+                    "height": {
+                      "type": "string"
+                    },
+                    "semiField": {
+                      "type": "string"
+                    },
+                    "evaluation": {
+                      "type": "string"
+                    },
+                    "penaltyBox": {
+                      "type": "string"
+                    },
+                    "playAngle": {
+                      "type": "string"
+                    },
+                    "team": {
+                      "type": "string"
+                    },
+                    "fromOpenPlay": {
+                      "type": "string"
+                    },
+                    "recipient": {
+                      "type": "string"
+                    },
+                    "distance": {
+                      "type": "string"
+                    },
+                    "ballPossessionPhase": {
+                      "type": "string"
+                    },
+                    "playOrigin": {
+                      "type": "string"
+                    },
+                    "flatCross": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    },
+                    "_subtype": {
+                      "type": "string"
+                    },
+                    "pass": {
+                      "type": "object",
+                      "name": "pass",
+                      "properties": {
+                        "freeKickLayup": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string"
+                        },
+                        "_timestamp": {
+                          "type": "string"
+                        },
+                        "_type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "freeKickLayup",
+                        "direction",
+                        "_timestamp",
+                        "_type"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "player",
+                    "height",
+                    "semiField",
+                    "evaluation",
+                    "penaltyBox",
+                    "playAngle",
+                    "team",
+                    "fromOpenPlay",
+                    "recipient",
+                    "distance",
+                    "ballPossessionPhase",
+                    "playOrigin",
+                    "flatCross",
+                    "_timestamp",
+                    "_type",
+                    "_subtype",
+                    "pass"
+                  ]
+                },
+                "team": {
+                  "type": "string"
+                }
+              },
+              "required": [
                 "_subtype",
-                "shotWide"
+                "_timestamp",
+                "_type",
+                "decisionTimestamp",
+                "executionMode",
+                "play",
+                "team"
               ]
             }
           },
-          "required": [
-            "executionMode",
-            "decisionTimestamp",
-            "team",
-            "_timestamp",
-            "_type",
-            "_subtype",
-            "shotAtGoal"
-          ]
+          "name": "freeKick"
         },
         "xPosition": {
           "type": "string"
@@ -1401,7 +1582,7 @@
           "type": "string"
         },
         "calculatedTimestamp": {
-          "type": "string"
+          "type": "datetime"
         },
         "otherBallAction": {
           "type": "object",
@@ -1603,7 +1784,7 @@
           "type": "string"
         },
         "calculatedTimestamp": {
-          "type": "string"
+          "type": "datetime"
         },
         "penalty": {
           "type": "object",
@@ -1847,100 +2028,292 @@
           "type": "string"
         },
         "calculatedTimestamp": {
-          "type": "string"
+          "type": "datetime"
         },
         "play": {
-          "type": "object",
-          "name": "play",
-          "properties": {
-            "player": {
-              "type": "string"
-            },
-            "height": {
-              "type": "string"
-            },
-            "semiField": {
-              "type": "string"
-            },
-            "evaluation": {
-              "type": "string"
-            },
-            "penaltyBox": {
-              "type": "string"
-            },
-            "playAngle": {
-              "type": "string"
-            },
-            "team": {
-              "type": "string"
-            },
-            "fromOpenPlay": {
-              "type": "string"
-            },
-            "distance": {
-              "type": "string"
-            },
-            "ballPossessionPhase": {
-              "type": "string"
-            },
-            "playOrigin": {
-              "type": "string"
-            },
-            "flatCross": {
-              "type": "string"
-            },
-            "_timestamp": {
-              "type": "string"
-            },
-            "_type": {
-              "type": "string"
-            },
-            "_subtype": {
-              "type": "string"
-            },
-            "pass": {
+          "type": "choice",
+          "selector": "_subtype",
+          "choices": {
+            "Pass": {
               "type": "object",
-              "name": "pass",
+              "name": "Pass",
               "properties": {
-                "freeKickLayup": {
-                  "type": "string"
-                },
-                "direction": {
-                  "type": "string"
+                "_subtype": {
+                  "type": "string",
+                  "default": "pass"
                 },
                 "_timestamp": {
-                  "type": "string"
+                  "type": "datetime"
                 },
                 "_type": {
+                  "type": "string",
+                  "enum": [
+                    "play"
+                  ]
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "distance": {
+                  "type": "string",
+                  "enum": [
+                    "long",
+                    "medium",
+                    "short"
+                  ]
+                },
+                "evaluation": {
+                  "type": "string",
+                  "enum": [
+                    "successful",
+                    "successfullyCompleted",
+                    "unsuccessful"
+                  ]
+                },
+                "flatCross": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "fromOpenPlay": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "goalKeeperAction": {
+                  "type": "string",
+                  "enum": [
+                    "punt",
+                    "throwOut"
+                  ]
+                },
+                "height": {
+                  "type": "string",
+                  "enum": [
+                    "flat",
+                    "high"
+                  ]
+                },
+                "pass": {
+                  "type": "object",
+                  "name": "pass",
+                  "properties": {
+                    "freeKickLayup": {
+                      "type": "string"
+                    },
+                    "direction": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "freeKickLayup",
+                    "direction",
+                    "_timestamp",
+                    "_type"
+                  ]
+                },
+                "penaltyBox": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "playAngle": {
+                  "type": "string"
+                },
+                "playOrigin": {
+                  "type": "string",
+                  "enum": [
+                    "oppositionHalf",
+                    "ownHalf"
+                  ]
+                },
+                "player": {
+                  "type": "string"
+                },
+                "recipient": {
+                  "type": "string"
+                },
+                "rotation": {
+                  "type": "string",
+                  "enum": [
+                    "awayFromGoal",
+                    "other",
+                    "towardsGoal"
+                  ]
+                },
+                "semiField": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "team": {
                   "type": "string"
                 }
               },
               "required": [
-                "freeKickLayup",
-                "direction",
+                "_subtype",
                 "_timestamp",
-                "_type"
+                "_type",
+                "ballPossessionPhase",
+                "distance",
+                "evaluation",
+                "flatCross",
+                "fromOpenPlay",
+                "height",
+                "pass",
+                "penaltyBox",
+                "player",
+                "semiField",
+                "team"
+              ]
+            },
+            "Cross": {
+              "type": "object",
+              "name": "Cross",
+              "properties": {
+                "_subtype": {
+                  "type": "string",
+                  "default": "cross"
+                },
+                "_timestamp": {
+                  "type": "datetime"
+                },
+                "_type": {
+                  "type": "string",
+                  "enum": [
+                    "play"
+                  ]
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "cross": {
+                  "type": "object",
+                  "name": "cross",
+                  "properties": {
+                    "side": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "side",
+                    "_timestamp",
+                    "_type"
+                  ]
+                },
+                "distance": {
+                  "type": "string",
+                  "enum": [
+                    "long",
+                    "medium"
+                  ]
+                },
+                "evaluation": {
+                  "type": "string",
+                  "enum": [
+                    "successfullyCompleted",
+                    "unsuccessful"
+                  ]
+                },
+                "flatCross": {
+                  "type": "string",
+                  "enum": [
+                    "false"
+                  ]
+                },
+                "fromOpenPlay": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ]
+                },
+                "height": {
+                  "type": "string",
+                  "enum": [
+                    "high"
+                  ]
+                },
+                "penaltyBox": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "playAngle": {
+                  "type": "string"
+                },
+                "playOrigin": {
+                  "type": "string",
+                  "enum": [
+                    "oppositionHalf"
+                  ]
+                },
+                "player": {
+                  "type": "string"
+                },
+                "recipient": {
+                  "type": "string"
+                },
+                "rotation": {
+                  "type": "string",
+                  "enum": [
+                    "awayFromGoal",
+                    "other",
+                    "towardsGoal"
+                  ]
+                },
+                "semiField": {
+                  "type": "string",
+                  "enum": [
+                    "false"
+                  ]
+                },
+                "team": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "_subtype",
+                "_timestamp",
+                "_type",
+                "ballPossessionPhase",
+                "cross",
+                "distance",
+                "evaluation",
+                "flatCross",
+                "fromOpenPlay",
+                "height",
+                "penaltyBox",
+                "playOrigin",
+                "player",
+                "rotation",
+                "semiField",
+                "team"
               ]
             }
           },
-          "required": [
-            "player",
-            "height",
-            "semiField",
-            "evaluation",
-            "penaltyBox",
-            "playAngle",
-            "team",
-            "fromOpenPlay",
-            "distance",
-            "ballPossessionPhase",
-            "playOrigin",
-            "flatCross",
-            "_timestamp",
-            "_type",
-            "_subtype",
-            "pass"
-          ]
+          "name": "play"
         },
         "xPosition": {
           "type": "string"
@@ -2092,136 +2465,1066 @@
           "type": "string"
         },
         "calculatedTimestamp": {
-          "type": "string"
+          "type": "datetime"
         },
         "shotAtGoal": {
-          "type": "object",
-          "name": "shotAtGoal",
-          "properties": {
-            "counterAttack": {
-              "type": "string"
-            },
-            "takerBallControl": {
-              "type": "string"
-            },
-            "insideBox": {
-              "type": "string"
-            },
-            "xG": {
-              "type": "string"
-            },
-            "chanceEvaluation": {
-              "type": "string"
-            },
-            "angleToGoal": {
-              "type": "string"
-            },
-            "ballPossessionPhase": {
-              "type": "string"
-            },
-            "typeOfShot": {
-              "type": "string"
-            },
-            "setupOrigin": {
-              "type": "string"
-            },
-            "afterFreeKick": {
-              "type": "string"
-            },
-            "takerSetup": {
-              "type": "string"
-            },
-            "assistTypeShotAtGoal": {
-              "type": "string"
-            },
-            "shotContribution": {
-              "type": "string"
-            },
-            "shotCondition": {
-              "type": "string"
-            },
-            "distanceToGoal": {
-              "type": "string"
-            },
-            "shotOrigin": {
-              "type": "string"
-            },
-            "buildUp": {
-              "type": "string"
-            },
-            "player": {
-              "type": "string"
-            },
-            "team": {
-              "type": "string"
-            },
-            "assistShotAtGoal": {
-              "type": "string"
-            },
-            "assistAction": {
-              "type": "string"
-            },
-            "_timestamp": {
-              "type": "string"
-            },
-            "_type": {
-              "type": "string"
-            },
-            "_subtype": {
-              "type": "string"
-            },
-            "shotWide": {
+          "type": "choice",
+          "selector": "_subtype",
+          "choices": {
+            "Shotwide": {
               "type": "object",
-              "name": "shotWide",
+              "name": "Shotwide",
               "properties": {
-                "placing": {
-                  "type": "string"
-                },
-                "pitchMarking": {
-                  "type": "string"
+                "_subtype": {
+                  "type": "string",
+                  "default": "shotWide"
                 },
                 "_timestamp": {
-                  "type": "string"
+                  "type": "datetime"
                 },
                 "_type": {
+                  "type": "string",
+                  "enum": [
+                    "shotAtGoal"
+                  ]
+                },
+                "afterFreeKick": {
+                  "type": "string",
+                  "enum": [
+                    "false"
+                  ]
+                },
+                "amountOfDefenders": {
+                  "type": "string"
+                },
+                "angleToGoal": {
+                  "type": "string"
+                },
+                "assistAction": {
+                  "type": "string"
+                },
+                "assistShotAtGoal": {
+                  "type": "string"
+                },
+                "assistTypeShotAtGoal": {
+                  "type": "string",
+                  "enum": [
+                    "direct",
+                    "indirect",
+                    "others"
+                  ]
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "buildUp": {
+                  "type": "string",
+                  "enum": [
+                    "cornerKick",
+                    "crossOpenPlay",
+                    "freeKick",
+                    "lossOfPossession",
+                    "passOpenPlay",
+                    "run",
+                    "throwIn"
+                  ]
+                },
+                "chanceEvaluation": {
+                  "type": "string",
+                  "enum": [
+                    "chance",
+                    "none",
+                    "sitter"
+                  ]
+                },
+                "counterAttack": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "distanceToGoal": {
+                  "type": "string"
+                },
+                "extendedTypeOfShot": {
+                  "type": "string",
+                  "enum": [
+                    "frontalVolley",
+                    "overHeadKick"
+                  ]
+                },
+                "goalDistanceGoalkeeper": {
+                  "type": "string"
+                },
+                "insideBox": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "player": {
+                  "type": "string"
+                },
+                "playerSpeed": {
+                  "type": "string"
+                },
+                "pressure": {
+                  "type": "string"
+                },
+                "setupOrigin": {
+                  "type": "string",
+                  "enum": [
+                    "insideLeft",
+                    "insideRight",
+                    "left",
+                    "right"
+                  ]
+                },
+                "shotCondition": {
+                  "type": "string",
+                  "enum": [
+                    "complicated",
+                    "notComplicated",
+                    "veryComplicated"
+                  ]
+                },
+                "shotContribution": {
+                  "type": "string"
+                },
+                "shotOrigin": {
+                  "type": "string"
+                },
+                "shotWide": {
+                  "type": "object",
+                  "name": "shotWide",
+                  "properties": {
+                    "placing": {
+                      "type": "string"
+                    },
+                    "pitchMarking": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "placing",
+                    "pitchMarking",
+                    "_timestamp",
+                    "_type"
+                  ]
+                },
+                "sitterContribution": {
+                  "type": "string"
+                },
+                "takerBallControl": {
+                  "type": "string",
+                  "enum": [
+                    "controlShot",
+                    "direct",
+                    "dribblingLess10m",
+                    "dribblingMore10m",
+                    "volley"
+                  ]
+                },
+                "takerSetup": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "typeOfShot": {
+                  "type": "string",
+                  "enum": [
+                    "head",
+                    "leftLeg",
+                    "rightLeg"
+                  ]
+                },
+                "xG": {
                   "type": "string"
                 }
               },
               "required": [
-                "placing",
-                "pitchMarking",
+                "_subtype",
                 "_timestamp",
-                "_type"
+                "_type",
+                "afterFreeKick",
+                "ballPossessionPhase",
+                "buildUp",
+                "chanceEvaluation",
+                "counterAttack",
+                "insideBox",
+                "player",
+                "setupOrigin",
+                "shotCondition",
+                "shotOrigin",
+                "shotWide",
+                "takerBallControl",
+                "takerSetup",
+                "team",
+                "typeOfShot"
+              ]
+            },
+            "Blockedshot": {
+              "type": "object",
+              "name": "Blockedshot",
+              "properties": {
+                "_subtype": {
+                  "type": "string",
+                  "default": "blockedShot"
+                },
+                "_timestamp": {
+                  "type": "datetime"
+                },
+                "_type": {
+                  "type": "string",
+                  "enum": [
+                    "shotAtGoal"
+                  ]
+                },
+                "afterFreeKick": {
+                  "type": "string",
+                  "enum": [
+                    "false"
+                  ]
+                },
+                "amountOfDefenders": {
+                  "type": "string"
+                },
+                "angleToGoal": {
+                  "type": "string"
+                },
+                "assistAction": {
+                  "type": "string"
+                },
+                "assistShotAtGoal": {
+                  "type": "string"
+                },
+                "assistTypeShotAtGoal": {
+                  "type": "string",
+                  "enum": [
+                    "direct",
+                    "indirect",
+                    "others"
+                  ]
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "blockedShot": {
+                  "type": "object",
+                  "name": "blockedShot",
+                  "properties": {
+                    "player": {
+                      "type": "string"
+                    },
+                    "goalPrevented": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "player",
+                    "goalPrevented",
+                    "_timestamp",
+                    "_type"
+                  ]
+                },
+                "buildUp": {
+                  "type": "string",
+                  "enum": [
+                    "cornerKick",
+                    "crossOpenPlay",
+                    "freeKick",
+                    "lossOfPossession",
+                    "passOpenPlay",
+                    "run",
+                    "throwIn"
+                  ]
+                },
+                "chanceEvaluation": {
+                  "type": "string",
+                  "enum": [
+                    "chance",
+                    "none",
+                    "sitter"
+                  ]
+                },
+                "counterAttack": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "distanceToGoal": {
+                  "type": "string"
+                },
+                "extendedTypeOfShot": {
+                  "type": "string"
+                },
+                "goalDistanceGoalkeeper": {
+                  "type": "string"
+                },
+                "insideBox": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "player": {
+                  "type": "string"
+                },
+                "playerSpeed": {
+                  "type": "string"
+                },
+                "pressure": {
+                  "type": "string"
+                },
+                "setupOrigin": {
+                  "type": "string",
+                  "enum": [
+                    "insideLeft",
+                    "insideRight",
+                    "left",
+                    "right"
+                  ]
+                },
+                "shotCondition": {
+                  "type": "string",
+                  "enum": [
+                    "complicated",
+                    "notComplicated",
+                    "veryComplicated"
+                  ]
+                },
+                "shotContribution": {
+                  "type": "string"
+                },
+                "shotOrigin": {
+                  "type": "string"
+                },
+                "sitterContribution": {
+                  "type": "string"
+                },
+                "takerBallControl": {
+                  "type": "string",
+                  "enum": [
+                    "controlShot",
+                    "direct",
+                    "dribblingLess10m",
+                    "dribblingMore10m",
+                    "volley"
+                  ]
+                },
+                "takerSetup": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "typeOfShot": {
+                  "type": "string",
+                  "enum": [
+                    "head",
+                    "leftLeg",
+                    "rightLeg"
+                  ]
+                },
+                "xG": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "_subtype",
+                "_timestamp",
+                "_type",
+                "afterFreeKick",
+                "ballPossessionPhase",
+                "blockedShot",
+                "buildUp",
+                "chanceEvaluation",
+                "counterAttack",
+                "insideBox",
+                "player",
+                "setupOrigin",
+                "shotCondition",
+                "shotOrigin",
+                "takerBallControl",
+                "takerSetup",
+                "team",
+                "typeOfShot"
+              ]
+            },
+            "Shotwoodwork": {
+              "type": "object",
+              "name": "Shotwoodwork",
+              "properties": {
+                "_subtype": {
+                  "type": "string",
+                  "default": "shotWoodWork"
+                },
+                "_timestamp": {
+                  "type": "datetime"
+                },
+                "_type": {
+                  "type": "string"
+                },
+                "afterFreeKick": {
+                  "type": "string"
+                },
+                "amountOfDefenders": {
+                  "type": "string"
+                },
+                "angleToGoal": {
+                  "type": "string"
+                },
+                "assistAction": {
+                  "type": "string"
+                },
+                "assistShotAtGoal": {
+                  "type": "string"
+                },
+                "assistTypeShotAtGoal": {
+                  "type": "string"
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "buildUp": {
+                  "type": "string"
+                },
+                "chanceEvaluation": {
+                  "type": "string"
+                },
+                "counterAttack": {
+                  "type": "string"
+                },
+                "distanceToGoal": {
+                  "type": "string"
+                },
+                "extendedTypeOfShot": {
+                  "type": "string"
+                },
+                "goalDistanceGoalkeeper": {
+                  "type": "string"
+                },
+                "insideBox": {
+                  "type": "string"
+                },
+                "player": {
+                  "type": "string"
+                },
+                "playerSpeed": {
+                  "type": "string"
+                },
+                "pressure": {
+                  "type": "string"
+                },
+                "setupOrigin": {
+                  "type": "string"
+                },
+                "shotCondition": {
+                  "type": "string"
+                },
+                "shotOrigin": {
+                  "type": "string"
+                },
+                "shotWoodWork": {
+                  "type": "object",
+                  "name": "shotWoodWork",
+                  "properties": {
+                    "location": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "location",
+                    "_timestamp",
+                    "_type"
+                  ]
+                },
+                "sitterContribution": {
+                  "type": "string"
+                },
+                "takerBallControl": {
+                  "type": "string"
+                },
+                "takerSetup": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "typeOfShot": {
+                  "type": "string"
+                },
+                "xG": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "_subtype",
+                "_timestamp",
+                "_type",
+                "afterFreeKick",
+                "angleToGoal",
+                "assistAction",
+                "assistShotAtGoal",
+                "assistTypeShotAtGoal",
+                "ballPossessionPhase",
+                "buildUp",
+                "chanceEvaluation",
+                "counterAttack",
+                "distanceToGoal",
+                "insideBox",
+                "player",
+                "setupOrigin",
+                "shotCondition",
+                "shotOrigin",
+                "shotWoodWork",
+                "takerBallControl",
+                "takerSetup",
+                "team",
+                "typeOfShot",
+                "xG"
+              ]
+            },
+            "Successfulshot": {
+              "type": "object",
+              "name": "Successfulshot",
+              "properties": {
+                "_subtype": {
+                  "type": "string",
+                  "default": "successfulShot"
+                },
+                "_timestamp": {
+                  "type": "datetime"
+                },
+                "_type": {
+                  "type": "string",
+                  "enum": [
+                    "shotAtGoal"
+                  ]
+                },
+                "afterFreeKick": {
+                  "type": "string",
+                  "enum": [
+                    "false"
+                  ]
+                },
+                "amountOfDefenders": {
+                  "type": "string"
+                },
+                "angleToGoal": {
+                  "type": "string"
+                },
+                "assistAction": {
+                  "type": "string"
+                },
+                "assistShotAtGoal": {
+                  "type": "string"
+                },
+                "assistTypeShotAtGoal": {
+                  "type": "string",
+                  "enum": [
+                    "direct",
+                    "indirect",
+                    "others"
+                  ]
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "buildUp": {
+                  "type": "string"
+                },
+                "chanceEvaluation": {
+                  "type": "string",
+                  "enum": [
+                    "chance",
+                    "sitter"
+                  ]
+                },
+                "counterAttack": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "distanceToGoal": {
+                  "type": "string"
+                },
+                "extendedTypeOfShot": {
+                  "type": "string"
+                },
+                "goalDistanceGoalkeeper": {
+                  "type": "string"
+                },
+                "insideBox": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "player": {
+                  "type": "string"
+                },
+                "playerSpeed": {
+                  "type": "string"
+                },
+                "pressure": {
+                  "type": "string"
+                },
+                "setupOrigin": {
+                  "type": "string"
+                },
+                "shotCondition": {
+                  "type": "string",
+                  "enum": [
+                    "complicated",
+                    "notComplicated",
+                    "veryComplicated"
+                  ]
+                },
+                "shotContribution": {
+                  "type": "string"
+                },
+                "shotOrigin": {
+                  "type": "string"
+                },
+                "shotSpeed": {
+                  "type": "string"
+                },
+                "sitterContribution": {
+                  "type": "string"
+                },
+                "successfulShot": {
+                  "type": "object",
+                  "name": "successfulShot",
+                  "properties": {
+                    "assistType": {
+                      "type": "string"
+                    },
+                    "solo": {
+                      "type": "string"
+                    },
+                    "assist": {
+                      "type": "string"
+                    },
+                    "currentResult": {
+                      "type": "string"
+                    },
+                    "goalZone": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "assistType",
+                    "solo",
+                    "assist",
+                    "currentResult",
+                    "goalZone",
+                    "_timestamp",
+                    "_type"
+                  ]
+                },
+                "takerBallControl": {
+                  "type": "string"
+                },
+                "takerSetup": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "typeOfShot": {
+                  "type": "string"
+                },
+                "xG": {
+                  "type": "string"
+                },
+                "yShotTracePosition": {
+                  "type": "string"
+                },
+                "zShotTracePosition": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "_subtype",
+                "_timestamp",
+                "_type",
+                "afterFreeKick",
+                "ballPossessionPhase",
+                "buildUp",
+                "chanceEvaluation",
+                "counterAttack",
+                "insideBox",
+                "player",
+                "setupOrigin",
+                "shotCondition",
+                "shotOrigin",
+                "successfulShot",
+                "takerBallControl",
+                "takerSetup",
+                "team",
+                "typeOfShot",
+                "yShotTracePosition",
+                "zShotTracePosition"
+              ]
+            },
+            "Savedshot": {
+              "type": "object",
+              "name": "Savedshot",
+              "properties": {
+                "_subtype": {
+                  "type": "string",
+                  "default": "savedShot"
+                },
+                "_timestamp": {
+                  "type": "datetime"
+                },
+                "_type": {
+                  "type": "string",
+                  "enum": [
+                    "shotAtGoal"
+                  ]
+                },
+                "afterFreeKick": {
+                  "type": "string",
+                  "enum": [
+                    "false"
+                  ]
+                },
+                "amountOfDefenders": {
+                  "type": "string"
+                },
+                "angleToGoal": {
+                  "type": "string"
+                },
+                "assistAction": {
+                  "type": "string"
+                },
+                "assistShotAtGoal": {
+                  "type": "string"
+                },
+                "assistTypeShotAtGoal": {
+                  "type": "string",
+                  "enum": [
+                    "direct",
+                    "indirect",
+                    "others"
+                  ]
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "buildUp": {
+                  "type": "string"
+                },
+                "chanceEvaluation": {
+                  "type": "string",
+                  "enum": [
+                    "chance",
+                    "none",
+                    "sitter"
+                  ]
+                },
+                "counterAttack": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "distanceToGoal": {
+                  "type": "string"
+                },
+                "extendedTypeOfShot": {
+                  "type": "string"
+                },
+                "goalDistanceGoalkeeper": {
+                  "type": "string"
+                },
+                "insideBox": {
+                  "type": "string",
+                  "enum": [
+                    "false",
+                    "true"
+                  ]
+                },
+                "player": {
+                  "type": "string"
+                },
+                "playerSpeed": {
+                  "type": "string"
+                },
+                "pressure": {
+                  "type": "string"
+                },
+                "savedShot": {
+                  "type": "object",
+                  "name": "savedShot",
+                  "properties": {
+                    "goalKeeper": {
+                      "type": "string"
+                    },
+                    "saveResult": {
+                      "type": "string"
+                    },
+                    "saveType": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "goalKeeper",
+                    "saveResult",
+                    "saveType",
+                    "_timestamp",
+                    "_type"
+                  ]
+                },
+                "setupOrigin": {
+                  "type": "string",
+                  "enum": [
+                    "insideLeft",
+                    "insideRight",
+                    "left",
+                    "right"
+                  ]
+                },
+                "shotCondition": {
+                  "type": "string",
+                  "enum": [
+                    "complicated",
+                    "notComplicated",
+                    "veryComplicated"
+                  ]
+                },
+                "shotContribution": {
+                  "type": "string"
+                },
+                "shotOrigin": {
+                  "type": "string"
+                },
+                "shotSpeed": {
+                  "type": "string"
+                },
+                "sitterContribution": {
+                  "type": "string"
+                },
+                "takerBallControl": {
+                  "type": "string",
+                  "enum": [
+                    "controlShot",
+                    "direct",
+                    "dribblingLess10m",
+                    "dribblingMore10m",
+                    "volley"
+                  ]
+                },
+                "takerSetup": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "typeOfShot": {
+                  "type": "string",
+                  "enum": [
+                    "head",
+                    "leftLeg",
+                    "rightLeg"
+                  ]
+                },
+                "xG": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "_subtype",
+                "_timestamp",
+                "_type",
+                "afterFreeKick",
+                "ballPossessionPhase",
+                "buildUp",
+                "chanceEvaluation",
+                "counterAttack",
+                "insideBox",
+                "player",
+                "savedShot",
+                "setupOrigin",
+                "shotCondition",
+                "shotOrigin",
+                "takerBallControl",
+                "takerSetup",
+                "team",
+                "typeOfShot"
+              ]
+            },
+            "Othershot": {
+              "type": "object",
+              "name": "Othershot",
+              "properties": {
+                "_subtype": {
+                  "type": "string",
+                  "default": "otherShot"
+                },
+                "_timestamp": {
+                  "type": "datetime"
+                },
+                "_type": {
+                  "type": "string"
+                },
+                "afterFreeKick": {
+                  "type": "string"
+                },
+                "amountOfDefenders": {
+                  "type": "string"
+                },
+                "angleToGoal": {
+                  "type": "string"
+                },
+                "assistAction": {
+                  "type": "string"
+                },
+                "assistShotAtGoal": {
+                  "type": "string"
+                },
+                "assistTypeShotAtGoal": {
+                  "type": "string"
+                },
+                "ballPossessionPhase": {
+                  "type": "string"
+                },
+                "buildUp": {
+                  "type": "string"
+                },
+                "chanceEvaluation": {
+                  "type": "string"
+                },
+                "counterAttack": {
+                  "type": "string"
+                },
+                "distanceToGoal": {
+                  "type": "string"
+                },
+                "extendedTypeOfShot": {
+                  "type": "string"
+                },
+                "goalDistanceGoalkeeper": {
+                  "type": "string"
+                },
+                "insideBox": {
+                  "type": "string"
+                },
+                "otherShot": {
+                  "type": "object",
+                  "name": "otherShot",
+                  "properties": {
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "_timestamp",
+                    "_type"
+                  ]
+                },
+                "player": {
+                  "type": "string"
+                },
+                "playerSpeed": {
+                  "type": "string"
+                },
+                "pressure": {
+                  "type": "string"
+                },
+                "setupOrigin": {
+                  "type": "string"
+                },
+                "shotCondition": {
+                  "type": "string"
+                },
+                "shotOrigin": {
+                  "type": "string"
+                },
+                "takerBallControl": {
+                  "type": "string"
+                },
+                "takerSetup": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                },
+                "typeOfShot": {
+                  "type": "string"
+                },
+                "xG": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "_subtype",
+                "_timestamp",
+                "_type",
+                "afterFreeKick",
+                "ballPossessionPhase",
+                "buildUp",
+                "chanceEvaluation",
+                "counterAttack",
+                "insideBox",
+                "otherShot",
+                "player",
+                "setupOrigin",
+                "shotCondition",
+                "shotOrigin",
+                "takerBallControl",
+                "takerSetup",
+                "team",
+                "typeOfShot"
               ]
             }
           },
-          "required": [
-            "counterAttack",
-            "takerBallControl",
-            "insideBox",
-            "xG",
-            "chanceEvaluation",
-            "angleToGoal",
-            "ballPossessionPhase",
-            "typeOfShot",
-            "setupOrigin",
-            "afterFreeKick",
-            "takerSetup",
-            "assistTypeShotAtGoal",
-            "shotContribution",
-            "shotCondition",
-            "distanceToGoal",
-            "shotOrigin",
-            "buildUp",
-            "player",
-            "team",
-            "assistShotAtGoal",
-            "assistAction",
-            "_timestamp",
-            "_type",
-            "_subtype",
-            "shotWide"
-          ]
+          "name": "shotAtGoal"
         },
         "xPosition": {
           "type": "string"
@@ -2436,78 +3739,163 @@
       "$extends": "#/definitions/EventsBase",
       "properties": {
         "throwIn": {
-          "type": "object",
-          "name": "throwIn",
-          "properties": {
-            "decisionTimestamp": {
-              "type": "string"
-            },
-            "team": {
-              "type": "string"
-            },
-            "side": {
-              "type": "string"
-            },
-            "_timestamp": {
-              "type": "string"
-            },
-            "_type": {
-              "type": "string"
-            },
-            "_subtype": {
-              "type": "string"
-            },
-            "play": {
+          "type": "choice",
+          "selector": "_subtype",
+          "choices": {
+            "Play": {
               "type": "object",
-              "name": "play",
+              "name": "Play",
               "properties": {
-                "player": {
-                  "type": "string"
+                "_subtype": {
+                  "type": "string",
+                  "default": "play"
                 },
-                "height": {
-                  "type": "string"
+                "_timestamp": {
+                  "type": "datetime"
                 },
-                "semiField": {
-                  "type": "string"
+                "_type": {
+                  "type": "string",
+                  "enum": [
+                    "throwIn"
+                  ]
                 },
-                "evaluation": {
-                  "type": "string"
+                "decisionTimestamp": {
+                  "type": "datetime"
                 },
-                "penaltyBox": {
-                  "type": "string"
+                "play": {
+                  "type": "object",
+                  "name": "play",
+                  "properties": {
+                    "player": {
+                      "type": "string"
+                    },
+                    "height": {
+                      "type": "string"
+                    },
+                    "semiField": {
+                      "type": "string"
+                    },
+                    "evaluation": {
+                      "type": "string"
+                    },
+                    "penaltyBox": {
+                      "type": "string"
+                    },
+                    "team": {
+                      "type": "string"
+                    },
+                    "fromOpenPlay": {
+                      "type": "string"
+                    },
+                    "recipient": {
+                      "type": "string"
+                    },
+                    "distance": {
+                      "type": "string"
+                    },
+                    "ballPossessionPhase": {
+                      "type": "string"
+                    },
+                    "flatCross": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    },
+                    "_subtype": {
+                      "type": "string"
+                    },
+                    "pass": {
+                      "type": "object",
+                      "name": "pass",
+                      "properties": {
+                        "freeKickLayup": {
+                          "type": "string"
+                        },
+                        "_timestamp": {
+                          "type": "string"
+                        },
+                        "_type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "freeKickLayup",
+                        "_timestamp",
+                        "_type"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "player",
+                    "height",
+                    "semiField",
+                    "evaluation",
+                    "penaltyBox",
+                    "team",
+                    "fromOpenPlay",
+                    "recipient",
+                    "distance",
+                    "ballPossessionPhase",
+                    "flatCross",
+                    "_timestamp",
+                    "_type",
+                    "_subtype",
+                    "pass"
+                  ]
+                },
+                "side": {
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "right"
+                  ]
                 },
                 "team": {
                   "type": "string"
-                },
-                "fromOpenPlay": {
-                  "type": "string"
-                },
-                "recipient": {
-                  "type": "string"
-                },
-                "distance": {
-                  "type": "string"
-                },
-                "ballPossessionPhase": {
-                  "type": "string"
-                },
-                "flatCross": {
-                  "type": "string"
+                }
+              },
+              "required": [
+                "_subtype",
+                "_timestamp",
+                "_type",
+                "decisionTimestamp",
+                "play",
+                "side",
+                "team"
+              ]
+            },
+            "Faultexecution": {
+              "type": "object",
+              "name": "Faultexecution",
+              "properties": {
+                "_subtype": {
+                  "type": "string",
+                  "default": "faultExecution"
                 },
                 "_timestamp": {
-                  "type": "string"
+                  "type": "datetime"
                 },
                 "_type": {
                   "type": "string"
                 },
-                "_subtype": {
-                  "type": "string"
+                "decisionTimestamp": {
+                  "type": "datetime"
                 },
-                "pass": {
+                "faultExecution": {
                   "type": "object",
-                  "name": "pass",
+                  "name": "faultExecution",
                   "properties": {
-                    "freeKickLayup": {
+                    "ballPossessionPhase": {
+                      "type": "string"
+                    },
+                    "player": {
+                      "type": "string"
+                    },
+                    "team": {
                       "type": "string"
                     },
                     "_timestamp": {
@@ -2518,40 +3906,94 @@
                     }
                   },
                   "required": [
-                    "freeKickLayup",
+                    "ballPossessionPhase",
+                    "player",
+                    "team",
                     "_timestamp",
                     "_type"
                   ]
+                },
+                "side": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
                 }
               },
               "required": [
-                "player",
-                "height",
-                "semiField",
-                "evaluation",
-                "penaltyBox",
-                "team",
-                "fromOpenPlay",
-                "recipient",
-                "distance",
-                "ballPossessionPhase",
-                "flatCross",
+                "_subtype",
                 "_timestamp",
                 "_type",
+                "decisionTimestamp",
+                "faultExecution",
+                "side",
+                "team"
+              ]
+            },
+            "Fairplay": {
+              "type": "object",
+              "name": "Fairplay",
+              "properties": {
+                "_subtype": {
+                  "type": "string",
+                  "default": "fairPlay"
+                },
+                "_timestamp": {
+                  "type": "datetime"
+                },
+                "_type": {
+                  "type": "string"
+                },
+                "decisionTimestamp": {
+                  "type": "datetime"
+                },
+                "fairPlay": {
+                  "type": "object",
+                  "name": "fairPlay",
+                  "properties": {
+                    "player": {
+                      "type": "string"
+                    },
+                    "team": {
+                      "type": "string"
+                    },
+                    "ballPossessionPhase": {
+                      "type": "string"
+                    },
+                    "_timestamp": {
+                      "type": "string"
+                    },
+                    "_type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "player",
+                    "team",
+                    "ballPossessionPhase",
+                    "_timestamp",
+                    "_type"
+                  ]
+                },
+                "side": {
+                  "type": "string"
+                },
+                "team": {
+                  "type": "string"
+                }
+              },
+              "required": [
                 "_subtype",
-                "pass"
+                "_timestamp",
+                "_type",
+                "decisionTimestamp",
+                "fairPlay",
+                "side",
+                "team"
               ]
             }
           },
-          "required": [
-            "decisionTimestamp",
-            "team",
-            "side",
-            "_timestamp",
-            "_type",
-            "_subtype",
-            "play"
-          ]
+          "name": "throwIn"
         },
         "xPosition": {
           "type": "string"
