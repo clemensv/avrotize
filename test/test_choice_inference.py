@@ -687,6 +687,50 @@ class TestLargeDiscriminatorSets(unittest.TestCase):
         self.assertTrue(result.is_choice, "Subset/inheritance pattern should be detected")
         self.assertEqual(result.discriminator_field, "type")
 
+    def test_optional_fields_in_choice_variants(self):
+        """Test that fields present in only some documents are marked optional.
+        
+        In variant A: 'extra' appears in 2/4 documents → optional
+        In variant B: 'other' appears in all 3 documents → required
+        """
+        from avrotize.schema_inference import JsonStructureSchemaInferrer
+        
+        values = [
+            {"type": "A", "common": "c", "extra": "e1"},
+            {"type": "A", "common": "c"},  # no extra
+            {"type": "A", "common": "c", "extra": "e2"},
+            {"type": "A", "common": "c"},  # no extra
+            {"type": "B", "common": "c", "other": "o1"},
+            {"type": "B", "common": "c", "other": "o2"},
+            {"type": "B", "common": "c", "other": "o3"},
+        ]
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True)
+        schema = inferrer.infer_from_json_values("Event", values)
+        
+        # Should be a choice with inheritance pattern
+        self.assertEqual(schema.get("type"), "choice")
+        
+        # Common fields should be in base class
+        definitions = schema.get("definitions", {})
+        base_def = definitions.get("EventBase", {})
+        base_required = base_def.get("required", [])
+        self.assertIn("common", base_required, "common should be required in base (all docs have it)")
+        
+        # 'extra' appears in only 2/4 variant A docs, should be optional in A
+        a_def = definitions.get("A", {})
+        a_required = a_def.get("required", [])
+        a_properties = list(a_def.get("properties", {}).keys())
+        
+        self.assertIn("extra", a_properties, "extra should be in A's properties")
+        self.assertNotIn("extra", a_required, "extra should NOT be required (only 2/4 docs have it)")
+        
+        # 'other' appears in all 3 variant B docs, should be required in B
+        b_def = definitions.get("B", {})
+        b_required = b_def.get("required", [])
+        
+        self.assertIn("other", b_required, "other should be required (all 3/3 docs have it)")
+
 
 if __name__ == '__main__':
     unittest.main()

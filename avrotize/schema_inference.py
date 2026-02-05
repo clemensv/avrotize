@@ -843,7 +843,8 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                         properties[safe_name]["altnames"] = {}
                     properties[safe_name]["altnames"][self.altnames_key] = field_name
                 
-                if field_type != "null":
+                # Use cluster.required_fields to determine if field appears in all documents
+                if field_name in cluster.required_fields:
                     required.append(safe_name)
             
             variant_schema: Dict[str, Any] = {
