@@ -395,6 +395,24 @@ def infer_choice_type(
         if best.correlation_score > 0.3:
             clusters = _recluster_by_discriminator(documents, best)
     
+    # Fallback: if multi-cluster but no discriminator, try single-cluster analysis
+    # This handles cases where clustering threshold merged distinct types
+    if len(clusters) > 1 and not discriminators:
+        # Treat all documents as one cluster for discriminator detection
+        all_sigs = [d.field_signature for d in documents]
+        merged_sig = set().union(*all_sigs) if all_sigs else set()
+        required_sig = set(all_sigs[0]).intersection(*all_sigs[1:]) if len(all_sigs) > 1 else (set(all_sigs[0]) if all_sigs else set())
+        single_cluster = [SchemaCluster(
+            id=0,
+            documents=documents,
+            merged_signature=merged_sig,
+            required_fields=required_sig
+        )]
+        fallback_discriminators = _detect_discriminators(documents, single_cluster)
+        if fallback_discriminators and fallback_discriminators[0].correlation_score > 0.3:
+            discriminators = fallback_discriminators
+            clusters = _recluster_by_discriminator(documents, fallback_discriminators[0])
+    
     # Single cluster = check for nested discriminator or sparse data
     if len(clusters) == 1:
         nested_result = None
