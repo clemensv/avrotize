@@ -2,6 +2,16 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.3.2] - 2026-02-06
+
+### Fixed
+
+- **Choice discriminator validation**: Discriminator values must now be identifier-like strings (e.g., `PlayerTracking`, `goal_event`) rather than arbitrary values
+  - Excludes numeric values (`"1"`, `"15"`, `"2024"`)
+  - Excludes date/season patterns (`"2020/2021"`)
+  - Excludes booleans and other non-identifier strings
+  - Reduces false positives when inferring discriminated unions from JSON data
+
 ## [3.3.1] - 2026-02-06
 
 ### Fixed
