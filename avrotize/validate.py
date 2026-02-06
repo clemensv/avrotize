@@ -147,12 +147,21 @@ def validate_file(
     instances = []
     instance_paths = []
 
+    # Check if schema expects an array at the root
+    schema_is_array = isinstance(schema, dict) and schema.get('type') == 'array'
+
     # Try as JSON array or object
     try:
         data = json.loads(content)
         if isinstance(data, list):
-            instances = data
-            instance_paths = [f"{instance_file}[{i}]" for i in range(len(data))]
+            if schema_is_array:
+                # Schema expects an array, so validate the whole array as one instance
+                instances = [data]
+                instance_paths = [instance_file]
+            else:
+                # Schema expects individual items, validate each array element
+                instances = data
+                instance_paths = [f"{instance_file}[{i}]" for i in range(len(data))]
         else:
             instances = [data]
             instance_paths = [instance_file]
