@@ -689,6 +689,36 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             return 'time'
         return 'string'
 
+    def _make_jstruct_nullable(self, type_schema: Dict[str, Any] | str) -> Dict[str, Any]:
+        """Make a JSON Structure type nullable by adding null to the type union.
+        
+        Args:
+            type_schema: The type schema to make nullable
+            
+        Returns:
+            A type schema that accepts null values
+        """
+        if isinstance(type_schema, str):
+            if type_schema == "null":
+                return {"type": "null"}
+            return {"type": [type_schema, "null"]}
+        elif isinstance(type_schema, dict):
+            current_type = type_schema.get("type")
+            if current_type == "null":
+                return type_schema
+            elif isinstance(current_type, list):
+                if "null" not in current_type:
+                    type_schema["type"] = current_type + ["null"]
+                return type_schema
+            elif isinstance(current_type, str):
+                type_schema["type"] = [current_type, "null"]
+                return type_schema
+            else:
+                # Complex type, wrap it
+                type_schema["type"] = [type_schema.get("type", "string"), "null"]
+                return type_schema
+        return {"type": ["string", "null"]}
+
     def _infer_type_from_values(self, values: List[Any]) -> Dict[str, Any] | str | None:
         """Analyze multiple values to determine the best type.
         
@@ -697,6 +727,7 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         
         Args:
             values: List of values for the same field
+
             
         Returns:
             Type schema if a specialized type was detected, None otherwise
@@ -840,6 +871,9 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             # Check if this field is required (present in all objects)
             is_required = field_presence[field_name] == total_objects
             
+            # Check if any value is null - if so, the type must be nullable
+            has_null_values = any(v is None for v in values)
+            
             # Try multi-value type inference first
             inferred_type = self._infer_type_from_values(values)
             
@@ -899,12 +933,16 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                         else:
                             properties[safe_name] = prop_type
             
+            # Make type nullable if any value was null
+            if has_null_values and properties[safe_name].get("type") != "null":
+                properties[safe_name] = self._make_jstruct_nullable(properties[safe_name])
+            
             # Add altnames if field was transformed
             if field_name != safe_name:
                 properties[safe_name]["altnames"] = {self.altnames_key: field_name}
             
-            # Track required fields
-            if is_required and properties[safe_name].get("type") != "null":
+            # Track required fields - don't require fields that can be null
+            if is_required and not has_null_values and properties[safe_name].get("type") != "null":
                 required.append(safe_name)
         
         result: Dict[str, Any] = {

@@ -16,12 +16,15 @@ from avrotize.schema_inference import (
     infer_avro_schema_from_json,
     infer_avro_schema_from_xml,
     infer_jstruct_schema_from_json,
-    infer_jstruct_schema_from_xml
+    infer_jstruct_schema_from_xml,
+    JsonStructureSchemaInferrer,
+    AvroSchemaInferrer
 )
 
 
 class TestJsonToAvro(unittest.TestCase):
     """Test cases for JSON to Avro schema inference."""
+
 
     def test_simple_object(self):
         """Test inference from a simple JSON object."""
@@ -495,6 +498,275 @@ class TestMultipleFiles(unittest.TestCase):
         finally:
             for f in files:
                 os.unlink(f)
+
+
+class TestRoundTripValidation(unittest.TestCase):
+    """
+    Round-trip validation tests: ALL source instances MUST validate against
+    the inferred schema. This is a critical invariant for schema inference.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        """Check if json-structure SDK is available."""
+        try:
+            from json_structure import InstanceValidator, SchemaValidator
+            cls.json_structure_available = True
+        except ImportError:
+            cls.json_structure_available = False
+
+    def _validate_jstruct_roundtrip(self, values, schema, msg_prefix=""):
+        """Helper to validate all instances against a JSON Structure schema."""
+        if not self.json_structure_available:
+            self.skipTest("json-structure SDK not installed")
+        
+        from json_structure import InstanceValidator, SchemaValidator
+        
+        # First, schema itself must be valid
+        schema_validator = SchemaValidator()
+        schema_errors = schema_validator.validate(schema)
+        self.assertEqual(schema_errors, [], f"{msg_prefix}Schema validation failed: {schema_errors}")
+        
+        # All input instances must validate against the schema
+        instance_validator = InstanceValidator(schema)
+        for i, instance in enumerate(values):
+            errors = instance_validator.validate_instance(instance)
+            self.assertEqual(errors, [], 
+                f"{msg_prefix}Instance {i} failed validation: {errors}\nInstance: {json.dumps(instance, indent=2)}\nSchema: {json.dumps(schema, indent=2)}")
+
+    def test_simple_object_roundtrip(self):
+        """Simple objects must validate against inferred schema."""
+        values = [
+            {"name": "Alice", "age": 30, "active": True},
+            {"name": "Bob", "age": 25, "active": False}
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='Person')
+        self._validate_jstruct_roundtrip(values, schema, "Simple object: ")
+
+    def test_nested_object_roundtrip(self):
+        """Nested objects must validate against inferred schema."""
+        values = [
+            {"user": {"name": "Alice", "email": "alice@example.com"}, "score": 100},
+            {"user": {"name": "Bob", "email": "bob@example.com"}, "score": 85}
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='Event')
+        self._validate_jstruct_roundtrip(values, schema, "Nested object: ")
+
+    def test_array_of_objects_roundtrip(self):
+        """Arrays of objects must validate against inferred schema."""
+        values = [
+            {"items": [{"id": 1, "name": "Item1"}, {"id": 2, "name": "Item2"}]},
+            {"items": [{"id": 3, "name": "Item3"}]}
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='Container')
+        self._validate_jstruct_roundtrip(values, schema, "Array of objects: ")
+
+    def test_sparse_data_roundtrip(self):
+        """Sparse data (different fields in different instances) must validate."""
+        values = [
+            {"name": "Alice", "age": 30},
+            {"name": "Bob", "email": "bob@example.com"},
+            {"name": "Charlie", "age": 35, "email": "charlie@example.com"}
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='Person')
+        self._validate_jstruct_roundtrip(values, schema, "Sparse data: ")
+
+    def test_deeply_nested_roundtrip(self):
+        """Deeply nested structures must validate."""
+        values = [
+            {"level1": {"level2": {"level3": {"value": "deep"}}}},
+            {"level1": {"level2": {"level3": {"value": "deeper", "extra": 42}}}}
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='DeepNest')
+        self._validate_jstruct_roundtrip(values, schema, "Deeply nested: ")
+
+    def test_mixed_types_in_array_roundtrip(self):
+        """Arrays with mixed content must validate."""
+        values = [
+            {"data": [1, 2, 3]},
+            {"data": [4, 5]}
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='MixedArray')
+        self._validate_jstruct_roundtrip(values, schema, "Mixed array: ")
+
+    def test_null_values_roundtrip(self):
+        """Null values in instances must validate."""
+        values = [
+            {"name": "Alice", "nickname": None},
+            {"name": "Bob", "nickname": "Bobby"}
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='Person')
+        self._validate_jstruct_roundtrip(values, schema, "Null values: ")
+
+    def test_enum_inference_roundtrip(self):
+        """Enum-inferred fields must validate original values."""
+        values = [
+            {"status": "active", "priority": "high"},
+            {"status": "active", "priority": "low"},
+            {"status": "inactive", "priority": "medium"},
+            {"status": "pending", "priority": "high"}
+        ]
+        
+        inferrer = JsonStructureSchemaInferrer(infer_enums=True)
+        schema = inferrer.infer_from_json_values('Item', values)
+        self._validate_jstruct_roundtrip(values, schema, "Enum inference: ")
+
+    def test_choice_inference_roundtrip(self):
+        """Choice-inferred schemas must validate all variant instances."""
+        values = [
+            {"type": "goalEvent", "playerId": "P1", "score": 1},
+            {"type": "goalEvent", "playerId": "P2", "score": 2},
+            {"type": "cardEvent", "playerId": "P3", "cardType": "yellow"},
+            {"type": "cardEvent", "playerId": "P4", "cardType": "red"},
+            {"type": "substitutionEvent", "playerIn": "P5", "playerOut": "P6"},
+        ]
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True, choice_depth=1)
+        schema = inferrer.infer_from_json_values('Event', values)
+        self._validate_jstruct_roundtrip(values, schema, "Choice inference: ")
+
+    def test_choice_preserves_discriminator_casing(self):
+        """Choice inference must preserve original casing of discriminator values."""
+        values = [
+            {"type": "goalEvent", "score": 1},
+            {"type": "cardEvent", "cardType": "yellow"},
+            {"type": "substitution_event", "playerIn": "P5"},
+        ]
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True, choice_depth=1)
+        schema = inferrer.infer_from_json_values('Event', values)
+        
+        # Check that choice keys match original values exactly
+        if 'choices' in schema:
+            choice_keys = set(schema['choices'].keys())
+            expected_keys = {"goalEvent", "cardEvent", "substitution_event"}
+            self.assertEqual(choice_keys, expected_keys, 
+                f"Choice keys don't match original discriminator values. Got: {choice_keys}")
+        
+        # Also validate round-trip
+        self._validate_jstruct_roundtrip(values, schema, "Choice casing: ")
+
+    def test_nested_choice_inference_roundtrip(self):
+        """Nested choice inference (choice_depth > 1) must validate."""
+        values = [
+            {
+                "type": "match",
+                "events": [
+                    {"eventType": "goal", "scorer": "Player1"},
+                    {"eventType": "card", "recipient": "Player2", "cardColor": "yellow"}
+                ]
+            },
+            {
+                "type": "match", 
+                "events": [
+                    {"eventType": "substitution", "playerIn": "Player3", "playerOut": "Player4"}
+                ]
+            }
+        ]
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True, choice_depth=2)
+        schema = inferrer.infer_from_json_values('Match', values)
+        self._validate_jstruct_roundtrip(values, schema, "Nested choice: ")
+
+    def test_datetime_inference_roundtrip(self):
+        """Datetime-inferred fields must validate original ISO strings."""
+        values = [
+            {"created": "2024-01-15T10:30:00Z", "date": "2024-01-15"},
+            {"created": "2024-02-20T14:45:30Z", "date": "2024-02-20"}
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='Event')
+        self._validate_jstruct_roundtrip(values, schema, "Datetime inference: ")
+
+    def test_complex_real_world_structure_roundtrip(self):
+        """Complex real-world-like structures must validate."""
+        values = [
+            {
+                "matchId": "M001",
+                "timestamp": "2024-01-15T15:00:00Z",
+                "homeTeam": {"id": "T1", "name": "Team A", "score": 2},
+                "awayTeam": {"id": "T2", "name": "Team B", "score": 1},
+                "events": [
+                    {"minute": 23, "type": "goal", "player": "P1"},
+                    {"minute": 45, "type": "halftime"}
+                ]
+            },
+            {
+                "matchId": "M002",
+                "timestamp": "2024-01-16T18:00:00Z", 
+                "homeTeam": {"id": "T3", "name": "Team C", "score": 0},
+                "awayTeam": {"id": "T4", "name": "Team D", "score": 0},
+                "events": []
+            }
+        ]
+        
+        schema = infer_jstruct_schema_from_json(values, type_name='Match')
+        self._validate_jstruct_roundtrip(values, schema, "Complex structure: ")
+
+
+class TestJSONLRoundTrip(unittest.TestCase):
+    """Round-trip tests for JSONL files where each line must validate."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from json_structure import InstanceValidator, SchemaValidator
+            cls.json_structure_available = True
+        except ImportError:
+            cls.json_structure_available = False
+
+    def test_jsonl_lines_validate_individually(self):
+        """Each line in a JSONL file must validate against the inferred schema."""
+        if not self.json_structure_available:
+            self.skipTest("json-structure SDK not installed")
+        
+        from json_structure import InstanceValidator, SchemaValidator
+        
+        # Create JSONL content
+        lines = [
+            {"id": 1, "name": "Line1", "active": True},
+            {"id": 2, "name": "Line2", "active": False},
+            {"id": 3, "name": "Line3", "extra": "optional field"}
+        ]
+        
+        # Create temp JSONL file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+            for line in lines:
+                f.write(json.dumps(line) + '\n')
+            jsonl_file = f.name
+
+        try:
+            output_file = os.path.join(tempfile.gettempdir(), 'avrotize', 'test_jsonl_roundtrip.jstruct.json')
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+            
+            convert_json_to_jstruct(
+                input_files=[jsonl_file],
+                jstruct_schema_file=output_file,
+                type_name='LineRecord'
+            )
+            
+            with open(output_file, 'r') as f:
+                schema = json.load(f)
+            
+            # Schema must be valid
+            schema_validator = SchemaValidator()
+            schema_errors = schema_validator.validate(schema)
+            self.assertEqual(schema_errors, [], f"Schema validation failed: {schema_errors}")
+            
+            # Each line must validate
+            instance_validator = InstanceValidator(schema)
+            for i, line in enumerate(lines):
+                errors = instance_validator.validate_instance(line)
+                self.assertEqual(errors, [], f"JSONL line {i+1} failed validation: {errors}")
+        finally:
+            os.unlink(jsonl_file)
 
 
 if __name__ == '__main__':
