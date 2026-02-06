@@ -8,8 +8,8 @@
     <ItemGroup>
         <PackageReference Include="Apache.Avro" Version="1.12.0" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-        <PackageReference Include="System.Text.Json" Version="10.0.1" />
-        <PackageReference Include="System.Memory.Data" Version="9.0.3" />
+        <PackageReference Include="System.Text.Json" Version="10.0.2" />
+        <PackageReference Include="System.Memory.Data" Version="10.0.2" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\typemapunion-cs\src\TypeMapUnion.csproj" />
