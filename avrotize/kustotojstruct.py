@@ -128,7 +128,15 @@ class KustoToJsonStructure:
                 for column in kusto_schema['OrderedColumns']:
                     jstruct_type = self.map_kusto_type_to_jstruct_type(
                         column['CslType'], table_name, column['Name'], type_column, type_value)
-                    prop: Dict[str, JsonNode] = {"type": jstruct_type}
+                    
+                    # For dynamic columns, jstruct_type is a full schema object
+                    # For static columns, it's a type string
+                    if isinstance(jstruct_type, dict):
+                        # Full schema object from inference - use directly as property schema
+                        prop = jstruct_type
+                    else:
+                        prop = {"type": jstruct_type}
+                    
                     doc: JsonNode = column.get('DocString', '')
                     if doc:
                         prop["description"] = doc

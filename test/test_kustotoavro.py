@@ -280,7 +280,11 @@ def test_k2a_with_infer_choices(kusto_container):
     reason="Container tests skipped"
 )
 def test_k2s_basic_schema_inference(kusto_container):
-    """Test basic k2s schema inference from Kusto table."""
+    """Test basic k2s schema inference from Kusto table.
+    
+    Verifies that the dynamic 'payload' column is properly inferred
+    from the sample data, not just mapped to a generic 'object' type.
+    """
     output_path = os.path.join(tempfile.gettempdir(), "avrotize", "k2s_basic.jstruct.json")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -305,6 +309,21 @@ def test_k2s_basic_schema_inference(kusto_container):
     assert "id" in schema["properties"]
     assert "timestamp" in schema["properties"]
     assert "payload" in schema["properties"]
+    
+    # Verify payload was actually inferred (not just "object")
+    payload_schema = schema["properties"]["payload"]
+    # Should have type info from inference
+    assert "type" in payload_schema
+    payload_type = payload_schema["type"]
+    
+    # Without infer_choices, payload should be an object with merged properties
+    if payload_type == "object":
+        # Should have inferred properties from the dynamic column data
+        assert "properties" in payload_schema
+        # Should have discovered at least some fields from our test data
+        props = payload_schema["properties"]
+        # The data has event_type, version, data, name, email, orderId, etc.
+        assert len(props) > 0, "Inference should discover properties in dynamic column"
 
 
 @pytest.mark.skipif(
@@ -370,15 +389,32 @@ def test_k2s_with_infer_choices(kusto_container):
     assert "payload" in schema["properties"]
     payload_schema = schema["properties"]["payload"]
     
-    # With infer_choices, payload should be a choice type
-    if "type" in payload_schema:
-        payload_type = payload_schema["type"]
-        # Choice type is indicated by type="choice" with selector and choices
-        if payload_type == "choice":
-            assert "selector" in payload_schema, "choice type should have selector"
-            assert "choices" in payload_schema, "choice type should have choices"
-            # Verify we have multiple variants
-            assert len(payload_schema["choices"]) > 1, "should have multiple choice variants"
+    # With infer_choices=True, payload should be a choice type
+    # The test data has event_type as discriminator for user_signup, order_placed, metric
+    # and nested data.type for text, image, video, audio
+    assert "type" in payload_schema, "payload should have inferred type"
+    payload_type = payload_schema["type"]
+    
+    if payload_type == "choice":
+        # Proper choice type detected - verify structure
+        assert "selector" in payload_schema, "choice type must have selector"
+        assert "choices" in payload_schema, "choice type must have choices"
+        assert len(payload_schema["choices"]) >= 2, f"should have multiple variants, got {list(payload_schema['choices'].keys())}"
+        
+        # Each choice variant should have the discriminator with default
+        for variant_name, variant_schema in payload_schema["choices"].items():
+            variant_type = variant_schema.get("type", {})
+            if isinstance(variant_type, dict) and "properties" in variant_type:
+                props = variant_type["properties"]
+                selector = payload_schema["selector"]
+                if selector in props:
+                    assert "default" in props[selector], f"discriminator {selector} should have default in variant {variant_name}"
+    else:
+        # May be an object if inference didn't find clear discriminator pattern
+        # but should still have discovered structure from the dynamic column
+        assert payload_type == "object", f"expected choice or object, got {payload_type}"
+        assert "properties" in payload_schema, "inferred object should have properties"
+        assert len(payload_schema["properties"]) > 0, "should have discovered properties"
 
 
 @pytest.mark.skipif(
