@@ -764,7 +764,10 @@
         "avro_namespace": "args.namespace",
         "avro_schema_file": "output_file_path",
         "emit_cloudevents": "args.emit_cloudevents",
-        "emit_cloudevents_xregistry": "args.emit_xregistry"
+        "emit_cloudevents_xregistry": "args.emit_xregistry",
+        "sample_size": "args.sample_size",
+        "infer_choices": "args.infer_choices",
+        "choice_depth": "args.choice_depth"
       }
     },
     "extensions": [
@@ -819,6 +822,26 @@
         "type": "bool",
         "help": "Emit an xRegistry manifest with CloudEvents declarations for each table instead of a single Avrotize schema",
         "required": false
+      },
+      {
+        "name": "--sample-size",
+        "type": "int",
+        "help": "Maximum number of records to sample for dynamic field inference (0 = all)",
+        "default": 100,
+        "required": false
+      },
+      {
+        "name": "--infer-choices",
+        "type": "bool",
+        "help": "Detect discriminated unions in dynamic fields and emit as Avro unions with discriminator defaults",
+        "required": false
+      },
+      {
+        "name": "--choice-depth",
+        "type": "int",
+        "help": "Maximum nesting depth for recursive choice inference in dynamic fields (1 = root only)",
+        "default": 1,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{kusto_database}.avsc",
@@ -826,6 +849,131 @@
       {
         "name": "--namespace",
         "message": "Enter the namespace for the Avro schema",
+        "type": "str",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents",
+        "message": "Emit CloudEvents declarations for each table?",
+        "type": "bool",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--emit-xregistry",
+        "message": "Emit an xRegistry manifest with CloudEvents declarations?",
+        "type": "bool",
+        "default": false,
+        "required": false
+      }
+    ],
+    "skip_input_file_handling": true
+  },
+  {
+    "command": "k2s",
+    "description": "Convert Kusto schema to JSON Structure schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.kustotojstruct.convert_kusto_to_jstruct",
+      "args": {
+        "kusto_uri": "args.kusto_uri",
+        "kusto_database": "args.kusto_database",
+        "table_name": "args.table_name",
+        "base_id": "args.base_id",
+        "jstruct_schema_file": "output_file_path",
+        "emit_cloudevents": "args.emit_cloudevents",
+        "emit_cloudevents_xregistry": "args.emit_xregistry",
+        "sample_size": "args.sample_size",
+        "infer_choices": "args.infer_choices",
+        "choice_depth": "args.choice_depth",
+        "infer_enums": "args.infer_enums"
+      }
+    },
+    "extensions": [
+      ".kusto"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Kusto file",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure schema file",
+        "required": false
+      },
+      {
+        "name": "--kusto-uri",
+        "type": "str",
+        "help": "Kusto Cluster URI",
+        "required": false
+      },
+      {
+        "name": "--kusto-database",
+        "type": "str",
+        "help": "Kusto database",
+        "required": false
+      },
+      {
+        "name": "--table-name",
+        "type": "str",
+        "help": "Kusto table name",
+        "required": false
+      },
+      {
+        "name": "--base-id",
+        "type": "str",
+        "help": "Base URI for $id generation",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents",
+        "type": "bool",
+        "help": "Emit CloudEvents declarations for each table",
+        "required": false
+      },
+      {
+        "name": "--emit-xregistry",
+        "type": "bool",
+        "help": "Emit an xRegistry manifest with CloudEvents declarations for each table instead of a single JSON Structure schema",
+        "required": false
+      },
+      {
+        "name": "--sample-size",
+        "type": "int",
+        "help": "Maximum number of records to sample for dynamic field inference (0 = all)",
+        "default": 100,
+        "required": false
+      },
+      {
+        "name": "--infer-choices",
+        "type": "bool",
+        "help": "Detect discriminated unions in dynamic fields and emit as choice types with discriminator defaults",
+        "required": false
+      },
+      {
+        "name": "--choice-depth",
+        "type": "int",
+        "help": "Maximum nesting depth for recursive choice inference in dynamic fields (1 = root only)",
+        "default": 1,
+        "required": false
+      },
+      {
+        "name": "--infer-enums",
+        "type": "bool",
+        "help": "Detect enum types from repeated string values with low cardinality in dynamic fields",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{kusto_database}.jstruct.json",
+    "prompts": [
+      {
+        "name": "--base-id",
+        "message": "Enter the base URI for $id generation",
         "type": "str",
         "required": false
       },
@@ -1167,7 +1315,11 @@
         "choice_depth": "args.choice_depth"
       }
     },
-    "extensions": [".json", ".jsonl", ".ndjson"],
+    "extensions": [
+      ".json",
+      ".jsonl",
+      ".ndjson"
+    ],
     "args": [
       {
         "name": "input",
@@ -1252,7 +1404,11 @@
         "infer_enums": "args.infer_enums"
       }
     },
-    "extensions": [".json", ".jsonl", ".ndjson"],
+    "extensions": [
+      ".json",
+      ".jsonl",
+      ".ndjson"
+    ],
     "args": [
       {
         "name": "input",
@@ -1343,7 +1499,9 @@
         "sample_size": "args.sample_size"
       }
     },
-    "extensions": [".xml"],
+    "extensions": [
+      ".xml"
+    ],
     "args": [
       {
         "name": "input",
@@ -1411,7 +1569,9 @@
         "sample_size": "args.sample_size"
       }
     },
-    "extensions": [".xml"],
+    "extensions": [
+      ".xml"
+    ],
     "args": [
       {
         "name": "input",
@@ -1480,7 +1640,10 @@
         "quiet": "args.quiet"
       }
     },
-    "extensions": [".json", ".jsonl"],
+    "extensions": [
+      ".json",
+      ".jsonl"
+    ],
     "args": [
       {
         "name": "input",
@@ -1667,7 +1830,10 @@
         "name": "--format",
         "type": "str",
         "help": "Output format: 'arrow' for binary Arrow IPC (default), 'schema' for JSON",
-        "choices": ["schema", "arrow"],
+        "choices": [
+          "schema",
+          "arrow"
+        ],
         "default": "arrow",
         "required": false
       }
@@ -1731,7 +1897,10 @@
         "name": "--format",
         "type": "str",
         "help": "Output format: 'arrow' for binary Arrow IPC (default), 'schema' for JSON",
-        "choices": ["schema", "arrow"],
+        "choices": [
+          "schema",
+          "arrow"
+        ],
         "default": "arrow",
         "required": false
       }
@@ -2700,7 +2869,10 @@
         "avro_annotation": "args.avro_annotation"
       }
     },
-    "extensions": [".struct.json", ".json"],
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
     "args": [
       {
         "name": "input",
