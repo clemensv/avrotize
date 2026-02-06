@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Tuple
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from avrotize.common import get_tree_hash
 from avrotize.constants import AVRO_VERSION
+from avrotize.schema_inference import AvroSchemaInferrer
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 
@@ -14,7 +15,7 @@ JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
 class KustoToAvro:
     """ Converts Kusto table schemas to Avro schema format."""
 
-    def __init__(self, kusto_uri, kusto_database, table_name: str | None, avro_namespace: str, avro_schema_path, emit_cloudevents: bool, emit_cloudevents_xregistry: bool, token_provider=None):
+    def __init__(self, kusto_uri, kusto_database, table_name: str | None, avro_namespace: str, avro_schema_path, emit_cloudevents: bool, emit_cloudevents_xregistry: bool, token_provider=None, sample_size: int = 100, infer_choices: bool = False, choice_depth: int = 1):
         """ Initializes the KustoToAvro class with the Kusto URI and database name. """
         kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(kusto_uri) if not token_provider else KustoConnectionStringBuilder.with_token_provider(kusto_uri, token_provider)
         self.client = KustoClient(kcsb)
@@ -24,6 +25,9 @@ class KustoToAvro:
         self.avro_schema_path = avro_schema_path
         self.emit_xregistry = emit_cloudevents_xregistry
         self.emit_cloudevents = emit_cloudevents or emit_cloudevents_xregistry
+        self.sample_size = sample_size if sample_size > 0 else 100
+        self.infer_choices = infer_choices
+        self.choice_depth = choice_depth
         if self.emit_xregistry:
             if not self.avro_namespace:
                 raise ValueError(
@@ -172,20 +176,19 @@ class KustoToAvro:
             type_value: The value of the type column (if any)
         """
         type_column_name = type_column['Name'] if type_column else None
-        query = f"{table_name}"+(f' | where {type_column_name}=="{type_value}"' if type_column_name and type_value else '') + f" | project {column_name} | take 100"
+        query = f"{table_name}"+(f' | where {type_column_name}=="{type_value}"' if type_column_name and type_value else '') + f" | project {column_name} | take {self.sample_size}"
         rows = self.client.execute(self.kusto_database, query)
         values = [row[column_name] for row in rows.primary_results[0]]
         type_name = type_value if type_value else f"{table_name}.{column_name}"
-        unique_types = self.consolidated_type_list(type_name, values)
-        if len(unique_types) > 1:
-            # Using a union of inferred types
-            return unique_types
-        elif len(unique_types) == 1:
-            # Single type, no need for union
-            return unique_types[0]
-        else:
-            # No values, default to string
-            return "string"
+        
+        # Use the new AvroSchemaInferrer for consistent inference
+        inferrer = AvroSchemaInferrer(
+            namespace=self.avro_namespace, 
+            altnames_key='kql',
+            infer_choices=self.infer_choices,
+            choice_depth=self.choice_depth
+        )
+        return inferrer.infer_from_json_values(type_name, values)
 
     type_map : Dict[str, JsonNode] = {
             "int": "int", 
@@ -440,7 +443,7 @@ class KustoToAvro:
             json.dump(output, avro_file, indent=4)
 
 
-def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, table_name: str | None, avro_namespace: str, avro_schema_file: str, emit_cloudevents:bool, emit_cloudevents_xregistry: bool, token_provider=None):
+def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, table_name: str | None, avro_namespace: str, avro_schema_file: str, emit_cloudevents:bool, emit_cloudevents_xregistry: bool, token_provider=None, sample_size: int = 100, infer_choices: bool = False, choice_depth: int = 1):
     """ Converts Kusto table schemas to Avro schema format."""
     
     if not kusto_uri:
@@ -451,5 +454,5 @@ def convert_kusto_to_avro(kusto_uri: str, kusto_database: str, table_name: str |
         avro_namespace = kusto_database
     
     kusto_to_avro = KustoToAvro(
-        kusto_uri, kusto_database, table_name, avro_namespace, avro_schema_file,emit_cloudevents, emit_cloudevents_xregistry, token_provider=token_provider)
+        kusto_uri, kusto_database, table_name, avro_namespace, avro_schema_file, emit_cloudevents, emit_cloudevents_xregistry, token_provider=token_provider, sample_size=sample_size, infer_choices=infer_choices, choice_depth=choice_depth)
     return kusto_to_avro.process_all_tables()
