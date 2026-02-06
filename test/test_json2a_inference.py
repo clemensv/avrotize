@@ -240,7 +240,16 @@ class TestJson2aFileConversion(unittest.TestCase):
     def test_convert_json_file_to_avro(self):
         """Test converting a JSON file to Avro schema and validating."""
         json_path = get_test_json_path('primitives.json')
-        instances = load_json_values(json_path)
+        
+        # Load the original data from the file (not flattened)
+        with open(json_path, 'r') as f:
+            original_data = json.load(f)
+        
+        # Since primitives.json has a top-level array, wrap it for validation
+        if isinstance(original_data, list):
+            instances = [original_data]  # Treat the array as a single instance
+        else:
+            instances = [original_data]
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.avsc', delete=False) as f:
             output_path = f.name
