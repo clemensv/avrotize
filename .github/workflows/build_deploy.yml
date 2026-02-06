@@ -58,6 +58,7 @@ jobs:
       with:
         java-version: 21
         maven-version: '3.9.6'
+        checkout-enabled: false
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
