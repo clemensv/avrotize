@@ -110,7 +110,7 @@ def _load_json_values(input_files: List[str], sample_size: int) -> List[Any]:
     """Loads JSON values from files.
 
     Handles both single JSON documents and JSON Lines (JSONL) files.
-    Arrays at the root level are flattened into individual values.
+    Top-level arrays are treated as single array values, not flattened.
 
     Args:
         input_files: List of file paths
@@ -134,14 +134,8 @@ def _load_json_values(input_files: List[str], sample_size: int) -> List[Any]:
         # Try parsing as a single JSON document first
         try:
             data = json.loads(content)
-            if isinstance(data, list):
-                # Root-level array: each element is a separate value
-                for item in data:
-                    values.append(item)
-                    if sample_size > 0 and len(values) >= sample_size:
-                        break
-            else:
-                values.append(data)
+            # Treat any valid JSON (including arrays) as a single value
+            values.append(data)
             continue
         except json.JSONDecodeError:
             pass

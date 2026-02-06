@@ -482,13 +482,77 @@ class TestJson2sInference(unittest.TestCase):
             
             self.assertIn('$schema', schema)
             self.assertIn('$id', schema)
-            self.assertEqual(schema['type'], 'object')
+            # Top-level array should be inferred as array type, not object
+            self.assertEqual(schema['type'], 'array')
             self.assertIn('test.namespace', schema['$id'])
             
             # Validate the generated schema
             if HAS_JSTRUCT_SDK:
                 schema_validator = SchemaValidator()
                 schema_validator.validate(schema)
+        finally:
+            os.unlink(input_path)
+            os.unlink(output_path)
+
+    def test_top_level_array_not_flattened(self):
+        """Test that top-level arrays are inferred as array types, not flattened.
+        
+        This is a regression test for the issue where top-level arrays were
+        being flattened into separate instances instead of being treated as
+        a single array value.
+        """
+        # Create a file with a top-level array
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump([
+                {"name": "Alice", "age": 30},
+                {"name": "Bob", "age": 25},
+                {"name": "Charlie", "age": 35}
+            ], f)
+            input_path = f.name
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.jstruct.json', delete=False) as f:
+            output_path = f.name
+        
+        try:
+            convert_json_to_jstruct(
+                input_files=[input_path],
+                jstruct_schema_file=output_path,
+                type_name='Person',
+                base_id='https://example.com/'
+            )
+            
+            with open(output_path, 'r') as f:
+                schema = json.load(f)
+            
+            # The schema should be an array type
+            self.assertEqual(schema['type'], 'array', 
+                             "Top-level arrays should be inferred as array types")
+            
+            # The array items should be objects
+            self.assertIn('items', schema)
+            item_schema = schema['items']
+            self.assertEqual(item_schema['type'], 'object')
+            
+            # The item object should have name and age properties
+            self.assertIn('properties', item_schema)
+            self.assertIn('name', item_schema['properties'])
+            self.assertIn('age', item_schema['properties'])
+            self.assertEqual(item_schema['properties']['name']['type'], 'string')
+            self.assertEqual(item_schema['properties']['age']['type'], 'integer')
+            
+            # Validate with SDK
+            if HAS_JSTRUCT_SDK:
+                schema_validator = SchemaValidator()
+                schema_validator.validate(schema)
+                
+                # Also validate that the original data matches the schema
+                with open(input_path, 'r') as f:
+                    original_data = json.load(f)
+                
+                instance_validator = InstanceValidator(schema, extended=True)
+                errors = instance_validator.validate(original_data)
+                self.assertEqual(list(errors), [], 
+                                 "Original data should validate against inferred schema")
         finally:
             os.unlink(input_path)
             os.unlink(output_path)
