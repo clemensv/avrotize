@@ -1,11 +1,9 @@
 """ Converts Kusto table schemas to JSON Structure schema format. """
 
-import copy
 import os
 import json
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
-from avrotize.common import get_tree_hash
 from avrotize.schema_inference import JsonStructureSchemaInferrer
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | bool | int | None
