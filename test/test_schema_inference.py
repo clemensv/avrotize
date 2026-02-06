@@ -769,5 +769,69 @@ class TestJSONLRoundTrip(unittest.TestCase):
             os.unlink(jsonl_file)
 
 
+class TestBooleanDiscriminatorFilter(unittest.TestCase):
+    """Test that boolean-like values are not used as choice discriminators."""
+
+    def test_boolean_string_not_discriminator(self):
+        """Fields with true/false values should not become choice discriminators."""
+        values = [
+            {"type": "penalty", "retakenPenalty": "true", "player": "P1", "extraField": "yes"},
+            {"type": "penalty", "retakenPenalty": "true", "player": "P2"},
+            {"type": "penalty", "retakenPenalty": "false", "player": "P3"},
+            {"type": "penalty", "retakenPenalty": "false", "player": "P4"},
+        ]
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True, choice_depth=2)
+        schema = inferrer.infer_from_json_values('Penalty', values)
+        
+        # retakenPenalty should NOT be used as a choice selector
+        if schema.get('type') == 'choice':
+            selector = schema.get('selector')
+            self.assertNotEqual(selector, 'retakenPenalty',
+                "Boolean-like field 'retakenPenalty' should not be a discriminator")
+        
+        # It should be a regular property
+        if 'properties' in schema:
+            self.assertIn('retakenPenalty', schema['properties'],
+                "retakenPenalty should be a regular property")
+            self.assertEqual(schema['properties']['retakenPenalty'].get('type'), 'string',
+                "retakenPenalty should be typed as string")
+
+    def test_yes_no_not_discriminator(self):
+        """Fields with yes/no values should not become choice discriminators."""
+        values = [
+            {"active": "yes", "name": "Item1"},
+            {"active": "yes", "name": "Item2", "extra": "data"},
+            {"active": "no", "name": "Item3"},
+        ]
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True, choice_depth=1)
+        schema = inferrer.infer_from_json_values('Item', values)
+        
+        # Should not become a choice based on active=yes/no
+        if schema.get('type') == 'choice':
+            selector = schema.get('selector')
+            self.assertNotEqual(selector, 'active',
+                "Boolean-like field 'active' with yes/no values should not be a discriminator")
+
+    def test_zero_one_not_discriminator(self):
+        """Fields with 0/1 values should not become choice discriminators."""
+        values = [
+            {"enabled": "1", "name": "A"},
+            {"enabled": "1", "name": "B"},
+            {"enabled": "0", "name": "C"},
+            {"enabled": "0", "name": "D"},
+        ]
+        
+        inferrer = JsonStructureSchemaInferrer(infer_choices=True, choice_depth=1)
+        schema = inferrer.infer_from_json_values('Config', values)
+        
+        # Should not become a choice based on enabled=0/1
+        if schema.get('type') == 'choice':
+            selector = schema.get('selector')
+            self.assertNotEqual(selector, 'enabled',
+                "Boolean-like field 'enabled' with 0/1 values should not be a discriminator")
+
+
 if __name__ == '__main__':
     unittest.main()

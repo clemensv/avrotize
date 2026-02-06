@@ -214,6 +214,13 @@ def _detect_discriminators(
         if len(values) < 2:
             continue
         
+        # Skip boolean-like string values - these are flags, not discriminators
+        # A field with only "true"/"false" (or similar) values is not a type discriminator
+        normalized_values = {v.lower() if isinstance(v, str) else str(v).lower() for v in values}
+        boolean_values = {'true', 'false', 'yes', 'no', '0', '1'}
+        if normalized_values <= boolean_values:
+            continue
+        
         # Single cluster with multiple values - check if values create distinct groups
         if len(clusters) == 1:
             value_to_docs: Dict[str, List[DocumentInfo]] = defaultdict(list)
