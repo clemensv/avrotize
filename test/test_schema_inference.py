@@ -114,9 +114,19 @@ class TestJsonToAvro(unittest.TestCase):
             with open(output_file, 'r') as f:
                 schema = json.load(f)
             
-            self.assertEqual(schema['type'], 'record')
-            self.assertEqual(schema['name'], 'TestRecord')
-            self.assertEqual(schema['namespace'], 'com.test')
+            # Top-level array should be inferred as array type
+            self.assertEqual(schema['type'], 'array')
+            # Array items can be a single type or a union (list)
+            items = schema['items']
+            if isinstance(items, list):
+                # Union type - get the first (non-null) item
+                item_schema = next((i for i in items if i != 'null' and (isinstance(i, dict) or i != 'null')), items[0])
+            else:
+                item_schema = items
+            
+            self.assertEqual(item_schema['type'], 'record')
+            self.assertEqual(item_schema['name'], 'TestRecord')
+            self.assertEqual(item_schema['namespace'], 'com.test')
         finally:
             os.unlink(json_file)
 
@@ -222,8 +232,11 @@ class TestJsonToJstruct(unittest.TestCase):
             
             self.assertEqual(schema['$schema'], 'https://json-structure.org/meta/core/v0/#')
             self.assertEqual(schema['$id'], 'https://test.example.com/TestRecord')
-            self.assertEqual(schema['type'], 'object')
-            self.assertEqual(schema['name'], 'TestRecord')
+            # Top-level array should be inferred as array type
+            self.assertEqual(schema['type'], 'array')
+            # Array items should be the object type
+            self.assertEqual(schema['items']['type'], 'object')
+            self.assertEqual(schema['items']['name'], 'TestRecord')
         finally:
             os.unlink(json_file)
 
@@ -463,7 +476,12 @@ class TestMultipleFiles(unittest.TestCase):
     """Test cases for processing multiple input files."""
 
     def test_multiple_json_files(self):
-        """Test processing multiple JSON files together."""
+        """Test processing multiple JSON files together.
+        
+        When multiple files each have top-level arrays, each file is treated
+        as a separate array instance. The inferrer will create a union if the
+        array contents differ.
+        """
         # Create temp JSON files with different structures
         files = []
         try:
@@ -487,11 +505,23 @@ class TestMultipleFiles(unittest.TestCase):
             with open(output_file, 'r') as f:
                 schema = json.load(f)
             
-            fields_by_name = {f['name']: f for f in schema['fields']}
-            # Schema should contain fields from all files
-            self.assertIn('name', fields_by_name)
-            self.assertIn('age', fields_by_name)
-            self.assertIn('email', fields_by_name)
+            # Each file is a top-level array, so the schema should be an array type
+            self.assertEqual(schema['type'], 'array')
+            # The array items may be a union since the two files have different structures
+            items = schema['items']
+            self.assertIsInstance(items, list)  # Should be a union
+            
+            # Collect all fields from all union branches
+            all_fields = {}
+            for item in items:
+                if isinstance(item, dict) and item.get('type') == 'record':
+                    for field in item.get('fields', []):
+                        all_fields[field['name']] = field
+            
+            # Schema should contain fields from all files (across union branches)
+            self.assertIn('name', all_fields)
+            self.assertIn('age', all_fields)
+            self.assertIn('email', all_fields)
         finally:
             for f in files:
                 os.unlink(f)
