@@ -914,6 +914,10 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                             properties[safe_name] = {"type": "array", "items": items}
                     else:
                         properties[safe_name] = {"type": "array", "items": {"type": "string"}}
+                elif non_null_values and all(isinstance(v, dict) for v in non_null_values):
+                    # All values are objects - use multi-value object inference
+                    properties[safe_name] = self._infer_object_type_from_values(
+                        f"{type_name}.{safe_name}", non_null_values)
                 else:
                     # Fall back to standard single-value inference
                     # Find first non-null value
@@ -1060,6 +1064,27 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             Choice schema or None if unable to build
         """
         if not result.is_choice or not result.discriminator_field:
+            return None
+        
+        # Detect envelope pattern: discriminator value matches a property name
+        # e.g., {_subtype: "kickOff", kickOff: {...}, ...}
+        # This pattern is NOT a JSON Structure choice - it's an object with optional properties
+        envelope_matches = 0
+        total_variants = 0
+        for cluster in result.clusters:
+            if not cluster.documents:
+                continue
+            doc = cluster.documents[0]
+            disc_value = doc.field_values.get(result.discriminator_field)
+            if disc_value and isinstance(disc_value, str):
+                total_variants += 1
+                # Check if discriminator value matches a property name (case-insensitive)
+                all_props = set(doc.data.keys()) - {result.discriminator_field}
+                if any(prop.lower() == disc_value.lower() for prop in all_props):
+                    envelope_matches += 1
+        
+        # If >50% of variants match envelope pattern, skip choice creation
+        if total_variants > 0 and envelope_matches / total_variants > 0.5:
             return None
         
         choices_map: Dict[str, Any] = {}
@@ -1209,6 +1234,60 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         if not choices_map:
             return None
         
+        # For inline unions with selector, we need $extends pointing to a base type
+        # Compute common fields across all variants to create a proper base type
+        all_variant_props = [c.get("properties", {}) for c in choices_map.values()]
+        if all_variant_props:
+            common_prop_names = set(all_variant_props[0].keys())
+            for props in all_variant_props[1:]:
+                common_prop_names &= set(props.keys())
+            
+            # Build base type with common properties
+            base_name = avro_name(f"{type_name.rsplit('.', 1)[-1]}Base")
+            base_properties: Dict[str, Any] = {}
+            for prop_name in sorted(common_prop_names):
+                # Take property schema from first variant
+                base_properties[prop_name] = all_variant_props[0][prop_name]
+            
+            base_type: Dict[str, Any] = {
+                "abstract": True,
+                "type": "object",
+                "name": base_name,
+                "properties": base_properties
+            }
+            
+            definitions: Dict[str, Any] = {base_name: base_type}
+            new_choices_map: Dict[str, Any] = {}
+            
+            for variant_name, variant_schema in choices_map.items():
+                # Remove common properties from variant (they're in base)
+                variant_props = variant_schema.get("properties", {})
+                variant_specific_props = {k: v for k, v in variant_props.items() if k not in common_prop_names}
+                variant_required = [r for r in variant_schema.get("required", []) if r not in common_prop_names]
+                
+                variant_record: Dict[str, Any] = {
+                    "type": "object",
+                    "name": variant_name,
+                    "$extends": f"#/definitions/{base_name}",
+                    "properties": variant_specific_props
+                }
+                if variant_required:
+                    variant_record["required"] = variant_required
+                
+                definitions[variant_name] = variant_record
+                new_choices_map[variant_name] = {"type": {"$ref": f"#/definitions/{variant_name}"}}
+            
+            disc_safe = avro_name(result.discriminator_field)
+            return {
+                "type": "choice",
+                "name": avro_name(type_name.rsplit('.', 1)[-1]),
+                "$extends": f"#/definitions/{base_name}",
+                "selector": disc_safe,
+                "choices": new_choices_map,
+                "definitions": definitions
+            }
+        
+        # Fallback if no common properties
         return {
             "type": "choice",
             "selector": result.discriminator_field,
@@ -1391,6 +1470,31 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             if result:
                 return [result]
         
+        # If all values are lists (arrays), flatten them and analyze all items together
+        # This ensures required field inference works across all items from all arrays
+        if python_values and all(isinstance(v, list) for v in python_values):
+            all_items = [item for lst in python_values for item in lst]
+            if all_items:
+                item_types = self.consolidated_jstruct_type_list(type_name, all_items)
+                if len(item_types) == 1:
+                    return [{"type": "array", "items": item_types[0]}]
+                else:
+                    # Build choice from multiple item types
+                    choices_map: Dict[str, Any] = {}
+                    for it in item_types:
+                        if isinstance(it, str):
+                            choices_map[it] = {"type": it}
+                        elif isinstance(it, dict):
+                            name = it.get("name", f"type{len(choices_map)}")
+                            choices_map[name] = it
+                    # If all items collapsed to a single choice key, don't wrap in choice
+                    if len(choices_map) == 1:
+                        return [{"type": "array", "items": list(choices_map.values())[0]}]
+                    else:
+                        return [{"type": "array", "items": {"type": "choice", "choices": choices_map}}]
+            else:
+                return [{"type": "array", "items": {"type": "string"}}]
+        
         list_types = [self.python_type_to_jstruct_type(type_name, item) for item in python_values]
 
         # Eliminate duplicates using tree hashing
@@ -1445,7 +1549,11 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                     elif isinstance(it, dict):
                         name = it.get("name", f"type{len(choices_map)}")
                         choices_map[name] = it
-                list_types.append({"type": "array", "items": {"type": "choice", "choices": choices_map}})
+                # If all items collapsed to a single choice key, don't wrap in choice
+                if len(choices_map) == 1:
+                    list_types.append({"type": "array", "items": list(choices_map.values())[0]})
+                else:
+                    list_types.append({"type": "array", "items": {"type": "choice", "choices": choices_map}})
 
         value_types: List[Any] = []
         for item3 in map_types:
@@ -1479,6 +1587,31 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             choice_result = self._infer_choice_type(type_name, values)
             if choice_result is not None:
                 return self._wrap_schema(choice_result, type_name)
+            
+            # Special case: if all values are arrays of dicts, flatten and check for choices
+            # This handles the common case of multiple JSON files each containing an array
+            # of events that form a discriminated union
+            if all(isinstance(v, list) for v in values):
+                all_items = [item for v in values for item in v if isinstance(item, dict)]
+                if len(all_items) >= 2:
+                    items_choice_result = self._infer_choice_type(type_name, all_items)
+                    if items_choice_result is not None:
+                        # Hoist definitions from the choice type to document root
+                        # so $ref paths resolve correctly
+                        definitions = items_choice_result.pop("definitions", None)
+                        
+                        # Wrap the choice type in an array
+                        array_schema = {
+                            "type": "array",
+                            "items": items_choice_result,
+                            "name": avro_name(type_name)
+                        }
+                        
+                        # Add definitions at document root level
+                        if definitions:
+                            array_schema["definitions"] = definitions
+                        
+                        return self._wrap_schema(array_schema, type_name)
 
         unique_types = self.consolidated_jstruct_type_list(type_name, values)
 
@@ -1509,6 +1642,28 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         
         if not result.is_choice:
             return None
+        
+        # Detect envelope pattern: discriminator value matches a property name
+        # e.g., {_subtype: "kickOff", kickOff: {...}, ...}
+        # This pattern is NOT a JSON Structure choice - it's an object with optional properties
+        if result.discriminator_field and result.clusters:
+            envelope_matches = 0
+            total_variants = 0
+            for cluster in result.clusters:
+                if not cluster.documents:
+                    continue
+                doc = cluster.documents[0]
+                disc_value = doc.field_values.get(result.discriminator_field)
+                if disc_value and isinstance(disc_value, str):
+                    total_variants += 1
+                    # Check if discriminator value matches a property name (case-insensitive)
+                    all_props = set(doc.data.keys()) - {result.discriminator_field}
+                    if any(prop.lower() == disc_value.lower() for prop in all_props):
+                        envelope_matches += 1
+            
+            # If >50% of variants match envelope pattern, skip choice creation
+            if total_variants > 0 and envelope_matches / total_variants > 0.5:
+                return None
         
         # Handle nested discriminator (envelope pattern)
         if result.nested_discriminator:
