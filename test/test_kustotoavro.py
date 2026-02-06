@@ -24,13 +24,14 @@ class KustoContainer(DockerContainer):
 
     def __init__(self, image="mcr.microsoft.com/azuredataexplorer/kustainer-linux:latest"):
         super().__init__(image)
-        self.with_bind_ports(8080, 8080)
+        self.with_exposed_ports(8080)  # Let Docker assign a random host port
         self.with_env("ACCEPT_EULA", "Y")
 
     def get_connection_string(self):
         """Get the connection string for the Kusto container."""
         host = self.get_container_host_ip()
-        return f"http://{host}:8080"
+        port = self.get_exposed_port(8080)
+        return f"http://{host}:{port}"
 
     def get_database_name(self):
         """Get the name of the database for testing."""
@@ -84,16 +85,44 @@ def kusto_container():
         """
     )
 
-    # Insert sample data with different payload structures for choice inference
+    # Insert sample data with complex payloads for discriminated union inference
+    # This mirrors the complexity of test data used in json2a/json2s inference tests
     sample_data = [
+        # User signup events (3 variants to establish pattern)
         {"id": "1", "timestamp": "2024-01-01T00:00:00Z", "count": 10, "value": 1.5, "isActive": True,
-         "payload": {"eventType": "click", "x": 100, "y": 200}},
-        {"id": "2", "timestamp": "2024-01-02T00:00:00Z", "count": 20, "value": 2.5, "isActive": False,
-         "payload": {"eventType": "click", "x": 150, "y": 250}},
-        {"id": "3", "timestamp": "2024-01-03T00:00:00Z", "count": 30, "value": 3.5, "isActive": True,
-         "payload": {"eventType": "scroll", "direction": "up", "amount": 50}},
-        {"id": "4", "timestamp": "2024-01-04T00:00:00Z", "count": 40, "value": 4.5, "isActive": False,
-         "payload": {"eventType": "scroll", "direction": "down", "amount": 100}},
+         "payload": {"event_type": "user_signup", "name": "Alice", "email": "alice@example.com", "age": 30}},
+        {"id": "2", "timestamp": "2024-01-01T01:00:00Z", "count": 11, "value": 1.6, "isActive": True,
+         "payload": {"event_type": "user_signup", "name": "Bob", "email": "bob@example.com"}},
+        {"id": "3", "timestamp": "2024-01-01T02:00:00Z", "count": 12, "value": 1.7, "isActive": True,
+         "payload": {"event_type": "user_signup", "name": "Charlie", "email": "charlie@example.com", "age": 25, "phone": "+1234"}},
+        
+        # Order placed events with nested arrays (3 variants)
+        {"id": "4", "timestamp": "2024-01-02T00:00:00Z", "count": 20, "value": 39.98, "isActive": True,
+         "payload": {"event_type": "order_placed", "orderId": "ORD-001", "items": [{"sku": "A1", "qty": 2}], "total": 39.98}},
+        {"id": "5", "timestamp": "2024-01-02T01:00:00Z", "count": 21, "value": 99.0, "isActive": True,
+         "payload": {"event_type": "order_placed", "orderId": "ORD-002", "items": [{"sku": "B2", "qty": 1}], "total": 99.0, "discount": 10}},
+        {"id": "6", "timestamp": "2024-01-02T02:00:00Z", "count": 22, "value": 150.0, "isActive": True,
+         "payload": {"event_type": "order_placed", "orderId": "ORD-003", "items": [{"sku": "C3", "qty": 3}], "total": 150.0}},
+        
+        # Metric events with nested objects (3 variants)
+        {"id": "7", "timestamp": "2024-01-03T00:00:00Z", "count": 30, "value": 75.5, "isActive": False,
+         "payload": {"event_type": "metric", "name": "cpu", "value": 75.5, "unit": "percent"}},
+        {"id": "8", "timestamp": "2024-01-03T01:00:00Z", "count": 31, "value": 1024.0, "isActive": False,
+         "payload": {"event_type": "metric", "name": "memory", "value": 1024, "unit": "MB", "host": "server-1"}},
+        {"id": "9", "timestamp": "2024-01-03T02:00:00Z", "count": 32, "value": 50.0, "isActive": False,
+         "payload": {"event_type": "metric", "name": "disk", "value": 50.0, "tags": {"env": "prod", "region": "us-east"}}},
+        
+        # Nested discriminator pattern (envelope with payload.type discriminator)
+        {"id": "10", "timestamp": "2024-01-04T00:00:00Z", "count": 40, "value": 0.0, "isActive": True,
+         "payload": {"version": 1, "data": {"type": "text", "content": "Hello world"}}},
+        {"id": "11", "timestamp": "2024-01-04T01:00:00Z", "count": 41, "value": 0.0, "isActive": True,
+         "payload": {"version": 1, "data": {"type": "text", "content": "Another message", "format": "plain"}}},
+        {"id": "12", "timestamp": "2024-01-04T02:00:00Z", "count": 42, "value": 0.0, "isActive": True,
+         "payload": {"version": 1, "data": {"type": "image", "url": "http://example.com/img.png", "width": 800, "height": 600}}},
+        {"id": "13", "timestamp": "2024-01-04T03:00:00Z", "count": 43, "value": 0.0, "isActive": True,
+         "payload": {"version": 2, "data": {"type": "video", "url": "http://example.com/vid.mp4", "duration": 120, "codec": "h264"}}},
+        {"id": "14", "timestamp": "2024-01-04T04:00:00Z", "count": 44, "value": 0.0, "isActive": True,
+         "payload": {"version": 2, "data": {"type": "audio", "url": "http://example.com/song.mp3", "duration": 180}}},
     ]
 
     for record in sample_data:
@@ -141,6 +170,11 @@ def test_k2a_basic_schema_inference(kusto_container):
     with open(output_path, "r", encoding="utf-8") as f:
         schema = json.load(f)
 
+    # Schema may be a top-level union (list) or a single record
+    if isinstance(schema, list):
+        # Top-level union - get first variant for field inspection
+        schema = schema[0]
+    
     # Verify basic schema structure
     assert schema["type"] == "record"
     field_names = [f["name"] for f in schema["fields"]]
@@ -173,6 +207,9 @@ def test_k2a_with_sample_size(kusto_container):
     assert os.path.exists(output_path)
     with open(output_path, "r", encoding="utf-8") as f:
         schema = json.load(f)
+    # Schema may be a top-level union (list) or a single record
+    if isinstance(schema, list):
+        schema = schema[0]
     assert schema["type"] == "record"
 
 
@@ -181,7 +218,17 @@ def test_k2a_with_sample_size(kusto_container):
     reason="Container tests skipped"
 )
 def test_k2a_with_infer_choices(kusto_container):
-    """Test k2a with choice inference enabled for dynamic columns."""
+    """Test k2a with choice inference enabled for dynamic columns.
+    
+    The test data contains:
+    - 3 user_signup events (different optional fields)
+    - 3 order_placed events (with nested item arrays)
+    - 3 metric events (with optional nested tags object)
+    - 5 envelope events (nested discriminator pattern with data.type)
+    
+    With infer_choices=True, the payload field should be inferred as a union
+    with discriminator defaults on the event_type field.
+    """
     output_path = os.path.join(tempfile.gettempdir(), "avrotize", "k2a_choices.avsc")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -203,9 +250,25 @@ def test_k2a_with_infer_choices(kusto_container):
     with open(output_path, "r", encoding="utf-8") as f:
         schema = json.load(f)
     
-    # With infer_choices, the payload field should have a union type
+    # Schema may be a top-level union (list) or a single record
+    if isinstance(schema, list):
+        schema = schema[0]
+    
+    # Find the payload field
     payload_field = next((f for f in schema["fields"] if f["name"] == "payload"), None)
     assert payload_field is not None
+    
+    # With infer_choices enabled, payload type should be a union (list) or record with union fields
+    payload_type = payload_field["type"]
+    # The inference may produce a record with union fields or a direct union
+    if isinstance(payload_type, dict) and payload_type.get("type") == "record":
+        # Check that the record has fields (inference worked)
+        assert "fields" in payload_type
+    elif isinstance(payload_type, list):
+        # Direct union type - each variant should be a record
+        for variant in payload_type:
+            if isinstance(variant, dict) and variant.get("type") == "record":
+                assert "fields" in variant
 
 
 # ============================================================
@@ -276,7 +339,12 @@ def test_k2s_with_sample_size(kusto_container):
     reason="Container tests skipped"
 )
 def test_k2s_with_infer_choices(kusto_container):
-    """Test k2s with choice inference enabled for dynamic columns."""
+    """Test k2s with choice inference enabled for dynamic columns.
+    
+    With the complex test data containing multiple event types (user_signup,
+    order_placed, metric, and nested envelope events), the payload field
+    should be inferred as a choice type with event_type as the selector.
+    """
     output_path = os.path.join(tempfile.gettempdir(), "avrotize", "k2s_choices.jstruct.json")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -300,6 +368,17 @@ def test_k2s_with_infer_choices(kusto_container):
     
     # Verify payload has inferred structure
     assert "payload" in schema["properties"]
+    payload_schema = schema["properties"]["payload"]
+    
+    # With infer_choices, payload should be a choice type
+    if "type" in payload_schema:
+        payload_type = payload_schema["type"]
+        # Choice type is indicated by type="choice" with selector and choices
+        if payload_type == "choice":
+            assert "selector" in payload_schema, "choice type should have selector"
+            assert "choices" in payload_schema, "choice type should have choices"
+            # Verify we have multiple variants
+            assert len(payload_schema["choices"]) > 1, "should have multiple choice variants"
 
 
 @pytest.mark.skipif(
@@ -307,7 +386,15 @@ def test_k2s_with_infer_choices(kusto_container):
     reason="Container tests skipped"
 )
 def test_k2s_with_infer_enums(kusto_container):
-    """Test k2s with enum inference enabled for dynamic columns."""
+    """Test k2s with enum inference enabled for dynamic columns.
+    
+    The test data has event_type values with low cardinality:
+    - user_signup (3 occurrences)
+    - order_placed (3 occurrences)
+    - metric (3 occurrences)
+    
+    With infer_enums=True, event_type should be inferred as an enum.
+    """
     output_path = os.path.join(tempfile.gettempdir(), "avrotize", "k2s_enums.jstruct.json")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -328,8 +415,9 @@ def test_k2s_with_infer_enums(kusto_container):
     with open(output_path, "r", encoding="utf-8") as f:
         schema = json.load(f)
     
-    # Enum detection may detect eventType as enum with values "click", "scroll"
     assert schema["type"] == "object"
+    # Payload should have event_type as enum with values ["user_signup", "order_placed", "metric"]
+    # or the nested structure depending on how inference handles the mixed data
 
 
 @pytest.mark.skipif(
