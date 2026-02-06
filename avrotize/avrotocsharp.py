@@ -57,6 +57,8 @@ class AvroToCSharp:
         self.cbor_annotation = False
         self.avro_annotation = False
         self.protobuf_net_annotation = False
+        self.use_optional = False
+        self.use_ivalidatableobject = False
         self.generated_types: Dict[str,str] = {}
         self.generated_avro_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
         self.type_dict: Dict[str, Dict] = {}
@@ -851,6 +853,30 @@ class AvroToCSharp:
                 file_content += definition
             file.write(file_content)
 
+    def generate_option_class(self, output_dir: str) -> None:
+        """ Generates Option<T> class for optional properties when use_optional is enabled """
+        if not self.use_optional:
+            return  # Not using Option<T> pattern
+
+        # Convert base namespace to PascalCase for consistency with other generated classes
+        namespace_pascal = pascal(self.base_namespace)
+        
+        # Generate the Option class
+        option_definition = process_template(
+            "avrotocsharp/option.cs.jinja",
+            namespace=namespace_pascal
+        )
+
+        # Write to the same directory structure as other classes (using PascalCase path)
+        directory_path = os.path.join(
+            output_dir, os.path.join('src', namespace_pascal.replace('.', os.sep)))
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path, exist_ok=True)
+        option_file_path = os.path.join(directory_path, "Option.cs")
+        
+        with open(option_file_path, 'w', encoding='utf-8') as option_file:
+            option_file.write(option_definition)
+
     def generate_tests(self, output_dir: str) -> None:
         """ Generates unit tests for all the generated C# classes and enums """
         test_directory_path = os.path.join(output_dir, "test")
@@ -1100,6 +1126,10 @@ class AvroToCSharp:
         self.output_dir = output_dir
         for avro_schema in (avs for avs in schema if isinstance(avs, dict)):
             self.generate_class_or_enum(avro_schema, '')
+        
+        # Generate Option<T> class if needed
+        self.generate_option_class(output_dir)
+        
         self.generate_tests(output_dir)
 
     def convert(self, avro_schema_path: str, output_dir: str):
@@ -1121,7 +1151,9 @@ def convert_avro_to_csharp(
     msgpack_annotation=False,
     cbor_annotation=False,
     avro_annotation=False,
-    protobuf_net_annotation=False
+    protobuf_net_annotation=False,
+    use_optional=False,
+    use_ivalidatableobject=False
 ):
     """Converts Avro schema to C# classes
 
@@ -1138,6 +1170,8 @@ def convert_avro_to_csharp(
         cbor_annotation (bool, optional): Use Dahomey.Cbor annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
         protobuf_net_annotation (bool, optional): Use protobuf-net annotations. Defaults to False.
+        use_optional (bool, optional): Use Option<T> wrapper for optional properties. Defaults to False.
+        use_ivalidatableobject (bool, optional): Implement IValidatableObject interface. Defaults to False.
     """
 
     if not base_namespace:
@@ -1152,6 +1186,8 @@ def convert_avro_to_csharp(
     avrotocs.cbor_annotation = cbor_annotation
     avrotocs.avro_annotation = avro_annotation
     avrotocs.protobuf_net_annotation = protobuf_net_annotation
+    avrotocs.use_optional = use_optional
+    avrotocs.use_ivalidatableobject = use_ivalidatableobject
     avrotocs.convert(avro_schema_path, cs_file_path)
 
 
@@ -1167,7 +1203,9 @@ def convert_avro_schema_to_csharp(
     msgpack_annotation: bool = False,
     cbor_annotation: bool = False,
     avro_annotation: bool = False,
-    protobuf_net_annotation: bool = False
+    protobuf_net_annotation: bool = False,
+    use_optional: bool = False,
+    use_ivalidatableobject: bool = False
 ):
     """Converts Avro schema to C# classes
 
@@ -1184,6 +1222,8 @@ def convert_avro_schema_to_csharp(
         cbor_annotation (bool, optional): Use Dahomey.Cbor annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
         protobuf_net_annotation (bool, optional): Use protobuf-net annotations. Defaults to False.
+        use_optional (bool, optional): Use Option<T> wrapper for optional properties. Defaults to False.
+        use_ivalidatableobject (bool, optional): Implement IValidatableObject interface. Defaults to False.
     """
     avrotocs = AvroToCSharp(base_namespace)
     avrotocs.project_name = project_name
@@ -1195,4 +1235,6 @@ def convert_avro_schema_to_csharp(
     avrotocs.cbor_annotation = cbor_annotation
     avrotocs.avro_annotation = avro_annotation
     avrotocs.protobuf_net_annotation = protobuf_net_annotation
+    avrotocs.use_optional = use_optional
+    avrotocs.use_ivalidatableobject = use_ivalidatableobject
     avrotocs.convert_schema(avro_schema, output_dir)
