@@ -390,8 +390,8 @@ class AvroSchemaInferrer(SchemaInferrer):
                     continue
                 cluster = cluster_docs[0]
                 
-                # Build variant record
-                variant_name = avro_name(''.join(word.capitalize() for word in value.replace('_', ' ').split()))
+                # Build variant record - preserve original casing
+                variant_name = avro_name(value)
                 variant_namespace = self.namespace + '.' + avro_name(type_name) + 'Types' if self.namespace else avro_name(type_name) + 'Types'
                 
                 # Get fields from cluster's representative document
@@ -490,8 +490,8 @@ class AvroSchemaInferrer(SchemaInferrer):
                     continue
                 cluster = cluster_docs[0]
                 
-                # Build variant record
-                variant_name = avro_name(''.join(word.capitalize() for word in value.replace('_', ' ').split()))
+                # Build variant record - preserve original casing
+                variant_name = avro_name(value)
                 variant_namespace = self.namespace + '.' + avro_name(type_name) + 'Types' if self.namespace else avro_name(type_name) + 'Types'
                 
                 variant_doc = cluster.documents[0].data if cluster.documents else {}
@@ -1040,9 +1040,8 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             if not disc_value or not isinstance(disc_value, str):
                 continue
             
-            # Build variant name
-            variant_name = avro_name(''.join(word.capitalize() 
-                                            for word in disc_value.replace('_', ' ').replace('-', ' ').split()))
+            # Build variant name - preserve original casing
+            variant_name = avro_name(disc_value)
             
             # Get representative document for this variant
             variant_doc = cluster.documents[0].data if cluster.documents else {}
@@ -1494,7 +1493,8 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                     continue
                 cluster = cluster_docs[0]
                 
-                variant_name = avro_name(''.join(word.capitalize() for word in value.replace('_', ' ').split()))
+                # Preserve original casing of discriminator value
+                variant_name = avro_name(value)
                 variant_doc = cluster.documents[0].data if cluster.documents else {}
                 
                 properties: Dict[str, Any] = {}
@@ -1823,8 +1823,8 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                 if value not in all_variant_fields:
                     continue
                 
-                # Type name is PascalCase for definitions
-                variant_name = avro_name(''.join(word.capitalize() for word in value.replace('_', ' ').split()))
+                # Preserve original casing of discriminator value for type name
+                variant_name = avro_name(value)
                 # Choice key must match actual selector value in instances
                 choice_key = value
                 
