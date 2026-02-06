@@ -148,13 +148,19 @@ class KustoToJsonStructure:
 
     def wrap_schema_in_root_record(self, schema: JsonNode, type_name: str):
         """ Wraps a schema in a root object."""
+        # If schema is already a complete type object, use it directly in properties
+        # Otherwise treat it as a type string
+        if isinstance(schema, dict) and "type" in schema:
+            data_prop = schema
+        else:
+            data_prop = {"type": schema}
+        
+        data_prop["root"] = True
+        
         record: Dict[str, JsonNode] = {
             "type": "object",
             "properties": {
-                "data": {
-                    "type": schema,
-                    "root": True
-                }
+                "data": data_prop
             }
         }
         return record
