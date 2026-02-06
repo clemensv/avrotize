@@ -2,6 +2,38 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.3.1] - 2026-02-06
+
+### Fixed
+
+- **CI workflow checkout conflict**: Fixed duplicate Authorization header error in GitHub Actions by disabling redundant checkout in `s4u/setup-maven-action`
+
+- **Schema inference required field threshold**: Required fields now use strict threshold across all values, ensuring consistent detection
+
+- **Array validation**: Arrays are now validated as single instances when schema type is array
+
+- **Top-level array handling in json2s/json2a**: Top-level arrays are now correctly treated as array types instead of flattened instances
+
+- **Choice discriminator detection**: Boolean-like values are now excluded from discriminator detection
+
+- **Nullable type handling**: Improved nullable type handling with round-trip validation tests
+
+- **Discriminator value casing**: Original casing of discriminator values is now preserved in choice inference
+
+### Added
+
+- **Dynamic field schema inference for k2a**: Added Kusto-to-Avro dynamic field schema inference
+- **New k2s command**: Added Kusto-to-JSON-Structure command
+
+### Dependencies
+
+- Bumped `Apache.Avro` to 1.12.1
+- Bumped `System.Text.Json` to 10.0.2
+- Bumped `System.Memory.Data` to 10.0.2
+- Bumped `s4u/setup-maven-action` to 1.19.0
+- Bumped Jackson BOM to 2.21.0
+- Bumped Maven compiler plugin to 3.15.0
+
 ## [3.3.0] - 2026-02-05
 
 ### Added
