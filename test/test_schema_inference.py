@@ -119,8 +119,8 @@ class TestJsonToAvro(unittest.TestCase):
             # Array items can be a single type or a union (list)
             items = schema['items']
             if isinstance(items, list):
-                # Union type - get the first (non-null) item
-                item_schema = next((i for i in items if i != 'null' and (isinstance(i, dict) or i != 'null')), items[0])
+                # Union type - get the first record (non-null) item
+                item_schema = next((i for i in items if isinstance(i, dict)), items[0])
             else:
                 item_schema = items
             

@@ -245,11 +245,8 @@ class TestJson2aFileConversion(unittest.TestCase):
         with open(json_path, 'r') as f:
             original_data = json.load(f)
         
-        # Since primitives.json has a top-level array, wrap it for validation
-        if isinstance(original_data, list):
-            instances = [original_data]  # Treat the array as a single instance
-        else:
-            instances = [original_data]
+        # Wrap the data as a single instance for validation
+        instances = [original_data]
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.avsc', delete=False) as f:
             output_path = f.name
