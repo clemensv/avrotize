@@ -221,6 +221,19 @@ def _detect_discriminators(
         if normalized_values <= boolean_values:
             continue
         
+        # Skip numeric string values - these are data values, not discriminators
+        # Discriminators are semantic type names like "Event", "PlayerTracking", not "1", "15", "2024"
+        def is_numeric_string(s: str) -> bool:
+            """Check if a string represents a number (int or float)."""
+            try:
+                float(s)
+                return True
+            except (ValueError, TypeError):
+                return False
+        
+        if all(is_numeric_string(v) for v in values):
+            continue
+        
         # Single cluster with multiple values - check if values create distinct groups
         if len(clusters) == 1:
             value_to_docs: Dict[str, List[DocumentInfo]] = defaultdict(list)
