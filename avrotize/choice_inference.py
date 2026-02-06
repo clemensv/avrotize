@@ -214,24 +214,19 @@ def _detect_discriminators(
         if len(values) < 2:
             continue
         
-        # Skip boolean-like string values - these are flags, not discriminators
-        # A field with only "true"/"false" (or similar) values is not a type discriminator
-        normalized_values = {v.lower() if isinstance(v, str) else str(v).lower() for v in values}
-        boolean_values = {'true', 'false', 'yes', 'no', '0', '1'}
-        if normalized_values <= boolean_values:
-            continue
-        
-        # Skip numeric string values - these are data values, not discriminators
-        # Discriminators are semantic type names like "Event", "PlayerTracking", not "1", "15", "2024"
-        def is_numeric_string(s: str) -> bool:
-            """Check if a string represents a number (int or float)."""
-            try:
-                float(s)
-                return True
-            except (ValueError, TypeError):
+        # Discriminators must be identifier-like strings (type names, enum values)
+        # Valid: "PlayerTracking", "ball_data", "goal-event", "Event.Type"
+        # Invalid: "1", "2024/2025", "true", "2024-01-15T10:30:00Z", UUIDs
+        import re
+        def is_valid_discriminator(s: str) -> bool:
+            """Check if a string looks like a type name or identifier."""
+            if not s or not isinstance(s, str):
                 return False
+            # Must start with a letter, contain only alphanumeric, underscore, hyphen, dot
+            # This matches typical identifiers: PascalCase, camelCase, snake_case, kebab-case
+            return bool(re.match(r'^[A-Za-z][A-Za-z0-9_\-\.]*$', s))
         
-        if all(is_numeric_string(v) for v in values):
+        if not all(is_valid_discriminator(v) for v in values):
             continue
         
         # Single cluster with multiple values - check if values create distinct groups
