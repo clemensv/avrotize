@@ -272,6 +272,37 @@ class TestJsonStructureToAvro(unittest.TestCase):
         self.assertEqual(result['namespace'], 'com.example')
         self.assertEqual(len(result['fields']), 3)
 
+    def test_round_trip_preserves_relational_metadata(self):
+        """Test that unique/foreignKeys metadata is preserved across A2S/S2A."""
+        original_avro = {
+            "type": "record",
+            "name": "Order",
+            "namespace": "com.example",
+            "fields": [
+                {"name": "id", "type": "long"},
+                {"name": "customer_id", "type": "long"}
+            ],
+            "unique": ["id"],
+            "foreignKeys": [
+                {
+                    "name": "fk_orders_customers",
+                    "columns": ["customer_id"],
+                    "referencedTable": "Customer",
+                    "referencedColumns": ["id"],
+                    "referencedTableSql": "public.customers"
+                }
+            ]
+        }
+
+        structure = AvroToJsonStructure().convert(original_avro)
+        round_tripped = JsonStructureToAvro().convert(structure)
+
+        self.assertEqual(["id"], round_tripped.get("unique"))
+        self.assertEqual(1, len(round_tripped.get("foreignKeys", [])))
+        fk = round_tripped["foreignKeys"][0]
+        self.assertEqual(["customer_id"], fk.get("columns"))
+        self.assertEqual("Customer", fk.get("referencedTable"))
+
     def test_file_conversion(self):
         """Test file-based conversion."""
         structure = {
