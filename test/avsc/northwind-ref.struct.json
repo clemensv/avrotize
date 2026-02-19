@@ -32,7 +32,10 @@
                     "CategoryID",
                     "CategoryName"
                 ],
-                "description": "A category of products."
+                "description": "A category of products.",
+                "x-avrotize-unique": [
+                    "CategoryID"
+                ]
             }
         }
     }
