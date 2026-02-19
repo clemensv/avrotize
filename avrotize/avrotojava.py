@@ -4,8 +4,8 @@
 import json
 import os
 from typing import Dict, List, Tuple, Union
-from avrotize.constants import (AVRO_VERSION, JACKSON_VERSION, JDK_VERSION, 
-                                  JUNIT_VERSION, MAVEN_COMPILER_VERSION, MAVEN_SUREFIRE_VERSION)
+from avrotize.constants import (AVRO_VERSION, JACKSON_ANNOTATIONS_VERSION, JACKSON_VERSION,
+                                JDK_VERSION, JUNIT_VERSION, MAVEN_COMPILER_VERSION, MAVEN_SUREFIRE_VERSION)
 
 from avrotize.common import pascal, camel, is_generic_avro_type, inline_avro_references, build_flat_type_dict
 
@@ -42,7 +42,7 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>{JACKSON_VERSION}</version>
+            <version>{JACKSON_ANNOTATIONS_VERSION}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -2160,6 +2160,7 @@ class AvroToJava:
                     artifactid=artifactid, 
                     AVRO_VERSION=AVRO_VERSION, 
                     JACKSON_VERSION=JACKSON_VERSION, 
+                    JACKSON_ANNOTATIONS_VERSION=JACKSON_ANNOTATIONS_VERSION,
                     JDK_VERSION=JDK_VERSION, 
                     JUNIT_VERSION=JUNIT_VERSION,
                     MAVEN_COMPILER_VERSION=MAVEN_COMPILER_VERSION,
