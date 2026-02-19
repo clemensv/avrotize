@@ -17,6 +17,11 @@ try:
 except ValueError:
     JACKSON_VERSION = '2.18.2'  # Fallback
 
+try:
+    JACKSON_ANNOTATIONS_VERSION = get_dependency_version('java', 'jdk21', 'com.fasterxml.jackson.core:jackson-annotations')
+except ValueError:
+    JACKSON_ANNOTATIONS_VERSION = '2.18.2'  # Fallback
+
 JDK_VERSION = '21'
 
 # C# dependencies  
