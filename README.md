@@ -27,6 +27,12 @@ You can install Avrotize from PyPI, [having installed Python 3.10 or later](http
 pip install avrotize
 ```
 
+For MCP server support (`avrotize mcp`), install with the MCP extra:
+
+```bash
+pip install "avrotize[mcp]"
+```
+
 For SQL database support (`sql2a` command), install the optional database drivers:
 
 ```bash
@@ -142,6 +148,9 @@ You can run Avrotize as a local MCP server over stdio:
 ```bash
 avrotize mcp
 ```
+
+For MCP server catalogs, a generic manifest is provided at [mcp-server.json](mcp-server.json).
+Some catalogs may require field-name adjustments to match their specific schema.
 
 The MCP server exposes tools to:
 

@@ -36,6 +36,9 @@ dependencies = [
     "json-structure>=0.1.8"
 ]
 [project.optional-dependencies]
+mcp = [
+    "mcp>=1.26.0"
+]
 postgres = [
     "psycopg2-binary>=2.9.9"
 ]

@@ -1,0 +1,41 @@
+{
+  "name": "avrotize",
+  "display_name": "Avrotize",
+  "description": "Schema conversion and schema-driven code generation MCP server.",
+  "version": "0.1.0",
+  "repository": "https://github.com/clemensv/avrotize",
+  "license": "MIT",
+  "runtime": {
+    "type": "python",
+    "requires": ">=3.10"
+  },
+  "install": {
+    "pip": "pip install \"avrotize[mcp]\""
+  },
+  "server": {
+    "command": "avrotize",
+    "args": [
+      "mcp"
+    ],
+    "transport": "stdio"
+  },
+  "capabilities": {
+    "tools": [
+      "describe_capabilities",
+      "list_conversions",
+      "get_conversion",
+      "run_conversion"
+    ]
+  },
+  "tags": [
+    "mcp",
+    "schema",
+    "conversion",
+    "codegen",
+    "avro",
+    "json-schema",
+    "protobuf",
+    "xsd"
+  ],
+  "notes": "This is a generic MCP catalog manifest. Field names may need adjustment for specific catalogs."
+}
