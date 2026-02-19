@@ -8,7 +8,7 @@
     <ItemGroup>
         <PackageReference Include="Apache.Avro" Version="1.12.1" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-        <PackageReference Include="System.Text.Json" Version="10.0.2" />
+        <PackageReference Include="System.Text.Json" Version="10.0.3" />
         <PackageReference Include="System.Memory.Data" Version="10.0.2" />
     </ItemGroup>
     <ItemGroup>
