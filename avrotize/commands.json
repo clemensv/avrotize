@@ -1675,6 +1675,39 @@
     "prompts": []
   },
   {
+    "command": "validate-tmsl",
+    "description": "Validate TMSL scripts locally against documented object structure",
+    "group": "7_Utility",
+    "function": {
+      "name": "avrotize.tmslvalidate.validate_tmsl",
+      "args": {
+        "tmsl_file_path": "input_file_path",
+        "quiet": "args.quiet"
+      }
+    },
+    "extensions": [
+      ".tmsl.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the TMSL JSON file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--quiet",
+        "type": "bool",
+        "help": "Suppress output. Exit code 0 if valid, 1 if invalid.",
+        "default": false,
+        "required": false
+      }
+    ],
+    "prompts": []
+  },
+  {
     "command": "a2mongo",
     "description": "Convert Avrotize schema to MongoDB schema",
     "group": "6_NoSQL",
@@ -1910,6 +1943,153 @@
       {
         "name": "--emit-cloudevents-columns",
         "message": "Add CloudEvents columns to the Iceberg schema?",
+        "type": "bool",
+        "default": false
+      }
+    ]
+  },
+  {
+    "command": "a2tsml",
+    "description": "Convert Avrotize schema to Tabular Model Scripting Language (TMSL) schema",
+    "group": "3_Datalake",
+    "function": {
+      "name": "avrotize.avrototsml.convert_avro_to_tmsl",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "tmsl_file_path": "output_file_path",
+        "avro_record_type": "args.record_type",
+        "database_name": "args.database_name",
+        "compatibility_level": "args.compatibility_level",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the TMSL schema JSON file",
+        "required": false
+      },
+      {
+        "name": "--avsc",
+        "type": "str",
+        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Record type in the Avrotize schema",
+        "required": false
+      },
+      {
+        "name": "--database-name",
+        "type": "str",
+        "help": "Tabular model database name (defaults to the selected record type name)",
+        "required": false,
+        "default": ""
+      },
+      {
+        "name": "--compatibility-level",
+        "type": "int",
+        "help": "Tabular model compatibility level",
+        "required": false,
+        "default": 1605
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns to the TMSL table",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.tmsl.json",
+    "prompts": [
+      {
+        "name": "--emit-cloudevents-columns",
+        "message": "Add CloudEvents columns to the TMSL schema?",
+        "type": "bool",
+        "default": false
+      }
+    ]
+  },
+  {
+    "command": "s2tsml",
+    "description": "Convert JSON Structure to Tabular Model Scripting Language (TMSL) schema",
+    "group": "3_Datalake",
+    "function": {
+      "name": "avrotize.structuretotsml.convert_structure_to_tmsl",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "tmsl_file_path": "output_file_path",
+        "structure_record_type": "args.record_type",
+        "database_name": "args.database_name",
+        "compatibility_level": "args.compatibility_level",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the TMSL schema JSON file",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Record type in the JSON Structure schema",
+        "required": false
+      },
+      {
+        "name": "--database-name",
+        "type": "str",
+        "help": "Tabular model database name (defaults to the selected record type name)",
+        "required": false,
+        "default": ""
+      },
+      {
+        "name": "--compatibility-level",
+        "type": "int",
+        "help": "Tabular model compatibility level",
+        "required": false,
+        "default": 1605
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns to the TMSL table",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.tmsl.json",
+    "prompts": [
+      {
+        "name": "--emit-cloudevents-columns",
+        "message": "Add CloudEvents columns to the TMSL schema?",
         "type": "bool",
         "default": false
       }

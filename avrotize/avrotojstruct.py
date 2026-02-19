@@ -132,6 +132,10 @@ class AvroToJsonStructure:
             props = {"name": name, "type": "object", "properties": {}, "required": []}
             if "doc" in avro_schema:
                 props["description"] = avro_schema["doc"]
+            if isinstance(avro_schema.get("unique"), list):
+                props["x-avrotize-unique"] = avro_schema["unique"]
+            if isinstance(avro_schema.get("foreignKeys"), list):
+                props["x-avrotize-foreignKeys"] = avro_schema["foreignKeys"]
             
             # Namespace for resolving field types within this record
             record_fields_namespace = avro_schema.get("namespace", namespace) 

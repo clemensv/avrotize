@@ -127,6 +127,7 @@ Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
 - [`avrotize validate`](#validate-json-instances-against-schemas) - Validate JSON instances against Avro or JSON Structure schemas.
+- [`avrotize validate-tmsl`](#validate-tmsl-scripts-locally) - Validate TMSL scripts locally against documented object structure.
 
 JSON Structure conversions:
 
@@ -1482,6 +1483,35 @@ avrotize validate events.jsonl --schema events.jstruct.json
 
 # Quiet mode for CI/CD pipelines (exit code only)
 avrotize validate data.json --schema schema.avsc --quiet
+```
+
+### Validate TMSL scripts locally
+
+```bash
+avrotize validate-tmsl [input] [--quiet]
+```
+
+Parameters:
+
+- `[input]`: Path to the TMSL JSON file. If omitted, the file is read from stdin.
+- `--quiet`: (optional) Suppress output. Exit code 0 if valid, 1 if invalid.
+
+Validation notes:
+
+- Performs local structural validation aligned with Microsoft TMSL object definitions for compatibility level 1200+.
+- Validates `createOrReplace` command payload shape for the database/model/table/column path.
+- Enforces documented column `dataType` enum values (`automatic`, `string`, `int64`, `double`, `dateTime`, `decimal`, `boolean`, `binary`, `unknown`, `variant`).
+- Enforces strict object property checks (`additionalProperties: false`) for the validated subset.
+- This is not a semantic engine validation; semantic checks still require execution against an XMLA endpoint.
+
+Example:
+
+```bash
+# Validate a generated TMSL file
+avrotize validate-tmsl model.tmsl.json
+
+# CI mode with exit code only
+avrotize validate-tmsl model.tmsl.json --quiet
 ```
 
 ### Convert JSON Structure schema to GraphQL schema
