@@ -65,9 +65,17 @@
         "typescript",
         "xsd"
     ],
-    "activationEvents": [],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
     "main": "./dist/extension.js",
     "contributes": {
+        "mcpServerDefinitionProviders": [
+            {
+                "id": "avrotize.local-mcp",
+                "label": "Avrotize MCP"
+            }
+        ],
         "submenus": [
             {
                 "id": "convertSubmenu",
