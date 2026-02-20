@@ -2,6 +2,12 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.4.2] - 2026-02-20
+
+### Added
+
+- **MCP registry ownership marker**: Added `mcp-name: io.github.clemensv/avrotize` to `README.md` so PyPI package metadata satisfies MCP Registry ownership validation.
+
 ## [3.4.1] - 2026-02-20
 
 ### Added

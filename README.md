@@ -1,5 +1,7 @@
 # Avrotize & Structurize
 
+mcp-name: io.github.clemensv/avrotize
+
 [![PyPI version](https://img.shields.io/pypi/v/avrotize)](https://pypi.org/project/avrotize/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/avrotize)](https://pypi.org/project/avrotize/)
 [![Build Status](https://github.com/clemensv/avrotize/actions/workflows/build_deploy.yml/badge.svg)](https://github.com/clemensv/avrotize/actions/workflows/build_deploy.yml)
