@@ -2,6 +2,19 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.4.1] - 2026-02-20
+
+### Added
+
+- **VS Code extension MCP registration**: The Avrotize extension now explicitly contributes and registers itself as an MCP server provider (`avrotize.local-mcp`).
+- **Extension MCP integration tests**: Added extension tests to verify MCP provider contribution metadata and stdio server definition output for `avrotize mcp`.
+- **CI coverage for extension tests**: Added a `vscode-extension-test` workflow job to execute VS Code extension tests in CI.
+
+### Changed
+
+- **Extension installation path**: Extension-managed install/update now uses `avrotize[mcp]` to ensure MCP support is installed together with the CLI.
+- **VS Code extension documentation**: Updated extension README installation instructions to include the MCP extra.
+
 ## [3.4.0] - 2026-02-20
 
 ### Added
