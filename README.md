@@ -149,8 +149,18 @@ You can run Avrotize as a local MCP server over stdio:
 avrotize mcp
 ```
 
-For MCP server catalogs, a generic manifest is provided at [mcp-server.json](mcp-server.json).
-Some catalogs may require field-name adjustments to match their specific schema.
+Catalog-ready metadata files are included:
+
+- Official MCP Registry manifest: [server.json](server.json)
+- Microsoft/GitHub MCP catalog listing template: [catalogs/microsoft-github-mcp.md](catalogs/microsoft-github-mcp.md)
+- Generic cross-catalog manifest (optional): [mcp-server.json](mcp-server.json)
+
+To publish to the official MCP Registry:
+
+```bash
+mcp-publisher validate server.json
+mcp-publisher publish server.json
+```
 
 The MCP server exposes tools to:
 
