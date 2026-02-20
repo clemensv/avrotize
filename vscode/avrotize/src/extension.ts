@@ -6,6 +6,9 @@ import * as fs from 'fs';
 const currentVersionMajor = 2;
 const currentVersionMinor = 1;
 const currentVersionPatch = 3;
+const avrotizeInstallSpec = 'avrotize[mcp]';
+const mcpProviderId = 'avrotize.local-mcp';
+
 async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {
     try {
         const toolAvailable = await execShellCommand('avrotize --version')
@@ -16,7 +19,7 @@ async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel
                 if (major < currentVersionMajor || (major === currentVersionMajor && minor < currentVersionMinor) || (major === currentVersionMajor && minor === currentVersionMinor && patch < currentVersionPatch)) {
                     outputChannel.show(true);
                     outputChannel.appendLine('avrotize tool version is outdated. Updating.');
-                    await execShellCommand('pip install --upgrade avrotize', outputChannel);
+                    await execShellCommand(`pip install --upgrade "${avrotizeInstallSpec}"`, outputChannel);
                     vscode.window.showInformationMessage('avrotize tool has been updated successfully.');
                 };
                 return true;
@@ -34,7 +37,7 @@ async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel
                     }
                     outputChannel.show(true);
                     outputChannel.appendLine('Installing avrotize tool...');
-                    await execShellCommand('pip install avrotize', outputChannel);
+                    await execShellCommand(`pip install "${avrotizeInstallSpec}"`, outputChannel);
                     vscode.window.showInformationMessage('avrotize tool has been installed successfully.');
                     return true;
                 }
@@ -111,6 +114,38 @@ export function activate(context: vscode.ExtensionContext) {
     const disposables: vscode.Disposable[] = [];
     (async () => {
         const outputChannel = vscode.window.createOutputChannel('avrotize');
+        const vscodeWithMcp = vscode as typeof vscode & {
+            lm?: {
+                registerMcpServerDefinitionProvider: (id: string, provider: {
+                    provideMcpServerDefinitions: () => unknown[];
+                    resolveMcpServerDefinition?: (server: unknown) => unknown;
+                }) => vscode.Disposable;
+            };
+            McpStdioServerDefinition?: new (
+                label: string,
+                command: string,
+                args?: string[],
+                env?: Record<string, string | number | null>,
+                version?: string
+            ) => unknown;
+        };
+
+        if (vscodeWithMcp.lm?.registerMcpServerDefinitionProvider && vscodeWithMcp.McpStdioServerDefinition) {
+            const mcpStdioServerDefinition = vscodeWithMcp.McpStdioServerDefinition;
+            disposables.push(vscodeWithMcp.lm.registerMcpServerDefinitionProvider(mcpProviderId, {
+                provideMcpServerDefinitions: () => [
+                    new mcpStdioServerDefinition(
+                        'Avrotize MCP',
+                        'avrotize',
+                        ['mcp'],
+                        undefined,
+                        `${currentVersionMajor}.${currentVersionMinor}.${currentVersionPatch}`
+                    )
+                ],
+                resolveMcpServerDefinition: (server) => server
+            }));
+            outputChannel.appendLine('Registered MCP server provider: Avrotize MCP');
+        }
 
         disposables.push(vscode.commands.registerCommand('avrotize.p2a', async (uri: vscode.Uri) => {
             if (!await checkAvrotizeTool(context, outputChannel)) { return; }

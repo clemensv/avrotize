@@ -21,7 +21,7 @@ Avrotize requires Python 3.10 or later to be installed on your system first.
 You can let the extension install Avrotize or you can install it with PIP:
 
 ```bash
-pip install avrotize
+pip install "avrotize[mcp]"
 ```
 
 If you only want to run the tool in a virtual environment, you can create one,
