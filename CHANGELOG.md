@@ -2,6 +2,41 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.4.0] - 2026-02-20
+
+### Added
+
+- **Local MCP server mode (`avrotize mcp`)**: Avrotize can now run as a local MCP server over stdio.
+- **MCP tool surface**: Added MCP tools for conversion discovery and execution:
+  - `describe_capabilities`
+  - `list_conversions`
+  - `get_conversion`
+  - `run_conversion`
+- **Catalog metadata for MCP registration**:
+  - Added official MCP Registry manifest at `server.json`
+  - Added generic cross-catalog manifest at `mcp-server.json`
+  - Added Microsoft/GitHub catalog listing template at `catalogs/microsoft-github-mcp.md`
+- **CI validation for MCP registry manifest**: Added workflow `.github/workflows/validate-mcp-server-json.yml` to validate `server.json` on PRs.
+
+### Changed
+
+- **Command metadata**: Added `mcp` command in `avrotize/commands.json`.
+- **CLI routing robustness**: Updated `avrotize/avrotize.py` input handling to support commands without positional input.
+- **Packaging**: Added optional `mcp` extra in `pyproject.toml` (`mcp>=1.26.0`).
+- **Documentation**: Expanded README with MCP usage, installation, and catalog registration guidance.
+
+### Fixed
+
+- **C# fixture dependency alignment**: Updated test fixtures to `System.Text.Json 10.0.3` to avoid downgrade conflicts and keep CI green.
+
+### Dependencies
+
+- Bumped `System.Text.Json` from `10.0.2` to `10.0.3`
+- Bumped `org.junit.jupiter:junit-jupiter`
+- Bumped `org.junit.jupiter:junit-jupiter-api`
+- Bumped `org.junit.jupiter:junit-jupiter-engine`
+- Bumped `com.fasterxml.jackson.core:jackson-databind`
+
 ## [3.3.2] - 2026-02-06
 
 ### Fixed
