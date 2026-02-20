@@ -98,6 +98,39 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
         f"const currentVersionMajor = {latest_version.split('.',2)[0]};",
         f"const currentVersionMinor = {latest_version.split('.',2)[1]};",
         f"const currentVersionPatch = {latest_version.split('.',2)[2]};",
+        "const avrotizeInstallSpec = 'avrotize[mcp]';",
+        "export const mcpProviderId = 'avrotize.local-mcp';",
+        "",
+        "type McpServerProvider = {",
+        "    provideMcpServerDefinitions: () => unknown[];",
+        "    resolveMcpServerDefinition?: (server: unknown) => unknown;",
+        "};",
+        "",
+        "type McpStdioServerDefinitionConstructor = new (",
+        "    label: string,",
+        "    command: string,",
+        "    args?: string[],",
+        "    env?: Record<string, string | number | null>,",
+        "    version?: string",
+        ") => unknown;",
+        "",
+        "export function createAvrotizeMcpServerDefinitionProvider(",
+        "    mcpStdioServerDefinition: McpStdioServerDefinitionConstructor,",
+        "    version: string",
+        "): McpServerProvider {",
+        "    return {",
+        "        provideMcpServerDefinitions: () => [",
+        "            new mcpStdioServerDefinition(",
+        "                'Avrotize MCP',",
+        "                'avrotize',",
+        "                ['mcp'],",
+        "                undefined,",
+        "                version",
+        "            )",
+        "        ],",
+        "        resolveMcpServerDefinition: (server) => server",
+        "    };",
+        "}",
      ]
     
     extension_ts_content.append(f"async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {{")
@@ -110,7 +143,7 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
     extension_ts_content.append(f"{INDENT*4}if (major < currentVersionMajor || (major === currentVersionMajor && minor < currentVersionMinor) || (major === currentVersionMajor && minor === currentVersionMinor && patch < currentVersionPatch)) {{")
     extension_ts_content.append(f"{INDENT*5}outputChannel.show(true);")
     extension_ts_content.append(f"{INDENT*5}outputChannel.appendLine('avrotize tool version is outdated. Updating.');")
-    extension_ts_content.append(f"{INDENT*5}await execShellCommand('pip install --upgrade avrotize', outputChannel);")
+    extension_ts_content.append(f"{INDENT*5}await execShellCommand(`pip install --upgrade \"${{avrotizeInstallSpec}}\"`, outputChannel);")
     extension_ts_content.append(f"{INDENT*5}vscode.window.showInformationMessage('avrotize tool has been updated successfully.');")
     extension_ts_content.append(f"{INDENT*4}}};")
     extension_ts_content.append(f"{INDENT*4}return true;")
@@ -128,7 +161,7 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
     extension_ts_content.append(f"{INDENT*5}}}")
     extension_ts_content.append(f"{INDENT*5}outputChannel.show(true);")
     extension_ts_content.append(f"{INDENT*5}outputChannel.appendLine('Installing avrotize tool...');")
-    extension_ts_content.append(f"{INDENT*5}await execShellCommand('pip install avrotize', outputChannel);")
+    extension_ts_content.append(f"{INDENT*5}await execShellCommand(`pip install \"${{avrotizeInstallSpec}}\"`, outputChannel);")
     extension_ts_content.append(f"{INDENT*5}vscode.window.showInformationMessage('avrotize tool has been installed successfully.');")
     extension_ts_content.append(f"{INDENT*5}return true;")
     extension_ts_content.append(f"{INDENT*4}}}")
@@ -212,6 +245,33 @@ def update_vs_code_extension_project(root_path: str, json_file_path: str) -> Non
             f"{INDENT}const disposables: vscode.Disposable[] = [];",
             f"{INDENT}(async () => {{",
             f"{INDENT*2}const outputChannel = vscode.window.createOutputChannel('avrotize');",
+            f"{INDENT*2}const vscodeWithMcp = vscode as typeof vscode & {{",
+            f"{INDENT*3}lm?: {{",
+            f"{INDENT*4}registerMcpServerDefinitionProvider: (id: string, provider: {{",
+            f"{INDENT*5}provideMcpServerDefinitions: () => unknown[];",
+            f"{INDENT*5}resolveMcpServerDefinition?: (server: unknown) => unknown;",
+            f"{INDENT*4}}}) => vscode.Disposable;",
+            f"{INDENT*3}}};",
+            f"{INDENT*3}McpStdioServerDefinition?: new (",
+            f"{INDENT*4}label: string,",
+            f"{INDENT*4}command: string,",
+            f"{INDENT*4}args?: string[],",
+            f"{INDENT*4}env?: Record<string, string | number | null>,",
+            f"{INDENT*4}version?: string",
+            f"{INDENT*3}) => unknown;",
+            f"{INDENT*2}}};",
+            "",
+            f"{INDENT*2}if (vscodeWithMcp.lm?.registerMcpServerDefinitionProvider && vscodeWithMcp.McpStdioServerDefinition) {{",
+            f"{INDENT*3}const mcpStdioServerDefinition = vscodeWithMcp.McpStdioServerDefinition;",
+            f"{INDENT*3}disposables.push(vscodeWithMcp.lm.registerMcpServerDefinitionProvider(",
+            f"{INDENT*4}mcpProviderId,",
+            f"{INDENT*4}createAvrotizeMcpServerDefinitionProvider(",
+            f"{INDENT*5}mcpStdioServerDefinition,",
+            f"{INDENT*5}`${{currentVersionMajor}}.${{currentVersionMinor}}.${{currentVersionPatch}}`",
+            f"{INDENT*4})",
+            f"{INDENT*3}));",
+            f"{INDENT*3}outputChannel.appendLine('Registered MCP server provider: Avrotize MCP');",
+            f"{INDENT*2}}}",
             ""
         ]
     )
