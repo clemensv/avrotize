@@ -7,7 +7,38 @@ const currentVersionMajor = 2;
 const currentVersionMinor = 1;
 const currentVersionPatch = 3;
 const avrotizeInstallSpec = 'avrotize[mcp]';
-const mcpProviderId = 'avrotize.local-mcp';
+export const mcpProviderId = 'avrotize.local-mcp';
+
+type McpServerProvider = {
+    provideMcpServerDefinitions: () => unknown[];
+    resolveMcpServerDefinition?: (server: unknown) => unknown;
+};
+
+type McpStdioServerDefinitionConstructor = new (
+    label: string,
+    command: string,
+    args?: string[],
+    env?: Record<string, string | number | null>,
+    version?: string
+) => unknown;
+
+export function createAvrotizeMcpServerDefinitionProvider(
+    mcpStdioServerDefinition: McpStdioServerDefinitionConstructor,
+    version: string
+): McpServerProvider {
+    return {
+        provideMcpServerDefinitions: () => [
+            new mcpStdioServerDefinition(
+                'Avrotize MCP',
+                'avrotize',
+                ['mcp'],
+                undefined,
+                version
+            )
+        ],
+        resolveMcpServerDefinition: (server) => server
+    };
+}
 
 async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {
     try {
@@ -132,18 +163,13 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (vscodeWithMcp.lm?.registerMcpServerDefinitionProvider && vscodeWithMcp.McpStdioServerDefinition) {
             const mcpStdioServerDefinition = vscodeWithMcp.McpStdioServerDefinition;
-            disposables.push(vscodeWithMcp.lm.registerMcpServerDefinitionProvider(mcpProviderId, {
-                provideMcpServerDefinitions: () => [
-                    new mcpStdioServerDefinition(
-                        'Avrotize MCP',
-                        'avrotize',
-                        ['mcp'],
-                        undefined,
-                        `${currentVersionMajor}.${currentVersionMinor}.${currentVersionPatch}`
-                    )
-                ],
-                resolveMcpServerDefinition: (server) => server
-            }));
+            disposables.push(vscodeWithMcp.lm.registerMcpServerDefinitionProvider(
+                mcpProviderId,
+                createAvrotizeMcpServerDefinitionProvider(
+                    mcpStdioServerDefinition,
+                    `${currentVersionMajor}.${currentVersionMinor}.${currentVersionPatch}`
+                )
+            ));
             outputChannel.appendLine('Registered MCP server provider: Avrotize MCP');
         }
 

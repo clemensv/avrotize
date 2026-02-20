@@ -82,8 +82,26 @@ jobs:
         report-title: 'Test Report: ${{ matrix.test-group.name }}'
         custom-pytest: 'pytest ${{ matrix.test-group.pattern }}'
 
+  vscode-extension-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        submodules: recursive
+    - name: Install Linux GUI test dependencies
+      run: sudo apt-get update && sudo apt-get install -y xvfb libasound2t64
+    - name: Install Node dependencies for VS Code extension
+      run: |
+        cd ${{ github.workspace }}/vscode/avrotize
+        npm ci
+    - name: Run VS Code extension tests
+      run: |
+        cd ${{ github.workspace }}/vscode/avrotize
+        xvfb-run -a npm test
+
   deploy:
-    needs: test
+    needs: [test, vscode-extension-test]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
