@@ -17,3 +17,4 @@ bin/
 obj/
 .vs/
 *.sln
+.tools/

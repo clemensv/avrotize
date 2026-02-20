@@ -27,6 +27,12 @@ You can install Avrotize from PyPI, [having installed Python 3.10 or later](http
 pip install avrotize
 ```
 
+For MCP server support (`avrotize mcp`), install with the MCP extra:
+
+```bash
+pip install "avrotize[mcp]"
+```
+
 For SQL database support (`sql2a` command), install the optional database drivers:
 
 ```bash
@@ -127,12 +133,41 @@ Other commands:
 
 - [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
 - [`avrotize validate`](#validate-json-instances-against-schemas) - Validate JSON instances against Avro or JSON Structure schemas.
+- `avrotize mcp` - Run Avrotize as a local MCP server exposing conversion tools to MCP clients.
 
 JSON Structure conversions:
 
 - [`avrotize s2dp`](#convert-json-structure-schema-to-datapackage-schema) - Convert JSON Structure schema to Datapackage schema.
 
 ## Overview
+
+## MCP server
+
+You can run Avrotize as a local MCP server over stdio:
+
+```bash
+avrotize mcp
+```
+
+Catalog-ready metadata files are included:
+
+- Official MCP Registry manifest: [server.json](server.json)
+- Microsoft/GitHub MCP catalog listing template: [catalogs/microsoft-github-mcp.md](catalogs/microsoft-github-mcp.md)
+- Generic cross-catalog manifest (optional): [mcp-server.json](mcp-server.json)
+
+To publish to the official MCP Registry:
+
+```bash
+mcp-publisher validate server.json
+mcp-publisher publish server.json
+```
+
+The MCP server exposes tools to:
+
+- describe server capabilities and routing guidance (`describe_capabilities`)
+- list available conversion commands (`list_conversions`)
+- inspect a conversion command (`get_conversion`)
+- execute conversions (`run_conversion`)
 
 You can use Avrotize to convert between Avro/Avrotize Schema and other schema formats like JSON Schema, XML Schema (XSD), Protocol Buffers (Protobuf), ASN.1, and database schema formats like Kusto Data Table Definition (KQL) and SQL Table Definition. That means you can also convert from JSON Schema to Protobuf going via Avrotize Schema.
 

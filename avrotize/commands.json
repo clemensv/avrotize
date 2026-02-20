@@ -4405,5 +4405,31 @@
         "required": false
       }
     ]
+  },
+  {
+    "command": "mcp",
+    "description": "Run Avrotize as a local MCP server exposing conversion tools",
+    "group": "7_Utility",
+    "function": {
+      "name": "avrotize.mcp_server.run_mcp_server",
+      "args": {
+        "transport": "args.transport"
+      }
+    },
+    "extensions": [],
+    "args": [
+      {
+        "name": "--transport",
+        "type": "str",
+        "help": "MCP transport type",
+        "choices": [
+          "stdio"
+        ],
+        "default": "stdio",
+        "required": false
+      }
+    ],
+    "prompts": [],
+    "skip_input_file_handling": true
   }
 ]
