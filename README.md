@@ -156,6 +156,7 @@ Catalog-ready metadata files are included:
 - Official MCP Registry manifest: [server.json](server.json)
 - Microsoft/GitHub MCP catalog listing template: [catalogs/microsoft-github-mcp.md](catalogs/microsoft-github-mcp.md)
 - Generic cross-catalog manifest (optional): [mcp-server.json](mcp-server.json)
+- VS Code + Copilot usage quickstart: [copilot-vscode-mcp-quickstart.md](copilot-vscode-mcp-quickstart.md)
 
 To publish to the official MCP Registry:
 
