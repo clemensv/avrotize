@@ -42,57 +42,171 @@ export function createAvrotizeMcpServerDefinitionProvider(
 
 async function checkAvrotizeTool(context: vscode.ExtensionContext, outputChannel: vscode.OutputChannel): Promise<boolean> {
     try {
-        const toolAvailable = await execShellCommand('avrotize --version')
-            .then(async (output:string) => {
-                const version = output.trim().split(' ')[1];
-                const [major, minor, patch] = version.split('.',3).map(num => parseInt(num));
-                outputChannel.appendLine(`avrotize tool version: ${version}`);
-                if (major < currentVersionMajor || (major === currentVersionMajor && minor < currentVersionMinor) || (major === currentVersionMajor && minor === currentVersionMinor && patch < currentVersionPatch)) {
-                    outputChannel.show(true);
-                    outputChannel.appendLine('avrotize tool version is outdated. Updating.');
-                    await execShellCommand(`pip install --upgrade "${avrotizeInstallSpec}"`, outputChannel);
-                    vscode.window.showInformationMessage('avrotize tool has been updated successfully.');
-                };
-                return true;
-            })
-            .catch(async (error) => {
-                const installOption = await vscode.window.showWarningMessage(
-                    'avrotize tool is not available. Do you want to install it?', 'Yes', 'No');
-                if (installOption === 'Yes') {
-                    if (!await isPythonAvailable()) {
-                        const downloadOption = await vscode.window.showErrorMessage('Python 3.10 or higher must be installed. Do you want to open the download page?', 'Yes', 'No');
-                        if (downloadOption === 'Yes') {
-                            vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));
-                        }
-                        return false;
-                    }
-                    outputChannel.show(true);
-                    outputChannel.appendLine('Installing avrotize tool...');
-                    await execShellCommand(`pip install "${avrotizeInstallSpec}"`, outputChannel);
-                    vscode.window.showInformationMessage('avrotize tool has been installed successfully.');
-                    return true;
+        const currentVersion = await getAvrotizeVersion(outputChannel);
+        if (!currentVersion) {
+            const installOption = await vscode.window.showWarningMessage(
+                'avrotize tool is not available. Do you want to install it?', 'Yes', 'No');
+            if (installOption !== 'Yes') {
+                return false;
+            }
+
+            const pythonCommand = await resolvePythonCommand(outputChannel);
+            if (!pythonCommand) {
+                const downloadOption = await vscode.window.showErrorMessage('Python 3.10 or higher must be installed. Do you want to open the download page?', 'Yes', 'No');
+                if (downloadOption === 'Yes') {
+                    vscode.env.openExternal(vscode.Uri.parse('https://www.python.org/downloads/'));
                 }
                 return false;
-            });
-        return toolAvailable;
+            }
+
+            outputChannel.show(true);
+            outputChannel.appendLine(`Installing avrotize tool via ${pythonCommand}...`);
+            await execShellCommand(`${pythonCommand} -m pip install "${avrotizeInstallSpec}"`, outputChannel);
+            avrotizeCommandPrefix = null;
+            vscode.window.showInformationMessage('avrotize tool has been installed successfully.');
+            return true;
+        }
+
+        const [major, minor, patch] = currentVersion.split('.', 3).map(num => parseInt(num, 10));
+        if (major < currentVersionMajor || (major === currentVersionMajor && minor < currentVersionMinor) || (major === currentVersionMajor && minor === currentVersionMinor && patch < currentVersionPatch)) {
+            const pythonCommand = await resolvePythonCommand(outputChannel);
+            if (!pythonCommand) {
+                vscode.window.showErrorMessage('Found avrotize but no usable Python 3.10+ runtime to update it.');
+                return false;
+            }
+            outputChannel.show(true);
+            outputChannel.appendLine(`avrotize tool version ${currentVersion} is outdated. Updating via ${pythonCommand}...`);
+            await execShellCommand(`${pythonCommand} -m pip install --upgrade "${avrotizeInstallSpec}"`, outputChannel);
+            avrotizeCommandPrefix = null;
+            vscode.window.showInformationMessage('avrotize tool has been updated successfully.');
+        }
+        return true;
     } catch (error) {
         vscode.window.showErrorMessage('Error checking avrotize tool availability: ' + error);
         return false;
     }
 }
-async function isPythonAvailable(): Promise<boolean> {
-    try {
-        const output = await execShellCommand('python --version');
-        const version = output.trim().split(' ')[1];
-        const [major, minor] = version.split('.').map(num => parseInt(num));
-        if (major < 3 || (major === 3 && minor < 10)) {
-            vscode.window.showInformationMessage('Python 3.10 or higher must be installed. Found version: ' + version);
-            return false;
+
+let avrotizeCommandPrefix: string | null = null;
+let pythonCommandCache: string | null = null;
+
+function parseVersion(output: string): [number, number] | null {
+    const match = output.match(/(\d+)\.(\d+)/);
+    if (!match) {
+        return null;
+    }
+    return [parseInt(match[1], 10), parseInt(match[2], 10)];
+}
+
+function shellQuote(value: string): string {
+    return value.includes(' ') ? `"${value.replace(/"/g, '\\"')}"` : value;
+}
+
+function collectPythonPathCandidates(): string[] {
+    const candidates: string[] = [];
+    const addCandidate = (pythonPath: string) => {
+        if (pythonPath && fs.existsSync(pythonPath) && fs.statSync(pythonPath).isFile()) {
+            candidates.push(shellQuote(pythonPath));
         }
-        return major === 3 && minor >= 11;
+    };
+
+    const userProfile = process.env.USERPROFILE || '';
+    const localAppData = process.env.LOCALAPPDATA || path.join(userProfile, 'AppData', 'Local');
+    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+    const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+    const windowsDir = process.env.WINDIR || 'C:\\Windows';
+
+    addCandidate(path.join(windowsDir, 'py.exe'));
+
+    const pythonRoots = [
+        path.join(localAppData, 'Programs', 'Python'),
+        path.join(programFiles, 'Python'),
+        path.join(programFilesX86, 'Python')
+    ];
+
+    for (const root of pythonRoots) {
+        if (!fs.existsSync(root)) {
+            continue;
+        }
+        const dirs = fs.readdirSync(root, { withFileTypes: true })
+            .filter(entry => entry.isDirectory() && /^Python\d+/i.test(entry.name))
+            .map(entry => entry.name)
+            .sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
+
+        for (const dir of dirs) {
+            addCandidate(path.join(root, dir, 'python.exe'));
+        }
+    }
+
+    return [...new Set(candidates)];
+}
+
+async function isUsablePython(command: string): Promise<boolean> {
+    try {
+        const output = await execShellCommand(`${command} --version`);
+        const version = parseVersion(output);
+        return !!version && (version[0] > 3 || (version[0] === 3 && version[1] >= 10));
     } catch {
         return false;
     }
+}
+
+async function resolvePythonCommand(outputChannel?: vscode.OutputChannel): Promise<string | null> {
+    if (pythonCommandCache) {
+        return pythonCommandCache;
+    }
+
+    const commandCandidates = ['python', 'python3', 'py -3', 'py', ...collectPythonPathCandidates()];
+    for (const candidate of commandCandidates) {
+        if (await isUsablePython(candidate)) {
+            pythonCommandCache = candidate;
+            outputChannel?.appendLine(`Using Python runtime: ${candidate}`);
+            return candidate;
+        }
+    }
+    return null;
+}
+
+async function resolveAvrotizeCommandPrefix(outputChannel?: vscode.OutputChannel): Promise<string | null> {
+    if (avrotizeCommandPrefix) {
+        return avrotizeCommandPrefix;
+    }
+
+    try {
+        await execShellCommand('avrotize --version');
+        avrotizeCommandPrefix = 'avrotize';
+        return avrotizeCommandPrefix;
+    } catch {
+        const pythonCommand = await resolvePythonCommand(outputChannel);
+        if (!pythonCommand) {
+            return null;
+        }
+        try {
+            await execShellCommand(`${pythonCommand} -m avrotize --version`);
+            avrotizeCommandPrefix = `${pythonCommand} -m avrotize`;
+            return avrotizeCommandPrefix;
+        } catch {
+            return null;
+        }
+    }
+}
+
+async function getAvrotizeVersion(outputChannel?: vscode.OutputChannel): Promise<string | null> {
+    const prefix = await resolveAvrotizeCommandPrefix(outputChannel);
+    if (!prefix) {
+        return null;
+    }
+    const output = await execShellCommand(`${prefix} --version`);
+    const match = output.trim().match(/\b(\d+\.\d+\.\d+)\b/);
+    const version = match ? match[1] : null;
+    if (version) {
+        outputChannel?.appendLine(`avrotize tool version: ${version}`);
+    }
+    return version;
+}
+
+async function isPythonAvailable(): Promise<boolean> {
+    return (await resolvePythonCommand()) !== null;
 }
 
 function execShellCommand(cmd: string, outputChannel?: vscode.OutputChannel): Promise<string> {
@@ -114,8 +228,18 @@ function execShellCommand(cmd: string, outputChannel?: vscode.OutputChannel): Pr
         }
     });
 }
-function executeCommand(command: string, outputPath: vscode.Uri | null, outputChannel: vscode.OutputChannel) {
-    exec(command, (error, stdout, stderr) => {
+async function executeCommand(command: string, outputPath: vscode.Uri | null, outputChannel: vscode.OutputChannel) {
+    let commandToRun = command;
+    if (command.trim().startsWith('avrotize ')) {
+        const prefix = await resolveAvrotizeCommandPrefix(outputChannel);
+        if (!prefix) {
+            vscode.window.showErrorMessage('Unable to run avrotize: no executable found and no usable Python 3.10+ runtime discovered.');
+            return;
+        }
+        commandToRun = `${prefix}${command.trim().substring('avrotize'.length)}`;
+    }
+
+    exec(commandToRun, (error, stdout, stderr) => {
         if (error) {
             outputChannel.appendLine(`Error: ${error.message}`);
             vscode.window.showErrorMessage(`Error: ${stderr}`);

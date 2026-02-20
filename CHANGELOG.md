@@ -2,6 +2,17 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.4.3] - 2026-02-20
+
+### Fixed
+
+- **MCP `json2s` input routing**: `run_conversion` now correctly maps `input_path` and `input_content` into positional command inputs (including `nargs` forms), fixing failures for conversions expecting a primary positional input.
+- **VS Code extension Python fallback**: Extension runtime now aggressively discovers usable local Python 3.10+ installations (including common Windows install locations) and falls back to `python -m avrotize` when `avrotize` is not on `PATH`.
+
+### Changed
+
+- **Extension generator parity**: Updated `tools/editvscodeext.py` to emit the same Python discovery and fallback behavior so deploy-time regeneration preserves runtime fixes.
+
 ## [3.4.2] - 2026-02-20
 
 ### Added

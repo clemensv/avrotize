@@ -46,7 +46,12 @@ def _build_namespace(command: Dict[str, Any], options: Dict[str, Any]) -> argpar
         default_value = arg.get("default", False if arg.get("type") == "bool" else None)
         setattr(namespace, dest, default_value)
         if dest in normalized_options:
-            setattr(namespace, dest, _coerce_value(normalized_options[dest], arg["type"]))
+            raw_value = normalized_options[dest]
+            if arg.get("nargs") in {"+", "*"}:
+                values = raw_value if isinstance(raw_value, list) else [raw_value]
+                setattr(namespace, dest, [_coerce_value(v, arg["type"]) for v in values])
+            else:
+                setattr(namespace, dest, _coerce_value(raw_value, arg["type"]))
 
     return namespace
 
@@ -65,6 +70,33 @@ def _resolve_input_path(command_args: argparse.Namespace, explicit_input_path: s
         or getattr(command_args, "asn", None)
         or getattr(command_args, "kstruct", None)
     )
+
+
+def _find_primary_input_arg(command: Dict[str, Any]) -> Dict[str, Any] | None:
+    return next(
+        (arg for arg in command.get("args", []) if isinstance(arg.get("name"), str) and not arg["name"].startswith("-")),
+        None,
+    )
+
+
+def _inject_input_into_namespace(command: Dict[str, Any], command_args: argparse.Namespace, input_value: str) -> None:
+    primary_input_arg = _find_primary_input_arg(command)
+    if not primary_input_arg:
+        return
+
+    dest = _command_dest(primary_input_arg)
+    current_value = getattr(command_args, dest, None)
+
+    if primary_input_arg.get("nargs") in {"+", "*"}:
+        if current_value in (None, "", []):
+            setattr(command_args, dest, [input_value])
+        elif isinstance(current_value, list) and input_value not in current_value:
+            setattr(command_args, dest, [input_value, *current_value])
+        elif not isinstance(current_value, list):
+            setattr(command_args, dest, [input_value, current_value])
+    else:
+        if current_value in (None, ""):
+            setattr(command_args, dest, input_value)
 
 
 def _find_command(command_name: str) -> Dict[str, Any] | None:
@@ -138,15 +170,20 @@ def _execute_conversion(
     try:
         resolved_input = _resolve_input_path(command_args, input_path)
         skip_input_file_handling = command.get("skip_input_file_handling", False)
-        if not skip_input_file_handling and not resolved_input:
-            if input_content is None:
-                raise ValueError("This command requires input_path or input_content.")
+        if input_content is not None and not resolved_input:
             temp_input = tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8")
             temp_input.write(input_content)
             temp_input.flush()
             temp_input.close()
             temp_input_path = temp_input.name
             resolved_input = temp_input_path
+
+        if not skip_input_file_handling and not resolved_input:
+            if input_content is None:
+                raise ValueError("This command requires input_path or input_content.")
+
+        if resolved_input:
+            _inject_input_into_namespace(command, command_args, resolved_input)
 
         if not output_path and any(v == "output_file_path" for v in command.get("function", {}).get("args", {}).values()):
             temp_output = tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8")
