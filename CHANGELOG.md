@@ -2,6 +2,40 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.4.4] - 2026-03-24
+
+### Changed
+
+- **MCP server performance**: Replaced `FastMCP` with a lightweight built-in JSON-RPC 2.0 stdio implementation, eliminating the heavy `mcp` library import (~2-3 s for uvicorn, starlette, httpx, pydantic). MCP server first-response time drops from ~1.7 s to ~0.2 s on Windows.
+- **MCP server invocation**: VS Code extension and config files now launch the MCP server via `python -m avrotize.mcp_server`, bypassing the Windows `.exe` console-scripts wrapper overhead (~1.5 s).
+- **MCP quickstart docs**: Updated `copilot-vscode-mcp-quickstart.md` to use the faster `python -m avrotize.mcp_server` invocation.
+
+### Added
+
+- **`avrotize-mcp` console script**: New direct entry point for the MCP server (`avrotize-mcp`), kept as a convenience alias.
+- **Copilot VS Code MCP quickstart**: Added `copilot-vscode-mcp-quickstart.md` with step-by-step instructions for using Avrotize MCP from GitHub Copilot Chat.
+
+### Fixed
+
+- **C# test fixture NuGet versions**: Updated `System.Text.Json` and `System.Memory.Data` versions in C# test fixture `.csproj` files to match the dependency manifest, fixing CI build failures from NuGet downgrade errors.
+- **Kusto emulator test reliability**: Replaced fixed `time.sleep(5)` with a retry loop (up to 60 s) for Kusto emulator container readiness, fixing transient CI failures.
+- **Java code generation**: Jackson annotations version now read from the dependency manifest instead of being hardcoded.
+
+### Dependencies
+
+- Bumped `actions/download-artifact` from 7 to 8
+- Bumped `actions/upload-artifact` from 6 to 7
+- Bumped `com.fasterxml.jackson.core:jackson-core` from 2.18.2 to 2.21.0
+- Bumped `com.fasterxml.jackson:jackson-bom` from 2.21.0 to 2.21.2
+- Bumped `com.fasterxml.jackson.core:jackson-databind` from 2.21.0 to 2.21.2
+- Bumped `org.apache.maven.plugins:maven-surefire-plugin` from 3.5.4 to 3.5.5
+- Bumped `Dahomey.Cbor` from 1.26.0 to 1.26.1
+- Bumped `Microsoft.NET.Test.Sdk` from 18.0.1 to 18.3.0
+- Bumped `NUnit` from 4.4.0 to 4.5.1
+- Bumped `System.Memory.Data` from 10.0.2 to 10.0.5
+- Bumped `System.Text.Json` from 10.0.3 to 10.0.5
+- Bumped `typescript` from 5.9.3 to 6.0.2
+
 ## [3.4.3] - 2026-02-20
 
 ### Fixed
