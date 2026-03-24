@@ -42,10 +42,18 @@ def kusto_container():
     """Starts a Kusto container for testing"""
     container = KustoContainer()
     container.start()
-    time.sleep(5)
     kusto_client = KustoClient(KustoConnectionStringBuilder.with_token_provider(
         container.get_connection_string(), lambda *_: "token"))
     kusto_database = container.get_database_name()
+    # Wait for the Kusto emulator to be ready (it can take a while to start)
+    for attempt in range(30):
+        try:
+            kusto_client.execute_mgmt("NetDefaultDB", ".show cluster")
+            break
+        except Exception:
+            time.sleep(5)
+    else:
+        pytest.skip("Kusto emulator did not become ready in time")
     kusto_client.execute_mgmt("NetDefaultDB",
                               f".create database {kusto_database} persist (" +
                               "@\"/kustodata/dbs/<YourDatabaseName>/md\"," +
