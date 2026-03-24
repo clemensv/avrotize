@@ -80,6 +80,7 @@ dev = [
 
 [project.scripts]
 avrotize = "avrotize.avrotize:main"
+avrotize-mcp = "avrotize.mcp_server:main"
 
 [tool.setuptools_scm]
 write_to = "avrotize/_version.py"

@@ -37,7 +37,7 @@ Add this MCP server configuration in your VS Code MCP settings (or through the M
   "mcpServers": {
     "avrotize-mcp": {
       "command": "python",
-      "args": ["-m", "avrotize", "mcp"]
+      "args": ["-m", "avrotize.mcp_server"]
     }
   }
 }
@@ -50,7 +50,7 @@ On Windows, if `python` is not on `PATH`, use a full Python path, for example:
   "mcpServers": {
     "avrotize-mcp": {
       "command": "C:/Users/<you>/AppData/Local/Programs/Python/Python314/python.exe",
-      "args": ["-m", "avrotize", "mcp"]
+      "args": ["-m", "avrotize.mcp_server"]
     }
   }
 }

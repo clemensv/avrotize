@@ -45,7 +45,7 @@ suite('Extension Test Suite', () => {
 			'Extension should contribute Avrotize MCP provider metadata');
 	});
 
-	test('MCP provider returns avrotize mcp stdio definition', () => {
+	test('MCP provider returns avrotize mcp stdio definition with defaults', () => {
 		const provider = createAvrotizeMcpServerDefinitionProvider(FakeMcpStdioServerDefinition, '2.1.3');
 		const definitions = provider.provideMcpServerDefinitions() as FakeMcpStdioServerDefinition[];
 
@@ -54,6 +54,17 @@ suite('Extension Test Suite', () => {
 		assert.strictEqual(definitions[0].command, 'avrotize');
 		assert.deepStrictEqual(definitions[0].args, ['mcp']);
 		assert.strictEqual(definitions[0].version, '2.1.3');
+	});
+
+	test('MCP provider uses custom python command for fast startup', () => {
+		const provider = createAvrotizeMcpServerDefinitionProvider(
+			FakeMcpStdioServerDefinition, '2.1.3', 'python', ['-m', 'avrotize.mcp_server']
+		);
+		const definitions = provider.provideMcpServerDefinitions() as FakeMcpStdioServerDefinition[];
+
+		assert.strictEqual(definitions.length, 1);
+		assert.strictEqual(definitions[0].command, 'python');
+		assert.deepStrictEqual(definitions[0].args, ['-m', 'avrotize.mcp_server']);
 	});
 
 	test('MCP provider resolve returns original server', () => {

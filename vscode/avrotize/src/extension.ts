@@ -24,14 +24,16 @@ type McpStdioServerDefinitionConstructor = new (
 
 export function createAvrotizeMcpServerDefinitionProvider(
     mcpStdioServerDefinition: McpStdioServerDefinitionConstructor,
-    version: string
+    version: string,
+    command: string = 'avrotize',
+    args: string[] = ['mcp']
 ): McpServerProvider {
     return {
         provideMcpServerDefinitions: () => [
             new mcpStdioServerDefinition(
                 'Avrotize MCP',
-                'avrotize',
-                ['mcp'],
+                command,
+                args,
                 undefined,
                 version
             )
@@ -287,14 +289,19 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (vscodeWithMcp.lm?.registerMcpServerDefinitionProvider && vscodeWithMcp.McpStdioServerDefinition) {
             const mcpStdioServerDefinition = vscodeWithMcp.McpStdioServerDefinition;
+            const pythonCmd = await resolvePythonCommand(outputChannel);
+            const mcpCommand = pythonCmd || 'python';
+            const mcpArgs = ['-m', 'avrotize.mcp_server'];
             disposables.push(vscodeWithMcp.lm.registerMcpServerDefinitionProvider(
                 mcpProviderId,
                 createAvrotizeMcpServerDefinitionProvider(
                     mcpStdioServerDefinition,
-                    `${currentVersionMajor}.${currentVersionMinor}.${currentVersionPatch}`
+                    `${currentVersionMajor}.${currentVersionMinor}.${currentVersionPatch}`,
+                    mcpCommand,
+                    mcpArgs
                 )
             ));
-            outputChannel.appendLine('Registered MCP server provider: Avrotize MCP');
+            outputChannel.appendLine(`Registered MCP server provider: Avrotize MCP (${mcpCommand} ${mcpArgs.join(' ')})`);
         }
 
         disposables.push(vscode.commands.registerCommand('avrotize.p2a', async (uri: vscode.Uri) => {

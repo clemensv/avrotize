@@ -1,13 +1,26 @@
-"""MCP server integration for Avrotize conversions."""
+"""MCP server integration for Avrotize conversions.
+
+Implements the MCP (Model Context Protocol) stdio transport directly via
+JSON-RPC 2.0 over stdin/stdout to avoid the heavy ``mcp`` library import
+(~2-3 s for uvicorn, starlette, httpx, pydantic).  The ``mcp`` library
+is used only as a fallback when *explicitly* requested.
+"""
 
 from __future__ import annotations
 
 import argparse
+import json as _json
 import os
+import sys
 import tempfile
 from typing import Any, Dict, List
 
 from avrotize.avrotize import dynamic_import, load_commands
+
+# ---------------------------------------------------------------------------
+# MCP protocol version supported by this server
+# ---------------------------------------------------------------------------
+_MCP_PROTOCOL_VERSION = "2025-03-26"
 
 
 def _command_dest(arg: Dict[str, Any]) -> str:
@@ -227,10 +240,192 @@ def _execute_conversion(
             os.remove(temp_output_path)
 
 
+def _tool_schemas() -> List[Dict[str, Any]]:
+    """Return MCP tool definitions for the four exposed tools."""
+    return [
+        {
+            "name": "describe_capabilities",
+            "description": "Describe when this server should be used and how to invoke it.",
+            "inputSchema": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "list_conversions",
+            "description": "List available Avrotize conversion commands.",
+            "inputSchema": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "get_conversion",
+            "description": "Get metadata for a specific conversion command.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "The conversion command name."},
+                },
+                "required": ["command"],
+            },
+        },
+        {
+            "name": "run_conversion",
+            "description": "Run a conversion command and return conversion output information.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "The conversion command name."},
+                    "input_path": {"type": "string", "description": "Path to the input file.", "default": ""},
+                    "input_content": {"type": "string", "description": "Inline input content.", "default": ""},
+                    "output_path": {"type": "string", "description": "Path for the output file.", "default": ""},
+                    "options": {
+                        "type": "object",
+                        "description": "Additional command options.",
+                        "additionalProperties": True,
+                    },
+                },
+                "required": ["command"],
+            },
+        },
+    ]
+
+
+def _dispatch_tool(name: str, arguments: Dict[str, Any]) -> Any:
+    """Dispatch a tool call by *name* and return a Python object."""
+    if name == "describe_capabilities":
+        return _describe_capabilities()
+    if name == "list_conversions":
+        return _list_commands()
+    if name == "get_conversion":
+        return _get_conversion_handler(arguments)
+    if name == "run_conversion":
+        return _run_conversion_handler(arguments)
+    raise ValueError(f"Unknown tool '{name}'.")
+
+
+def _get_conversion_handler(args: Dict[str, Any]) -> Dict[str, Any]:
+    command_name = args.get("command", "")
+    cmd = _find_command(command_name)
+    if not cmd:
+        raise ValueError(f"Unknown command '{command_name}'.")
+    return {
+        "command": cmd.get("command"),
+        "description": cmd.get("description"),
+        "group": cmd.get("group"),
+        "args": cmd.get("args", []),
+    }
+
+
+def _run_conversion_handler(args: Dict[str, Any]) -> Dict[str, Any]:
+    return _execute_conversion(
+        command_name=args.get("command", ""),
+        input_path=args.get("input_path") or None,
+        input_content=args.get("input_content") or None,
+        output_path=args.get("output_path") or None,
+        options=args.get("options") or {},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Lightweight JSON-RPC / MCP stdio transport
+# ---------------------------------------------------------------------------
+
+def _jsonrpc_error(req_id: Any, code: int, message: str) -> Dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
+
+
+def _jsonrpc_result(req_id: Any, result: Any) -> Dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": req_id, "result": result}
+
+
+def _handle_message(msg: Dict[str, Any]) -> Dict[str, Any] | None:
+    """Process one JSON-RPC message. Returns a response dict, or None for notifications."""
+    method = msg.get("method", "")
+    req_id = msg.get("id")
+    params = msg.get("params", {})
+
+    # --- Lifecycle ----------------------------------------------------------
+    if method == "initialize":
+        return _jsonrpc_result(req_id, {
+            "protocolVersion": _MCP_PROTOCOL_VERSION,
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "avrotize", "version": _get_version()},
+        })
+
+    if method == "notifications/initialized":
+        return None  # notification — no response
+
+    if method == "ping":
+        return _jsonrpc_result(req_id, {})
+
+    # --- Tool discovery -----------------------------------------------------
+    if method == "tools/list":
+        return _jsonrpc_result(req_id, {"tools": _tool_schemas()})
+
+    # --- Tool execution -----------------------------------------------------
+    if method == "tools/call":
+        tool_name = params.get("name", "")
+        arguments = params.get("arguments", {})
+        try:
+            result = _dispatch_tool(tool_name, arguments)
+            text = _json.dumps(result, default=str)
+            return _jsonrpc_result(req_id, {
+                "content": [{"type": "text", "text": text}],
+            })
+        except Exception as exc:
+            return _jsonrpc_result(req_id, {
+                "content": [{"type": "text", "text": str(exc)}],
+                "isError": True,
+            })
+
+    # Notifications we don't handle — silently ignore
+    if req_id is None:
+        return None
+
+    return _jsonrpc_error(req_id, -32601, f"Method not found: {method}")
+
+
+def _get_version() -> str:
+    try:
+        from avrotize._version import version
+        return version
+    except Exception:
+        return "dev"
+
+
+def _run_stdio_loop() -> None:
+    """Read JSON-RPC messages from stdin, write responses to stdout."""
+    reader = sys.stdin
+    writer = sys.stdout
+    for line in reader:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            msg = _json.loads(line)
+        except _json.JSONDecodeError:
+            resp = _jsonrpc_error(None, -32700, "Parse error")
+            writer.write(_json.dumps(resp) + "\n")
+            writer.flush()
+            continue
+
+        resp = _handle_message(msg)
+        if resp is not None:
+            writer.write(_json.dumps(resp) + "\n")
+            writer.flush()
+
+
 def run_mcp_server(transport: str = "stdio"):
     """Run avrotize as a local MCP server.
 
-    Exposes conversion tools to MCP clients.
+    Uses a lightweight built-in JSON-RPC stdio implementation by default.
+    """
+    if transport != "stdio":
+        raise ValueError("Only 'stdio' transport is currently supported.")
+    _run_stdio_loop()
+
+
+def run_mcp_server_fastmcp(transport: str = "stdio"):
+    """Run avrotize as a local MCP server using the ``mcp`` library.
+
+    This is slower to start (~2-3 s) because the ``mcp`` library eagerly
+    imports uvicorn, starlette, and httpx.  Kept as a compatibility fallback.
     """
     try:
         from mcp.server.fastmcp import FastMCP
@@ -288,3 +483,16 @@ def run_mcp_server(transport: str = "stdio"):
         mcp.run(transport="stdio")
     except TypeError:
         mcp.run()
+
+
+# ---------------------------------------------------------------------------
+# Direct entry point — bypasses the avrotize CLI argparse overhead.
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    """Entry point for the ``avrotize-mcp`` console script."""
+    run_mcp_server("stdio")
+
+
+if __name__ == "__main__":
+    main()

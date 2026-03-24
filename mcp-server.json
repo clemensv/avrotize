@@ -13,10 +13,8 @@
     "pip": "pip install \"avrotize[mcp]\""
   },
   "server": {
-    "command": "avrotize",
-    "args": [
-      "mcp"
-    ],
+    "command": "python",
+    "args": ["-m", "avrotize.mcp_server"],
     "transport": "stdio"
   },
   "capabilities": {
