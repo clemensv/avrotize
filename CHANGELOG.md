@@ -2,6 +2,16 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.5.0] - 2026-03-25
+
+### Changed
+
+- **C# code generation targets .NET 10**: Updated `TargetFramework` from `net9.0` to `net10.0` in all C# project and test project templates (avrotocsharp and structuretocsharp).
+- **C# dependency manifest**: Created `net100` dependency directory with .NET 10 compatible package versions; all C# version lookups in `constants.py` now read from `net100`.
+- **NUnit3TestAdapter**: Bumped from 6.1.0 to 6.2.0 to resolve .NET 10 SDK incompatibility (`Microsoft.Testing.Platform.MSBuild 2.0.2` rejects VSTest on .NET 10).
+- **Test project templates**: NUnit3TestAdapter and Microsoft.NET.Test.Sdk references moved to `<PrivateAssets>all</PrivateAssets>` and relocated from the main project template to the test project template.
+- **Dependabot**: Updated to monitor `net100` dependency directory.
+
 ## [3.4.4] - 2026-03-24
 
 ### Changed
