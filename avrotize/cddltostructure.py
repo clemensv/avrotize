@@ -165,6 +165,17 @@ class CddlToStructureConverter:
         # Counter for auto-generated type names
         self._auto_name_counter: int = 0
 
+    @staticmethod
+    def _wrap_ref(schema: Dict[str, Any]) -> Dict[str, Any]:
+        """Wrap a bare $ref in a type object per JSON Structure spec Section 3.4.1.
+
+        Bare {"$ref": "..."} is only valid inside a type attribute (e.g. union arrays).
+        In all other positions (items, properties, values), it must be {"type": {"$ref": "..."}}.
+        """
+        if '$ref' in schema and 'type' not in schema:
+            return {'type': {'$ref': schema['$ref']}}
+        return schema
+
     def _create_inline_definition(
         self, type_def: Dict[str, Any], base_name: str
     ) -> Dict[str, Any]:
@@ -900,6 +911,7 @@ class CddlToStructureConverter:
                 keys_type = {'type': 'string'}
 
             values_type = member_type if member_type else {'type': 'any'}
+            values_type = self._wrap_ref(values_type)
 
             return {
                 'keys': keys_type,
@@ -915,6 +927,7 @@ class CddlToStructureConverter:
             prop_schema = member_type.copy() if isinstance(member_type, dict) else member_type
         else:
             prop_schema = {'type': 'any'}
+        prop_schema = self._wrap_ref(prop_schema)
 
         # Handle occurrence indicators
         if occurrence_indicator:
@@ -1073,7 +1086,7 @@ class CddlToStructureConverter:
             tuple_order: List[str] = []
             for idx, item_type in enumerate(items_types):
                 prop_name = f"_{idx}"
-                properties[prop_name] = item_type
+                properties[prop_name] = self._wrap_ref(item_type)
                 tuple_order.append(prop_name)
             return {
                 'type': 'tuple',
@@ -1086,6 +1099,7 @@ class CddlToStructureConverter:
                 items_type = items_types[0]
                 # Extract inline compound types to definitions
                 items_type = self._create_inline_definition(items_type, f"{context_name}_item")
+                items_type = self._wrap_ref(items_type)
             else:
                 # Multiple types that aren't a tuple - use union for items
                 # Extract each inline compound type to definitions
@@ -1527,6 +1541,9 @@ class CddlToStructureConverter:
                 base_type = self._convert_type(operator_node.type, context_name)
             else:
                 base_type = {'type': 'any'}
+
+        # Wrap bare $ref so constraints can be added alongside
+        base_type = self._wrap_ref(base_type)
 
         # Extract controller (constraint argument)
         if hasattr(operator_node, 'controller'):

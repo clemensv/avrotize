@@ -174,7 +174,9 @@
       "type": "object",
       "properties": {
         "_1": {
-          "$ref": "#/definitions/COSE_Key",
+          "type": {
+            "$ref": "#/definitions/COSE_Key"
+          },
           "altnames": {
             "cddl": "1"
           }

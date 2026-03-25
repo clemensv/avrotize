@@ -57,7 +57,9 @@
         "reputons": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/reputon"
+            "type": {
+              "$ref": "#/definitions/reputon"
+            }
           }
         }
       },
