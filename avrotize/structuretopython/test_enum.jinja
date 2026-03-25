@@ -16,7 +16,7 @@ class {{ test_class_name }}(unittest.TestCase):
         """
         Setup test
         """
-        self.instance = {{ test_class_name }}.create_instance()
+        self.instance = {{ class_name }}.{{ symbols[0] }}
 
     @staticmethod
     def create_instance():
