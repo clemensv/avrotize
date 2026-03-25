@@ -1236,11 +1236,14 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
         
         # For inline unions with selector, we need $extends pointing to a base type
         # Compute common fields across all variants to create a proper base type
+        disc_safe = avro_name(result.discriminator_field)
         all_variant_props = [c.get("properties", {}) for c in choices_map.values()]
         if all_variant_props:
             common_prop_names = set(all_variant_props[0].keys())
             for props in all_variant_props[1:]:
                 common_prop_names &= set(props.keys())
+            # Exclude discriminator from common props - each variant has a different default
+            common_prop_names.discard(disc_safe)
             
             # Build base type with common properties
             base_name = avro_name(f"{type_name.rsplit('.', 1)[-1]}Base")
@@ -1277,7 +1280,6 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                 definitions[variant_name] = variant_record
                 new_choices_map[variant_name] = {"type": {"$ref": f"#/definitions/{variant_name}"}}
             
-            disc_safe = avro_name(result.discriminator_field)
             return {
                 "type": "choice",
                 "name": avro_name(type_name.rsplit('.', 1)[-1]),
