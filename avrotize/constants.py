@@ -26,57 +26,57 @@ JDK_VERSION = '21'
 
 # C# dependencies  
 try:
-    CSHARP_AVRO_VERSION = get_dependency_version('cs', 'net90', 'Apache.Avro')
+    CSHARP_AVRO_VERSION = get_dependency_version('cs', 'net100', 'Apache.Avro')
 except ValueError:
     CSHARP_AVRO_VERSION = '1.12.0'
 
 try:
-    NEWTONSOFT_JSON_VERSION = get_dependency_version('cs', 'net90', 'Newtonsoft.Json')
+    NEWTONSOFT_JSON_VERSION = get_dependency_version('cs', 'net100', 'Newtonsoft.Json')
 except ValueError:
     NEWTONSOFT_JSON_VERSION = '13.0.3'
 
 try:
-    SYSTEM_TEXT_JSON_VERSION = get_dependency_version('cs', 'net90', 'System.Text.Json')
+    SYSTEM_TEXT_JSON_VERSION = get_dependency_version('cs', 'net100', 'System.Text.Json')
 except ValueError:
     SYSTEM_TEXT_JSON_VERSION = '9.0.3'
 
 try:
-    SYSTEM_MEMORY_DATA_VERSION = get_dependency_version('cs', 'net90', 'System.Memory.Data')
+    SYSTEM_MEMORY_DATA_VERSION = get_dependency_version('cs', 'net100', 'System.Memory.Data')
 except ValueError:
     SYSTEM_MEMORY_DATA_VERSION = '9.0.3'
 
 try:
-    PROTOBUF_NET_VERSION = get_dependency_version('cs', 'net90', 'protobuf-net')
+    PROTOBUF_NET_VERSION = get_dependency_version('cs', 'net100', 'protobuf-net')
 except ValueError:
     PROTOBUF_NET_VERSION = '3.2.30'
 
 try:
-    NUNIT_VERSION = get_dependency_version('cs', 'net90', 'NUnit')
+    NUNIT_VERSION = get_dependency_version('cs', 'net100', 'NUnit')
 except ValueError:
     NUNIT_VERSION = '4.3.2'
 
 try:
-    NUNIT_ADAPTER_VERSION = get_dependency_version('cs', 'net90', 'NUnit3TestAdapter')
+    NUNIT_ADAPTER_VERSION = get_dependency_version('cs', 'net100', 'NUnit3TestAdapter')
 except ValueError:
     NUNIT_ADAPTER_VERSION = '5.0.0'
 
 try:
-    MSTEST_SDK_VERSION = get_dependency_version('cs', 'net90', 'Microsoft.NET.Test.Sdk')
+    MSTEST_SDK_VERSION = get_dependency_version('cs', 'net100', 'Microsoft.NET.Test.Sdk')
 except ValueError:
     MSTEST_SDK_VERSION = '17.13.0'
 
 try:
-    COVERLET_VERSION = get_dependency_version('cs', 'net90', 'coverlet.collector')
+    COVERLET_VERSION = get_dependency_version('cs', 'net100', 'coverlet.collector')
 except ValueError:
     COVERLET_VERSION = '6.0.4'
 
 try:
-    MSGPACK_VERSION = get_dependency_version('cs', 'net90', 'MessagePack')
+    MSGPACK_VERSION = get_dependency_version('cs', 'net100', 'MessagePack')
 except ValueError:
     MSGPACK_VERSION = '2.5.187'
 
 try:
-    CBOR_VERSION = get_dependency_version('cs', 'net90', 'Dahomey.Cbor')
+    CBOR_VERSION = get_dependency_version('cs', 'net100', 'Dahomey.Cbor')
 except ValueError:
     CBOR_VERSION = '1.25.1'
 

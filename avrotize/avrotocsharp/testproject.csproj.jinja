@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
@@ -9,8 +9,12 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="NUnit" Version="{{ NUNIT_VERSION }}" />
-        <PackageReference Include="NUnit3TestAdapter" Version="{{ NUNIT_ADAPTER_VERSION }}" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="{{ MSTEST_SDK_VERSION }}" />
+        <PackageReference Include="NUnit3TestAdapter" Version="{{ NUNIT_ADAPTER_VERSION }}">
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="{{ MSTEST_SDK_VERSION }}">
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
         <PackageReference Include="coverlet.collector" Version="{{ COVERLET_VERSION }}">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

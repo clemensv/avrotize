@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  Central dependency file for .NET 10.0 code generation templates.
+  Dependabot will detect and propose updates to these dependencies.
+  The dependency() function in templates reads from this file.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <!-- Serialization -->
+    <ItemGroup>
+        <PackageReference Include="Apache.Avro" Version="1.12.1" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+        <PackageReference Include="System.Text.Json" Version="10.0.5" />
+        <PackageReference Include="System.Memory.Data" Version="10.0.5" />
+        <PackageReference Include="protobuf-net" Version="3.2.56" />
+        <PackageReference Include="MessagePack" Version="3.1.4" />
+        <PackageReference Include="Dahomey.Cbor" Version="1.26.1" />
+    </ItemGroup>
+
+    <!-- Testing -->
+    <ItemGroup>
+        <PackageReference Include="NUnit" Version="4.5.1" />
+        <PackageReference Include="NUnit3TestAdapter" Version="6.2.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    </ItemGroup>
+</Project>

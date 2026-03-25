@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
@@ -24,10 +24,5 @@
         <PackageReference Include="Dahomey.Cbor" Version="{{ CBOR_VERSION }}" />
         {%- endif %}
         <PackageReference Include="System.Memory.Data" Version="{{ SYSTEM_MEMORY_DATA_VERSION }}" />
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Include="NUnit" Version="{{ NUNIT_VERSION }}" />
-        <PackageReference Include="NUnit3TestAdapter" Version="{{ NUNIT_ADAPTER_VERSION }}" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="{{ MSTEST_SDK_VERSION }}" />
     </ItemGroup>
 </Project>  
