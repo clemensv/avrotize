@@ -84,5 +84,11 @@ avrotize-mcp = "avrotize.mcp_server:main"
 
 [tool.setuptools_scm]
 write_to = "avrotize/_version.py"
+
+[tool.pytest.ini_options]
+markers = [
+    "copilot_cli: integration tests requiring the GitHub Copilot CLI (not for CI/CD)",
+]
+
 [tool.poetry.dev-dependencies]
 pytest-cov = "^7.0.0"
