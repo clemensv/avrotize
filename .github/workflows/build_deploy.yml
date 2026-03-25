@@ -125,9 +125,6 @@ jobs:
         bash build.sh
       env:
         GITHUB_REF: ${{ github.ref }}
-    - name: Update VS Code Extension Code with commands.json
-      run: |
-        python tools/editvscodeext.py --extension-root ${{ github.workspace }}/vscode/avrotize --commands ${{ github.workspace }}/avrotize/commands.json
     - name: Install Node and NPM
       uses: actions/setup-node@v6
       with:
@@ -135,7 +132,10 @@ jobs:
     - name: Set up dependencies for VS Code Extension
       run: |
         cd ${{ github.workspace }}/vscode/avrotize
-        npm install
+        npm ci
+    - name: Update VS Code Extension Code with commands.json
+      run: |
+        python tools/editvscodeext.py --extension-root ${{ github.workspace }}/vscode/avrotize --commands ${{ github.workspace }}/avrotize/commands.json
     - name: Publish VS Code Extension
       run: |
         cd ${{ github.workspace }}/vscode/avrotize
