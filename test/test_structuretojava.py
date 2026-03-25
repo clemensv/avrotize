@@ -47,7 +47,7 @@ class TestStructureToJava(unittest.TestCase):
         # Verify Maven build runs successfully
         assert (
             subprocess.check_call(
-                ["mvn", "package", "-B"],
+                "mvn package -B",
                 cwd=java_path,
                 stdout=sys.stdout,
                 stderr=sys.stderr,
