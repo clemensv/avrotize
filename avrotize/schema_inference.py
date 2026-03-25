@@ -1477,7 +1477,8 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
             if all_items:
                 item_types = self.consolidated_jstruct_type_list(type_name, all_items)
                 if len(item_types) == 1:
-                    return [{"type": "array", "items": item_types[0]}]
+                    items_schema = item_types[0] if isinstance(item_types[0], dict) else {"type": item_types[0]}
+                    return [{"type": "array", "items": items_schema}]
                 else:
                     # Build choice from multiple item types
                     choices_map: Dict[str, Any] = {}
@@ -1539,7 +1540,8 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                 item_types.append(item2)
         if item_types:
             if len(item_types) == 1:
-                list_types.append({"type": "array", "items": item_types[0]})
+                items_schema = item_types[0] if isinstance(item_types[0], dict) else {"type": item_types[0]}
+                list_types.append({"type": "array", "items": items_schema})
             else:
                 # Build choices map from item types
                 choices_map: Dict[str, Any] = {}
@@ -1563,7 +1565,8 @@ class JsonStructureSchemaInferrer(SchemaInferrer):
                 value_types.append(item3)
         if value_types:
             if len(value_types) == 1:
-                list_types.append({"type": "map", "values": value_types[0]})
+                values_schema = value_types[0] if isinstance(value_types[0], dict) else {"type": value_types[0]}
+                list_types.append({"type": "map", "values": values_schema})
             else:
                 list_types.append({"type": "map", "values": {"type": "choice", "choices": value_types}})
 
