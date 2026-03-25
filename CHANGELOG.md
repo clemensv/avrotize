@@ -2,6 +2,12 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.5.1] - 2026-03-25
+
+### Fixed
+
+- **Java codegen: Jackson version mismatch**: `jackson-core` 2.21.0 does not exist on Maven Central — Jackson published it as `2.21` (without `.0`). Fixed the dependency version in `dependencies/java/jdk21/pom.xml` so generated Java projects resolve correctly.
+
 ## [3.5.0] - 2026-03-25
 
 ### Changed
