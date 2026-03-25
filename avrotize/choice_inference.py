@@ -214,17 +214,17 @@ def _detect_discriminators(
         if len(values) < 2:
             continue
         
-        # Discriminators must be identifier-like strings (type names, enum values)
-        # Valid: "PlayerTracking", "ball_data", "goal-event", "Event.Type"
-        # Invalid: "1", "2024/2025", "true", "2024-01-15T10:30:00Z", UUIDs
+        # Discriminators must be identifier-like strings (type names, enum values, codes)
+        # Valid: "PlayerTracking", "ball_data", "goal-event", "1", "用户", "true"
+        # Invalid: "2024/2025", "2024-01-15T10:30:00Z", UUIDs
         import re
         def is_valid_discriminator(s: str) -> bool:
-            """Check if a string looks like a type name or identifier."""
+            """Check if a string looks like a type name, identifier, or short code."""
             if not s or not isinstance(s, str):
                 return False
-            # Must start with a letter, contain only alphanumeric, underscore, hyphen, dot
-            # This matches typical identifiers: PascalCase, camelCase, snake_case, kebab-case
-            return bool(re.match(r'^[A-Za-z][A-Za-z0-9_\-\.]*$', s))
+            # Accept word characters (Unicode letters, digits, underscore), hyphens, dots
+            # Reject slashes, colons, and other URI/date characters
+            return bool(re.match(r'^[\w][\w\-\.]*$', s, re.UNICODE))
         
         if not all(is_valid_discriminator(v) for v in values):
             continue
