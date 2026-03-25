@@ -4,7 +4,7 @@
 import json
 import os
 from typing import Dict, List, Tuple, Union, Set, Optional, Any
-from avrotize.constants import JACKSON_VERSION
+from avrotize.constants import JACKSON_VERSION, JACKSON_ANNOTATIONS_VERSION
 
 from avrotize.common import pascal, camel, process_template
 
@@ -878,7 +878,8 @@ class StructureToJava:
                 "structuretojava/pom.xml.jinja",
                 groupid=groupid,
                 artifactid=artifactid,
-                jackson_version=JACKSON_VERSION
+                jackson_version=JACKSON_VERSION,
+                jackson_annotations_version=JACKSON_ANNOTATIONS_VERSION
             )
             with open(pom_path, 'w', encoding='utf-8') as file:
                 file.write(pom_content)
