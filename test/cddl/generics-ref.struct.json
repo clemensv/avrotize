@@ -40,7 +40,9 @@
           "const": "ok"
         },
         "value": {
-          "$ref": "#/definitions/response_data"
+          "type": {
+            "$ref": "#/definitions/response_data"
+          }
         }
       },
       "required": [
@@ -57,7 +59,9 @@
           "const": "error"
         },
         "error": {
-          "$ref": "#/definitions/error_info"
+          "type": {
+            "$ref": "#/definitions/error_info"
+          }
         }
       },
       "required": [

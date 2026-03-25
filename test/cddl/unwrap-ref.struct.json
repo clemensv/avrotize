@@ -110,7 +110,9 @@
       "type": "tuple",
       "properties": {
         "_0": {
-          "$ref": "#/definitions/base_tuple"
+          "type": {
+            "$ref": "#/definitions/base_tuple"
+          }
         },
         "_1": {
           "type": "boolean"

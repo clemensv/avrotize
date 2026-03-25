@@ -140,7 +140,9 @@
     "nested_array": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/nested_array_item_tuple_1"
+        "type": {
+          "$ref": "#/definitions/nested_array_item_tuple_1"
+        }
       },
       "name": "nested_array",
       "description": "Nested structures",
@@ -167,7 +169,9 @@
     "array_of_objects": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/array_of_objects_item_object_2"
+        "type": {
+          "$ref": "#/definitions/array_of_objects_item_object_2"
+        }
       },
       "name": "array_of_objects",
       "altnames": {

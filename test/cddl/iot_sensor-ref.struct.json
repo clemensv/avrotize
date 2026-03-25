@@ -56,7 +56,9 @@
           }
         },
         "timestamp": {
-          "$ref": "#/definitions/timestamp"
+          "type": {
+            "$ref": "#/definitions/timestamp"
+          }
         },
         "value": {
           "type": "double"
@@ -65,7 +67,9 @@
           "type": "string"
         },
         "quality": {
-          "$ref": "#/definitions/quality_indicator"
+          "type": {
+            "$ref": "#/definitions/quality_indicator"
+          }
         }
       },
       "required": [
@@ -91,7 +95,9 @@
           }
         },
         "timestamp": {
-          "$ref": "#/definitions/timestamp"
+          "type": {
+            "$ref": "#/definitions/timestamp"
+          }
         },
         "value": {
           "type": "double"
@@ -100,7 +106,9 @@
           "type": "string"
         },
         "quality": {
-          "$ref": "#/definitions/quality_indicator"
+          "type": {
+            "$ref": "#/definitions/quality_indicator"
+          }
         }
       },
       "required": [
@@ -125,7 +133,9 @@
           }
         },
         "timestamp": {
-          "$ref": "#/definitions/timestamp"
+          "type": {
+            "$ref": "#/definitions/timestamp"
+          }
         },
         "value": {
           "type": "double"
@@ -134,7 +144,9 @@
           "type": "string"
         },
         "quality": {
-          "$ref": "#/definitions/quality_indicator"
+          "type": {
+            "$ref": "#/definitions/quality_indicator"
+          }
         }
       },
       "required": [
@@ -159,7 +171,9 @@
           }
         },
         "timestamp": {
-          "$ref": "#/definitions/timestamp"
+          "type": {
+            "$ref": "#/definitions/timestamp"
+          }
         },
         "value": {
           "type": "boolean"
@@ -168,7 +182,9 @@
           "type": "string"
         },
         "quality": {
-          "$ref": "#/definitions/quality_indicator"
+          "type": {
+            "$ref": "#/definitions/quality_indicator"
+          }
         }
       },
       "required": [
@@ -193,7 +209,9 @@
           }
         },
         "device_type": {
-          "$ref": "#/definitions/device_type",
+          "type": {
+            "$ref": "#/definitions/device_type"
+          },
           "altnames": {
             "cddl": "device-type"
           }
@@ -216,7 +234,9 @@
           }
         },
         "last_seen": {
-          "$ref": "#/definitions/timestamp",
+          "type": {
+            "$ref": "#/definitions/timestamp"
+          },
           "altnames": {
             "cddl": "last-seen"
           }
@@ -224,7 +244,9 @@
         "capabilities": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/capability"
+            "type": {
+              "$ref": "#/definitions/capability"
+            }
           }
         }
       },
@@ -280,12 +302,16 @@
           }
         },
         "timestamp": {
-          "$ref": "#/definitions/timestamp"
+          "type": {
+            "$ref": "#/definitions/timestamp"
+          }
         },
         "readings": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/sensor_value"
+            "type": {
+              "$ref": "#/definitions/sensor_value"
+            }
           }
         },
         "metadata": {
@@ -346,7 +372,9 @@
           }
         },
         "command": {
-          "$ref": "#/definitions/command_type"
+          "type": {
+            "$ref": "#/definitions/command_type"
+          }
         },
         "parameters": {
           "type": "map",
@@ -400,16 +428,22 @@
           }
         },
         "status": {
-          "$ref": "#/definitions/response_status"
+          "type": {
+            "$ref": "#/definitions/response_status"
+          }
         },
         "result": {
           "type": "any"
         },
         "error": {
-          "$ref": "#/definitions/error_info"
+          "type": {
+            "$ref": "#/definitions/error_info"
+          }
         },
         "timestamp": {
-          "$ref": "#/definitions/timestamp"
+          "type": {
+            "$ref": "#/definitions/timestamp"
+          }
         }
       },
       "required": [

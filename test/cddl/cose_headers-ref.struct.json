@@ -5,7 +5,9 @@
     "Generic_Headers_option_array_1": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/COSE_Signature"
+        "type": {
+          "$ref": "#/definitions/COSE_Signature"
+        }
       },
       "name": "Generic_Headers_option_array_1"
     },
@@ -24,7 +26,9 @@
         "_2": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/label"
+            "type": {
+              "$ref": "#/definitions/label"
+            }
           },
           "altnames": {
             "cddl": "2"
@@ -154,7 +158,9 @@
       "type": "tuple",
       "properties": {
         "_0": {
-          "$ref": "#/definitions/Headers"
+          "type": {
+            "$ref": "#/definitions/Headers"
+          }
         },
         "_1": {
           "type": "binary"
@@ -274,7 +280,9 @@
     "_2": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/label"
+        "type": {
+          "$ref": "#/definitions/label"
+        }
       },
       "altnames": {
         "cddl": "2"

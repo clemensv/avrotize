@@ -109,7 +109,9 @@
       }
     },
     "bounded_port": {
-      "$ref": "#/definitions/valid_port",
+      "type": {
+        "$ref": "#/definitions/valid_port"
+      },
       "maximum": 65535,
       "name": "bounded_port",
       "altnames": {
@@ -123,16 +125,24 @@
           "type": "string"
         },
         "port": {
-          "$ref": "#/definitions/port_number"
+          "type": {
+            "$ref": "#/definitions/port_number"
+          }
         },
         "timeout": {
-          "$ref": "#/definitions/timeout_ms"
+          "type": {
+            "$ref": "#/definitions/timeout_ms"
+          }
         },
         "retries": {
-          "$ref": "#/definitions/max_retries"
+          "type": {
+            "$ref": "#/definitions/max_retries"
+          }
         },
         "enabled": {
-          "$ref": "#/definitions/enabled"
+          "type": {
+            "$ref": "#/definitions/enabled"
+          }
         }
       },
       "required": [
@@ -149,10 +159,14 @@
       "type": "object",
       "properties": {
         "username": {
-          "$ref": "#/definitions/username"
+          "type": {
+            "$ref": "#/definitions/username"
+          }
         },
         "password": {
-          "$ref": "#/definitions/password"
+          "type": {
+            "$ref": "#/definitions/password"
+          }
         },
         "email": {
           "type": "string"
