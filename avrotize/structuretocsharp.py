@@ -40,6 +40,8 @@ class StructureToCSharp:
         self.newtonsoft_json_annotation = False
         self.system_xml_annotation = False
         self.avro_annotation = False
+        self.use_optional = False
+        self.use_ivalidatableobject = False
         self.generated_types: Dict[str,str] = {}
         self.generated_structure_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
         self.type_dict: Dict[str, Dict] = {}
@@ -419,13 +421,30 @@ class StructureToCSharp:
         abstract_modifier = "abstract " if is_abstract else ""
         sealed_modifier = "sealed " if additional_props is False and not is_abstract else ""
         
-        class_definition += f"public {abstract_modifier}{sealed_modifier}partial class {class_name}\n{{\n{class_body}"
+        # Add IValidatableObject interface if enabled
+        interfaces = []
+        if self.use_ivalidatableobject:
+            interfaces.append("System.ComponentModel.DataAnnotations.IValidatableObject")
+        
+        interface_declaration = f" : {', '.join(interfaces)}" if interfaces else ""
+        
+        class_definition += f"public {abstract_modifier}{sealed_modifier}partial class {class_name}{interface_declaration}\n{{\n{class_body}"
         
         # Add default constructor (not for abstract classes with no concrete constructors)
         if not is_abstract or properties:
             class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Default constructor\n{INDENT}/// </summary>\n"
             constructor_modifier = "protected" if is_abstract else "public"
             class_definition += f"{INDENT}{constructor_modifier} {class_name}()\n{INDENT}{{\n{INDENT}}}"
+        
+        # Add Validate method if IValidatableObject is enabled
+        if self.use_ivalidatableobject:
+            class_definition += f"\n\n{INDENT}/// <summary>\n{INDENT}/// Validates the object\n{INDENT}/// </summary>\n"
+            class_definition += f"{INDENT}public System.Collections.Generic.IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(System.ComponentModel.DataAnnotations.ValidationContext validationContext)\n"
+            class_definition += f"{INDENT}{{\n"
+            class_definition += f"{INDENT}{INDENT}// Validation logic can be added here\n"
+            class_definition += f"{INDENT}{INDENT}// For now, return empty to indicate valid\n"
+            class_definition += f"{INDENT}{INDENT}yield break;\n"
+            class_definition += f"{INDENT}}}"
 
         # Convert JSON Structure schema to Avro schema if avro_annotation is enabled
         avro_schema_json = ''
@@ -518,9 +537,19 @@ class StructureToCSharp:
         # Get property type
         prop_type = self.convert_structure_type_to_csharp(class_name, field_name, prop_schema, parent_namespace)
         
-        # Add nullable marker if not required and not already nullable
-        if not is_required and not prop_type.endswith('?') and not prop_type.startswith('List<') and not prop_type.startswith('HashSet<') and not prop_type.startswith('Dictionary<'):
-            prop_type += '?'
+        # Determine if we should use Option<T>
+        use_option_for_this_property = self.use_optional and not is_required
+        
+        if use_option_for_this_property:
+            # Wrap in Option<T>
+            # Remove nullable marker if present as Option<T> handles nullability
+            if prop_type.endswith('?'):
+                prop_type = prop_type[:-1]
+            prop_type = f"Option<{prop_type}>"
+        else:
+            # Add nullable marker if not required and not already nullable
+            if not is_required and not prop_type.endswith('?') and not prop_type.startswith('List<') and not prop_type.startswith('HashSet<') and not prop_type.startswith('Dictionary<'):
+                prop_type += '?'
         
         # Generate documentation
         doc = prop_schema.get('description', prop_schema.get('doc', field_name_cs))
@@ -646,7 +675,27 @@ class StructureToCSharp:
         is_read_only = prop_schema.get('readOnly', False)
         is_write_only = prop_schema.get('writeOnly', False)
         
-        if is_read_only:
+        if use_option_for_this_property:
+            # Generate Option<T> property with dual accessor pattern
+            # Main Option<T> property (with Option suffix to avoid conflicts)
+            property_definition += f"{INDENT}public {prop_type} {field_name_cs}Option {{ get; set; }} = new Option<{prop_type[7:-1]}>();\n\n"
+            
+            # Convenience accessor property without Option wrapper
+            # This property provides direct access to the value for easier usage
+            property_definition += f"{INDENT}/// <summary>\n{INDENT}/// Convenience accessor for {field_name_cs}. Gets or sets the value.\n{INDENT}/// </summary>\n"
+            inner_type = prop_type[7:-1]  # Extract T from Option<T>
+            
+            # Add JSON ignore to avoid duplicate serialization
+            property_definition += f"{INDENT}[System.Text.Json.Serialization.JsonIgnore]\n"
+            if self.newtonsoft_json_annotation:
+                property_definition += f"{INDENT}[Newtonsoft.Json.JsonIgnore]\n"
+            
+            property_definition += f"{INDENT}public {inner_type}? {field_name_cs}\n"
+            property_definition += f"{INDENT}{{\n"
+            property_definition += f"{INDENT}{INDENT}get => {field_name_cs}Option.IsSet ? {field_name_cs}Option.Value : default;\n"
+            property_definition += f"{INDENT}{INDENT}set => {field_name_cs}Option = new Option<{inner_type}>(value);\n"
+            property_definition += f"{INDENT}}}\n"
+        elif is_read_only:
             # readOnly: private or init-only setter
             property_definition += f"{INDENT}public {required_modifier}{prop_type} {field_name_cs} {{ get; init; }}"
         elif is_write_only:
@@ -656,11 +705,11 @@ class StructureToCSharp:
             # Normal property
             property_definition += f"{INDENT}public {required_modifier}{prop_type} {field_name_cs} {{ get; set; }}"
         
-        # Add default value if present
-        if 'default' in prop_schema:
+        # Add default value if present (not for Option<T> properties as they default to unset)
+        if not use_option_for_this_property and 'default' in prop_schema:
             default_val = self.format_default_value(prop_schema['default'], prop_type)
             property_definition += f" = {default_val};\n"
-        else:
+        elif not use_option_for_this_property:
             property_definition += "\n"
         
         return property_definition
@@ -1741,6 +1790,9 @@ class StructureToCSharp:
             self.generate_tuple_converter(output_dir)
             self.generate_json_structure_converters(output_dir)
         
+        # Generate Option<T> class if needed
+        self.generate_option_class(output_dir)
+        
         # Generate tests
         self.generate_tests(output_dir)
         
@@ -2121,6 +2173,30 @@ class StructureToCSharp:
         with open(converter_file_path, 'w', encoding='utf-8') as converter_file:
             converter_file.write(converter_definition)
 
+    def generate_option_class(self, output_dir: str) -> None:
+        """ Generates Option<T> class for optional properties when use_optional is enabled """
+        if not self.use_optional:
+            return  # Not using Option<T> pattern
+
+        # Convert base namespace to PascalCase for consistency with other generated classes
+        namespace_pascal = pascal(self.base_namespace)
+        
+        # Generate the Option class
+        option_definition = process_template(
+            "structuretocsharp/option.cs.jinja",
+            namespace=namespace_pascal
+        )
+
+        # Write to the same directory structure as other classes (using PascalCase path)
+        directory_path = os.path.join(
+            output_dir, os.path.join('src', namespace_pascal.replace('.', os.sep)))
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path, exist_ok=True)
+        option_file_path = os.path.join(directory_path, "Option.cs")
+        
+        with open(option_file_path, 'w', encoding='utf-8') as option_file:
+            option_file.write(option_definition)
+
     def generate_instance_serializer(self, output_dir: str) -> None:
         """ Generates InstanceSerializer.cs that creates instances and serializes them to JSON """
         test_directory_path = os.path.join(output_dir, "test")
@@ -2383,7 +2459,9 @@ def convert_structure_to_csharp(
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,
-    avro_annotation: bool = False
+    avro_annotation: bool = False,
+    use_optional: bool = False,
+    use_ivalidatableobject: bool = False
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2397,6 +2475,8 @@ def convert_structure_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
+        use_optional (bool, optional): Use Option<T> wrapper for optional properties. Defaults to False.
+        use_ivalidatableobject (bool, optional): Implement IValidatableObject interface. Defaults to False.
     """
 
     if not base_namespace:
@@ -2409,6 +2489,8 @@ def convert_structure_to_csharp(
     structtocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
+    structtocs.use_optional = use_optional
+    structtocs.use_ivalidatableobject = use_ivalidatableobject
     structtocs.convert(structure_schema_path, cs_file_path)
 
 
@@ -2421,7 +2503,9 @@ def convert_structure_schema_to_csharp(
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,
-    avro_annotation: bool = False
+    avro_annotation: bool = False,
+    use_optional: bool = False,
+    use_ivalidatableobject: bool = False
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2435,6 +2519,8 @@ def convert_structure_schema_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
+        use_optional (bool, optional): Use Option<T> wrapper for optional properties. Defaults to False.
+        use_ivalidatableobject (bool, optional): Implement IValidatableObject interface. Defaults to False.
     """
     structtocs = StructureToCSharp(base_namespace)
     structtocs.project_name = project_name
@@ -2443,4 +2529,6 @@ def convert_structure_schema_to_csharp(
     structtocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
+    structtocs.use_optional = use_optional
+    structtocs.use_ivalidatableobject = use_ivalidatableobject
     structtocs.convert_schema(structure_schema, output_dir)
