@@ -120,6 +120,21 @@ class StructureToKusto:
         """Check if a type is concrete (not abstract)."""
         return not schema.get('abstract', False)
 
+    def normalize_structure_type(self, structure_type: Union[str, dict, list]) -> Union[str, dict, list]:
+        """Normalize wrapped type expressions into the shapes the converter expects."""
+        if isinstance(structure_type, list):
+            non_null_types = [t for t in structure_type if t != 'null']
+            if len(non_null_types) == 1:
+                return self.normalize_structure_type(non_null_types[0])
+            return structure_type
+
+        if isinstance(structure_type, dict) and 'type' in structure_type and '$ref' not in structure_type:
+            nested_type = structure_type['type']
+            if isinstance(nested_type, (dict, list)):
+                return self.normalize_structure_type(nested_type)
+
+        return structure_type
+
     def find_all_object_types(self, schema: Dict, schema_doc: Dict) -> List[Dict]:
         """
         Find all concrete object types in the schema, including those in definitions.
@@ -516,6 +531,7 @@ class StructureToKusto:
 
     def convert_structure_type_to_kusto_type(self, structure_type: Union[str, dict, list], schema_doc: Optional[Dict] = None) -> str:
         """Converts a JSON Structure type to a Kusto type."""
+        structure_type = self.normalize_structure_type(structure_type)
         if isinstance(structure_type, list):
             # Handle type unions
             non_null_types = [t for t in structure_type if t != 'null']

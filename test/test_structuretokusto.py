@@ -1,4 +1,5 @@
 """Tests for structuretokusto module"""
+import json
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from testcontainers.core.container import DockerContainer
 from avrotize.structuretokusto import convert_structure_to_kusto_file, convert_structure_to_kusto_db
@@ -98,6 +99,61 @@ def test_convert_address_struct_to_kusto_ce():
 def test_convert_address_struct_to_kusto_ce_dt():
     """Test converting address.struct.json to address-ce-dt.kql"""
     convert_case("address", True, True)
+
+
+def test_convert_structure_with_wrapped_nullable_types_to_kusto():
+    """Test wrapped nullable and ref-backed property types."""
+    schema = {
+        "$schema": "https://json-structure.org/meta/extended/v0/#",
+        "$id": "https://example.com/test/wrapped-types",
+        "definitions": {
+            "StringList": {
+                "name": "StringList",
+                "type": "array",
+                "items": {"type": "string"}
+            },
+            "WrappedString": {
+                "name": "WrappedString",
+                "type": "string"
+            }
+        },
+        "type": "object",
+        "name": "WrappedTypes",
+        "properties": {
+            "identifier": {
+                "type": "string"
+            },
+            "title": {
+                "type": {"$ref": "#/definitions/WrappedString"}
+            },
+            "subtitle": {
+                "type": ["null", "string"]
+            },
+            "description_lines": {
+                "type": ["null", {"$ref": "#/definitions/StringList"}]
+            }
+        }
+    }
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        struct_path = os.path.join(temp_dir, "wrapped-types.struct.json")
+        kql_path = os.path.join(temp_dir, "wrapped-types.kql")
+
+        with open(struct_path, "w", encoding="utf-8") as struct_file:
+            json.dump(schema, struct_file)
+
+        convert_structure_to_kusto_file(
+            struct_path, "WrappedTypes", kql_path, True, True)
+
+        with open(kql_path, "r", encoding="utf-8") as kql_file:
+            kql = kql_file.read()
+
+    assert ".create-merge table [WrappedTypes]" in kql
+    assert "[identifier]: string" in kql
+    assert "[title]: string" in kql
+    assert "[subtitle]: string" in kql
+    assert "[description_lines]: dynamic" in kql
+    assert "_cloudevents_dispatch | where (specversion == '1.0' and type == 'WrappedTypes')" in kql
 
 
 def convert_case(file_base_name: str, emit_cloudevents_columns, emit_cloudevents_dispatch_table):

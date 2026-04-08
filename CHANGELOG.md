@@ -2,6 +2,12 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.5.2] - 2026-04-08
+
+### Fixed
+
+- **Structure to Kusto wrapped types**: Normalized wrapped `type` expressions before Kusto type mapping so nullable unions and ref-backed wrappers like `{"type": {"$ref": ...}}` resolve to the expected scalar or dynamic column types instead of falling back incorrectly.
+
 ## [3.5.1] - 2026-03-25
 
 ### Fixed
