@@ -49,13 +49,13 @@ sqlserver = [
     "pyodbc>=5.1.0"
 ]
 oracle = [
-    "oracledb>=2.3.0"
+    "oracledb>=3.4.2"
 ]
 all-sql = [
     "psycopg2-binary>=2.9.9",
     "pymysql>=1.1.1",
     "pyodbc>=5.1.0",
-    "oracledb>=2.3.0"
+    "oracledb>=3.4.2"
 ]
 dev = [
     "pytest>=8.3.2",
@@ -72,7 +72,7 @@ dev = [
     "psycopg2-binary>=2.9.9",
     "pyodbc>=5.1.0",
     "pymongo>=4.8.0",
-    "oracledb>=2.3.0",
+    "oracledb>=3.4.2",
     "cassandra-driver>=3.29.1",
     "sqlalchemy>=2.0.32",
     "graphql-core>=3.2.0"
