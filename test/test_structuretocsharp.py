@@ -34,6 +34,8 @@ class TestStructureToCSharp(unittest.TestCase):
         pascal_properties=False,
         base_namespace=None,
         project_name=None,
+        use_optional=False,
+        use_ivalidatableobject=False,
     ):
         """Test converting a JSON Structure file to C#"""
         cwd = os.getcwd()
@@ -48,6 +50,8 @@ class TestStructureToCSharp(unittest.TestCase):
             "system_text_json_annotation": system_text_json_annotation,
             "newtonsoft_json_annotation": newtonsoft_json_annotation,
             "system_xml_annotation": system_xml_annotation,
+            "use_optional": use_optional,
+            "use_ivalidatableobject": use_ivalidatableobject,
         }
         if base_namespace is not None:
             kwargs["base_namespace"] = base_namespace
@@ -902,6 +906,283 @@ class TestStructureToCSharp(unittest.TestCase):
         ) == 0, "Generated code should compile successfully"
         
         print(f"✓ Inline union JSON round-trip test passed")
+
+    def test_use_optional_flag(self):
+        """Test --use-optional flag generates Option<T> for optional properties"""
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "jsons", "address-ref.struct.json")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "test-use-optional-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+        
+        convert_structure_to_csharp(
+            struct_path,
+            cs_path,
+            use_optional=True,
+            system_text_json_annotation=True,
+            pascal_properties=True
+        )
+        
+        # Find Option.cs file
+        option_files = []
+        for root, dirs, files in os.walk(cs_path):
+            for file in files:
+                if file == "Option.cs":
+                    option_files.append(os.path.join(root, file))
+        
+        assert len(option_files) > 0, "Option.cs should be generated when use_optional=True"
+        option_file = option_files[0]
+        
+        # Verify Option<T> has the expected API (aligned with DotNext.Optional)
+        with open(option_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            assert "public struct Option<T>" in content
+            assert "public readonly bool HasValue" in content
+            assert "public readonly bool IsNull" in content
+            assert "public readonly bool IsUndefined" in content
+            assert "public readonly bool IsDefined" in content
+            assert "public readonly T? Value" in content
+            assert "public readonly T Or(T defaultValue)" in content
+            assert "public readonly bool TryGet(out T? value)" in content
+            assert "public readonly T? ValueOrDefault" in content
+        
+        # Find generated class files with Option<T> properties
+        cs_files = []
+        for root, dirs, files in os.walk(cs_path):
+            for file in files:
+                if file.endswith('.cs') and file != "Option.cs" and not file.endswith('Tests.cs') and file != "InstanceSerializer.cs":
+                    cs_files.append(os.path.join(root, file))
+        
+        # Check at least one file uses Option<T>
+        found_option_usage = False
+        for cs_file in cs_files:
+            with open(cs_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                if "Option<" in content:
+                    found_option_usage = True
+                    # Check for dual accessor pattern
+                    assert "Option { get; set; }" in content, "Should have Option<T> property"
+                    assert "[System.Text.Json.Serialization.JsonIgnore]" in content, "Convenience accessor should be JsonIgnore"
+                    break
+        
+        assert found_option_usage, "At least one class should use Option<T> for optional properties"
+        
+        # Verify code compiles
+        assert subprocess.check_call(
+            ['dotnet', 'build'], 
+            cwd=cs_path, 
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.DEVNULL
+        ) == 0, "Generated code with use_optional should compile successfully"
+        
+        print(f"✓ use_optional test passed")
+
+    def test_use_ivalidatableobject_flag(self):
+        """Test --use-ivalidatableobject flag adds IValidatableObject interface"""
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "jsons", "address-ref.struct.json")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "test-use-ivalidatableobject-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+        
+        convert_structure_to_csharp(
+            struct_path,
+            cs_path,
+            use_ivalidatableobject=True,
+            system_text_json_annotation=True,
+            pascal_properties=True
+        )
+        
+        # Find generated class files
+        cs_files = []
+        for root, dirs, files in os.walk(cs_path):
+            for file in files:
+                if file.endswith('.cs') and not file.endswith('Tests.cs') and file != "InstanceSerializer.cs":
+                    cs_files.append(os.path.join(root, file))
+        
+        # Verify at least one class implements IValidatableObject
+        found_ivalidatable = False
+        for cs_file in cs_files:
+            with open(cs_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                if "System.ComponentModel.DataAnnotations.IValidatableObject" in content:
+                    found_ivalidatable = True
+                    assert "public System.Collections.Generic.IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate" in content
+                    assert "ValidationContext validationContext" in content
+                    assert "yield break;" in content, "Validate method should have a stub implementation"
+                    break
+        
+        assert found_ivalidatable, "At least one class should implement IValidatableObject"
+        
+        # Verify code compiles
+        assert subprocess.check_call(
+            ['dotnet', 'build'], 
+            cwd=cs_path, 
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.DEVNULL
+        ) == 0, "Generated code with use_ivalidatableobject should compile successfully"
+        
+        print(f"✓ use_ivalidatableobject test passed")
+
+    def test_use_optional_and_ivalidatableobject_together(self):
+        """Test both --use-optional and --use-ivalidatableobject flags work together"""
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "jsons", "address-ref.struct.json")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "test-both-flags-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+        
+        convert_structure_to_csharp(
+            struct_path,
+            cs_path,
+            use_optional=True,
+            use_ivalidatableobject=True,
+            system_text_json_annotation=True,
+            pascal_properties=True
+        )
+        
+        # Find Option.cs
+        option_files = []
+        for root, dirs, files in os.walk(cs_path):
+            for file in files:
+                if file == "Option.cs":
+                    option_files.append(os.path.join(root, file))
+        assert len(option_files) > 0, "Option.cs should be generated"
+        
+        # Find generated class files
+        cs_files = []
+        for root, dirs, files in os.walk(cs_path):
+            for file in files:
+                if file.endswith('.cs') and file != "Option.cs" and not file.endswith('Tests.cs') and file != "InstanceSerializer.cs":
+                    cs_files.append(os.path.join(root, file))
+        
+        # Verify both features are present
+        found_both = False
+        for cs_file in cs_files:
+            with open(cs_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                has_ivalidatable = "System.ComponentModel.DataAnnotations.IValidatableObject" in content
+                has_option = "Option<" in content
+                if has_ivalidatable and has_option:
+                    found_both = True
+                    break
+        
+        assert found_both, "Class should have both IValidatableObject and Option<T>"
+        
+        # Verify code compiles
+        assert subprocess.check_call(
+            ['dotnet', 'build'], 
+            cwd=cs_path, 
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.DEVNULL
+        ) == 0, "Generated code with both flags should compile successfully"
+        
+        print(f"✓ Both flags together test passed")
+
+    def test_use_optional_with_other_annotations(self):
+        """Test --use-optional works correctly with other annotation flags"""
+        for system_text_json in [True, False]:
+            for newtonsoft_json in [True, False]:
+                for pascal_props in [True, False]:
+                    cwd = os.getcwd()
+                    struct_path = os.path.join(cwd, "test", "jsons", "address-ref.struct.json")
+                    cs_path = os.path.join(tempfile.gettempdir(), "avrotize", 
+                                         f"test-optional-combo-{system_text_json}-{newtonsoft_json}-{pascal_props}-cs")
+                    if os.path.exists(cs_path):
+                        shutil.rmtree(cs_path, ignore_errors=True)
+                    os.makedirs(cs_path, exist_ok=True)
+                    
+                    convert_structure_to_csharp(
+                        struct_path,
+                        cs_path,
+                        use_optional=True,
+                        system_text_json_annotation=system_text_json,
+                        newtonsoft_json_annotation=newtonsoft_json,
+                        pascal_properties=pascal_props
+                    )
+                    
+                    # Verify code compiles
+                    assert subprocess.check_call(
+                        ['dotnet', 'build'], 
+                        cwd=cs_path, 
+                        stdout=subprocess.DEVNULL, 
+                        stderr=subprocess.DEVNULL
+                    ) == 0, f"Code with use_optional and annotations (json={system_text_json}, newtonsoft={newtonsoft_json}, pascal={pascal_props}) should compile"
+        
+        print(f"✓ use_optional with other annotations test passed")
+
+    def test_use_ivalidatableobject_with_other_annotations(self):
+        """Test --use-ivalidatableobject works correctly with other annotation flags"""
+        for system_text_json in [True, False]:
+            for pascal_props in [True, False]:
+                cwd = os.getcwd()
+                struct_path = os.path.join(cwd, "test", "jsons", "address-ref.struct.json")
+                cs_path = os.path.join(tempfile.gettempdir(), "avrotize", 
+                                     f"test-ivalidatable-combo-{system_text_json}-{pascal_props}-cs")
+                if os.path.exists(cs_path):
+                    shutil.rmtree(cs_path, ignore_errors=True)
+                os.makedirs(cs_path, exist_ok=True)
+                
+                convert_structure_to_csharp(
+                    struct_path,
+                    cs_path,
+                    use_ivalidatableobject=True,
+                    system_text_json_annotation=system_text_json,
+                    pascal_properties=pascal_props
+                )
+                
+                # Verify code compiles
+                assert subprocess.check_call(
+                    ['dotnet', 'build'], 
+                    cwd=cs_path, 
+                    stdout=subprocess.DEVNULL, 
+                    stderr=subprocess.DEVNULL
+                ) == 0, f"Code with use_ivalidatableobject and annotations (json={system_text_json}, pascal={pascal_props}) should compile"
+        
+        print(f"✓ use_ivalidatableobject with other annotations test passed")
+
+    def test_optional_three_states(self):
+        """Test that Option<T> correctly handles three states: undefined, null, and value"""
+        cwd = os.getcwd()
+        struct_path = os.path.join(cwd, "test", "jsons", "address-ref.struct.json")
+        cs_path = os.path.join(tempfile.gettempdir(), "avrotize", "test-optional-states-cs")
+        if os.path.exists(cs_path):
+            shutil.rmtree(cs_path, ignore_errors=True)
+        os.makedirs(cs_path, exist_ok=True)
+        
+        convert_structure_to_csharp(
+            struct_path,
+            cs_path,
+            use_optional=True,
+            system_text_json_annotation=True,
+            pascal_properties=True
+        )
+        
+        # Find Option.cs
+        option_files = []
+        for root, dirs, files in os.walk(cs_path):
+            for file in files:
+                if file == "Option.cs":
+                    option_files.append(os.path.join(root, file))
+        assert len(option_files) > 0, "Option.cs should be generated"
+        
+        # Read Option.cs and verify three-state logic
+        with open(option_files[0], 'r', encoding='utf-8') as f:
+            content = f.read()
+            # Verify the three states are clearly distinguished
+            assert "_isDefined" in content, "Should track defined state"
+            assert "IsUndefined => !_isDefined" in content, "IsUndefined should check !_isDefined"
+            assert "IsNull => _isDefined && _value == null" in content, "IsNull should check _isDefined && _value == null"
+            assert "HasValue => _isDefined && _value != null" in content, "HasValue should check _isDefined && _value != null"
+            
+            # Verify JSON serialization handles undefined correctly
+            assert "if (value.IsUndefined)" in content, "JSON converter should check IsUndefined"
+            assert "// Skip writing the property entirely if undefined" in content or "Skip writing" in content
+        
+        print(f"✓ Option<T> three states test passed")
 
 
 if __name__ == "__main__":

@@ -2061,7 +2061,9 @@
         "msgpack_annotation": "args.msgpack_annotation",
         "cbor_annotation": "args.cbor_annotation",
         "pascal_properties": "args.pascal_properties",
-        "base_namespace": "args.namespace"
+        "base_namespace": "args.namespace",
+        "use_optional": "args.use_optional",
+        "use_ivalidatableobject": "args.use_ivalidatableobject"
       }
     },
     "extensions": [
@@ -2148,6 +2150,20 @@
         "help": "Use PascalCase properties",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--use-optional",
+        "type": "bool",
+        "help": "Use Option<T> wrapper for optional properties",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--use-ivalidatableobject",
+        "type": "bool",
+        "help": "Implement IValidatableObject interface for validation",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-cs",
@@ -2197,7 +2213,9 @@
         "avro_annotation": "args.avro_annotation",
         "pascal_properties": "args.pascal_properties",
         "base_namespace": "args.namespace",
-        "project_name": "args.project_name"
+        "project_name": "args.project_name",
+        "use_optional": "args.use_optional",
+        "use_ivalidatableobject": "args.use_ivalidatableobject"
       }
     },
     "extensions": [
@@ -2268,6 +2286,20 @@
         "name": "--pascal-properties",
         "type": "bool",
         "help": "Use PascalCase properties",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--use-optional",
+        "type": "bool",
+        "help": "Use Option<T> wrapper for optional properties",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--use-ivalidatableobject",
+        "type": "bool",
+        "help": "Implement IValidatableObject interface for validation",
         "default": false,
         "required": false
       }
