@@ -2,7 +2,7 @@
 # This file is monitored by Dependabot and read by the dependency() function in templates
 
 # Runtime dependencies
-avro>=1.12.0
+avro>=1.12.1
 fastavro>=1.10.0
 confluent-kafka>=2.6.1
 dataclasses-json>=0.6.7
