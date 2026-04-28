@@ -9,5 +9,5 @@ dataclasses-json>=0.6.7
 
 # Development dependencies
 pytest>=8.3.4
-mypy>=1.13.0
+mypy>=1.20.2
 pylint>=3.3.2
