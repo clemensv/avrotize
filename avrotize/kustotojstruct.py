@@ -85,7 +85,11 @@ class KustoToJsonStructure:
         return self.type_map.get(kusto_type, "string")
 
     def kusto_to_jstruct_schema(self, kusto_schema: dict, table_name: str) -> JsonNode:
-        """ Converts a Kusto schema to JSON Structure schema."""
+        """ Converts a Kusto schema to JSON Structure schema.
+        
+        Returns a list of tuples (type_value, schema) where type_value is the CloudEvents 
+        type value (or None for non-CloudEvents tables).
+        """
         column_names = set([column['Name'].lstrip('_')
                            for column in kusto_schema['OrderedColumns']])
         type_values: List[str|None] = []
@@ -105,7 +109,7 @@ class KustoToJsonStructure:
         if len(type_values) == 0:
             type_values.append(None)
 
-        schemas: List[JsonNode] = []
+        schemas: List[tuple] = []
         for type_value in type_values:
             schema: JsonNode = {}
             properties: Dict[str, JsonNode] = {}
@@ -120,10 +124,11 @@ class KustoToJsonStructure:
                     data_schemas = [data_schemas]
                 if isinstance(data_schemas, list):
                     for schema in data_schemas:
-                        if not isinstance(schema, dict) or "type" not in schema or schema["type"] != "object":
-                            schema = self.wrap_schema_in_root_record(schema, type_name)
+                        if isinstance(schema, dict):
+                            # Remove inferrer artifacts that don't belong in the final schema
+                            schema.pop("root", None)
                         self.apply_schema_attributes(schema, kusto_schema, table_name, type_value)
-                        schemas.append(schema)
+                        schemas.append((type_value, schema))
             else:
                 for column in kusto_schema['OrderedColumns']:
                     jstruct_type = self.map_kusto_type_to_jstruct_type(
@@ -147,9 +152,9 @@ class KustoToJsonStructure:
                     "properties": properties
                 }
                 self.apply_schema_attributes(schema, kusto_schema, table_name, type_value)
-                schemas.append(schema)
+                schemas.append((type_value, schema))
 
-        return schemas if len(schemas) > 1 else schemas[0]
+        return schemas
 
 
     def wrap_schema_in_root_record(self, schema: JsonNode, type_name: str):
@@ -188,6 +193,16 @@ class KustoToJsonStructure:
         table_names = [row['TableName'] for row in rows.primary_results[0]]
         return table_names
 
+    def _derive_schema_id(self, type_value: str | None, table_name: str) -> str:
+        """Derives a schema ID from the event type value or table name."""
+        if type_value:
+            return type_value
+        return table_name
+
+    def _derive_group_id(self, table_name: str) -> str:
+        """Derives a message group ID from the table name."""
+        return table_name
+
     def process_all_tables(self):
         """ Processes all tables in the Kusto database."""
         if self.single_table_name:
@@ -195,15 +210,13 @@ class KustoToJsonStructure:
         else:
             table_names = self.fetch_all_table_names()
         
-        all_schemas = []
+        # Collect all (type_value, schema) tuples grouped by table
+        all_entries: List[tuple] = []
         for table_name in table_names:
             kusto_schema = self.fetch_table_schema_and_docs(table_name)
-            jstruct_schema = self.kusto_to_jstruct_schema(kusto_schema, table_name)
-            
-            if isinstance(jstruct_schema, list):
-                all_schemas.extend(jstruct_schema)
-            else:
-                all_schemas.append(jstruct_schema)
+            entries = self.kusto_to_jstruct_schema(kusto_schema, table_name)
+            for entry in entries:
+                all_entries.append((table_name, entry[0], entry[1]))
         
         # Write output
         output_dir = os.path.dirname(self.jstruct_schema_path)
@@ -211,25 +224,104 @@ class KustoToJsonStructure:
             os.makedirs(output_dir)
             
         if self.emit_xregistry:
-            # Create xRegistry manifest
-            output = {
-                "$schema": "https://cloudevents.io/schemas/registry",
-                "specversion": "0.5-wip",
-                "endpoints": {},
-                "messagegroups": {},
-                "schemagroups": {
-                    f"{self.kusto_database}": {
-                        "schemas": {schema.get("$id", f"schema_{i}"): {"format": "JSONStructure/1.0", "schema": schema} 
-                                   for i, schema in enumerate(all_schemas)}
-                    }
-                }
-            }
+            output = self._build_xregistry_manifest(all_entries)
         else:
             # Single schema or array of schemas
+            all_schemas = [entry[2] for entry in all_entries]
             output = all_schemas if len(all_schemas) > 1 else all_schemas[0] if all_schemas else {}
         
         with open(self.jstruct_schema_path, 'w', encoding='utf-8') as jstruct_file:
             json.dump(output, jstruct_file, indent=4)
+
+    def _build_xregistry_manifest(self, all_entries: List[tuple]) -> dict:
+        """Builds an xRegistry manifest with messagegroups and schemagroups.
+        
+        Args:
+            all_entries: List of (table_name, type_value, schema) tuples.
+        """
+        messagegroups: Dict[str, JsonNode] = {}
+        schemagroups: Dict[str, JsonNode] = {}
+
+        # Group entries by table
+        tables: Dict[str, List[tuple]] = {}
+        for table_name, type_value, schema in all_entries:
+            if table_name not in tables:
+                tables[table_name] = []
+            tables[table_name].append((type_value, schema))
+
+        for table_name, entries in tables.items():
+            group_id = self._derive_group_id(table_name)
+            has_cloudevents = any(tv is not None for tv, _ in entries)
+
+            # Build schema group
+            schemas: Dict[str, JsonNode] = {}
+            for type_value, schema in entries:
+                schema_id = self._derive_schema_id(type_value, table_name)
+                schemas[schema_id] = {
+                    "format": "JSONStructure/1.0",
+                    "versions": {
+                        "1": {
+                            "format": "JSONStructure/1.0",
+                            "schema": schema
+                        }
+                    }
+                }
+            schemagroups[group_id] = {"schemas": schemas}
+
+            if has_cloudevents:
+                # Build message group with CloudEvents messages
+                messages: Dict[str, JsonNode] = {}
+                for type_value, schema in entries:
+                    if type_value is None:
+                        continue
+                    schema_id = self._derive_schema_id(type_value, table_name)
+                    messages[type_value] = {
+                        "description": f"CloudEvent of type {type_value}",
+                        "envelope": "CloudEvents/1.0",
+                        "envelopemetadata": {
+                            "id": {
+                                "required": True
+                            },
+                            "type": {
+                                "value": type_value
+                            },
+                            "source": {
+                                "required": True
+                            },
+                            "time": {
+                                "required": True
+                            }
+                        },
+                        "datacontenttype": "application/json",
+                        "dataschemaformat": "JSONStructure/1.0",
+                        "dataschemauri": f"#/schemagroups/{group_id}/schemas/{schema_id}"
+                    }
+                messagegroups[group_id] = {
+                    "envelope": "CloudEvents/1.0",
+                    "description": f"Events from {table_name}",
+                    "messages": messages
+                }
+            else:
+                # Non-CloudEvents table: add a simple message group entry
+                messages = {}
+                for type_value, schema in entries:
+                    schema_id = self._derive_schema_id(type_value, table_name)
+                    messages[schema_id] = {
+                        "description": f"Message from {table_name}",
+                        "dataschemaformat": "JSONStructure/1.0",
+                        "dataschemauri": f"#/schemagroups/{group_id}/schemas/{schema_id}"
+                    }
+                messagegroups[group_id] = {
+                    "description": f"Messages from {table_name}",
+                    "messages": messages
+                }
+
+        return {
+            "$schema": "https://cloudevents.io/schemas/registry",
+            "specversion": "0.5-wip",
+            "messagegroups": messagegroups,
+            "schemagroups": schemagroups
+        }
 
 
 def convert_kusto_to_jstruct(kusto_uri: str, kusto_database: str, table_name: str | None, base_id: str, jstruct_schema_file: str, emit_cloudevents: bool, emit_cloudevents_xregistry: bool, token_provider=None, sample_size: int = 100, infer_choices: bool = False, choice_depth: int = 1, infer_enums: bool = False):
