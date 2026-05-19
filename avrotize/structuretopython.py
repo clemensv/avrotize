@@ -863,10 +863,14 @@ def convert_structure_to_python(structure_schema_path, py_file_path, package_nam
     structure_to_python.convert(structure_schema_path, py_file_path)
 
 
-def convert_structure_schema_to_python(structure_schema, py_file_path, package_name='', dataclasses_json_annotation=False):
+def convert_structure_schema_to_python(structure_schema, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False):
     """Converts JSON Structure schema to Python dataclasses"""
     package_name = safe_package_name(package_name) if package_name else package_name
-    structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation)
+    structure_to_python = StructureToPython(
+        package_name,
+        dataclasses_json_annotation=dataclasses_json_annotation,
+        avro_annotation=avro_annotation,
+    )
     if isinstance(structure_schema, dict):
         structure_schema = [structure_schema]
     structure_to_python.convert_schemas(structure_schema, py_file_path)
