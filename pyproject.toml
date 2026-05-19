@@ -17,7 +17,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "jsonschema>=4.23.0",
+    "jsonschema>=4.26.0",
     "lark>=1.1.9",
     "pyarrow>=22.0.0",
     "asn1tools>=0.167.0",
