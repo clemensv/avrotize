@@ -139,59 +139,109 @@ class StructureToKusto:
         """
         Find all concrete object types in the schema, including those in definitions.
         Filters out abstract types and includes flattened versions of types with inheritance.
+        Tracks the JSON Structure namespace path (definitions/<seg>/<seg>/<type>) on each
+        returned schema via a synthetic '_kusto_namespace' key.
         """
         object_types = []
-        
-        def process_schema(s: Dict, path: str = ""):
+
+        def process_schema(s: Dict, namespace_path: str = ""):
             if not isinstance(s, dict):
                 return
-            
+
             # Check if this is an object type
             if s.get('type') == 'object':
                 # Only include concrete types
                 if self.is_concrete_type(s):
                     # Flatten inheritance if present
                     flattened = self.flatten_inheritance(s, schema_doc)
+                    if namespace_path and '_kusto_namespace' not in flattened:
+                        flattened = dict(flattened)
+                        flattened['_kusto_namespace'] = namespace_path
                     object_types.append(flattened)
-            
+
             # Recursively process definitions
             if 'definitions' in s:
                 for def_name, def_schema in s['definitions'].items():
                     if isinstance(def_schema, dict):
                         # Handle nested definitions
                         if def_schema.get('type') == 'object':
-                            process_schema(def_schema, f"{path}/{def_name}")
+                            process_schema(def_schema, namespace_path)
                         else:
-                            # Recurse into nested namespaces
+                            # Recurse into nested namespaces; the def_name is a
+                            # namespace segment when the value isn't itself an object type.
+                            nested_ns = f"{namespace_path}.{def_name}" if namespace_path else def_name
                             for nested_key, nested_val in def_schema.items():
                                 if isinstance(nested_val, dict):
-                                    process_schema(nested_val, f"{path}/{def_name}/{nested_key}")
-        
+                                    if nested_val.get('type') == 'object':
+                                        process_schema(nested_val, nested_ns)
+                                    else:
+                                        deeper_ns = f"{nested_ns}.{nested_key}"
+                                        process_schema(nested_val, deeper_ns)
+
         # Process top-level schema
         if isinstance(schema, dict):
             if '$root' in schema:
                 root_ref = schema['$root']
                 root_schema = self.resolve_ref(root_ref, schema, schema)
                 if root_schema:
-                    process_schema(root_schema)
+                    # Derive namespace from the $root path (drop leading '#/definitions/'
+                    # and the trailing type name segment).
+                    root_ns = ''
+                    if isinstance(root_ref, str) and root_ref.startswith('#/definitions/'):
+                        parts = root_ref[len('#/definitions/'):].split('/')
+                        if len(parts) > 1:
+                            root_ns = '.'.join(parts[:-1])
+                    flattened = self.flatten_inheritance(root_schema, schema_doc)
+                    if root_ns and '_kusto_namespace' not in flattened:
+                        flattened = dict(flattened)
+                        flattened['_kusto_namespace'] = root_ns
+                    if self.is_concrete_type(flattened):
+                        object_types.append(flattened)
             elif 'type' in schema and schema['type'] == 'object':
                 process_schema(schema)
-            
+
             # Always process definitions
             if 'definitions' in schema:
                 process_schema(schema)
-        
+
         elif isinstance(schema, list):
             for s in schema:
                 if isinstance(s, dict):
                     process_schema(s)
-        
+
         return object_types
 
-    def convert_record_to_kusto(self, recordschema: dict, schema_doc: dict, emit_cloudevents_columns: bool, emit_cloudevents_dispatch_table: bool) -> List[str]:
+    def convert_record_to_kusto(self, recordschema: dict, schema_doc: dict, emit_cloudevents_columns: bool, emit_cloudevents_dispatch_table: bool, qualified_table_names: bool = False, namespace_override: str | None = None) -> List[str]:
         """Converts a JSON Structure object schema to a Kusto table schema."""
         # Get the name and fields of the top-level record
-        table_name = recordschema.get("name", "UnnamedTable")
+        simple_name = recordschema.get("name", "UnnamedTable")
+        record_namespace: str | None
+        if namespace_override:
+            record_namespace = namespace_override
+        elif recordschema.get("namespace"):
+            record_namespace = recordschema.get("namespace")
+        elif qualified_table_names:
+            # Only fall back to the derived JSON Structure namespace path when
+            # qualified table names are explicitly requested, to preserve
+            # backward-compatible output otherwise.
+            record_namespace = recordschema.get("_kusto_namespace")
+        else:
+            record_namespace = None
+        if qualified_table_names and record_namespace:
+            table_name = f"{record_namespace}.{simple_name}"
+        else:
+            table_name = simple_name
+        # Kusto identifiers containing dots must be quoted as ['name.with.dots'].
+        if '.' in table_name:
+            table_ref = f"['{table_name}']"
+            table_in_query = f"['{table_name}']"
+            mv_ref = f"['{table_name}Latest']"
+        else:
+            table_ref = f"[{table_name}]"
+            table_in_query = table_name
+            mv_ref = f"{table_name}Latest"
+        # The JSON mapping name is a string literal, so dots are always fine.
+        mapping_base = table_name
         
         # Handle properties from JSON Structure
         properties = recordschema.get("properties", {})
@@ -200,7 +250,7 @@ class StructureToKusto:
         kusto = []
 
         # Append the create table statement with the column names and types
-        kusto.append(f".create-merge table [{table_name}] (")
+        kusto.append(f".create-merge table {table_ref} (")
         columns = []
         for prop_name, prop_schema in properties.items():
             column_name = prop_name
@@ -238,7 +288,7 @@ class StructureToKusto:
                 "description": doc_data
             }))
             kusto.append(
-                f".alter table [{table_name}] docstring {doc_string};")
+                f".alter table {table_ref} docstring {doc_string};")
             kusto.append("")
 
         doc_string_statement = []
@@ -284,14 +334,14 @@ class StructureToKusto:
                 "   [___subject]: 'Context subject of the event'"
             ])
         if doc_string_statement:
-            kusto.append(f".alter table [{table_name}] column-docstrings (")
+            kusto.append(f".alter table {table_ref} column-docstrings (")
             kusto.append(",\n".join(doc_string_statement))
             kusto.append(");")
             kusto.append("")
 
         # add the JSON mapping for the table
         kusto.append(
-            f".create-or-alter table [{table_name}] ingestion json mapping \"{table_name}_json_flat\"")
+            f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_flat\"")
         kusto.append("```\n[")
         if emit_cloudevents_columns:
             kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
@@ -312,7 +362,7 @@ class StructureToKusto:
 
         if emit_cloudevents_columns:
             kusto.append(
-                f".create-or-alter table [{table_name}] ingestion json mapping \"{table_name}_json_ce_structured\"")
+                f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_ce_structured\"")
             kusto.append("```\n[")
             kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
             kusto.append(
@@ -332,18 +382,17 @@ class StructureToKusto:
 
         if emit_cloudevents_columns:
             kusto.append(
-                f".drop materialized-view {table_name}Latest ifexists;")
+                f".drop materialized-view {mv_ref} ifexists;")
             kusto.append("")
             kusto.append(
-                f".create materialized-view with (backfill=true) {table_name}Latest on table {table_name} {{")
+                f".create materialized-view with (backfill=true) {mv_ref} on table {table_in_query} {{")
             kusto.append(
-                f"    {table_name} | summarize arg_max(___time, *) by ___type, ___source, ___subject")
+                f"    {table_in_query} | summarize arg_max(___time, *) by ___type, ___source, ___subject")
             kusto.append("}")
             kusto.append("")
 
         if emit_cloudevents_dispatch_table:
-            namespace = recordschema.get("namespace", "")
-            event_type = namespace + "." + table_name if namespace else table_name
+            event_type = record_namespace + "." + simple_name if record_namespace else simple_name
 
             query = f"_cloudevents_dispatch | where (specversion == '1.0' and type == '{event_type}') | " + \
                     "project"                        
@@ -354,7 +403,7 @@ class StructureToKusto:
             query += "___type = type,___source = source,___id = ['id'],___time = ['time'],___subject = subject"
 
             # build an update policy for the table that gets triggered by updates to the dispatch table and extracts the event
-            kusto.append(f".alter table [{table_name}] policy update")
+            kusto.append(f".alter table {table_ref} policy update")
             kusto.append("```")
             kusto.append("[{")
             kusto.append("  \"IsEnabled\": true,")
@@ -368,7 +417,7 @@ class StructureToKusto:
 
         return kusto
 
-    def convert_structure_to_kusto_script(self, structure_schema_path, structure_record_type, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False) -> str:
+    def convert_structure_to_kusto_script(self, structure_schema_path, structure_record_type, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, qualified_table_names: bool = False, namespace_override: str | None = None) -> str:
         """Converts a JSON Structure schema to a Kusto table schema."""
         if emit_cloudevents_dispatch_table:
             emit_cloudevents_columns = True
@@ -426,7 +475,15 @@ class StructureToKusto:
                 record_schema = self.resolve_ref(root_ref, schema, schema)
                 if record_schema:
                     # Flatten inheritance
-                    record_schemas = [self.flatten_inheritance(record_schema, schema_doc)]
+                    flat = self.flatten_inheritance(record_schema, schema_doc)
+                    # Derive namespace from the $root path so qualified table
+                    # naming works when --qualified-table-names is set.
+                    if isinstance(root_ref, str) and root_ref.startswith('#/definitions/'):
+                        parts = root_ref[len('#/definitions/'):].split('/')
+                        if len(parts) > 1 and '_kusto_namespace' not in flat:
+                            flat = dict(flat)
+                            flat['_kusto_namespace'] = '.'.join(parts[:-1])
+                    record_schemas = [flat]
             elif 'type' in schema and schema['type'] == 'object':
                 # Flatten inheritance
                 record_schemas = [self.flatten_inheritance(schema, schema_doc)]
@@ -515,17 +572,17 @@ class StructureToKusto:
                 continue
                 
             kusto_script.extend(self.convert_record_to_kusto(
-                record_schema, schema_doc, emit_cloudevents_columns, emit_cloudevents_dispatch_table))
+                record_schema, schema_doc, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace_override))
         
         # Join and clean up extra blank lines at the end
         result = "\n".join(kusto_script)
         # Remove trailing whitespace while preserving intentional blank lines
         return result.rstrip() + "\n" if result else ""
 
-    def convert_structure_to_kusto_file(self, structure_schema_path, structure_record_type, kusto_file_path, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False):
+    def convert_structure_to_kusto_file(self, structure_schema_path, structure_record_type, kusto_file_path, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, qualified_table_names: bool = False, namespace_override: str | None = None):
         """Converts a JSON Structure schema to a Kusto table schema."""
         script = self.convert_structure_to_kusto_script(
-            structure_schema_path, structure_record_type, emit_cloudevents_columns, emit_cloudevents_dispatch_table)
+            structure_schema_path, structure_record_type, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace_override)
         with open(kusto_file_path, "w", encoding="utf-8") as kusto_file:
             kusto_file.write(script)
 
@@ -621,18 +678,18 @@ class StructureToKusto:
         return mapping.get(type_value, 'dynamic')
 
 
-def convert_structure_to_kusto_file(structure_schema_path, structure_record_type, kusto_file_path, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False):
+def convert_structure_to_kusto_file(structure_schema_path, structure_record_type, kusto_file_path, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, qualified_table_names: bool = False, namespace: str | None = None):
     """Converts a JSON Structure schema to a Kusto table schema."""
     structure_to_kusto = StructureToKusto()
     structure_to_kusto.convert_structure_to_kusto_file(
-        structure_schema_path, structure_record_type, kusto_file_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table)
+        structure_schema_path, structure_record_type, kusto_file_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace)
 
 
-def convert_structure_to_kusto_db(structure_schema_path, structure_record_type, kusto_uri, kusto_database, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, token_provider=None):
+def convert_structure_to_kusto_db(structure_schema_path, structure_record_type, kusto_uri, kusto_database, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, token_provider=None, qualified_table_names: bool = False, namespace: str | None = None):
     """Converts a JSON Structure schema to a Kusto table schema."""
     structure_to_kusto = StructureToKusto()
     script = structure_to_kusto.convert_structure_to_kusto_script(
-        structure_schema_path, structure_record_type, emit_cloudevents_columns, emit_cloudevents_dispatch_table)
+        structure_schema_path, structure_record_type, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace)
     kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(
         kusto_uri) if not token_provider else KustoConnectionStringBuilder.with_token_provider(kusto_uri, token_provider)
     client = KustoClient(kcsb)
@@ -645,11 +702,11 @@ def convert_structure_to_kusto_db(structure_schema_path, structure_record_type, 
                 sys.exit(1)
 
 
-def convert_structure_to_kusto(structure_schema_path, structure_record_type, kusto_file_path, kusto_uri, kusto_database, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, token_provider=None):
+def convert_structure_to_kusto(structure_schema_path, structure_record_type, kusto_file_path, kusto_uri, kusto_database, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, token_provider=None, qualified_table_names: bool = False, namespace: str | None = None):
     """Converts a JSON Structure schema to a Kusto table schema."""
     if not kusto_uri and not kusto_database:
         convert_structure_to_kusto_file(
-            structure_schema_path, structure_record_type, kusto_file_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table)
+            structure_schema_path, structure_record_type, kusto_file_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace)
     else:
         convert_structure_to_kusto_db(
-            structure_schema_path, structure_record_type, kusto_uri, kusto_database, emit_cloudevents_columns, emit_cloudevents_dispatch_table, token_provider)
+            structure_schema_path, structure_record_type, kusto_uri, kusto_database, emit_cloudevents_columns, emit_cloudevents_dispatch_table, token_provider, qualified_table_names, namespace)

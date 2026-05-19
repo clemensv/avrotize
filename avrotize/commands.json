@@ -561,7 +561,9 @@
         "kusto_database": "args.kusto_database",
         "avro_record_type": "args.record_type",
         "emit_cloudevents_columns": "args.emit_cloudevents_columns",
-        "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch"
+        "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch",
+        "qualified_table_names": "args.qualified_table_names",
+        "namespace": "args.namespace"
       }
     },
     "extensions": [
@@ -617,6 +619,19 @@
         "type": "bool",
         "help": "Emit a _cloudevents_dispatch ingestion table and update policies for each generated table",
         "required": false
+      },
+      {
+        "name": "--qualified-table-names",
+        "type": "bool",
+        "help": "Generate table names using the fully qualified namespace name of the entity, if available",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Set or override the namespace used for qualifying table names and CloudEvents type identifiers",
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}.kql",
@@ -662,7 +677,9 @@
         "kusto_database": "args.kusto_database",
         "structure_record_type": "args.record_type",
         "emit_cloudevents_columns": "args.emit_cloudevents_columns",
-        "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch"
+        "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch",
+        "qualified_table_names": "args.qualified_table_names",
+        "namespace": "args.namespace"
       }
     },
     "extensions": [
@@ -718,6 +735,19 @@
         "name": "--emit-cloudevents-dispatch",
         "type": "bool",
         "help": "Emit a _cloudevents_dispatch ingestion table and update policies for each generated table",
+        "required": false
+      },
+      {
+        "name": "--qualified-table-names",
+        "type": "bool",
+        "help": "Generate table names using the fully qualified namespace name of the entity, if available",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Set or override the namespace used for qualifying table names and CloudEvents type identifiers",
         "required": false
       }
     ],
