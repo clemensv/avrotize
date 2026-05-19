@@ -86,6 +86,55 @@ def test_convert_address_struct_to_kusto_server(kusto_container):
     assert len(response_rows) == 1
 
 
+def test_convert_address_struct_to_kusto_server_qualified(kusto_container):
+    """Test that --qualified-table-names produces a working Kusto table with a
+    dotted, bracket-quoted identifier (['ns.name']) end-to-end. The namespace
+    is inferred from the JSON Structure definitions/<seg>/<seg>/<type> path."""
+    cwd = os.getcwd()
+    struct_path = os.path.join(cwd, "test", "avsc", "address-ref.struct.json")
+    kusto_uri = kusto_container.get_connection_string()
+    kusto_database = kusto_container.get_database_name()
+    # The address-ref.struct.json uses definitions/example/com/record, so the
+    # derived namespace is "example.com".
+    convert_structure_to_kusto_db(
+        struct_path,
+        None,
+        kusto_uri,
+        kusto_database,
+        emit_cloudevents_columns=True,
+        token_provider=lambda *_: "token",
+        qualified_table_names=True,
+    )
+
+    qualified_table = "example.com.record"
+    mapping_name = f"{qualified_table}_json_flat"
+
+    my_address_data = """{
+        "type": "address",
+        "postOfficeBox": "PO Box 1234",
+        "extendedAddress": "Suite 100",
+        "streetAddress": "123 Main St",
+        "locality": "Anytown",
+        "region": "WA",
+        "postalCode": "98052",
+        "countryName": "United States"
+    }""".replace("\n", " ").replace("  ", "")
+
+    kusto_client = KustoClient(
+        KustoConnectionStringBuilder.with_token_provider(kusto_uri, lambda *_: "token"))
+    ingest_query = (
+        f".ingest inline into table ['{qualified_table}'] "
+        f"with (format=\"json\", ingestionMappingReference=\"{mapping_name}\") "
+        f"<| \n{my_address_data}\n"
+    )
+    kusto_client.execute_mgmt(kusto_database, ingest_query)
+
+    response = kusto_client.execute_query(
+        kusto_database, f"['{qualified_table}'] | limit 10")
+    response_rows = response.primary_results[0]
+    assert len(response_rows) == 1
+
+
 def test_convert_address_struct_to_kusto():
     """Test converting address.struct.json to address.kql"""
     convert_case("address", False, False)
