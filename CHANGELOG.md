@@ -2,6 +2,27 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.5.4] - 2026-05-20
+
+### Changed
+
+- **Kusto to JSON Structure xRegistry output**: When `--emit-xregistry` is set, `k2j` now emits a proper xRegistry document with both `schemagroups` (versioned schemas) and `messagegroups`. CloudEvents-style tables (those with a `type` column whose docstring lists allowed values) get a `CloudEvents/1.0` envelope with required `id`/`source`/`time` and a fixed `type`; non-CloudEvents tables get a plain message group keyed by schema id. Inferrer `root` artifacts are dropped before attributes are applied.
+
+### Dependencies
+
+- Bumped 20 dependencies via Dependabot across Python (`avro`, `fastavro`, `confluent-kafka`, `mypy`, `pylint`, `jsonschema`, `xmlschema`, `pyiceberg`, `oracledb`, `azure-kusto-data`), Maven (`jackson-bom`, `jackson-core`, `jackson-databind`), NuGet (`System.Text.Json`, `System.Memory.Data`, `NUnit`, `Microsoft.NET.Test.Sdk`, `Dahomey.Cbor`), and GitHub Actions (`s4u/setup-maven-action`, `pypa/gh-action-pypi-publish`).
+
+## [3.5.3] - 2026-05-19
+
+### Added
+
+- **`a2k` and `s2k`: `--qualified-table-names` option**: Generates Kusto table names using the entity's fully qualified namespace (e.g. `['com.example.Order']`). Table references, materialized views, and update-policy targets are bracket-quoted; mapping names use the dotted string as-is.
+- **`a2k` and `s2k`: `--namespace` option**: Sets or overrides the namespace used for table-name qualification. For JSON Structure inputs, namespaces are derived from the `definitions/<seg>/<seg>/<type>` path when not explicitly provided.
+
+### Notes
+
+- Default output (without `--qualified-table-names`) is byte-identical to prior versions; reference-file tests are preserved.
+
 ## [3.5.2] - 2026-04-08
 
 ### Fixed
