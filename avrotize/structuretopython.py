@@ -812,6 +812,32 @@ class StructureToPython:
         with open(os.path.join(self.output_dir, 'pyproject.toml'), 'w', encoding='utf-8') as file:
             file.write(pyproject_content)
 
+    def process_definitions(self, definitions: Dict, namespace_path: str) -> None:
+        """ Recursively walks the definitions tree and generates a Python type for each leaf.
+
+        Leaves are sub-schemas that carry an ``enum`` keyword or a ``type`` of
+        ``object``/``choice``/``map``. Other dict entries are treated as nested
+        namespace segments (matching the path-as-namespace convention used in
+        ``$root`` JSON pointers like ``#/definitions/de/wsv/pegelonline/Station``).
+        """
+        for name, definition in definitions.items():
+            if not isinstance(definition, dict):
+                continue
+            if 'enum' in definition:
+                self.generate_enum(definition, name, namespace_path, write_file=True)
+            elif definition.get('type') == 'object':
+                self.generate_class(definition, namespace_path, write_file=True, explicit_name=name)
+            elif definition.get('type') == 'choice':
+                self.generate_choice(definition, namespace_path, write_file=True, explicit_name=name)
+            elif definition.get('type') == 'map':
+                # generate_map_alias doesn't accept explicit_name; stamp the name on a copy.
+                map_schema = dict(definition)
+                map_schema.setdefault('name', name)
+                self.generate_map_alias(map_schema, namespace_path, write_file=True)
+            else:
+                new_namespace = f"{namespace_path}.{name}" if namespace_path else name
+                self.process_definitions(definition, new_namespace)
+
     def convert_schemas(self, structure_schemas: List, output_dir: str):
         """ Converts JSON Structure schemas to Python dataclasses"""
         self.output_dir = output_dir
@@ -827,15 +853,48 @@ class StructureToPython:
             if 'definitions' in structure_schema:
                 self.definitions = structure_schema['definitions']
 
+            handled = False
             if 'enum' in structure_schema:
-                self.generate_enum(structure_schema, structure_schema.get('name', 'Enum'), 
+                self.generate_enum(structure_schema, structure_schema.get('name', 'Enum'),
                                  structure_schema.get('namespace', ''), write_file=True)
+                handled = True
             elif structure_schema.get('type') == 'object':
                 self.generate_class(structure_schema, structure_schema.get('namespace', ''), write_file=True)
+                handled = True
             elif structure_schema.get('type') == 'choice':
                 self.generate_choice(structure_schema, structure_schema.get('namespace', ''), write_file=True)
+                handled = True
             elif structure_schema.get('type') == 'map':
                 self.generate_map_alias(structure_schema, structure_schema.get('namespace', ''), write_file=True)
+                handled = True
+            elif '$root' in structure_schema:
+                # $root + definitions wrapper: resolve the pointer, derive the namespace
+                # from the pointer path (segments between 'definitions' and the type name),
+                # and emit the targeted class explicitly. Sibling types in `definitions`
+                # are picked up below by process_definitions.
+                root_ref = structure_schema['$root']
+                root_schema = self.resolve_ref(root_ref, structure_schema)
+                if root_schema:
+                    ref_path = root_ref.split('/')
+                    type_name = ref_path[-1]
+                    ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else ''
+                    self.generate_class_or_choice(root_schema, ref_namespace, write_file=True, explicit_name=type_name)
+                    handled = True
+
+            # Recursively walk the definitions tree so every named type is emitted,
+            # regardless of whether the top-level schema also dispatched something.
+            if 'definitions' in structure_schema:
+                self.process_definitions(structure_schema['definitions'], '')
+                handled = True
+
+            if not handled:
+                schema_id = structure_schema.get('$id', '<no $id>')
+                schema_name = structure_schema.get('name', '<no name>')
+                print(
+                    f"Warning: structure schema (id={schema_id}, name={schema_name}) did not "
+                    "match any recognized top-level shape (enum, type=object/choice/map, "
+                    "$root, or definitions); no Python output generated for it."
+                )
 
         self.write_init_files()
         self.write_pyproject_toml()

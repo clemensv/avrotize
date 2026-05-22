@@ -557,6 +557,60 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             assert "very_long_namespace" not in test_file.lower(), \
                 "Test file name should not include flattened namespace path"
 
+    def test_root_with_definitions_wrapper_generates_classes(self):
+        """Regression test for issue #314.
+
+        ``convert_structure_schema_to_python`` previously silently dropped
+        schemas that used the canonical ``$root`` + ``definitions`` wrapper
+        pattern, producing only ``pyproject.toml`` and no ``src/`` tree.
+        """
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        schema = {
+            "$id": "https://example.com/Station",
+            "name": "Station",
+            "$root": "#/definitions/de/wsv/pegelonline/Station",
+            "definitions": {"de": {"wsv": {"pegelonline": {
+                "Station": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "water": {"type": {"$ref": "#/definitions/de/wsv/pegelonline/Water"}},
+                    },
+                },
+                "Water": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}},
+                },
+            }}}},
+        }
+
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-314-root-wrapper")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        convert_structure_schema_to_python(schema, output_dir, package_name="station_data")
+
+        src_dir = os.path.join(output_dir, "src")
+        assert os.path.exists(src_dir), "src/ tree must be generated for $root-wrapped schema"
+
+        py_files = []
+        for root, _dirs, files in os.walk(src_dir):
+            for f in files:
+                if f.endswith(".py"):
+                    py_files.append(os.path.join(root, f))
+
+        names = {os.path.basename(p).lower() for p in py_files}
+        assert any("station" in n for n in names), \
+            f"Expected a Station-derived file in {names}"
+        assert any("water" in n for n in names), \
+            f"Expected a Water-derived file in {names}"
+
+        expected_subpath = os.path.join("de", "wsv", "pegelonline")
+        assert any(expected_subpath in p for p in py_files), \
+            f"Expected types under de/wsv/pegelonline/, got file paths {py_files}"
+
 
 if __name__ == '__main__':
     unittest.main()
