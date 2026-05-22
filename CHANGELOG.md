@@ -2,6 +2,12 @@
 
 All notable changes to Avrotize are documented in this file.
 
+## [3.5.5] - 2026-05-22
+
+### Fixed
+
+- **Structure to Python: `$root` + `definitions` wrapper silently dropped** ([#314](https://github.com/clemensv/avrotize/issues/314)): `convert_structure_schema_to_python` previously produced only `pyproject.toml` (no `src/` tree) for the canonical JSON Structure shape where the actual type lives at a JSON pointer like `#/definitions/de/wsv/pegelonline/Station`. The converter now resolves `$root` pointers, derives the namespace from the pointer path, and recursively walks the `definitions` tree so every named type is emitted. A defensive warning is logged when a top-level schema matches none of the recognized shapes, so future silent drops are visible.
+
 ## [3.5.4] - 2026-05-20
 
 ### Changed
