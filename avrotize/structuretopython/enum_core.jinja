@@ -1,12 +1,12 @@
-from enum import Enum
+from enum import {% if is_numeric %}IntEnum{% else %}Enum{% endif %}
 
 
-class {{ class_name }}(Enum):
+class {{ class_name }}({% if is_numeric %}IntEnum{% else %}Enum{% endif %}):
     """
     {{ docstring }}
     """
-    {%- for symbol in symbols %}
-    {{ symbol }} = '{{ symbol }}'
+    {%- for member_name, value_repr in members %}
+    {{ member_name }} = {{ value_repr }}
     {%- endfor %}
 
     @classmethod

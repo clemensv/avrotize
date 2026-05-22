@@ -612,5 +612,66 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             f"Expected types under de/wsv/pegelonline/, got file paths {py_files}"
 
 
+    def test_integer_enum_emits_valid_python(self):
+        """Regression test for issue #315.
+
+        Integer-valued JSON Structure enums (e.g. ``"enum": [0, 1, 2]``)
+        previously produced an importable-looking file whose class body
+        contained bare numeric literals like ``0 = '0'``, which is a
+        SyntaxError. The generator now prefixes numeric member names with
+        ``VALUE_`` and uses ``IntEnum`` with the original integer values.
+        """
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        schema = {
+            "type": "object",
+            "name": "LightningStrike",
+            "namespace": "wx.dmi",
+            "properties": {
+                "id": {"type": "string"},
+                "type": {
+                    "type": {
+                        "type": "integer",
+                        "enum": [0, 1, 2],
+                        "description": "Strike type code.",
+                    },
+                },
+            },
+        }
+
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-315-int-enum")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        convert_structure_schema_to_python(schema, output_dir, package_name="dmi_lightning")
+
+        # Find the generated enum file
+        src_dir = os.path.join(output_dir, "src")
+        enum_files = []
+        for root, _dirs, files in os.walk(src_dir):
+            for f in files:
+                if f.endswith(".py") and "typeenum" in f.lower():
+                    enum_files.append(os.path.join(root, f))
+        assert enum_files, f"Expected a *typeenum*.py file under {src_dir}"
+
+        enum_source = ""
+        for f in enum_files:
+            with open(f, "r", encoding="utf-8") as fh:
+                enum_source = fh.read()
+            break
+
+        # The file must be syntactically valid Python
+        import ast
+        ast.parse(enum_source)
+
+        # IntEnum with VALUE_n members and integer values (no quotes)
+        assert "IntEnum" in enum_source, f"Expected IntEnum in:\n{enum_source}"
+        assert "VALUE_0 = 0" in enum_source, f"Expected 'VALUE_0 = 0' in:\n{enum_source}"
+        assert "VALUE_1 = 1" in enum_source, f"Expected 'VALUE_1 = 1' in:\n{enum_source}"
+        assert "VALUE_2 = 2" in enum_source, f"Expected 'VALUE_2 = 2' in:\n{enum_source}"
+        assert "0 = '0'" not in enum_source, "Bare numeric member name regressed"
+
+
 if __name__ == '__main__':
     unittest.main()

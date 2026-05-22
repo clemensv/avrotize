@@ -489,6 +489,36 @@ class StructureToPython:
         field_docstring = f"{field_name} ({field_type})"
         return field_docstring
 
+    def _python_enum_member_name(self, value) -> str:
+        """Derives a valid Python identifier for an enum member from a JSON
+        Structure enum value.
+
+        Numeric values (including negative integers) are prefixed with
+        ``VALUE_`` (with negatives spelled ``VALUE_NEG_n``) so the generated
+        class body is valid Python. String values that aren't already valid
+        identifiers — e.g. they start with a digit or contain hyphens/spaces —
+        are coerced via ``pascal`` and prefixed with ``VALUE_`` if they still
+        don't start with a letter or underscore. Reserved words get a
+        trailing underscore.
+        """
+        if isinstance(value, bool):
+            return "TRUE_" if value else "FALSE_"
+        if isinstance(value, (int, float)):
+            if isinstance(value, float):
+                token = str(value).replace('.', '_').replace('-', 'NEG_')
+            elif value < 0:
+                token = f"NEG_{abs(value)}"
+            else:
+                token = str(value)
+            return f"VALUE_{token}"
+        text = str(value)
+        candidate = re.sub(r'[^0-9A-Za-z_]', '_', text)
+        if not candidate or not (candidate[0].isalpha() or candidate[0] == '_'):
+            candidate = f"VALUE_{candidate}" if candidate else "VALUE_"
+        if is_python_reserved_word(candidate):
+            candidate = candidate + "_"
+        return candidate
+
     def generate_enum(self, structure_schema: Dict, field_name: str, parent_namespace: str, 
                      write_file: bool) -> str:
         """ Generates a Python enum from JSON Structure enum """
@@ -502,8 +532,24 @@ class StructureToPython:
         if python_qualified_name in self.generated_types:
             return python_qualified_name
 
-        symbols = [symbol if not is_python_reserved_word(symbol) else symbol + "_" 
-                  for symbol in structure_schema.get('enum', [])]
+        raw_values = structure_schema.get('enum', [])
+        is_numeric = bool(raw_values) and all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in raw_values
+        )
+
+        # Build (member_name, repr) pairs. ``repr`` is rendered verbatim into the
+        # class body, so for numeric enums we emit the bare numeric literal and
+        # for string enums a quoted Python string literal.
+        members: List[Tuple[str, str]] = []
+        symbols: List[str] = []
+        for value in raw_values:
+            member_name = self._python_enum_member_name(value)
+            if is_numeric:
+                value_repr = repr(value)
+            else:
+                value_repr = repr(str(value))
+            members.append((member_name, value_repr))
+            symbols.append(member_name)
 
         doc = structure_schema.get('description', structure_schema.get('doc', f'A {class_name} enum.'))
 
@@ -511,12 +557,15 @@ class StructureToPython:
             "structuretopython/enum_core.jinja",
             class_name=class_name,
             docstring=doc,
+            members=members,
+            is_numeric=is_numeric,
+            # ``symbols`` kept for backward compatibility with any external use
             symbols=symbols,
         )
 
         if write_file:
             self.write_to_file(package_name, class_name, enum_definition)
-            self.generate_test_enum(package_name, class_name, symbols)
+            self.generate_test_enum(package_name, class_name, members, is_numeric)
 
         self.generated_types[python_qualified_name] = 'enum'
         self.generated_enum_symbols[python_qualified_name] = symbols
@@ -717,7 +766,8 @@ class StructureToPython:
         with open(test_file_path, 'w', encoding='utf-8') as file:
             file.write(test_class_definition)
 
-    def generate_test_enum(self, package_name: str, class_name: str, symbols: List[str]) -> None:
+    def generate_test_enum(self, package_name: str, class_name: str,
+                           members: List[Tuple[str, str]], is_numeric: bool) -> None:
         """Generates a unit test class for a Python enum"""
         test_class_name = f"Test_{class_name}"
         # Use a simpler file naming scheme based on class name only
@@ -727,7 +777,8 @@ class StructureToPython:
             package_name=package_name,
             class_name=class_name,
             test_class_name=test_class_name,
-            symbols=symbols
+            members=members,
+            is_numeric=is_numeric,
         )
         base_dir = os.path.join(self.output_dir, "tests")
         test_file_path = os.path.join(base_dir, f"{test_file_name}.py")
