@@ -1,3 +1,10 @@
+All notable changes to Avrotize are documented in this file.
+
+## [3.5.6] - 2026-05-22
+
+### Fixed
+
+- **Structure to Python: integer enum members produced invalid Python** ([#315](https://github.com/clemensv/avrotize/issues/315)): Integer-valued JSON Structure enums (e.g. `"enum": [0, 1, 2]`) previously generated a class body with bare numeric literals like `0 = '0'` — a `SyntaxError` on import. `StructureToPython.generate_enum` now detects all-numeric enums and emits an `IntEnum` with member names prefixed `VALUE_<n>` (or `VALUE_NEG_<n>` for negatives), assigning the original integer literal as the value. String enum members whose values aren't valid identifiers (digit-prefixed, hyphenated, etc.) are also sanitized with the `VALUE_` prefix. Mirrors the `Value{value}` pattern already used by the C# converter.
 # Changelog
 
 All notable changes to Avrotize are documented in this file.
