@@ -1,5 +1,14 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.5.7] - 2026-05-23
+
+### Added
+
+- **TMSL (Tabular Model Scripting Language) support** ([#254](https://github.com/clemensv/avrotize/pull/254)): New `a2tsml` and `s2tsml` converters that emit Microsoft Analysis Services TMSL scripts from Avrotize and JSON Structure schemas. New `validate-tmsl` command performs local structural validation against the documented TMSL object model — no Analysis Services instance required.
+- **SQL primary-key / foreign-key metadata round-trip**: `sql2a` now captures foreign-key relationships from the source database and emits them as Avro `unique` and `foreignKeys` annotations. These flow through `a2s` / `s2a` and into `a2tsml` as TMSL `isKey` markers and `relationships` entries, preserving the relational model end-to-end.
+- **Structure to Avro: PK/FK propagation** in `jstructtoavro` so the metadata survives a Structure→Avro→TMSL round-trip.
+- **Avro to JSON Structure: PK/FK annotations** — `avrotojstruct` now emits `x-avrotize-unique` and `x-avrotize-foreignKeys` on record schemas when the source Avro carries `unique` / `foreignKeys` metadata.
+
 ## [3.5.6] - 2026-05-22
 
 ### Fixed
