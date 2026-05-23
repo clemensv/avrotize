@@ -1,0 +1,57 @@
+{
+  "createOrReplace": {
+    "object": {
+      "database": "Customer"
+    },
+    "database": {
+      "name": "Customer",
+      "compatibilityLevel": 1605,
+      "model": {
+        "culture": "en-US",
+        "tables": [
+          {
+            "name": "Customer",
+            "columns": [
+              {
+                "name": "id",
+                "dataType": "int64",
+                "sourceColumn": "id",
+                "isKey": true
+              },
+              {
+                "name": "name",
+                "dataType": "string",
+                "sourceColumn": "name"
+              }
+            ]
+          },
+          {
+            "name": "Order",
+            "columns": [
+              {
+                "name": "id",
+                "dataType": "int64",
+                "sourceColumn": "id",
+                "isKey": true
+              },
+              {
+                "name": "customer_id",
+                "dataType": "int64",
+                "sourceColumn": "customer_id"
+              }
+            ]
+          }
+        ],
+        "relationships": [
+          {
+            "name": "Order_customer_id_to_Customer_id",
+            "fromTable": "Order",
+            "fromColumn": "customer_id",
+            "toTable": "Customer",
+            "toColumn": "id"
+          }
+        ]
+      }
+    }
+  }
+}

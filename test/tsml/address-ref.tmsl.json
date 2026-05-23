@@ -1,0 +1,65 @@
+{
+  "createOrReplace": {
+    "object": {
+      "database": "record"
+    },
+    "database": {
+      "name": "record",
+      "compatibilityLevel": 1605,
+      "model": {
+        "culture": "en-US",
+        "tables": [
+          {
+            "name": "record",
+            "columns": [
+              {
+                "name": "type",
+                "dataType": "string",
+                "sourceColumn": "type"
+              },
+              {
+                "name": "postOfficeBox",
+                "dataType": "string",
+                "sourceColumn": "postOfficeBox",
+                "isNullable": true
+              },
+              {
+                "name": "extendedAddress",
+                "dataType": "string",
+                "sourceColumn": "extendedAddress",
+                "isNullable": true
+              },
+              {
+                "name": "streetAddress",
+                "dataType": "string",
+                "sourceColumn": "streetAddress",
+                "isNullable": true
+              },
+              {
+                "name": "locality",
+                "dataType": "string",
+                "sourceColumn": "locality"
+              },
+              {
+                "name": "region",
+                "dataType": "string",
+                "sourceColumn": "region"
+              },
+              {
+                "name": "postalCode",
+                "dataType": "string",
+                "sourceColumn": "postalCode",
+                "isNullable": true
+              },
+              {
+                "name": "countryName",
+                "dataType": "string",
+                "sourceColumn": "countryName"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

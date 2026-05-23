@@ -364,6 +364,11 @@ class JsonStructureToAvro:
         
         if 'description' in merged_schema:
             avro_record['doc'] = merged_schema['description']
+
+        if isinstance(merged_schema.get('x-avrotize-unique'), list):
+            avro_record['unique'] = merged_schema['x-avrotize-unique']
+        if isinstance(merged_schema.get('x-avrotize-foreignKeys'), list):
+            avro_record['foreignKeys'] = merged_schema['x-avrotize-foreignKeys']
         
         # Convert properties to fields
         properties = merged_schema.get('properties', {})
