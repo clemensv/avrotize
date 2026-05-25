@@ -2,6 +2,7 @@ from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from testcontainers.core.container import DockerContainer
 from avrotize.avrotokusto import convert_avro_to_kusto_db, convert_avro_to_kusto_file
 from unittest.mock import patch
+import json
 import unittest
 import os
 import sys
@@ -157,6 +158,40 @@ def test_convert_telemetry_avsc_to_kusto():
     convert_case("telemetry", True, True)
     convert_case("telemetry", True, False)
     convert_case("telemetry", False, False)
+
+
+def test_column_docstring_uses_verbatim_literal_for_escaped_quotes():
+    """Escaped quotes in descriptions should not become invalid \\\" KQL sequences."""
+    schema = {
+        "type": "record",
+        "name": "ReproEvent",
+        "fields": [
+            {"name": "id", "type": "string", "doc": "Plain id"},
+            {
+                "name": "tricky",
+                "type": {
+                    "type": "record",
+                    "name": "Nested",
+                    "fields": [{"name": "v", "type": "string"}]
+                },
+                "doc": "Contains nested JSON snippet: { \"doc\": \"Schema too large to inline.\" }"
+            }
+        ]
+    }
+    with tempfile.TemporaryDirectory() as temp_dir:
+        avro_path = os.path.join(temp_dir, "repro.avsc")
+        kql_path = os.path.join(temp_dir, "repro.kql")
+        with open(avro_path, "w", encoding="utf-8") as avro_file:
+            json.dump(schema, avro_file)
+
+        convert_avro_to_kusto_file(avro_path, None, kql_path)
+        with open(kql_path, "r", encoding="utf-8") as kql_file:
+            kql = kql_file.read()
+
+    docstrings_block = kql.split("column-docstrings (", 1)[1].split(");", 1)[0]
+    tricky_line = next(line for line in docstrings_block.splitlines() if "[tricky]:" in line)
+    assert r'\\\"' not in tricky_line
+    assert '[tricky]: @"' in tricky_line
 
 
 def convert_case(file_base_name: str, emit_cloudevents_columns, emit_cloudevents_dispatch_table):
