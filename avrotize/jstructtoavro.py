@@ -699,6 +699,10 @@ class JsonStructureToAvro:
         # Handle inline types
         type_value = schema.get('type')
         
+        # Handle type value that is itself a reference or complex type (e.g. {"$ref": "..."})
+        if isinstance(type_value, dict):
+            return self._convert_type_reference(type_value)
+        
         # Handle union types (type is an array like ["string", "null"])
         if isinstance(type_value, list):
             return [self._map_primitive_type(t) if isinstance(t, str) else self._convert_type_reference(t) for t in type_value]
