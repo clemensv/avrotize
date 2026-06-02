@@ -34,6 +34,9 @@ class AvroToJavaScript:
 
     def map_primitive_to_javascript(self, avro_type: str) -> str:
         """ Map Avro primitive type to TypeScript type """
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if avro_type == 'AnyValue' or avro_type.endswith('.AnyValue'):
+            return 'any'
         mapping = {
             'null': 'null',
             'boolean': 'boolean',

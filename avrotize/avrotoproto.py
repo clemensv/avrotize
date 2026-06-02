@@ -39,6 +39,10 @@ class AvroToProto:
             'bytes': 'bytes',
             'string': 'string',
         }
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if isinstance(avro_type, str) and (avro_type == 'AnyValue' or avro_type.endswith('.AnyValue')):
+            dependencies.append('google/protobuf/any.proto')
+            return 'google.protobuf.Any'
         # logical types require special handling
         if isinstance(avro_type, dict) and 'logicalType' in avro_type:
             logical_type = avro_type['logicalType']

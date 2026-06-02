@@ -60,36 +60,123 @@ def avro_namespace(name):
     return val
 
 
-def generic_type() -> list[str | dict]:
+ANY_VALUE_RECORD: dict = {
+    "type": "record",
+    "name": "AnyValue",
+    "namespace": "avrotize",
+    "doc": "Extensible record placeholder for the 'any' type. Add fields via schema evolution.",
+    "fields": []
+}
+"""Avro record definition for the extensible 'any' type. Defined once, referenced by name thereafter."""
+
+ANY_VALUE_NAME = "avrotize.AnyValue"
+"""Fully-qualified name reference for the AnyValue record."""
+
+
+def generic_type(*, define_any_value: bool = True) -> list[str | dict]:
     """ 
-    Constructs a generic Avro type for simple types, arrays, and maps.
+    Constructs a generic Avro type as a union of all primitive types, an extensible
+    empty record (AnyValue), and recursive array/map types.
+
+    The AnyValue record is an empty record that can be extended via Avro schema
+    evolution (adding fields with defaults). Arrays and maps reference AnyValue
+    by name, enabling infinite nesting.
+    
+    Args:
+        define_any_value: If True (default), includes the full AnyValue record definition.
+            Set to False for subsequent uses in the same schema to avoid redefinition errors.
     
     Returns:
-        list[str | dict]: A list of simple types, arrays, and maps.
+        list[str | dict]: A union type representing 'any'.
     """
-    simple_type_union: list[str | dict] = [
-        "null", "boolean", "int", "long", "float", "double", "bytes", "string"]
-    l2 = simple_type_union.copy()
-    l2.extend([
-        {
-            "type": "array",
-            "items": simple_type_union
-        },
-        {
-            "type": "map",
-            "values": simple_type_union
-        }])
-    l1 = simple_type_union.copy()
-    l1.extend([
-        {
-            "type": "array",
-            "items": l2
-        },
-        {
-            "type": "map",
-            "values": l2
-        }])
-    return l1
+    any_value_entry: str | dict = ANY_VALUE_RECORD if define_any_value else ANY_VALUE_NAME
+    # Inner union used in array items and map values — always references AnyValue by name
+    inner_union: list[str | dict] = [
+        "null", "boolean", "int", "long", "float", "double", "bytes", "string",
+        ANY_VALUE_NAME,
+        {"type": "array", "items": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", ANY_VALUE_NAME]},
+        {"type": "map", "values": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", ANY_VALUE_NAME]}
+    ]
+    # Outer union — defines or references AnyValue record, uses inner_union in array/map
+    outer_union: list[str | dict] = [
+        "null", "boolean", "int", "long", "float", "double", "bytes", "string",
+        any_value_entry,
+        {"type": "array", "items": inner_union},
+        {"type": "map", "values": inner_union}
+    ]
+    return outer_union
+
+
+def deduplicate_any_value_record(schema) -> None:
+    """
+    Post-process an Avro schema to ensure AnyValue record is defined only once.
+    
+    If the schema is a list (top-level schema with multiple types), extracts 
+    the AnyValue record definition and prepends it to the list. All inline
+    occurrences are replaced with name references.
+    
+    If the schema is a single record, replaces all but the first inline 
+    occurrence with name references.
+    
+    Args:
+        schema: The Avro schema (dict, list, or str) to deduplicate in place.
+    """
+    if not _has_any_value_record(schema):
+        return
+    
+    if isinstance(schema, list):
+        # For top-level schema lists: extract definition to top, replace all inline with refs
+        _replace_all_any_value_defs(schema)
+        schema.insert(0, dict(ANY_VALUE_RECORD))
+    else:
+        # For single record schemas: keep first definition, replace rest with refs
+        seen = [False]
+        _deduplicate_any_value_walk(schema, seen)
+
+
+def _has_any_value_record(node) -> bool:
+    """Check if any AnyValue record definition or reference exists in the schema."""
+    if isinstance(node, str):
+        return node == ANY_VALUE_NAME or node == "AnyValue"
+    elif isinstance(node, list):
+        return any(_has_any_value_record(item) for item in node)
+    elif isinstance(node, dict):
+        if node.get("type") == "record" and node.get("name") == "AnyValue":
+            return True
+        return any(_has_any_value_record(v) for v in node.values() if isinstance(v, (list, dict)))
+    return False
+
+
+def _replace_all_any_value_defs(node) -> None:
+    """Replace ALL AnyValue record definitions with name references."""
+    if isinstance(node, list):
+        for i, item in enumerate(node):
+            if isinstance(item, dict) and item.get("type") == "record" and item.get("name") == "AnyValue":
+                node[i] = ANY_VALUE_NAME
+            else:
+                _replace_all_any_value_defs(item)
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            if isinstance(value, (list, dict)):
+                _replace_all_any_value_defs(value)
+
+
+def _deduplicate_any_value_walk(node, seen: list) -> None:
+    """Recursively walk and deduplicate AnyValue record definitions."""
+    if isinstance(node, list):
+        for i, item in enumerate(node):
+            if isinstance(item, dict) and item.get("type") == "record" and item.get("name") == "AnyValue":
+                if seen[0]:
+                    # Replace with name reference
+                    node[i] = ANY_VALUE_NAME
+                else:
+                    seen[0] = True
+            else:
+                _deduplicate_any_value_walk(item, seen)
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            if isinstance(value, (list, dict)):
+                _deduplicate_any_value_walk(value, seen)
 
 
 def is_generic_avro_type(avro_type: list) -> bool:
@@ -104,8 +191,12 @@ def is_generic_avro_type(avro_type: list) -> bool:
     """
     if isinstance(avro_type, str) or isinstance(avro_type, dict):
         return False
-    compare_type = generic_type()
-    return Compare().check(avro_type, compare_type) == NO_DIFF
+    # Check against both forms (with full definition and with name reference)
+    if Compare().check(avro_type, generic_type(define_any_value=True)) == NO_DIFF:
+        return True
+    if Compare().check(avro_type, generic_type(define_any_value=False)) == NO_DIFF:
+        return True
+    return False
 
 
 def is_generic_json_type(json_type: Dict[str, Any] | List[Dict[str, Any] | str] | str) -> bool:

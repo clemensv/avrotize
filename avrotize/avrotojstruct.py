@@ -323,6 +323,8 @@ class AvroToJsonStructure:
             "double": "double",
             "bytes": "binary",
             "null": "null",
+            "AnyValue": "any",
+            "avrotize.AnyValue": "any",
         }
 
 

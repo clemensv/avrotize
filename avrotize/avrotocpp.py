@@ -45,6 +45,9 @@ class AvroToCpp:
 
     def map_primitive_to_cpp(self, avro_type: str, is_optional: bool) -> str:
         """Maps Avro primitive types to C++ types"""
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if avro_type == 'AnyValue' or avro_type.endswith('.AnyValue'):
+            return 'std::optional<nlohmann::json>' if is_optional else 'nlohmann::json'
         optional_mapping = {
             'null': 'std::optional<std::monostate>',
             'boolean': 'std::optional<bool>',
@@ -53,7 +56,7 @@ class AvroToCpp:
             'float': 'std::optional<float>',
             'double': 'std::optional<double>',
             'bytes': 'std::optional<std::vector<uint8_t>>',
-            'string': 'std::optional<std::string>'
+            'string': 'std::optional<std::string>',
         }
         required_mapping = {
             'null': 'std::monostate',
@@ -63,7 +66,7 @@ class AvroToCpp:
             'float': 'float',
             'double': 'double',
             'bytes': 'std::vector<uint8_t>',
-            'string': 'std::string'
+            'string': 'std::string',
         }
         if '.' in avro_type:
             type_name = avro_type.split('.')[-1]

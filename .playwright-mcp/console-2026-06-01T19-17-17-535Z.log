@@ -1,0 +1,26 @@
+[    1948ms] [INFO] BSSO Telemetry: {"result":"Error","error":"NoExtension","type":"ChromeSsoTelemetry","data":{},"traces":["BrowserSSO Initialized","Creating ChromeBrowserCore provider","Sending message for method CreateProviderAsync","Received message for method CreateProviderAsync","Error: ChromeBrowserCore error NoExtension: Extension is not installed."]} @ https://aadcdn.msftauth.net/shared/1.0/content/js/BssoInterrupt_Core_9GPLBwek-swGv_tRKLyCgw2.js:17
+[    1984ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://login.microsoftonline.com/favicon.ico:0
+[    4167ms] [LOG] [MSAL] ensureMsalInitialized: starting initialization... @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    4168ms] [LOG] [MSAL] Creating new PublicClientApplication instance @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    4173ms] [LOG] [MSAL] initialize() resolved successfully @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    4174ms] [LOG] [MSAL] Initialization complete @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    5063ms] [LOG] [MSAL] ensureMsalInitialized: starting initialization... @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    5064ms] [LOG] [MSAL] Creating new PublicClientApplication instance @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    5065ms] [LOG] [MSAL] initialize() resolved successfully @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    5361ms] [LOG] [MSAL] ensureMsalInitialized: starting initialization... @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    5361ms] [LOG] [MSAL] Creating new PublicClientApplication instance @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    5362ms] [LOG] [MSAL] initialize() resolved successfully @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    6072ms] [LOG] [MSAL] Redirect result account found: clemensv@microsoft.com @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    6072ms] [LOG] [MSAL] Initialization complete @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    7506ms] [LOG] [PERF] loadContent START: troubleshoot/access at 2424 @ :2
+[    7507ms] [LOG] [PERF] Cache miss for: troubleshoot/access @ :2
+[    7507ms] [LOG] [PERF] Starting dynamic import at 2424.5 @ :2
+[    7603ms] [LOG] [PERF] Import completed in 96.80 ms @ :2
+[    7604ms] [LOG] [DEBUG] Loaded content for: troubleshoot/access html length: 3187 @ :2
+[    7606ms] [LOG] [DEBUG] Sanitized before cache, html length: 3364 @ :2
+[    7606ms] [LOG] [PERF] loadContent COMPLETE: troubleshoot/access total time: 100.20 ms @ :2
+[    7610ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 3364 @ :2
+[    7644ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 3364 @ :2
+[    7653ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 3364 @ :2
+[    7855ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.eng.ms/api/v1.0/MarkdownManagement/canedit:0
+[    7860ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 3364 @ :2

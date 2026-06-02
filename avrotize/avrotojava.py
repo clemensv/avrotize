@@ -296,6 +296,9 @@ class AvroToJava:
     
     def map_primitive_to_java(self, avro_type: str, is_optional: bool) -> JavaType:
         """Maps Avro primitive types to Java types"""
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if avro_type == 'AnyValue' or avro_type.endswith('.AnyValue'):
+            return AvroToJava.JavaType('Object')
         optional_mapping = {
             'null': 'Void',
             'boolean': 'Boolean',

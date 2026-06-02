@@ -55,6 +55,9 @@ class AvroToGo:
 
     def map_primitive_to_go(self, avro_type: str, is_optional: bool) -> str:
         """Maps Avro primitive types to Go types"""
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if avro_type == 'AnyValue' or avro_type.endswith('.AnyValue'):
+            return 'interface{}'
         optional_mapping = {
             'null': 'interface{}',
             'boolean': '*bool',

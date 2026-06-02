@@ -83,6 +83,8 @@ class AvroToXSD:
         if isinstance(avro_type, dict) and 'logicalType' in avro_type and 'type' in avro_type: 
             return avro_type['type'] in {'int', 'long', 'float', 'double', 'bytes', 'string'}
         elif isinstance(avro_type, str):
+            if avro_type == 'AnyValue' or avro_type.endswith('.AnyValue'):
+                return True
             return avro_type in {'null', 'boolean', 'int', 'long', 'float', 'double', 'bytes', 'string'}
         else:
             return False

@@ -141,8 +141,11 @@ class AvroToJsonSchemaConverter:
             'double': {'type': 'number', 'format': 'double'},
             'bytes': {'type': 'string', 'contentEncoding': 'base64'},
             'string': {'type': 'string'},
-            'fixed': {'type': 'string'}  # Could specify length in a format or a separate attribute
+            'fixed': {'type': 'string'},  # Could specify length in a format or a separate attribute
         }
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if isinstance(avro_type, str) and (avro_type == 'AnyValue' or avro_type.endswith('.AnyValue')):
+            return {}
         type_ref = mapping.get(avro_type, '')  # Defaulting to string type for any unknown types
         if not type_ref:
             raise ValueError(f"Avro schema contains unexpected type {avro_type}")

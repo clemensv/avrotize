@@ -1,0 +1,16 @@
+[    1051ms] [LOG] [MSAL] ensureMsalInitialized: starting initialization... @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    1051ms] [LOG] [MSAL] Creating new PublicClientApplication instance @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    1055ms] [LOG] [MSAL] initialize() resolved successfully @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    1056ms] [LOG] [MSAL] Initialization complete @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[    2449ms] [LOG] [PERF] loadContent START: repos/jit at 2435.399999976158 @ :2
+[    2449ms] [LOG] [PERF] Cache miss for: repos/jit @ :2
+[    2449ms] [LOG] [PERF] Starting dynamic import at 2435.899999976158 @ :2
+[    2625ms] [LOG] [PERF] Import completed in 175.50 ms @ :2
+[    2625ms] [LOG] [DEBUG] Loaded content for: repos/jit html length: 5076 @ :2
+[    2626ms] [LOG] [DEBUG] Sanitized before cache, html length: 5614 @ :2
+[    2627ms] [LOG] [PERF] loadContent COMPLETE: repos/jit total time: 178.10 ms @ :2
+[    2629ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 5614 @ :2
+[    2644ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 5614 @ :2
+[    2650ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 5614 @ :2
+[    2854ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.eng.ms/api/v1.0/MarkdownManagement/canedit:0
+[    2858ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 5614 @ :2

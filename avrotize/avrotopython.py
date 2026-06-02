@@ -145,6 +145,9 @@ class AvroToPython:
         }
         if is_generic_avro_type(avro_type):
             return True, 'typing.Any'
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if isinstance(avro_type, str) and (avro_type == 'AnyValue' or avro_type.endswith('.AnyValue')):
+            return True, 'typing.Any'
         mapped = mapping.get(avro_type, None)
         if mapped:
             return True, mapped

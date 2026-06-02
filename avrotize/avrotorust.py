@@ -44,6 +44,9 @@ class AvroToRust:
 
     def map_primitive_to_rust(self, avro_fullname: str, is_optional: bool) -> str:
         """Maps Avro primitive types to Rust types"""
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if avro_fullname == 'AnyValue' or avro_fullname.endswith('.AnyValue'):
+            return 'Option<serde_json::Value>' if is_optional else 'serde_json::Value'
         optional_mapping = {
             'null': 'None',
             'boolean': 'Option<bool>',
