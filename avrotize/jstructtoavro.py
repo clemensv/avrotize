@@ -8,7 +8,7 @@ This is the reverse operation of avrotojstruct.py.
 import json
 from typing import Any, Dict, List, Union, Optional
 
-from avrotize.common import ANY_VALUE_RECORD, deduplicate_any_value_record, generic_type
+from avrotize.common import ANY_VALUE_RECORD, any_value_name, deduplicate_any_value_record, generic_type
 
 
 class JsonStructureToAvro:
@@ -643,7 +643,7 @@ class JsonStructureToAvro:
         # Use the generic_type() which includes primitives, AnyValue record, arrays, and maps
         avro_record['fields'] = [{
             'name': 'value',
-            'type': generic_type()
+            'type': generic_type(name=any_value_name(name, 'value'))
         }]
         
         return avro_record

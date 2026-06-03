@@ -53999,8 +53999,8 @@
                                     "name": "helmVersion_1",
                                     "namespace": "com.test.example.Step_types.HelmPublish_types.configuration_types",
                                     "symbols": [
-                                        "_2",
-                                        "_3"
+                                        "_3",
+                                        "_2"
                                     ]
                                 },
                                 "string",
@@ -57080,8 +57080,8 @@
                                     "name": "helmVersion_1",
                                     "namespace": "com.test.example.HelmBlueGreenDeploy_types.configuration_types",
                                     "symbols": [
-                                        "_2",
-                                        "_3"
+                                        "_3",
+                                        "_2"
                                     ]
                                 },
                                 "string",
@@ -57605,8 +57605,8 @@
                                     "name": "helmVersion_1",
                                     "namespace": "com.test.example.HelmDeploy_types.configuration_types",
                                     "symbols": [
-                                        "_2",
-                                        "_3"
+                                        "_3",
+                                        "_2"
                                     ]
                                 },
                                 "string",
@@ -60074,8 +60074,8 @@
                                     "name": "helmVersion_1",
                                     "namespace": "com.test.example.Step_types.HelmBlueGreenDeploy_types.configuration_types",
                                     "symbols": [
-                                        "_2",
-                                        "_3"
+                                        "_3",
+                                        "_2"
                                     ]
                                 },
                                 "string",
@@ -62091,8 +62091,8 @@
                                     "name": "helmVersion_1",
                                     "namespace": "com.test.example.HelmPublish_types.configuration_types",
                                     "symbols": [
-                                        "_2",
-                                        "_3"
+                                        "_3",
+                                        "_2"
                                     ]
                                 },
                                 "string",
@@ -66037,8 +66037,8 @@
                                     "name": "helmVersion_1",
                                     "namespace": "com.test.example.Step_types.HelmDeploy_types.configuration_types",
                                     "symbols": [
-                                        "_2",
-                                        "_3"
+                                        "_3",
+                                        "_2"
                                     ]
                                 },
                                 "string",
@@ -67433,8 +67433,8 @@
                                         "name": "jfrogCliVersion_1",
                                         "namespace": "com.test.example.Pipeline_types.configuration_types",
                                         "symbols": [
-                                            "_2",
-                                            "_1"
+                                            "_1",
+                                            "_2"
                                         ]
                                     },
                                     "string",

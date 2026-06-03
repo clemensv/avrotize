@@ -76,6 +76,29 @@ ANY_VALUE_NAMESPACE = "avrotize"
 """Namespace used for all AnyValue record variants."""
 
 
+def any_value_name(record_name: str = "", field_name: str = "") -> str:
+    """Generate a qualified AnyValue record name from parent record and field context.
+    
+    Produces a unique name like 'Order_data_AnyValue' so that different
+    any-typed fields can evolve their AnyValue records independently.
+    
+    Args:
+        record_name: Name of the parent record (e.g., 'Order').
+        field_name: Name of the field (e.g., 'data').
+    
+    Returns:
+        str: A qualified name like 'Order_data_AnyValue', or just 'AnyValue' if no context.
+    """
+    parts = []
+    if record_name:
+        parts.append(avro_name(record_name))
+    if field_name and field_name != record_name:
+        parts.append(avro_name(field_name))
+    if parts:
+        return "_".join(parts) + "_AnyValue"
+    return "AnyValue"
+
+
 def is_any_value_type(avro_type: str) -> bool:
     """Check if a type name refers to an AnyValue variant (any record in the avrotize namespace)."""
     if not isinstance(avro_type, str):
@@ -140,15 +163,44 @@ def deduplicate_any_value_record(schema) -> None:
     in the 'avrotize' namespace). Each unique name is kept at first occurrence;
     subsequent occurrences are replaced with name references.
     
+    Also repairs schemas where definitions were lost during union
+    merging/flattening by re-inserting definitions at the first reference point.
+    
     Args:
         schema: The Avro schema (dict, list, or str) to deduplicate in place.
     """
+    import json
+    
     if not _has_any_value_record(schema):
+        # Break aliasing: serialize/deserialize to get independent objects
+        if isinstance(schema, list):
+            fresh = json.loads(json.dumps(schema))
+            schema.clear()
+            schema.extend(fresh)
+        _repair_missing_definitions(schema)
         return
     
     # Track which names have been seen (first definition kept)
     seen_names: set = set()
     _deduplicate_any_value_walk(schema, seen_names)
+    
+    # Break aliasing: serialize/deserialize to get independent objects at each path.
+    # This ensures the repair won't accidentally modify shared structures.
+    if isinstance(schema, list):
+        fresh = json.loads(json.dumps(schema))
+        schema.clear()
+        schema.extend(fresh)
+    elif isinstance(schema, dict):
+        fresh = json.loads(json.dumps(schema))
+        schema.clear()
+        schema.update(fresh)
+    
+    # Repair: find refs without matching defs and re-insert definitions
+    _repair_missing_definitions(schema)
+    
+    # Final dedup pass to clean up any duplicates introduced by repair
+    seen_names2: set = set()
+    _deduplicate_any_value_walk(schema, seen_names2)
 
 
 def _is_any_value_record_node(node) -> bool:
@@ -193,21 +245,98 @@ def _deduplicate_any_value_walk(node, seen_names: set) -> None:
     are tried first during serialization union resolution.
     """
     if isinstance(node, list):
-        for i, item in enumerate(node):
+        # Use index-based iteration to safely handle list mutations
+        i = 0
+        while i < len(node):
+            item = node[i]
             if _is_any_value_record_node(item):
                 fqn = f"{ANY_VALUE_NAMESPACE}.{item['name']}"
                 if fqn in seen_names:
                     # Replace with name reference and move to end of the union
                     node.pop(i)
                     node.append(fqn)
+                    # Don't increment i - next item shifted into current position
                 else:
                     seen_names.add(fqn)
+                    i += 1
             else:
                 _deduplicate_any_value_walk(item, seen_names)
+                i += 1
     elif isinstance(node, dict):
         for key, value in node.items():
             if isinstance(value, (list, dict)):
                 _deduplicate_any_value_walk(value, seen_names)
+
+
+def _repair_missing_definitions(schema) -> None:
+    """Re-insert AnyValue definitions where refs exist but defs were lost during merging.
+    
+    Scans the schema for all AnyValue name references (strings like 'avrotize.XxxAnyValue')
+    and all AnyValue record definitions. For any name that has references but no definition,
+    replaces the FIRST reference with a full record definition inline.
+    """
+    # Collect all defined names and all referenced names
+    defined_names: set = set()
+    referenced_names: set = set()
+    _collect_any_value_names(schema, defined_names, referenced_names)
+    
+    # Find names that are referenced but not defined
+    missing = referenced_names - defined_names
+    if not missing:
+        return
+    
+    # For each missing name, replace the first reference with a definition
+    for fqn in missing:
+        name = fqn.replace(f"{ANY_VALUE_NAMESPACE}.", "", 1)
+        record_def = {
+            "type": "record",
+            "name": name,
+            "namespace": ANY_VALUE_NAMESPACE,
+            "doc": "Extensible record placeholder for the 'any' type. Add fields via schema evolution.",
+            "fields": []
+        }
+        _replace_first_ref_with_def(schema, fqn, record_def)
+
+
+def _collect_any_value_names(node, defined: set, referenced: set) -> None:
+    """Collect all AnyValue definition names and reference names in the schema."""
+    if isinstance(node, str):
+        if node.startswith(f"{ANY_VALUE_NAMESPACE}.") and node.endswith("AnyValue"):
+            referenced.add(node)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_any_value_names(item, defined, referenced)
+    elif isinstance(node, dict):
+        if _is_any_value_record_node(node) and node.get("name", "").endswith("AnyValue"):
+            defined.add(f"{ANY_VALUE_NAMESPACE}.{node['name']}")
+        for v in node.values():
+            if isinstance(v, (list, dict, str)):
+                _collect_any_value_names(v, defined, referenced)
+
+
+def _replace_first_ref_with_def(node, fqn: str, record_def: dict) -> bool:
+    """Replace the first occurrence of a name reference string with a record definition.
+    
+    Returns True if replacement was made, False otherwise.
+    """
+    if isinstance(node, list):
+        for i, item in enumerate(node):
+            if item == fqn:
+                node[i] = record_def
+                return True
+            elif isinstance(item, (list, dict)):
+                if _replace_first_ref_with_def(item, fqn, record_def):
+                    return True
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            if value == fqn:
+                node[key] = record_def
+                return True
+            elif isinstance(value, (list, dict)):
+                if _replace_first_ref_with_def(value, fqn, record_def):
+                    return True
+    return False
+
 
 
 def is_generic_avro_type(avro_type: list) -> bool:
