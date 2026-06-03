@@ -382,7 +382,7 @@ class AvroToRust:
         dependencies = []
         if self.serde_annotation or self.avro_annotation:
             dependencies.append('serde = { version = "1.0", features = ["derive"] }')
-            dependencies.append('serde_json = "1.0"')
+        dependencies.append('serde_json = "1.0"')
         dependencies.append('chrono = { version = "0.4", features = ["serde"] }')
         dependencies.append('uuid = { version = "1.11", features = ["serde", "v4"] }')
         if self.avro_annotation or self.serde_annotation:

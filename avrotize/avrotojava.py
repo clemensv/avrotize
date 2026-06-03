@@ -1317,9 +1317,10 @@ class AvroToJava:
             
             union_variable_name = self.safe_identifier(union_variable_name, class_name)
 
-            # Constructor for each type
-            class_definition_ctors += \
-                f"{INDENT*1}public {union_class_name}({union_type.type_name} {union_variable_name}) {{\n{INDENT*2}this._{camel(union_variable_name)} = {union_variable_name};\n{INDENT*1}}}\n"
+            # Constructor for each type (skip Object to avoid duplicate with the generic Object constructor)
+            if union_type.type_name != 'Object':
+                class_definition_ctors += \
+                    f"{INDENT*1}public {union_class_name}({union_type.type_name} {union_variable_name}) {{\n{INDENT*2}this._{camel(union_variable_name)} = {union_variable_name};\n{INDENT*1}}}\n"
 
             # Declarations
             class_definition_decls += \
