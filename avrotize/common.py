@@ -182,6 +182,9 @@ def is_generic_avro_type(avro_type: list) -> bool:
     """
     Check if the given Avro type is a generic type.
 
+    Recognizes both the current AnyValue-based format and the legacy 2-level
+    nested primitives union for backward compatibility.
+
     Args:
         avro_type (Union[str, Dict[str, Any]]): The Avro type to check.
 
@@ -190,12 +193,25 @@ def is_generic_avro_type(avro_type: list) -> bool:
     """
     if isinstance(avro_type, str) or isinstance(avro_type, dict):
         return False
-    # Check against both forms (with full definition and with name reference)
+    # Check current format (with full definition and with name reference)
     if Compare().check(avro_type, generic_type(define_any_value=True)) == NO_DIFF:
         return True
     if Compare().check(avro_type, generic_type(define_any_value=False)) == NO_DIFF:
         return True
+    # Check legacy format (2-level nested primitives union without AnyValue)
+    if Compare().check(avro_type, _legacy_generic_type()) == NO_DIFF:
+        return True
     return False
+
+
+def _legacy_generic_type() -> list[str | dict]:
+    """Construct the legacy generic Avro type (2-level nested primitives without AnyValue)."""
+    simple = ["null", "boolean", "int", "long", "float", "double", "bytes", "string"]
+    l2 = simple.copy()
+    l2.extend([{"type": "array", "items": simple}, {"type": "map", "values": simple}])
+    l1 = simple.copy()
+    l1.extend([{"type": "array", "items": l2}, {"type": "map", "values": l2}])
+    return l1
 
 
 def is_generic_json_type(json_type: Dict[str, Any] | List[Dict[str, Any] | str] | str) -> bool:
