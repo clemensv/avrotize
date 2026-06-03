@@ -1,5 +1,36 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.5.8] - 2026-06-03
+
+### Changed
+
+- **Extensible `AnyValue` record for the Avro "any" type**: The generic type
+  (`generic_type()`) is now modeled as a union of all Avro primitives plus an
+  empty record `avrotize.AnyValue` and recursive `array`/`map` types.  The
+  `AnyValue` record can be extended via standard Avro schema evolution (adding
+  fields with defaults), giving consumers a structured upgrade path instead of
+  the previous brute-force 2-level nested primitives union.  All code
+  generators (Java, C#, C++, Go, TypeScript, JavaScript, Python, Rust, Proto,
+  JSON Schema, XSD, JSON Structure) map `AnyValue` to the language-native "any"
+  type.
+- **Union ordering for serialization correctness**: `AnyValue` name references
+  are placed after `array`/`map` types in inner unions so that serializers
+  (fastavro) resolve dict values to map before the empty record.
+- **Backward compatibility**: `is_generic_avro_type()` detects both the new
+  AnyValue-based format and the legacy 2-level nested primitives union.
+
+### Fixed
+
+- **Rust code generator**: `serde_json` is now always included in `Cargo.toml`
+  dependencies (required for `serde_json::Value` used by `AnyValue`).
+- **Java code generator**: Skip generating per-type `Object` constructor in
+  union classes to avoid a duplicate-constructor compilation error when
+  `AnyValue` is a union member.
+- **gzip compression test**: Set `PYTHONIOENCODING=utf-8` in subprocess
+  environment to handle Unicode characters on Windows cp1252 consoles.
+- **MCP CLI test**: Updated prompt format for `get_conversion` tool to match
+  current Copilot CLI conventions.
+
 ## [3.5.7] - 2026-05-23
 
 ### Added
