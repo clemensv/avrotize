@@ -113,12 +113,8 @@ def deduplicate_any_value_record(schema) -> None:
     """
     Post-process an Avro schema to ensure AnyValue record is defined only once.
     
-    If the schema is a list (top-level schema with multiple types), extracts 
-    the AnyValue record definition and prepends it to the list. All inline
-    occurrences are replaced with name references.
-    
-    If the schema is a single record, replaces all but the first inline 
-    occurrence with name references.
+    Keeps the first inline AnyValue record definition (at its point of first use)
+    and replaces all subsequent occurrences with name references.
     
     Args:
         schema: The Avro schema (dict, list, or str) to deduplicate in place.
@@ -126,14 +122,9 @@ def deduplicate_any_value_record(schema) -> None:
     if not _has_any_value_record(schema):
         return
     
-    if isinstance(schema, list):
-        # For top-level schema lists: extract definition to top, replace all inline with refs
-        _replace_all_any_value_defs(schema)
-        schema.insert(0, dict(ANY_VALUE_RECORD))
-    else:
-        # For single record schemas: keep first definition, replace rest with refs
-        seen = [False]
-        _deduplicate_any_value_walk(schema, seen)
+    # Keep first definition in-place, replace rest with refs
+    seen = [False]
+    _deduplicate_any_value_walk(schema, seen)
 
 
 def _has_any_value_record(node) -> bool:
