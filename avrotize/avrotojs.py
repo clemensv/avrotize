@@ -5,6 +5,7 @@ import os
 from typing import Any, Dict, List, Set, Union
 
 from avrotize.common import pascal
+from avrotize.common import is_any_value_type
 
 INDENT = ' ' * 4
 
@@ -35,7 +36,7 @@ class AvroToJavaScript:
     def map_primitive_to_javascript(self, avro_type: str) -> str:
         """ Map Avro primitive type to TypeScript type """
         # Handle AnyValue (extensible any type) regardless of namespace qualification
-        if avro_type == 'AnyValue' or avro_type.endswith('.AnyValue'):
+        if is_any_value_type(avro_type):
             return 'any'
         mapping = {
             'null': 'null',

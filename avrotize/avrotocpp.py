@@ -5,7 +5,7 @@ import json
 import os
 from typing import Dict, List, Union
 
-from avrotize.common import is_generic_avro_type, pascal, process_template
+from avrotize.common import is_generic_avro_type, is_any_value_type, pascal, process_template
 
 INDENT = '    '
 
@@ -46,7 +46,7 @@ class AvroToCpp:
     def map_primitive_to_cpp(self, avro_type: str, is_optional: bool) -> str:
         """Maps Avro primitive types to C++ types"""
         # Handle AnyValue (extensible any type) regardless of namespace qualification
-        if avro_type == 'AnyValue' or avro_type.endswith('.AnyValue'):
+        if is_any_value_type(avro_type):
             return 'std::optional<nlohmann::json>' if is_optional else 'nlohmann::json'
         optional_mapping = {
             'null': 'std::optional<std::monostate>',

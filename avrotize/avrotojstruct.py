@@ -2,6 +2,8 @@ import json
 import uuid
 from typing import Any, Dict, List, Union
 
+from avrotize.common import is_any_value_type
+
 
 class AvroToJsonStructure:
     """
@@ -220,6 +222,8 @@ class AvroToJsonStructure:
 
         # ------------------ STRING (primitive or reference) --------------
         if isinstance(avro_type_schema, str):
+            if is_any_value_type(avro_type_schema):
+                return {"type": "any"}
             if avro_type_schema in self.get_primitive_types():
                 return {"type": self.get_primitive_types()[avro_type_schema]}
             # Named type reference
@@ -323,8 +327,6 @@ class AvroToJsonStructure:
             "double": "double",
             "bytes": "binary",
             "null": "null",
-            "AnyValue": "any",
-            "avrotize.AnyValue": "any",
         }
 
 

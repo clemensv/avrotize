@@ -4,6 +4,8 @@ import argparse
 import os
 from typing import Literal, NamedTuple, Dict, Any, List
 
+from avrotize.common import is_any_value_type
+
 indent = '  '
 
 Comment = NamedTuple('Comment', [('content', str), ('tags', Dict[str, Any])])
@@ -40,7 +42,7 @@ class AvroToProto:
             'string': 'string',
         }
         # Handle AnyValue (extensible any type) regardless of namespace qualification
-        if isinstance(avro_type, str) and (avro_type == 'AnyValue' or avro_type.endswith('.AnyValue')):
+        if isinstance(avro_type, str) and is_any_value_type(avro_type):
             dependencies.append('google/protobuf/any.proto')
             return 'google.protobuf.Any'
         # logical types require special handling

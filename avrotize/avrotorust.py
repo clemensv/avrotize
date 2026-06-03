@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Dict, List, Union
-from avrotize.common import is_generic_avro_type, render_template, pascal, camel, snake
+from avrotize.common import is_generic_avro_type, is_any_value_type, render_template, pascal, camel, snake
 
 INDENT = '    '
 
@@ -45,7 +45,7 @@ class AvroToRust:
     def map_primitive_to_rust(self, avro_fullname: str, is_optional: bool) -> str:
         """Maps Avro primitive types to Rust types"""
         # Handle AnyValue (extensible any type) regardless of namespace qualification
-        if avro_fullname == 'AnyValue' or avro_fullname.endswith('.AnyValue'):
+        if is_any_value_type(avro_fullname):
             return 'Option<serde_json::Value>' if is_optional else 'serde_json::Value'
         optional_mapping = {
             'null': 'None',

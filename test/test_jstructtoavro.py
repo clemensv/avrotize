@@ -259,6 +259,126 @@ class TestAnyValueSerialization(unittest.TestCase):
         self.assertEqual(deserialized[0]['deep'], [{'inner_key': 'inner_val'}])
         self.assertEqual(deserialized[1]['deep'], {'outer': [1, 2, 3]})
 
+    def test_per_field_named_records(self):
+        """Per-field named AnyValue records enable independent schema evolution."""
+        from fastavro import writer, reader
+        from fastavro.schema import parse_schema
+        import copy
+
+        # Two fields with DIFFERENT named records — can be extended independently
+        schema = {
+            'type': 'record',
+            'name': 'Event',
+            'namespace': 'test',
+            'fields': [
+                {'name': 'id', 'type': 'string'},
+                {'name': 'payload', 'type': generic_type(name='PayloadAnyValue')},
+                {'name': 'metadata', 'type': generic_type(name='MetadataAnyValue')},
+            ]
+        }
+        parsed = parse_schema(schema)
+
+        records = [
+            {'id': 'evt-1', 'payload': 'hello', 'metadata': {'key': 'val'}},
+            {'id': 'evt-2', 'payload': 42, 'metadata': None},
+        ]
+
+        buf = io.BytesIO()
+        writer(buf, parsed, records)
+        buf.seek(0)
+        deserialized = list(reader(buf))
+
+        self.assertEqual(deserialized[0]['payload'], 'hello')
+        self.assertEqual(deserialized[0]['metadata'], {'key': 'val'})
+        self.assertEqual(deserialized[1]['payload'], 42)
+        self.assertIsNone(deserialized[1]['metadata'])
+
+    def test_per_field_independent_evolution(self):
+        """Extend per-field records independently and serialize/deserialize."""
+        from fastavro import writer, reader
+        from fastavro.schema import parse_schema
+        import copy
+
+        # v2 schema: PayloadAnyValue extended with content fields,
+        # MetadataAnyValue extended with trace fields
+        schema_v2 = {
+            'type': 'record',
+            'name': 'Event',
+            'namespace': 'test',
+            'fields': [
+                {'name': 'id', 'type': 'string'},
+                {'name': 'payload', 'type': generic_type(name='PayloadAnyValue')},
+                {'name': 'metadata', 'type': generic_type(name='MetadataAnyValue')},
+            ]
+        }
+
+        # Replace PayloadAnyValue with extended version
+        payload_v2 = {
+            "type": "record", "name": "PayloadAnyValue", "namespace": "avrotize",
+            "fields": [
+                {"name": "body", "type": ["null", "string"], "default": None},
+                {"name": "content_type", "type": ["null", "string"], "default": None},
+            ]
+        }
+        # Replace MetadataAnyValue with different extended version
+        metadata_v2 = {
+            "type": "record", "name": "MetadataAnyValue", "namespace": "avrotize",
+            "fields": [
+                {"name": "trace_id", "type": ["null", "string"], "default": None},
+                {"name": "span_id", "type": ["null", "string"], "default": None},
+            ]
+        }
+
+        def replace_record(node, name, replacement):
+            if isinstance(node, list):
+                for i, item in enumerate(node):
+                    if isinstance(item, dict) and item.get('name') == name and item.get('type') == 'record':
+                        node[i] = replacement
+                        return True
+                    if replace_record(item, name, replacement):
+                        return True
+            elif isinstance(node, dict):
+                for v in node.values():
+                    if isinstance(v, (list, dict)):
+                        if replace_record(v, name, replacement):
+                            return True
+            return False
+
+        replace_record(schema_v2, 'PayloadAnyValue', payload_v2)
+        replace_record(schema_v2, 'MetadataAnyValue', metadata_v2)
+
+        parsed_v2 = parse_schema(copy.deepcopy(schema_v2))
+
+        # Write with independently-extended records
+        buf = io.BytesIO()
+        writer(buf, parsed_v2, [
+            {
+                'id': 'evt-1',
+                'payload': {'body': 'hello world', 'content_type': 'text/plain'},
+                'metadata': {'trace_id': 'abc123', 'span_id': 'def456'},
+            },
+        ])
+
+        buf.seek(0)
+        result = list(reader(buf, reader_schema=parsed_v2))
+        payload = result[0]['payload']
+        metadata = result[0]['metadata']
+
+        # Verify independent fields
+        if isinstance(payload.get('body'), bytes):
+            payload['body'] = payload['body'].decode('utf-8')
+        if isinstance(payload.get('content_type'), bytes):
+            payload['content_type'] = payload['content_type'].decode('utf-8')
+        if isinstance(metadata.get('trace_id'), bytes):
+            metadata['trace_id'] = metadata['trace_id'].decode('utf-8')
+        if isinstance(metadata.get('span_id'), bytes):
+            metadata['span_id'] = metadata['span_id'].decode('utf-8')
+
+        self.assertEqual(payload['body'], 'hello world')
+        self.assertEqual(payload['content_type'], 'text/plain')
+        self.assertEqual(metadata['trace_id'], 'abc123')
+        self.assertEqual(metadata['span_id'], 'def456')
+
 
 class TestJsonStructureToAvro(unittest.TestCase):
     """Test cases for JsonStructureToAvro converter."""

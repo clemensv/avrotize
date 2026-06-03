@@ -72,34 +72,57 @@ ANY_VALUE_RECORD: dict = {
 ANY_VALUE_NAME = "avrotize.AnyValue"
 """Fully-qualified name reference for the AnyValue record."""
 
+ANY_VALUE_NAMESPACE = "avrotize"
+"""Namespace used for all AnyValue record variants."""
 
-def generic_type(*, define_any_value: bool = True) -> list[str | dict]:
+
+def is_any_value_type(avro_type: str) -> bool:
+    """Check if a type name refers to an AnyValue variant (any record in the avrotize namespace)."""
+    if not isinstance(avro_type, str):
+        return False
+    return (avro_type.startswith('avrotize.') or 
+            avro_type == 'AnyValue' or 
+            avro_type.endswith('AnyValue'))
+
+
+def generic_type(*, define_any_value: bool = True, name: str = "AnyValue") -> list[str | dict]:
     """ 
     Constructs a generic Avro type as a union of all primitive types, an extensible
-    empty record (AnyValue), and recursive array/map types.
+    empty record, and recursive array/map types.
 
-    The AnyValue record is an empty record that can be extended via Avro schema
-    evolution (adding fields with defaults). Arrays and maps reference AnyValue
+    The record is an empty record that can be extended via Avro schema
+    evolution (adding fields with defaults). Arrays and maps reference it
     by name, enabling infinite nesting.
     
     Args:
-        define_any_value: If True (default), includes the full AnyValue record definition.
+        define_any_value: If True (default), includes the full record definition.
             Set to False for subsequent uses in the same schema to avoid redefinition errors.
+        name: Name for the extensible record. Defaults to "AnyValue".
+            Use a unique name per field (e.g., "PayloadAnyValue") to enable
+            independent schema evolution of different any-typed fields.
     
     Returns:
         list[str | dict]: A union type representing 'any'.
     """
-    any_value_entry: str | dict = ANY_VALUE_RECORD if define_any_value else ANY_VALUE_NAME
-    # Inner union used in array items and map values — references AnyValue by name.
-    # AnyValue ref comes AFTER array/map so serializers try map before the empty record.
+    fqn = f"{ANY_VALUE_NAMESPACE}.{name}"
+    record_def: dict = {
+        "type": "record",
+        "name": name,
+        "namespace": ANY_VALUE_NAMESPACE,
+        "doc": "Extensible record placeholder for the 'any' type. Add fields via schema evolution.",
+        "fields": []
+    }
+    any_value_entry: str | dict = record_def if define_any_value else fqn
+    # Inner union used in array items and map values — references record by name.
+    # Record ref comes AFTER array/map so serializers try map before the empty record.
     inner_union: list[str | dict] = [
         "null", "boolean", "int", "long", "float", "double", "bytes", "string",
-        {"type": "array", "items": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", ANY_VALUE_NAME]},
-        {"type": "map", "values": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", ANY_VALUE_NAME]},
-        ANY_VALUE_NAME
+        {"type": "array", "items": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", fqn]},
+        {"type": "map", "values": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", fqn]},
+        fqn
     ]
-    # Outer union — defines AnyValue (must come before array/map for schema parsing),
-    # then array/map use inner_union which references AnyValue by name
+    # Outer union — defines record (must come before array/map for schema parsing),
+    # then array/map use inner_union which references it by name
     outer_union: list[str | dict] = [
         "null", "boolean", "int", "long", "float", "double", "bytes", "string",
         any_value_entry,
@@ -111,10 +134,11 @@ def generic_type(*, define_any_value: bool = True) -> list[str | dict]:
 
 def deduplicate_any_value_record(schema) -> None:
     """
-    Post-process an Avro schema to ensure AnyValue record is defined only once.
+    Post-process an Avro schema to ensure each AnyValue variant is defined only once.
     
-    Keeps the first inline AnyValue record definition (at its point of first use)
-    and replaces all subsequent occurrences with name references.
+    Handles both the default 'AnyValue' and per-field named variants (any record
+    in the 'avrotize' namespace). Each unique name is kept at first occurrence;
+    subsequent occurrences are replaced with name references.
     
     Args:
         schema: The Avro schema (dict, list, or str) to deduplicate in place.
@@ -122,19 +146,26 @@ def deduplicate_any_value_record(schema) -> None:
     if not _has_any_value_record(schema):
         return
     
-    # Keep first definition in-place, replace rest with refs
-    seen = [False]
-    _deduplicate_any_value_walk(schema, seen)
+    # Track which names have been seen (first definition kept)
+    seen_names: set = set()
+    _deduplicate_any_value_walk(schema, seen_names)
+
+
+def _is_any_value_record_node(node) -> bool:
+    """Check if a dict node is an AnyValue record definition (any record in avrotize namespace)."""
+    return (isinstance(node, dict) and 
+            node.get("type") == "record" and 
+            node.get("namespace") == ANY_VALUE_NAMESPACE)
 
 
 def _has_any_value_record(node) -> bool:
     """Check if any AnyValue record definition or reference exists in the schema."""
     if isinstance(node, str):
-        return node == ANY_VALUE_NAME or node == "AnyValue"
+        return is_any_value_type(node)
     elif isinstance(node, list):
         return any(_has_any_value_record(item) for item in node)
     elif isinstance(node, dict):
-        if node.get("type") == "record" and node.get("name") == "AnyValue":
+        if _is_any_value_record_node(node):
             return True
         return any(_has_any_value_record(v) for v in node.values() if isinstance(v, (list, dict)))
     return False
@@ -144,8 +175,8 @@ def _replace_all_any_value_defs(node) -> None:
     """Replace ALL AnyValue record definitions with name references."""
     if isinstance(node, list):
         for i, item in enumerate(node):
-            if isinstance(item, dict) and item.get("type") == "record" and item.get("name") == "AnyValue":
-                node[i] = ANY_VALUE_NAME
+            if _is_any_value_record_node(item):
+                node[i] = f"{ANY_VALUE_NAMESPACE}.{item['name']}"
             else:
                 _replace_all_any_value_defs(item)
     elif isinstance(node, dict):
@@ -154,7 +185,7 @@ def _replace_all_any_value_defs(node) -> None:
                 _replace_all_any_value_defs(value)
 
 
-def _deduplicate_any_value_walk(node, seen: list) -> None:
+def _deduplicate_any_value_walk(node, seen_names: set) -> None:
     """Recursively walk and deduplicate AnyValue record definitions.
     
     When replacing an inline definition with a name reference, moves the
@@ -163,27 +194,29 @@ def _deduplicate_any_value_walk(node, seen: list) -> None:
     """
     if isinstance(node, list):
         for i, item in enumerate(node):
-            if isinstance(item, dict) and item.get("type") == "record" and item.get("name") == "AnyValue":
-                if seen[0]:
+            if _is_any_value_record_node(item):
+                fqn = f"{ANY_VALUE_NAMESPACE}.{item['name']}"
+                if fqn in seen_names:
                     # Replace with name reference and move to end of the union
                     node.pop(i)
-                    node.append(ANY_VALUE_NAME)
+                    node.append(fqn)
                 else:
-                    seen[0] = True
+                    seen_names.add(fqn)
             else:
-                _deduplicate_any_value_walk(item, seen)
+                _deduplicate_any_value_walk(item, seen_names)
     elif isinstance(node, dict):
         for key, value in node.items():
             if isinstance(value, (list, dict)):
-                _deduplicate_any_value_walk(value, seen)
+                _deduplicate_any_value_walk(value, seen_names)
 
 
 def is_generic_avro_type(avro_type: list) -> bool:
     """
     Check if the given Avro type is a generic type.
 
-    Recognizes both the current AnyValue-based format and the legacy 2-level
-    nested primitives union for backward compatibility.
+    Recognizes the current AnyValue-based format (with any name in the avrotize
+    namespace), the default AnyValue format, and the legacy 2-level nested 
+    primitives union for backward compatibility.
 
     Args:
         avro_type (Union[str, Dict[str, Any]]): The Avro type to check.
@@ -193,14 +226,35 @@ def is_generic_avro_type(avro_type: list) -> bool:
     """
     if isinstance(avro_type, str) or isinstance(avro_type, dict):
         return False
-    # Check current format (with full definition and with name reference)
+    # Check current default format (with full definition and with name reference)
     if Compare().check(avro_type, generic_type(define_any_value=True)) == NO_DIFF:
         return True
     if Compare().check(avro_type, generic_type(define_any_value=False)) == NO_DIFF:
         return True
+    # Check for per-field named variant: look for any avrotize.* record in the union
+    if _is_any_value_union_structure(avro_type):
+        return True
     # Check legacy format (2-level nested primitives union without AnyValue)
     if Compare().check(avro_type, _legacy_generic_type()) == NO_DIFF:
         return True
+    return False
+
+
+def _is_any_value_union_structure(avro_type: list) -> bool:
+    """Check if a union has the generic_type structure with any avrotize.* record."""
+    # Must have at least 11 elements (8 primitives + record + array + map)
+    if len(avro_type) < 11:
+        return False
+    # Check primitives prefix
+    expected_primitives = ["null", "boolean", "int", "long", "float", "double", "bytes", "string"]
+    if avro_type[:8] != expected_primitives:
+        return False
+    # Look for an avrotize namespace record (inline def or name ref) in remaining elements
+    for item in avro_type[8:]:
+        if isinstance(item, dict) and _is_any_value_record_node(item):
+            return True
+        if isinstance(item, str) and item.startswith(f"{ANY_VALUE_NAMESPACE}."):
+            return True
     return False
 
 

@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple, Union
 from avrotize.constants import (AVRO_VERSION, JACKSON_ANNOTATIONS_VERSION, JACKSON_VERSION,
                                 JDK_VERSION, JUNIT_VERSION, MAVEN_COMPILER_VERSION, MAVEN_SUREFIRE_VERSION)
 
-from avrotize.common import pascal, camel, is_generic_avro_type, inline_avro_references, build_flat_type_dict
+from avrotize.common import pascal, camel, is_generic_avro_type, is_any_value_type, inline_avro_references, build_flat_type_dict
 
 INDENT = '    '
 POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
@@ -297,7 +297,7 @@ class AvroToJava:
     def map_primitive_to_java(self, avro_type: str, is_optional: bool) -> JavaType:
         """Maps Avro primitive types to Java types"""
         # Handle AnyValue (extensible any type) regardless of namespace qualification
-        if avro_type == 'AnyValue' or avro_type.endswith('.AnyValue'):
+        if is_any_value_type(avro_type):
             return AvroToJava.JavaType('Object')
         optional_mapping = {
             'null': 'Void',

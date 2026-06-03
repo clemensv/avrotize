@@ -8,7 +8,7 @@ import os
 import re
 import random
 from typing import Dict, List, Set, Tuple, Union, Any
-from avrotize.common import fullname, get_typing_args_from_string, is_generic_avro_type, pascal, process_template, build_flat_type_dict, inline_avro_references, is_type_with_alternate, strip_alternate_type
+from avrotize.common import fullname, get_typing_args_from_string, is_generic_avro_type, is_any_value_type, pascal, process_template, build_flat_type_dict, inline_avro_references, is_type_with_alternate, strip_alternate_type
 
 INDENT = '    '
 
@@ -146,7 +146,7 @@ class AvroToPython:
         if is_generic_avro_type(avro_type):
             return True, 'typing.Any'
         # Handle AnyValue (extensible any type) regardless of namespace qualification
-        if isinstance(avro_type, str) and (avro_type == 'AnyValue' or avro_type.endswith('.AnyValue')):
+        if isinstance(avro_type, str) and is_any_value_type(avro_type):
             return True, 'typing.Any'
         mapped = mapping.get(avro_type, None)
         if mapped:
