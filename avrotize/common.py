@@ -90,14 +90,16 @@ def generic_type(*, define_any_value: bool = True) -> list[str | dict]:
         list[str | dict]: A union type representing 'any'.
     """
     any_value_entry: str | dict = ANY_VALUE_RECORD if define_any_value else ANY_VALUE_NAME
-    # Inner union used in array items and map values — always references AnyValue by name
+    # Inner union used in array items and map values — references AnyValue by name.
+    # AnyValue ref comes AFTER array/map so serializers try map before the empty record.
     inner_union: list[str | dict] = [
         "null", "boolean", "int", "long", "float", "double", "bytes", "string",
-        ANY_VALUE_NAME,
         {"type": "array", "items": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", ANY_VALUE_NAME]},
-        {"type": "map", "values": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", ANY_VALUE_NAME]}
+        {"type": "map", "values": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", ANY_VALUE_NAME]},
+        ANY_VALUE_NAME
     ]
-    # Outer union — defines or references AnyValue record, uses inner_union in array/map
+    # Outer union — defines AnyValue (must come before array/map for schema parsing),
+    # then array/map use inner_union which references AnyValue by name
     outer_union: list[str | dict] = [
         "null", "boolean", "int", "long", "float", "double", "bytes", "string",
         any_value_entry,
@@ -162,13 +164,19 @@ def _replace_all_any_value_defs(node) -> None:
 
 
 def _deduplicate_any_value_walk(node, seen: list) -> None:
-    """Recursively walk and deduplicate AnyValue record definitions."""
+    """Recursively walk and deduplicate AnyValue record definitions.
+    
+    When replacing an inline definition with a name reference, moves the
+    reference to the end of the containing union so that map/array types
+    are tried first during serialization union resolution.
+    """
     if isinstance(node, list):
         for i, item in enumerate(node):
             if isinstance(item, dict) and item.get("type") == "record" and item.get("name") == "AnyValue":
                 if seen[0]:
-                    # Replace with name reference
-                    node[i] = ANY_VALUE_NAME
+                    # Replace with name reference and move to end of the union
+                    node.pop(i)
+                    node.append(ANY_VALUE_NAME)
                 else:
                     seen[0] = True
             else:
