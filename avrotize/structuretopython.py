@@ -469,8 +469,16 @@ class StructureToPython:
         if not is_required and not prop_type.startswith('typing.Optional['):
             prop_type = f'typing.Optional[{prop_type}]'
 
-        # Get source type from structure schema
-        source_type = prop_schema.get('type', 'string') if isinstance(prop_schema.get('type'), str) else 'object'
+        # Get source type from structure schema - handle nullable unions like ["int64", "null"]
+        raw_type = prop_schema.get('type', 'string')
+        if isinstance(raw_type, str):
+            source_type = raw_type
+        elif isinstance(raw_type, list):
+            # Extract the non-null type from a nullable union
+            non_null_types = [t for t in raw_type if t != 'null']
+            source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
+        else:
+            source_type = 'object'
 
         return {
             'name': field_name,

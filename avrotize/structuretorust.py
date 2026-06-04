@@ -324,7 +324,15 @@ class StructureToRust:
             
             serde_rename = field_name != original_field_name
             
-            source_type = prop_schema.get('type', 'string') if isinstance(prop_schema.get('type'), str) else 'object'
+            # Get source type - handle nullable unions like ["int64", "null"]
+            raw_type = prop_schema.get('type', 'string')
+            if isinstance(raw_type, str):
+                source_type = raw_type
+            elif isinstance(raw_type, list):
+                non_null_types = [t for t in raw_type if t != 'null']
+                source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
+            else:
+                source_type = 'object'
             fields.append({
                 'original_name': original_field_name,
                 'name': field_name,

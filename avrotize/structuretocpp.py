@@ -295,8 +295,18 @@ class StructureToCpp:
             # Convert to C++ type
             field_type = self.convert_structure_type_to_cpp(class_name, field_name, prop_schema, schema_namespace, nullable=not is_required)
             
-            # Get source type
-            source_type = prop_schema.get('type', 'string') if isinstance(prop_schema, dict) and isinstance(prop_schema.get('type'), str) else 'object'
+            # Get source type - handle nullable unions like ["int64", "null"]
+            if isinstance(prop_schema, dict):
+                raw_type = prop_schema.get('type', 'string')
+                if isinstance(raw_type, str):
+                    source_type = raw_type
+                elif isinstance(raw_type, list):
+                    non_null_types = [t for t in raw_type if t != 'null']
+                    source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
+                else:
+                    source_type = 'object'
+            else:
+                source_type = 'object'
             all_field_info.append((field_name, prop_name, field_type, source_type))
             if source_type in ('int64', 'uint64', 'int128', 'uint128', 'decimal'):
                 string_json_fields.append((field_name, prop_name, field_type, source_type))

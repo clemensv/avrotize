@@ -734,6 +734,67 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         import ast
         ast.parse(source)
 
+    def test_nullable_int64_serialized_as_json_strings(self):
+        """Regression test for issue #348.
+
+        Nullable int64/uint64 fields (typed as ["int64", "null"]) must also be
+        serialized as JSON strings, not just bare int64 fields.
+        """
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        schema = {
+            "type": "object",
+            "name": "NullableNumbers",
+            "namespace": "test.issue348",
+            "properties": {
+                "id": {"type": "string"},
+                "sequence_number": {"type": "int64"},
+                "user_id": {"type": ["int64", "null"]},
+                "big_decimal": {"type": ["decimal", "null"]},
+            },
+            "required": ["id", "sequence_number"]
+        }
+
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-348-nullable-strings")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        convert_structure_schema_to_python(schema, output_dir, package_name="test_issue348",
+                                          dataclasses_json_annotation=True)
+
+        # Find the generated class file
+        src_dir = os.path.join(output_dir, "src")
+        class_file = None
+        for root, _dirs, files in os.walk(src_dir):
+            for f in files:
+                if "nullablenumbers" in f.lower() and f.endswith(".py"):
+                    class_file = os.path.join(root, f)
+                    break
+
+        assert class_file is not None, f"Expected NullableNumbers class file under {src_dir}"
+
+        with open(class_file, "r", encoding="utf-8") as fh:
+            source = fh.read()
+
+        # Both required int64 and nullable int64 must have string encoder
+        # Count encoder occurrences - should have at least 3 (sequence_number, user_id, big_decimal)
+        encoder_count = source.count("encoder=lambda v: str(v)")
+        assert encoder_count >= 3, \
+            f"Expected at least 3 string encoders (for sequence_number, user_id, big_decimal), got {encoder_count} in:\n{source}"
+
+        # Verify to_serializer_dict stringifies user_id (nullable field)
+        assert "user_id" in source, f"Expected user_id field in source"
+        
+        # Check that to_serializer_dict converts nullable fields too
+        serializer_section = source[source.find("def to_serializer_dict"):]
+        assert "str(asdict_result" in serializer_section, \
+            f"Expected to_serializer_dict to stringify nullable int64 fields"
+
+        # Verify valid Python
+        import ast
+        ast.parse(source)
+
 
 if __name__ == '__main__':
     unittest.main()
