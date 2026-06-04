@@ -12,7 +12,7 @@ import jsonpointer
 from jsonpointer import JsonPointerException
 import requests
 
-from avrotize.common import avro_name, avro_namespace, find_schema_node, generic_type, set_schema_node
+from avrotize.common import avro_name, avro_namespace, deduplicate_any_value_record, find_schema_node, generic_type, set_schema_node
 from avrotize.dependency_resolver import inline_dependencies_of, sort_messages_by_dependencies
 
 primitive_types = ['null', 'string', 'int',
@@ -2124,6 +2124,8 @@ class JsonToAvroConverter:
         # drop the file name from the parsed URL to get the base URI
         avro_schema = self.jsons_to_avro(
             json_schema, namespace, parsed_url.geturl())
+        # Deduplicate AnyValue record definitions (keep only the first one)
+        deduplicate_any_value_record(avro_schema)
         if len(avro_schema) == 1:
             avro_schema = avro_schema[0]
 

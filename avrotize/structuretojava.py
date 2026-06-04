@@ -435,10 +435,12 @@ class StructureToJava:
                 prop_type = prop_type[:-1]
             const_value = self.format_const_value(const_val, prop_type)
         
+        source_type = prop_schema.get('type', 'string') if isinstance(prop_schema.get('type'), str) else 'object'
         return {
             'name': safe_field_name,
             'original_name': prop_name,
             'type': field_type.type_name,
+            'source_type': source_type,
             'docstring': doc,
             'is_const': is_const,
             'const_value': const_value

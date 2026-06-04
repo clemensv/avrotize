@@ -4,7 +4,7 @@ import json
 import os
 from typing import Dict, List, Set, Union
 
-from avrotize.common import build_flat_type_dict, fullname, inline_avro_references, is_generic_avro_type, is_type_with_alternate, pascal, process_template, strip_alternate_type
+from avrotize.common import build_flat_type_dict, fullname, inline_avro_references, is_generic_avro_type, is_any_value_type, is_type_with_alternate, pascal, process_template, strip_alternate_type
 from numpy import full
 
 
@@ -38,6 +38,9 @@ class AvroToTypeScript:
 
     def map_primitive_to_typescript(self, avro_type: str) -> str:
         """Map Avro primitive type to TypeScript type."""
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if is_any_value_type(avro_type):
+            return 'any'
         mapping = {
             'null': 'null',
             'boolean': 'boolean',

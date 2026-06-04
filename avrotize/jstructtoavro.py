@@ -8,6 +8,8 @@ This is the reverse operation of avrotojstruct.py.
 import json
 from typing import Any, Dict, List, Union, Optional
 
+from avrotize.common import ANY_VALUE_RECORD, any_value_name, deduplicate_any_value_record, generic_type
+
 
 class JsonStructureToAvro:
     """
@@ -54,9 +56,12 @@ class JsonStructureToAvro:
                 # Filter out abstract types
                 concrete_types = [schema for schema in self.converted_types.values() 
                                  if not (schema.get('type') == 'null' and 'Abstract type' in schema.get('doc', ''))]
-                return [root_schema] + concrete_types if concrete_types else root_schema
+                result = [root_schema] + concrete_types if concrete_types else root_schema
+            else:
+                result = root_schema
             
-            return root_schema
+            deduplicate_any_value_record(result)
+            return result
         
         if not root_ref:
             raise ValueError("JSON Structure document must have either 'type' or '$root' property")
@@ -79,10 +84,13 @@ class JsonStructureToAvro:
         
         # Return single schema or list depending on how many types were defined
         if len(self.converted_types) == 1:
-            return root_schema
+            result = root_schema
         else:
             # Return all schemas as a list
-            return list(self.converted_types.values())
+            result = list(self.converted_types.values())
+        
+        deduplicate_any_value_record(result)
+        return result
     
     def _flatten_definitions(self, definitions: Dict[str, Any], prefix: str = '') -> Dict[str, Dict[str, Any]]:
         """
@@ -618,7 +626,7 @@ class JsonStructureToAvro:
         return avro_record
     
     def _convert_any(self, schema: Dict[str, Any], namespace: Optional[str], name: str) -> Dict[str, Any]:
-        """Convert JSON Structure 'any' type to Avro union of all basic types."""
+        """Convert JSON Structure 'any' type to Avro union of all basic types plus extensible record."""
         avro_record: Dict[str, Any] = {
             'type': 'record',
             'name': name
@@ -632,11 +640,10 @@ class JsonStructureToAvro:
         else:
             avro_record['doc'] = 'Any type'
         
-        # In Avro, 'any' can be represented as a union of all basic types
-        # or as a string containing JSON
+        # Use the generic_type() which includes primitives, AnyValue record, arrays, and maps
         avro_record['fields'] = [{
             'name': 'value',
-            'type': ['null', 'boolean', 'int', 'long', 'float', 'double', 'string', 'bytes']
+            'type': generic_type(name=any_value_name(name, 'value'))
         }]
         
         return avro_record
@@ -731,8 +738,8 @@ class JsonStructureToAvro:
         
         # Handle any types  
         if type_value == 'any':
-            # Return union of all basic types
-            return ['null', 'boolean', 'int', 'long', 'float', 'double', 'string', 'bytes']
+            # Return union of all basic types + extensible AnyValue record + arrays/maps
+            return generic_type()
         
         if type_value == 'array':
             return {

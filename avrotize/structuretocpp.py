@@ -284,12 +284,22 @@ class StructureToCpp:
         properties = structure_schema.get('properties', {})
         required_props = structure_schema.get('required', [])
         
+        # Track fields that need string-based JSON serialization
+        string_json_fields = []  # (field_name, original_name, field_type, source_type)
+        all_field_info = []  # (field_name, original_name, field_type, source_type)
+        
         for prop_name, prop_schema in properties.items():
             field_name = self.safe_identifier(prop_name)
             is_required = prop_name in required_props if not isinstance(required_props, list) or len(required_props) == 0 or not isinstance(required_props[0], list) else any(prop_name in req_set for req_set in required_props)
             
             # Convert to C++ type
             field_type = self.convert_structure_type_to_cpp(class_name, field_name, prop_schema, schema_namespace, nullable=not is_required)
+            
+            # Get source type
+            source_type = prop_schema.get('type', 'string') if isinstance(prop_schema, dict) and isinstance(prop_schema.get('type'), str) else 'object'
+            all_field_info.append((field_name, prop_name, field_type, source_type))
+            if source_type in ('int64', 'uint64', 'int128', 'uint128', 'decimal'):
+                string_json_fields.append((field_name, prop_name, field_type, source_type))
             
             # Add documentation
             if 'description' in prop_schema or 'doc' in prop_schema:
@@ -309,6 +319,38 @@ class StructureToCpp:
         
         if self.json_annotation:
             class_definition += self.generate_to_json_method(class_name)
+        
+        # Add custom nlohmann to_json/from_json if we have string-serialized numeric fields
+        if self.json_annotation and string_json_fields:
+            class_definition += f"\n{INDENT}friend void to_json(nlohmann::json& j, const {class_name}& v) {{\n"
+            class_definition += f"{INDENT}{INDENT}j = nlohmann::json::object();\n"
+            for fname, orig_name, ftype, stype in all_field_info:
+                if stype in ('int64', 'uint64', 'int128', 'uint128'):
+                    if 'optional' in ftype:
+                        class_definition += f"{INDENT}{INDENT}if (v.{fname}.has_value()) j[\"{orig_name}\"] = std::to_string(v.{fname}.value()); else j[\"{orig_name}\"] = nullptr;\n"
+                    else:
+                        class_definition += f"{INDENT}{INDENT}j[\"{orig_name}\"] = std::to_string(v.{fname});\n"
+                elif stype == 'decimal':
+                    # decimal is already std::string in C++, serializes as string naturally
+                    class_definition += f"{INDENT}{INDENT}j[\"{orig_name}\"] = v.{fname};\n"
+                else:
+                    class_definition += f"{INDENT}{INDENT}j[\"{orig_name}\"] = v.{fname};\n"
+            class_definition += f"{INDENT}}}\n"
+            
+            class_definition += f"\n{INDENT}friend void from_json(const nlohmann::json& j, {class_name}& v) {{\n"
+            for fname, orig_name, ftype, stype in all_field_info:
+                if stype in ('int64', 'uint64', 'int128', 'uint128'):
+                    cpp_parse = 'std::stoll' if stype in ('int64',) else 'std::stoull' if stype in ('uint64',) else 'std::stoll'
+                    if 'optional' in ftype:
+                        class_definition += f"{INDENT}{INDENT}if (j.contains(\"{orig_name}\") && !j[\"{orig_name}\"].is_null()) v.{fname} = {cpp_parse}(j[\"{orig_name}\"].get<std::string>()); else v.{fname} = std::nullopt;\n"
+                    else:
+                        class_definition += f"{INDENT}{INDENT}if (j.contains(\"{orig_name}\")) v.{fname} = {cpp_parse}(j[\"{orig_name}\"].get<std::string>());\n"
+                else:
+                    if 'optional' in ftype:
+                        class_definition += f"{INDENT}{INDENT}if (j.contains(\"{orig_name}\") && !j[\"{orig_name}\"].is_null()) v.{fname} = j[\"{orig_name}\"].get<{ftype.replace('std::optional<', '').rstrip('>')}>();\n"
+                    else:
+                        class_definition += f"{INDENT}{INDENT}if (j.contains(\"{orig_name}\")) j.at(\"{orig_name}\").get_to(v.{fname});\n"
+            class_definition += f"{INDENT}}}\n"
         
         class_definition += "};\n\n"
 
@@ -571,6 +613,7 @@ class StructureToCpp:
             if "std::optional" in definition:
                 file.write("#include <optional>\n")
             file.write("#include <stdexcept>\n")
+            file.write("#include <string>\n")
             if "std::chrono" in definition:
                 file.write("#include <chrono>\n")
             if "boost::uuid" in definition:

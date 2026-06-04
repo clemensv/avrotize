@@ -60,41 +60,292 @@ def avro_namespace(name):
     return val
 
 
-def generic_type() -> list[str | dict]:
-    """ 
-    Constructs a generic Avro type for simple types, arrays, and maps.
+ANY_VALUE_RECORD: dict = {
+    "type": "record",
+    "name": "AnyValue",
+    "namespace": "avrotize",
+    "doc": "Extensible record placeholder for the 'any' type. Add fields via schema evolution.",
+    "fields": []
+}
+"""Avro record definition for the extensible 'any' type. Defined once, referenced by name thereafter."""
+
+ANY_VALUE_NAME = "avrotize.AnyValue"
+"""Fully-qualified name reference for the AnyValue record."""
+
+ANY_VALUE_NAMESPACE = "avrotize"
+"""Namespace used for all AnyValue record variants."""
+
+
+def any_value_name(record_name: str = "", field_name: str = "") -> str:
+    """Generate a qualified AnyValue record name from parent record and field context.
+    
+    Produces a unique name like 'Order_data_AnyValue' so that different
+    any-typed fields can evolve their AnyValue records independently.
+    
+    Args:
+        record_name: Name of the parent record (e.g., 'Order').
+        field_name: Name of the field (e.g., 'data').
     
     Returns:
-        list[str | dict]: A list of simple types, arrays, and maps.
+        str: A qualified name like 'Order_data_AnyValue', or just 'AnyValue' if no context.
     """
-    simple_type_union: list[str | dict] = [
-        "null", "boolean", "int", "long", "float", "double", "bytes", "string"]
-    l2 = simple_type_union.copy()
-    l2.extend([
-        {
-            "type": "array",
-            "items": simple_type_union
-        },
-        {
-            "type": "map",
-            "values": simple_type_union
-        }])
-    l1 = simple_type_union.copy()
-    l1.extend([
-        {
-            "type": "array",
-            "items": l2
-        },
-        {
-            "type": "map",
-            "values": l2
-        }])
-    return l1
+    parts = []
+    if record_name:
+        parts.append(avro_name(record_name))
+    if field_name and field_name != record_name:
+        parts.append(avro_name(field_name))
+    if parts:
+        return "_".join(parts) + "_AnyValue"
+    return "AnyValue"
+
+
+def is_any_value_type(avro_type: str) -> bool:
+    """Check if a type name refers to an AnyValue variant (any record in the avrotize namespace)."""
+    if not isinstance(avro_type, str):
+        return False
+    return (avro_type.startswith('avrotize.') or 
+            avro_type == 'AnyValue' or 
+            avro_type.endswith('AnyValue'))
+
+
+def generic_type(*, define_any_value: bool = True, name: str = "AnyValue") -> list[str | dict]:
+    """ 
+    Constructs a generic Avro type as a union of all primitive types, an extensible
+    empty record, and recursive array/map types.
+
+    The record is an empty record that can be extended via Avro schema
+    evolution (adding fields with defaults). Arrays and maps reference it
+    by name, enabling infinite nesting.
+    
+    Args:
+        define_any_value: If True (default), includes the full record definition.
+            Set to False for subsequent uses in the same schema to avoid redefinition errors.
+        name: Name for the extensible record. Defaults to "AnyValue".
+            Use a unique name per field (e.g., "PayloadAnyValue") to enable
+            independent schema evolution of different any-typed fields.
+    
+    Returns:
+        list[str | dict]: A union type representing 'any'.
+    """
+    fqn = f"{ANY_VALUE_NAMESPACE}.{name}"
+    record_def: dict = {
+        "type": "record",
+        "name": name,
+        "namespace": ANY_VALUE_NAMESPACE,
+        "doc": "Extensible record placeholder for the 'any' type. Add fields via schema evolution.",
+        "fields": []
+    }
+    any_value_entry: str | dict = record_def if define_any_value else fqn
+    # Inner union used in array items and map values — references record by name.
+    # Record ref comes AFTER array/map so serializers try map before the empty record.
+    inner_union: list[str | dict] = [
+        "null", "boolean", "int", "long", "float", "double", "bytes", "string",
+        {"type": "array", "items": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", fqn]},
+        {"type": "map", "values": ["null", "boolean", "int", "long", "float", "double", "bytes", "string", fqn]},
+        fqn
+    ]
+    # Outer union — defines record (must come before array/map for schema parsing),
+    # then array/map use inner_union which references it by name
+    outer_union: list[str | dict] = [
+        "null", "boolean", "int", "long", "float", "double", "bytes", "string",
+        any_value_entry,
+        {"type": "array", "items": inner_union},
+        {"type": "map", "values": inner_union}
+    ]
+    return outer_union
+
+
+def deduplicate_any_value_record(schema) -> None:
+    """
+    Post-process an Avro schema to ensure each AnyValue variant is defined only once.
+    
+    Handles both the default 'AnyValue' and per-field named variants (any record
+    in the 'avrotize' namespace). Each unique name is kept at first occurrence;
+    subsequent occurrences are replaced with name references.
+    
+    Also repairs schemas where definitions were lost during union
+    merging/flattening by re-inserting definitions at the first reference point.
+    
+    Args:
+        schema: The Avro schema (dict, list, or str) to deduplicate in place.
+    """
+    import json
+    
+    if not _has_any_value_record(schema):
+        # Break aliasing: serialize/deserialize to get independent objects
+        if isinstance(schema, list):
+            fresh = json.loads(json.dumps(schema))
+            schema.clear()
+            schema.extend(fresh)
+        _repair_missing_definitions(schema)
+        return
+    
+    # Track which names have been seen (first definition kept)
+    seen_names: set = set()
+    _deduplicate_any_value_walk(schema, seen_names)
+    
+    # Break aliasing: serialize/deserialize to get independent objects at each path.
+    # This ensures the repair won't accidentally modify shared structures.
+    if isinstance(schema, list):
+        fresh = json.loads(json.dumps(schema))
+        schema.clear()
+        schema.extend(fresh)
+    elif isinstance(schema, dict):
+        fresh = json.loads(json.dumps(schema))
+        schema.clear()
+        schema.update(fresh)
+    
+    # Repair: find refs without matching defs and re-insert definitions
+    _repair_missing_definitions(schema)
+    
+    # Final dedup pass to clean up any duplicates introduced by repair
+    seen_names2: set = set()
+    _deduplicate_any_value_walk(schema, seen_names2)
+
+
+def _is_any_value_record_node(node) -> bool:
+    """Check if a dict node is an AnyValue record definition (any record in avrotize namespace)."""
+    return (isinstance(node, dict) and 
+            node.get("type") == "record" and 
+            node.get("namespace") == ANY_VALUE_NAMESPACE)
+
+
+def _has_any_value_record(node) -> bool:
+    """Check if any AnyValue record definition or reference exists in the schema."""
+    if isinstance(node, str):
+        return is_any_value_type(node)
+    elif isinstance(node, list):
+        return any(_has_any_value_record(item) for item in node)
+    elif isinstance(node, dict):
+        if _is_any_value_record_node(node):
+            return True
+        return any(_has_any_value_record(v) for v in node.values() if isinstance(v, (list, dict)))
+    return False
+
+
+def _replace_all_any_value_defs(node) -> None:
+    """Replace ALL AnyValue record definitions with name references."""
+    if isinstance(node, list):
+        for i, item in enumerate(node):
+            if _is_any_value_record_node(item):
+                node[i] = f"{ANY_VALUE_NAMESPACE}.{item['name']}"
+            else:
+                _replace_all_any_value_defs(item)
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            if isinstance(value, (list, dict)):
+                _replace_all_any_value_defs(value)
+
+
+def _deduplicate_any_value_walk(node, seen_names: set) -> None:
+    """Recursively walk and deduplicate AnyValue record definitions.
+    
+    When replacing an inline definition with a name reference, moves the
+    reference to the end of the containing union so that map/array types
+    are tried first during serialization union resolution.
+    """
+    if isinstance(node, list):
+        # Use index-based iteration to safely handle list mutations
+        i = 0
+        while i < len(node):
+            item = node[i]
+            if _is_any_value_record_node(item):
+                fqn = f"{ANY_VALUE_NAMESPACE}.{item['name']}"
+                if fqn in seen_names:
+                    # Replace with name reference and move to end of the union
+                    node.pop(i)
+                    node.append(fqn)
+                    # Don't increment i - next item shifted into current position
+                else:
+                    seen_names.add(fqn)
+                    i += 1
+            else:
+                _deduplicate_any_value_walk(item, seen_names)
+                i += 1
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            if isinstance(value, (list, dict)):
+                _deduplicate_any_value_walk(value, seen_names)
+
+
+def _repair_missing_definitions(schema) -> None:
+    """Re-insert AnyValue definitions where refs exist but defs were lost during merging.
+    
+    Scans the schema for all AnyValue name references (strings like 'avrotize.XxxAnyValue')
+    and all AnyValue record definitions. For any name that has references but no definition,
+    replaces the FIRST reference with a full record definition inline.
+    """
+    # Collect all defined names and all referenced names
+    defined_names: set = set()
+    referenced_names: set = set()
+    _collect_any_value_names(schema, defined_names, referenced_names)
+    
+    # Find names that are referenced but not defined
+    missing = referenced_names - defined_names
+    if not missing:
+        return
+    
+    # For each missing name, replace the first reference with a definition
+    for fqn in missing:
+        name = fqn.replace(f"{ANY_VALUE_NAMESPACE}.", "", 1)
+        record_def = {
+            "type": "record",
+            "name": name,
+            "namespace": ANY_VALUE_NAMESPACE,
+            "doc": "Extensible record placeholder for the 'any' type. Add fields via schema evolution.",
+            "fields": []
+        }
+        _replace_first_ref_with_def(schema, fqn, record_def)
+
+
+def _collect_any_value_names(node, defined: set, referenced: set) -> None:
+    """Collect all AnyValue definition names and reference names in the schema."""
+    if isinstance(node, str):
+        if node.startswith(f"{ANY_VALUE_NAMESPACE}.") and node.endswith("AnyValue"):
+            referenced.add(node)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_any_value_names(item, defined, referenced)
+    elif isinstance(node, dict):
+        if _is_any_value_record_node(node) and node.get("name", "").endswith("AnyValue"):
+            defined.add(f"{ANY_VALUE_NAMESPACE}.{node['name']}")
+        for v in node.values():
+            if isinstance(v, (list, dict, str)):
+                _collect_any_value_names(v, defined, referenced)
+
+
+def _replace_first_ref_with_def(node, fqn: str, record_def: dict) -> bool:
+    """Replace the first occurrence of a name reference string with a record definition.
+    
+    Returns True if replacement was made, False otherwise.
+    """
+    if isinstance(node, list):
+        for i, item in enumerate(node):
+            if item == fqn:
+                node[i] = record_def
+                return True
+            elif isinstance(item, (list, dict)):
+                if _replace_first_ref_with_def(item, fqn, record_def):
+                    return True
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            if value == fqn:
+                node[key] = record_def
+                return True
+            elif isinstance(value, (list, dict)):
+                if _replace_first_ref_with_def(value, fqn, record_def):
+                    return True
+    return False
+
 
 
 def is_generic_avro_type(avro_type: list) -> bool:
     """
     Check if the given Avro type is a generic type.
+
+    Recognizes the current AnyValue-based format (with any name in the avrotize
+    namespace), the default AnyValue format, and the legacy 2-level nested 
+    primitives union for backward compatibility.
 
     Args:
         avro_type (Union[str, Dict[str, Any]]): The Avro type to check.
@@ -104,8 +355,46 @@ def is_generic_avro_type(avro_type: list) -> bool:
     """
     if isinstance(avro_type, str) or isinstance(avro_type, dict):
         return False
-    compare_type = generic_type()
-    return Compare().check(avro_type, compare_type) == NO_DIFF
+    # Check current default format (with full definition and with name reference)
+    if Compare().check(avro_type, generic_type(define_any_value=True)) == NO_DIFF:
+        return True
+    if Compare().check(avro_type, generic_type(define_any_value=False)) == NO_DIFF:
+        return True
+    # Check for per-field named variant: look for any avrotize.* record in the union
+    if _is_any_value_union_structure(avro_type):
+        return True
+    # Check legacy format (2-level nested primitives union without AnyValue)
+    if Compare().check(avro_type, _legacy_generic_type()) == NO_DIFF:
+        return True
+    return False
+
+
+def _is_any_value_union_structure(avro_type: list) -> bool:
+    """Check if a union has the generic_type structure with any avrotize.* record."""
+    # Must have at least 11 elements (8 primitives + record + array + map)
+    if len(avro_type) < 11:
+        return False
+    # Check primitives prefix
+    expected_primitives = ["null", "boolean", "int", "long", "float", "double", "bytes", "string"]
+    if avro_type[:8] != expected_primitives:
+        return False
+    # Look for an avrotize namespace record (inline def or name ref) in remaining elements
+    for item in avro_type[8:]:
+        if isinstance(item, dict) and _is_any_value_record_node(item):
+            return True
+        if isinstance(item, str) and item.startswith(f"{ANY_VALUE_NAMESPACE}."):
+            return True
+    return False
+
+
+def _legacy_generic_type() -> list[str | dict]:
+    """Construct the legacy generic Avro type (2-level nested primitives without AnyValue)."""
+    simple = ["null", "boolean", "int", "long", "float", "double", "bytes", "string"]
+    l2 = simple.copy()
+    l2.extend([{"type": "array", "items": simple}, {"type": "map", "values": simple}])
+    l1 = simple.copy()
+    l1.extend([{"type": "array", "items": l2}, {"type": "map", "values": l2}])
+    return l1
 
 
 def is_generic_json_type(json_type: Dict[str, Any] | List[Dict[str, Any] | str] | str) -> bool:

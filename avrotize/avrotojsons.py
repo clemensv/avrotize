@@ -1,7 +1,7 @@
 import copy
 import json
 from typing import Dict, Any, Union, List
-from avrotize.common import build_tree_hash_list, group_by_hash, is_generic_json_type, NodeHashReference
+from avrotize.common import build_tree_hash_list, group_by_hash, is_any_value_type, is_generic_json_type, NodeHashReference
 from functools import reduce
 import jsonpath_ng 
 
@@ -141,8 +141,11 @@ class AvroToJsonSchemaConverter:
             'double': {'type': 'number', 'format': 'double'},
             'bytes': {'type': 'string', 'contentEncoding': 'base64'},
             'string': {'type': 'string'},
-            'fixed': {'type': 'string'}  # Could specify length in a format or a separate attribute
+            'fixed': {'type': 'string'},  # Could specify length in a format or a separate attribute
         }
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if isinstance(avro_type, str) and is_any_value_type(avro_type):
+            return {}
         type_ref = mapping.get(avro_type, '')  # Defaulting to string type for any unknown types
         if not type_ref:
             raise ValueError(f"Avro schema contains unexpected type {avro_type}")

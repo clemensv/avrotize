@@ -426,6 +426,7 @@ except Exception as e:
         # Add test directory to Python path
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = os.path.join(py_path, 'src')
+        new_env['PYTHONIOENCODING'] = 'utf-8'
         
         # Create test script
         test_script = os.path.join(py_path, "test_compression.py")

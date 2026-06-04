@@ -13,6 +13,9 @@ public {{ 'abstract ' if is_abstract else '' }}class {{ class_name }}{% if base_
 {%- if jackson_annotation and field.original_name != field.name %}
     @JsonProperty("{{ field.original_name }}")
 {%- endif %}
+{%- if jackson_annotation and field.source_type in ['int64', 'uint64', 'int128', 'uint128', 'decimal'] %}
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+{%- endif %}
 {%- if field.is_const %}
     public static final {{ field.type }} {{ field.name }} = {{ field.const_value }};
 {%- else %}

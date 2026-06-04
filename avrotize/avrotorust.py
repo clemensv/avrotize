@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Dict, List, Union
-from avrotize.common import is_generic_avro_type, render_template, pascal, camel, snake
+from avrotize.common import is_generic_avro_type, is_any_value_type, render_template, pascal, camel, snake
 
 INDENT = '    '
 
@@ -44,6 +44,9 @@ class AvroToRust:
 
     def map_primitive_to_rust(self, avro_fullname: str, is_optional: bool) -> str:
         """Maps Avro primitive types to Rust types"""
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if is_any_value_type(avro_fullname):
+            return 'Option<serde_json::Value>' if is_optional else 'serde_json::Value'
         optional_mapping = {
             'null': 'None',
             'boolean': 'Option<bool>',
@@ -379,7 +382,7 @@ class AvroToRust:
         dependencies = []
         if self.serde_annotation or self.avro_annotation:
             dependencies.append('serde = { version = "1.0", features = ["derive"] }')
-            dependencies.append('serde_json = "1.0"')
+        dependencies.append('serde_json = "1.0"')
         dependencies.append('chrono = { version = "0.4", features = ["serde"] }')
         dependencies.append('uuid = { version = "1.11", features = ["serde", "v4"] }')
         if self.avro_annotation or self.serde_annotation:

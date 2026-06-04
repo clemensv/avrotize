@@ -329,10 +329,12 @@ class StructureToGo:
             if not is_required and not field_type.startswith('*') and not field_type.startswith('[') and not field_type.startswith('map[') and field_type != 'interface{}':
                 field_type = f'*{field_type}'
             
+            source_type = prop_schema.get('type', 'string') if isinstance(prop_schema.get('type'), str) else 'object'
             fields.append({
                 'name': pascal(prop_name),
                 'type': field_type,
-                'original_name': prop_name
+                'original_name': prop_name,
+                'source_type': source_type
             })
 
         # Get imports needed

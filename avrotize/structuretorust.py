@@ -324,10 +324,12 @@ class StructureToRust:
             
             serde_rename = field_name != original_field_name
             
+            source_type = prop_schema.get('type', 'string') if isinstance(prop_schema.get('type'), str) else 'object'
             fields.append({
                 'original_name': original_field_name,
                 'name': field_name,
                 'type': prop_type,
+                'source_type': source_type,
                 'serde_rename': serde_rename,
                 'random_value': self.generate_random_value(prop_type)
             })

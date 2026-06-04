@@ -342,11 +342,13 @@ class StructureToTypeScript:
                         is_enum = True
                         break
             
+            source_type = prop_schema.get('type', 'string') if isinstance(prop_schema, dict) and isinstance(prop_schema.get('type'), str) else 'object'
             fields.append({
                 'name': self.safe_name(prop_name),
                 'original_name': prop_name,
                 'type': field_type,
                 'type_no_null': field_type_no_null,
+                'source_type': source_type,
                 'is_required': is_required,
                 'is_optional': is_optional,
                 'is_primitive': self.is_typescript_primitive(field_type_no_null.replace('[]', '')),
