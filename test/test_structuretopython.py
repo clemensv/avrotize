@@ -672,6 +672,68 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         assert "VALUE_2 = 2" in enum_source, f"Expected 'VALUE_2 = 2' in:\n{enum_source}"
         assert "0 = '0'" not in enum_source, "Bare numeric member name regressed"
 
+    def test_int64_decimal_serialized_as_json_strings(self):
+        """Regression test for issue #346.
+
+        int64, uint64, int128, uint128, and decimal fields MUST be serialized
+        as JSON strings (not numbers) because IEEE-754 doubles cannot represent
+        the full range of these types without precision loss.
+        """
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        schema = {
+            "type": "object",
+            "name": "LargeNumbers",
+            "namespace": "test.issue346",
+            "properties": {
+                "id": {"type": "string"},
+                "bigInt": {"type": "int64"},
+                "bigUint": {"type": "uint64"},
+                "hugeInt": {"type": "int128"},
+                "hugeUint": {"type": "uint128"},
+                "price": {"type": "decimal"},
+            },
+            "required": ["id", "bigInt", "bigUint", "hugeInt", "hugeUint", "price"]
+        }
+
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-346-string-numbers")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        convert_structure_schema_to_python(schema, output_dir, package_name="test_issue346",
+                                          dataclasses_json_annotation=True)
+
+        # Find the generated class file
+        src_dir = os.path.join(output_dir, "src")
+        class_file = None
+        for root, _dirs, files in os.walk(src_dir):
+            for f in files:
+                if "largenumbers" in f.lower() and f.endswith(".py"):
+                    class_file = os.path.join(root, f)
+                    break
+
+        assert class_file is not None, f"Expected LargeNumbers class file under {src_dir}"
+
+        with open(class_file, "r", encoding="utf-8") as fh:
+            source = fh.read()
+
+        # Verify the generated code has encoder/decoder for string serialization
+        assert "encoder=lambda v: str(v)" in source, \
+            f"Expected string encoder for numeric fields in:\n{source}"
+        assert "decoder=lambda v: int(v)" in source, \
+            f"Expected int decoder for int64/uint64 fields in:\n{source}"
+        assert "decimal.Decimal(v)" in source, \
+            f"Expected Decimal decoder for decimal field in:\n{source}"
+
+        # Verify to_serializer_dict has string conversion
+        assert "str(asdict_result[" in source or "= str(asdict_result" in source, \
+            f"Expected to_serializer_dict to convert numeric fields to strings in:\n{source}"
+
+        # Verify the code is syntactically valid and can be imported
+        import ast
+        ast.parse(source)
+
 
 if __name__ == '__main__':
     unittest.main()

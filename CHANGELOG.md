@@ -21,6 +21,17 @@ All notable changes to Avrotize are documented in this file.
 
 ### Fixed
 
+- **int64/uint64/int128/uint128/decimal JSON string serialization (issue #346)**:
+  All language code generators now serialize these types as JSON strings (not
+  numbers) per the JSON Structure Core spec, since IEEE-754 doubles cannot
+  represent the full 64-bit+ integer range without precision loss.
+  - Python: `encoder`/`decoder` in `dataclasses_json.config`; `to_serializer_dict`/`from_serializer_dict` string conversion
+  - Java: `@JsonFormat(shape = JsonFormat.Shape.STRING)` annotation
+  - Go: `json:",string"` struct tag
+  - Rust: Custom `serde` `string_as_number`/`option_string_as_number` modules
+  - TypeScript: Custom `serializer`/`deserializer` in `@jsonMember` decorator
+  - C++: Custom `to_json`/`from_json` friend functions with `std::to_string`
+  - C#: Already handled via `JsonStructureConverters`
 - **Rust code generator**: `serde_json` is now always included in `Cargo.toml`
   dependencies (required for `serde_json::Value` used by `AnyValue`).
 - **Java code generator**: Skip generating per-type `Object` constructor in
