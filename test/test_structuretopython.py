@@ -796,5 +796,59 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         ast.parse(source)
 
 
+    def test_enum_collision_shindo_scale(self):
+        """Test that enum symbols differing only by +/- produce unique member names.
+
+        Reproduces issue #349: the Japanese shindo intensity scale has symbols
+        like "5-" and "5+" which, after sanitization, must yield distinct Python
+        identifiers (e.g. VALUE_5_MINUS vs VALUE_5_PLUS) and the generated
+        module must be importable without TypeError.
+        """
+        schema = {
+            "definitions": {
+                "ShindoScale": {
+                    "name": "ShindoScale",
+                    "namespace": "test.seismic",
+                    "description": "Japanese seismic intensity scale",
+                    "type": "enum",
+                    "enum": ["1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+                }
+            }
+        }
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "shindo-enum-py")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        struct_path = os.path.join(py_path, "shindo.struct.json")
+        with open(struct_path, "w") as f:
+            json.dump(schema, f)
+
+        convert_structure_to_python(struct_path, py_path)
+
+        # Find and read the generated enum source
+        enum_file = os.path.join(py_path, "src", "shindo", "test", "seismic", "shindoscale.py")
+        assert os.path.exists(enum_file), f"Expected enum file at {enum_file}"
+
+        with open(enum_file) as f:
+            source = f.read()
+
+        # Verify it parses (no duplicate keys)
+        import ast
+        ast.parse(source)
+
+        # Verify distinct member names for +/- variants
+        assert "VALUE_5_MINUS" in source, "Expected VALUE_5_MINUS for '5-'"
+        assert "VALUE_5_PLUS" in source, "Expected VALUE_5_PLUS for '5+'"
+        assert "VALUE_6_MINUS" in source, "Expected VALUE_6_MINUS for '6-'"
+        assert "VALUE_6_PLUS" in source, "Expected VALUE_6_PLUS for '6+'"
+
+        # Verify the .value strings remain the original symbols
+        assert "'5-'" in source, "Enum value for 5- must be the original string"
+        assert "'5+'" in source, "Enum value for 5+ must be the original string"
+        assert "'6-'" in source, "Enum value for 6- must be the original string"
+        assert "'6+'" in source, "Enum value for 6+ must be the original string"
+
+
 if __name__ == '__main__':
     unittest.main()

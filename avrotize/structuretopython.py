@@ -497,17 +497,51 @@ class StructureToPython:
         field_docstring = f"{field_name} ({field_type})"
         return field_docstring
 
+    # Mapping of special characters to descriptive names for enum member
+    # identifiers.  Applied *before* the catch-all regex so that symbols
+    # like "5+" and "5-" produce distinct identifiers instead of both
+    # collapsing to "5_".
+    _CHAR_NAME_MAP = {
+        '+': '_PLUS',
+        '-': '_MINUS',
+        '*': '_STAR',
+        '/': '_SLASH',
+        '&': '_AMP',
+        '|': '_PIPE',
+        '!': '_BANG',
+        '?': '_QMARK',
+        '#': '_HASH',
+        '%': '_PCT',
+        '@': '_AT',
+        '^': '_CARET',
+        '~': '_TILDE',
+        '<': '_LT',
+        '>': '_GT',
+        '=': '_EQ',
+        '.': '_DOT',
+        ',': '_COMMA',
+        ':': '_COLON',
+        ';': '_SEMI',
+        '(': '_LPAREN',
+        ')': '_RPAREN',
+        '[': '_LBRACK',
+        ']': '_RBRACK',
+        '{': '_LBRACE',
+        '}': '_RBRACE',
+    }
+
     def _python_enum_member_name(self, value) -> str:
         """Derives a valid Python identifier for an enum member from a JSON
         Structure enum value.
 
         Numeric values (including negative integers) are prefixed with
         ``VALUE_`` (with negatives spelled ``VALUE_NEG_n``) so the generated
-        class body is valid Python. String values that aren't already valid
-        identifiers — e.g. they start with a digit or contain hyphens/spaces —
-        are coerced via ``pascal`` and prefixed with ``VALUE_`` if they still
-        don't start with a letter or underscore. Reserved words get a
-        trailing underscore.
+        class body is valid Python.  String values are sanitized by
+        replacing known special characters with descriptive names (e.g.
+        ``+`` → ``_PLUS``, ``-`` → ``_MINUS``) and then replacing any
+        remaining non-identifier characters with underscores.  Values that
+        start with a digit are prefixed with ``VALUE_``.  Reserved words
+        get a trailing underscore.
         """
         if isinstance(value, bool):
             return "TRUE_" if value else "FALSE_"
@@ -520,7 +554,18 @@ class StructureToPython:
                 token = str(value)
             return f"VALUE_{token}"
         text = str(value)
-        candidate = re.sub(r'[^0-9A-Za-z_]', '_', text)
+        # Replace known special characters with descriptive names
+        parts: list[str] = []
+        for ch in text:
+            if ch in self._CHAR_NAME_MAP:
+                parts.append(self._CHAR_NAME_MAP[ch])
+            else:
+                parts.append(ch)
+        candidate = ''.join(parts)
+        # Replace any remaining invalid identifier characters
+        candidate = re.sub(r'[^0-9A-Za-z_]', '_', candidate)
+        # Collapse runs of underscores and strip leading/trailing underscores
+        candidate = re.sub(r'_+', '_', candidate).strip('_')
         if not candidate or not (candidate[0].isalpha() or candidate[0] == '_'):
             candidate = f"VALUE_{candidate}" if candidate else "VALUE_"
         if is_python_reserved_word(candidate):
@@ -548,10 +593,22 @@ class StructureToPython:
         # Build (member_name, repr) pairs. ``repr`` is rendered verbatim into the
         # class body, so for numeric enums we emit the bare numeric literal and
         # for string enums a quoted Python string literal.
+        # Names that collide with each other or with generated methods are
+        # disambiguated with numeric suffixes.
         members: List[Tuple[str, str]] = []
         symbols: List[str] = []
+        # Pre-seed with names that would clash with generated Enum methods or
+        # Python Enum internals.
+        used_names: set[str] = {'from_ordinal', 'to_ordinal', 'mro', '_ignore_',
+                                '_generate_next_value_', '_missing_', '_order_'}
         for value in raw_values:
-            member_name = self._python_enum_member_name(value)
+            base_name = self._python_enum_member_name(value)
+            member_name = base_name
+            suffix = 2
+            while member_name in used_names:
+                member_name = f"{base_name}_{suffix}"
+                suffix += 1
+            used_names.add(member_name)
             if is_numeric:
                 value_repr = repr(value)
             else:
