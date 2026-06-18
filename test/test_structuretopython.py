@@ -795,6 +795,59 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         import ast
         ast.parse(source)
 
+    def test_date_field_gets_json_encoder(self):
+        """Regression test for issue #355.
+
+        date fields were emitted without an encoder/decoder, so .to_json() on a
+        dataclass holding a datetime.date raised
+        "TypeError: Object of type date is not JSON serializable". A date field
+        must get an isoformat encoder/decoder just like a datetime field does.
+        """
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        schema = {
+            "type": "object",
+            "name": "DateRecord",
+            "namespace": "test.issue355",
+            "properties": {
+                "id": {"type": "string"},
+                "the_date": {"type": "date"},
+                "the_datetime": {"type": "datetime"},
+            },
+            "required": ["id", "the_date", "the_datetime"]
+        }
+
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-355-date-encoder")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        convert_structure_schema_to_python(schema, output_dir, package_name="test_issue355",
+                                          dataclasses_json_annotation=True)
+
+        # Find the generated class file
+        src_dir = os.path.join(output_dir, "src")
+        class_file = None
+        for root, _dirs, files in os.walk(src_dir):
+            for f in files:
+                if "daterecord" in f.lower() and f.endswith(".py"):
+                    class_file = os.path.join(root, f)
+                    break
+
+        assert class_file is not None, f"Expected DateRecord class file under {src_dir}"
+
+        with open(class_file, "r", encoding="utf-8") as fh:
+            source = fh.read()
+
+        # The date field must round-trip through ISO strings, mirroring datetime.
+        assert "datetime.date.fromisoformat" in source, \
+            f"Expected date decoder for date field in:\n{source}"
+        assert "fields.Date(format='iso')" in source, \
+            f"Expected marshmallow Date field for date field in:\n{source}"
+
+        # Verify valid Python
+        import ast
+        ast.parse(source)
 
     def test_enum_collision_shindo_scale(self):
         """Test that enum symbols differing only by +/- produce unique member names.

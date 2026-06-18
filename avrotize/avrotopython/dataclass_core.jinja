@@ -14,7 +14,7 @@ from dataclasses import dataclass
 {%- if dataclasses_json_annotation %}
 import dataclasses_json
 from dataclasses_json import Undefined, dataclass_json
-{%- for field in fields if field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
+{%- for field in fields if field.type in ["datetime.datetime", "typing.Optional[datetime.datetime]", "datetime.date", "typing.Optional[datetime.date]"] %}
 {%- if loop.first %}
 from marshmallow import fields
 {%- endif %}
@@ -57,8 +57,9 @@ class {{ class_name }}:
         {%- endfor -%}
     """
     {% for field in fields %}
-    {%- set isdate = field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- endif -%}){%- endif %})
+    {%- set isdate = field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
+    {%- set isdateonly = field.type == "datetime.date" or field.type == "typing.Optional[datetime.date]" %}
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif isdateonly -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.date) else d if d else None, decoder=lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.Date(format='iso'){%- endif -%}){%- endif %})
     {%- endfor %}
     {% if avro_annotation %}
     AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.make_avsc_object(
