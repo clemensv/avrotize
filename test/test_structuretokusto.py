@@ -205,6 +205,38 @@ def test_convert_structure_with_wrapped_nullable_types_to_kusto():
     assert "_cloudevents_dispatch | where (specversion == '1.0' and type == 'WrappedTypes')" in kql
 
 
+def test_column_docstring_uses_verbatim_literal_for_escaped_quotes():
+    """Escaped quotes in descriptions should not become invalid \\\" KQL sequences."""
+    schema = {
+        "$schema": "https://json-structure.org/meta/core/v0/",
+        "name": "ReproEvent",
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "description": "Plain id"},
+            "tricky": {
+                "type": "object",
+                "description": "Contains nested JSON snippet: { \"doc\": \"Schema too large to inline.\" }",
+                "properties": {"v": {"type": "string"}}
+            }
+        }
+    }
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        struct_path = os.path.join(temp_dir, "repro.struct.json")
+        kql_path = os.path.join(temp_dir, "repro.kql")
+        with open(struct_path, "w", encoding="utf-8") as struct_file:
+            json.dump(schema, struct_file)
+
+        convert_structure_to_kusto_file(struct_path, "ReproEvent", kql_path)
+        with open(kql_path, "r", encoding="utf-8") as kql_file:
+            kql = kql_file.read()
+
+    docstrings_block = kql.split("column-docstrings (", 1)[1].split(");", 1)[0]
+    tricky_line = next(line for line in docstrings_block.splitlines() if "[tricky]:" in line)
+    assert r'\\\"' not in tricky_line
+    assert '[tricky]: @"' in tricky_line
+
+
 def convert_case(file_base_name: str, emit_cloudevents_columns, emit_cloudevents_dispatch_table):
     """Convert a JSON Structure schema to Kusto query language"""
     cwd = os.getcwd()

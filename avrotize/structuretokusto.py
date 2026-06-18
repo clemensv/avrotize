@@ -7,6 +7,16 @@ from avrotize.common import build_flat_type_dict, inline_avro_references, strip_
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder, ClientRequestProperties
 
 
+def _format_kusto_doc_literal(doc_content: dict) -> str:
+    """Format a JSON doc payload as a KQL string literal."""
+    doc_json = json.dumps(doc_content)
+    if '\\"' in doc_json:
+        # Use verbatim KQL strings when the JSON contains escaped quotes to avoid
+        # generating invalid \\\" sequences in column-docstrings.
+        return '@"' + doc_json.replace('"', '""') + '"'
+    return json.dumps(doc_json)
+
+
 class StructureToKusto:
     """Converts a JSON Structure schema to a Kusto table schema."""
 
@@ -323,7 +333,7 @@ class StructureToKusto:
                         doc_content["schema"] = '{ "doc": "Schema too large to inline. Please refer to the JSON Structure schema for more details." }'
                     else:
                         doc_content["schema"] = prop_schema
-                doc = json.dumps(json.dumps(doc_content))
+                doc = _format_kusto_doc_literal(doc_content)
                 doc_string_statement.append(f"   [{column_name}]: {doc}")
         if doc_string_statement and emit_cloudevents_columns:
             doc_string_statement.extend([
