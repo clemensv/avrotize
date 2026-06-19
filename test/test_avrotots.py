@@ -680,3 +680,72 @@ console.log('SUCCESS');
                                        capture_output=True, text=True, shell=use_shell)
                 self.assertEqual(result.returncode, 0,
                     f"Build failed for module {module_system}.\nstderr: {result.stderr}")
+
+
+class TestInlineEnumTestImports(unittest.TestCase):
+    """Regression test for issue #338: generated Jest test files must import
+    sub-namespaced enums (placed in a "<Record>_types" namespace) from their real
+    source path, not a flattened, non-existent one."""
+
+    def _generate(self):
+        tmp_dir = os.path.join(tempfile.gettempdir(), "avrotize", "enum338ts")
+        if os.path.exists(tmp_dir):
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        os.makedirs(tmp_dir, exist_ok=True)
+        in_path = os.path.join(tmp_dir, "in.json")
+        avsc_path = os.path.join(tmp_dir, "in.avsc")
+        ts_path = os.path.join(tmp_dir, "ts")
+        schema = {
+            "$defs": {
+                "Order": {
+                    "type": "object",
+                    "properties": {"type": {"type": "string", "enum": ["Express"]}},
+                },
+                "Shipment": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["Air", "Ground", "Sea", "Rail"],
+                        }
+                    },
+                },
+            }
+        }
+        with open(in_path, "w", encoding="utf-8") as f:
+            json.dump(schema, f)
+        convert_jsons_to_avro(in_path, avsc_path, "com.test.example")
+        convert_avro_to_typescript(avsc_path, ts_path)
+        return ts_path
+
+    def test_generated_test_imports_resolve_to_existing_files(self):
+        ts_path = self._generate()
+        test_dir = os.path.join(ts_path, "test")
+        test_files = [f for f in os.listdir(test_dir) if f.endswith(".test.ts")]
+        self.assertTrue(test_files, "no test files were generated")
+
+        import_re = re.compile(r"from '(\.\./src/[^']+\.js)'")
+        enum_imports = []
+        for tf in test_files:
+            tf_path = os.path.join(test_dir, tf)
+            with open(tf_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            for rel in import_re.findall(content):
+                resolved = os.path.normpath(
+                    os.path.join(test_dir, rel[:-len(".js")] + ".ts"))
+                self.assertTrue(
+                    os.path.exists(resolved),
+                    f"{tf} imports '{rel}' which does not exist on disk "
+                    f"(expected {resolved})")
+                if "_types/" in rel:
+                    enum_imports.append((tf, rel))
+
+        # The two inline enums live in distinct "<Record>_types" namespaces and
+        # must be imported from two distinct source files (no flattened collision).
+        self.assertGreaterEqual(
+            len(enum_imports), 2,
+            f"expected sub-namespaced enum imports, got: {enum_imports}")
+        distinct_paths = {rel for _, rel in enum_imports}
+        self.assertEqual(
+            len(distinct_paths), len(enum_imports),
+            f"enum test imports collide on a shared path: {enum_imports}")

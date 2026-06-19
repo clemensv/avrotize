@@ -32,6 +32,7 @@ class AvroToTypeScript:
         self.src_dir = os.path.join(self.output_dir, "src")
         self.generated_types: Dict[str, str] = {}
         self.generated_type_fields: Dict[str, List[Dict]] = {}  # Store fields for test generation
+        self.generated_type_imports: Dict[str, List[str]] = {}  # Store import type FQNs for test generation
         self.main_schema = None
         self.type_dict = None
         self.INDENT = ' ' * 4
@@ -207,6 +208,10 @@ class AvroToTypeScript:
             self.write_to_file(namespace, class_name, class_definition)
         self.generated_types[ts_qualified_name] = 'class'
         self.generated_type_fields[ts_qualified_name] = fields  # Store fields for test generation
+        # Store the fully-qualified import names so generated test files can resolve
+        # sub-namespaced types (e.g. enums placed in a "<Record>_types" namespace)
+        # to their real source path instead of a flattened, non-existent one.
+        self.generated_type_imports[ts_qualified_name] = sorted(import_types)
         return ts_qualified_name
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str, write_file: bool = True) -> str:
@@ -670,17 +675,29 @@ class AvroToTypeScript:
         
         fields = self.generated_type_fields.get(qualified_name, [])
         
-        # Build imports for nested types
+        # Build imports for nested types. Reuse the fully-qualified import names
+        # captured during class generation so that types living in sub-namespaces
+        # (e.g. enums placed in a "<Record>_types" namespace) resolve to their real
+        # source path instead of a flattened, non-existent one (issue #338).
         imports_with_paths: Dict[str, str] = {}
+        import_fqns = self.generated_type_imports.get(qualified_name, [])
+        path_by_leaf: Dict[str, str] = {}
+        for fqn in import_fqns:
+            fqn_parts = fqn.split('.')
+            leaf = pascal(fqn_parts[-1])
+            path_by_leaf[leaf] = '../src/' + '/'.join(fqn_parts) + '.js'
         for field in fields:
             field_type = field.get('type_no_null', '')
             if not self.is_typescript_primitive(field_type.replace('[]', '')):
                 # It's a reference type, need to import it
                 type_name = field_type.replace('[]', '').replace('?', '')
                 if type_name and type_name not in ['null', 'any', 'Date']:
-                    # Build relative path from test dir to src dir
-                    src_path = '/'.join(parts)
-                    imports_with_paths[type_name] = f'../src/{src_path.rsplit("/", 1)[0]}/{type_name}.js' if '/' in src_path else f'../src/{parts[0]}/{type_name}.js'
+                    if type_name in path_by_leaf:
+                        imports_with_paths[type_name] = path_by_leaf[type_name]
+                    else:
+                        # Fallback: best-effort path relative to the class namespace
+                        src_path = '/'.join(parts)
+                        imports_with_paths[type_name] = f'../src/{src_path.rsplit("/", 1)[0]}/{type_name}.js' if '/' in src_path else f'../src/{parts[0]}/{type_name}.js'
         
         # Calculate relative path from test directory to class file
         class_path_parts = namespace.split('.') if namespace else []

@@ -21,6 +21,17 @@ All notable changes to Avrotize are documented in this file.
 
 ### Fixed
 
+- **a2ts inline-enum test imports point to a non-existent path (issue #338)**:
+  When a record has an inline enum field, j2a correctly scopes the enum into a
+  `<Record>_types` sub-namespace, but the generated Jest test file imported the
+  enum from a flattened path (e.g. `../src/ns/Type.js`) that does not exist and
+  fails to compile. The TypeScript generator now records each class's
+  fully-qualified import names and the test generator reuses them, so test
+  imports resolve to the real source file. Added j2a regression tests asserting
+  inline enums on same-named properties across sibling schemas produce distinct
+  enums with their own symbols, and an a2ts test asserting every generated test
+  import resolves to an existing file.
+
 - **int64/uint64/int128/uint128/decimal JSON string serialization (issue #346)**:
   All language code generators now serialize these types as JSON strings (not
   numbers) per the JSON Structure Core spec, since IEEE-754 doubles cannot
