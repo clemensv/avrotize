@@ -26,7 +26,7 @@
             "name": "created",
             "type": {
               "type": "string",
-              "logicalType": "timestamp-millis"
+              "logicalType": "rfc3339-timestamp-millis"
             },
             "doc": "Creation timestamp"
           },
@@ -86,7 +86,7 @@
                     "name": "timestamp",
                     "type": {
                       "type": "string",
-                      "logicalType": "timestamp-millis"
+                      "logicalType": "rfc3339-timestamp-millis"
                     }
                   },
                   {
