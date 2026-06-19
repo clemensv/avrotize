@@ -1,5 +1,11 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **JSON Type Definition (JTD, RFC 8927) support** ([#260](https://github.com/clemensv/avrotize/issues/260)): Added `jtd2a`, `a2jtd`, `jtd2s`, and `s2jtd` commands for converting JTD to/from Avrotize Schema and JSON Structure. The implementation supports JTD type, enum, elements, values, properties/optionalProperties, discriminator/mapping, definitions/ref, and nullable forms, with documented Avro mapping limitations.
+
 ## [3.5.9] - 2026-06-04
 
 ### Changed
