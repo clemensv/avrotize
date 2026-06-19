@@ -1,5 +1,11 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Smithy IDL data-shape conversion** ([#259](https://github.com/clemensv/avrotize/issues/259)): Added `smithy2a`, `a2smithy`, `smithy2s`, and `s2smithy` commands for Smithy 2.0 IDL data shapes, including structures, unions, enums/intEnums, lists, maps, scalars, documentation/default/required traits, and JSON Structure bridging through Avrotize Schema. Service, operation, resource, and protocol modeling are explicitly out of phase-1 scope and are skipped gracefully.
+
 ## [3.5.9] - 2026-06-04
 
 ### Changed
