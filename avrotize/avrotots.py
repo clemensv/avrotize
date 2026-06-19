@@ -16,7 +16,6 @@ def is_typescript_reserved_word(word: str) -> bool:
         'for', 'function', 'if', 'import', 'in', 'instanceof', 'new', 'return',
         'super', 'switch', 'this', 'throw', 'try', 'typeof', 'var', 'void',
         'while', 'with', 'yield', 'enum', 'string', 'number', 'boolean', 'symbol',
-        'type', 'namespace', 'module', 'declare', 'abstract', 'readonly',
     ]
     return word in reserved_words
 
