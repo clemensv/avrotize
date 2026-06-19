@@ -25,6 +25,8 @@ class LazyLoader:
 # Define the functions and their corresponding module paths
 _mappings = {
     "convert_proto_to_avro": (f"{mod}.prototoavro", "convert_proto_to_avro"),
+    "convert_surrealql_to_avro": (f"{mod}.surrealtoavro", "convert_surrealql_to_avro"),
+    "convert_avro_to_surrealql": (f"{mod}.avrotosurreal", "convert_avro_to_surrealql"),
     "convert_jsons_to_avro": (f"{mod}.jsonstoavro", "convert_jsons_to_avro"),
     "convert_kafka_struct_to_avro_schema": (f"{mod}.kstructtoavro", "convert_kafka_struct_to_avro_schema"),
     "convert_kusto_to_avro": (f"{mod}.kustotoavro", "convert_kusto_to_avro"),

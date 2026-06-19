@@ -1,5 +1,11 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **SurrealDB schema conversion** ([#270](https://github.com/clemensv/avrotize/issues/270)): Added `surreal2a` and `a2surreal` converters for SurrealQL `DEFINE TABLE` / `DEFINE FIELD` schemas, including nested dotted fields, arrays, sets, nullable `option<T>` fields, and Avro logical types for datetime, decimal, and UUID values.
+
 ## [3.5.9] - 2026-06-04
 
 ### Changed
