@@ -65,6 +65,50 @@ class TestAvroToPython(unittest.TestCase):
         assert subprocess.check_call(
             ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
+    def test_dataclasses_json_logical_date_and_datetime_roundtrip(self):
+        """ Test date and timestamp logical types use JSON ISO encoders/decoders. """
+        import datetime
+        import importlib
+        import json
+
+        schema = {
+            "type": "record",
+            "name": "TemporalRecord",
+            "namespace": "example.logical",
+            "fields": [
+                {"name": "event_date", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+            ],
+        }
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "issue-355-date-py-json")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+        convert_avro_schema_to_python(
+            schema, py_path, package_name="issue_355_date_json", dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        try:
+            module = importlib.import_module("issue_355_date_json.example.logical")
+            TemporalRecord = module.TemporalRecord
+            record = TemporalRecord(
+                event_date=datetime.date(2025, 1, 2),
+                updated_at=datetime.datetime(2025, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc),
+            )
+
+            json_text = record.to_json()
+            payload = json.loads(json_text)
+            assert payload["event_date"] == "2025-01-02"
+            assert payload["updated_at"] == "2025-01-02T03:04:05+00:00"
+
+            round_tripped = TemporalRecord.from_json(json_text)
+            assert round_tripped == record
+        finally:
+            sys.path.remove(generated_src)
+
     def test_convert_address_avsc_to_python_avro(self):
         """ Test converting an address.avsc file to Python with avro annotation """
         cwd = os.getcwd()
