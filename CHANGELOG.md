@@ -1,5 +1,11 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **RAML 1.0 Data Types support** ([#261](https://github.com/clemensv/avrotize/issues/261)): Added `raml2a`, `a2raml`, `raml2s`, and `s2raml` converters for RAML Data Types via Avrotize Schema and JSON Structure. Phase 1 intentionally excludes full RAML API resource/method conversion, traits, resourceTypes, security schemes, annotations, and external `!include` expansion.
+
 ## [3.5.9] - 2026-06-04
 
 ### Changed
