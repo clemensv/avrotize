@@ -1,5 +1,11 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Apache Thrift IDL conversion support** ([#255](https://github.com/clemensv/avrotize/issues/255)): Added Thrift IDL to/from Avrotize Schema and JSON Structure bridge commands (`thrift2a`, `a2thrift`, `thrift2s`, `s2thrift`) with documented mapping limitations for services, constants, includes, unions, sets, and non-string map keys.
+
 ## [3.5.9] - 2026-06-04
 
 ### Changed
@@ -59,6 +65,12 @@ All notable changes to Avrotize are documented in this file.
 # Changelog
 
 All notable changes to Avrotize are documented in this file.
+
+## [Unreleased]
+
+### Added
+
+- **Apache Thrift IDL conversion support** ([#255](https://github.com/clemensv/avrotize/issues/255)): Added Thrift IDL to/from Avrotize Schema and JSON Structure bridge commands (`thrift2a`, `a2thrift`, `thrift2s`, `s2thrift`) with documented mapping limitations for services, constants, includes, unions, sets, and non-string map keys.
 
 ## [3.5.5] - 2026-05-22
 
