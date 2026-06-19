@@ -1,5 +1,18 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`s2pq` — JSON Structure to Parquet schema conversion** (issue #48): converts a
+  JSON Structure schema to an empty Parquet file whose footer carries the derived
+  schema (mirrors the existing `a2pq` and `s2ib` converters). Supports
+  `--record-type`, `--emit-cloudevents-columns`, and `--format parquet|schema`.
+  JSON Structure primitive, temporal, numeric (`decimal` precision/scale),
+  collection (`array`/`set`/`map`/`tuple`), `object` (incl. `$extends`), and
+  `choice` types are mapped to PyArrow types; property-less objects become
+  `map<string, string>`; required properties become non-nullable columns.
+
 ## [3.5.9] - 2026-06-04
 
 ### Changed
