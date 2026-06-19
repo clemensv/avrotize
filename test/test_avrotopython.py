@@ -1,4 +1,5 @@
 from unittest.mock import patch
+import importlib
 import unittest
 import os
 import shutil
@@ -168,7 +169,43 @@ class TestAvroToPython(unittest.TestCase):
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
             ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
-        
+
+    def test_enum_symbols_that_are_not_python_identifiers_are_importable(self):
+        """ Test Avro enum symbols are valid Python member names while preserving values """
+        schema = {
+            "type": "enum",
+            "name": "StatusEnum",
+            "namespace": "example.issue354",
+            "symbols": ["0", "1", "3D", "VALUE_3D", "in-progress", "class"]
+        }
+        py_path = os.path.join(os.getcwd(), "test", "output", "issue354-enum-symbols-py")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        try:
+            from avrotize.avrotopython import convert_avro_schema_to_python
+            convert_avro_schema_to_python(schema, py_path, package_name="issue354")
+
+            enum_file = os.path.join(py_path, "src", "issue354", "example", "issue354", "statusenum.py")
+            with open(enum_file, "r", encoding="utf-8") as file:
+                enum_source = file.read()
+            compile(enum_source, enum_file, "exec")
+
+            sys.path.insert(0, os.path.join(py_path, "src"))
+            try:
+                module = importlib.import_module("issue354.example.issue354.statusenum")
+                StatusEnum = module.StatusEnum
+                assert [member.value for member in StatusEnum] == schema["symbols"]
+            finally:
+                sys.path.remove(os.path.join(py_path, "src"))
+                sys.modules.pop("issue354", None)
+                sys.modules.pop("issue354.example", None)
+                sys.modules.pop("issue354.example.issue354", None)
+                sys.modules.pop("issue354.example.issue354.statusenum", None)
+        finally:
+            shutil.rmtree(py_path, ignore_errors=True)
+
     def test_convert_feeditem_avsc_to_python(self):
         """ Test converting a enumfield-ordinal.avsc file to Python """
         cwd = os.getcwd()
