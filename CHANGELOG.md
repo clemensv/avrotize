@@ -1,5 +1,11 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **CUE schema subset support** ([#258](https://github.com/clemensv/avrotize/issues/258)): Added `cue2a`, `a2cue`, `cue2s`, and `s2cue` converters for a documented practical CUE schema/type-definition subset, including Avro and JSON Structure bridge conversions.
+
 ## [3.5.9] - 2026-06-04
 
 ### Changed
