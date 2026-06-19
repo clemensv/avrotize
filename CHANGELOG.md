@@ -21,6 +21,9 @@ All notable changes to Avrotize are documented in this file.
 
 ### Fixed
 
+- **Kusto docstring escaping (issue #317)**: `a2k` and `s2k` now emit table
+  and column docstrings as single-encoded KQL string literals, avoiding invalid
+  double-escaped quote sequences in generated `.kql`.
 - **int64/uint64/int128/uint128/decimal JSON string serialization (issue #346)**:
   All language code generators now serialize these types as JSON strings (not
   numbers) per the JSON Structure Core spec, since IEEE-754 doubles cannot
