@@ -137,6 +137,84 @@
     ]
   },
   {
+    "command": "smithy2a",
+    "description": "Convert Smithy IDL data shapes to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.smithytoavro.convert_smithy_to_avro",
+      "args": {
+        "smithy_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".smithy"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Smithy IDL file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2smithy",
+    "description": "Convert Avrotize schema to Smithy IDL data shapes",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotosmithy.convert_avro_to_smithy",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "smithy_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Smithy IDL file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Smithy namespace to emit",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.smithy",
+    "prompts": []
+  },
+  {
     "command": "s2p",
     "description": "Convert JSON Structure to Protocol Buffers (.proto)",
     "group": "1_Schemas",
@@ -4378,6 +4456,85 @@
       }
     ],
     "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "smithy2s",
+    "description": "Convert Smithy IDL data shapes to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.smithytojstruct.convert_smithy_to_json_structure",
+      "args": {
+        "smithy_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".smithy"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Smithy IDL file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the intermediate Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2smithy",
+    "description": "Convert JSON Structure to Smithy IDL data shapes",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jstructtosmithy.convert_json_structure_to_smithy",
+      "args": {
+        "structure_file": "input_file_path",
+        "smithy_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Smithy IDL file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Smithy namespace to emit",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.smithy",
     "prompts": []
   },
   {
