@@ -1030,6 +1030,7 @@ Conversion notes:
 
 - The tool generates TypeScript classes from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a TypeScript class.
 - The fields of the record are mapped to properties in the TypeScript class. Nested records are mapped to nested classes in the TypeScript class.
+- TypeScript contextual keywords such as `type`, `namespace`, `module`, and `readonly` are preserved when used as field names.
 - The tool supports adding annotations to the properties in the TypeScript class. The `--avro-annotation` option adds Avro annotations, and the `--typedjson-annotation` option adds TypedJSON annotations.
 
 ### Convert JSON Structure to TypeScript classes

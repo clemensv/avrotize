@@ -21,6 +21,10 @@ All notable changes to Avrotize are documented in this file.
 
 ### Fixed
 
+- **Avro to TypeScript contextual field names (issue #339)**: `a2ts` now preserves
+  TypeScript contextual keywords such as `type`, `namespace`, `module`, and
+  `readonly` when they are used as Avro field names instead of renaming them
+  with a trailing underscore.
 - **int64/uint64/int128/uint128/decimal JSON string serialization (issue #346)**:
   All language code generators now serialize these types as JSON strings (not
   numbers) per the JSON Structure Core spec, since IEEE-754 doubles cannot

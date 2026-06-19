@@ -42,6 +42,47 @@ class TestAvroToTypeScript(unittest.TestCase):
         self.run_test("telemetry", typedjson_annotation=True)
         self.run_test("telemetry", avro_annotation=True)
 
+    def test_contextual_keywords_are_preserved_as_field_names(self):
+        """TypeScript contextual keywords are valid field/property names."""
+        schema = {
+            "type": "record",
+            "name": "Event",
+            "namespace": "com.example.events.v1",
+            "fields": [
+                {"name": "type", "type": "string"},
+                {"name": "namespace", "type": "string"},
+                {"name": "module", "type": "string"},
+                {"name": "readonly", "type": "boolean"},
+                {"name": "class", "type": "string"},
+            ],
+        }
+        base_path = os.path.join(tempfile.gettempdir(), "avrotize", "typescript-contextual-keywords")
+        avro_path = os.path.join(base_path, "event.avsc")
+        ts_path = os.path.join(base_path, "out")
+        if os.path.exists(base_path):
+            shutil.rmtree(base_path, ignore_errors=True)
+        os.makedirs(base_path, exist_ok=True)
+
+        with open(avro_path, "w", encoding="utf-8") as f:
+            json.dump(schema, f)
+
+        convert_avro_to_typescript(avro_path, ts_path, "eventtypes")
+
+        event_file = None
+        for root, dirs, files in os.walk(os.path.join(ts_path, "src")):
+            if "Event.ts" in files:
+                event_file = os.path.join(root, "Event.ts")
+                break
+
+        self.assertIsNotNone(event_file, "Event.ts should be generated")
+        with open(event_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        for field_name in ("type", "namespace", "module", "readonly"):
+            self.assertIn(f"public {field_name}:", content)
+            self.assertNotIn(f"public {field_name}_", content)
+        self.assertIn("public class_:", content)
+
     def test_convert_jfrog_pipelines_jsons_to_avro_to_typescript(self):
         """ Test converting a jfrog-pipelines.json file to C# """
         cwd = getcwd()        
