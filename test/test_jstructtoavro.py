@@ -607,14 +607,147 @@ class TestJsonStructureToAvro(unittest.TestCase):
 
         result = self.converter.convert(structure)
 
-        # Avrotize Schema: temporal types use string base type with logical type annotation
+        # Avrotize Schema: temporal types use a string base with an rfc3339-* logical
+        # type so the output is valid standard Avro (issue #335).
         timestamp_field = next(f for f in result['fields'] if f['name'] == 'timestamp')
         self.assertEqual(timestamp_field['type']['type'], 'string')
-        self.assertEqual(timestamp_field['type']['logicalType'], 'timestamp-millis')
+        self.assertEqual(timestamp_field['type']['logicalType'], 'rfc3339-timestamp-millis')
 
         uuid_field = next(f for f in result['fields'] if f['name'] == 'uuid')
         self.assertEqual(uuid_field['type']['type'], 'string')
         self.assertEqual(uuid_field['type']['logicalType'], 'uuid')
+
+    # ---- Issue #335: temporal types must emit valid *standard* Avro -----------
+
+    # Reserved Avro logical types that require a non-string base; emitting any of
+    # these on a "string" base is invalid standard Avro (the #335 defect).
+    _RESERVED_NONSTRING_TEMPORAL = {
+        'date', 'time-millis', 'time-micros',
+        'timestamp-millis', 'timestamp-micros',
+        'local-timestamp-millis', 'local-timestamp-micros',
+        'duration',
+    }
+
+    @staticmethod
+    def _iter_logical(node):
+        """Yield (base_type, logicalType) pairs for every annotated node in a schema."""
+        if isinstance(node, dict):
+            lt = node.get('logicalType')
+            if lt is not None:
+                yield (node.get('type'), lt)
+            for v in node.values():
+                yield from TestJsonStructureToAvro._iter_logical(v)
+        elif isinstance(node, list):
+            for v in node:
+                yield from TestJsonStructureToAvro._iter_logical(v)
+
+    def _temporal_avro(self):
+        with open('test/struct/temporal-types.struct.json', 'r', encoding='utf-8') as f:
+            structure = json.load(f)
+        return self.converter.convert(structure)
+
+    def test_temporal_types_emit_rfc3339_logical_types(self):
+        """Each JSON Structure temporal type maps to the rfc3339-* string family."""
+        result = self._temporal_avro()
+        fields = {f['name']: f for f in result['fields']}
+
+        def logical_of(field):
+            t = field['type']
+            if isinstance(t, list):  # nullable union ["null", {...}]
+                t = next(x for x in t if x != 'null')
+            return t['type'], t['logicalType']
+
+        self.assertEqual(logical_of(fields['dateField']), ('string', 'rfc3339-date'))
+        self.assertEqual(logical_of(fields['timeField']), ('string', 'rfc3339-time-millis'))
+        self.assertEqual(logical_of(fields['datetimeField']), ('string', 'rfc3339-timestamp-millis'))
+        self.assertEqual(logical_of(fields['timestampField']), ('string', 'rfc3339-timestamp-millis'))
+        self.assertEqual(logical_of(fields['durationField']), ('string', 'rfc3339-duration'))
+
+    def test_temporal_output_has_no_reserved_logical_on_string(self):
+        """Regression for #335: never emit a reserved Avro logical type on string."""
+        result = self._temporal_avro()
+        offenders = [
+            (base, lt) for base, lt in self._iter_logical(result)
+            if base == 'string' and lt in self._RESERVED_NONSTRING_TEMPORAL
+        ]
+        self.assertEqual(
+            offenders, [],
+            f"Emitted reserved Avro logical type(s) on a string base: {offenders}")
+
+    def test_issue_335_reproducer_datetime(self):
+        """Exact reproducer from issue #335 must not emit string+timestamp-millis."""
+        structure = {
+            "$schema": "https://json-structure.org/meta/core/v0/#",
+            "$id": "https://example.com/repro/dt2",
+            "name": "DtRepro2",
+            "type": "object",
+            "properties": {
+                "Id": {"type": "string"},
+                "sent": {"type": "datetime", "description": "ISO-8601 timestamp"},
+            },
+        }
+        result = self.converter.convert(structure)
+        sent = next(f for f in result['fields'] if f['name'] == 'sent')
+        sent_type = sent['type']
+        if isinstance(sent_type, list):
+            sent_type = next(x for x in sent_type if x != 'null')
+        self.assertEqual(sent_type['type'], 'string')
+        self.assertNotEqual(sent_type['logicalType'], 'timestamp-millis')
+        self.assertEqual(sent_type['logicalType'], 'rfc3339-timestamp-millis')
+
+    def test_temporal_output_is_valid_standard_avro(self):
+        """fastavro must parse the emitted schema as valid standard Avro."""
+        try:
+            import fastavro
+        except ImportError:
+            self.skipTest("fastavro not installed")
+        # Must not raise.
+        fastavro.parse_schema(self._temporal_avro())
+
+    def test_temporal_round_trip_to_json_structure(self):
+        """s2a -> a2s returns the native JSON Structure temporal types."""
+        avro = self._temporal_avro()
+        structure = AvroToJsonStructure().convert(avro)
+        defs = structure['definitions']['TemporalTypes']['properties']
+        self.assertEqual(defs['dateField']['type'], 'date')
+        self.assertEqual(defs['timeField']['type'], 'time')
+        self.assertEqual(defs['datetimeField']['type'], 'datetime')
+        self.assertEqual(defs['timestampField']['type'], 'datetime')
+        self.assertEqual(defs['durationField']['type'], 'duration')
+
+    def test_rfc3339_validator_accepts_and_rejects(self):
+        """avrovalidator validates rfc3339-* values as RFC 3339 strings."""
+        from avrotize.avrovalidator import validate_json_against_avro
+        avro = self._temporal_avro()
+        valid = {
+            "dateField": "2024-06-03",
+            "timeField": "12:00:00",
+            "datetimeField": "2024-06-03T12:00:00Z",
+            "timestampField": "2024-06-03T12:00:00.500Z",
+            "durationField": "P1Y2M3DT4H5M6S",
+        }
+        self.assertEqual(validate_json_against_avro(valid, avro), [])
+        bad = dict(valid, datetimeField="not-a-datetime")
+        self.assertTrue(validate_json_against_avro(bad, avro))
+
+    def test_logical_type_annotation_maps_to_rfc3339(self):
+        """Explicit JSON Structure logicalType annotations also use rfc3339-*."""
+        structure = {
+            "$schema": "https://json-structure.org/meta/core/v0/#",
+            "$id": "t", "name": "E", "type": "object",
+            "properties": {
+                "a": {"type": "int64", "logicalType": "timestampMicros"},
+                "b": {"type": "int32", "logicalType": "date"},
+                "c": {"type": "string", "logicalType": "uuid"},
+            },
+            "required": ["a", "b", "c"],
+        }
+        result = self.converter.convert(structure)
+        fields = {f['name']: f['type'] for f in result['fields']}
+        self.assertEqual(fields['a'], {'type': 'string', 'logicalType': 'rfc3339-timestamp-micros'})
+        self.assertEqual(fields['b'], {'type': 'string', 'logicalType': 'rfc3339-date'})
+        # uuid stays a valid standard-Avro string logical type.
+        self.assertEqual(fields['c'], {'type': 'string', 'logicalType': 'uuid'})
 
     def test_round_trip_conversion(self):
         """Test round-trip conversion: Avro -> Structure -> Avro."""

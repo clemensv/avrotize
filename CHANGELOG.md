@@ -2,6 +2,21 @@ All notable changes to Avrotize are documented in this file.
 
 ## [3.5.9] - 2026-06-04
 
+### Fixed
+
+- **`s2a` temporal types now emit valid standard Avro (#335)**: JSON Structure
+  temporal types (`date`, `time`, `datetime`, `timestamp`, `duration`) previously
+  mapped to a `string` base annotated with a reserved Avro logical type (e.g.
+  `{"type":"string","logicalType":"timestamp-millis"}`), which is invalid Avro
+  and is rejected by strict validators (e.g. Microsoft Fabric EventSchemaSet).
+  They now use a new `rfc3339-*` logical-type family (e.g.
+  `{"type":"string","logicalType":"rfc3339-timestamp-millis"}`). Because
+  `rfc3339-*` names are not reserved Avro logical types, the output is valid
+  standard Avro while the RFC 3339 textual value is preserved. `avrotojstruct`,
+  `avrotojsons`, and the Avrotize validator recognize the new names (the legacy
+  `string` + reserved-name form is still accepted on input). See
+  `specs/avrotize-schema.md` §3.8.11.
+
 ### Changed
 
 - **Extensible `AnyValue` record for the Avro "any" type**: The generic type
