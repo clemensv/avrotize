@@ -137,6 +137,163 @@
     ]
   },
   {
+    "command": "fbs2a",
+    "description": "Convert FlatBuffers schema to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.flatbufferstoavro.convert_flatbuffers_to_avro",
+      "args": {
+        "fbs_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".fbs"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the FlatBuffers .fbs file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2fbs",
+    "description": "Convert Avrotize schema to FlatBuffers schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotoflatbuffers.convert_avro_to_flatbuffers",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "fbs_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the FlatBuffers .fbs file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the FlatBuffers schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.fbs",
+    "prompts": []
+  },
+  {
+    "command": "fbs2s",
+    "description": "Convert FlatBuffers schema to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.flatbufferstojstruct.convert_flatbuffers_to_json_structure",
+      "args": {
+        "fbs_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".fbs"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the FlatBuffers .fbs file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema bridge",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2fbs",
+    "description": "Convert JSON Structure to FlatBuffers schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jstructtoflatbuffers.convert_json_structure_to_flatbuffers",
+      "args": {
+        "structure_file": "input_file_path",
+        "fbs_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the FlatBuffers .fbs file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the FlatBuffers schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.fbs",
+    "prompts": []
+  },
+  {
     "command": "s2p",
     "description": "Convert JSON Structure to Protocol Buffers (.proto)",
     "group": "1_Schemas",
