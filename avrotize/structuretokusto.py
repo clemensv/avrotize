@@ -7,6 +7,16 @@ from avrotize.common import build_flat_type_dict, inline_avro_references, strip_
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder, ClientRequestProperties
 
 
+def kusto_string_literal(value: str) -> str:
+    """Return a KQL verbatim string literal for a raw Python string."""
+    return '@"' + value.replace('"', '""') + '"'
+
+
+def kusto_json_literal(value: Any) -> str:
+    """Return a KQL string literal containing one JSON encoding of value."""
+    return kusto_string_literal(json.dumps(value))
+
+
 class StructureToKusto:
     """Converts a JSON Structure schema to a Kusto table schema."""
 
@@ -284,9 +294,9 @@ class StructureToKusto:
             if notes:
                 doc_data = doc_data + " " + " ".join(notes)
             
-            doc_string = json.dumps(json.dumps({
+            doc_string = kusto_json_literal({
                 "description": doc_data
-            }))
+            })
             kusto.append(
                 f".alter table {table_ref} docstring {doc_string};")
             kusto.append("")
@@ -304,7 +314,7 @@ class StructureToKusto:
                 else:
                     doc_data = f"Constant field with value: {json.dumps(const_value)}"
                 doc_content = {"description": doc_data}
-                doc = json.dumps(json.dumps(doc_content))
+                doc = kusto_json_literal(doc_content)
                 # Add as comment - const fields are not stored in table
                 kusto.insert(len(kusto) - (2 if kusto and kusto[-1] == "" else 1), 
                            f"-- Const field '{column_name}' with value: {json.dumps(const_value)}")
@@ -323,7 +333,7 @@ class StructureToKusto:
                         doc_content["schema"] = '{ "doc": "Schema too large to inline. Please refer to the JSON Structure schema for more details." }'
                     else:
                         doc_content["schema"] = prop_schema
-                doc = json.dumps(json.dumps(doc_content))
+                doc = kusto_json_literal(doc_content)
                 doc_string_statement.append(f"   [{column_name}]: {doc}")
         if doc_string_statement and emit_cloudevents_columns:
             doc_string_statement.extend([

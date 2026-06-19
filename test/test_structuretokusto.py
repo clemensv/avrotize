@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import time
+import re
 import pytest
 
 current_script_path = os.path.abspath(__file__)
@@ -51,6 +52,52 @@ def kusto_container():
 
 
 # pylint: disable=redefined-outer-name
+
+
+def _parse_kusto_verbatim_string(literal: str) -> str:
+    assert literal.startswith('@"') and literal.endswith('"')
+    return literal[2:-1].replace('""', '"')
+
+
+def test_convert_structure_docstrings_escape_kql_literals(tmp_path):
+    """Structure-to-Kusto docstrings with embedded JSON are escaped once."""
+    original_doc = 'Field whose description contains a nested JSON schema doc: { "doc": "Schema too large to inline. Please refer to the JSON Structure schema for more details." } with \\ and newline\nnext line'
+    schema = {
+        "$schema": "https://json-structure.org/meta/core/v0/",
+        "$id": "https://example.org/schemas/repro",
+        "name": "ReproEvent",
+        "namespace": "Example.Repro",
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "description": "Plain id"},
+            "tricky": {
+                "type": "object",
+                "description": original_doc,
+                "properties": {"v": {"type": "string"}},
+            },
+        },
+    }
+    struct_path = tmp_path / "schema.json"
+    kql_path = tmp_path / "out.kql"
+    struct_path.write_text(json.dumps(schema), encoding="utf-8")
+
+    convert_structure_to_kusto_file(
+        str(struct_path),
+        "Example.Repro.ReproEvent",
+        str(kql_path),
+        False,
+        False,
+        True,
+        "Example.Repro",
+    )
+
+    kql = kql_path.read_text(encoding="utf-8")
+    assert "\\\\\"" not in kql
+
+    column_match = re.search(r"\[tricky\]: (@\"(?:\"\"|[^\"])*\")", kql)
+    assert column_match is not None
+    column_doc_json = json.loads(_parse_kusto_verbatim_string(column_match.group(1)))
+    assert column_doc_json["description"] == original_doc
 
 
 def test_convert_address_struct_to_kusto_server(kusto_container):

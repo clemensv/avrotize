@@ -9,17 +9,17 @@
    [countryName]: string
 );
 
-.alter table [record] docstring "{\"description\": \"An address similar to http://microformats.org/wiki/h-card\"}";
+.alter table [record] docstring @"{""description"": ""An address similar to http://microformats.org/wiki/h-card""}";
 
 .alter table [record] column-docstrings (
-   [type]: "{\"description\": \"The type of the record\"}",
-   [postOfficeBox]: "{\"description\": \"The post office box number\"}",
-   [extendedAddress]: "{\"description\": \"The extended address\"}",
-   [streetAddress]: "{\"description\": \"The street address\"}",
-   [locality]: "{\"description\": \"The locality\"}",
-   [region]: "{\"description\": \"The region\"}",
-   [postalCode]: "{\"description\": \"The postal code\"}",
-   [countryName]: "{\"description\": \"The country name\"}"
+   [type]: @"{""description"": ""The type of the record""}",
+   [postOfficeBox]: @"{""description"": ""The post office box number""}",
+   [extendedAddress]: @"{""description"": ""The extended address""}",
+   [streetAddress]: @"{""description"": ""The street address""}",
+   [locality]: @"{""description"": ""The locality""}",
+   [region]: @"{""description"": ""The region""}",
+   [postalCode]: @"{""description"": ""The postal code""}",
+   [countryName]: @"{""description"": ""The country name""}"
 );
 
 .create-or-alter table [record] ingestion json mapping "record_json_flat"
