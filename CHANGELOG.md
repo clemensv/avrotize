@@ -1,9 +1,12 @@
 All notable changes to Avrotize are documented in this file.
 
-## [3.5.9] - 2026-06-04
+## [3.5.12] - 2026-06-19
 
 ### Fixed
 
+- **Kusto docstring escaping (issue #317)**: `a2k` and `s2k` now emit table
+  and column docstrings as single-encoded KQL string literals, avoiding invalid
+  double-escaped quote sequences in generated `.kql`.
 - **`s2a` temporal types now emit valid standard Avro (#335)**: JSON Structure
   temporal types (`date`, `time`, `datetime`, `timestamp`, `duration`) previously
   mapped to a `string` base annotated with a reserved Avro logical type (e.g.
@@ -16,6 +19,52 @@ All notable changes to Avrotize are documented in this file.
   `avrotojsons`, and the Avrotize validator recognize the new names (the legacy
   `string` + reserved-name form is still accepted on input). See
   `specs/avrotize-schema.md` §3.8.11.
+- **s2a inline `object` produced invalid Avro / lost nested data (issue #336)**:
+  A JSON Structure property typed as `{"type": "object"}` previously emitted the
+  bare literal `"object"`, which is not a valid Avro type (parsers reject it,
+  Microsoft Fabric `EventSchemaSet` validation fails). Objects *with* `properties`
+  additionally lost their entire nested shape. Inline objects now convert
+  correctly:
+  - open / property-less object -> `{"type": "map", "values": "string"}`
+    (honoring `additionalProperties` value type when present);
+  - object with `properties` -> a nested Avro `record` (shape preserved, with
+    unique record names derived from the enclosing property);
+  - bare `"object"`/`"array"` union members map to their valid open Avro forms.
+- **j2a dropped JSON Schema `format` logical types (issue #337)**: Converting a
+  JSON Schema / OpenAPI field with `"format": "date-time"` produced a bare Avro
+  `int` (32-bit — silent millisecond-timestamp overflow) and discarded the
+  logical type. The post-processing step that inlines basic types now preserves
+  logical-type annotations, so:
+  - `date-time` -> `{"type": "long", "logicalType": "timestamp-millis"}`
+  - `date` -> `{"type": "int", "logicalType": "date"}`
+  - `time` -> `{"type": "int", "logicalType": "time-millis"}`
+  - `uuid` -> `{"type": "string", "logicalType": "uuid"}`
+  These are retained for required, optional (nullable), array-item, and nested
+  field positions.
+- **a2ts inline-enum test imports point to a non-existent path (issue #338)**:
+  When a record has an inline enum field, j2a correctly scopes the enum into a
+  `<Record>_types` sub-namespace, but the generated Jest test file imported the
+  enum from a flattened path (e.g. `../src/ns/Type.js`) that does not exist and
+  fails to compile. The TypeScript generator now records each class's
+  fully-qualified import names and the test generator reuses them, so test
+  imports resolve to the real source file. Added j2a regression tests asserting
+  inline enums on same-named properties across sibling schemas produce distinct
+  enums with their own symbols, and an a2ts test asserting every generated test
+  import resolves to an existing file.
+- **Avro to TypeScript contextual field names (issue #339)**: `a2ts` now preserves
+  TypeScript contextual keywords such as `type`, `namespace`, `module`, and
+  `readonly` when they are used as Avro field names instead of renaming them
+  with a trailing underscore.
+- **Avro to Python enum symbols (issue #354)**: `a2p` now sanitizes enum member
+  names that are numeric, digit-prefixed, hyphenated, reserved words, or otherwise
+  invalid Python identifiers while preserving the original Avro symbol strings as
+  enum values.
+- **Avro to Python dataclasses JSON date encoding (issue #355)**:
+  `datetime.date` fields generated from Avro `date` logical types now use ISO
+  `dataclasses-json` encoder/decoder wiring and a Marshmallow `fields.Date`,
+  matching existing `datetime.datetime` timestamp handling.
+
+## [3.5.9] - 2026-06-04
 
 ### Changed
 
@@ -36,9 +85,6 @@ All notable changes to Avrotize are documented in this file.
 
 ### Fixed
 
-- **Kusto docstring escaping (issue #317)**: `a2k` and `s2k` now emit table
-  and column docstrings as single-encoded KQL string literals, avoiding invalid
-  double-escaped quote sequences in generated `.kql`.
 - **int64/uint64/int128/uint128/decimal JSON string serialization (issue #346)**:
   All language code generators now serialize these types as JSON strings (not
   numbers) per the JSON Structure Core spec, since IEEE-754 doubles cannot
@@ -59,10 +105,6 @@ All notable changes to Avrotize are documented in this file.
   environment to handle Unicode characters on Windows cp1252 consoles.
 - **MCP CLI test**: Updated prompt format for `get_conversion` tool to match
   current Copilot CLI conventions.
-- **Avro to Python enum symbols (issue #354)**: `a2p` now sanitizes enum member
-  names that are numeric, digit-prefixed, hyphenated, reserved words, or otherwise
-  invalid Python identifiers while preserving the original Avro symbol strings as
-  enum values.
 
 ## [3.5.7] - 2026-05-23
 
