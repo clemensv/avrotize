@@ -1,0 +1,16 @@
+namespace Example.Scalars;
+table Scalars {
+  b:bool (required);
+  i8:byte (required);
+  u8:ubyte (required);
+  i16:short (required);
+  u16:ushort (required);
+  i32:int (required);
+  u32:uint (required);
+  i64:long (required);
+  u64:ulong (required);
+  f32:float (required);
+  f64:double (required);
+  s:string (required);
+}
+root_type Scalars;

@@ -1,5 +1,11 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **FlatBuffers schema support** ([#256](https://github.com/clemensv/avrotize/issues/256)): Added `fbs2a`, `a2fbs`, `fbs2s`, and `s2fbs` conversions for FlatBuffers `.fbs` schemas, including namespace, table, struct, enum, union, vector, root type, required-field, and default-value handling. Documented mapping limitations for fixed-layout structs, enum integer values, unsigned 64-bit integers, `[ubyte]` vectors, and unsupported Avro/JSON Structure metadata.
+
 ## [3.5.9] - 2026-06-04
 
 ### Changed
@@ -59,6 +65,12 @@ All notable changes to Avrotize are documented in this file.
 # Changelog
 
 All notable changes to Avrotize are documented in this file.
+
+## [Unreleased]
+
+### Added
+
+- **FlatBuffers schema support** ([#256](https://github.com/clemensv/avrotize/issues/256)): Added `fbs2a`, `a2fbs`, `fbs2s`, and `s2fbs` conversions for FlatBuffers `.fbs` schemas, including namespace, table, struct, enum, union, vector, root type, required-field, and default-value handling. Documented mapping limitations for fixed-layout structs, enum integer values, unsigned 64-bit integers, `[ubyte]` vectors, and unsupported Avro/JSON Structure metadata.
 
 ## [3.5.5] - 2026-05-22
 
