@@ -285,6 +285,26 @@ class AvroToJsonStructure:
             if logical_type:
                 return self.resolve_logical_type(logical_type, avro_type_schema)
 
+            jtd_type = avro_type_schema.get("jtdType")
+            if jtd_type:
+                jtd_mapping = {
+                    "boolean": "boolean",
+                    "float32": "float",
+                    "float64": "double",
+                    "int8": "int8",
+                    "uint8": "uint8",
+                    "int16": "int16",
+                    "uint16": "uint16",
+                    "int32": "int32",
+                    "uint32": "uint32",
+                    "string": "string",
+                }
+                if jtd_type in jtd_mapping:
+                    return {"type": jtd_mapping[jtd_type]}
+
+            if category in self.get_primitive_types():
+                return {"type": self.get_primitive_types()[category]}
+
         raise ValueError(f"Unsupported Avro type schema: {avro_type_schema}")
 
     # ------------------------------------------------------------------ HELPERS

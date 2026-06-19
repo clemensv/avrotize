@@ -4381,6 +4381,165 @@
     "prompts": []
   },
   {
+    "command": "jtd2a",
+    "description": "Convert JSON Type Definition (JTD) to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jtdtoavro.convert_jtd_to_avro",
+      "args": {
+        "jtd_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".jtd.json",
+      ".jtd"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Type Definition file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for generated Avrotize records and enums",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2jtd",
+    "description": "Convert Avrotize schema to JSON Type Definition (JTD)",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotojtd.convert_avro_to_jtd",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "jtd_file_path": "output_file_path",
+        "record_type": "args.record_type"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Type Definition file",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Name of the Avro record type to convert",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.jtd.json",
+    "prompts": []
+  },
+  {
+    "command": "jtd2s",
+    "description": "Convert JSON Type Definition (JTD) to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jtdtostructure.convert_jtd_to_structure",
+      "args": {
+        "jtd_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".jtd.json",
+      ".jtd"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Type Definition file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for generated intermediate Avrotize records and enums",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2jtd",
+    "description": "Convert JSON Structure to JSON Type Definition (JTD)",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretojtd.convert_structure_to_jtd",
+      "args": {
+        "structure_file": "input_file_path",
+        "jtd_file_path": "output_file_path",
+        "record_type": "args.record_type"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Type Definition file",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Name of the Structure/Avro record type to convert",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.jtd.json",
+    "prompts": []
+  },
+  {
     "command": "s2x",
     "description": "Convert JSON Structure to XSD schema",
     "group": "1_Schemas",
