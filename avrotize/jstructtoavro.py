@@ -20,6 +20,8 @@ class JsonStructureToAvro:
         """Initialize the converter."""
         self.structure_doc: Optional[Dict[str, Any]] = None
         self.converted_types: Dict[str, Dict[str, Any]] = {}
+        self._anon_object_counter: int = 0
+        self._generated_record_names: set = set()
         
     def convert(self, structure_schema: Dict[str, Any]) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
@@ -33,6 +35,8 @@ class JsonStructureToAvro:
         """
         self.structure_doc = structure_schema
         self.converted_types.clear()
+        self._anon_object_counter = 0
+        self._generated_record_names = set()
         
         # Check if this is an inline type (type at root) or uses $root
         root_ref = structure_schema.get('$root')
@@ -386,7 +390,7 @@ class JsonStructureToAvro:
         for prop_name, prop_schema in properties.items():
             field = {
                 'name': prop_name,
-                'type': self._convert_type_reference(prop_schema)
+                'type': self._convert_type_reference(prop_schema, name_hint=prop_name)
             }
             
             # Build documentation with annotations
@@ -678,13 +682,55 @@ class JsonStructureToAvro:
         
         return avro_record
     
-    def _convert_type_reference(self, schema: Union[Dict[str, Any], str]) -> Union[str, Dict[str, Any], List]:
+    def _convert_union_member(self, member: Union[Dict[str, Any], str]) -> Union[str, Dict[str, Any], List]:
+        """Convert a single member of a JSON Structure union type.
+
+        Members are usually primitive type names, but a union may also list the
+        loose container names ``"object"`` and ``"array"`` (open, untyped). A
+        bare ``"object"``/``"array"`` is not a valid Avro type, so map them to
+        their canonical open Avro forms (string-valued map / string-element
+        array), consistent with how inline open objects are handled (#336).
+        """
+        if isinstance(member, str):
+            if member == 'object':
+                return {'type': 'map', 'values': 'string'}
+            if member == 'array':
+                return {'type': 'array', 'items': 'string'}
+            return self._map_primitive_type(member)
+        return self._convert_type_reference(member)
+
+    def _anonymous_object_name(self, name_hint: Optional[str]) -> str:
+        """Generate a valid, unique Avro record name for an inline object.
+
+        Prefers a name derived from the enclosing property (``name_hint``) so
+        that output is readable and round-trips sensibly; falls back to a
+        monotonically increasing generated name. A uniqueness suffix is added
+        when the same hint occurs more than once (e.g. like-named properties at
+        different nesting levels) to avoid Avro name redefinition errors.
+        """
+        if name_hint:
+            candidate = f"{name_hint[0].upper() + name_hint[1:]}Type"
+        else:
+            self._anon_object_counter += 1
+            candidate = f"AnonymousObject{self._anon_object_counter}"
+        unique = candidate
+        suffix = 2
+        while unique in self._generated_record_names:
+            unique = f"{candidate}_{suffix}"
+            suffix += 1
+        self._generated_record_names.add(unique)
+        return unique
+
+    def _convert_type_reference(self, schema: Union[Dict[str, Any], str], name_hint: Optional[str] = None) -> Union[str, Dict[str, Any], List]:
         """
         Convert a type reference or inline type definition.
         
         Args:
             schema: Type schema or reference
-            
+            name_hint: Optional name to use when an inline object must be
+                materialized as a named Avro record (e.g. the enclosing
+                property name). Falls back to a generated unique name.
+        
         Returns:
             Avro type (string, dict, or list for union)
         """
@@ -712,7 +758,7 @@ class JsonStructureToAvro:
         
         # Handle union types (type is an array like ["string", "null"])
         if isinstance(type_value, list):
-            return [self._map_primitive_type(t) if isinstance(t, str) else self._convert_type_reference(t) for t in type_value]
+            return [self._convert_union_member(t) for t in type_value]
         
         # Handle choice types
         if type_value == 'choice':
@@ -744,13 +790,38 @@ class JsonStructureToAvro:
         if type_value == 'array':
             return {
                 'type': 'array',
-                'items': self._convert_type_reference(schema['items'])
+                'items': self._convert_type_reference(schema['items'], name_hint=name_hint)
             }
         
         if type_value == 'map':
             return {
                 'type': 'map',
                 'values': self._convert_type_reference(schema['values'])
+            }
+        
+        # Handle object types appearing inline (i.e. not as a named $root or
+        # definition). Without this, an inline {"type": "object"} fell through
+        # to _map_primitive_type and emitted a bare "object", which is not a
+        # valid Avro type. See issue #336.
+        if type_value == 'object':
+            properties = schema.get('properties')
+            if properties:
+                # Object with a defined shape -> nested Avro record.
+                obj_name = schema.get('name') or self._anonymous_object_name(name_hint)
+                return self._convert_object(schema, None, obj_name)
+            # Open / property-less object -> Avro map. Honor an
+            # additionalProperties value type when specified, otherwise default
+            # to string (an open object carries arbitrary string-keyed values).
+            additional = schema.get('additionalProperties')
+            if isinstance(additional, dict):
+                values_type: Union[str, Dict[str, Any], List] = self._convert_type_reference(additional)
+            elif isinstance(additional, str):
+                values_type = self._map_primitive_type(additional)
+            else:
+                values_type = 'string'
+            return {
+                'type': 'map',
+                'values': values_type
             }
         
         # Handle logical types

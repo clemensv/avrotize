@@ -937,5 +937,299 @@ class TestJsonStructureToAvro(unittest.TestCase):
         )
 
 
+class TestInlineObjectConversion(unittest.TestCase):
+    """Inline JSON Structure ``object`` types must produce valid Avro (issue #336).
+
+    A property-less object previously emitted the bare literal ``"object"``,
+    which is not a valid Avro type and also discarded any nested shape. These
+    tests pin the corrected behavior: open objects -> Avro ``map``, objects with
+    ``properties`` -> nested Avro ``record``, and every emitted schema parses.
+    """
+
+    def setUp(self):
+        self.converter = JsonStructureToAvro()
+
+    @staticmethod
+    def _assert_parses(schema):
+        from fastavro.schema import parse_schema
+        import copy
+        parse_schema(copy.deepcopy(schema))
+
+    def _assert_no_bare_object_type(self, node):
+        """Recursively assert no Avro *type position* holds a bare object/array."""
+        if isinstance(node, str):
+            self.assertNotIn(node, ('object',),
+                             "bare 'object' string found in a type position")
+        elif isinstance(node, list):
+            for item in node:
+                self._assert_no_bare_object_type(item)
+        elif isinstance(node, dict):
+            self.assertNotEqual(node.get('type'), 'object',
+                                "dict with type=='object' found (invalid Avro)")
+            for value in node.values():
+                self._assert_no_bare_object_type(value)
+
+    def test_issue_336_property_less_object_is_valid_map(self):
+        """Exact reproducer from issue #336: open object -> map<string>, parseable."""
+        repro = {
+            "$schema": "https://json-structure.org/meta/core/v0/#",
+            "$id": "https://example.com/repro/objlit",
+            "name": "ObjLit",
+            "type": "object",
+            "properties": {
+                "Id": {"type": "string"},
+                "Dimension": {"type": "object"},
+            },
+        }
+        result = self.converter.convert(repro)
+        self._assert_no_bare_object_type(result)
+        self._assert_parses(result)
+
+        dimension = next(f for f in result['fields'] if f['name'] == 'Dimension')
+        # Optional field => nullable union wrapping the map.
+        self.assertIn({'type': 'map', 'values': 'string'}, dimension['type'])
+
+    def test_required_open_object_maps_to_string_map(self):
+        """A required open object becomes a bare map<string> (no null wrapper)."""
+        structure = {
+            "type": "object",
+            "name": "Root",
+            "properties": {"payload": {"type": "object"}},
+            "required": ["payload"],
+        }
+        result = self.converter.convert(structure)
+        payload = next(f for f in result['fields'] if f['name'] == 'payload')
+        self.assertEqual(payload['type'], {'type': 'map', 'values': 'string'})
+        self._assert_parses(result)
+
+    def test_object_with_properties_becomes_nested_record(self):
+        """An inline object WITH properties must keep its shape as a nested record."""
+        structure = {
+            "type": "object",
+            "name": "Root",
+            "properties": {
+                "dimension": {
+                    "type": "object",
+                    "properties": {
+                        "width": {"type": "int32"},
+                        "height": {"type": "int32"},
+                    },
+                    "required": ["width", "height"],
+                }
+            },
+            "required": ["dimension"],
+        }
+        result = self.converter.convert(structure)
+        self._assert_no_bare_object_type(result)
+        self._assert_parses(result)
+
+        dim = next(f for f in result['fields'] if f['name'] == 'dimension')
+        self.assertEqual(dim['type']['type'], 'record')
+        self.assertEqual(dim['type']['name'], 'DimensionType')
+        field_names = {fld['name'] for fld in dim['type']['fields']}
+        self.assertEqual(field_names, {'width', 'height'})
+
+    def test_object_additional_properties_typed_map(self):
+        """additionalProperties as a type schema controls the map value type."""
+        structure = {
+            "type": "object",
+            "name": "Root",
+            "properties": {
+                "counts": {
+                    "type": "object",
+                    "additionalProperties": {"type": "int32"},
+                }
+            },
+            "required": ["counts"],
+        }
+        result = self.converter.convert(structure)
+        counts = next(f for f in result['fields'] if f['name'] == 'counts')
+        self.assertEqual(counts['type'], {'type': 'map', 'values': 'int'})
+        self._assert_parses(result)
+
+    def test_object_additional_properties_string_typename(self):
+        """additionalProperties given as a type *name* string also maps cleanly."""
+        structure = {
+            "type": "object",
+            "name": "Root",
+            "properties": {
+                "flags": {"type": "object", "additionalProperties": "boolean"}
+            },
+            "required": ["flags"],
+        }
+        result = self.converter.convert(structure)
+        flags = next(f for f in result['fields'] if f['name'] == 'flags')
+        self.assertEqual(flags['type'], {'type': 'map', 'values': 'boolean'})
+        self._assert_parses(result)
+
+    def test_array_of_inline_objects(self):
+        """Arrays whose items are inline objects-with-properties stay structured."""
+        structure = {
+            "type": "object",
+            "name": "Root",
+            "properties": {
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"x": {"type": "int32"}},
+                        "required": ["x"],
+                    },
+                }
+            },
+            "required": ["points"],
+        }
+        result = self.converter.convert(structure)
+        self._assert_no_bare_object_type(result)
+        self._assert_parses(result)
+        points = next(f for f in result['fields'] if f['name'] == 'points')
+        self.assertEqual(points['type']['type'], 'array')
+        self.assertEqual(points['type']['items']['type'], 'record')
+
+    def test_union_with_bare_object_and_array_members(self):
+        """A union listing bare 'object'/'array' members must remain valid Avro."""
+        structure = {
+            "type": "object",
+            "name": "Root",
+            "properties": {
+                "anything": {"type": ["string", "int32", "array", "object", "null"]}
+            },
+            "required": ["anything"],
+        }
+        result = self.converter.convert(structure)
+        self._assert_no_bare_object_type(result)
+        self._assert_parses(result)
+        anything = next(f for f in result['fields'] if f['name'] == 'anything')
+        self.assertIn({'type': 'map', 'values': 'string'}, anything['type'])
+        self.assertIn({'type': 'array', 'items': 'string'}, anything['type'])
+
+    def test_deeply_nested_inline_objects_preserved(self):
+        """Deeply nested inline objects are preserved (no data loss) and parse."""
+        structure = {
+            "type": "object",
+            "name": "Root",
+            "properties": {
+                "a": {
+                    "type": "object",
+                    "properties": {
+                        "b": {
+                            "type": "object",
+                            "properties": {"c": {"type": "string"}},
+                            "required": ["c"],
+                        }
+                    },
+                    "required": ["b"],
+                }
+            },
+            "required": ["a"],
+        }
+        result = self.converter.convert(structure)
+        self._assert_no_bare_object_type(result)
+        self._assert_parses(result)
+        a = next(f for f in result['fields'] if f['name'] == 'a')
+        b = next(f for f in a['type']['fields'] if f['name'] == 'b')
+        c = next(f for f in b['type']['fields'] if f['name'] == 'c')
+        self.assertEqual(c['type'], 'string')
+
+    def test_like_named_objects_get_unique_record_names(self):
+        """Like-named inline objects must yield unique Avro record names."""
+        structure = {
+            "type": "object",
+            "name": "Root",
+            "properties": {
+                "outer": {
+                    "type": "object",
+                    "properties": {
+                        "meta": {
+                            "type": "object",
+                            "properties": {"k": {"type": "string"}},
+                            "required": ["k"],
+                        }
+                    },
+                    "required": ["meta"],
+                },
+                "meta": {
+                    "type": "object",
+                    "properties": {"v": {"type": "string"}},
+                    "required": ["v"],
+                },
+            },
+            "required": ["outer", "meta"],
+        }
+        result = self.converter.convert(structure)
+        # Must parse: duplicate record names would raise a redefinition error.
+        self._assert_parses(result)
+
+        names = []
+
+        def collect(node):
+            if isinstance(node, dict):
+                if node.get('type') == 'record':
+                    names.append(node['name'])
+                for v in node.values():
+                    collect(v)
+            elif isinstance(node, list):
+                for v in node:
+                    collect(v)
+
+        collect(result)
+        self.assertEqual(len(names), len(set(names)), f"record names not unique: {names}")
+
+    def test_fastavro_roundtrip_through_nested_record(self):
+        """Data written/read through a converted nested-record schema survives."""
+        from fastavro import writer, reader
+        from fastavro.schema import parse_schema
+
+        structure = {
+            "type": "object",
+            "name": "Order",
+            "properties": {
+                "id": {"type": "string"},
+                "shipTo": {
+                    "type": "object",
+                    "properties": {
+                        "city": {"type": "string"},
+                        "zip": {"type": "string"},
+                    },
+                    "required": ["city", "zip"],
+                },
+                "attributes": {"type": "object"},
+            },
+            "required": ["id", "shipTo", "attributes"],
+        }
+        schema = self.converter.convert(structure)
+        parsed = parse_schema(schema)
+
+        record = {
+            "id": "order-1",
+            "shipTo": {"city": "Seattle", "zip": "98101"},
+            "attributes": {"gift": "true", "priority": "high"},
+        }
+        buf = io.BytesIO()
+        writer(buf, parsed, [record])
+        buf.seek(0)
+        out = list(reader(buf))
+        self.assertEqual(out[0], record)
+
+    def test_all_struct_fixtures_emit_no_bare_object(self):
+        """No committed JSON Structure fixture may emit a bare ``object`` type.
+
+        This is the core #336 invariant across the whole fixture corpus. (Full
+        fastavro parseability is asserted in the self-contained tests above;
+        a few fixtures exercise an unrelated pre-existing forward-reference in
+        multi-type list emission, which is outside the scope of this fix.)
+        """
+        import glob
+
+        fixtures = sorted(glob.glob('test/struct/*.struct.json'))
+        self.assertTrue(fixtures, "no struct fixtures discovered")
+        for path in fixtures:
+            with self.subTest(fixture=path):
+                with open(path, 'r', encoding='utf-8') as fh:
+                    structure = json.load(fh)
+                result = JsonStructureToAvro().convert(structure)
+                self._assert_no_bare_object_type(result)
+
+
 if __name__ == '__main__':
     unittest.main()

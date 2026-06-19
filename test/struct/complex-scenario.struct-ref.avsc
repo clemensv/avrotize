@@ -5,7 +5,44 @@
   "fields": [
     {
       "name": "metadata",
-      "type": "object"
+      "type": {
+        "type": "record",
+        "name": "MetadataType",
+        "fields": [
+          {
+            "name": "id",
+            "type": {
+              "type": "string",
+              "logicalType": "uuid"
+            },
+            "doc": "Unique identifier"
+          },
+          {
+            "name": "version",
+            "type": "string",
+            "doc": "Semantic version [pattern: ^\\d+\\.\\d+\\.\\d+$]"
+          },
+          {
+            "name": "created",
+            "type": {
+              "type": "string",
+              "logicalType": "timestamp-millis"
+            },
+            "doc": "Creation timestamp"
+          },
+          {
+            "name": "tags",
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": "string"
+              }
+            ],
+            "default": null
+          }
+        ]
+      }
     },
     {
       "name": "data",
@@ -29,8 +66,106 @@
           {
             "name": "value",
             "type": [
-              "object",
-              "object"
+              {
+                "type": "record",
+                "name": "AnonymousObject1",
+                "fields": [
+                  {
+                    "name": "type",
+                    "type": "string"
+                  },
+                  {
+                    "name": "value",
+                    "type": {
+                      "type": "string",
+                      "logicalType": "decimal"
+                    },
+                    "doc": "[precision: 15, scale: 6]"
+                  },
+                  {
+                    "name": "timestamp",
+                    "type": {
+                      "type": "string",
+                      "logicalType": "timestamp-millis"
+                    }
+                  },
+                  {
+                    "name": "device",
+                    "type": [
+                      "null",
+                      {
+                        "type": "record",
+                        "name": "DeviceType",
+                        "fields": [
+                          {
+                            "name": "id",
+                            "type": "string"
+                          },
+                          {
+                            "name": "calibration",
+                            "type": [
+                              "null",
+                              {
+                                "type": "map",
+                                "values": "double"
+                              }
+                            ],
+                            "default": null
+                          }
+                        ]
+                      }
+                    ],
+                    "default": null
+                  }
+                ]
+              },
+              {
+                "type": "record",
+                "name": "AnonymousObject2",
+                "fields": [
+                  {
+                    "name": "type",
+                    "type": "string"
+                  },
+                  {
+                    "name": "name",
+                    "type": "string"
+                  },
+                  {
+                    "name": "severity",
+                    "type": "string"
+                  },
+                  {
+                    "name": "details",
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "record",
+                          "name": "DetailsType",
+                          "fields": [
+                            {
+                              "name": "key",
+                              "type": "string"
+                            },
+                            {
+                              "name": "value",
+                              "type": [
+                                "string",
+                                "long",
+                                "double",
+                                "boolean"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "default": null
+                  }
+                ]
+              }
             ],
             "doc": "The actual value of the selected choice type"
           }
