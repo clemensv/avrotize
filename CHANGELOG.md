@@ -21,6 +21,17 @@ All notable changes to Avrotize are documented in this file.
 
 ### Fixed
 
+- **s2a inline `object` produced invalid Avro / lost nested data (issue #336)**:
+  A JSON Structure property typed as `{"type": "object"}` previously emitted the
+  bare literal `"object"`, which is not a valid Avro type (parsers reject it,
+  Microsoft Fabric `EventSchemaSet` validation fails). Objects *with* `properties`
+  additionally lost their entire nested shape. Inline objects now convert
+  correctly:
+  - open / property-less object -> `{"type": "map", "values": "string"}`
+    (honoring `additionalProperties` value type when present);
+  - object with `properties` -> a nested Avro `record` (shape preserved, with
+    unique record names derived from the enclosing property);
+  - bare `"object"`/`"array"` union members map to their valid open Avro forms.
 - **int64/uint64/int128/uint128/decimal JSON string serialization (issue #346)**:
   All language code generators now serialize these types as JSON strings (not
   numbers) per the JSON Structure Core spec, since IEEE-754 doubles cannot
