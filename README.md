@@ -19,7 +19,7 @@ The tool leans on the Apache Avro-derived [Avrotize Schema](specs/avrotize-schem
 - Programming languages: Python, C#, Java, TypeScript, JavaScript, Rust, Go, C++
 - SQL Databases: MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, SQLite, BigQuery, Snowflake, Redshift, DB2
 - Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
-- Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet
+- Data schema formats: Avro, JSON Schema, JSON Structure, RAML 1.0 Data Types, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet
 
 ## Installation
 
@@ -58,6 +58,7 @@ Avrotize provides several commands for converting schema formats via Avrotize Sc
 Converting to Avrotize Schema:
 
 - [`avrotize p2a`](#convert-proto-schema-to-avrotize-schema) - Convert Protobuf (2 or 3) schema to Avrotize Schema.
+- [`avrotize raml2a`](#convert-raml-data-types-to-avrotize-schema) - Convert RAML 1.0 Data Types to Avrotize Schema.
 - [`avrotize j2a`](#convert-json-schema-to-avrotize-schema) - Convert JSON schema to Avrotize Schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
@@ -74,6 +75,7 @@ Converting to Avrotize Schema:
 Converting from Avrotize Schema:
 
 - [`avrotize a2p`](#convert-avrotize-schema-to-proto-schema) - Convert Avrotize Schema to Protobuf 3 schema.
+- [`avrotize a2raml`](#convert-avrotize-schema-to-raml-data-types) - Convert Avrotize Schema to RAML 1.0 Data Types.
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
@@ -101,6 +103,8 @@ Direct conversions (JSON Structure):
 
 - [`avrotize s2p`](#convert-json-structure-to-protocol-buffers) - Convert JSON Structure to Protocol Buffers (.proto files).
 - [`avrotize oas2s`](#convert-openapi-to-json-structure) - Convert OpenAPI 3.x document to JSON Structure.
+- [`avrotize raml2s`](#convert-raml-data-types-to-json-structure) - Convert RAML 1.0 Data Types to JSON Structure.
+- [`avrotize s2raml`](#convert-json-structure-to-raml-data-types) - Convert JSON Structure to RAML 1.0 Data Types.
 
 Generate code from Avrotize Schema:
 
@@ -263,6 +267,47 @@ Conversion notes:
 - Avro namespaces are resolved into distinct proto package definitions. The tool will create a new `.proto` file with the package definition and an `import` statement for each namespace found in the Avrotize Schema.
 - Avro type unions `[]` are converted to `oneof` expressions in Proto. Avro allows for maps and arrays in the type union, whereas Proto only supports scalar types and message type references. The tool will therefore emit message types containing a single array or map field for any such case and add it to the containing type, and will also recursively resolve further unions in the array and map values.
 - The sequence of fields in a message follows the sequence of fields in the Avro record. When type unions need to be resolved into `oneof` expressions, the alternative fields need to be assigned field numbers, which will shift the field numbers for any subsequent fields.
+
+
+### Convert RAML Data Types to Avrotize Schema
+
+```bash
+avrotize raml2a <path_to_raml_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+```
+
+Parameters:
+
+- `<path_to_raml_file>`: The path to the RAML 1.0 file or library. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace for generated Avro named types.
+
+Conversion notes:
+
+- Phase 1 supports RAML 1.0 **Data Types** in the `types:` section only. API resources, methods, traits, resourceTypes, securitySchemes, annotations, and external `!include` expansion are explicitly out of scope and are ignored or left as inert YAML values.
+- Object types with `properties:` become Avro records. Optional properties (`name?` or `required: false`) become nullable Avro fields with `null` first and default `null`.
+- Scalar mappings are `string`→`string`, `number`→`double`, `integer`→`long`, `boolean`→`boolean`, `file`→`bytes`, and `nil`→`null`.
+- RAML date/time precision is normalized to valid Avro logical types: `date-only`→`int`/`date`, `time-only`→`int`/`time-millis`, and `datetime-only`/`datetime`→`long`/`timestamp-millis`.
+- Arrays use `T[]` or `type: array` with `items`. Unions use `A | B`; nullable `T?` is treated as `nil | T`.
+- Maps use the documented RAML convention `properties: { "//": T }` or `additionalProperties: T` and become Avro maps.
+- RAML enums become Avro enums; symbols are sanitized to Avro identifiers. Non-string enum base types are emitted as Avro enum symbols, so literal value typing is not preserved.
+
+### Convert Avrotize Schema to RAML Data Types
+
+```bash
+avrotize a2raml <path_to_avro_schema_file> [--out <path_to_raml_file>] [--namespace <namespace_to_strip>]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The path to the Avrotize Schema file. If omitted, the file is read from stdin.
+- `--out`: The path to the RAML file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace to strip from generated RAML type references.
+
+Conversion notes:
+
+- The converter emits a `#%RAML 1.0 Library` with a `types:` map. Full RAML API resource/method conversion is explicitly out of scope.
+- Avro records become RAML `object` types, nullable fields are emitted with the `name?` optional-property form, enums become `enum:`, arrays become `T[]`, maps use `properties: { "//": T }`, and unions become `A | B`.
+- Avro logical types map back to RAML `date-only`, `time-only`, or `datetime`. `datetime-only` cannot be distinguished from Avro timestamp logical types on reverse conversion.
 
 ### Convert JSON schema to Avrotize Schema
 
@@ -1404,6 +1449,23 @@ Conversion notes:
 - Avro logical types (date, timestamp-millis, decimal, uuid) are preserved in the output.
 - Complex types (records, arrays, maps) are represented as strings in CSV schema, as CSV format doesn't have native support for nested structures.
 - Only single record types can be converted to CSV schema.
+
+
+### Convert RAML Data Types to JSON Structure
+
+```bash
+avrotize raml2s <path_to_raml_file> [--out <path_to_json_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+Converts RAML 1.0 Data Types to JSON Structure by bridging through Avrotize Schema. The same RAML phase-1 limitations apply: only inline `types:` data types are in scope; API resources, methods, traits, resourceTypes, securitySchemes, annotations, and external `!include` expansion are out of scope.
+
+### Convert JSON Structure to RAML Data Types
+
+```bash
+avrotize s2raml <path_to_json_structure_file> [--out <path_to_raml_file>] [--namespace <namespace_to_strip>]
+```
+
+Converts JSON Structure to a RAML 1.0 Library by bridging through Avrotize Schema. The output contains RAML Data Types only and does not generate API resources or methods.
 
 ### Convert JSON Structure to Protocol Buffers
 

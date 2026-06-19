@@ -137,6 +137,84 @@
     ]
   },
   {
+    "command": "raml2a",
+    "description": "Convert RAML Data Types to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.ramltoavro.convert_raml_to_avro",
+      "args": {
+        "raml_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".raml"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the RAML file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2raml",
+    "description": "Convert Avrotize schema to RAML Data Types",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotoraml.convert_avro_to_raml",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "raml_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the RAML file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace to strip from RAML type references",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.raml",
+    "prompts": []
+  },
+  {
     "command": "s2p",
     "description": "Convert JSON Structure to Protocol Buffers (.proto)",
     "group": "1_Schemas",
@@ -4292,6 +4370,85 @@
         "default": false
       }
     ]
+  },
+  {
+    "command": "raml2s",
+    "description": "Convert RAML Data Types to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.ramltojstruct.convert_raml_to_json_structure",
+      "args": {
+        "raml_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".raml"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the RAML file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the intermediate Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2raml",
+    "description": "Convert JSON Structure to RAML Data Types",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jstructtoraml.convert_json_structure_to_raml",
+      "args": {
+        "structure_file": "input_file_path",
+        "raml_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the RAML file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace to strip from RAML type references",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.raml",
+    "prompts": []
   },
   {
     "command": "s2a",
