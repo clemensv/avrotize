@@ -21,6 +21,10 @@ All notable changes to Avrotize are documented in this file.
 
 ### Fixed
 
+- **Avro to Python dataclasses JSON date encoding (issue #355)**:
+  `datetime.date` fields generated from Avro `date` logical types now use ISO
+  `dataclasses-json` encoder/decoder wiring and a Marshmallow `fields.Date`,
+  matching existing `datetime.datetime` timestamp handling.
 - **int64/uint64/int128/uint128/decimal JSON string serialization (issue #346)**:
   All language code generators now serialize these types as JSON strings (not
   numbers) per the JSON Structure Core spec, since IEEE-754 doubles cannot
