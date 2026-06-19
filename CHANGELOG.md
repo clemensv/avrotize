@@ -1,5 +1,11 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Cap'n Proto schema support** ([#257](https://github.com/clemensv/avrotize/issues/257)): Added `capnp2a`, `a2capnp`, `capnp2s`, and `s2capnp` conversions with documented primitive, union, group, ordinal, file id, import, and skipped-declaration mapping limitations.
+
 ## [3.5.9] - 2026-06-04
 
 ### Changed
