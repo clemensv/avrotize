@@ -41,6 +41,10 @@ All notable changes to Avrotize are documented in this file.
   environment to handle Unicode characters on Windows cp1252 consoles.
 - **MCP CLI test**: Updated prompt format for `get_conversion` tool to match
   current Copilot CLI conventions.
+- **Avro to Python enum symbols (issue #354)**: `a2p` now sanitizes enum member
+  names that are numeric, digit-prefixed, hyphenated, reserved words, or otherwise
+  invalid Python identifiers while preserving the original Avro symbol strings as
+  enum values.
 
 ## [3.5.7] - 2026-05-23
 

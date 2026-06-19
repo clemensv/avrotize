@@ -90,6 +90,38 @@ class AvroToPython:
             return name + "_"
         return name
 
+    def safe_enum_symbols(self, symbols: List[str]) -> List[Dict[str, str]]:
+        """Converts Avro enum symbols to collision-safe Python enum members."""
+        enum_symbols = []
+        used_names = set()
+
+        for symbol in symbols:
+            if symbol.isidentifier() and not is_python_reserved_word(symbol):
+                member_name = symbol
+            else:
+                member_name = re.sub(r'[^0-9A-Za-z_]', '_', symbol).strip('_').upper()
+                if not member_name:
+                    member_name = "VALUE"
+                if member_name[0].isdigit():
+                    member_name = f"VALUE_{member_name}"
+                if is_python_reserved_word(symbol) or is_python_reserved_word(member_name.lower()) or is_python_reserved_word(member_name):
+                    member_name = f"{member_name}_"
+
+            base_member_name = member_name
+            suffix = 2
+            while member_name in used_names or not member_name.isidentifier() or is_python_reserved_word(member_name):
+                member_name = f"{base_member_name}_{suffix}"
+                suffix += 1
+
+            used_names.add(member_name)
+            enum_symbols.append({
+                'name': member_name,
+                'value': symbol,
+                'value_literal': repr(symbol)
+            })
+
+        return enum_symbols
+
     def pascal_type_name(self, ref: str) -> str:
         """Converts a reference to a type name"""
         return '_'.join([pascal(part) for part in ref.split('.')[-1].split('_')])
@@ -350,9 +382,12 @@ class AvroToPython:
         if python_qualified_name in self.generated_types:
             return python_qualified_name
 
-        symbols = [symbol if not is_python_reserved_word(
-            symbol) else symbol + "_" for symbol in avro_schema.get('symbols', [])]
-        ordinals =  avro_schema.get('ordinals', {})
+        symbols = self.safe_enum_symbols(avro_schema.get('symbols', []))
+        symbol_names_by_value = {symbol['value']: symbol['name'] for symbol in symbols}
+        ordinals = {
+            symbol_names_by_value[symbol]: ordinal
+            for symbol, ordinal in avro_schema.get('ordinals', {}).items()
+        }
 
         enum_definition = process_template(
             "avrotopython/enum_core.jinja",
