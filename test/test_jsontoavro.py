@@ -304,3 +304,100 @@ class TestFormatLogicalTypes(unittest.TestCase):
         buffer.seek(0)
         out = list(reader(buffer))
         self.assertEqual(out[0]["createdTimestamp"], moment)
+
+
+class TestInlineEnumScoping(unittest.TestCase):
+    """Regression tests for issue #338: inline enum fields that share a property
+    name across multiple sibling schemas must each produce a distinct Avro enum
+    with its own symbols (no shared/collapsed enum)."""
+
+    def _convert(self, json_schema: dict) -> list:
+        tmp_dir = os.path.join(tempfile.gettempdir(), "avrotize", "enum338")
+        os.makedirs(tmp_dir, exist_ok=True)
+        in_path = os.path.join(tmp_dir, "in.json")
+        out_path = os.path.join(tmp_dir, "out.avsc")
+        with open(in_path, "w", encoding="utf-8") as f:
+            json.dump(json_schema, f)
+        if os.path.exists(out_path):
+            os.remove(out_path)
+        convert_jsons_to_avro(in_path, out_path, "com.test.example")
+        load_schema(out_path)  # must be valid Avro
+        with open(out_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _collect_enums(self, node, found=None):
+        """Recursively collect every Avro enum definition as
+        (fullname, frozenset(symbols))."""
+        if found is None:
+            found = []
+        if isinstance(node, list):
+            for item in node:
+                self._collect_enums(item, found)
+        elif isinstance(node, dict):
+            if node.get("type") == "enum" and "symbols" in node:
+                ns = node.get("namespace", "")
+                fullname = f"{ns}.{node['name']}" if ns else node["name"]
+                found.append((fullname, frozenset(node["symbols"])))
+            for value in node.values():
+                self._collect_enums(value, found)
+        return found
+
+    def test_sibling_definitions_enums_are_distinct(self):
+        schema = {
+            "$defs": {
+                "Order": {
+                    "type": "object",
+                    "properties": {"type": {"type": "string", "enum": ["Express"]}},
+                },
+                "Shipment": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["Air", "Ground", "Sea", "Rail"],
+                        }
+                    },
+                },
+            }
+        }
+        enums = self._collect_enums(self._convert(schema))
+        symbol_sets = [symbols for _, symbols in enums]
+        # Both distinct enums must be present with their own symbols.
+        self.assertIn(frozenset(["Express"]), symbol_sets)
+        self.assertIn(frozenset(["Air", "Ground", "Sea", "Rail"]), symbol_sets)
+        # No two enums may share a fully-qualified name (collision guard).
+        fullnames = [name for name, _ in enums]
+        self.assertEqual(len(fullnames), len(set(fullnames)),
+                         f"Enum fullnames collide: {fullnames}")
+        # The Shipment enum must NOT be silently collapsed to the Order values.
+        shipment_enum = next((s for _, s in enums
+                              if s == frozenset(["Air", "Ground", "Sea", "Rail"])), None)
+        self.assertIsNotNone(shipment_enum,
+                             "Shipment inline enum lost its symbols (issue #338)")
+
+    def test_inline_nested_object_enums_are_distinct(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "order": {
+                    "type": "object",
+                    "properties": {"type": {"type": "string", "enum": ["Express"]}},
+                },
+                "shipment": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["Air", "Ground", "Sea", "Rail"],
+                        }
+                    },
+                },
+            },
+        }
+        enums = self._collect_enums(self._convert(schema))
+        symbol_sets = [symbols for _, symbols in enums]
+        self.assertIn(frozenset(["Express"]), symbol_sets)
+        self.assertIn(frozenset(["Air", "Ground", "Sea", "Rail"]), symbol_sets)
+        fullnames = [name for name, _ in enums]
+        self.assertEqual(len(fullnames), len(set(fullnames)),
+                         f"Enum fullnames collide: {fullnames}")
