@@ -1,0 +1,77 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/example/capnp/PrimitiveSample",
+    "name": "PrimitiveSample",
+    "$root": "#/definitions/example/capnp/PrimitiveSample",
+    "definitions": {
+        "example": {
+            "capnp": {
+                "PrimitiveSample": {
+                    "name": "PrimitiveSample",
+                    "type": "object",
+                    "properties": {
+                        "voidField": {
+                            "type": "null",
+                            "default": null
+                        },
+                        "boolField": {
+                            "type": "boolean",
+                            "default": null
+                        },
+                        "int8Field": {
+                            "type": "int32",
+                            "default": null
+                        },
+                        "int16Field": {
+                            "type": "int32",
+                            "default": null
+                        },
+                        "int32Field": {
+                            "type": "int32",
+                            "default": null
+                        },
+                        "int64Field": {
+                            "type": "int64",
+                            "default": null
+                        },
+                        "uint8Field": {
+                            "type": "int64",
+                            "default": null
+                        },
+                        "uint16Field": {
+                            "type": "int64",
+                            "default": null
+                        },
+                        "uint32Field": {
+                            "type": "int64",
+                            "default": null
+                        },
+                        "uint64Field": {
+                            "type": "int64",
+                            "default": null
+                        },
+                        "float32Field": {
+                            "type": "float",
+                            "default": null
+                        },
+                        "float64Field": {
+                            "type": "double",
+                            "default": null
+                        },
+                        "textField": {
+                            "type": "string",
+                            "default": null
+                        },
+                        "dataField": {
+                            "type": "binary",
+                            "default": null
+                        }
+                    },
+                    "required": [
+                        "voidField"
+                    ]
+                }
+            }
+        }
+    }
+}

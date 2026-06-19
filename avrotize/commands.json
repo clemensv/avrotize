@@ -59,6 +59,45 @@
     "prompts": []
   },
   {
+    "command": "capnp2a",
+    "description": "Convert Cap'n Proto schema to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.capnprototoavro.convert_capnproto_to_avro",
+      "args": {
+        "capnp_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".capnp"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the Cap'n Proto schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
     "command": "a2p",
     "description": "Convert Avrotize schema to Proto schema",
     "group": "1_Schemas",
@@ -135,6 +174,45 @@
         "required": false
       }
     ]
+  },
+  {
+    "command": "a2capnp",
+    "description": "Convert Avrotize schema to Cap'n Proto schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotocapnproto.convert_avro_to_capnproto",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "capnp_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Cap'n Proto schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace note to include in the generated Cap'n Proto schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.capnp",
+    "prompts": []
   },
   {
     "command": "s2p",
@@ -4294,6 +4372,67 @@
     ]
   },
   {
+    "command": "capnp2s",
+    "description": "Convert Cap'n Proto schema to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.capnprototoavro.convert_capnproto_to_json_structure",
+      "args": {
+        "capnp_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace",
+        "naming_mode": "args.naming",
+        "avro_encoding": "args.avro_encoding"
+      }
+    },
+    "extensions": [
+      ".capnp"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the Cap'n Proto schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the intermediate Avrotize schema",
+        "required": false
+      },
+      {
+        "name": "--naming",
+        "type": "str",
+        "help": "Type naming convention",
+        "choices": [
+          "snake",
+          "camel",
+          "pascal",
+          "default"
+        ],
+        "required": false,
+        "default": "default"
+      },
+      {
+        "name": "--avro-encoding",
+        "type": "bool",
+        "help": "Enable Avro encoding for unions",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
     "command": "s2a",
     "description": "Convert JSON structure to Avrotize schema",
     "group": "1_Schemas",
@@ -4324,6 +4463,46 @@
       }
     ],
     "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "s2capnp",
+    "description": "Convert JSON Structure to Cap'n Proto schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotocapnproto.convert_json_structure_to_capnproto",
+      "args": {
+        "structure_file": "input_file_path",
+        "capnp_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Cap'n Proto schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace note to include in the generated Cap'n Proto schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.capnp",
     "prompts": []
   },
   {
