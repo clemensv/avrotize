@@ -21,6 +21,17 @@ All notable changes to Avrotize are documented in this file.
 
 ### Fixed
 
+- **j2a dropped JSON Schema `format` logical types (issue #337)**: Converting a
+  JSON Schema / OpenAPI field with `"format": "date-time"` produced a bare Avro
+  `int` (32-bit — silent millisecond-timestamp overflow) and discarded the
+  logical type. The post-processing step that inlines basic types now preserves
+  logical-type annotations, so:
+  - `date-time` -> `{"type": "long", "logicalType": "timestamp-millis"}`
+  - `date` -> `{"type": "int", "logicalType": "date"}`
+  - `time` -> `{"type": "int", "logicalType": "time-millis"}`
+  - `uuid` -> `{"type": "string", "logicalType": "uuid"}`
+  These are retained for required, optional (nullable), array-item, and nested
+  field positions.
 - **int64/uint64/int128/uint128/decimal JSON string serialization (issue #346)**:
   All language code generators now serialize these types as JSON strings (not
   numbers) per the JSON Structure Core spec, since IEEE-754 doubles cannot
