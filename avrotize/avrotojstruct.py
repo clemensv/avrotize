@@ -305,6 +305,16 @@ class AvroToJsonStructure:
             "timestamp-millis": {"type": "int64", "logicalType": "timestampMillis"},
             "date": {"type": "int32", "logicalType": "date"},
             "uuid": {"type": "string", "format": "uuid"},
+            # Avrotize Schema rfc3339-* string temporal family -> JSON Structure native
+            # temporal types (round-trips with jstructtoavro). See issue #335.
+            "rfc3339-date": {"type": "date"},
+            "rfc3339-time-millis": {"type": "time"},
+            "rfc3339-time-micros": {"type": "time"},
+            "rfc3339-timestamp-millis": {"type": "datetime"},
+            "rfc3339-timestamp-micros": {"type": "datetime"},
+            "rfc3339-local-timestamp-millis": {"type": "datetime"},
+            "rfc3339-local-timestamp-micros": {"type": "datetime"},
+            "rfc3339-duration": {"type": "duration"},
         }
         return mapping.get(logical_type, {"type": "string"})
 

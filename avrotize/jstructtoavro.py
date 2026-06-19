@@ -767,8 +767,13 @@ class JsonStructureToAvro:
     def _map_primitive_type(self, struct_type: str) -> Union[str, Dict[str, Any]]:
         """Map JSON Structure primitive type to Avro primitive type.
         
-        For temporal types, returns Avrotize Schema format with string base type 
-        and logical type annotation (RFC 3339 format).
+        For temporal types, returns Avrotize Schema format with a string base type
+        and an ``rfc3339-*`` logical-type annotation carrying the RFC 3339 textual
+        value. The ``rfc3339-*`` names are NOT reserved Avro logical types, so strict
+        Avro parsers ignore the annotation and treat the value as a plain string,
+        which keeps the emitted schema valid *standard* Avro (see issue #335) while
+        Avrotize-aware tools still recognize the temporal semantics.
+        See specs/avrotize-schema.md (Logical Types).
         """
         # Simple types without logical type annotation
         simple_type_mapping = {
@@ -802,13 +807,16 @@ class JsonStructureToAvro:
             'jsonpointer': 'string',
         }
         
-        # Temporal types with Avrotize Schema string-based logical types (RFC 3339 format)
+        # Temporal types use the rfc3339-* string-based logical-type family so the
+        # output is valid *standard* Avro (rfc3339-* are not reserved Avro logical
+        # types, so strict parsers fall back to the string base) while preserving the
+        # RFC 3339 textual representation. See issue #335 and specs/avrotize-schema.md.
         temporal_type_mapping = {
-            'date': {'type': 'string', 'logicalType': 'date'},  # RFC 3339 full-date
-            'datetime': {'type': 'string', 'logicalType': 'timestamp-millis'},  # RFC 3339 date-time
-            'time': {'type': 'string', 'logicalType': 'time-millis'},  # RFC 3339 partial-time
-            'duration': {'type': 'string', 'logicalType': 'duration'},  # RFC 3339 duration
-            'timestamp': {'type': 'string', 'logicalType': 'timestamp-millis'},  # RFC 3339 date-time
+            'date': {'type': 'string', 'logicalType': 'rfc3339-date'},  # RFC 3339 full-date
+            'datetime': {'type': 'string', 'logicalType': 'rfc3339-timestamp-millis'},  # RFC 3339 date-time
+            'time': {'type': 'string', 'logicalType': 'rfc3339-time-millis'},  # RFC 3339 partial-time
+            'duration': {'type': 'string', 'logicalType': 'rfc3339-duration'},  # RFC 3339 duration
+            'timestamp': {'type': 'string', 'logicalType': 'rfc3339-timestamp-millis'},  # RFC 3339 date-time
         }
         
         # Special types with logical type annotation
@@ -831,29 +839,31 @@ class JsonStructureToAvro:
     def _map_logical_type(self, logical_type: str, base_type: Optional[str]) -> Dict[str, Any]:
         """Map JSON Structure logical type to Avro/Avrotize logical type.
         
-        Uses Avrotize Schema extensions for string-based temporal types (RFC 3339 format).
+        Temporal logical types map to the rfc3339-* string-based family so the output
+        is valid standard Avro (see issue #335 and specs/avrotize-schema.md).
         """
-        # Avrotize Schema: temporal types on string (RFC 3339 format)
+        # Avrotize Schema: temporal types on string carrying RFC 3339 text, using the
+        # rfc3339-* logical-type family (not reserved Avro names -> valid standard Avro).
         logical_mapping = {
             # Timestamps
-            'timestampMicros': {'type': 'string', 'logicalType': 'timestamp-micros'},
-            'timestampMillis': {'type': 'string', 'logicalType': 'timestamp-millis'},
-            'timestamp-micros': {'type': 'string', 'logicalType': 'timestamp-micros'},
-            'timestamp-millis': {'type': 'string', 'logicalType': 'timestamp-millis'},
+            'timestampMicros': {'type': 'string', 'logicalType': 'rfc3339-timestamp-micros'},
+            'timestampMillis': {'type': 'string', 'logicalType': 'rfc3339-timestamp-millis'},
+            'timestamp-micros': {'type': 'string', 'logicalType': 'rfc3339-timestamp-micros'},
+            'timestamp-millis': {'type': 'string', 'logicalType': 'rfc3339-timestamp-millis'},
             # Local timestamps (no timezone)
-            'localTimestampMicros': {'type': 'string', 'logicalType': 'local-timestamp-micros'},
-            'localTimestampMillis': {'type': 'string', 'logicalType': 'local-timestamp-millis'},
-            'local-timestamp-micros': {'type': 'string', 'logicalType': 'local-timestamp-micros'},
-            'local-timestamp-millis': {'type': 'string', 'logicalType': 'local-timestamp-millis'},
+            'localTimestampMicros': {'type': 'string', 'logicalType': 'rfc3339-local-timestamp-micros'},
+            'localTimestampMillis': {'type': 'string', 'logicalType': 'rfc3339-local-timestamp-millis'},
+            'local-timestamp-micros': {'type': 'string', 'logicalType': 'rfc3339-local-timestamp-micros'},
+            'local-timestamp-millis': {'type': 'string', 'logicalType': 'rfc3339-local-timestamp-millis'},
             # Date and time
-            'date': {'type': 'string', 'logicalType': 'date'},
-            'time-millis': {'type': 'string', 'logicalType': 'time-millis'},
-            'time-micros': {'type': 'string', 'logicalType': 'time-micros'},
-            'timeMillis': {'type': 'string', 'logicalType': 'time-millis'},
-            'timeMicros': {'type': 'string', 'logicalType': 'time-micros'},
+            'date': {'type': 'string', 'logicalType': 'rfc3339-date'},
+            'time-millis': {'type': 'string', 'logicalType': 'rfc3339-time-millis'},
+            'time-micros': {'type': 'string', 'logicalType': 'rfc3339-time-micros'},
+            'timeMillis': {'type': 'string', 'logicalType': 'rfc3339-time-millis'},
+            'timeMicros': {'type': 'string', 'logicalType': 'rfc3339-time-micros'},
             # Duration
-            'duration': {'type': 'string', 'logicalType': 'duration'},
-            # UUID
+            'duration': {'type': 'string', 'logicalType': 'rfc3339-duration'},
+            # UUID (valid standard Avro on a string base)
             'uuid': {'type': 'string', 'logicalType': 'uuid'},
             # Decimal (Avrotize extension: on string)
             'decimal': {'type': 'string', 'logicalType': 'decimal'},
