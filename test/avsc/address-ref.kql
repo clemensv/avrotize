@@ -32,7 +32,7 @@
   {"column": "locality", "path": "$.locality"},
   {"column": "region", "path": "$.region"},
   {"column": "postalCode", "path": "$.postalCode"},
-  {"column": "countryName", "path": "$.countryName"},
+  {"column": "countryName", "path": "$.countryName"}
 ]
 ```
 

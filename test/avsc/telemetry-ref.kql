@@ -41,7 +41,7 @@
   {"column": "created", "path": "$.created"},
   {"column": "timespan", "path": "$.timespan"},
   {"column": "data", "path": "$.data"},
-  {"column": "lapId", "path": "$.lapId"},
+  {"column": "lapId", "path": "$.lapId"}
 ]
 ```
 
