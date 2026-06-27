@@ -24,7 +24,7 @@ class AvroToKusto:
         """Initializes a new instance of the AvroToKusto class."""
         pass
 
-    def convert_record_to_kusto(self, type_dict:dict, recordschema: dict, emit_cloudevents_columns: bool, emit_cloudevents_dispatch_table: bool, qualified_table_names: bool = False, namespace_override: str | None = None) -> List[str]:
+    def convert_record_to_kusto(self, type_dict:dict, recordschema: dict, emit_cloudevents_columns: bool, emit_cloudevents_dispatch_table: bool, qualified_table_names: bool = False, namespace_override: str | None = None, emit_materialized_views: bool = True) -> List[str]:
         """Converts an Avro record schema to a Kusto table schema."""
         # Get the name and fields of the top-level record
         simple_name = recordschema["name"]
@@ -120,14 +120,13 @@ class AvroToKusto:
         kusto.append(
             f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_flat\"")
         kusto.append("```\n[")
+        flat_mapping_entries = []
         if emit_cloudevents_columns:
-            kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
-            kusto.append(
-                "  {\"column\": \"___source\", \"path\": \"$.source\"},")
-            kusto.append("  {\"column\": \"___id\", \"path\": \"$.id\"},")
-            kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
-            kusto.append(
-                "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
+            flat_mapping_entries.append("  {\"column\": \"___type\", \"path\": \"$.type\"}")
+            flat_mapping_entries.append("  {\"column\": \"___source\", \"path\": \"$.source\"}")
+            flat_mapping_entries.append("  {\"column\": \"___id\", \"path\": \"$.id\"}")
+            flat_mapping_entries.append("  {\"column\": \"___time\", \"path\": \"$.time\"}")
+            flat_mapping_entries.append("  {\"column\": \"___subject\", \"path\": \"$.subject\"}")
         for field in fields:
             json_name = column_name = field["name"]
             if 'altnames' in field:
@@ -135,21 +134,21 @@ class AvroToKusto:
                     column_name = field['altnames']['kql']
                 if 'json' in field['altnames']:
                     json_name = field['altnames']['json']
-            kusto.append(
-                f"  {{\"column\": \"{column_name}\", \"path\": \"$.{json_name}\"}},")
+            flat_mapping_entries.append(
+                f"  {{\"column\": \"{column_name}\", \"path\": \"$.{json_name}\"}}")
+        kusto.append(",\n".join(flat_mapping_entries))
         kusto.append("]\n```\n\n")
 
         if emit_cloudevents_columns:
             kusto.append(
                 f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_ce_structured\"")
             kusto.append("```\n[")
-            kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
-            kusto.append(
-                "  {\"column\": \"___source\", \"path\": \"$.source\"},")
-            kusto.append("  {\"column\": \"___id\", \"path\": \"$.id\"},")
-            kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
-            kusto.append(
-                "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
+            ce_mapping_entries = []
+            ce_mapping_entries.append("  {\"column\": \"___type\", \"path\": \"$.type\"}")
+            ce_mapping_entries.append("  {\"column\": \"___source\", \"path\": \"$.source\"}")
+            ce_mapping_entries.append("  {\"column\": \"___id\", \"path\": \"$.id\"}")
+            ce_mapping_entries.append("  {\"column\": \"___time\", \"path\": \"$.time\"}")
+            ce_mapping_entries.append("  {\"column\": \"___subject\", \"path\": \"$.subject\"}")
             for field in fields:
                 json_name = column_name = field["name"]
                 if 'altnames' in field:
@@ -157,11 +156,12 @@ class AvroToKusto:
                         column_name = field['altnames']['kql']
                     if 'json' in field['altnames']:
                         json_name = field['altnames']['json']
-                kusto.append(
-                    f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{json_name}\"}},")
+                ce_mapping_entries.append(
+                    f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{json_name}\"}}")
+            kusto.append(",\n".join(ce_mapping_entries))
             kusto.append("]\n```\n\n")
 
-        if emit_cloudevents_columns:
+        if emit_cloudevents_columns and emit_materialized_views:
             kusto.append(
                 f".drop materialized-view {mv_ref} ifexists;")
             kusto.append("")
@@ -196,13 +196,13 @@ class AvroToKusto:
             kusto.append(
                 f"  \"Query\": \"{query}\",")
             kusto.append("  \"IsTransactional\": false,")
-            kusto.append("  \"PropagateIngestionProperties\": true,")
+            kusto.append("  \"PropagateIngestionProperties\": true")
             kusto.append("}]")
             kusto.append("```\n")
 
         return kusto
 
-    def convert_avro_to_kusto_script(self, avro_schema_path, avro_record_type, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, qualified_table_names: bool = False, namespace_override: str | None = None) -> str:
+    def convert_avro_to_kusto_script(self, avro_schema_path, avro_record_type, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, qualified_table_names: bool = False, namespace_override: str | None = None, emit_materialized_views: bool = True) -> str:
         """Converts an Avro schema to a Kusto table schema."""
         if emit_cloudevents_dispatch_table:
             emit_cloudevents_columns = True
@@ -274,13 +274,13 @@ class AvroToKusto:
             if not isinstance(record, dict) or "type" not in record or record["type"] != "record":
                 continue
             kusto_script.extend(self.convert_record_to_kusto(type_dict,
-                record, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace_override))
+                record, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace_override, emit_materialized_views))
         return "\n".join(kusto_script)
 
-    def convert_avro_to_kusto_file(self, avro_schema_path, avro_record_type, kusto_file_path, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, qualified_table_names: bool = False, namespace_override: str | None = None):
+    def convert_avro_to_kusto_file(self, avro_schema_path, avro_record_type, kusto_file_path, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, qualified_table_names: bool = False, namespace_override: str | None = None, emit_materialized_views: bool = True):
         """Converts an Avro schema to a Kusto table schema."""
         script = self.convert_avro_to_kusto_script(
-            avro_schema_path, avro_record_type, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace_override)
+            avro_schema_path, avro_record_type, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace_override, emit_materialized_views)
         with open(kusto_file_path, "w", encoding="utf-8") as kusto_file:
             kusto_file.write(script)
 
@@ -357,18 +357,18 @@ class AvroToKusto:
             return "dynamic"
 
 
-def convert_avro_to_kusto_file(avro_schema_path, avro_record_type, kusto_file_path, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, qualified_table_names: bool = False, namespace: str | None = None):
+def convert_avro_to_kusto_file(avro_schema_path, avro_record_type, kusto_file_path, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, qualified_table_names: bool = False, namespace: str | None = None, emit_materialized_views: bool = True):
     """Converts an Avro schema to a Kusto table schema."""
     avro_to_kusto = AvroToKusto()
     avro_to_kusto.convert_avro_to_kusto_file(
-        avro_schema_path, avro_record_type, kusto_file_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace)
+        avro_schema_path, avro_record_type, kusto_file_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace, emit_materialized_views)
 
 
-def convert_avro_to_kusto_db(avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, token_provider=None, qualified_table_names: bool = False, namespace: str | None = None):
+def convert_avro_to_kusto_db(avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, token_provider=None, qualified_table_names: bool = False, namespace: str | None = None, emit_materialized_views: bool = True):
     """Converts an Avro schema to a Kusto table schema."""
     avro_to_kusto = AvroToKusto()
     script = avro_to_kusto.convert_avro_to_kusto_script(
-        avro_schema_path, avro_record_type, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace)
+        avro_schema_path, avro_record_type, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace, emit_materialized_views)
     kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(
         kusto_uri) if not token_provider else KustoConnectionStringBuilder.with_token_provider(kusto_uri, token_provider)
     client = KustoClient(kcsb)
@@ -380,11 +380,11 @@ def convert_avro_to_kusto_db(avro_schema_path, avro_record_type, kusto_uri, kust
                 print(e)
                 sys.exit(1)
 
-def convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, kusto_uri, kusto_database, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, token_provider=None, qualified_table_names: bool = False, namespace: str | None = None):
+def convert_avro_to_kusto(avro_schema_path, avro_record_type, kusto_file_path, kusto_uri, kusto_database, emit_cloudevents_columns=False, emit_cloudevents_dispatch_table=False, token_provider=None, qualified_table_names: bool = False, namespace: str | None = None, emit_materialized_views: bool = True):
     """Converts an Avro schema to a Kusto table schema."""
     if not kusto_uri and not kusto_database:
         convert_avro_to_kusto_file(
-            avro_schema_path, avro_record_type, kusto_file_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace)
+            avro_schema_path, avro_record_type, kusto_file_path, emit_cloudevents_columns, emit_cloudevents_dispatch_table, qualified_table_names, namespace, emit_materialized_views)
     else:
         convert_avro_to_kusto_db(
-            avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloudevents_columns, emit_cloudevents_dispatch_table, token_provider, qualified_table_names, namespace)
+            avro_schema_path, avro_record_type, kusto_uri, kusto_database, emit_cloudevents_columns, emit_cloudevents_dispatch_table, token_provider, qualified_table_names, namespace, emit_materialized_views)

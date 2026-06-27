@@ -563,7 +563,8 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns",
         "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch",
         "qualified_table_names": "args.qualified_table_names",
-        "namespace": "args.namespace"
+        "namespace": "args.namespace",
+        "emit_materialized_views": "args.emit_materialized_views"
       }
     },
     "extensions": [
@@ -632,6 +633,13 @@
         "type": "str",
         "help": "Set or override the namespace used for qualifying table names and CloudEvents type identifiers",
         "required": false
+      },
+      {
+        "name": "--emit-materialized-views",
+        "type": "bool",
+        "help": "Emit materialized Latest views for each typed table (default: true). Use --no-emit-materialized-views to suppress.",
+        "default": true,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}.kql",
@@ -679,7 +687,8 @@
         "emit_cloudevents_columns": "args.emit_cloudevents_columns",
         "emit_cloudevents_dispatch_table": "args.emit_cloudevents_dispatch",
         "qualified_table_names": "args.qualified_table_names",
-        "namespace": "args.namespace"
+        "namespace": "args.namespace",
+        "emit_materialized_views": "args.emit_materialized_views"
       }
     },
     "extensions": [
@@ -748,6 +757,13 @@
         "name": "--namespace",
         "type": "str",
         "help": "Set or override the namespace used for qualifying table names and CloudEvents type identifiers",
+        "required": false
+      },
+      {
+        "name": "--emit-materialized-views",
+        "type": "bool",
+        "help": "Emit materialized Latest views for each typed table (default: true). Use --no-emit-materialized-views to suppress.",
+        "default": true,
         "required": false
       }
     ],

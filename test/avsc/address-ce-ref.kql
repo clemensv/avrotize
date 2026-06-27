@@ -47,7 +47,7 @@
   {"column": "locality", "path": "$.locality"},
   {"column": "region", "path": "$.region"},
   {"column": "postalCode", "path": "$.postalCode"},
-  {"column": "countryName", "path": "$.countryName"},
+  {"column": "countryName", "path": "$.countryName"}
 ]
 ```
 
@@ -67,7 +67,7 @@
   {"column": "locality", "path": "$.data.locality"},
   {"column": "region", "path": "$.data.region"},
   {"column": "postalCode", "path": "$.data.postalCode"},
-  {"column": "countryName", "path": "$.data.countryName"},
+  {"column": "countryName", "path": "$.data.countryName"}
 ]
 ```
 
