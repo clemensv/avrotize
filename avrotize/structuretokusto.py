@@ -352,43 +352,39 @@ class StructureToKusto:
         # add the JSON mapping for the table
         kusto.append(
             f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_flat\"")
-        kusto.append("```\n[")
+        mapping_entries = []
         if emit_cloudevents_columns:
-            kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
-            kusto.append(
-                "  {\"column\": \"___source\", \"path\": \"$.source\"},")
-            kusto.append("  {\"column\": \"___id\", \"path\": \"$.id\"},")
-            kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
-            kusto.append(
-                "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
+            mapping_entries.append("  {\"column\": \"___type\", \"path\": \"$.type\"}")
+            mapping_entries.append("  {\"column\": \"___source\", \"path\": \"$.source\"}")
+            mapping_entries.append("  {\"column\": \"___id\", \"path\": \"$.id\"}")
+            mapping_entries.append("  {\"column\": \"___time\", \"path\": \"$.time\"}")
+            mapping_entries.append("  {\"column\": \"___subject\", \"path\": \"$.subject\"}")
         for prop_name, prop_schema in properties.items():
             # Skip const fields in JSON mapping since they're not stored as columns
             if isinstance(prop_schema, dict) and 'const' in prop_schema:
                 continue
             column_name = prop_name
-            kusto.append(
-                f"  {{\"column\": \"{column_name}\", \"path\": \"$.{prop_name}\"}},")
-        kusto.append("]\n```\n\n")
+            mapping_entries.append(
+                f"  {{\"column\": \"{column_name}\", \"path\": \"$.{prop_name}\"}}")
+        kusto.append("```\n[\n" + ",\n".join(mapping_entries) + "\n]\n```\n\n")
 
         if emit_cloudevents_columns:
             kusto.append(
                 f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_ce_structured\"")
-            kusto.append("```\n[")
-            kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
-            kusto.append(
-                "  {\"column\": \"___source\", \"path\": \"$.source\"},")
-            kusto.append("  {\"column\": \"___id\", \"path\": \"$.id\"},")
-            kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
-            kusto.append(
-                "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
+            ce_entries = []
+            ce_entries.append("  {\"column\": \"___type\", \"path\": \"$.type\"}")
+            ce_entries.append("  {\"column\": \"___source\", \"path\": \"$.source\"}")
+            ce_entries.append("  {\"column\": \"___id\", \"path\": \"$.id\"}")
+            ce_entries.append("  {\"column\": \"___time\", \"path\": \"$.time\"}")
+            ce_entries.append("  {\"column\": \"___subject\", \"path\": \"$.subject\"}")
             for prop_name, prop_schema in properties.items():
                 # Skip const fields in JSON mapping since they're not stored as columns
                 if isinstance(prop_schema, dict) and 'const' in prop_schema:
                     continue
                 column_name = prop_name
-                kusto.append(
-                    f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{prop_name}\"}},")
-            kusto.append("]\n```\n\n")
+                ce_entries.append(
+                    f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{prop_name}\"}}")
+            kusto.append("```\n[\n" + ",\n".join(ce_entries) + "\n]\n```\n\n")
 
         if emit_cloudevents_columns:
             kusto.append(
@@ -421,7 +417,7 @@ class StructureToKusto:
             kusto.append(
                 f"  \"Query\": \"{query}\",")
             kusto.append("  \"IsTransactional\": false,")
-            kusto.append("  \"PropagateIngestionProperties\": true,")
+            kusto.append("  \"PropagateIngestionProperties\": true")
             kusto.append("}]")
             kusto.append("```\n")
 

@@ -275,8 +275,36 @@ def convert_case(file_base_name: str, emit_cloudevents_columns, emit_cloudevents
         assert content1 == content2
 
 
+def test_kql_json_blocks_are_valid():
+    """Test that all JSON blocks in generated KQL are valid JSON (no trailing commas)."""
+    cwd = os.getcwd()
+    struct_path = os.path.join(cwd, "test", "avsc", "address-ref.struct.json")
+    kql_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-json-valid.kql")
+    dir_name = os.path.dirname(kql_path)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name, exist_ok=True)
+
+    convert_structure_to_kusto_file(struct_path, None, kql_path, True, True)
+
+    with open(kql_path, 'r', encoding="utf-8") as f:
+        content = f.read()
+
+    # Extract all JSON blocks between ``` fences
+    blocks = re.findall(r'```\n(.*?)\n```', content, re.DOTALL)
+    assert len(blocks) > 0, "Expected at least one fenced JSON block"
+    for i, block in enumerate(blocks):
+        block = block.strip()
+        if block.startswith('[') or block.startswith('{'):
+            try:
+                json.loads(block)
+            except json.JSONDecodeError as e:
+                raise AssertionError(
+                    f"Invalid JSON in block {i}: {e}\n---\n{block}\n---")
+
+
 if __name__ == '__main__':
     test_convert_address_struct_to_kusto()
     test_convert_address_struct_to_kusto_ce()
     test_convert_address_struct_to_kusto_ce_dt()
+    test_kql_json_blocks_are_valid()
     print("All tests passed!")
