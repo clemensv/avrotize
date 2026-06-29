@@ -6,7 +6,7 @@ import json
 import os
 from typing import Any, Dict, List, Set, Union, Optional, cast
 
-from avrotize.common import pascal, render_template
+from avrotize.common import pascal, render_template, json_wire_name
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -341,7 +341,7 @@ class StructureToGo:
             fields.append({
                 'name': pascal(prop_name),
                 'type': field_type,
-                'original_name': prop_name,
+                'original_name': json_wire_name(prop_name, prop_schema),
                 'source_type': source_type
             })
 

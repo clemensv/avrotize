@@ -7,7 +7,7 @@ import os
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, snake, render_template
+from avrotize.common import pascal, snake, render_template, json_wire_name
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -307,7 +307,7 @@ class StructureToRust:
             if 'const' in prop_schema:
                 continue
             
-            original_field_name = prop_name
+            original_field_name = json_wire_name(prop_name, prop_schema)
             field_name = self.safe_identifier(snake(prop_name))
             
             # Determine if required

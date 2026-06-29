@@ -8,7 +8,7 @@ import random
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -356,7 +356,7 @@ class StructureToTypeScript:
                 source_type = 'object'
             fields.append({
                 'name': self.safe_name(prop_name),
-                'original_name': prop_name,
+                'original_name': json_wire_name(prop_name, prop_schema),
                 'type': field_type,
                 'type_no_null': field_type_no_null,
                 'source_type': source_type,

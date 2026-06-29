@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Tuple, Union, cast, Optional
 import uuid
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name
 from avrotize.jstructtoavro import JsonStructureToAvro
 from avrotize.constants import (
     NEWTONSOFT_JSON_VERSION,
@@ -479,8 +479,9 @@ class StructureToCSharp:
         else:
             field_name_cs = field_name
         
-        # Track if field name differs from original for JSON annotation
-        needs_json_annotation = field_name_cs != prop_name
+        # JSON wire key honors JSON Structure altnames.json; annotate when it differs
+        wire_name = json_wire_name(prop_name, prop_schema)
+        needs_json_annotation = field_name_cs != wire_name
         
         # Check if this is a const field
         if 'const' in prop_schema:
@@ -498,9 +499,9 @@ class StructureToCSharp:
             # Add JSON property name annotation when property name differs from schema name
             # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
             if needs_json_annotation:
-                property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
+                property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{wire_name}")]\n'
             if self.newtonsoft_json_annotation and needs_json_annotation:
-                property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
+                property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{wire_name}")]\n'
             
             # Add XML element annotation if enabled
             if self.system_xml_annotation:
@@ -533,9 +534,9 @@ class StructureToCSharp:
         # Add JSON property name annotation when property name differs from schema name
         # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
         elif needs_json_annotation:
-            property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
+            property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{wire_name}")]\n'
         if self.newtonsoft_json_annotation and needs_json_annotation:
-            property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
+            property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{wire_name}")]\n'
         
         # Add XML element annotation if enabled
         if self.system_xml_annotation:

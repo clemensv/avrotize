@@ -8,7 +8,7 @@ import re
 import random
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name
 from avrotize.jstructtoavro import JsonStructureToAvro
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
@@ -437,8 +437,9 @@ class StructureToPython:
         """ Generates a field for a Python dataclass """
         # Sanitize field name for Python identifier validity
         field_name = self.safe_identifier(prop_name, class_name)
-        # Track if we need a field_name annotation for JSON serialization
-        needs_field_name_annotation = field_name != prop_name
+        # Wire key honors JSON Structure altnames.json; annotation needed when it differs
+        wire_name = json_wire_name(prop_name, prop_schema)
+        needs_field_name_annotation = wire_name != field_name
 
         # Check if this is a const field
         if 'const' in prop_schema:
@@ -447,7 +448,7 @@ class StructureToPython:
                 class_name, field_name, prop_schema, parent_namespace, import_types)
             return {
                 'name': field_name,
-                'json_name': prop_name if needs_field_name_annotation else None,
+                'json_name': wire_name if needs_field_name_annotation else None,
                 'type': prop_type,
                 'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
                 'is_enum': False,
@@ -482,7 +483,7 @@ class StructureToPython:
 
         return {
             'name': field_name,
-            'json_name': prop_name if needs_field_name_annotation else None,
+            'json_name': wire_name if needs_field_name_annotation else None,
             'type': prop_type,
             'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
             'is_enum': prop_type in self.generated_types and self.generated_types[prop_type] == 'enum',

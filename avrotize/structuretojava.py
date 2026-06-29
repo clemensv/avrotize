@@ -6,7 +6,7 @@ import os
 from typing import Dict, List, Tuple, Union, Set, Optional, Any
 from avrotize.constants import JACKSON_VERSION, JACKSON_ANNOTATIONS_VERSION
 
-from avrotize.common import pascal, camel, process_template
+from avrotize.common import pascal, camel, process_template, json_wire_name
 
 INDENT = '    '
 
@@ -446,7 +446,7 @@ class StructureToJava:
             source_type = 'object'
         return {
             'name': safe_field_name,
-            'original_name': prop_name,
+            'original_name': json_wire_name(prop_name, prop_schema),
             'type': field_type.type_name,
             'source_type': source_type,
             'docstring': doc,
