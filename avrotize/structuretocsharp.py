@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Tuple, Union, cast, Optional
 import uuid
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
 from avrotize.jstructtoavro import JsonStructureToAvro
 from avrotize.constants import (
     NEWTONSOFT_JSON_VERSION,
@@ -479,8 +479,9 @@ class StructureToCSharp:
         else:
             field_name_cs = field_name
         
-        # Track if field name differs from original for JSON annotation
-        needs_json_annotation = field_name_cs != prop_name
+        # JSON wire key honors JSON Structure altnames.json; annotate when it differs
+        wire_name = json_wire_name(prop_name, prop_schema)
+        needs_json_annotation = field_name_cs != wire_name
         
         # Check if this is a const field
         if 'const' in prop_schema:
@@ -498,9 +499,9 @@ class StructureToCSharp:
             # Add JSON property name annotation when property name differs from schema name
             # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
             if needs_json_annotation:
-                property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
+                property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{wire_name}")]\n'
             if self.newtonsoft_json_annotation and needs_json_annotation:
-                property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
+                property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{wire_name}")]\n'
             
             # Add XML element annotation if enabled
             if self.system_xml_annotation:
@@ -533,9 +534,9 @@ class StructureToCSharp:
         # Add JSON property name annotation when property name differs from schema name
         # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
         elif needs_json_annotation:
-            property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
+            property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{wire_name}")]\n'
         if self.newtonsoft_json_annotation and needs_json_annotation:
-            property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
+            property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{wire_name}")]\n'
         
         # Add XML element annotation if enabled
         if self.system_xml_annotation:
@@ -765,7 +766,7 @@ class StructureToCSharp:
             enum_definition += f"{INDENT*2}{{\n"
             for value in enum_values:
                 member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                enum_definition += f'{INDENT*3}"{value}" => {enum_name}.{member_name},\n'
+                enum_definition += f'{INDENT*3}"{json_enum_wire_value(value, structure_schema)}" => {enum_name}.{member_name},\n'
             enum_definition += f'{INDENT*3}_ => throw new System.Text.Json.JsonException($"Unknown value \'{{stringValue}}\' for {enum_name}")\n'
             enum_definition += f"{INDENT*2}}};\n"
         
@@ -783,7 +784,7 @@ class StructureToCSharp:
             enum_definition += f"{INDENT*2}{{\n"
             for value in enum_values:
                 member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{value}",\n'
+                enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{json_enum_wire_value(value, structure_schema)}",\n'
             enum_definition += f'{INDENT*3}_ => throw new System.ArgumentOutOfRangeException(nameof(value))\n'
             enum_definition += f"{INDENT*2}}};\n"
             enum_definition += f"{INDENT*2}writer.WriteStringValue(stringValue);\n"
@@ -813,7 +814,7 @@ class StructureToCSharp:
                 enum_definition += f"{INDENT*2}{{\n"
                 for value in enum_values:
                     member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                    enum_definition += f'{INDENT*3}"{value}" => {enum_name}.{member_name},\n'
+                    enum_definition += f'{INDENT*3}"{json_enum_wire_value(value, structure_schema)}" => {enum_name}.{member_name},\n'
                 enum_definition += f'{INDENT*3}_ => throw new Newtonsoft.Json.JsonException($"Unknown value \'{{stringValue}}\' for {enum_name}")\n'
                 enum_definition += f"{INDENT*2}}};\n"
             
@@ -831,7 +832,7 @@ class StructureToCSharp:
                 enum_definition += f"{INDENT*2}{{\n"
                 for value in enum_values:
                     member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                    enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{value}",\n'
+                    enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{json_enum_wire_value(value, structure_schema)}",\n'
                 enum_definition += f'{INDENT*3}_ => throw new System.ArgumentOutOfRangeException(nameof(value))\n'
                 enum_definition += f"{INDENT*2}}};\n"
                 enum_definition += f"{INDENT*2}writer.WriteValue(stringValue);\n"
@@ -2444,3 +2445,4 @@ def convert_structure_schema_to_csharp(
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
     structtocs.convert_schema(structure_schema, output_dir)
+

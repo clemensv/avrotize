@@ -830,6 +830,52 @@ def altname(schema_obj: dict, purpose: str):
     return schema_obj["name"]
 
 
+def json_wire_name(prop_name: str, prop_schema: Any) -> str:
+    """
+    Resolve the JSON wire key for a property, honoring JSON Structure ``altnames.json``.
+
+    JSON Structure requires property keys to be identifiers. A non-identifier wire key
+    (e.g. ``dr-type``) is modeled as an identifier property name (``dr_type``) carrying
+    ``altnames: {"json": "dr-type"}``. The ``json`` purpose is the canonical wire name.
+
+    Args:
+        prop_name (str): The property name (identifier) used as the schema key.
+        prop_schema (Any): The property schema; may carry an ``altnames`` map.
+
+    Returns:
+        str: ``altnames.json`` when present, otherwise ``prop_name``.
+    """
+    if isinstance(prop_schema, dict):
+        altnames = prop_schema.get("altnames")
+        if isinstance(altnames, dict) and "json" in altnames:
+            return altnames["json"]
+    return prop_name
+
+
+def json_enum_wire_value(value: Any, enum_schema: Any) -> str:
+    """
+    Resolve the JSON wire string for an enum value, honoring JSON Structure ``altenums.json``.
+
+    ``altenums.json`` is a map keyed by the original enum value; the language member name
+    stays derived from the original value, while the wire value uses the mapping when present.
+    Unmapped values serialize verbatim (identity fallback).
+
+    Args:
+        value: The original enum value (schema key).
+        enum_schema (Any): The enum schema; may carry an ``altenums`` map.
+
+    Returns:
+        str: ``altenums.json[value]`` when present, otherwise ``str(value)``.
+    """
+    if isinstance(enum_schema, dict):
+        altenums = enum_schema.get("altenums")
+        if isinstance(altenums, dict):
+            j = altenums.get("json")
+            if isinstance(j, dict) and str(value) in j:
+                return j[str(value)]
+    return str(value)
+
+
 def process_template(file_path: str, **kvargs) -> str:
     """
     Process a file as a Jinja2 template with the given object as input.

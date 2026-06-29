@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/altnames-wire/v1",
+  "name": "Telemetry",
+  "$root": "#/definitions/Telemetry",
+  "$uses": ["JSONStructureAlternateNames"],
+  "definitions": {
+    "Telemetry": {
+      "name": "Telemetry",
+      "type": "object",
+      "properties": {
+        "dr_type": { "type": "int32", "altnames": { "json": "dr-type" } },
+        "tlp_requestid": { "type": "string", "altnames": { "json": "tlp-requestid" } },
+        "signal_groupid": { "type": "int64", "altnames": { "json": "signal-groupid" } },
+        "regular": { "type": "string" }
+      },
+      "required": ["dr_type", "regular"]
+    }
+  }
+}

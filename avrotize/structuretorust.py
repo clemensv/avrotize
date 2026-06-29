@@ -7,7 +7,7 @@ import os
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, snake, render_template
+from avrotize.common import pascal, snake, render_template, json_wire_name, json_enum_wire_value
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -307,7 +307,7 @@ class StructureToRust:
             if 'const' in prop_schema:
                 continue
             
-            original_field_name = prop_name
+            original_field_name = json_wire_name(prop_name, prop_schema)
             field_name = self.safe_identifier(snake(prop_name))
             
             # Determine if required
@@ -382,12 +382,11 @@ class StructureToRust:
         # Convert enum values to valid Rust identifiers
         symbols = []
         for value in enum_values:
+            wire = json_enum_wire_value(value, structure_schema)
             if isinstance(value, str):
-                # Convert to PascalCase and make it a valid Rust identifier
                 symbol = pascal(value.replace('-', '_').replace(' ', '_'))
-                symbols.append({'name': symbol, 'value': value})
+                symbols.append({'name': symbol, 'value': wire})
             else:
-                # For numeric values, use Value prefix
                 symbols.append({'name': f"Value{value}", 'value': str(value)})
 
         doc = structure_schema.get('description', structure_schema.get('doc', enum_name))
