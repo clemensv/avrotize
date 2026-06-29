@@ -1,5 +1,21 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.6.0] - 2026-06-29
+
+### Added
+
+- **JSON Structure `altnames`/`altenums` wire serialization (issue #384)**: the
+  direct structure-to-language generators (Python, C#, Java, TypeScript, Go,
+  Rust, C++) now honor the `JSONStructureAlternateNames` extension on the JSON
+  wire. A spec-valid identifier property carrying `altnames: {"json": "wire-key"}`
+  keeps the identifier as the language member name while serializing/deserializing
+  the alternate `json` key (e.g. member `dr_type` ↔ wire `dr-type`). Renames apply
+  recursively to nested objects, array items, and map values. Enums honor
+  `altenums: {"json": {...}}`, mapping each member to its wire value with identity
+  fallback for unmapped symbols (C++ emits `NLOHMANN_JSON_SERIALIZE_ENUM`). A
+  rename is emitted only when the wire name differs from the identifier. Other
+  purposes (`description`, `lang:*`, custom) never affect the wire.
+
 ## [3.5.12] - 2026-06-19
 
 ### Fixed
