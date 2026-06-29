@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Tuple, Union, cast, Optional
 import uuid
 
-from avrotize.common import pascal, process_template, json_wire_name
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
 from avrotize.jstructtoavro import JsonStructureToAvro
 from avrotize.constants import (
     NEWTONSOFT_JSON_VERSION,
@@ -766,7 +766,7 @@ class StructureToCSharp:
             enum_definition += f"{INDENT*2}{{\n"
             for value in enum_values:
                 member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                enum_definition += f'{INDENT*3}"{value}" => {enum_name}.{member_name},\n'
+                enum_definition += f'{INDENT*3}"{json_enum_wire_value(value, structure_schema)}" => {enum_name}.{member_name},\n'
             enum_definition += f'{INDENT*3}_ => throw new System.Text.Json.JsonException($"Unknown value \'{{stringValue}}\' for {enum_name}")\n'
             enum_definition += f"{INDENT*2}}};\n"
         
@@ -784,7 +784,7 @@ class StructureToCSharp:
             enum_definition += f"{INDENT*2}{{\n"
             for value in enum_values:
                 member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{value}",\n'
+                enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{json_enum_wire_value(value, structure_schema)}",\n'
             enum_definition += f'{INDENT*3}_ => throw new System.ArgumentOutOfRangeException(nameof(value))\n'
             enum_definition += f"{INDENT*2}}};\n"
             enum_definition += f"{INDENT*2}writer.WriteStringValue(stringValue);\n"
@@ -814,7 +814,7 @@ class StructureToCSharp:
                 enum_definition += f"{INDENT*2}{{\n"
                 for value in enum_values:
                     member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                    enum_definition += f'{INDENT*3}"{value}" => {enum_name}.{member_name},\n'
+                    enum_definition += f'{INDENT*3}"{json_enum_wire_value(value, structure_schema)}" => {enum_name}.{member_name},\n'
                 enum_definition += f'{INDENT*3}_ => throw new Newtonsoft.Json.JsonException($"Unknown value \'{{stringValue}}\' for {enum_name}")\n'
                 enum_definition += f"{INDENT*2}}};\n"
             
@@ -832,7 +832,7 @@ class StructureToCSharp:
                 enum_definition += f"{INDENT*2}{{\n"
                 for value in enum_values:
                     member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                    enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{value}",\n'
+                    enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{json_enum_wire_value(value, structure_schema)}",\n'
                 enum_definition += f'{INDENT*3}_ => throw new System.ArgumentOutOfRangeException(nameof(value))\n'
                 enum_definition += f"{INDENT*2}}};\n"
                 enum_definition += f"{INDENT*2}writer.WriteValue(stringValue);\n"
@@ -2445,3 +2445,4 @@ def convert_structure_schema_to_csharp(
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
     structtocs.convert_schema(structure_schema, output_dir)
+

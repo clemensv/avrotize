@@ -6,7 +6,7 @@ import json
 import os
 from typing import Any, Dict, List, Set, Union, Optional, cast
 
-from avrotize.common import pascal, render_template, json_wire_name
+from avrotize.common import pascal, render_template, json_wire_name, json_enum_wire_value
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -401,7 +401,8 @@ class StructureToGo:
         self.generated_types[go_enum_name] = "enum"
         self.generated_structure_types[go_enum_name] = structure_schema
 
-        symbols = structure_schema.get('enum', [])
+        raw_symbols = structure_schema.get('enum', [])
+        symbols = [{'name': str(s), 'value': json_enum_wire_value(s, structure_schema)} for s in raw_symbols]
         
         # Determine base type
         base_type = structure_schema.get('type', 'string')
@@ -423,10 +424,10 @@ class StructureToGo:
 
         self.enums.append({
             'name': go_enum_name,
-            'symbols': symbols,
+            'symbols': [s['name'] for s in symbols],
         })
 
-        self.generate_unit_test('enum', go_enum_name, symbols)
+        self.generate_unit_test('enum', go_enum_name, [s['name'] for s in symbols])
 
         return go_enum_name
 

@@ -37,6 +37,27 @@ SCHEMA = {
 }
 WIN = sys.platform == "win32"
 
+# Rich schema: nested object, array-of-object, map-of-object property renames + enum altenums.
+RICH = {
+    "name": "Outer",
+    "type": "object",
+    "properties": {
+        "dr_type": {"type": "int32", "altnames": {"json": "dr-type"}},
+        "child": {"type": "object", "name": "Child",
+                  "properties": {"nest_id": {"type": "int32", "altnames": {"json": "nest-id"}}},
+                  "required": ["nest_id"]},
+        "items": {"type": "array", "items": {"type": "object", "name": "Elem",
+                  "properties": {"el_id": {"type": "int32", "altnames": {"json": "el-id"}}},
+                  "required": ["el_id"]}},
+        "lookup": {"type": "map", "values": {"type": "object", "name": "MapVal",
+                   "properties": {"mv_id": {"type": "int32", "altnames": {"json": "mv-id"}}},
+                   "required": ["mv_id"]}},
+        "color": {"type": "string", "name": "Color", "enum": ["RED", "GREEN"],
+                  "altenums": {"json": {"RED": "r-ed", "GREEN": "g-reen"}}},
+    },
+    "required": ["dr_type"],
+}
+
 
 def _out(name: str) -> str:
     path = os.path.join(tempfile.gettempdir(), "avrotize_altnames", name)
@@ -250,6 +271,52 @@ class TestCppGeneration(unittest.TestCase):
         r = _run([exe], out, timeout=60, shell=WIN)
         self.assertEqual(r.returncode, 0, f"cpp round-trip failed: {r.stdout}\n{r.stderr}")
         self.assertIn("OK", r.stdout)
+
+
+class TestConstructsCoverage(unittest.TestCase):
+    """altnames must rename property keys at every nesting level (object, array items, map values),
+    and altenums must rename enum wire values, in every generator's emitted source."""
+    GENS = [
+        ("py", convert_structure_schema_to_python, {"dataclasses_json_annotation": True}),
+        ("cs", convert_structure_schema_to_csharp, {"base_namespace": "Tel", "system_text_json_annotation": True}),
+        ("java", convert_structure_schema_to_java, {"package_name": "tel", "jackson_annotation": True}),
+        ("ts", convert_structure_schema_to_typescript, {"typedjson_annotation": True}),
+        ("go", convert_structure_schema_to_go, {"package_name": "tel", "json_annotation": True}),
+        ("rust", convert_structure_schema_to_rust, {"package_name": "tel", "serde_annotation": True}),
+        ("cpp", convert_structure_schema_to_cpp, {"namespace": "tel", "json_annotation": True}),
+    ]
+    def test_all_constructs(self):
+        for name, fn, kw in self.GENS:
+            out = _out("cov_" + name)
+            fn(RICH, out, **kw)
+            src = "".join(open(f, encoding="utf-8", errors="ignore").read()
+                          for f in glob.glob(os.path.join(out, "**", "*.*"), recursive=True)
+                          if f.rsplit(".", 1)[-1] in ("py", "cs", "java", "ts", "go", "rs", "hpp"))
+            for wire in ("dr-type", "nest-id", "el-id", "mv-id", "r-ed", "g-reen"):
+                self.assertIn(wire, src, f"{name}: missing wire token {wire}")
+
+
+class TestPythonDeepRoundTrip(unittest.TestCase):
+    def test_python_deep(self):
+        out = _out("pydeep")
+        convert_structure_schema_to_python(RICH, out, dataclasses_json_annotation=True)
+        files = glob.glob(os.path.join(out, "**", "*.py"), recursive=True)
+        outer = next(f for f in files if os.path.basename(f) == "outer.py")
+        for f in files:
+            spec = importlib.util.spec_from_file_location(os.path.splitext(os.path.basename(f))[0], f)
+            m = importlib.util.module_from_spec(spec); sys.modules[spec.name] = m; spec.loader.exec_module(m)
+        mod = sys.modules["outer"]
+        o = mod.Outer(dr_type=1, child=mod.Child(nest_id=2),
+                      items=[mod.Elem(el_id=3)], lookup={"k": mod.MapVal(mv_id=4)},
+                      color=mod.Color.RED)
+        d = json.loads(o.to_json())
+        self.assertEqual(d["dr-type"], 1)
+        self.assertEqual(d["child"]["nest-id"], 2)
+        self.assertEqual(d["items"][0]["el-id"], 3)
+        self.assertEqual(d["lookup"]["k"]["mv-id"], 4)
+        self.assertEqual(d["color"], "r-ed")
+        for leaked in ("dr_type", "nest_id", "el_id", "mv_id", "RED"):
+            self.assertNotIn(leaked, json.dumps(d))
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ import re
 import random
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, process_template, json_wire_name
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
 from avrotize.jstructtoavro import JsonStructureToAvro
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
@@ -613,7 +613,7 @@ class StructureToPython:
             if is_numeric:
                 value_repr = repr(value)
             else:
-                value_repr = repr(str(value))
+                value_repr = repr(json_enum_wire_value(value, structure_schema))
             members.append((member_name, value_repr))
             symbols.append(member_name)
 

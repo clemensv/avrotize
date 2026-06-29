@@ -5,7 +5,7 @@ import json
 import os
 from typing import Dict, List, Union, Set, Optional, Any, cast
 
-from avrotize.common import pascal, process_template, json_wire_name
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
 
 INDENT = '    '
 
@@ -397,10 +397,14 @@ class StructureToCpp:
             enum_definition += f"// {doc}\n"
         
         symbols = structure_schema.get('enum', [])
+        members = [(self.safe_identifier(str(s)), json_enum_wire_value(s, structure_schema)) for s in symbols]
         enum_definition += f"enum class {enum_name} {{\n"
-        for symbol in symbols:
-            enum_definition += f"{INDENT}{self.safe_identifier(str(symbol))},\n"
+        for name, _ in members:
+            enum_definition += f"{INDENT}{name},\n"
         enum_definition += "};\n\n"
+        if members:
+            pairs = ", ".join(f'{{{enum_name}::{name}, "{wire}"}}' for name, wire in members)
+            enum_definition += f"NLOHMANN_JSON_SERIALIZE_ENUM({enum_name}, {{ {pairs} }})\n\n"
         
         if write_file:
             self.write_to_file(namespace, enum_name, "", enum_definition)
