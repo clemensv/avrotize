@@ -4,7 +4,7 @@
 # Runtime dependencies
 avro>=1.12.1
 fastavro>=1.12.2
-confluent-kafka>=2.14.2
+confluent-kafka>=2.15.0
 dataclasses-json>=0.6.7
 
 # Development dependencies
