@@ -58,6 +58,7 @@ Avrotize provides several commands for converting schema formats via Avrotize Sc
 Converting to Avrotize Schema:
 
 - [`avrotize p2a`](#convert-proto-schema-to-avrotize-schema) - Convert Protobuf (2 or 3) schema to Avrotize Schema.
+- [`avrotize cue2a`](#convert-cue-schema-subset-to-avrotize-schema) - Convert a supported CUE schema subset to Avrotize Schema.
 - [`avrotize j2a`](#convert-json-schema-to-avrotize-schema) - Convert JSON schema to Avrotize Schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
@@ -76,6 +77,7 @@ Converting to Avrotize Schema:
 Converting from Avrotize Schema:
 
 - [`avrotize a2p`](#convert-avrotize-schema-to-proto-schema) - Convert Avrotize Schema to Protobuf 3 schema.
+- [`avrotize a2cue`](#convert-avrotize-schema-to-cue-schema-subset) - Convert Avrotize Schema to the supported CUE schema subset.
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
@@ -106,6 +108,8 @@ Direct conversions (JSON Structure):
 
 - [`avrotize s2p`](#convert-json-structure-to-protocol-buffers) - Convert JSON Structure to Protocol Buffers (.proto files).
 - [`avrotize oas2s`](#convert-openapi-to-json-structure) - Convert OpenAPI 3.x document to JSON Structure.
+- [`avrotize cue2s`](#convert-cue-schema-subset-to-json-structure) - Convert a supported CUE schema subset to JSON Structure.
+- [`avrotize s2cue`](#convert-json-structure-to-cue-schema-subset) - Convert JSON Structure to the supported CUE schema subset.
 
 Generate code from Avrotize Schema:
 
@@ -270,6 +274,65 @@ Conversion notes:
 - Avro namespaces are resolved into distinct proto package definitions. The tool will create a new `.proto` file with the package definition and an `import` statement for each namespace found in the Avrotize Schema.
 - Avro type unions `[]` are converted to `oneof` expressions in Proto. Avro allows for maps and arrays in the type union, whereas Proto only supports scalar types and message type references. The tool will therefore emit message types containing a single array or map field for any such case and add it to the containing type, and will also recursively resolve further unions in the array and map values.
 - The sequence of fields in a message follows the sequence of fields in the Avro record. When type unions need to be resolved into `oneof` expressions, the alternative fields need to be assigned field numbers, which will shift the field numbers for any subsequent fields.
+
+### Convert CUE schema subset to Avrotize Schema
+
+```bash
+avrotize cue2a <path_to_cue_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+```
+
+Parameters:
+
+- `<path_to_cue_file>`: The path to the CUE file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace for generated Avrotize Schema records. If omitted, a simple CUE `package` name is used as the namespace.
+
+Supported subset / limitations:
+
+- Supported: schema-style definitions `#Name: { ... }`, top-level fields as a generated record, required fields `name: T`, optional fields `name?: T`, primitive types `string`, `int`, `float`, `number`, `bool`, `bytes`, and `null` (`int` maps to Avro `long`; `number` maps to Avro `double`).
+- Supported: nested structs as records, open lists `[...T]` as arrays, open structs `{ [string]: T }` as maps, references to other definitions (`#Other`), disjunctions as Avro unions, nullable disjunctions such as `*null | T` or `T | null`, string-literal disjunctions as Avro enums with sanitized symbols, and simple defaults like `name: T | *default`.
+- Out of scope: full CUE constraint solving, imports beyond a simple package declaration, complex constraints and comprehensions, computed or unified expressions, bounds and regex constraints (`>0`, `=~"..."`), interpolation, and package/module resolution. Unsupported constructs are skipped or mapped to a broad string type with a conversion note rather than causing a crash.
+
+Example:
+
+```cue
+package demo
+
+#Person: {
+  name: string
+  age?: int
+  tags: [...string]
+  status: "new" | "active"
+}
+```
+
+### Convert Avrotize Schema to CUE schema subset
+
+```bash
+avrotize a2cue <path_to_avro_schema_file> [--out <path_to_cue_file>] [--namespace <cue_package_hint>]
+```
+
+Conversion notes:
+
+- Avro records become CUE definitions (`#Name: { ... }`), fields become `name: Type`, nullable unions become optional fields where possible, enums become string disjunctions, arrays become `[...T]`, and maps become `{ [string]: T }`.
+- Avro `int` and `long` both emit as CUE `int`; `float` emits as `float`; `double` emits as `number`. Avro namespaces are reduced to a simple CUE package name using the last namespace segment.
+- The converter emits the same practical schema subset accepted by `cue2a`; it does not attempt to reconstruct CUE constraints, imports, comprehensions, or computed expressions.
+
+### Convert CUE schema subset to JSON Structure
+
+```bash
+avrotize cue2s <path_to_cue_file> [--out <path_to_structure_file>] [--namespace <namespace>]
+```
+
+`cue2s` bridges through an intermediate Avrotize Schema file and therefore uses the same supported CUE subset and limitations as `cue2a`.
+
+### Convert JSON Structure to CUE schema subset
+
+```bash
+avrotize s2cue <path_to_structure_file> [--out <path_to_cue_file>] [--namespace <cue_package_hint>]
+```
+
+`s2cue` bridges through an intermediate Avrotize Schema file and emits the same practical CUE schema subset as `a2cue`.
 
 ### Convert JSON schema to Avrotize Schema
 

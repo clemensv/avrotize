@@ -14,6 +14,9 @@ All notable changes to Avrotize are documented in this file.
   `map<string, string>`; required properties become non-nullable columns.
 - **JSON Type Definition (JTD, RFC 8927) support** ([#260](https://github.com/clemensv/avrotize/issues/260)): Added `jtd2a`, `a2jtd`, `jtd2s`, and `s2jtd` commands for converting JTD to/from Avrotize Schema and JSON Structure. The implementation supports JTD type, enum, elements, values, properties/optionalProperties, discriminator/mapping, definitions/ref, and nullable forms, with documented Avro mapping limitations.
 - **SurrealDB schema conversion** ([#270](https://github.com/clemensv/avrotize/issues/270)): Added `surreal2a` and `a2surreal` converters for SurrealQL `DEFINE TABLE` / `DEFINE FIELD` schemas, including nested dotted fields, arrays, sets, nullable `option<T>` fields, and Avro logical types for datetime, decimal, and UUID values.
+- **CUE schema subset support** ([#258](https://github.com/clemensv/avrotize/issues/258)): Added `cue2a`, `a2cue`, `cue2s`, and `s2cue` converters for a documented practical CUE schema/type-definition subset, including Avro and JSON Structure bridge conversions.
+
+## [3.5.9] - 2026-06-04
 
 ## [3.6.1] - 2026-07-08
 
@@ -115,7 +118,6 @@ All notable changes to Avrotize are documented in this file.
   `datetime.date` fields generated from Avro `date` logical types now use ISO
   `dataclasses-json` encoder/decoder wiring and a Marshmallow `fields.Date`,
   matching existing `datetime.datetime` timestamp handling.## [3.5.9] - 2026-06-04
-
 ### Changed
 
 - **Extensible `AnyValue` record for the Avro "any" type**: The generic type
