@@ -5276,5 +5276,162 @@
     ],
     "suggested_output_file_path": "{input_file_name}.cue",
     "prompts": []
+  },
+  {
+    "command": "thrift2a",
+    "description": "Convert Apache Thrift IDL to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.thrifttoavro.convert_thrift_to_avro",
+      "args": {
+        "thrift_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".thrift"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the Thrift IDL file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2thrift",
+    "description": "Convert Avrotize schema to Apache Thrift IDL",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotothrift.convert_avro_to_thrift",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "thrift_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Thrift IDL file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Thrift IDL",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.thrift",
+    "prompts": []
+  },
+  {
+    "command": "thrift2s",
+    "description": "Convert Apache Thrift IDL to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.thriftstructure.convert_thrift_to_structure",
+      "args": {
+        "thrift_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".thrift"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the Thrift IDL file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the intermediate Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2thrift",
+    "description": "Convert JSON Structure to Apache Thrift IDL",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.thriftstructure.convert_structure_to_thrift",
+      "args": {
+        "structure_file": "input_file_path",
+        "thrift_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Thrift IDL file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Thrift IDL",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.thrift",
+    "prompts": []
   }
 ]

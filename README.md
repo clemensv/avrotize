@@ -21,6 +21,9 @@ The tool leans on the Apache Avro-derived [Avrotize Schema](specs/avrotize-schem
 - Other databases: KQL/Kusto, SurrealDB, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
 - Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet
 
+- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
+- Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, Apache Thrift IDL, ASN.1, Apache Parquet
+
 ## Installation
 
 You can install Avrotize from PyPI, [having installed Python 3.10 or later](https://www.python.org/downloads/):
@@ -61,6 +64,8 @@ Converting to Avrotize Schema:
 - [`avrotize cue2a`](#convert-cue-schema-subset-to-avrotize-schema) - Convert a supported CUE schema subset to Avrotize Schema.
 
 - [`avrotize fbs2a`](#convert-flatbuffers-schema-to-avrotize-schema) - Convert FlatBuffers schema to Avrotize Schema.
+
+- [`avrotize thrift2a`](#convert-apache-thrift-idl-to-avrotize-schema) - Convert Apache Thrift IDL to Avrotize Schema.
 - [`avrotize j2a`](#convert-json-schema-to-avrotize-schema) - Convert JSON schema to Avrotize Schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
@@ -82,6 +87,8 @@ Converting from Avrotize Schema:
 - [`avrotize a2cue`](#convert-avrotize-schema-to-cue-schema-subset) - Convert Avrotize Schema to the supported CUE schema subset.
 
 - [`avrotize a2fbs`](#convert-avrotize-schema-to-flatbuffers-schema) - Convert Avrotize Schema to FlatBuffers schema.
+
+- [`avrotize a2thrift`](#convert-avrotize-schema-to-apache-thrift-idl) - Convert Avrotize Schema to Apache Thrift IDL.
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
@@ -113,6 +120,9 @@ Direct conversions (JSON Structure):
 - [`avrotize s2p`](#convert-json-structure-to-protocol-buffers) - Convert JSON Structure to Protocol Buffers (.proto files).
 - [`avrotize fbs2s`](#convert-flatbuffers-schema-to-json-structure) - Convert FlatBuffers schema to JSON Structure.
 - [`avrotize s2fbs`](#convert-json-structure-to-flatbuffers-schema) - Convert JSON Structure to FlatBuffers schema.
+
+- [`avrotize thrift2s`](#convert-apache-thrift-idl-to-json-structure) - Convert Apache Thrift IDL to JSON Structure.
+- [`avrotize s2thrift`](#convert-json-structure-to-apache-thrift-idl) - Convert JSON Structure to Apache Thrift IDL.
 - [`avrotize oas2s`](#convert-openapi-to-json-structure) - Convert OpenAPI 3.x document to JSON Structure.
 - [`avrotize cue2s`](#convert-cue-schema-subset-to-json-structure) - Convert a supported CUE schema subset to JSON Structure.
 - [`avrotize s2cue`](#convert-json-structure-to-cue-schema-subset) - Convert JSON Structure to the supported CUE schema subset.
@@ -290,6 +300,11 @@ avrotize cue2a <path_to_cue_file> [--out <path_to_avro_schema_file>] [--namespac
 
 ```bash
 avrotize fbs2a <path_to_fbs_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+
+### Convert Apache Thrift IDL to Avrotize Schema
+
+```bash
+avrotize thrift2a <path_to_thrift_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
 ```
 
 Parameters:
@@ -363,6 +378,23 @@ Conversion notes and limitations:
 
 ```bash
 avrotize a2fbs <path_to_avro_schema_file> [--out <path_to_fbs_file>] [--namespace <flatbuffers_namespace>]
+
+- `<path_to_thrift_file>`: The path to the Apache Thrift IDL file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the Avro namespace. Without an override, `namespace *` is used, then the first language-specific namespace.
+
+Conversion notes and limitations:
+
+- `struct`, `exception`, and `union` declarations are emitted as Avro records. Thrift unions are modeled as records whose fields are all nullable; Avro does not enforce the Thrift rule that at most one field is set.
+- `enum` declarations are emitted as Avro enums. Ordinals are preserved in an `ordinals` annotation. Symbols and names that are not valid Avro names are sanitized.
+- `typedef` aliases are resolved to their target type. `const` declarations and `service` definitions are skipped because they do not describe persistent data structures.
+- `set<T>` is emitted as an Avro array and does not preserve uniqueness semantics. `map<string,V>` is emitted as an Avro map; maps with non-string keys are emitted as arrays of `{ key, value }` records.
+- `include` statements are recorded by the parser but are not recursively resolved by the converter. Convert included IDL files separately or pre-expand them before conversion.
+
+### Convert Avrotize Schema to Apache Thrift IDL
+
+```bash
+avrotize a2thrift <path_to_avro_schema_file> [--out <path_to_thrift_file>] [--namespace <thrift_namespace>]
 ```
 
 Parameters:
@@ -411,6 +443,32 @@ Conversion notes:
 
 - This conversion bridges through Avrotize Schema (`s2a` followed by `a2fbs`) and therefore shares the Avro-to-FlatBuffers mapping limitations listed above.
 - JSON Structure constraints and metadata that do not survive the Avrotize Schema bridge are not represented in the generated FlatBuffers schema.
+
+- `--out`: The path to the Thrift IDL file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the emitted `namespace *` value.
+
+Conversion notes and limitations:
+
+- Avro records are emitted as Thrift `struct` definitions with sequential field ids. Avro enums are emitted as Thrift enums.
+- Nullable Avro unions (`["null", T]`) are emitted as `optional` fields; other multi-branch Avro unions are approximated as `string`.
+- Avro arrays are emitted as `list<T>` and Avro maps as `map<string,V>`. Thrift `set` and non-string map-key semantics cannot be recovered from Avro.
+- Avro logical types and custom annotations are not represented in Thrift IDL.
+
+### Convert Apache Thrift IDL to JSON Structure
+
+```bash
+avrotize thrift2s <path_to_thrift_file> [--out <path_to_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+Converts Thrift IDL to JSON Structure by first converting to Avrotize Schema. The Thrift-to-Avro limitations above therefore apply.
+
+### Convert JSON Structure to Apache Thrift IDL
+
+```bash
+avrotize s2thrift <path_to_structure_file> [--out <path_to_thrift_file>] [--namespace <thrift_namespace>]
+```
+
+Converts JSON Structure to Thrift IDL by first converting to Avrotize Schema. The Avro-to-Thrift limitations above therefore apply.
 
 ### Convert JSON schema to Avrotize Schema
 

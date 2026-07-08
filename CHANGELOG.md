@@ -4,6 +4,7 @@ All notable changes to Avrotize are documented in this file.
 
 ### Added
 
+- **Apache Thrift IDL conversion support** ([#255](https://github.com/clemensv/avrotize/issues/255)): Added Thrift IDL to/from Avrotize Schema and JSON Structure bridge commands (`thrift2a`, `a2thrift`, `thrift2s`, `s2thrift`) with documented mapping limitations for services, constants, includes, unions, sets, and non-string map keys.
 - **`s2pq` — JSON Structure to Parquet schema conversion** (issue #48): converts a
   JSON Structure schema to an empty Parquet file whose footer carries the derived
   schema (mirrors the existing `a2pq` and `s2ib` converters). Supports
@@ -171,15 +172,6 @@ All notable changes to Avrotize are documented in this file.
 ### Fixed
 
 - **Structure to Python: integer enum members produced invalid Python** ([#315](https://github.com/clemensv/avrotize/issues/315)): Integer-valued JSON Structure enums (e.g. `"enum": [0, 1, 2]`) previously generated a class body with bare numeric literals like `0 = '0'` — a `SyntaxError` on import. `StructureToPython.generate_enum` now detects all-numeric enums and emits an `IntEnum` with member names prefixed `VALUE_<n>` (or `VALUE_NEG_<n>` for negatives), assigning the original integer literal as the value. String enum members whose values aren't valid identifiers (digit-prefixed, hyphenated, etc.) are also sanitized with the `VALUE_` prefix. Mirrors the `Value{value}` pattern already used by the C# converter.
-# Changelog
-
-All notable changes to Avrotize are documented in this file.
-
-## [Unreleased]
-
-### Added
-
-- **FlatBuffers schema support** ([#256](https://github.com/clemensv/avrotize/issues/256)): Added `fbs2a`, `a2fbs`, `fbs2s`, and `s2fbs` conversions for FlatBuffers `.fbs` schemas, including namespace, table, struct, enum, union, vector, root type, required-field, and default-value handling. Documented mapping limitations for fixed-layout structs, enum integer values, unsigned 64-bit integers, `[ubyte]` vectors, and unsupported Avro/JSON Structure metadata.
 
 ## [3.5.5] - 2026-05-22
 
