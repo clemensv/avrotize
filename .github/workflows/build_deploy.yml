@@ -19,7 +19,7 @@ jobs:
       matrix:
         test-group:
           - name: "Avro to C++/C#"
-            pattern: "test/test_avrotocpp.py test/test_avrotocsharp.py"
+            pattern: "test/test_avrotocpp.py test/test_avrotocsharp.py test/test_avrotocsharp_openapi_compat.py"
           - name: "Avro to Go/Java/JS"
             pattern: "test/test_avrotogo.py test/test_avrotojava.py test/test_avrotojs.py"
           - name: "Avro to Python/Rust/TS"
