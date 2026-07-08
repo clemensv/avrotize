@@ -70,6 +70,7 @@ Converting to Avrotize Schema:
 - [`avrotize pq2a`](#convert-parquet-schema-to-avrotize-schema) - Convert Parquet schema to Avrotize Schema.
 - [`avrotize csv2a`](#convert-csv-file-to-avrotize-schema) - Convert CSV file to Avrotize Schema.
 - [`avrotize kstruct2a`](#convert-kafka-connect-schema-to-avrotize-schema) - Convert Kafka Connect Schema to Avrotize Schema.
+- [`avrotize jtd2a`](#convert-json-type-definition-jtd-to-avrotize-schema) - Convert JSON Type Definition (JTD) to Avrotize Schema.
 
 Converting from Avrotize Schema:
 
@@ -97,6 +98,7 @@ Converting from Avrotize Schema:
 - [`avrotize a2dp`](#convert-avrotize-schema-to-datapackage-schema) - Convert Avrotize Schema to Datapackage schema.
 - [`avrotize a2md`](#convert-avrotize-schema-to-markdown-documentation) - Convert Avrotize Schema to Markdown documentation.
 - [`avrotize s2md`](#convert-json-structure-schema-to-markdown-documentation) - Convert JSON Structure schema to Markdown documentation.
+- [`avrotize a2jtd`](#convert-avrotize-schema-to-json-type-definition-jtd) - Convert Avrotize Schema to JSON Type Definition (JTD).
 
 Direct conversions (JSON Structure):
 
@@ -131,6 +133,8 @@ Direct JSON Structure conversions:
 - [`avrotize s2x`](#convert-json-structure-to-xml-schema-xsd) - Convert JSON Structure to XML Schema (XSD).
 - [`avrotize s2graphql`](#convert-json-structure-schema-to-graphql-schema) - Convert JSON Structure schema to GraphQL schema.
 - [`avrotize a2graphql`](#convert-avrotize-schema-to-graphql-schema) - Convert Avrotize schema to GraphQL schema.
+- [`avrotize jtd2s`](#convert-json-type-definition-jtd-to-json-structure) - Convert JSON Type Definition (JTD) to JSON Structure.
+- [`avrotize s2jtd`](#convert-json-structure-to-json-type-definition-jtd) - Convert JSON Structure to JSON Type Definition (JTD).
 
 Other commands:
 
@@ -920,6 +924,78 @@ Notes:
   - **Choice types**: Mapped to a struct of optional alternatives (Parquet has no native union type).
 - The `$extends` feature is supported - base type properties are included in the conversion.
 - Required properties are emitted as non-nullable columns; all others are nullable.
+
+### Convert JSON Type Definition (JTD) to Avrotize Schema
+
+```bash
+avrotize jtd2a <path_to_jtd_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+```
+
+Parameters:
+
+- `<path_to_jtd_file>`: The path to the JSON Type Definition file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace for generated Avro records and enums.
+
+Conversion notes:
+
+- JTD `type` forms map to Avro primitives; `timestamp` is encoded as Avro `long` with `logicalType: "timestamp-millis"`.
+- JTD `enum` symbols are sanitized to Avro names when needed. The original JTD symbols are retained in `jtdEnumSymbols` metadata for round trips.
+- JTD `properties` become required Avro record fields. `optionalProperties` become nullable Avro fields with `default: null`.
+- JTD `elements` and `values` map to Avro arrays and maps. `definitions`/`ref` map to named Avro types.
+- JTD `discriminator`/`mapping` maps to an Avro union of records. Each branch carries the discriminator as a single-symbol enum field plus `jtdDiscriminator`/`jtdMappingKey` metadata for round trips.
+- Avro has no direct equivalent for JTD `additionalProperties`; the setting is preserved as `jtdAdditionalProperties` metadata but is not enforced by Avro.
+
+### Convert Avrotize Schema to JSON Type Definition (JTD)
+
+```bash
+avrotize a2jtd <path_to_avro_schema_file> [--out <path_to_jtd_file>] [--record-type <record-type-from-avro>]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The path to the Avrotize Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Type Definition file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) The name of the Avro record type to use as the JTD root when the file contains multiple named types.
+
+Conversion notes:
+
+- Avro primitives map to the closest JTD `type`; converter metadata such as `jtdType` is used to restore narrower JTD integer and float forms when present.
+- Avro `long` with `logicalType: "timestamp-millis"` maps to JTD `timestamp`.
+- Nullable Avro unions map to `nullable: true`; nullable fields with `default: null` map to JTD `optionalProperties`.
+- General Avro unions do not have a native JTD equivalent. Only discriminator unions emitted by `jtd2a` round-trip to JTD `discriminator`/`mapping`; other unions are retained as metadata.
+
+### Convert JSON Type Definition (JTD) to JSON Structure
+
+```bash
+avrotize jtd2s <path_to_jtd_file> [--out <path_to_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+Parameters:
+
+- `<path_to_jtd_file>`: The path to the JSON Type Definition file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Structure file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace for generated intermediate Avro records and enums.
+
+Conversion notes:
+
+- The conversion bridges through Avrotize Schema, so the JTD-to-Avro limitations also apply.
+
+### Convert JSON Structure to JSON Type Definition (JTD)
+
+```bash
+avrotize s2jtd <path_to_structure_file> [--out <path_to_jtd_file>] [--record-type <record-type-from-structure>]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Type Definition file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) The name of the Structure/Avro record type to use as the JTD root.
+
+Conversion notes:
+
+- The conversion bridges through Avrotize Schema, so JSON Structure features without JTD equivalents may be simplified or emitted as metadata.
 
 ### Convert Parquet schema to Avrotize Schema
 

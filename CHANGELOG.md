@@ -12,6 +12,7 @@ All notable changes to Avrotize are documented in this file.
   collection (`array`/`set`/`map`/`tuple`), `object` (incl. `$extends`), and
   `choice` types are mapped to PyArrow types; property-less objects become
   `map<string, string>`; required properties become non-nullable columns.
+- **JSON Type Definition (JTD, RFC 8927) support** ([#260](https://github.com/clemensv/avrotize/issues/260)): Added `jtd2a`, `a2jtd`, `jtd2s`, and `s2jtd` commands for converting JTD to/from Avrotize Schema and JSON Structure. The implementation supports JTD type, enum, elements, values, properties/optionalProperties, discriminator/mapping, definitions/ref, and nullable forms, with documented Avro mapping limitations.
 
 ## [3.6.1] - 2026-07-08
 
@@ -113,7 +114,6 @@ All notable changes to Avrotize are documented in this file.
   `datetime.date` fields generated from Avro `date` logical types now use ISO
   `dataclasses-json` encoder/decoder wiring and a Marshmallow `fields.Date`,
   matching existing `datetime.datetime` timestamp handling.
-
 ## [3.5.9] - 2026-06-04
 
 ### Changed
