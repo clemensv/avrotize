@@ -1,6 +1,6 @@
 All notable changes to Avrotize are documented in this file.
 
-## [3.6.1] - 2026-06-29
+## [3.6.1] - 2026-07-08
 
 ### Fixed
 
