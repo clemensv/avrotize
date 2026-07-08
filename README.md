@@ -59,6 +59,8 @@ Converting to Avrotize Schema:
 
 - [`avrotize p2a`](#convert-proto-schema-to-avrotize-schema) - Convert Protobuf (2 or 3) schema to Avrotize Schema.
 - [`avrotize cue2a`](#convert-cue-schema-subset-to-avrotize-schema) - Convert a supported CUE schema subset to Avrotize Schema.
+
+- [`avrotize fbs2a`](#convert-flatbuffers-schema-to-avrotize-schema) - Convert FlatBuffers schema to Avrotize Schema.
 - [`avrotize j2a`](#convert-json-schema-to-avrotize-schema) - Convert JSON schema to Avrotize Schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
@@ -78,6 +80,8 @@ Converting from Avrotize Schema:
 
 - [`avrotize a2p`](#convert-avrotize-schema-to-proto-schema) - Convert Avrotize Schema to Protobuf 3 schema.
 - [`avrotize a2cue`](#convert-avrotize-schema-to-cue-schema-subset) - Convert Avrotize Schema to the supported CUE schema subset.
+
+- [`avrotize a2fbs`](#convert-avrotize-schema-to-flatbuffers-schema) - Convert Avrotize Schema to FlatBuffers schema.
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
@@ -107,6 +111,8 @@ Converting from Avrotize Schema:
 Direct conversions (JSON Structure):
 
 - [`avrotize s2p`](#convert-json-structure-to-protocol-buffers) - Convert JSON Structure to Protocol Buffers (.proto files).
+- [`avrotize fbs2s`](#convert-flatbuffers-schema-to-json-structure) - Convert FlatBuffers schema to JSON Structure.
+- [`avrotize s2fbs`](#convert-json-structure-to-flatbuffers-schema) - Convert JSON Structure to FlatBuffers schema.
 - [`avrotize oas2s`](#convert-openapi-to-json-structure) - Convert OpenAPI 3.x document to JSON Structure.
 - [`avrotize cue2s`](#convert-cue-schema-subset-to-json-structure) - Convert a supported CUE schema subset to JSON Structure.
 - [`avrotize s2cue`](#convert-json-structure-to-cue-schema-subset) - Convert JSON Structure to the supported CUE schema subset.
@@ -279,6 +285,11 @@ Conversion notes:
 
 ```bash
 avrotize cue2a <path_to_cue_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+
+### Convert FlatBuffers schema to Avrotize Schema
+
+```bash
+avrotize fbs2a <path_to_fbs_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
 ```
 
 Parameters:
@@ -333,6 +344,73 @@ avrotize s2cue <path_to_structure_file> [--out <path_to_cue_file>] [--namespace 
 ```
 
 `s2cue` bridges through an intermediate Avrotize Schema file and emits the same practical CUE schema subset as `a2cue`.
+
+- `<path_to_fbs_file>`: The path to the FlatBuffers `.fbs` schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the FlatBuffers namespace for the Avrotize Schema.
+
+Conversion notes and limitations:
+
+- FlatBuffers `namespace` declarations are mapped to Avro namespaces. `table` and `struct` declarations are mapped to Avro records; FlatBuffers structs carry fixed inline layout semantics that Avro does not represent, so this is documented on the generated record.
+- FlatBuffers enums are mapped to Avro enums. Integer enum values are preserved in the non-standard Avrotize `ordinals` annotation; consumers that only understand Avro enum symbols may ignore those integer values.
+- FlatBuffers unions are mapped to Avro unions of their member record types.
+- Scalar mappings: signed 8/16/32-bit integers map to Avro `int`; unsigned 32-bit integers and all 64-bit integers map to Avro `long`; `uint64`/`ulong` values beyond signed 64-bit range cannot be represented exactly by Avro `long`; `float` and `double` map to Avro `float` and `double`; `string` maps to Avro `string`.
+- Vectors map to Avro arrays, except `[ubyte]`/`[uint8]`, which maps to Avro `bytes`.
+- Table fields without `(required)` are emitted as nullable Avro fields with `null` defaults. FlatBuffers field defaults are preserved as the Avrotize `fbsDefault` annotation for nullable fields.
+- `root_type` is preserved as a record-level `root_type` annotation.
+
+### Convert Avrotize Schema to FlatBuffers schema
+
+```bash
+avrotize a2fbs <path_to_avro_schema_file> [--out <path_to_fbs_file>] [--namespace <flatbuffers_namespace>]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The path to the Avrotize Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the FlatBuffers `.fbs` file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the FlatBuffers namespace.
+
+Conversion notes and limitations:
+
+- Avro records are emitted as FlatBuffers tables, Avro enums as FlatBuffers enums, arrays as vectors, and Avro `bytes` as `[ubyte]`.
+- Nullable Avro unions (`["null", T]`) become optional FlatBuffers fields. Multi-branch Avro unions of named types are emitted as FlatBuffers `union` declarations.
+- Avro namespaces map to FlatBuffers namespaces. The top record, or the record annotated with `root_type`, is emitted as `root_type`.
+- Avro maps, logical types, fixed types, aliases, validation annotations, and arbitrary custom annotations have no direct FlatBuffers equivalent and are either simplified to compatible field types or omitted.
+
+### Convert FlatBuffers schema to JSON Structure
+
+```bash
+avrotize fbs2s <path_to_fbs_file> [--out <path_to_json_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+Parameters:
+
+- `<path_to_fbs_file>`: The path to the FlatBuffers `.fbs` schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Structure file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the namespace used by the Avrotize Schema bridge.
+
+Conversion notes:
+
+- This conversion bridges through Avrotize Schema (`fbs2a` followed by `a2s`) and therefore shares the FlatBuffers-to-Avro mapping limitations listed above.
+- The FlatBuffers `root_type` record is used as the JSON Structure root when present.
+
+### Convert JSON Structure to FlatBuffers schema
+
+```bash
+avrotize s2fbs <path_to_json_structure_file> [--out <path_to_fbs_file>] [--namespace <flatbuffers_namespace>]
+```
+
+Parameters:
+
+- `<path_to_json_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the FlatBuffers `.fbs` file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the FlatBuffers namespace.
+
+Conversion notes:
+
+- This conversion bridges through Avrotize Schema (`s2a` followed by `a2fbs`) and therefore shares the Avro-to-FlatBuffers mapping limitations listed above.
+- JSON Structure constraints and metadata that do not survive the Avrotize Schema bridge are not represented in the generated FlatBuffers schema.
 
 ### Convert JSON schema to Avrotize Schema
 
