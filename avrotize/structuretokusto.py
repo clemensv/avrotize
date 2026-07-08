@@ -1,10 +1,39 @@
 """Converts a JSON Structure schema to a Kusto table schema."""
 
 import json
+import re
 import sys
 from typing import Any, List, Optional, Dict, Union
 from avrotize.common import build_flat_type_dict, inline_avro_references, strip_first_doc
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder, ClientRequestProperties
+
+
+_KUSTO_BARE_IDENTIFIER = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+
+
+def kusto_column_name(name: str) -> str:
+    """Return a Kusto-quoted column identifier.
+
+    Bare identifiers ([A-Za-z_][A-Za-z0-9_]*) are wrapped as [name]; any other
+    name (e.g. "dr-type") is quoted as ['name'] so hyphens and other characters
+    are valid (issue #382).
+    """
+    if _KUSTO_BARE_IDENTIFIER.match(name):
+        return f"[{name}]"
+    escaped = name.replace('\\', '\\\\').replace("'", "\\'")
+    return f"['{escaped}']"
+
+
+def kusto_json_path(name: str, prefix: str = "$") -> str:
+    """Return a JSONPath expression for an ingestion-mapping property name.
+
+    Bare identifiers use dotted notation (``$.name``); any other name uses
+    bracket notation (``$['dr-type']``) so non-identifier keys are valid.
+    """
+    if _KUSTO_BARE_IDENTIFIER.match(name):
+        return f"{prefix}.{name}"
+    escaped = name.replace('\\', '\\\\').replace("'", "\\'")
+    return f"{prefix}['{escaped}']"
 
 
 def kusto_string_literal(value: str) -> str:
@@ -268,7 +297,7 @@ class StructureToKusto:
             if isinstance(prop_schema, dict) and 'const' in prop_schema:
                 continue
             column_type = self.convert_structure_type_to_kusto_type(prop_schema, schema_doc)
-            columns.append(f"   [{column_name}]: {column_type}")
+            columns.append(f"   {kusto_column_name(column_name)}: {column_type}")
         if emit_cloudevents_columns:
             columns.append("   [___type]: string")
             columns.append("   [___source]: string")
@@ -365,7 +394,7 @@ class StructureToKusto:
                 continue
             column_name = prop_name
             mapping_entries.append(
-                f"  {{\"column\": \"{column_name}\", \"path\": \"$.{prop_name}\"}}")
+                f"  {{\"column\": \"{column_name}\", \"path\": \"{kusto_json_path(prop_name)}\"}}")
         kusto.append("```\n[\n" + ",\n".join(mapping_entries) + "\n]\n```\n\n")
 
         if emit_cloudevents_columns:
@@ -383,7 +412,7 @@ class StructureToKusto:
                     continue
                 column_name = prop_name
                 ce_entries.append(
-                    f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{prop_name}\"}}")
+                    f"  {{\"column\": \"{column_name}\", \"path\": \"{kusto_json_path(prop_name, '$.data')}\"}}")
             kusto.append("```\n[\n" + ",\n".join(ce_entries) + "\n]\n```\n\n")
 
         if emit_cloudevents_columns:

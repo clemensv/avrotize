@@ -8,7 +8,7 @@ This is the reverse operation of avrotojstruct.py.
 import json
 from typing import Any, Dict, List, Union, Optional
 
-from avrotize.common import ANY_VALUE_RECORD, any_value_name, deduplicate_any_value_record, generic_type
+from avrotize.common import ANY_VALUE_RECORD, any_value_name, deduplicate_any_value_record, generic_type, avro_name, avro_name_with_altname
 
 
 class JsonStructureToAvro:
@@ -388,10 +388,16 @@ class JsonStructureToAvro:
         
         fields = []
         for prop_name, prop_schema in properties.items():
+            # Property keys may be non-identifiers (e.g. "dr-type", "1"). Avro field
+            # names must match [A-Za-z_][A-Za-z0-9_]*, so sanitize and preserve the
+            # original wire key as an Avro alias for round-trip fidelity (issue #382).
+            avro_field_name, original_name = avro_name_with_altname(prop_name)
             field = {
-                'name': prop_name,
-                'type': self._convert_type_reference(prop_schema, name_hint=prop_name)
+                'name': avro_field_name,
+                'type': self._convert_type_reference(prop_schema, name_hint=avro_field_name)
             }
+            if original_name is not None:
+                field['aliases'] = [original_name]
             
             # Build documentation with annotations
             doc = self._build_doc_with_annotations(
@@ -418,22 +424,61 @@ class JsonStructureToAvro:
         avro_record['fields'] = fields
         return avro_record
     
+    def _sanitize_enum_symbols(self, symbols: List[Any]) -> tuple:
+        """
+        Sanitize JSON Structure enum values into valid Avro enum symbols.
+
+        Avro enum symbols must match [A-Za-z_][A-Za-z0-9_]* and be unique. JSON
+        Structure enum values may be arbitrary (e.g. "N/A", "KAR-MQTT", 1). This
+        sanitizes each value, resolves collisions with a numeric suffix, and returns
+        both the symbol list and a mapping of sanitized-symbol -> original-value for
+        any symbol that was changed (issue #383).
+
+        Returns:
+            tuple: (avro_symbols, symbol_mapping)
+        """
+        avro_symbols: List[str] = []
+        symbol_mapping: Dict[str, Any] = {}
+        seen = set()
+        for value in symbols:
+            base = avro_name(str(value))
+            candidate = base
+            suffix = 1
+            while candidate in seen:
+                candidate = f"{base}_{suffix}"
+                suffix += 1
+            seen.add(candidate)
+            avro_symbols.append(candidate)
+            if candidate != str(value):
+                symbol_mapping[candidate] = value
+        return avro_symbols, symbol_mapping
+
     def _convert_enum(self, schema: Dict[str, Any], namespace: Optional[str], name: str) -> Dict[str, Any]:
         """Convert JSON Structure enum to Avro enum."""
+        avro_symbols, symbol_mapping = self._sanitize_enum_symbols(schema['enum'])
         avro_enum: Dict[str, Any] = {
             'type': 'enum',
             'name': name,
-            'symbols': schema['enum']
+            'symbols': avro_symbols
         }
         
         if namespace:
             avro_enum['namespace'] = namespace
         
+        doc_parts = []
         if 'description' in schema:
-            avro_enum['doc'] = schema['description']
+            doc_parts.append(schema['description'])
+        if symbol_mapping:
+            doc_parts.append(
+                'Original enum values (Avro symbol -> wire value): '
+                + json.dumps(symbol_mapping))
+        if doc_parts:
+            avro_enum['doc'] = ' '.join(doc_parts)
         
         if 'default' in schema:
-            avro_enum['default'] = schema['default']
+            original_values = list(schema['enum'])
+            if schema['default'] in original_values:
+                avro_enum['default'] = avro_symbols[original_values.index(schema['default'])]
         
         return avro_enum
     
@@ -531,11 +576,12 @@ class JsonStructureToAvro:
             # Build enum type for discriminator
             enum_name = f'{name}Type'
             choice_names = list(choices.keys())
+            discriminator_symbols, _ = self._sanitize_enum_symbols(choice_names)
             
             discriminator_enum: Dict[str, Any] = {
                 'type': 'enum',
                 'name': enum_name,
-                'symbols': choice_names
+                'symbols': discriminator_symbols
             }
             
             if namespace:
