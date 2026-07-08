@@ -1025,6 +1025,85 @@
     "skip_input_file_handling": true
   },
   {
+    "command": "surreal2a",
+    "description": "Convert SurrealQL schema to Avrotize schema",
+    "group": "5_SQL",
+    "function": {
+      "name": "avrotize.surrealtoavro.convert_surrealql_to_avro",
+      "args": {
+        "surrealql_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".surql",
+      ".surrealql"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the SurrealQL schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2surreal",
+    "description": "Convert Avrotize schema to SurrealQL schema",
+    "group": "5_SQL",
+    "function": {
+      "name": "avrotize.avrotosurreal.convert_avro_to_surrealql",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "surrealql_file_path": "output_file_path",
+        "record_type": "args.record_type"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the SurrealQL schema file",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Specific Avro record type to convert",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.surql",
+    "prompts": []
+  },
+  {
     "command": "a2sql",
     "description": "Convert Avrotize schema to SQL schema",
     "group": "5_SQL",

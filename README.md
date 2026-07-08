@@ -18,7 +18,7 @@ The tool leans on the Apache Avro-derived [Avrotize Schema](specs/avrotize-schem
 
 - Programming languages: Python, C#, Java, TypeScript, JavaScript, Rust, Go, C++
 - SQL Databases: MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, SQLite, BigQuery, Snowflake, Redshift, DB2
-- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
+- Other databases: KQL/Kusto, SurrealDB, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
 - Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet
 
 ## Installation
@@ -63,6 +63,7 @@ Converting to Avrotize Schema:
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
 - [`avrotize k2a`](#convert-kusto-table-definition-to-avrotize-schema) - Convert Kusto table definitions to Avrotize Schema.
 - [`avrotize sql2a`](#convert-sql-database-schema-to-avrotize-schema) - Convert SQL database schema to Avrotize Schema.
+- [`avrotize surreal2a`](#convert-surrealql-schema-to-avrotize-schema) - Convert SurrealQL schema definitions to Avrotize Schema.
 - [`avrotize json2a`](#infer-avro-schema-from-json-files) - Infer Avro schema from JSON files.
 - [`avrotize json2s`](#infer-json-structure-schema-from-json-files) - Infer JSON Structure schema from JSON files.
 - [`avrotize xml2a`](#infer-avro-schema-from-xml-files) - Infer Avro schema from XML files.
@@ -80,6 +81,7 @@ Converting from Avrotize Schema:
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
 - [`avrotize s2k`](#convert-json-structure-schema-to-kusto-table-declaration) - Convert JSON Structure Schema to Kusto table definition.
 - [`avrotize a2sql`](#convert-avrotize-schema-to-sql-table-definition) - Convert Avrotize Schema to SQL table definition.
+- [`avrotize a2surreal`](#convert-avrotize-schema-to-surrealql-schema) - Convert Avrotize Schema to SurrealQL schema definitions.
 - [`avrotize s2sql`](#convert-json-structure-schema-to-sql-schema) - Convert JSON Structure Schema to SQL table definition.
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
@@ -502,6 +504,29 @@ Conversion notes:
 - Table and column comments are preserved as Avro `doc` attributes where available.
 - Primary key columns are noted in the schema's `unique` attribute.
 
+### Convert SurrealQL Schema to Avrotize Schema
+
+```bash
+avrotize surreal2a <path_to_surrealql_schema_file> [--out <path_to_avro_schema_file>] [--namespace <namespace>]
+```
+
+Parameters:
+
+- `<path_to_surrealql_schema_file>`: The SurrealQL schema file containing `DEFINE TABLE` and `DEFINE FIELD` statements.
+- `--out`: The path to the Avrotize Schema file. If omitted, output goes to stdout.
+- `--namespace`: (optional) The Avro namespace for generated records.
+
+Conversion notes:
+
+- `DEFINE TABLE <name> SCHEMAFULL|SCHEMALESS` becomes an Avro record named `<name>`.
+- Dotted SurrealDB field paths such as `address.city` become nested Avro records; array item paths such as `phones[*].number` become arrays of nested records.
+- SurrealDB scalar types map as follows: `string` -> Avro `string`, `int` -> `long`, `float`/`number` -> `double`, `bool` -> `boolean`, `bytes` -> `bytes`, `datetime` -> `long` with `timestamp-millis`, `uuid` -> `string` with `uuid`, and `decimal` -> `bytes` with Avro `decimal` (`precision` 38, `scale` 9).
+- `option<T>` becomes a nullable Avro union `['null', T]` with default `null`.
+- `array<T>` and `set<T>` become Avro arrays. Avro has no native set semantics, so uniqueness is not represented.
+- `duration` and `geometry` are represented as strings.
+- `record<T>` references are represented as string record ids because Avro record references model embedded schemas, not SurrealDB record id links.
+
+
 ### Infer Avro schema from JSON files
 
 ```bash
@@ -673,6 +698,26 @@ Parameters:
 - `--emit-cloudevents-columns`: (Optional) Add CloudEvents columns to the SQL table.
 
 For detailed conversion rules and type mappings for each SQL dialect, refer to the [SQL Conversion Notes](sqlcodegen.md) document.
+
+### Convert Avrotize Schema to SurrealQL Schema
+
+```bash
+avrotize a2surreal <path_to_avro_schema_file> [--out <path_to_surrealql_schema_file>] [--record-type <record_type>]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The Avrotize Schema file to convert.
+- `--out`: The path to the SurrealQL schema file. If omitted, output goes to stdout.
+- `--record-type`: (optional) Convert only the named Avro record.
+
+Conversion notes:
+
+- Each Avro record becomes `DEFINE TABLE <name> SCHEMAFULL`.
+- Nested Avro records are emitted as dotted SurrealDB field paths.
+- Avro arrays become `array<T>`; arrays of records are emitted with `[*]` item field definitions.
+- Nullable Avro unions of `null` plus one type become `option<T>`.
+- Avro `timestamp-millis`, `uuid`, and `decimal` logical types become `datetime`, `uuid`, and `decimal` respectively.
 
 ### Convert JSON Structure Schema to SQL Schema
 
