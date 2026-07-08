@@ -2271,7 +2271,8 @@
         "msgpack_annotation": "args.msgpack_annotation",
         "cbor_annotation": "args.cbor_annotation",
         "pascal_properties": "args.pascal_properties",
-        "base_namespace": "args.namespace"
+        "base_namespace": "args.namespace",
+        "openapi_generator_compat": "args.openapi_generator_compat"
       }
     },
     "extensions": [
@@ -2358,6 +2359,13 @@
         "help": "Use PascalCase properties",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--openapi-generator-compat",
+        "type": "bool",
+        "help": "Generate OpenAPI Generator-compatible C# models with Option<T> optional properties and System.Text.Json converters",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-cs",
@@ -2407,7 +2415,8 @@
         "avro_annotation": "args.avro_annotation",
         "pascal_properties": "args.pascal_properties",
         "base_namespace": "args.namespace",
-        "project_name": "args.project_name"
+        "project_name": "args.project_name",
+        "openapi_generator_compat": "args.openapi_generator_compat"
       }
     },
     "extensions": [
@@ -2478,6 +2487,13 @@
         "name": "--pascal-properties",
         "type": "bool",
         "help": "Use PascalCase properties",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--openapi-generator-compat",
+        "type": "bool",
+        "help": "Generate OpenAPI Generator-compatible C# models with Option<T> optional properties and System.Text.Json converters",
         "default": false,
         "required": false
       }
