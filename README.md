@@ -83,6 +83,7 @@ Converting from Avrotize Schema:
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
 - [`avrotize s2ib`](#convert-json-structure-to-iceberg-schema) - Convert JSON Structure to Iceberg schema.
+- [`avrotize s2pq`](#convert-json-structure-to-empty-parquet-file) - Convert JSON Structure to Parquet schema.
 - [`avrotize a2mongo`](#convert-avrotize-schema-to-mongodb-schema) - Convert Avrotize Schema to MongoDB schema.
 - [`avrotize a2cassandra`](#convert-avrotize-schema-to-cassandra-schema) - Convert Avrotize Schema to Cassandra schema.
 - [`avrotize s2cassandra`](#convert-json-structure-schema-to-cassandra-schema) - Convert JSON Structure Schema to Cassandra schema.
@@ -895,6 +896,30 @@ Conversion notes:
 - Type annotations such as `precision`, `scale`, and validation constraints are preserved where applicable.
 - The `$extends` feature is supported - base type properties are included in the conversion.
 - Required and optional properties are handled via Iceberg's `required` field flag.
+
+### Convert JSON Structure to empty Parquet file
+
+```bash
+avrotize s2pq <path_to_structure_schema_file> [--out <path_to_parquet_file>] [--record-type <record-type-from-structure>] [--emit-cloudevents-columns] [--format parquet|schema]
+```
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Parquet file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) The name of the record type in `definitions` to convert to a Parquet schema.
+- `--emit-cloudevents-columns`: (optional) If set, the tool will add [CloudEvents](https://cloudevents.io) attribute columns to the Parquet schema: `___id`, `___source`, `___subject`, `___type`, and `___time`.
+- `--format`: (optional) Output format. `parquet` (default) writes an empty Parquet file whose footer carries the schema. `schema` writes the derived schema as JSON for inspection.
+
+Notes:
+
+- The emitted Parquet file contains only the schema, no data rows.
+- The tool supports JSON Structure schemas with `type: "object"` at the top level. If the schema contains a `$ref` or the record type is in `definitions`, the `--record-type` option can be used to specify which type to emit.
+- JSON Structure types are mapped to Parquet (PyArrow) types as follows:
+  - **Primitive types**: `string` → string, `boolean` → bool, sized integer types (`int8`…`int64`, `uint8`…`uint64`) → the matching PyArrow integer type, `float`/`float32` → float32, `double`/`float64` → float64, `decimal` → decimal128 honoring `precision`/`scale`, `bytes`/`binary` → binary, `uuid`/`uri`/`jsonpointer` → string.
+  - **Temporal types**: `date` → date32, `time` → time64[us], `datetime`/`timestamp` → timestamp[us], `duration` → int64 (microseconds).
+  - **Compound types**: `object` → struct, `array`/`set` → list, `map` → map, `tuple` → struct with indexed fields. A property-less (open) `object` becomes `map<string, string>`.
+  - **Choice types**: Mapped to a struct of optional alternatives (Parquet has no native union type).
+- The `$extends` feature is supported - base type properties are included in the conversion.
+- Required properties are emitted as non-nullable columns; all others are nullable.
 
 ### Convert Parquet schema to Avrotize Schema
 

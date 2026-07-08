@@ -35,7 +35,7 @@ jobs:
           - name: "Structure to Java/JS/GraphQL"
             pattern: "test/test_structuretojava.py test/test_structuretojs.py test/test_structuretographql.py"
           - name: "Structure to Other Formats"
-            pattern: "test/test_structuretocsv.py test/test_structuretodatapackage.py test/test_structuretodb.py test/test_structuretoiceberg.py test/test_structuretojsons.py test/test_structuretokusto.py test/test_structuretomd.py test/test_structuretoproto.py test/test_structuretoxsd.py"
+            pattern: "test/test_structuretocsv.py test/test_structuretodatapackage.py test/test_structuretodb.py test/test_structuretoiceberg.py test/test_structuretojsons.py test/test_structuretokusto.py test/test_structuretomd.py test/test_structuretoparquet.py test/test_structuretoproto.py test/test_structuretoxsd.py"
           - name: "Format to Avro"
             pattern: "test/test_asn1toavro.py test/test_jsontoavro.py test/test_jstructtoavro.py test/test_kstructtoavro.py test/test_kustotoavro.py test/test_parquettoavro.py test/test_prototoavro.py test/test_sqltoavro.py test/test_xsdtoavro.py"
           - name: "JSON Structure & Main"
