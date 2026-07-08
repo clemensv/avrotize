@@ -71,6 +71,8 @@ Converting to Avrotize Schema:
 - [`avrotize thrift2a`](#convert-apache-thrift-idl-to-avrotize-schema) - Convert Apache Thrift IDL to Avrotize Schema.
 
 - [`avrotize smithy2a`](#convert-smithy-idl-data-shapes-to-avrotize-schema) - Convert Smithy 2.0 IDL data shapes to Avrotize Schema.
+
+- [`avrotize capnp2a`](#convert-capn-proto-schema-to-avrotize-schema) - Convert Cap'n Proto schema to Avrotize Schema.
 - [`avrotize j2a`](#convert-json-schema-to-avrotize-schema) - Convert JSON schema to Avrotize Schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
@@ -96,6 +98,8 @@ Converting from Avrotize Schema:
 - [`avrotize a2thrift`](#convert-avrotize-schema-to-apache-thrift-idl) - Convert Avrotize Schema to Apache Thrift IDL.
 
 - [`avrotize a2smithy`](#convert-avrotize-schema-to-smithy-idl-data-shapes) - Convert Avrotize Schema to Smithy 2.0 IDL data shapes.
+
+- [`avrotize a2capnp`](#convert-avrotize-schema-to-capn-proto-schema) - Convert Avrotize Schema to Cap'n Proto schema.
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
@@ -133,6 +137,9 @@ Direct conversions (JSON Structure):
 
 - [`avrotize smithy2s`](#convert-smithy-idl-data-shapes-to-json-structure) - Convert Smithy 2.0 IDL data shapes to JSON Structure.
 - [`avrotize s2smithy`](#convert-json-structure-to-smithy-idl-data-shapes) - Convert JSON Structure to Smithy 2.0 IDL data shapes.
+
+- [`avrotize capnp2s`](#convert-capn-proto-schema-to-json-structure) - Convert Cap'n Proto schema to JSON Structure.
+- [`avrotize s2capnp`](#convert-json-structure-to-capn-proto-schema) - Convert JSON Structure to Cap'n Proto schema.
 - [`avrotize oas2s`](#convert-openapi-to-json-structure) - Convert OpenAPI 3.x document to JSON Structure.
 - [`avrotize cue2s`](#convert-cue-schema-subset-to-json-structure) - Convert a supported CUE schema subset to JSON Structure.
 - [`avrotize s2cue`](#convert-json-structure-to-cue-schema-subset) - Convert JSON Structure to the supported CUE schema subset.
@@ -320,6 +327,11 @@ avrotize thrift2a <path_to_thrift_file> [--out <path_to_avro_schema_file>] [--na
 
 ```bash
 avrotize smithy2a <path_to_smithy_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+
+### Convert Cap'n Proto schema to Avrotize Schema
+
+```bash
+avrotize capnp2a <path_to_capnp_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
 ```
 
 Parameters:
@@ -428,6 +440,24 @@ Conversion notes:
 
 ```bash
 avrotize a2smithy <path_to_avro_schema_file> [--out <path_to_smithy_file>] [--namespace <smithy_namespace>]
+
+- `<path_to_capnp_file>`: The path to the Cap'n Proto `.capnp` schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: Optional Avro namespace. If omitted, the input file name is used.
+
+Conversion notes and limitations:
+
+- Structs map to Avro records, enums map to Avro enums, and field ordinals are stored as `capnpOrdinal` metadata. Enum ordinals are stored as `capnpOrdinals`.
+- Cap'n Proto fields are pointer-default/zero-default optional in practice; Avrotize emits nullable Avro fields (`["null", T]`) with `default: null` for non-`Void` fields.
+- Primitive mapping: `Bool`→`boolean`; `Int8`/`Int16`/`Int32`→`int`; `Int64`→`long`; unsigned integers including `UInt64`→`long` (range checks are not represented); `Float32`→`float`; `Float64`→`double`; `Text`→`string`; `Data`→`bytes`; `Void`→`null`; `List(T)`→Avro array. No invalid Avro logical types are emitted.
+- Anonymous and named Cap'n Proto unions are represented as nullable fields tagged with `capnpUnion` metadata rather than as exclusive Avro unions; exclusivity constraints are not enforced by Avro.
+- Groups are represented as inline nested Avro records. Nested structs and enums are emitted as named Avro types in derived nested namespaces.
+- The file id is accepted but not used as an Avro namespace seed. `interface`, `const`, `annotation`, imports, and using declarations are skipped.
+
+### Convert Avrotize Schema to Cap'n Proto schema
+
+```bash
+avrotize a2capnp <path_to_avro_schema_file> [--out <path_to_capnp_file>] [--namespace <namespace_note>]
 ```
 
 Parameters:
@@ -511,6 +541,31 @@ Conversion notes:
 - Avro records become Smithy `structure` shapes; nullable unions become optional members; non-null fields are emitted with `@required`.
 - Avro enums become Smithy `enum` shapes, or `intEnum` when an `ordinals` annotation is present. Avro arrays and maps become Smithy `list` and `map` shapes. Avro unions with multiple non-null alternatives become Smithy `union` shapes.
 - Service and operation modeling is explicitly out of phase-1 scope; this command emits Smithy data shapes only.
+
+- `--out`: The path to the Cap'n Proto schema file to write. If omitted, the output is directed to stdout.
+- `--namespace`: Optional namespace note included as a comment in the generated file.
+
+Conversion notes and limitations:
+
+- Avro records map to `struct`, enums to `enum`, arrays to `List(T)`, strings to `Text`, bytes/fixed to `Data`, and nullable unions to the non-null Cap'n Proto field type.
+- Fields are emitted with deterministic sequential ordinals (`@0`, `@1`, ...). A stable generated file id is emitted; replace it if the schema needs a project-owned Cap'n Proto id.
+- Multi-branch Avro unions are emitted as nested choice structs or `union` blocks when `capnpUnion` metadata is present. Avro maps are represented as lists of generated key/value entry structs because Cap'n Proto has no direct map primitive.
+
+### Convert Cap'n Proto schema to JSON Structure
+
+```bash
+avrotize capnp2s <path_to_capnp_file> [--out <path_to_json_structure_file>] [--namespace <avro_schema_namespace>] [--naming <naming_mode>] [--avro-encoding]
+```
+
+This conversion bridges through an intermediate Avrotize Schema, so the Cap'n Proto limitations documented for `capnp2a` apply.
+
+### Convert JSON Structure to Cap'n Proto schema
+
+```bash
+avrotize s2capnp <path_to_json_structure_file> [--out <path_to_capnp_file>] [--namespace <namespace_note>]
+```
+
+This conversion bridges through an intermediate Avrotize Schema, so the Avro-to-Cap'n Proto limitations documented for `a2capnp` apply.
 
 ### Convert JSON schema to Avrotize Schema
 

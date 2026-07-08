@@ -4,6 +4,7 @@ All notable changes to Avrotize are documented in this file.
 
 ### Added
 
+- **Cap'n Proto schema support** ([#257](https://github.com/clemensv/avrotize/issues/257)): Added `capnp2a`, `a2capnp`, `capnp2s`, and `s2capnp` conversions with documented primitive, union, group, ordinal, file id, import, and skipped-declaration mapping limitations.
 - **Smithy IDL data-shape conversion** ([#259](https://github.com/clemensv/avrotize/issues/259)): Added `smithy2a`, `a2smithy`, `smithy2s`, and `s2smithy` commands for Smithy 2.0 IDL data shapes, including structures, unions, enums/intEnums, lists, maps, scalars, documentation/default/required traits, and JSON Structure bridging through Avrotize Schema. Service, operation, resource, and protocol modeling are explicitly out of phase-1 scope and are skipped gracefully.
 - **Apache Thrift IDL conversion support** ([#255](https://github.com/clemensv/avrotize/issues/255)): Added Thrift IDL to/from Avrotize Schema and JSON Structure bridge commands (`thrift2a`, `a2thrift`, `thrift2s`, `s2thrift`) with documented mapping limitations for services, constants, includes, unions, sets, and non-string map keys.
 - **`s2pq` — JSON Structure to Parquet schema conversion** (issue #48): converts a
