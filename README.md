@@ -22,6 +22,9 @@ The tool leans on the Apache Avro-derived [Avrotize Schema](specs/avrotize-schem
 - Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet
 
 - Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
+- Data schema formats: Avro, JSON Schema, JSON Structure, XML Schema (XSD), Protocol Buffers 2 and 3, Smithy IDL, ASN.1, Apache Parquet
+
+- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
 - Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, Apache Thrift IDL, ASN.1, Apache Parquet
 
 ## Installation
@@ -66,6 +69,8 @@ Converting to Avrotize Schema:
 - [`avrotize fbs2a`](#convert-flatbuffers-schema-to-avrotize-schema) - Convert FlatBuffers schema to Avrotize Schema.
 
 - [`avrotize thrift2a`](#convert-apache-thrift-idl-to-avrotize-schema) - Convert Apache Thrift IDL to Avrotize Schema.
+
+- [`avrotize smithy2a`](#convert-smithy-idl-data-shapes-to-avrotize-schema) - Convert Smithy 2.0 IDL data shapes to Avrotize Schema.
 - [`avrotize j2a`](#convert-json-schema-to-avrotize-schema) - Convert JSON schema to Avrotize Schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
@@ -89,6 +94,8 @@ Converting from Avrotize Schema:
 - [`avrotize a2fbs`](#convert-avrotize-schema-to-flatbuffers-schema) - Convert Avrotize Schema to FlatBuffers schema.
 
 - [`avrotize a2thrift`](#convert-avrotize-schema-to-apache-thrift-idl) - Convert Avrotize Schema to Apache Thrift IDL.
+
+- [`avrotize a2smithy`](#convert-avrotize-schema-to-smithy-idl-data-shapes) - Convert Avrotize Schema to Smithy 2.0 IDL data shapes.
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
@@ -123,6 +130,9 @@ Direct conversions (JSON Structure):
 
 - [`avrotize thrift2s`](#convert-apache-thrift-idl-to-json-structure) - Convert Apache Thrift IDL to JSON Structure.
 - [`avrotize s2thrift`](#convert-json-structure-to-apache-thrift-idl) - Convert JSON Structure to Apache Thrift IDL.
+
+- [`avrotize smithy2s`](#convert-smithy-idl-data-shapes-to-json-structure) - Convert Smithy 2.0 IDL data shapes to JSON Structure.
+- [`avrotize s2smithy`](#convert-json-structure-to-smithy-idl-data-shapes) - Convert JSON Structure to Smithy 2.0 IDL data shapes.
 - [`avrotize oas2s`](#convert-openapi-to-json-structure) - Convert OpenAPI 3.x document to JSON Structure.
 - [`avrotize cue2s`](#convert-cue-schema-subset-to-json-structure) - Convert a supported CUE schema subset to JSON Structure.
 - [`avrotize s2cue`](#convert-json-structure-to-cue-schema-subset) - Convert JSON Structure to the supported CUE schema subset.
@@ -305,6 +315,11 @@ avrotize fbs2a <path_to_fbs_file> [--out <path_to_avro_schema_file>] [--namespac
 
 ```bash
 avrotize thrift2a <path_to_thrift_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+
+### Convert Smithy IDL data shapes to Avrotize Schema
+
+```bash
+avrotize smithy2a <path_to_smithy_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
 ```
 
 Parameters:
@@ -395,6 +410,24 @@ Conversion notes and limitations:
 
 ```bash
 avrotize a2thrift <path_to_avro_schema_file> [--out <path_to_thrift_file>] [--namespace <thrift_namespace>]
+
+- `<path_to_smithy_file>`: The path to the Smithy 2.0 IDL file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the Smithy `namespace` for the emitted Avro namespace.
+
+Conversion notes:
+
+- Phase 1 supports Smithy data shapes only: `structure`, `union`, `enum`, `intEnum`, `list`, `map`, and scalar shape references. `service`, `operation`, `resource`, HTTP/protocol traits, mixins beyond simple parsing, and `apply` statements are explicitly out of scope and are skipped without failing conversion.
+- Smithy `namespace` maps to Avro `namespace`. `@documentation` maps to Avro `doc`; `@required` makes a field non-nullable; non-required fields are nullable and default to `null`; `@default` maps to the Avro field default where Avro permits it. `@deprecated` and `@tags` are carried into `doc` text.
+- Smithy `union` shapes are represented as Avro records whose alternatives are nullable fields, preserving member names while keeping the Avro schema valid. Avro field unions convert back to Smithy `union` shapes.
+- Smithy `intEnum` converts to an Avro enum with an `ordinals` annotation; Avro itself stores enum symbols, so integer values are metadata for round-tripping.
+- Smithy `list` and `map` members map to Avro arrays and maps. Avro maps are string-keyed, so Smithy map keys should be `String`; other key declarations are noted but cannot be represented as Avro map keys.
+- Scalar mappings include `Blob`→`bytes`, `Boolean`→`boolean`, `String`→`string`, integer widths→`int`/`long`, floats→`float`/`double`, `Timestamp`→valid Avro `long` with `timestamp-millis`, `BigInteger`→`string`, `BigDecimal`→`double`, and `Document`→`string`.
+
+### Convert Avrotize Schema to Smithy IDL data shapes
+
+```bash
+avrotize a2smithy <path_to_avro_schema_file> [--out <path_to_smithy_file>] [--namespace <smithy_namespace>]
 ```
 
 Parameters:
@@ -469,6 +502,15 @@ avrotize s2thrift <path_to_structure_file> [--out <path_to_thrift_file>] [--name
 ```
 
 Converts JSON Structure to Thrift IDL by first converting to Avrotize Schema. The Avro-to-Thrift limitations above therefore apply.
+
+- `--out`: The path to the Smithy IDL file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the Smithy namespace to emit.
+
+Conversion notes:
+
+- Avro records become Smithy `structure` shapes; nullable unions become optional members; non-null fields are emitted with `@required`.
+- Avro enums become Smithy `enum` shapes, or `intEnum` when an `ordinals` annotation is present. Avro arrays and maps become Smithy `list` and `map` shapes. Avro unions with multiple non-null alternatives become Smithy `union` shapes.
+- Service and operation modeling is explicitly out of phase-1 scope; this command emits Smithy data shapes only.
 
 ### Convert JSON schema to Avrotize Schema
 
@@ -1773,6 +1815,23 @@ Conversion notes:
 - Type references (`$ref`) are resolved and converted to appropriate message types.
 - Choice types (unions) are converted to Protocol Buffers `oneof` constructs.
 - Abstract types and extensions (`$extends`) are handled by generating appropriate message hierarchies.
+
+
+### Convert Smithy IDL data shapes to JSON Structure
+
+```bash
+avrotize smithy2s <path_to_smithy_file> [--out <path_to_json_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+This command converts Smithy 2.0 IDL data shapes to JSON Structure by bridging through Avrotize Schema. It has the same Smithy phase-1 scope and limitations as `smithy2a`: service, operation, resource, and protocol modeling are out of scope and skipped.
+
+### Convert JSON Structure to Smithy IDL data shapes
+
+```bash
+avrotize s2smithy <path_to_json_structure_file> [--out <path_to_smithy_file>] [--namespace <smithy_namespace>]
+```
+
+This command converts JSON Structure to Smithy 2.0 IDL data shapes by bridging through Avrotize Schema. It emits data shapes only; Smithy service and operation modeling is explicitly out of scope for phase 1.
 
 ### Convert OpenAPI to JSON Structure
 

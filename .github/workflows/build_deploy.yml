@@ -37,7 +37,7 @@ jobs:
           - name: "Structure to Other Formats"
             pattern: "test/test_structuretocsv.py test/test_structuretodatapackage.py test/test_structuretodb.py test/test_structuretoiceberg.py test/test_structuretojsons.py test/test_structuretokusto.py test/test_structuretomd.py test/test_structuretoparquet.py test/test_structuretoproto.py test/test_structuretoxsd.py"
           - name: "Format to Avro"
-            pattern: "test/test_asn1toavro.py test/test_cuetoavro.py test/test_flatbufferstoavro.py test/test_jsontoavro.py test/test_jstructtoavro.py test/test_jtdtoavro.py test/test_kstructtoavro.py test/test_kustotoavro.py test/test_parquettoavro.py test/test_prototoavro.py test/test_sqltoavro.py test/test_surrealtoavro.py test/test_thrifttoavro.py test/test_xsdtoavro.py"
+            pattern: "test/test_asn1toavro.py test/test_cuetoavro.py test/test_flatbufferstoavro.py test/test_jsontoavro.py test/test_jstructtoavro.py test/test_jtdtoavro.py test/test_kstructtoavro.py test/test_kustotoavro.py test/test_parquettoavro.py test/test_prototoavro.py test/test_smithytoavro.py test/test_sqltoavro.py test/test_surrealtoavro.py test/test_thrifttoavro.py test/test_xsdtoavro.py"
           - name: "JSON Structure & Main"
             pattern: "test/test_jsonstostructure.py test/test_main.py test/test_struct_to_schema_references.py test/test_structure_codegen_flags.py"
           - name: "CDDL & OpenAPI"
