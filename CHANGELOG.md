@@ -1,5 +1,26 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.6.1] - 2026-06-29
+
+### Fixed
+
+- **`s2a` now sanitizes non-identifier property and enum names (issues #382,
+  #383, #385)**: JSON Structure permits property keys and enum values that are
+  not valid Avro names (e.g. `dr-type`, `kar.id`, `1`, `N/A`, `KAR-MQTT`).
+  Previously `s2a` emitted these verbatim, producing schemas that violate the
+  Avro name grammar `[A-Za-z_][A-Za-z0-9_]*` — enum symbols were rejected even by
+  the reference `avro.schema.parse`, and hyphenated field names are rejected by
+  strict consumers (Java, Confluent Schema Registry). Property keys are now
+  sanitized to valid Avro field names with the original key preserved as an Avro
+  `aliases` entry; enum values are sanitized to valid symbols with collisions
+  resolved by numeric suffix and the original wire values preserved in the enum
+  `doc`. Tagged-union discriminator enums are sanitized the same way.
+- **`s2k` now quotes non-identifier column names and JSONPaths (issue #382)**:
+  Kusto column definitions and ingestion-mapping JSONPaths for non-identifier
+  property keys are now bracket/quote-escaped (`['dr-type']`, `$['dr-type']`)
+  instead of the previously invalid bare forms (`[dr-type]`, `$.dr-type`). Plain
+  identifier columns are unchanged.
+
 ## [3.6.0] - 2026-06-29
 
 ### Added
