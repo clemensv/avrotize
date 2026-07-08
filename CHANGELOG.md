@@ -20,6 +20,7 @@ All notable changes to Avrotize are documented in this file.
 - **SurrealDB schema conversion** ([#270](https://github.com/clemensv/avrotize/issues/270)): Added `surreal2a` and `a2surreal` converters for SurrealQL `DEFINE TABLE` / `DEFINE FIELD` schemas, including nested dotted fields, arrays, sets, nullable `option<T>` fields, and Avro logical types for datetime, decimal, and UUID values.
 - **CUE schema subset support** ([#258](https://github.com/clemensv/avrotize/issues/258)): Added `cue2a`, `a2cue`, `cue2s`, and `s2cue` converters for a documented practical CUE schema/type-definition subset, including Avro and JSON Structure bridge conversions.
 - **FlatBuffers schema support** ([#256](https://github.com/clemensv/avrotize/issues/256)): Added `fbs2a`, `a2fbs`, `fbs2s`, and `s2fbs` conversions for FlatBuffers `.fbs` schemas, including namespace, table, struct, enum, union, vector, root type, required-field, and default-value handling. Documented mapping limitations for fixed-layout structs, enum integer values, unsigned 64-bit integers, `[ubyte]` vectors, and unsupported Avro/JSON Structure metadata.
+- **C# `--openapi-generator-compat` output mode** ([#152](https://github.com/clemensv/avrotize/issues/152)): `a2cs` and `s2cs` can now emit OpenAPI Generator-compatible C# models with `Option<T>` optional properties and matching `System.Text.Json` converters.
 
 ## [3.6.1] - 2026-07-08
 
