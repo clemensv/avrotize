@@ -7,6 +7,8 @@ import os
 import re
 from typing import Any
 
+from avrotize.common import unique_name
+
 
 def _sanitize(name: str) -> str:
     cleaned = re.sub(r"\W", "_", name)
@@ -25,16 +27,21 @@ class AvroToFlatBuffersConverter:
         self.namespace_override = namespace
         self.named: dict[str, dict[str, Any]] = {}
         self.union_defs: dict[str, list[str]] = {}
+        self.type_names: dict[str, str] = {}
+        self.used_top_names: set[str] = set()
 
     def convert_file(self, avro_schema_path: str) -> str:
         with open(avro_schema_path, "r", encoding="utf-8") as f:
             schema = json.load(f)
         schemas = schema if isinstance(schema, list) else [schema]
+        self._prepare_names(schemas)
         for item in schemas:
             if isinstance(item, dict) and item.get("type") in {"record", "enum"}:
                 qn = self.qualified_name(item)
                 self.named[qn] = item
                 self.named[item["name"]] = item
+                self.named[self.fbs_type_name(qn)] = item
+                self.named[self.fbs_type_name(item["name"])] = item
         namespace = self.namespace_override or self.first_namespace(schemas)
         lines: list[str] = []
         if namespace:
@@ -53,8 +60,21 @@ class AvroToFlatBuffersConverter:
         lines.extend(record_lines)
         root = self.find_root(schemas)
         if root:
-            lines.append(f"root_type {root};")
+            lines.append(f"root_type {self.fbs_type_name(root)};")
         return "\n".join(lines).rstrip() + "\n"
+
+    def _prepare_names(self, schemas: list[Any]) -> None:
+        self.type_names = {}
+        self.used_top_names = set()
+        for item in schemas:
+            if isinstance(item, dict) and item.get("type") in {"record", "enum"}:
+                candidate = _sanitize(item["name"])
+                converted = unique_name(candidate, self.used_top_names)
+                self.type_names[item["name"]] = converted
+                self.type_names[self.qualified_name(item)] = converted
+
+    def fbs_type_name(self, name: str) -> str:
+        return self.type_names.get(name, self.type_names.get(name.split(".")[-1], _sanitize(name.split(".")[-1])))
 
     @staticmethod
     def qualified_name(schema: dict[str, Any]) -> str:
@@ -80,15 +100,19 @@ class AvroToFlatBuffersConverter:
     def render_enum(self, schema: dict[str, Any]) -> list[str]:
         ordinals = schema.get("ordinals", {})
         parts = []
+        used_symbols: set[str] = set()
         for i, symbol in enumerate(schema.get("symbols", [])):
             value = ordinals.get(symbol, i)
-            parts.append(f"{_sanitize(symbol)} = {value}")
-        return [f"enum {schema['name']} : int {{ {', '.join(parts)} }}"]
+            parts.append(f"{unique_name(_sanitize(symbol), used_symbols)} = {value}")
+        return [f"enum {self.fbs_type_name(self.qualified_name(schema))} : int {{ {', '.join(parts)} }}"]
 
     def render_record(self, schema: dict[str, Any]) -> list[str]:
-        lines = [f"table {schema['name']} {{"]
+        record_name = self.fbs_type_name(self.qualified_name(schema))
+        lines = [f"table {record_name} {{"]
+        used_fields: set[str] = set()
         for field in schema.get("fields", []):
-            fbs_type, nullable = self.avro_type_to_fbs(field["type"], schema["name"], field["name"])
+            field_name = unique_name(_sanitize(field["name"]), used_fields)
+            fbs_type, nullable = self.avro_type_to_fbs(field["type"], record_name, field_name)
             default = ""
             avro_default = field.get("fbsDefault", field.get("default"))
             if avro_default is not None and not isinstance(field["type"], list):
@@ -96,7 +120,7 @@ class AvroToFlatBuffersConverter:
             attr = ""
             if not nullable and self.can_be_required(fbs_type):
                 attr = " (required)"
-            lines.append(f"  {_sanitize(field['name'])}: {fbs_type}{default}{attr};")
+            lines.append(f"  {field_name}: {fbs_type}{default}{attr};")
         lines.append("}")
         return lines
 
@@ -125,11 +149,11 @@ class AvroToFlatBuffersConverter:
                 fbs, _ = self.avro_type_to_fbs(non_null[0], record_name, field_name)
                 return fbs, nullable
             members = [self.avro_type_to_fbs(t, record_name, field_name)[0] for t in non_null]
-            union_name = f"{record_name}_{field_name}_Union"
+            union_name = unique_name(_sanitize(f"{record_name}_{field_name}_Union"), self.used_top_names)
             self.union_defs[union_name] = [m for m in members if not m.startswith("[")]
             return union_name, nullable
         if isinstance(avro_type, str):
-            return self.primitive_map.get(avro_type, avro_type.split(".")[-1]), nullable
+            return self.primitive_map.get(avro_type, self.fbs_type_name(avro_type)), nullable
         if isinstance(avro_type, dict):
             typ = avro_type.get("type")
             if typ == "array":
@@ -139,7 +163,7 @@ class AvroToFlatBuffersConverter:
                 return "string", nullable
             if typ == "enum" or typ == "record":
                 self.named[avro_type["name"]] = avro_type
-                return avro_type["name"], nullable
+                return self.fbs_type_name(avro_type["name"]), nullable
             if typ == "bytes":
                 return "[ubyte]", nullable
             return self.primitive_map.get(typ, typ), nullable

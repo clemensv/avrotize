@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-from avrotize.common import avro_name
+from avrotize.common import avro_name, unique_name
 
 JsonNode = Dict[str, "JsonNode"] | List["JsonNode"] | str | bool | int | float | None
 
@@ -43,6 +43,7 @@ class SurrealToAvroConverter:
     """Converter for SurrealQL DEFINE TABLE/FIELD schema statements."""
 
     KEYWORDS = "DEFAULT|ASSERT|READONLY|COMMENT|PERMISSIONS|FLEXIBLE|VALUE"
+    IDENTIFIER = r"`[^`]+`|[A-Za-z_][\w:-]*"
 
     def __init__(self, namespace: str | None = None) -> None:
         self.namespace = namespace
@@ -52,7 +53,7 @@ class SurrealToAvroConverter:
         tables: Dict[str, TableDefinition] = {}
         for statement in self._split_statements(self._strip_line_comments(surrealql)):
             table_match = re.match(
-                r"^DEFINE\s+TABLE\s+(`[^`]+`|[A-Za-z_][\w:-]*)\s+(SCHEMAFULL|SCHEMALESS)\b",
+                rf"^DEFINE\s+TABLE\s+({self.IDENTIFIER})\s+(SCHEMAFULL|SCHEMALESS)\b",
                 statement,
                 flags=re.IGNORECASE | re.DOTALL,
             )
@@ -65,14 +66,14 @@ class SurrealToAvroConverter:
                 continue
 
             field_match = re.match(
-                r"^DEFINE\s+FIELD\s+(.+?)\s+ON\s+(?:TABLE\s+)?(`[^`]+`|[A-Za-z_][\w:-]*)\b(.*)$",
+                rf"^DEFINE\s+FIELD\s+(.+?)\s+ON\s+(?:TABLE\s+({self.IDENTIFIER})|({self.IDENTIFIER}))(?:\s+(.*)|$)",
                 statement,
                 flags=re.IGNORECASE | re.DOTALL,
             )
             if field_match:
                 path = self._clean_path(field_match.group(1).strip())
-                table_name = self._clean_identifier(field_match.group(2))
-                tail = field_match.group(3).strip()
+                table_name = self._clean_identifier(field_match.group(2) or field_match.group(3))
+                tail = (field_match.group(4) or "").strip()
                 type_expr = self._extract_type(tail)
                 doc = self._extract_comment(tail)
                 table = tables.setdefault(table_name, TableDefinition(name=table_name))
@@ -81,19 +82,23 @@ class SurrealToAvroConverter:
 
     def convert_schema(self, surrealql: str) -> JsonNode:
         """Convert SurrealQL text to an Avrotize Schema document."""
-        records = [self._table_to_record(table) for table in self.parse(surrealql)]
+        used_type_names: set[str] = set()
+        records = [
+            self._table_to_record(table, unique_name(avro_name(table.name), used_type_names), used_type_names)
+            for table in self.parse(surrealql)
+        ]
         if not records:
             raise ValueError("No supported SurrealQL DEFINE TABLE or DEFINE FIELD statements found")
         return records[0] if len(records) == 1 else records
 
-    def _table_to_record(self, table: TableDefinition) -> Dict[str, JsonNode]:
+    def _table_to_record(self, table: TableDefinition, record_name: str, used_type_names: set[str]) -> Dict[str, JsonNode]:
         root = FieldNode(table.name)
         for field_def in table.fields:
             self._insert_field(root, field_def)
         record: Dict[str, JsonNode] = {
             "type": "record",
-            "name": avro_name(table.name),
-            "fields": self._node_children_to_fields(root, avro_name(table.name)),
+            "name": record_name,
+            "fields": self._node_children_to_fields(root, record_name, used_type_names),
         }
         if self.namespace:
             record["namespace"] = self.namespace
@@ -118,47 +123,54 @@ class SurrealToAvroConverter:
                 node.type_expr = field_def.type_expr
                 node.doc = field_def.doc
 
-    def _node_children_to_fields(self, node: FieldNode, parent_name: str) -> List[Dict[str, JsonNode]]:
-        return [self._node_to_field(child, parent_name) for child in node.children.values()]
+    def _node_children_to_fields(self, node: FieldNode, parent_name: str, used_type_names: set[str]) -> List[Dict[str, JsonNode]]:
+        used_field_names: set[str] = set()
+        return [self._node_to_field(child, parent_name, used_type_names, used_field_names) for child in node.children.values()]
 
-    def _node_to_field(self, node: FieldNode, parent_name: str) -> Dict[str, JsonNode]:
-        field_type = self._node_to_type(node, parent_name)
-        field_schema: Dict[str, JsonNode] = {"name": avro_name(node.name), "type": field_type}
+    def _node_to_field(
+        self, node: FieldNode, parent_name: str, used_type_names: set[str], used_field_names: set[str]
+    ) -> Dict[str, JsonNode]:
+        field_name = unique_name(avro_name(node.name), used_field_names)
+        field_type = self._node_to_type(node, parent_name, used_type_names, field_name)
+        field_schema: Dict[str, JsonNode] = {"name": field_name, "type": field_type}
         if node.doc:
             field_schema["doc"] = node.doc
         if isinstance(field_type, list) and field_type and field_type[0] == "null":
             field_schema["default"] = None
         return field_schema
 
-    def _node_to_type(self, node: FieldNode, parent_name: str) -> JsonNode:
+    def _node_to_type(self, node: FieldNode, parent_name: str, used_type_names: set[str], field_name: str) -> JsonNode:
         type_expr = node.type_expr or ("array" if node.array_item else "object" if node.children else "string")
         nullable, base_type = self._unwrap_option(type_expr)
         if node.array_item is not None:
-            item_type = self._node_to_type(node.array_item, self._nested_name(parent_name, node.name))
+            item_type = self._node_to_type(
+                node.array_item, self._nested_name(parent_name, field_name), used_type_names, "item"
+            )
             avro_type: JsonNode = {"type": "array", "items": self._non_nullable(item_type)}
         elif node.children and self._base_type_name(base_type) in {"object", "array", "set"}:
             if self._base_type_name(base_type) in {"array", "set"}:
-                item_record = self._record_for_node(node, self._nested_name(parent_name, node.name))
+                item_record = self._record_for_node(node, self._nested_name(parent_name, field_name), used_type_names)
                 avro_type = {"type": "array", "items": item_record}
             else:
-                avro_type = self._record_for_node(node, self._nested_name(parent_name, node.name))
+                avro_type = self._record_for_node(node, self._nested_name(parent_name, field_name), used_type_names)
         else:
-            avro_type = self._surreal_type_to_avro(base_type, self._nested_name(parent_name, node.name))
+            avro_type = self._surreal_type_to_avro(base_type, self._nested_name(parent_name, field_name), used_type_names)
         if nullable:
             return ["null", avro_type]
         return avro_type
 
-    def _record_for_node(self, node: FieldNode, record_name: str) -> Dict[str, JsonNode]:
+    def _record_for_node(self, node: FieldNode, record_name: str, used_type_names: set[str]) -> Dict[str, JsonNode]:
+        avro_record_name = unique_name(avro_name(record_name), used_type_names)
         return {
             "type": "record",
-            "name": avro_name(record_name),
-            "fields": self._node_children_to_fields(node, avro_name(record_name)),
+            "name": avro_record_name,
+            "fields": self._node_children_to_fields(node, avro_record_name, used_type_names),
         }
 
-    def _surreal_type_to_avro(self, type_expr: str, record_name: str) -> JsonNode:
+    def _surreal_type_to_avro(self, type_expr: str, record_name: str, used_type_names: set[str]) -> JsonNode:
         nullable, base_type = self._unwrap_option(type_expr)
         if nullable:
-            return ["null", self._surreal_type_to_avro(base_type, record_name)]
+            return ["null", self._surreal_type_to_avro(base_type, record_name, used_type_names)]
         name = self._base_type_name(base_type)
         inner = self._generic_inner(base_type)
         if name == "string":
@@ -180,9 +192,9 @@ class SurrealToAvroConverter:
         if name == "bytes":
             return "bytes"
         if name == "object":
-            return {"type": "record", "name": avro_name(record_name), "fields": []}
+            return {"type": "record", "name": unique_name(avro_name(record_name), used_type_names), "fields": []}
         if name in {"array", "set"}:
-            items = self._surreal_type_to_avro(inner, f"{record_name}_item") if inner else "string"
+            items = self._surreal_type_to_avro(inner, f"{record_name}_item", used_type_names) if inner else "string"
             return {"type": "array", "items": self._non_nullable(items)}
         if name == "record":
             target = inner or "record"
@@ -239,7 +251,23 @@ class SurrealToAvroConverter:
 
     @classmethod
     def _clean_path(cls, path: str) -> str:
-        return ".".join(cls._clean_identifier(part) for part in path.split("."))
+        return ".".join(cls._clean_identifier(part) for part in cls._split_dotted_path(path))
+
+    @staticmethod
+    def _split_dotted_path(path: str) -> List[str]:
+        parts: List[str] = []
+        current: List[str] = []
+        in_backticks = False
+        for char in path:
+            if char == "`":
+                in_backticks = not in_backticks
+            if char == "." and not in_backticks:
+                parts.append("".join(current))
+                current = []
+            else:
+                current.append(char)
+        parts.append("".join(current))
+        return parts
 
     @staticmethod
     def _strip_line_comments(text: str) -> str:
@@ -260,7 +288,7 @@ class SurrealToAvroConverter:
                 if char == quote:
                     quote = None
                 continue
-            if char in {"'", '"'}:
+            if char in {"'", '"', "`"}:
                 quote = char
                 current.append(char)
                 continue

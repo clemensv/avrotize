@@ -60,6 +60,24 @@ def avro_namespace(name):
     return val
 
 
+def unique_name(candidate: str, used: set) -> str:
+    """Return a name unique within ``used``, suffixing ``_1``, ``_2``, ... on collision.
+
+    This disambiguates distinct source names that collapse to the same identifier
+    after sanitization (e.g. ``a-b`` and ``a_b`` both become ``a_b``). The chosen
+    name is added to ``used`` so repeated calls keep producing fresh names.
+    """
+    if candidate not in used:
+        used.add(candidate)
+        return candidate
+    index = 1
+    while f"{candidate}_{index}" in used:
+        index += 1
+    result = f"{candidate}_{index}"
+    used.add(result)
+    return result
+
+
 ANY_VALUE_RECORD: dict = {
     "type": "record",
     "name": "AnyValue",

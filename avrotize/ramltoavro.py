@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from avrotize.common import avro_name, avro_namespace
+from avrotize.common import avro_name, avro_namespace, unique_name
 from avrotize.dependency_resolver import sort_messages_by_dependencies
 
 AvroSchema = dict[str, Any] | list[Any] | str | None
@@ -50,6 +50,7 @@ class RamlToAvroConverter:
     def __init__(self, namespace: str | None = None) -> None:
         self.namespace = avro_namespace(namespace) if namespace else None
         self.known_types: set[str] = set()
+        self.type_name_map: dict[str, str] = {}
 
     def load_raml(self, raml_file_path: str) -> dict[str, Any]:
         with open(raml_file_path, "r", encoding="utf-8") as raml_file:
@@ -63,7 +64,12 @@ class RamlToAvroConverter:
         types = data.get("types", {}) or {}
         if not isinstance(types, dict):
             raise ValueError("RAML types section must be a mapping")
-        self.known_types = {avro_name(str(name).rstrip("?")) for name in types}
+        used_type_names: set[str] = set()
+        self.type_name_map = {}
+        for name in types:
+            raw_name = str(name).rstrip("?")
+            self.type_name_map[raw_name] = unique_name(avro_name(raw_name), used_type_names)
+        self.known_types = set(self.type_name_map.values())
         avro_types: list[dict[str, Any]] = []
         for type_name, definition in types.items():
             avro_type = self.convert_named_type(str(type_name), definition)
@@ -72,7 +78,8 @@ class RamlToAvroConverter:
         return sort_messages_by_dependencies(avro_types) if len(avro_types) > 1 else (avro_types[0] if avro_types else [])
 
     def convert_named_type(self, type_name: str, definition: Any) -> AvroSchema:
-        name = avro_name(type_name.rstrip("?"))
+        raw_name = type_name.rstrip("?")
+        name = self.type_name_map.get(raw_name, avro_name(raw_name))
         definition = self.normalize_definition(definition)
         if "enum" in definition:
             return self.convert_enum(name, definition)
@@ -106,16 +113,17 @@ class RamlToAvroConverter:
         if definition.get("description"):
             record["doc"] = str(definition["description"])
         deps: list[str] = []
+        used_field_names: set[str] = set()
         properties = definition.get("properties", {}) or {}
         if self.is_map_definition(definition):
             map_type = self.map_value_type(definition)
-            record["fields"].append({"name": "additionalProperties", "type": {"type": "map", "values": map_type}})
+            record["fields"].append({"name": unique_name("additionalProperties", used_field_names), "type": {"type": "map", "values": map_type}})
             self.collect_dependencies(map_type, deps)
         elif isinstance(properties, dict):
             for prop_name, prop_def in properties.items():
                 if self.is_out_of_scope_key(str(prop_name)):
                     continue
-                field = self.convert_property(avro_name(name), str(prop_name), prop_def)
+                field = self.convert_property(avro_name(name), str(prop_name), prop_def, used_field_names)
                 self.collect_dependencies(field["type"], deps)
                 record["fields"].append(field)
         if deps:
@@ -126,15 +134,16 @@ class RamlToAvroConverter:
     def is_out_of_scope_key(name: str) -> bool:
         return name.startswith("/") or name.lower() in {"get", "post", "put", "patch", "delete", "head", "options", "trace"}
 
-    def convert_property(self, record_name: str, prop_name: str, prop_def: Any) -> dict[str, Any]:
+    def convert_property(self, record_name: str, prop_name: str, prop_def: Any, used_field_names: set[str] | None = None) -> dict[str, Any]:
         optional_by_name = prop_name.endswith("?")
         clean_name = prop_name.rstrip("?")
         definition = self.normalize_definition(prop_def)
         optional = optional_by_name or definition.get("required") is False
-        field_type = self.convert_type(definition.get("type", "object" if "properties" in definition else "string"), f"{record_name}_{clean_name}", definition)
+        field_name = unique_name(avro_name(clean_name), used_field_names) if used_field_names is not None else avro_name(clean_name)
+        field_type = self.convert_type(definition.get("type", "object" if "properties" in definition else "string"), f"{record_name}_{field_name}", definition)
         if optional and not self.is_nullable(field_type):
             field_type = ["null", field_type]
-        field: dict[str, Any] = {"name": avro_name(clean_name), "type": field_type}
+        field: dict[str, Any] = {"name": field_name, "type": field_type}
         if definition.get("description"):
             field["doc"] = str(definition["description"])
         if optional:
@@ -144,7 +153,8 @@ class RamlToAvroConverter:
         return field
 
     def convert_enum(self, name: str, definition: dict[str, Any]) -> dict[str, Any]:
-        enum_type: dict[str, Any] = {"type": "enum", "name": avro_name(name), "symbols": [avro_name(str(symbol)) for symbol in definition.get("enum", [])]}
+        used_symbols: set[str] = set()
+        enum_type: dict[str, Any] = {"type": "enum", "name": avro_name(name), "symbols": [unique_name(avro_name(str(symbol)), used_symbols) for symbol in definition.get("enum", [])]}
         if self.namespace:
             enum_type["namespace"] = self.namespace
         if definition.get("description"):
@@ -180,7 +190,8 @@ class RamlToAvroConverter:
         return self.reference_name(type_text)
 
     def reference_name(self, type_name: str) -> str:
-        name = avro_name(type_name)
+        raw_name = type_name.rstrip("?")
+        name = self.type_name_map.get(raw_name, avro_name(raw_name))
         if self.namespace and name in self.known_types:
             return f"{self.namespace}.{name}"
         return name

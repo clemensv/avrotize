@@ -73,6 +73,21 @@ def _strip_comments(text: str) -> str:
     return text
 
 
+def _decode_string_literal(raw: str) -> str:
+    """Decode Thrift string-literal escapes without mangling non-ASCII UTF-8.
+
+    ``str.decode("unicode_escape")`` operates byte-wise and therefore corrupts
+    multi-byte UTF-8 sequences (e.g. ``café`` -> ``cafÃ©``). Re-encoding the
+    latin-1 view back to bytes and decoding as UTF-8 restores the original
+    characters; escapes such as ``\\n`` or ``\\uXXXX`` are still honoured.
+    """
+    decoded = raw.encode("utf-8").decode("unicode_escape")
+    try:
+        return decoded.encode("latin-1").decode("utf-8")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return decoded
+
+
 def _tokenize(text: str) -> list[Token]:
     tokens: list[Token] = []
     pattern = re.compile(
@@ -82,7 +97,7 @@ def _tokenize(text: str) -> list[Token]:
         dq_string, sq_string, ident, number, punct, other = match.groups()
         string = dq_string if dq_string is not None else sq_string
         if string is not None:
-            tokens.append(Token("string", bytes(string[1:-1], "utf-8").decode("unicode_escape")))
+            tokens.append(Token("string", _decode_string_literal(string[1:-1])))
         elif ident is not None:
             tokens.append(Token("ident", ident))
         elif number is not None:

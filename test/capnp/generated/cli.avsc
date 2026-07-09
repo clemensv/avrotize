@@ -130,6 +130,34 @@
     ]
   },
   {
+    "type": "enum",
+    "name": "Status",
+    "namespace": "example.cli.Person_types",
+    "symbols": [
+      "active",
+      "inactive"
+    ],
+    "capnpOrdinals": {
+      "active": 0,
+      "inactive": 1
+    }
+  },
+  {
+    "type": "enum",
+    "name": "Color",
+    "namespace": "example.cli",
+    "symbols": [
+      "red",
+      "green",
+      "blue"
+    ],
+    "capnpOrdinals": {
+      "red": 0,
+      "green": 1,
+      "blue": 2
+    }
+  },
+  {
     "type": "record",
     "name": "Address",
     "namespace": "example.cli",
@@ -153,34 +181,6 @@
         "capnpOrdinal": 1
       }
     ]
-  },
-  {
-    "type": "enum",
-    "name": "Color",
-    "namespace": "example.cli",
-    "symbols": [
-      "red",
-      "green",
-      "blue"
-    ],
-    "capnpOrdinals": {
-      "red": 0,
-      "green": 1,
-      "blue": 2
-    }
-  },
-  {
-    "type": "enum",
-    "name": "Status",
-    "namespace": "example.cli.Person_types",
-    "symbols": [
-      "active",
-      "inactive"
-    ],
-    "capnpOrdinals": {
-      "active": 0,
-      "inactive": 1
-    }
   },
   {
     "type": "record",

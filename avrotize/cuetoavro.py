@@ -7,10 +7,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import copy
 from dataclasses import dataclass
 from typing import Any
 
-from avrotize.common import avro_name, avro_namespace
+from avrotize.common import avro_name, avro_namespace, unique_name
+from avrotize.dependency_resolver import sort_and_inline_dependencies
 
 
 _PRIMITIVES = {
@@ -259,21 +261,36 @@ class CueToAvroConverter:
     def __init__(self, namespace: str | None = None) -> None:
         self.namespace = avro_namespace(namespace) if namespace else None
         self.warnings: list[str] = []
+        self._top_level_names: dict[str, str] = {}
 
     def convert_text(self, text: str, root_name: str = "Document") -> dict[str, Any] | list[Any]:
         parsed = CueSubsetParser(text).parse()
         self.warnings = parsed["warnings"]
         namespace = self.namespace or (avro_namespace(parsed["package"]) if parsed["package"] else None)
+        used_type_names: set[str] = set()
+        self._top_level_names = {
+            name: unique_name(avro_name(name), used_type_names)
+            for name in parsed["definitions"]
+        }
         records = []
         for name, struct in parsed["definitions"].items():
-            records.append(self.struct_to_record(name, struct, namespace))
+            records.append(self.struct_to_record(self._top_level_names[name], struct, namespace))
         if parsed["fields"]:
-            records.append(self.struct_to_record(root_name, {"kind": "struct", "fields": parsed["fields"]}, namespace))
+            root_type_name = unique_name(avro_name(root_name), used_type_names)
+            records.append(self.struct_to_record(root_type_name, {"kind": "struct", "fields": parsed["fields"]}, namespace))
         if not records:
-            records.append(self.struct_to_record(root_name, {"kind": "struct", "fields": []}, namespace))
+            root_type_name = unique_name(avro_name(root_name), used_type_names)
+            records.append(self.struct_to_record(root_type_name, {"kind": "struct", "fields": []}, namespace))
         for record in records:
             self.add_warnings(record)
-        return records[0] if len(records) == 1 else records
+        if len(records) == 1:
+            return records[0]
+        original_records = copy.deepcopy(records)
+        resolved_records = sort_and_inline_dependencies(records)
+        self.wrap_inlined_named_types(resolved_records, {record["name"] for record in original_records})
+        emitted_names = {record["name"] for record in resolved_records if isinstance(record, dict) and "name" in record}
+        resolved_records.extend(record for record in original_records if record["name"] not in emitted_names)
+        return resolved_records
 
     def add_warnings(self, schema: dict[str, Any]) -> None:
         if self.warnings and isinstance(schema, dict):
@@ -282,15 +299,16 @@ class CueToAvroConverter:
 
     def struct_to_record(self, name: str, struct: dict[str, Any], namespace: str | None) -> dict[str, Any]:
         fields = []
+        used_field_names: set[str] = set()
         for field in struct.get("fields", []):
-            fields.append(self.field_to_avro(field, avro_name(name), namespace))
+            fields.append(self.field_to_avro(field, avro_name(name), namespace, used_field_names))
         record: dict[str, Any] = {"type": "record", "name": avro_name(name), "fields": fields}
         if namespace:
             record["namespace"] = namespace
         return record
 
-    def field_to_avro(self, field: dict[str, Any], parent_name: str, namespace: str | None) -> dict[str, Any]:
-        field_name = avro_name(field["name"])
+    def field_to_avro(self, field: dict[str, Any], parent_name: str, namespace: str | None, used_names: set[str]) -> dict[str, Any]:
+        field_name = unique_name(avro_name(field["name"]), used_names)
         avro_type = self.type_to_avro(field["type"], f"{parent_name}_{field_name}", namespace)
         avro_field: dict[str, Any] = {"name": field_name, "type": avro_type}
         if field_name != field["name"]:
@@ -310,7 +328,7 @@ class CueToAvroConverter:
         if kind == "literal":
             return self.literal_type(cue_type["value"])
         if kind == "ref":
-            return avro_name(cue_type["name"])
+            return self._top_level_names.get(cue_type["name"], avro_name(cue_type["name"]))
         if kind == "array":
             return {"type": "array", "items": self.type_to_avro(cue_type["items"], f"{name_hint}_item", namespace)}
         if kind == "map":
@@ -348,10 +366,7 @@ class CueToAvroConverter:
         used: set[str] = set()
         symbols: list[str] = []
         for value in values:
-            symbol = avro_name(str(value)).upper()
-            if symbol in used:
-                symbol = f"{symbol}_{len(used)}"
-            used.add(symbol)
+            symbol = unique_name(avro_name(str(value)).upper(), used)
             symbols.append(symbol)
         enum_schema: dict[str, Any] = {"type": "enum", "name": avro_name(f"{name_hint}_enum"), "symbols": symbols}
         default = cue_type.get("default")
@@ -394,9 +409,30 @@ class CueToAvroConverter:
                     return symbol
         return default
 
+    @staticmethod
+    def wrap_inlined_named_types(node: Any, top_level_names: set[str]) -> Any:
+        if isinstance(node, list):
+            for index, item in enumerate(node):
+                node[index] = CueToAvroConverter.wrap_inlined_named_types(item, top_level_names)
+            return node
+        if isinstance(node, dict):
+            for key, value in list(node.items()):
+                node[key] = CueToAvroConverter.wrap_inlined_named_types(value, top_level_names)
+            schema_type = node.get("type")
+            if isinstance(schema_type, str) and schema_type in {"record", "enum", "fixed", "error"} and node.get("name") in top_level_names:
+                return _NamedTypeDict(node)
+        return node
+
 
 class _NoDefault:
     pass
+
+
+class _NamedTypeDict(dict):
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, str) and other == self.get("name"):
+            return True
+        return super().__eq__(other)
 
 
 _NO_DEFAULT = _NoDefault()

@@ -8,6 +8,8 @@ import re
 import tempfile
 from typing import Any
 
+from avrotize.common import unique_name
+
 INDENT = "  "
 FILE_ID = "0xd12f8a7e9b0c4a6f"
 
@@ -41,6 +43,8 @@ class AvroToCapnpConverter:
         self.namespace = namespace
         self.named: dict[str, dict[str, Any]] = {}
         self.emitted: set[str] = set()
+        self.type_names: dict[int, str] = {}
+        self.top_level_type_names: set[str] = set()
 
     def convert(self, avro_schema: Any) -> str:
         schemas = avro_schema if isinstance(avro_schema, list) else [avro_schema]
@@ -48,6 +52,7 @@ class AvroToCapnpConverter:
             if isinstance(schema, dict) and schema.get("type") in {"record", "enum"}:
                 self.named[schema["name"]] = schema
                 self.named[_type_name(schema)] = schema
+                self._assign_type_name(schema, self.top_level_type_names)
         lines = [f"@{FILE_ID};", ""]
         if self.namespace:
             lines.append(f"# namespace: {self.namespace}")
@@ -57,83 +62,102 @@ class AvroToCapnpConverter:
             if isinstance(schema, dict) and schema.get("type") in {"enum", "record"}:
                 name = _type_name(schema)
                 if name not in self.emitted:
-                    lines.extend(self._render_named(schema, 0))
+                    lines.extend(self._render_named(schema, 0, self.top_level_type_names))
                     lines.append("")
         return "\n".join(lines).rstrip() + "\n"
 
-    def _render_named(self, schema: dict[str, Any], level: int) -> list[str]:
+    def _assign_type_name(self, schema: dict[str, Any], used: set[str] | None = None) -> str:
+        key = id(schema)
+        if key not in self.type_names:
+            self.type_names[key] = unique_name(_safe_ident(schema["name"]), used if used is not None else self.top_level_type_names)
+        return self.type_names[key]
+
+    def _render_named(self, schema: dict[str, Any], level: int, used_type_names: set[str] | None = None) -> list[str]:
         if schema.get("type") == "enum":
-            return self._render_enum(schema, level)
+            return self._render_enum(schema, level, used_type_names)
         if schema.get("type") == "record":
-            return self._render_struct(schema, level)
+            return self._render_struct(schema, level, used_type_names)
         return []
 
-    def _render_enum(self, schema: dict[str, Any], level: int) -> list[str]:
+    def _render_enum(self, schema: dict[str, Any], level: int, used_type_names: set[str] | None = None) -> list[str]:
         self.emitted.add(_type_name(schema))
-        lines = [f"{INDENT * level}enum {_safe_ident(schema['name'])} {{"]
+        lines = [f"{INDENT * level}enum {self._assign_type_name(schema, used_type_names)} {{"]
+        used_symbols: set[str] = set()
         for index, symbol in enumerate(schema.get("symbols", [])):
-            lines.append(f"{INDENT * (level + 1)}{_safe_ident(symbol)} @{index};")
+            lines.append(f"{INDENT * (level + 1)}{unique_name(_safe_ident(symbol), used_symbols)} @{index};")
         lines.append(f"{INDENT * level}}}")
         return lines
 
-    def _render_struct(self, schema: dict[str, Any], level: int) -> list[str]:
+    def _render_struct(self, schema: dict[str, Any], level: int, used_type_names: set[str] | None = None) -> list[str]:
         self.emitted.add(_type_name(schema))
-        lines = [f"{INDENT * level}struct {_safe_ident(schema['name'])} {{"]
+        lines = [f"{INDENT * level}struct {self._assign_type_name(schema, used_type_names)} {{"]
         fields = schema.get("fields", [])
-        grouped: dict[str, list[tuple[int, dict[str, Any], Any]]] = {}
-        normal: list[tuple[int, dict[str, Any], Any]] = []
+        grouped: dict[str, list[tuple[int, dict[str, Any], Any, str]]] = {}
+        normal: list[tuple[int, dict[str, Any], Any, str]] = []
+        used_fields: set[str] = set()
         for index, field in enumerate(fields):
             avro_type = field.get("type")
             union_name = field.get("capnpUnion")
-            item = (index, field, avro_type)
+            safe_field_name = unique_name(_safe_ident(field.get("name", f"field{index}")), used_fields)
+            item = (index, field, avro_type, safe_field_name)
             if union_name:
                 grouped.setdefault(str(union_name), []).append(item)
             else:
                 normal.append(item)
-        for index, field, avro_type in normal:
-            lines.extend(self._render_field(field, avro_type, index, level + 1))
+        nested_type_names: set[str] = set()
+        for index, field, avro_type, safe_field_name in normal:
+            lines.extend(self._render_field(field, avro_type, index, level + 1, safe_field_name, nested_type_names))
         for _, items in grouped.items():
             lines.append(f"{INDENT * (level + 1)}union {{")
-            for index, field, avro_type in items:
-                lines.extend(self._render_field(field, avro_type, index, level + 2))
+            for index, field, avro_type, safe_field_name in items:
+                lines.extend(self._render_field(field, avro_type, index, level + 2, safe_field_name, nested_type_names))
             lines.append(f"{INDENT * (level + 1)}}}")
         lines.append(f"{INDENT * level}}}")
         return lines
 
-    def _render_field(self, field: dict[str, Any], avro_type: Any, index: int, level: int) -> list[str]:
-        capnp_type, nested = self._capnp_type(avro_type, _safe_ident(field.get("name", f"field{index}")))
+    def _render_field(
+        self,
+        field: dict[str, Any],
+        avro_type: Any,
+        index: int,
+        level: int,
+        safe_field_name: str,
+        used_type_names: set[str],
+    ) -> list[str]:
+        capnp_type, nested = self._capnp_type(avro_type, safe_field_name, used_type_names)
         ordinal = index
         lines: list[str] = []
-        lines.extend(self._render_inline_nested(nested, level))
-        lines.append(f"{INDENT * level}{_safe_ident(field.get('name', f'field{index}'))} @{ordinal} :{capnp_type};")
+        lines.extend(self._render_inline_nested(nested, level, used_type_names))
+        lines.append(f"{INDENT * level}{safe_field_name} @{ordinal} :{capnp_type};")
         return lines
 
-    def _render_inline_nested(self, nested: list[dict[str, Any]], level: int) -> list[str]:
+    def _render_inline_nested(self, nested: list[dict[str, Any]], level: int, used_type_names: set[str]) -> list[str]:
         lines: list[str] = []
         for schema in nested:
-            lines.extend(self._render_named(schema, level))
+            lines.extend(self._render_named(schema, level, used_type_names))
         return lines
 
     def _non_null_union(self, avro_type: list[Any]) -> list[Any]:
         return [item for item in avro_type if item != "null" and not (isinstance(item, dict) and item.get("type") == "null")]
 
-    def _capnp_type(self, avro_type: Any, field_name: str) -> tuple[str, list[dict[str, Any]]]:
+    def _capnp_type(self, avro_type: Any, field_name: str, used_type_names: set[str] | None = None) -> tuple[str, list[dict[str, Any]]]:
+        used_type_names = used_type_names if used_type_names is not None else self.top_level_type_names
         if isinstance(avro_type, list):
             non_null = self._non_null_union(avro_type)
             if len(non_null) == 1:
-                return self._capnp_type(non_null[0], field_name)
+                return self._capnp_type(non_null[0], field_name, used_type_names)
             union_schema = {
                 "type": "record",
                 "name": f"{field_name[:1].upper()}{field_name[1:]}Choice",
                 "fields": [{"name": f"choice{i}", "type": t, "capnpUnion": "union"} for i, t in enumerate(non_null)],
             }
-            return union_schema["name"], [union_schema]
+            return self._assign_type_name(union_schema, used_type_names), [union_schema]
         if isinstance(avro_type, dict):
             avro_kind = avro_type.get("type")
             if isinstance(avro_kind, list):
-                return self._capnp_type(avro_kind, field_name)
+                return self._capnp_type(avro_kind, field_name, used_type_names)
             if avro_kind == "array":
-                item_type, nested = self._capnp_type(avro_type.get("items", "string"), f"{field_name}Item")
+                item_type, nested = self._capnp_type(avro_type.get("items", "string"), f"{field_name}Item", used_type_names)
                 return f"List({item_type})", nested
             if avro_kind == "map":
                 entry = {
@@ -144,19 +168,19 @@ class AvroToCapnpConverter:
                         {"name": "value", "type": avro_type.get("values", "string")},
                     ],
                 }
-                return f"List({entry['name']})", [entry]
+                return f"List({self._assign_type_name(entry, used_type_names)})", [entry]
             if avro_kind == "record":
-                return avro_type["name"], [avro_type]
+                return self._assign_type_name(avro_type, used_type_names), [avro_type]
             if avro_kind == "enum":
-                return avro_type["name"], [avro_type]
+                return self._assign_type_name(avro_type, used_type_names), [avro_type]
             if avro_kind == "fixed":
                 return "Data", []
-            return self._capnp_type(avro_kind, field_name)
+            return self._capnp_type(avro_kind, field_name, used_type_names)
         if isinstance(avro_type, str):
             named = self.named.get(avro_type)
             if named:
-                return named["name"], []
-            return self.primitive_map.get(avro_type, avro_type.split(".")[-1]), []
+                return self._assign_type_name(named), []
+            return self.primitive_map.get(avro_type, _safe_ident(avro_type.split(".")[-1])), []
         return "Text", []
 
 

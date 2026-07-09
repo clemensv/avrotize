@@ -20,9 +20,9 @@ struct PrimitiveSample {
   dataField @13 :Data;
 }
 
-struct Address {
-  street @0 :Text;
-  zip @1 :Int64;
+enum Status {
+  active @0;
+  inactive @1;
 }
 
 enum Color {
@@ -31,9 +31,9 @@ enum Color {
   blue @2;
 }
 
-enum Status {
-  active @0;
-  inactive @1;
+struct Address {
+  street @0 :Text;
+  zip @1 :Int64;
 }
 
 struct Preference {

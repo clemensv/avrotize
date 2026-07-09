@@ -6,7 +6,8 @@ import json
 import os
 from typing import Any
 
-from avrotize.common import avro_name, avro_namespace
+from avrotize.common import avro_name, avro_name_with_altname, avro_namespace
+from avrotize.dependency_resolver import sort_and_inline_dependencies
 
 AvroSchema = dict[str, Any] | list[Any] | str
 JtdSchema = dict[str, Any]
@@ -52,15 +53,17 @@ class JtdToAvroConverter:
                 self.generated[root_ref]["jtdRoot"] = True
             if root_schema.get("nullable"):
                 return [*self.output, "null", root_type]
-            return self.output if self.output else root_type
+            return sort_and_inline_dependencies(self.output) if self.output else root_type
 
         converted = self._convert_schema(root_schema, self._unique_type_name(root_name))
         if self.output:
             if isinstance(converted, dict) and converted.get("type") in {"record", "enum"}:
                 if converted not in self.output:
                     self.output.append(converted)
-                return self.output
+                return sort_and_inline_dependencies(self.output)
             return [*self.output, converted]
+        if isinstance(converted, list):
+            return sort_and_inline_dependencies(converted)
         return converted
 
     def _unique_type_name(self, name: str) -> str:
@@ -171,13 +174,21 @@ class JtdToAvroConverter:
         if "additionalProperties" in schema:
             record["jtdAdditionalProperties"] = bool(schema["additionalProperties"])
         for prop_name, prop_schema in schema.get("properties", {}).items():
-            record["fields"].append({"name": avro_name(prop_name), "type": self._convert_schema(prop_schema, f"{suggested_name}{avro_name(prop_name).title()}")})
+            avro_field_name, original_name = avro_name_with_altname(prop_name)
+            field = {"name": avro_field_name, "type": self._convert_schema(prop_schema, f"{suggested_name}{avro_field_name.title()}")}
+            if original_name is not None:
+                field["altnames"] = {"jtd": original_name}
+            record["fields"].append(field)
         for prop_name, prop_schema in schema.get("optionalProperties", {}).items():
-            record["fields"].append({
-                "name": avro_name(prop_name),
-                "type": self._nullable(self._convert_schema(prop_schema, f"{suggested_name}{avro_name(prop_name).title()}")),
+            avro_field_name, original_name = avro_name_with_altname(prop_name)
+            field = {
+                "name": avro_field_name,
+                "type": self._nullable(self._convert_schema(prop_schema, f"{suggested_name}{avro_field_name.title()}")),
                 "default": None,
-            })
+            }
+            if original_name is not None:
+                field["altnames"] = {"jtd": original_name}
+            record["fields"].append(field)
         return record
 
     def _convert_discriminator(self, schema: JtdSchema, suggested_name: str) -> list[AvroSchema]:

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from avrotize.common import altname
+
 AvroSchema = dict[str, Any] | list[Any] | str
 JtdSchema = dict[str, Any]
 
@@ -142,15 +144,16 @@ class AvroToJtdConverter:
         for field in schema.get("fields", []):
             if field.get("name") == schema.get("jtdDiscriminator"):
                 continue
+            property_name = altname(field, "jtd")
             field_nullable, field_type = self._strip_nullable(field.get("type", "string"))
             converted = self._convert_type(field_type)
             if field_nullable and field.get("default") is None:
-                optional_properties[field["name"]] = converted
+                optional_properties[property_name] = converted
             else:
                 if field_nullable:
                     converted = dict(converted)
                     converted["nullable"] = True
-                properties[field["name"]] = converted
+                properties[property_name] = converted
         self.converting.remove(key)
         result: JtdSchema = {}
         if properties:

@@ -1,5 +1,44 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.7.1] - 2026-07-09
+
+### Fixed
+
+- **Circular and mutually-recursive type definitions now emit valid Avro across the
+  v3.7.0 format converters**: the Cap'n Proto, CUE, FlatBuffers, JTD, and Smithy
+  converters previously emitted top-level Avro named types in an order that
+  referenced a type before it was defined, causing `fastavro` to reject the output
+  for mutually-recursive schemas. A new shared `sort_and_inline_dependencies`
+  resolver re-derives each type's dependencies from the references that actually
+  appear in its fields and reorders/inlines them to break cycles. The C# generator
+  (`a2cs`/`s2cs`) now emits concrete recursive types (e.g. `Node?`, `List<Node>`)
+  instead of `object`.
+- **Distinct source names that collapse to the same identifier after sanitization
+  are now disambiguated** (extends the #382/#383/#385 sanitization fix to all
+  v3.7.0 formats): field names, enum symbols, and type names such as `a-b` and
+  `a_b` (both of which sanitize to `a_b`) are now suffixed (`a_b`, `a_b_1`) via a
+  shared `unique_name` helper in the Cap'n Proto, CUE, FlatBuffers, RAML, Smithy,
+  SurrealDB, and C# (`a2cs`/`s2cs`, including `--openapi-generator-compat`)
+  conversions, instead of producing duplicate/ambiguous identifiers or invalid Avro.
+- **Non-ASCII (Unicode) identifiers and string literals are preserved or cleanly
+  sanitized**: the Thrift, Smithy, and FlatBuffers parsers no longer corrupt UTF-8
+  string literals and defaults (e.g. `café ❤`) via `unicode_escape` decoding; JTD
+  non-ASCII property names now round-trip through `altnames`; SurrealDB
+  backtick-quoted non-ASCII table/field names parse correctly; the FlatBuffers
+  tokenizer accepts non-ASCII identifiers; and the C# openapi-compat path handles
+  all-non-ASCII field names without crashing.
+
+### Added
+
+- **Comprehensive type-system range and adversarial test suites** for all ten
+  schema formats introduced in v3.7.0 (Thrift, JTD, Cap'n Proto, RAML, Smithy,
+  CUE, FlatBuffers, SurrealDB, Parquet, and C# openapi-compat). Each suite pins the
+  full bidirectional primitive, container, enum, union, and recursion type mapping
+  and adds adversarial coverage — malformed input, empty documents, deep and mutual
+  recursion, name-collision/reserved handling, Unicode, and lossy round-trip
+  fidelity — adding roughly 225 tests that surface and lock down converter
+  edge-case behavior.
+
 ## [3.7.0] - 2026-07-08
 
 ### Added

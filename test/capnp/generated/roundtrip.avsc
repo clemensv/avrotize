@@ -131,31 +131,6 @@
   },
   {
     "type": "record",
-    "name": "Address",
-    "namespace": "example.roundtrip",
-    "fields": [
-      {
-        "name": "street",
-        "type": [
-          "null",
-          "string"
-        ],
-        "default": null,
-        "capnpOrdinal": 0
-      },
-      {
-        "name": "zip",
-        "type": [
-          "null",
-          "long"
-        ],
-        "default": null,
-        "capnpOrdinal": 1
-      }
-    ]
-  },
-  {
-    "type": "record",
     "name": "Preference",
     "namespace": "example.roundtrip",
     "fields": [
@@ -181,6 +156,44 @@
   },
   {
     "type": "enum",
+    "name": "Status",
+    "namespace": "example.roundtrip",
+    "symbols": [
+      "active",
+      "inactive"
+    ],
+    "capnpOrdinals": {
+      "active": 0,
+      "inactive": 1
+    }
+  },
+  {
+    "type": "record",
+    "name": "Address",
+    "namespace": "example.roundtrip",
+    "fields": [
+      {
+        "name": "street",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null,
+        "capnpOrdinal": 0
+      },
+      {
+        "name": "zip",
+        "type": [
+          "null",
+          "long"
+        ],
+        "default": null,
+        "capnpOrdinal": 1
+      }
+    ]
+  },
+  {
+    "type": "enum",
     "name": "Color",
     "namespace": "example.roundtrip",
     "symbols": [
@@ -192,19 +205,6 @@
       "red": 0,
       "green": 1,
       "blue": 2
-    }
-  },
-  {
-    "type": "enum",
-    "name": "Status",
-    "namespace": "example.roundtrip",
-    "symbols": [
-      "active",
-      "inactive"
-    ],
-    "capnpOrdinals": {
-      "active": 0,
-      "inactive": 1
     }
   },
   {

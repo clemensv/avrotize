@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Tuple, Union, cast, Optional
 import uuid
 
-from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value, unique_name
 from avrotize.jstructtoavro import JsonStructureToAvro
 from avrotize.constants import (
     NEWTONSOFT_JSON_VERSION,
@@ -396,10 +396,11 @@ class StructureToCSharp:
         # Check if any property in this class is a discriminator for an inline union
         discriminator_prop = self.discriminator_properties.get(ref, None)
         
+        property_names = self.get_csharp_property_names(properties, class_name)
         fields_str = []
-        for prop_name, prop_schema in properties.items():
+        for index, (prop_name, prop_schema) in enumerate(properties.items()):
             is_discriminator = (prop_name == discriminator_prop)
-            field_def = self.generate_property(prop_name, prop_schema, class_name, schema_namespace, required_props, is_discriminator=is_discriminator)
+            field_def = self.generate_property(prop_name, prop_schema, class_name, schema_namespace, required_props, is_discriminator=is_discriminator, property_name=property_names[index])
             fields_str.append(field_def)
         
         # Add dictionary for additional properties if needed
@@ -457,7 +458,7 @@ class StructureToCSharp:
                 avro_annotation=self.avro_annotation,
                 avro_schema_json=avro_schema_json,
                 openapi_generator_compat=self.openapi_generator_compat,
-                openapi_fields=self.get_openapi_compat_fields(properties, class_name, schema_namespace, required_props)
+                openapi_fields=self.get_openapi_compat_fields(properties, class_name, schema_namespace, required_props, property_names)
             )
 
         # Generate Equals and GetHashCode
@@ -472,13 +473,35 @@ class StructureToCSharp:
         self.generated_structure_types[ref] = structure_schema
         return ref
 
-    def generate_property(self, prop_name: str, prop_schema: Dict, class_name: str, parent_namespace: str, required_props: List, is_discriminator: bool = False) -> str:
+    def get_csharp_property_names(self, properties: Dict, class_name: str) -> List[str]:
+        """Returns unique C# property names for the properties in a class."""
+        used: set[str] = set()
+        property_names: List[str] = []
+        for prop_name in properties.keys():
+            safe_name = self.safe_identifier(prop_name, class_name)
+            if self.openapi_generator_compat:
+                candidate = self.get_openapi_property_name(safe_name, class_name)
+                property_names.append(re.sub(r'_(\d+)$', r'\1', unique_name(candidate, used)))
+            elif self.pascal_properties:
+                candidate = pascal(safe_name.lstrip('@'))
+                if self.is_csharp_reserved_word(candidate):
+                    candidate = f"@{candidate}"
+                if candidate == class_name:
+                    candidate += "_"
+                property_names.append(unique_name(candidate, used))
+            else:
+                property_names.append(unique_name(safe_name, used))
+        return property_names
+
+    def generate_property(self, prop_name: str, prop_schema: Dict, class_name: str, parent_namespace: str, required_props: List, is_discriminator: bool = False, property_name: str | None = None) -> str:
         """ Generates a property for a class """
         property_definition = ''
         
         # Resolve property name using safe_identifier for special chars, numeric prefixes, etc.
         field_name = self.safe_identifier(prop_name, class_name)
-        if self.pascal_properties:
+        if property_name is not None:
+            field_name_cs = property_name
+        elif self.pascal_properties:
             field_name_cs = pascal(field_name.lstrip('@'))
             # Re-check for class name collision after pascal casing
             if field_name_cs == class_name:
@@ -686,7 +709,7 @@ class StructureToCSharp:
 
     def generate_openapi_compat_property(self, prop_name: str, prop_schema: Dict, prop_type: str, field_name_cs: str, is_required: bool, class_name: str) -> str:
         """Generates an OpenAPI Generator-compatible property."""
-        property_name = self.get_openapi_property_name(field_name_cs, class_name)
+        property_name = field_name_cs
         doc = prop_schema.get('description', prop_schema.get('doc', property_name))
         prop = f"{INDENT}/// <summary>\n{INDENT}/// {doc}\n{INDENT}/// </summary>\n"
         if not is_required:
@@ -711,16 +734,18 @@ class StructureToCSharp:
         """Returns true if a JSON Structure property is required."""
         return prop_name in required_props if not isinstance(required_props, list) or len(required_props) == 0 or not isinstance(required_props[0], list) else any(prop_name in req_set for req_set in required_props)
 
-    def get_openapi_compat_fields(self, properties: Dict, class_name: str, parent_namespace: str, required_props: List) -> List[Dict[str, Any]]:
+    def get_openapi_compat_fields(self, properties: Dict, class_name: str, parent_namespace: str, required_props: List, property_names: List[str] | None = None) -> List[Dict[str, Any]]:
         """Builds template metadata for OpenAPI Generator-compatible converters."""
+        if property_names is None:
+            property_names = self.get_csharp_property_names(properties, class_name)
         result: List[Dict[str, Any]] = []
-        for prop_name, prop_schema in properties.items():
+        for index, (prop_name, prop_schema) in enumerate(properties.items()):
             safe_name = self.safe_identifier(prop_name, class_name)
             prop_type = self.convert_structure_type_to_csharp(class_name, safe_name, prop_schema, parent_namespace)
             is_required = self.is_openapi_required_property(prop_name, required_props)
             if not is_required and not prop_type.endswith('?') and not prop_type.startswith('List<') and not prop_type.startswith('HashSet<') and not prop_type.startswith('Dictionary<'):
                 prop_type += '?'
-            property_name = self.get_openapi_property_name(safe_name, class_name)
+            property_name = property_names[index]
             result.append({
                 "wire_name": prop_name,
                 "property_name": property_name,
@@ -1572,16 +1597,9 @@ class StructureToCSharp:
         
         # Build equality comparisons for each non-const property
         equality_checks = []
-        for prop_name, prop_schema in non_const_properties.items():
-            field_name = prop_name
-            if self.is_csharp_reserved_word(field_name):
-                field_name = f"@{field_name}"
-            if self.openapi_generator_compat:
-                field_name = self.get_openapi_property_name(field_name, class_name)
-            elif self.pascal_properties:
-                field_name = pascal(field_name)
-            if field_name == class_name:
-                field_name += "_"
+        property_names = self.get_csharp_property_names(non_const_properties, class_name)
+        for index, (prop_name, prop_schema) in enumerate(non_const_properties.items()):
+            field_name = property_names[index]
             
             field_type = self.convert_structure_type_to_csharp(class_name, field_name, prop_schema, parent_namespace)
             
@@ -1624,16 +1642,8 @@ class StructureToCSharp:
         
         # Collect field names for HashCode.Combine (skip const fields)
         hash_fields = []
-        for prop_name, prop_schema in non_const_properties.items():
-            field_name = prop_name
-            if self.is_csharp_reserved_word(field_name):
-                field_name = f"@{field_name}"
-            if self.openapi_generator_compat:
-                field_name = self.get_openapi_property_name(field_name, class_name)
-            elif self.pascal_properties:
-                field_name = pascal(field_name)
-            if field_name == class_name:
-                field_name += "_"
+        for index, (prop_name, prop_schema) in enumerate(non_const_properties.items()):
+            field_name = property_names[index]
             
             field_type = self.convert_structure_type_to_csharp(class_name, field_name, prop_schema, parent_namespace)
             
@@ -2376,15 +2386,10 @@ class StructureToCSharp:
 
         fields: List[Field] = []
         if structure_schema and 'properties' in structure_schema:
-            for prop_name, prop_schema in cast(Dict[str, Dict], structure_schema['properties']).items():
-                field_name = prop_name
-                if self.pascal_properties:
-                    field_name = pascal(field_name)
-                if field_name == class_name:
-                    field_name += "_"
-                if self.is_csharp_reserved_word(field_name):
-                    field_name = f"@{field_name}"
-                
+            properties = cast(Dict[str, Dict], structure_schema['properties'])
+            property_names = self.get_csharp_property_names(properties, class_name)
+            for index, (prop_name, prop_schema) in enumerate(properties.items()):
+                field_name = property_names[index]
                 field_type = self.convert_structure_type_to_csharp(
                     class_name, field_name, prop_schema, str(structure_schema.get('namespace', '')))
                 is_class = field_type in self.generated_types and self.generated_types[field_type] == "class"
@@ -2571,4 +2576,3 @@ def convert_structure_schema_to_csharp(
     structtocs.avro_annotation = avro_annotation
     structtocs.openapi_generator_compat = openapi_generator_compat
     structtocs.convert_schema(structure_schema, output_dir)
-

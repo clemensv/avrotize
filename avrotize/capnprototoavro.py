@@ -9,6 +9,9 @@ import tempfile
 from dataclasses import dataclass, field
 from typing import Any
 
+from avrotize.common import avro_name, unique_name
+from avrotize.dependency_resolver import sort_and_inline_dependencies
+
 
 @dataclass
 class CapnpField:
@@ -41,7 +44,7 @@ class CapnpSchema:
 
 
 _TOKEN_RE = re.compile(
-    r"@0x[0-9A-Fa-f]+|0x[0-9A-Fa-f]+|@[0-9]+|[A-Za-z_][A-Za-z0-9_\.]*|[{}():;=,\[\]]|\S"
+    r"@0x[0-9A-Fa-f]+|0x[0-9A-Fa-f]+|@[0-9]+|[A-Za-z_][A-Za-z0-9_\.]*|[0-9][A-Za-z0-9_\.]*|[{}():;=,\[\]]|\S"
 )
 
 
@@ -255,21 +258,19 @@ class CapnpToAvroConverter:
         self.namespace = namespace
         self.definitions: list[dict[str, Any]] = []
         self.known: dict[str, str] = {}
+        self._used_type_names: dict[str, set[str]] = {}
+        self._name_map: dict[tuple[str, str], str] = {}
 
     def convert(self, schema: CapnpSchema) -> list[dict[str, Any]]:
         for enum in schema.enums:
-            self.known[enum.name] = f"{self.namespace}.{enum.name}"
+            self._register_named_type(enum.name, self.namespace)
         for struct in schema.structs:
             self._register_struct_names(struct, self.namespace)
-        independent = [struct for struct in schema.structs if not self._has_named_dependencies(struct)]
-        dependent = [struct for struct in schema.structs if self._has_named_dependencies(struct)]
-        for struct in independent:
+        for struct in schema.structs:
             self._struct_to_avro(struct, self.namespace)
         for enum in schema.enums:
             self.definitions.append(self._enum_to_avro(enum, self.namespace))
-        for struct in dependent:
-            self._struct_to_avro(struct, self.namespace)
-        return self.definitions
+        return sort_and_inline_dependencies(self.definitions)
 
     def _has_named_dependencies(self, struct: CapnpStruct) -> bool:
         for field in struct.fields:
@@ -282,40 +283,63 @@ class CapnpToAvroConverter:
         return False
 
     def _register_struct_names(self, struct: CapnpStruct, namespace: str) -> None:
-        self.known[struct.name] = f"{namespace}.{struct.name}"
-        nested_ns = f"{namespace}.{struct.name}_types"
+        struct_name = self._register_named_type(struct.name, namespace)
+        nested_ns = f"{namespace}.{struct_name}_types"
         for enum in struct.enums:
-            self.known[enum.name] = f"{nested_ns}.{enum.name}"
+            self._register_named_type(enum.name, nested_ns)
         for nested in struct.structs:
             self._register_struct_names(nested, nested_ns)
 
+    def _register_named_type(self, name: str, namespace: str) -> str:
+        key = (namespace, name)
+        if key not in self._name_map:
+            used = self._used_type_names.setdefault(namespace, set())
+            self._name_map[key] = unique_name(avro_name(name), used)
+        sanitized = self._name_map[key]
+        self.known[name] = f"{namespace}.{sanitized}"
+        self.known[f"{namespace}.{name}"] = f"{namespace}.{sanitized}"
+        return sanitized
+
+    def _avro_type_name(self, name: str, namespace: str) -> str:
+        return self._name_map.get((namespace, name)) or self._register_named_type(name, namespace)
+
     def _enum_to_avro(self, enum: CapnpEnum, namespace: str) -> dict[str, Any]:
+        used_symbols: set[str] = set()
+        symbols = [unique_name(avro_name(name), used_symbols) for name, _ in enum.values]
+        ordinal_symbols = symbols or ["unknown"]
         return {
             "type": "enum",
-            "name": enum.name,
+            "name": self._avro_type_name(enum.name, namespace),
             "namespace": namespace,
-            "symbols": [name for name, _ in enum.values] or ["unknown"],
-            "capnpOrdinals": {name: ordinal for name, ordinal in enum.values},
+            "symbols": ordinal_symbols,
+            "capnpOrdinals": {symbol: ordinal for symbol, (_, ordinal) in zip(symbols, enum.values)},
         }
 
     def _struct_to_avro(self, struct: CapnpStruct, namespace: str) -> dict[str, Any]:
-        nested_ns = f"{namespace}.{struct.name}_types"
+        record_name = self._avro_type_name(struct.name, namespace)
+        nested_ns = f"{namespace}.{record_name}_types"
         for enum in struct.enums:
             self.definitions.append(self._enum_to_avro(enum, nested_ns))
         for nested in struct.structs:
             self._struct_to_avro(nested, nested_ns)
+        used_fields: set[str] = set()
         record = {
             "type": "record",
-            "name": struct.name,
+            "name": record_name,
             "namespace": namespace,
-            "fields": [self._field_to_avro(field, nested_ns) for field in sorted(struct.fields, key=lambda f: f.ordinal)],
+            "fields": [self._field_to_avro(field, nested_ns, used_fields) for field in sorted(struct.fields, key=lambda f: f.ordinal)],
         }
         self.definitions.append(record)
         return record
 
-    def _field_to_avro(self, field: CapnpField, nested_ns: str) -> dict[str, Any]:
+    def _field_to_avro(self, field: CapnpField, nested_ns: str, used_fields: set[str]) -> dict[str, Any]:
         avro_type = self._type_to_avro(field.type_name, field.group, nested_ns)
-        result: dict[str, Any] = {"name": field.name, "type": self._nullable(avro_type), "default": None, "capnpOrdinal": field.ordinal}
+        result: dict[str, Any] = {
+            "name": unique_name(avro_name(field.name), used_fields),
+            "type": self._nullable(avro_type),
+            "default": None,
+            "capnpOrdinal": field.ordinal,
+        }
         if field.union:
             result["capnpUnion"] = field.union
         return result
@@ -329,11 +353,17 @@ class CapnpToAvroConverter:
 
     def _type_to_avro(self, type_name: str, group: CapnpStruct | None, nested_ns: str) -> Any:
         if group is not None:
+            used = self._used_type_names.setdefault(nested_ns, set())
+            group_name = unique_name(avro_name(group.name), used)
+            used_fields: set[str] = set()
             return {
                 "type": "record",
-                "name": group.name,
+                "name": group_name,
                 "namespace": nested_ns,
-                "fields": [self._field_to_avro(f, f"{nested_ns}.{group.name}_types") for f in sorted(group.fields, key=lambda f: f.ordinal)],
+                "fields": [
+                    self._field_to_avro(f, f"{nested_ns}.{group_name}_types", used_fields)
+                    for f in sorted(group.fields, key=lambda f: f.ordinal)
+                ],
             }
         if type_name.startswith("List(") and type_name.endswith(")"):
             item_type = type_name[5:-1]
@@ -375,4 +405,3 @@ def convert_capnproto_to_json_structure(
         avro_file = os.path.join(temp_dir, "schema.avsc")
         convert_capnproto_to_avro(capnp_file_path, avro_file, namespace=namespace)
         convert_avro_to_json_structure(avro_file, json_structure_file, naming_mode=naming_mode, avro_encoding=avro_encoding)
-

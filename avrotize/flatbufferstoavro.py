@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 import os
+import copy
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
-from avrotize.common import pascal
+from avrotize.common import avro_name, pascal, unique_name
+from avrotize.dependency_resolver import sort_and_inline_dependencies
+from fastavro.schema import parse_schema
 
 
 @dataclass
@@ -51,7 +55,12 @@ class FbsSchema:
     root_type: str | None = None
 
 
-_TOKEN_RE = re.compile(r'"(?:\\.|[^"\\])*"|[A-Za-z_][A-Za-z0-9_\.]*|-?\d+(?:\.\d+)?|[:;{},=\[\]()]')
+_TOKEN_RE = re.compile(r'"(?:\\.|[^"\\])*"|[^\W\d][\w\.]*|-?\d+(?:\.\d+)?|[:;{},=\[\]()]')
+
+
+def _sanitize_avro_name(name: str) -> str:
+    normalized = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode("ascii")
+    return avro_name(normalized or name)
 
 
 class FlatBuffersParser:
@@ -217,6 +226,8 @@ class FlatBuffersToAvroConverter:
         self.enums: dict[str, FbsEnum] = {}
         self.unions: dict[str, FbsUnion] = {}
         self.named: set[str] = set()
+        self.type_names: dict[str, str] = {}
+        self.enum_symbols: dict[str, dict[str, str]] = {}
 
     def convert_file(self, fbs_file_path: str) -> list[dict[str, Any]]:
         with open(fbs_file_path, "r", encoding="utf-8") as f:
@@ -224,15 +235,73 @@ class FlatBuffersToAvroConverter:
         namespace = self.namespace if self.namespace is not None else schema.namespace
         if not namespace:
             namespace = pascal(os.path.basename(fbs_file_path).rsplit('.', 1)[0])
+        self._prepare_names(schema)
         self.enums = {e.name: e for e in schema.enums}
         self.unions = {u.name: u for u in schema.unions}
-        self.named = {e.name for e in schema.enums} | {t.name for t in schema.tables} | {s.name for s in schema.structs}
+        self.named = set(self.type_names.values())
         avro: list[dict[str, Any]] = []
         for enum in schema.enums:
             avro.append(self.convert_enum(enum, namespace))
         for typ in [*schema.structs, *schema.tables]:
             avro.append(self.convert_type(typ, namespace, schema.root_type == typ.name))
-        return self.sort_by_dependencies(avro)
+        ordered = sort_and_inline_dependencies(copy.deepcopy(avro))
+        restored_order = self.restore_original_order_when_parseable(avro, ordered)
+        if restored_order is not None:
+            return restored_order
+        return ordered
+
+    @staticmethod
+    def restore_original_order_when_parseable(
+        original: list[dict[str, Any]],
+        ordered: list[dict[str, Any]],
+    ) -> list[dict[str, Any]] | None:
+        by_fullname = {
+            FlatBuffersToAvroConverter.schema_fullname(schema): schema
+            for schema in ordered
+            if isinstance(schema, dict) and "name" in schema
+        }
+        restored: list[dict[str, Any]] = []
+        for schema in original:
+            fullname = FlatBuffersToAvroConverter.schema_fullname(schema)
+            if fullname not in by_fullname:
+                return None
+            restored.append(by_fullname[fullname])
+        try:
+            parse_schema(restored)
+            return restored
+        except Exception:
+            return None
+
+    @staticmethod
+    def schema_fullname(schema: dict[str, Any]) -> str:
+        return f"{schema.get('namespace')}.{schema['name']}" if schema.get("namespace") else schema["name"]
+
+    def _prepare_names(self, schema: FbsSchema) -> None:
+        used_types: set[str] = set()
+        self.type_names = {}
+        for item in [*schema.enums, *schema.structs, *schema.tables]:
+            sanitized = unique_name(_sanitize_avro_name(item.name), used_types)
+            self.type_names[item.name] = sanitized
+
+        self.enum_symbols = {}
+        for enum in schema.enums:
+            used_symbols: set[str] = set()
+            self.enum_symbols[enum.name] = {
+                symbol: unique_name(_sanitize_avro_name(symbol), used_symbols)
+                for symbol, _ in enum.values
+            }
+
+    def avro_type_name(self, source_name: str) -> str:
+        if source_name in self.type_names:
+            return self.type_names[source_name]
+        if "." in source_name:
+            return ".".join(_sanitize_avro_name(part) for part in source_name.split("."))
+        return _sanitize_avro_name(source_name)
+
+    @staticmethod
+    def add_altname(schema_obj: dict[str, Any], original: str, converted: str) -> None:
+        if original != converted:
+            schema_obj.setdefault("altnames", {})["flatbuffers"] = original
 
 
     @staticmethod
@@ -287,17 +356,23 @@ class FlatBuffersToAvroConverter:
         return ordered
 
     def convert_enum(self, enum: FbsEnum, namespace: str) -> dict[str, Any]:
-        return {
+        name = self.avro_type_name(enum.name)
+        symbols = self.enum_symbols.get(enum.name, {})
+        result = {
             "type": "enum",
-            "name": enum.name,
+            "name": name,
             "namespace": namespace,
-            "symbols": [name for name, _ in enum.values],
-            "ordinals": {name: value for name, value in enum.values},
+            "symbols": [symbols.get(symbol, _sanitize_avro_name(symbol)) for symbol, _ in enum.values],
+            "ordinals": {symbols.get(symbol, _sanitize_avro_name(symbol)): value for symbol, value in enum.values},
             "doc": f"FlatBuffers enum base type {enum.base_type}; integer values are preserved in the non-standard ordinals annotation."
         }
+        self.add_altname(result, enum.name, name)
+        return result
 
     def convert_type(self, typ: FbsType, namespace: str, is_root: bool) -> dict[str, Any]:
-        record: dict[str, Any] = {"type": "record", "name": typ.name, "namespace": namespace, "fields": []}
+        name = self.avro_type_name(typ.name)
+        record: dict[str, Any] = {"type": "record", "name": name, "namespace": namespace, "fields": []}
+        self.add_altname(record, typ.name, name)
         notes = []
         if typ.kind == "struct":
             notes.append("FlatBuffers struct converted to an Avro record; fixed inline memory layout is not represented in Avro.")
@@ -306,20 +381,28 @@ class FlatBuffersToAvroConverter:
             record["root_type"] = True
         if notes:
             record["doc"] = " ".join(notes)
+        used_fields: set[str] = set()
         for f in typ.fields:
             field_type = self.convert_field_type(f, namespace)
-            avro_field: dict[str, Any] = {"name": f.name, "type": field_type}
+            field_name = unique_name(_sanitize_avro_name(f.name), used_fields)
+            avro_field: dict[str, Any] = {"name": field_name, "type": field_type}
+            self.add_altname(avro_field, f.name, field_name)
             if typ.kind == "table" and "required" not in f.attributes:
                 avro_field["type"] = ["null", *field_type] if isinstance(field_type, list) else ["null", field_type]
                 avro_field["default"] = None
             elif f.has_default:
-                avro_field["default"] = f.default
+                avro_field["default"] = self.convert_default(f)
             if f.has_default and typ.kind == "table" and "required" not in f.attributes:
-                avro_field["fbsDefault"] = f.default
+                avro_field["fbsDefault"] = self.convert_default(f)
             if "required" in f.attributes:
                 avro_field["fbsRequired"] = True
             record["fields"].append(avro_field)
         return record
+
+    def convert_default(self, f: FbsField) -> Any:
+        if f.type_name in self.enum_symbols and isinstance(f.default, str):
+            return self.enum_symbols[f.type_name].get(f.default, _sanitize_avro_name(f.default))
+        return f.default
 
     def convert_field_type(self, f: FbsField, namespace: str) -> Any:
         base = self.convert_type_name(f.type_name, namespace)
@@ -333,8 +416,8 @@ class FlatBuffersToAvroConverter:
         if type_name in self.scalar_map:
             return self.scalar_map[type_name]
         if type_name in self.unions:
-            return [self.qualify(member, namespace) for member in self.unions[type_name].members]
-        return self.qualify(type_name, namespace)
+            return [self.qualify(self.avro_type_name(member), namespace) for member in self.unions[type_name].members]
+        return self.qualify(self.avro_type_name(type_name), namespace)
 
     @staticmethod
     def qualify(type_name: str, namespace: str) -> str:
@@ -348,5 +431,3 @@ def convert_flatbuffers_to_avro(fbs_file_path: str, avro_schema_path: str, names
     avro_schema = converter.convert_file(fbs_file_path)
     with open(avro_schema_path, "w", encoding="utf-8") as avro_file:
         json.dump(avro_schema, avro_file, indent=2)
-
-

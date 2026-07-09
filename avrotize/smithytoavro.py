@@ -8,7 +8,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from avrotize.dependency_resolver import sort_messages_by_dependencies
+from avrotize.common import unique_name
+from avrotize.dependency_resolver import sort_and_inline_dependencies
 
 AvroType = dict[str, Any] | list[Any] | str
 
@@ -52,6 +53,7 @@ class SmithyIdlParser:
         self.index = 0
         self.namespace: str | None = None
         self.shapes: list[SmithyShape] = []
+        self.used_shape_names: set[str] = set()
 
     @staticmethod
     def _strip_comments(text: str) -> str:
@@ -203,7 +205,7 @@ class SmithyIdlParser:
 
     def parse_shape(self, traits: dict[str, Any]) -> SmithyShape:
         kind = self.pop()
-        name = sanitize_name(self.pop())
+        name = unique_name(sanitize_name(self.pop()), self.used_shape_names)
         while self.peek() == "with":
             self.pop()
             self.skip_bracketed("[", "]")
@@ -224,6 +226,7 @@ class SmithyIdlParser:
 
     def parse_members(self, until: str, union_members: bool = False) -> list[dict[str, Any]]:
         members: list[dict[str, Any]] = []
+        used_member_names: set[str] = set()
         pending_traits: dict[str, Any] = {}
         while self.peek() is not None and self.peek() != until:
             tok = self.peek()
@@ -233,7 +236,7 @@ class SmithyIdlParser:
             if tok and tok.startswith("@"):
                 pending_traits.update(self.parse_trait())
                 continue
-            name = sanitize_member_name(self.pop())
+            name = unique_name(sanitize_member_name(self.pop()), used_member_names)
             if not self.consume(":"):
                 pending_traits = {}
                 continue
@@ -269,6 +272,7 @@ class SmithyIdlParser:
 
     def parse_enum_values(self, int_enum: bool) -> list[tuple[str, int | None]]:
         values: list[tuple[str, int | None]] = []
+        used_symbols: set[str] = set()
         while self.peek() is not None and self.peek() != "}":
             if self.peek() == ",":
                 self.pop()
@@ -276,7 +280,7 @@ class SmithyIdlParser:
             if self.peek() and self.peek().startswith("@"):  # member traits ignored for enum values
                 self.parse_trait()
                 continue
-            name = sanitize_enum_symbol(self.pop())
+            name = unique_name(sanitize_enum_symbol(self.pop()), used_symbols)
             number: int | None = None
             if int_enum and self.consume("="):
                 number = int(float(self.pop()))
@@ -321,7 +325,7 @@ class SmithyIdlParser:
 
 def _literal(token: str) -> Any:
     if token.startswith('"') and token.endswith('"'):
-        return bytes(token[1:-1], "utf-8").decode("unicode_escape")
+        return token[1:-1].encode("latin-1", "backslashreplace").decode("unicode_escape")
     if token == "true":
         return True
     if token == "false":
@@ -369,7 +373,7 @@ class SmithyToAvroConverter:
         self.namespace = self.namespace or parsed_namespace or "smithy"
         self.shapes = {shape.name: shape for shape in shapes}
         schemas = [self.shape_to_avro(shape) for shape in shapes]
-        return sort_messages_by_dependencies([schema for schema in schemas if schema is not None])
+        return sort_and_inline_dependencies([schema for schema in schemas if schema is not None])
 
     def shape_to_avro(self, shape: SmithyShape) -> dict[str, Any]:
         if shape.kind == "structure":
@@ -536,4 +540,3 @@ def convert_smithy_to_avro(smithy_file_path: str, avro_schema_path: str, namespa
     with open(avro_schema_path, "w", encoding="utf-8") as avro_file:
         json.dump(avro_schema, avro_file, indent=2)
         avro_file.write("\n")
-
