@@ -1,0 +1,40 @@
+{
+  "definitions": {
+    "geoPoint": {
+      "properties": {
+        "lat": { "type": "float64" },
+        "lon": { "type": "float64" }
+      }
+    }
+  },
+  "discriminator": "kind",
+  "mapping": {
+    "temperature": {
+      "properties": {
+        "deviceId": { "type": "string" },
+        "timestamp": { "type": "timestamp" },
+        "celsius": { "type": "float64" },
+        "location": { "ref": "geoPoint" }
+      },
+      "optionalProperties": {
+        "humidity": { "type": "float64" }
+      }
+    },
+    "gps": {
+      "properties": {
+        "deviceId": { "type": "string" },
+        "timestamp": { "type": "timestamp" },
+        "position": { "ref": "geoPoint" },
+        "satellites": { "type": "uint8" }
+      }
+    },
+    "status": {
+      "properties": {
+        "deviceId": { "type": "string" },
+        "timestamp": { "type": "timestamp" },
+        "level": { "enum": ["OK", "WARN", "ERROR"] },
+        "tags": { "elements": { "type": "string" } }
+      }
+    }
+  }
+}

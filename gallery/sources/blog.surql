@@ -1,0 +1,22 @@
+DEFINE TABLE author SCHEMAFULL TYPE NORMAL;
+DEFINE FIELD id ON TABLE author TYPE record<author>;
+DEFINE FIELD name ON TABLE author TYPE string;
+DEFINE FIELD email ON TABLE author TYPE string;
+DEFINE FIELD bio ON TABLE author TYPE option<string> DEFAULT NULL;
+DEFINE FIELD joined_at ON TABLE author TYPE datetime;
+
+DEFINE TABLE post SCHEMAFULL TYPE NORMAL;
+DEFINE FIELD id ON TABLE post TYPE record<post>;
+DEFINE FIELD title ON TABLE post TYPE string;
+DEFINE FIELD slug ON TABLE post TYPE string;
+DEFINE FIELD body ON TABLE post TYPE string;
+DEFINE FIELD author ON TABLE post TYPE record<author>;
+DEFINE FIELD published ON TABLE post TYPE bool;
+DEFINE FIELD published_at ON TABLE post TYPE option<datetime> DEFAULT NULL;
+DEFINE FIELD views ON TABLE post TYPE int;
+DEFINE FIELD tags ON TABLE post TYPE array<string>;
+DEFINE FIELD meta ON TABLE post TYPE object FLEXIBLE;
+DEFINE FIELD meta.reading_minutes ON TABLE post TYPE int;
+DEFINE FIELD comments[*].author ON TABLE post TYPE string;
+DEFINE FIELD comments[*].text ON TABLE post TYPE string;
+DEFINE FIELD comments[*].at ON TABLE post TYPE datetime;

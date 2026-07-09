@@ -1,0 +1,25 @@
+namespace Example.Fleet;
+
+enum VehicleKind : byte { Car = 0, Truck = 1, Van = 2, Motorcycle = 3 }
+
+struct GeoPoint { lat:double; lon:double; }
+
+table Driver {
+  id:string (required);
+  name:string (required);
+  rating:float = 5.0;
+}
+
+table Vehicle {
+  vin:string (required);
+  kind:VehicleKind = Car;
+  make:string;
+  model:string;
+  year:int = 2020;
+  active:bool = true;
+  location:GeoPoint (required);
+  driver:Driver;
+  cargoTags:[string];
+}
+
+root_type Vehicle;

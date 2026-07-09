@@ -107,6 +107,79 @@ GALLERY_ITEMS = [
         "source_language": "csv",
         "conversions": [{"cmd": "csv2a", "args": ["--out", "{out}/addresses.avsc"]}]
     },
+    # -- v3.7.0 IDL / schema formats -> Avro --
+    {
+        "id": "thrift-to-avro",
+        "title": "Thrift -> Avro",
+        "description": "Apache Thrift IDL order service (enums, structs, lists, maps) to Avro Schema",
+        "source_file": "orders.thrift",
+        "source_path": GALLERY_SOURCES / "orders.thrift",
+        "source_language": "thrift",
+        "conversions": [{"cmd": "thrift2a", "args": ["--out", "{out}/orders.avsc"]}]
+    },
+    {
+        "id": "capnp-to-avro",
+        "title": "Cap'n Proto -> Avro",
+        "description": "Cap'n Proto social graph schema (structs, enum, lists, references) to Avro Schema",
+        "source_file": "social.capnp",
+        "source_path": GALLERY_SOURCES / "social.capnp",
+        "source_language": "capnp",
+        "conversions": [{"cmd": "capnp2a", "args": ["--out", "{out}/social.avsc"]}]
+    },
+    {
+        "id": "flatbuffers-to-avro",
+        "title": "FlatBuffers -> Avro",
+        "description": "FlatBuffers fleet schema (tables, struct, enum, vectors) to Avro Schema",
+        "source_file": "fleet.fbs",
+        "source_path": GALLERY_SOURCES / "fleet.fbs",
+        "source_language": "cpp",
+        "conversions": [{"cmd": "fbs2a", "args": ["--out", "{out}/fleet.avsc"]}]
+    },
+    {
+        "id": "cue-to-avro",
+        "title": "CUE -> Avro",
+        "description": "CUE deployment config schema (structs, disjunctions, lists, maps) to Avro Schema",
+        "source_file": "deployment.cue",
+        "source_path": GALLERY_SOURCES / "deployment.cue",
+        "source_language": "go",
+        "conversions": [{"cmd": "cue2a", "args": ["--out", "{out}/deployment.avsc"]}]
+    },
+    {
+        "id": "smithy-to-avro",
+        "title": "Smithy -> Avro",
+        "description": "Smithy 2.0 catalog data shapes (structures, enums, list, map) to Avro Schema",
+        "source_file": "catalog.smithy",
+        "source_path": GALLERY_SOURCES / "catalog.smithy",
+        "source_language": "smithy",
+        "conversions": [{"cmd": "smithy2a", "args": ["--out", "{out}/catalog.avsc"]}]
+    },
+    {
+        "id": "raml-to-avro",
+        "title": "RAML -> Avro",
+        "description": "RAML 1.0 booking data types (objects, enum, arrays, references) to Avro Schema",
+        "source_file": "booking.raml",
+        "source_path": GALLERY_SOURCES / "booking.raml",
+        "source_language": "yaml",
+        "conversions": [{"cmd": "raml2a", "args": ["--out", "{out}/booking.avsc"]}]
+    },
+    {
+        "id": "surrealdb-to-avro",
+        "title": "SurrealDB -> Avro",
+        "description": "SurrealQL blog schema (DEFINE TABLE/FIELD, record links, arrays, nested objects) to Avro Schema",
+        "source_file": "blog.surql",
+        "source_path": GALLERY_SOURCES / "blog.surql",
+        "source_language": "sql",
+        "conversions": [{"cmd": "surreal2a", "args": ["--out", "{out}/blog.avsc"]}]
+    },
+    {
+        "id": "jtd-to-avro",
+        "title": "JTD -> Avro",
+        "description": "JSON Type Definition sensor schema (discriminated union, refs, elements, enum) to Avro Schema",
+        "source_file": "sensor.jtd.json",
+        "source_path": GALLERY_SOURCES / "sensor.jtd.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "jtd2a", "args": ["--out", "{out}/sensor.avsc"]}]
+    },
     # NOTE: kusto-to-avro (k2a) requires a live Kusto cluster connection, 
     # so it cannot be demonstrated in the static gallery.
     
@@ -157,6 +230,88 @@ GALLERY_ITEMS = [
         "source_path": GALLERY_SOURCES / "telemetry.avsc",
         "source_language": "json",
         "conversions": [{"cmd": "a2dp", "args": ["--out", "{out}/telemetry.datapackage.json"]}]
+    },
+    # -- Avro -> v3.7.0 IDL / schema formats --
+    {
+        "id": "avro-to-thrift",
+        "title": "Avro -> Thrift",
+        "description": "Convert Avro telemetry schema to Apache Thrift IDL",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2thrift", "args": ["--out", "{out}/telemetry.thrift"]}]
+    },
+    {
+        "id": "avro-to-jtd",
+        "title": "Avro -> JTD",
+        "description": "Convert Avro schema to JSON Type Definition (RFC 8927)",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2jtd", "args": ["--out", "{out}/telemetry.jtd.json"]}]
+    },
+    {
+        "id": "avro-to-capnp",
+        "title": "Avro -> Cap'n Proto",
+        "description": "Convert Avro schema to Cap'n Proto schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2capnp", "args": ["--out", "{out}/telemetry.capnp"]}]
+    },
+    {
+        "id": "avro-to-raml",
+        "title": "Avro -> RAML",
+        "description": "Convert Avro schema to RAML 1.0 Data Types",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2raml", "args": ["--out", "{out}/telemetry.raml"]}]
+    },
+    {
+        "id": "avro-to-smithy",
+        "title": "Avro -> Smithy",
+        "description": "Convert Avro schema to Smithy 2.0 IDL data shapes",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2smithy", "args": ["--out", "{out}/telemetry.smithy"]}]
+    },
+    {
+        "id": "avro-to-cue",
+        "title": "Avro -> CUE",
+        "description": "Convert Avro schema to the supported CUE schema subset",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2cue", "args": ["--out", "{out}/telemetry.cue"]}]
+    },
+    {
+        "id": "avro-to-flatbuffers",
+        "title": "Avro -> FlatBuffers",
+        "description": "Convert Avro schema to FlatBuffers schema",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2fbs", "args": ["--out", "{out}/telemetry.fbs"]}]
+    },
+    {
+        "id": "avro-to-surrealdb",
+        "title": "Avro -> SurrealDB",
+        "description": "Convert Avro schema to SurrealQL schema definitions",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2surreal", "args": ["--out", "{out}/telemetry.surql"]}]
+    },
+    {
+        "id": "struct-to-parquet",
+        "title": "JSON Structure -> Parquet",
+        "description": "Convert JSON Structure inventory schema to a Parquet schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2pq", "args": ["--out", "{out}/inventory.parquet.json"]}]
     },
     
     # ============================================================
@@ -1269,6 +1424,13 @@ def get_language_for_extension(ext: str) -> str:
         ".asn": "asn1",
         ".cypher": "cypher",
         ".parquet": "plaintext",
+        ".thrift": "thrift",
+        ".capnp": "capnp",
+        ".fbs": "cpp",
+        ".cue": "go",
+        ".smithy": "smithy",
+        ".raml": "yaml",
+        ".surql": "sql",
     }
     return lang_map.get(ext.lower(), "plaintext")
 

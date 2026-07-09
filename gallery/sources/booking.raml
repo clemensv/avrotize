@@ -1,0 +1,35 @@
+#%RAML 1.0 Library
+types:
+  Money:
+    type: object
+    properties:
+      currency: string
+      amount: number
+  CabinClass:
+    type: string
+    enum: [economy, premium, business, first]
+  Passenger:
+    type: object
+    properties:
+      firstName: string
+      lastName: string
+      loyaltyId?: string
+  Segment:
+    type: object
+    properties:
+      origin: string
+      destination: string
+      flightNumber: string
+      departure: datetime
+      arrival: datetime
+  Booking:
+    type: object
+    description: A flight booking record
+    properties:
+      reference: string
+      created: datetime
+      cabin: CabinClass
+      passengers: Passenger[]
+      segments: Segment[]
+      total: Money
+      notes?: string
