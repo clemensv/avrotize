@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 
 from avrotize.common import avro_name, avro_namespace, unique_name
-from avrotize.dependency_resolver import sort_messages_by_dependencies
+from avrotize.dependency_resolver import sort_and_inline_dependencies
 
 AvroSchema = dict[str, Any] | list[Any] | str | None
 
@@ -75,7 +75,7 @@ class RamlToAvroConverter:
             avro_type = self.convert_named_type(str(type_name), definition)
             if isinstance(avro_type, dict) and avro_type.get("type") in {"record", "enum"}:
                 avro_types.append(avro_type)
-        return sort_messages_by_dependencies(avro_types) if len(avro_types) > 1 else (avro_types[0] if avro_types else [])
+        return sort_and_inline_dependencies(avro_types) if len(avro_types) > 1 else (avro_types[0] if avro_types else [])
 
     def convert_named_type(self, type_name: str, definition: Any) -> AvroSchema:
         raw_name = type_name.rstrip("?")

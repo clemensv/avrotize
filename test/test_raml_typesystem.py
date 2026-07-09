@@ -344,6 +344,46 @@ types:
         self.assertEqual(inlined_b["fields"][0]["type"], ["null", f"{NS}.A"])
         parse_schema(schema)
 
+    def test_forward_reference_to_enum_and_array_element_without_namespace_is_ordered(self):
+        # Regression: without a namespace the RAML converter previously emitted the
+        # top-level Avro types in an order that placed a record before the enum and
+        # array-element record it references, so fastavro rejected the output with
+        # UnknownType. Dependencies are now re-derived from the actual field
+        # references and topologically ordered regardless of namespace.
+        src = self.tmp / "nons.raml"
+        src.write_text(
+            """#%RAML 1.0 Library
+types:
+  Order:
+    type: object
+    properties:
+      status: Status
+      lines: LineItem[]
+  Status:
+    type: string
+    enum: [open, closed]
+  LineItem:
+    type: object
+    properties:
+      sku: string
+""",
+            encoding="utf-8",
+        )
+        out = self.tmp / "nons.avsc"
+        convert_raml_to_avro(str(src), str(out), namespace=None)
+        schema = json.loads(out.read_text(encoding="utf-8"))
+        parse_schema(schema)
+        by_name = self.by_name(schema)
+        self.assertEqual(set(by_name), {"Order", "Status", "LineItem"})
+        self.assertEqual(self.field(by_name["Order"], "status")["type"], "Status")
+        self.assertEqual(
+            self.field(by_name["Order"], "lines")["type"],
+            {"type": "array", "items": "LineItem"},
+        )
+        names_in_order = [item["name"] for item in schema]
+        self.assertLess(names_in_order.index("Status"), names_in_order.index("Order"))
+        self.assertLess(names_in_order.index("LineItem"), names_in_order.index("Order"))
+
     # -- round-trip fidelity ---------------------------------------------------
 
     def test_raml_avro_raml_round_trip_emits_parseable_library_and_pins_shapes(self):

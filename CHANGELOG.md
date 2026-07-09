@@ -1,5 +1,19 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.7.2] - 2026-07-09
+
+### Fixed
+
+- **RAML to Avro now emits topologically-ordered types when no namespace is
+  supplied**: `raml2a` (and the RAML gallery examples) previously relied on
+  pre-populated dependency metadata that was only present on the namespaced
+  path, so converting a multi-type RAML library without `--namespace` could emit
+  a record before the enum or array-element record it references, producing Avro
+  that `fastavro` rejected with `UnknownType`. The converter now re-derives
+  dependencies from the references that actually appear in each type (via the
+  shared `sort_and_inline_dependencies` resolver introduced in 3.7.1), so output
+  is valid regardless of namespace.
+
 ## [3.7.1] - 2026-07-09
 
 ### Fixed
