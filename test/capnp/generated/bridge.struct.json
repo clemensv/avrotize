@@ -11,60 +11,46 @@
                     "type": "object",
                     "properties": {
                         "voidField": {
-                            "type": "null",
-                            "default": null
+                            "type": "null"
                         },
                         "boolField": {
-                            "type": "boolean",
-                            "default": null
+                            "type": "boolean"
                         },
                         "int8Field": {
-                            "type": "int32",
-                            "default": null
+                            "type": "int32"
                         },
                         "int16Field": {
-                            "type": "int32",
-                            "default": null
+                            "type": "int32"
                         },
                         "int32Field": {
-                            "type": "int32",
-                            "default": null
+                            "type": "int32"
                         },
                         "int64Field": {
-                            "type": "int64",
-                            "default": null
+                            "type": "int64"
                         },
                         "uint8Field": {
-                            "type": "int64",
-                            "default": null
+                            "type": "int64"
                         },
                         "uint16Field": {
-                            "type": "int64",
-                            "default": null
+                            "type": "int64"
                         },
                         "uint32Field": {
-                            "type": "int64",
-                            "default": null
+                            "type": "int64"
                         },
                         "uint64Field": {
-                            "type": "int64",
-                            "default": null
+                            "type": "int64"
                         },
                         "float32Field": {
-                            "type": "float",
-                            "default": null
+                            "type": "float"
                         },
                         "float64Field": {
-                            "type": "double",
-                            "default": null
+                            "type": "double"
                         },
                         "textField": {
-                            "type": "string",
-                            "default": null
+                            "type": "string"
                         },
                         "dataField": {
-                            "type": "binary",
-                            "default": null
+                            "type": "binary"
                         }
                     },
                     "required": [

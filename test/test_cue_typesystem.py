@@ -422,12 +422,12 @@ class CueTypeSystemTests(unittest.TestCase):
         self.assertEqual(props["z"]["type"], "null")
         self.assertEqual(props["arr"], {"type": "array", "items": {"type": "string"}})
         self.assertEqual(props["map"], {"type": "map", "values": {"type": "int64"}})
-        self.assertEqual(props["opt"], {"type": "string", "default": None})
-        self.assertEqual(props["e"], {"$ref": "#/definitions/example/cue/Types_e_enum"})
+        self.assertEqual(props["opt"], {"type": "string"})
+        self.assertEqual(props["e"], {"type": {"$ref": "#/definitions/example/cue/Types_e_enum"}})
 
         cue = self.structure_to_cue(structure)
         self.assertIn("f: number", cue)  # CUE float -> Avro double -> CUE number
-        self.assertIn("opt: string | *null", cue)  # optional marker is lost through JSON Structure
+        self.assertIn("opt?: string | *null", cue)  # optionality is now preserved through JSON Structure (required-omission)
         self.assertIn("e: #Types_e_enum", cue)  # enum definition is referenced, not re-expanded
 
     # -- JSON Structure bridge: full source type range -------------------------

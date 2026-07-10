@@ -403,11 +403,11 @@ class SmithyTypeSystemTests(unittest.TestCase):
         self.assertEqual(bridge["description"], "Bridge doc")
         self.assertEqual(bridge["required"], ["flag"])
         self.assertEqual(bridge["properties"]["flag"], {"type": "boolean"})
-        self.assertEqual(bridge["properties"]["count"], {"type": "int32", "default": None})
-        self.assertEqual(bridge["properties"]["amount"], {"type": "double", "default": None})
-        self.assertEqual(bridge["properties"]["when"], {"type": "int64", "logicalType": "timestampMillis", "default": None})
-        self.assertEqual(bridge["properties"]["blob"], {"type": "binary", "default": None})
-        self.assertEqual(bridge["properties"]["doc"], {"type": "string", "default": None})
+        self.assertEqual(bridge["properties"]["count"], {"type": "int32"})
+        self.assertEqual(bridge["properties"]["amount"], {"type": "double"})
+        self.assertEqual(bridge["properties"]["when"], {"type": "int64", "logicalType": "timestampMillis"})
+        self.assertEqual(bridge["properties"]["blob"], {"type": "binary"})
+        self.assertEqual(bridge["properties"]["doc"], {"type": "string"})
 
         text = self.structure_to_smithy(structure)
         self.assertIn("namespace " + NS, text)
@@ -418,7 +418,8 @@ class SmithyTypeSystemTests(unittest.TestCase):
         self.assertIn("when: String", text)
         self.assertIn("blob: Blob", text)
         self.assertIn("doc: String", text)
-        self.assertIn("@required\n    count: Integer", text)  # optionality is lost by the bridge
+        self.assertIn("@required\n    flag: Boolean", text)  # genuinely-required member stays required
+        self.assertNotIn("@required\n    count: Integer", text)  # optionality now preserved through the bridge (was lost when default:null decorated optional fields)
 
     # -- JSON Structure bridge: full JSON Structure type range -----------------
 

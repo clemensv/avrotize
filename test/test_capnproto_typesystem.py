@@ -427,10 +427,10 @@ class CapnProtoTypeSystemTests(unittest.TestCase):
         for name, typ in expected.items():
             with self.subTest(name=name):
                 self.assertEqual(props[name]["type"], typ)
-        self.assertEqual(props["listText"], {"type": "array", "items": {"type": "string"}, "default": None})
+        self.assertEqual(props["listText"], {"type": "array", "items": {"type": "string"}})
         self.assertEqual(
             props["nestedList"],
-            {"type": "array", "items": {"type": "array", "items": {"type": "int64"}}, "default": None},
+            {"type": "array", "items": {"type": "array", "items": {"type": "int64"}}},
         )
 
         struct_file = self.tmp / "schema.struct.json"

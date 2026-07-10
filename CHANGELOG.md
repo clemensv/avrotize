@@ -1,5 +1,31 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.7.3] - 2026-07-09
+
+### Fixed
+
+- **Avro to JSON Structure now emits spec-compliant type references**: `a2s` — and
+  therefore every `<fmt>2s` converter that routes through it (Thrift, Cap'n Proto,
+  FlatBuffers, CUE, Smithy, RAML, JTD) — previously emitted bare `{"$ref": "..."}`
+  objects as property values, array `items`, and map `values`. The JSON Structure
+  Core specification only permits a bare `$ref` as a member of a `type` union array;
+  in every other position a reference must be wrapped as `{"type": {"$ref": "..."}}`
+  (nullable references as `{"type": ["null", {"$ref": "..."}]}`). The emitter now
+  produces the wrapped form, so its output validates strictly against the JSON
+  Structure Core metaschema. The 14 `*-ref.struct.json` reference fixtures were
+  regenerated accordingly.
+- **Redundant `default: null` is no longer emitted for optional properties**: in JSON
+  Structure, optionality is expressed by omission from `required`, so an additional
+  `default: null` was redundant and interfered with round-tripping (it caused the
+  CUE and Smithy generators to treat some optional fields as required). `a2s` now
+  omits it.
+- **Structure to GraphQL resolves wrapped type references**: `s2graphql` only handled
+  the pre-3.7.3 bare-`$ref` shape and raised `TypeError: unhashable type: 'dict'`
+  when a property's `type` was a wrapped reference. It now unwraps
+  `{"type": {"$ref": ...}}` (and union arrays containing references) in both type
+  resolution and named-type discovery, so referenced records/enums are emitted ahead
+  of their referrers as intended.
+
 ## [3.7.2] - 2026-07-09
 
 ### Fixed

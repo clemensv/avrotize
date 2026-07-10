@@ -148,7 +148,11 @@ class AvroToJsonStructure:
                 
                 resolved_field_type = self.resolve_avro_type(field_type_schema, record_fields_namespace, definitions)
 
-                if "default" in field:
+                if "default" in field and field["default"] is not None:
+                    # Optionality/nullability is conveyed by absence from ``required``;
+                    # a redundant ``default: null`` is meaningless in JSON Structure Core
+                    # (and would decorate a non-nullable type reference), so only concrete
+                    # defaults are emitted.
                     resolved_field_type["default"] = self.encode_default_value(field["default"], resolved_field_type.get("type", "unknown"))
                 
                 if not self.is_nullable_union(field_type_schema):
@@ -231,7 +235,10 @@ class AvroToJsonStructure:
                 ref_fqn = avro_type_schema.replace(".", "/")
             else:
                 ref_fqn = self.get_fqn(context_namespace, self.clean_name(avro_type_schema))
-            return {"$ref": f"#/definitions/{ref_fqn}"}
+            # JSON Structure Core requires a type reference to be the value of the
+            # ``type`` keyword (``{"type": {"$ref": ...}}``); a bare ``{"$ref": ...}``
+            # is only permitted inside a type-union array. See spec 3.3.6 / 3.7.1.
+            return {"type": {"$ref": f"#/definitions/{ref_fqn}"}}
 
         # ------------------ UNION ----------------------------------------
         if isinstance(avro_type_schema, list):
@@ -263,7 +270,9 @@ class AvroToJsonStructure:
                 self.register_definition(avro_type_schema, inline_ns, definitions)
                 ref_name = self.clean_name(avro_type_schema["name"])
                 ref_fqn = self.get_fqn(inline_ns, ref_name)
-                return {"$ref": f"#/definitions/{ref_fqn}"}
+                # Wrap the reference under ``type`` (see note above) so the emitted
+                # property/items/values/choice node is a valid JSON Structure schema.
+                return {"type": {"$ref": f"#/definitions/{ref_fqn}"}}
 
             if category == "array":
                 return {

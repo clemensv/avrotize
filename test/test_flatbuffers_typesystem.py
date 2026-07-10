@@ -446,9 +446,9 @@ class FlatBuffersTypeSystemTests(unittest.TestCase):
         for name, struct_type in expected.items():
             with self.subTest(field=name):
                 self.assertEqual(props[name]["type"], struct_type)
-        self.assertEqual(props["nums"], {"type": "array", "items": {"type": "int32"}, "default": None})
-        self.assertEqual(props["e"], {"$ref": "#/definitions/Example/Flat/Types/E", "default": None})
-        self.assertEqual(props["ref"], {"$ref": "#/definitions/Example/Flat/Types/S"})
+        self.assertEqual(props["nums"], {"type": "array", "items": {"type": "int32"}})
+        self.assertEqual(props["e"], {"type": {"$ref": "#/definitions/Example/Flat/Types/E"}})
+        self.assertEqual(props["ref"], {"type": {"$ref": "#/definitions/Example/Flat/Types/S"}})
 
     def test_structure_to_flatbuffers_full_type_range(self):
         structure = {
