@@ -313,6 +313,134 @@ GALLERY_ITEMS = [
         "source_language": "json",
         "conversions": [{"cmd": "s2pq", "args": ["--out", "{out}/inventory.parquet.json"]}]
     },
+    # -- v3.7.0 IDL / schema formats -> JSON Structure --
+    {
+        "id": "thrift-to-struct",
+        "title": "Thrift -> JSON Structure",
+        "description": "Apache Thrift IDL order service (enums, structs, lists, maps) to JSON Structure",
+        "source_file": "orders.thrift",
+        "source_path": GALLERY_SOURCES / "orders.thrift",
+        "source_language": "thrift",
+        "conversions": [{"cmd": "thrift2s", "args": ["--out", "{out}/orders.struct.json"]}]
+    },
+    {
+        "id": "capnp-to-struct",
+        "title": "Cap'n Proto -> JSON Structure",
+        "description": "Cap'n Proto social graph schema (structs, enum, lists, references) to JSON Structure",
+        "source_file": "social.capnp",
+        "source_path": GALLERY_SOURCES / "social.capnp",
+        "source_language": "capnp",
+        "conversions": [{"cmd": "capnp2s", "args": ["--out", "{out}/social.struct.json"]}]
+    },
+    {
+        "id": "flatbuffers-to-struct",
+        "title": "FlatBuffers -> JSON Structure",
+        "description": "FlatBuffers fleet schema (tables, struct, enum, vectors) to JSON Structure",
+        "source_file": "fleet.fbs",
+        "source_path": GALLERY_SOURCES / "fleet.fbs",
+        "source_language": "cpp",
+        "conversions": [{"cmd": "fbs2s", "args": ["--out", "{out}/fleet.struct.json"]}]
+    },
+    {
+        "id": "cue-to-struct",
+        "title": "CUE -> JSON Structure",
+        "description": "CUE deployment config schema (structs, disjunctions, lists, maps) to JSON Structure",
+        "source_file": "deployment.cue",
+        "source_path": GALLERY_SOURCES / "deployment.cue",
+        "source_language": "go",
+        "conversions": [{"cmd": "cue2s", "args": ["--out", "{out}/deployment.struct.json"]}]
+    },
+    {
+        "id": "smithy-to-struct",
+        "title": "Smithy -> JSON Structure",
+        "description": "Smithy 2.0 catalog data shapes (structures, enums, list, map) to JSON Structure",
+        "source_file": "catalog.smithy",
+        "source_path": GALLERY_SOURCES / "catalog.smithy",
+        "source_language": "smithy",
+        "conversions": [{"cmd": "smithy2s", "args": ["--out", "{out}/catalog.struct.json"]}]
+    },
+    {
+        "id": "raml-to-struct",
+        "title": "RAML -> JSON Structure",
+        "description": "RAML 1.0 booking data types (objects, enum, arrays, references) to JSON Structure",
+        "source_file": "booking.raml",
+        "source_path": GALLERY_SOURCES / "booking.raml",
+        "source_language": "yaml",
+        "conversions": [{"cmd": "raml2s", "args": ["--out", "{out}/booking.struct.json"]}]
+    },
+    {
+        "id": "jtd-to-struct",
+        "title": "JTD -> JSON Structure",
+        "description": "JSON Type Definition sensor schema (discriminated union, refs, elements, enum) to JSON Structure",
+        "source_file": "sensor.jtd.json",
+        "source_path": GALLERY_SOURCES / "sensor.jtd.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "jtd2s", "args": ["--out", "{out}/sensor.struct.json"]}]
+    },
+    # -- JSON Structure -> v3.7.0 IDL / schema formats --
+    {
+        "id": "struct-to-thrift",
+        "title": "JSON Structure -> Thrift",
+        "description": "Convert JSON Structure inventory schema to Apache Thrift IDL",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2thrift", "args": ["--out", "{out}/inventory.thrift"]}]
+    },
+    {
+        "id": "struct-to-capnp",
+        "title": "JSON Structure -> Cap'n Proto",
+        "description": "Convert JSON Structure inventory schema to Cap'n Proto schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2capnp", "args": ["--out", "{out}/inventory.capnp"]}]
+    },
+    {
+        "id": "struct-to-flatbuffers",
+        "title": "JSON Structure -> FlatBuffers",
+        "description": "Convert JSON Structure inventory schema to FlatBuffers schema",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2fbs", "args": ["--out", "{out}/inventory.fbs"]}]
+    },
+    {
+        "id": "struct-to-cue",
+        "title": "JSON Structure -> CUE",
+        "description": "Convert JSON Structure inventory schema to the supported CUE schema subset",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2cue", "args": ["--out", "{out}/inventory.cue"]}]
+    },
+    {
+        "id": "struct-to-smithy",
+        "title": "JSON Structure -> Smithy",
+        "description": "Convert JSON Structure inventory schema to Smithy 2.0 IDL data shapes",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2smithy", "args": ["--out", "{out}/inventory.smithy"]}]
+    },
+    {
+        "id": "struct-to-raml",
+        "title": "JSON Structure -> RAML",
+        "description": "Convert JSON Structure inventory schema to RAML 1.0 Data Types",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2raml", "args": ["--out", "{out}/inventory.raml"]}]
+    },
+    {
+        "id": "struct-to-jtd",
+        "title": "JSON Structure -> JTD",
+        "description": "Convert JSON Structure inventory schema to JSON Type Definition (RFC 8927)",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2jtd", "args": ["--out", "{out}/inventory.jtd.json"]}]
+    },
     
     # ============================================================
     # AVRO -> CODE GENERATION
