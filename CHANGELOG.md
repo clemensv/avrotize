@@ -1,5 +1,52 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.7.4] - 2026-07-09
+
+### Fixed
+
+- **JSON Schema / OpenAPI to JSON Structure now wrap map-value references**: `j2s`
+  (and `oas2s`, which reuses the same converter) emitted a bare `{"$ref": "..."}` for
+  map values derived from `additionalProperties`, e.g. `{"type": "map", "values":
+  {"$ref": "..."}}`. The JSON Structure Core specification only permits a bare `$ref`
+  as a member of a `type` union array; a map value reference must be wrapped as
+  `{"type": {"$ref": "..."}}`. The map builder now routes the value through the shared
+  schema-object normaliser, so map-value references are emitted in the wrapped form and
+  the output validates strictly against the JSON Structure Core metaschema. Property and
+  array-item references were already wrapped correctly and are unaffected. A systematic
+  audit of every `*2s` converter confirmed this was the only remaining bare-reference
+  path (all IDL/schema converters that route through `a2s` were already fixed in 3.7.3).
+- **JSON Schema / OpenAPI to JSON Structure now widen heterogeneous `enum` types**:
+  a JSON Schema `enum` may legitimately mix value families (for example a boolean
+  `false` or a `null` alongside strings). The converter previously emitted the enum
+  under a single scalar type such as `{"type": "string", "enum": [false, "a", "b"]}`,
+  which the JSON Structure Core validator rejects because `false` is not a valid
+  `string`. The declared type is now widened to a type-union that admits every enum
+  value's family (for example `{"type": ["string", "boolean"], ...}` or
+  `{"type": ["null", "string"], ...}`), while a homogeneous enum keeps its scalar type
+  and refined string-family types such as `uuid` are preserved.
+- **JSON Schema / OpenAPI to JSON Structure now reconcile `required` with emitted
+  properties**: a `required` entry could name a property whose key was normalised to a
+  valid identifier (with the original preserved via `altnames`), or a property the
+  source never defined. Either produced a `required` list referencing non-existent
+  property keys, which the validator rejects. `required` is now normalised to match the
+  emitted property identifiers and filtered to keys that are actually present.
+- **JSON Schema / OpenAPI to JSON Structure now nominate a root for type libraries**:
+  a document whose only content is a bundle of reusable named types (for example an
+  OpenAPI `components/schemas` section with no single primary schema) previously emitted
+  a `definitions`-only document with no root type, which the validator rejects with
+  `SCHEMA_ROOT_MISSING_TYPE`. Following the JSON Structure Core `$root` idiom, the
+  converter now nominates a `$root`: the referenced type when the source root is a bare
+  `$ref`, the single definition when there is exactly one, otherwise a synthetic
+  type-union over every top-level definition so that no type is arbitrarily privileged.
+- **JSON Schema / OpenAPI to JSON Structure now wrap choice-branch references**: a
+  discriminated union with an explicit discriminator mapping emitted each branch as a
+  bare `{"$ref": "..."}` under the `choice` type's `choices`, which the validator
+  rejects. Choice branch references are now wrapped as `{"type": {"$ref": "..."}}`.
+
+  Together these fixes make the `oas2s` output for large real-world specifications
+  (such as the GitHub OpenAPI description) validate cleanly against the official
+  JSON Structure Core metaschema.
+
 ## [3.7.3] - 2026-07-09
 
 ### Fixed
