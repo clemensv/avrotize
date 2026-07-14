@@ -49,7 +49,7 @@ On Windows, if `python` is not on `PATH`, use a full Python path, for example:
 {
   "mcpServers": {
     "avrotize-mcp": {
-      "command": "C:/Users/<you>/AppData/Local/Programs/Python/Python314/python.exe",
+      "command": "C:/path/to/python.exe",
       "args": ["-m", "avrotize.mcp_server"]
     }
   }
