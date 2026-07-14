@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Tuple, Union, cast
 import uuid
 
-from avrotize.common import build_flat_type_dict, inline_avro_references, is_generic_avro_type, pascal, process_template
+from avrotize.common import build_flat_type_dict, inline_avro_references, is_generic_avro_type, pascal, process_template, unique_name
 from avrotize.constants import (
     CSHARP_AVRO_VERSION,
     NEWTONSOFT_JSON_VERSION,
@@ -57,9 +57,11 @@ class AvroToCSharp:
         self.cbor_annotation = False
         self.avro_annotation = False
         self.protobuf_net_annotation = False
+        self.openapi_generator_compat = False
         self.generated_types: Dict[str,str] = {}
         self.generated_avro_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
         self.type_dict: Dict[str, Dict] = {}
+        self.emitted_option_namespaces: set[str] = set()
 
     def get_qualified_name(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
@@ -74,7 +76,7 @@ class AvroToCSharp:
         else:
             return name
 
-    def map_primitive_to_csharp(self, avro_type: str) -> str:
+    def map_primitive_to_csharp(self, avro_type: str, parent_namespace: str = '') -> str:
         """ Maps Avro primitive types to C# types """
         mapping = {
             'null': 'void',  # Placeholder, actual handling for nullable types is in the union logic
@@ -90,8 +92,42 @@ class AvroToCSharp:
         if qualified_class_name in self.generated_avro_types:
             result = qualified_class_name
         else:
-            result = mapping.get(avro_type, 'object')
+            result = mapping.get(avro_type, '')
+            if not result:
+                avro_type_name = avro_type if '.' in avro_type or not parent_namespace else f"{parent_namespace}.{avro_type}"
+                if avro_type_name in self.type_dict:
+                    namespace = ".".join(avro_type_name.split('.')[:-1])
+                    name = avro_type_name.split('.')[-1]
+                    result = 'global::'+self.get_qualified_name(pascal(self.concat_namespace(self.base_namespace, namespace)), pascal(name))
+                else:
+                    result = 'object'
         return result
+
+    def safe_identifier(self, name: str, class_name: str = '', fallback_prefix: str = 'field', allow_unicode: bool = False) -> str:
+        """Converts a source name to a safe C# identifier."""
+        safe = re.sub(r'[^\w]', '_', str(name), flags=re.UNICODE) if allow_unicode else re.sub(r'[^a-zA-Z0-9_]', '_', str(name))
+        safe = safe.strip('_') if safe != name else safe
+        starts_ok = safe and (safe[0] == '_' or safe[0] == '@' or (safe[0].isalpha() if allow_unicode else re.match(r'^[a-zA-Z_@]', safe)))
+        if not starts_ok:
+            safe = '_' + safe if safe and safe[0].isdigit() else f"{fallback_prefix}_unnamed"
+        if self.is_csharp_reserved_word(safe):
+            safe = f"@{safe}"
+        if class_name and safe == class_name:
+            safe += "_"
+        return safe
+
+    def safe_enum_member_name(self, symbol: str, used: set) -> str:
+        """Converts an Avro enum symbol to a unique C# enum member name."""
+        parts = [part for part in re.split(r'[^\w]+', str(symbol), flags=re.UNICODE) if part]
+        if not parts:
+            candidate = "Value"
+        else:
+            candidate = ''.join(part if part.isupper() else part[:1].upper() + part[1:] for part in parts)
+        if not candidate or not (candidate[0] == '_' or candidate[0].isalpha()):
+            candidate = f"Value{candidate}"
+        if self.is_csharp_reserved_word(candidate):
+            candidate = f"@{candidate}"
+        return unique_name(candidate, used)
 
     def is_csharp_reserved_word(self, word: str) -> bool:
         """ Checks if a word is a reserved C# keyword """
@@ -131,7 +167,7 @@ class AvroToCSharp:
     def convert_avro_type_to_csharp(self, class_name: str, field_name: str, avro_type: JsonNode, parent_namespace: str) -> str:
         """ Converts Avro type to C# type """
         if isinstance(avro_type, str):
-            return self.map_primitive_to_csharp(avro_type)
+            return self.map_primitive_to_csharp(avro_type, parent_namespace)
         elif isinstance(avro_type, list):
             # Handle nullable types and unions
             if is_generic_avro_type(avro_type):
@@ -191,14 +227,20 @@ class AvroToCSharp:
         if self.msgpack_annotation:
             class_definition += "[MessagePackObject]\n"
 
-        fields_str = [self.generate_property(index + 1, field, class_name, avro_namespace) for index, field in enumerate(avro_schema.get('fields', []))]
+        fields = avro_schema.get('fields', [])
+        property_names = self.get_csharp_property_names(fields, class_name)
+        fields_str = [self.generate_property(index + 1, field, class_name, avro_namespace, property_names[index]) for index, field in enumerate(fields)]
         class_body = "\n".join(fields_str)
         class_definition += f"public partial class {class_name}"
         if self.avro_annotation:
             class_definition += " : global::Avro.Specific.ISpecificRecord"
+        if self.openapi_generator_compat:
+            class_definition += ", System.ComponentModel.DataAnnotations.IValidatableObject" if self.avro_annotation else " : System.ComponentModel.DataAnnotations.IValidatableObject"
         class_definition += "\n{\n"+class_body
         class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Default constructor\n{INDENT}///</summary>\n"
         class_definition += f"{INDENT}public {class_name}()\n{INDENT}{{\n{INDENT}}}"
+        if self.openapi_generator_compat and fields:
+            class_definition += self.generate_openapi_compat_constructor(class_name, fields, avro_namespace)
         if self.avro_annotation:
             class_definition += f"\n\n{INDENT}/// <summary>\n{INDENT}/// Constructor from Avro GenericRecord\n{INDENT}///</summary>\n"
             class_definition += f"{INDENT}public {class_name}(global::Avro.Generic.GenericRecord obj)\n{INDENT}{{\n"
@@ -222,14 +264,8 @@ class AvroToCSharp:
             put_method = f"{INDENT}void global::Avro.Specific.ISpecificRecord.Put(int fieldPos, object fieldValue)\n" + \
                 INDENT+"{"+f"\n{INDENT*2}switch (fieldPos)\n{INDENT*2}"+"{"
             for pos, field in enumerate(avro_schema.get('fields', [])):
-                field_name = field['name']
-                if self.is_csharp_reserved_word(field_name):
-                    field_name = f"@{field_name}"
-                field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], avro_namespace)
-                if self.pascal_properties:
-                    field_name = pascal(field_name)
-                if field_name == class_name:
-                    field_name += "_"
+                field_name = property_names[pos]
+                field_type = self.convert_avro_type_to_csharp(class_name, field['name'], field['type'], avro_namespace)
                 if field_type in self.generated_types:
                     if self.generated_types[field_type] == "union":
                         get_method += f"\n{INDENT*3}case {pos}: return this.{field_name}?.ToObject();"
@@ -270,7 +306,9 @@ class AvroToCSharp:
             system_xml_annotation=self.system_xml_annotation,
             msgpack_annotation=self.msgpack_annotation,
             cbor_annotation=self.cbor_annotation,
-            json_match_clauses=self.create_is_json_match_clauses(avro_schema, avro_namespace, class_name)
+            json_match_clauses=self.create_is_json_match_clauses(avro_schema, avro_namespace, class_name),
+            openapi_generator_compat=self.openapi_generator_compat,
+            openapi_fields=self.get_openapi_compat_fields(fields, class_name, avro_namespace, property_names)
         )
 
         # emit Equals and GetHashCode for value equality
@@ -285,26 +323,45 @@ class AvroToCSharp:
         self.generated_avro_types[ref] = avro_schema
         return ref
 
+    def get_csharp_property_names(self, fields: List[Dict], class_name: str) -> List[str]:
+        """Returns unique C# property names for the fields in a class."""
+        used: set[str] = set()
+        property_names: List[str] = []
+        for field in fields:
+            raw_name = str(field['name'])
+            if self.openapi_generator_compat:
+                safe_name = self.safe_identifier(raw_name, class_name)
+                candidate = self.get_openapi_property_name(safe_name, class_name)
+                property_names.append(re.sub(r'_(\d+)$', r'\1', unique_name(candidate, used)))
+            else:
+                field_name = self.safe_identifier(raw_name, class_name, allow_unicode=True)
+                if self.pascal_properties:
+                    field_name = pascal(field_name.lstrip('@'))
+                    if self.is_csharp_reserved_word(field_name):
+                        field_name = f"@{field_name}"
+                    if field_name == class_name:
+                        field_name += "_"
+                property_names.append(unique_name(field_name, used))
+        return property_names
+
     def create_is_json_match_clauses(self, avro_schema, parent_namespace, class_name) -> List[str]:
         """ Generates the IsJsonMatch method for System.Text.Json """
         clauses: List[str] = []
-        for field in avro_schema.get('fields', []):
-            field_name = field['name']
-            if self.is_csharp_reserved_word(field_name):
-                field_name = f"@{field_name}"
-            if field_name == class_name:
-                field_name += "_"
+        fields = avro_schema.get('fields', [])
+        used_names: set[str] = set()
+        for field in fields:
+            field_name = unique_name(self.safe_identifier(field['name'], class_name, allow_unicode=True), used_names)
             field_type = self.convert_avro_type_to_csharp(
-                    class_name, field_name, field['type'], parent_namespace)
-            clauses.append(self.get_is_json_match_clause(class_name, field_name, field_type))
+                    class_name, field['name'], field['type'], parent_namespace)
+            clauses.append(self.get_is_json_match_clause(class_name, field_name, field_type, str(field['name'])))
         if len(clauses) == 0:
             clauses.append("true")
         return clauses
 
-    def get_is_json_match_clause(self, class_name, field_name, field_type) -> str:
+    def get_is_json_match_clause(self, class_name, field_name, field_type, wire_name: str | None = None) -> str:
         """ Generates the IsJsonMatch clause for a field """
         class_definition = ''
-        field_name_js = field_name[1:] if field_name[0] == '@' else field_name
+        field_name_js = wire_name if wire_name is not None else (field_name[1:] if field_name[0] == '@' else field_name)
         is_optional = field_type[-1] == '?'
         field_type = field_type[:-1] if is_optional else field_type
         if field_type == 'byte[]':
@@ -390,16 +447,11 @@ class AvroToCSharp:
         
         # Build equality comparisons for each field
         equality_checks = []
-        for field in fields:
-            field_name = field['name']
-            if self.is_csharp_reserved_word(field_name):
-                field_name = f"@{field_name}"
-            if self.pascal_properties:
-                field_name = pascal(field_name)
-            if field_name == class_name:
-                field_name += "_"
+        property_names = self.get_csharp_property_names(fields, class_name)
+        for index, field in enumerate(fields):
+            field_name = property_names[index]
             
-            field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], parent_namespace)
+            field_type = self.convert_avro_type_to_csharp(class_name, field['name'], field['type'], parent_namespace)
             
             # Handle different types of comparisons
             if field_type == 'byte[]' or field_type == 'byte[]?':
@@ -432,16 +484,10 @@ class AvroToCSharp:
         
         # Collect field names for HashCode.Combine
         hash_fields = []
-        for field in fields:
-            field_name = field['name']
-            if self.is_csharp_reserved_word(field_name):
-                field_name = f"@{field_name}"
-            if self.pascal_properties:
-                field_name = pascal(field_name)
-            if field_name == class_name:
-                field_name += "_"
-            
-            field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], parent_namespace)
+        for index, field in enumerate(fields):
+            field_name = property_names[index]
+             
+            field_type = self.convert_avro_type_to_csharp(class_name, field['name'], field['type'], parent_namespace)
             
             # Handle special types that need custom hash code computation
             if field_type == 'byte[]' or field_type == 'byte[]?':
@@ -489,10 +535,14 @@ class AvroToCSharp:
             else:
                 enum_definition += f"[XmlType(\"{enum_name}\")]\n"
 
-        if self.system_xml_annotation:
-            symbols_str = [f"{INDENT}/// <summary>\n{INDENT}/// {symbol}\n{INDENT}/// </summary>\n{INDENT}[XmlEnum(Name=\"{symbol}\")]\n{INDENT}{symbol}" for symbol in avro_schema['symbols']]
-        else:
-            symbols_str = [f"{INDENT}/// <summary>\n{INDENT}/// {symbol}\n{INDENT}/// </summary>\n{INDENT}{symbol}" for symbol in avro_schema['symbols']]
+        used_symbols: set[str] = set()
+        symbols_str = []
+        for symbol in avro_schema['symbols']:
+            member_name = self.safe_enum_member_name(str(symbol), used_symbols)
+            if self.system_xml_annotation:
+                symbols_str.append(f"{INDENT}/// <summary>\n{INDENT}/// {member_name}\n{INDENT}/// </summary>\n{INDENT}[XmlEnum(Name=\"{symbol}\")]\n{INDENT}{member_name}")
+            else:
+                symbols_str.append(f"{INDENT}/// <summary>\n{INDENT}/// {member_name}\n{INDENT}/// </summary>\n{INDENT}{member_name}")
         enum_body = ",\n".join(symbols_str)
         enum_definition += f"public enum {enum_name}\n{{\n{enum_body}\n}}"
 
@@ -740,19 +790,16 @@ class AvroToCSharp:
             return avro_type.get('type') == 'enum'
         return False
 
-    def generate_property(self, field_index: int, field: Dict, class_name: str, parent_namespace: str) -> str:
+    def generate_property(self, field_index: int, field: Dict, class_name: str, parent_namespace: str, property_name: str | None = None) -> str:
         """ Generates a property """
         is_enum_type = self.is_enum_type(field['type'])
         field_type = self.convert_avro_type_to_csharp(
             class_name, field['name'], field['type'], parent_namespace)
         field_default = field.get('const', field.get('default', None))
-        annotation_name = field_name = field['name']
-        if self.is_csharp_reserved_word(field_name):
-            field_name = f"@{field_name}"
-        if self.pascal_properties:
-            field_name = pascal(field_name)
-        if field_name == class_name:
-            field_name += "_"
+        annotation_name = field['name']
+        field_name = property_name if property_name is not None else self.get_csharp_property_names([field], class_name)[0]
+        if self.openapi_generator_compat:
+            return self.generate_openapi_compat_property(field, field_type, field_name, annotation_name, class_name)
         prop = ''
         prop += f"{INDENT}/// <summary>\n{INDENT}/// { field.get('doc', field_name) }\n{INDENT}/// </summary>\n"
         
@@ -794,7 +841,8 @@ class AvroToCSharp:
                 # For enum types, use qualified enum value (e.g., Type.Circle)
                 # Get the base enum type name (strip nullable ? suffix if present)
                 enum_type = field_type.rstrip('?')
-                initialization = f" = {enum_type}.{field_default};"
+                enum_default = self.safe_enum_member_name(str(field_default), set())
+                initialization = f" = {enum_type}.{enum_default};"
             elif isinstance(field_default, str):
                 initialization = f" = \"{field_default}\";"
             else:
@@ -815,12 +863,117 @@ class AvroToCSharp:
         prop += f"{INDENT}public {field_type} {field_name} {{ get; set; }}{initialization}"
         return prop
 
+    def is_openapi_optional_avro_field(self, field: Dict) -> bool:
+        """Returns true if the Avro field is nullable and should use Option<T>."""
+        avro_type = field.get('type')
+        return isinstance(avro_type, list) and 'null' in avro_type and len([t for t in avro_type if t != 'null']) == 1
+
+    def get_openapi_property_name(self, field_name: str, class_name: str) -> str:
+        """Returns the OpenAPI Generator-style C# property name."""
+        name = field_name[1:] if field_name.startswith('@') else field_name
+        property_name = pascal(name)
+        if property_name == class_name:
+            property_name += "_"
+        return property_name
+
+    def generate_openapi_compat_property(self, field: Dict, field_type: str, field_name: str, annotation_name: str, class_name: str) -> str:
+        """Generates an OpenAPI Generator-compatible property."""
+        property_name = field_name
+        doc = field.get('doc', property_name)
+        prop = f"{INDENT}/// <summary>\n{INDENT}/// {doc}\n{INDENT}/// </summary>\n"
+        if self.is_openapi_optional_avro_field(field):
+            option_name = f"{property_name}Option"
+            prop += f"{INDENT}[System.Text.Json.Serialization.JsonIgnore]\n"
+            prop += f"{INDENT}public Option<{field_type}> {option_name} {{ get; private set; }}\n"
+            prop += f"{INDENT}[System.Text.Json.Serialization.JsonPropertyName(\"{annotation_name}\")]\n"
+            prop += f"{INDENT}public {field_type} {property_name} {{ get => {option_name}; set => {option_name} = new(value); }}"
+        else:
+            initialization = ""
+            if field_type == "string":
+                initialization = " = string.Empty;"
+            elif field_type.startswith("List<") or field_type.startswith("Dictionary<"):
+                initialization = " = new();"
+            elif field_type.startswith("global::") and not self.is_csharp_primitive_type(field_type):
+                initialization = " = new();"
+            prop += f"{INDENT}[System.Text.Json.Serialization.JsonPropertyName(\"{annotation_name}\")]\n"
+            prop += f"{INDENT}public {field_type} {property_name} {{ get; set; }}{initialization}"
+        return prop
+
+    def get_openapi_compat_fields(self, fields: List[Dict], class_name: str, parent_namespace: str, property_names: List[str] | None = None) -> List[Dict[str, Any]]:
+        """Builds template metadata for OpenAPI Generator-compatible converters."""
+        if property_names is None:
+            property_names = self.get_csharp_property_names(fields, class_name)
+        result: List[Dict[str, Any]] = []
+        for index, field in enumerate(fields):
+            raw_name = field['name']
+            field_type = self.convert_avro_type_to_csharp(class_name, raw_name, field['type'], parent_namespace)
+            property_name = property_names[index]
+            result.append({
+                "wire_name": raw_name,
+                "property_name": property_name,
+                "option_name": f"{property_name}Option",
+                "type": field_type,
+                "is_optional": self.is_openapi_optional_avro_field(field)
+            })
+        return result
+
+    def generate_openapi_compat_constructor(self, class_name: str, fields: List[Dict], parent_namespace: str) -> str:
+        """Generates an OpenAPI Generator-compatible all-properties constructor."""
+        openapi_fields = self.get_openapi_compat_fields(fields, class_name, parent_namespace)
+        parameters = []
+        assignments = []
+        for field in openapi_fields:
+            parameter_name = field["property_name"][0].lower() + field["property_name"][1:]
+            if field["is_optional"]:
+                parameters.append(f"Option<{field['type']}> {parameter_name}")
+                assignments.append(f"{INDENT*2}{field['option_name']} = {parameter_name};")
+            else:
+                parameters.append(f"{field['type']} {parameter_name}")
+                assignments.append(f"{INDENT*2}{field['property_name']} = {parameter_name};")
+        return (
+            f"\n\n{INDENT}/// <summary>\n{INDENT}/// Initializes a new instance with all properties.\n{INDENT}/// </summary>\n"
+            f"{INDENT}public {class_name}({', '.join(parameters)})\n{INDENT}{{\n"
+            + "\n".join(assignments) +
+            f"\n{INDENT}}}"
+        )
+
+    def write_openapi_option_file(self, namespace: str) -> None:
+        """Writes the reusable Option<T> type for OpenAPI Generator-compatible output."""
+        if namespace in self.emitted_option_namespaces:
+            return
+        self.emitted_option_namespaces.add(namespace)
+        directory_path = os.path.join(self.output_dir, os.path.join('src', namespace.replace('.', os.sep)))
+        os.makedirs(directory_path, exist_ok=True)
+        file_path = os.path.join(directory_path, "Option.cs")
+        file_content = (
+            "using System;\n\n"
+            f"namespace {namespace}\n{{\n"
+            f"{INDENT}/// <summary>\n"
+            f"{INDENT}/// Represents an optional value that distinguishes unset from explicit null/default.\n"
+            f"{INDENT}/// </summary>\n"
+            f"{INDENT}public readonly struct Option<T>\n{INDENT}{{\n"
+            f"{INDENT*2}public bool IsSet {{ get; }}\n"
+            f"{INDENT*2}public T Value {{ get; }}\n\n"
+            f"{INDENT*2}public Option(T value)\n{INDENT*2}{{\n"
+            f"{INDENT*3}IsSet = true;\n"
+            f"{INDENT*3}Value = value;\n"
+            f"{INDENT*2}}}\n\n"
+            f"{INDENT*2}public static implicit operator Option<T>(T value) => new(value);\n"
+            f"{INDENT*2}public static implicit operator T(Option<T> option) => option.Value;\n"
+            f"{INDENT}}}\n"
+            "}"
+        )
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write(file_content)
+
     def write_to_file(self, namespace: str, name: str, definition: str):
         """ Writes the class or enum to a file """
         directory_path = os.path.join(
             self.output_dir, os.path.join('src', namespace.replace('.', os.sep)))
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)
+        if self.openapi_generator_compat:
+            self.write_openapi_option_file(namespace)
         file_path = os.path.join(directory_path, f"{name}.cs")
 
         with open(file_path, 'w', encoding='utf-8') as file:
@@ -829,9 +982,11 @@ class AvroToCSharp:
             file_content += "using System.Linq;\n"
             if self.protobuf_net_annotation:
                 file_content += "using ProtoBuf;\n"
-            if self.system_text_json_annotation:
+            if self.system_text_json_annotation or self.openapi_generator_compat:
                 file_content += "using System.Text.Json;\n"
                 file_content += "using System.Text.Json.Serialization;\n"
+            if self.openapi_generator_compat:
+                file_content += "using System.ComponentModel.DataAnnotations;\n"
             if self.newtonsoft_json_annotation:
                 file_content += "using Newtonsoft.Json;\n"
             if self.system_xml_annotation:  # Add XML serialization using directive
@@ -919,15 +1074,11 @@ class AvroToCSharp:
 
         fields: List[Field] = []
         if avro_schema and 'fields' in avro_schema:
-            for field in cast(List[Dict[str,JsonNode]],avro_schema['fields']):
-                field_name = str(field['name'])
-                if self.pascal_properties:
-                    field_name = pascal(field_name)
-                if field_name == class_name:
-                    field_name += "_"
-                if self.is_csharp_reserved_word(field_name):
-                    field_name = f"@{field_name}"
-                field_type = self.convert_avro_type_to_csharp(class_name, field_name, field['type'], str(avro_schema.get('namespace', '')))
+            avro_fields = cast(List[Dict[str,JsonNode]], avro_schema['fields'])
+            property_names = self.get_csharp_property_names(avro_fields, class_name)
+            for index, field in enumerate(avro_fields):
+                field_name = property_names[index]
+                field_type = self.convert_avro_type_to_csharp(class_name, str(field['name']), field['type'], str(avro_schema.get('namespace', '')))
                 is_class = field_type in self.generated_types and self.generated_types[field_type] == "class"
                 is_enum = self.is_enum_type(field['type'])
                 is_union = field_type in self.generated_types and self.generated_types[field_type] == "union"
@@ -1005,6 +1156,12 @@ class AvroToCSharp:
         
         self.schema_doc = schema
         self.type_dict = build_flat_type_dict(self.schema_doc)
+        if isinstance(self.schema_doc, list):
+            for type_schema in self.type_dict.values():
+                if isinstance(type_schema, dict) and type_schema.get('type') in ['record', 'enum']:
+                    full_name = self.concat_namespace(str(type_schema.get('namespace', '')), str(type_schema.get('name', '')))
+                    if full_name not in [self.concat_namespace(str(item.get('namespace', '')), str(item.get('name', ''))) for item in self.schema_doc if isinstance(item, dict)]:
+                        self.schema_doc.append(type_schema)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         if not glob.glob(os.path.join(output_dir, "src", "*.sln")):
@@ -1121,7 +1278,8 @@ def convert_avro_to_csharp(
     msgpack_annotation=False,
     cbor_annotation=False,
     avro_annotation=False,
-    protobuf_net_annotation=False
+    protobuf_net_annotation=False,
+    openapi_generator_compat=False
 ):
     """Converts Avro schema to C# classes
 
@@ -1138,6 +1296,7 @@ def convert_avro_to_csharp(
         cbor_annotation (bool, optional): Use Dahomey.Cbor annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
         protobuf_net_annotation (bool, optional): Use protobuf-net annotations. Defaults to False.
+        openapi_generator_compat (bool, optional): Generate OpenAPI Generator-compatible C# models. Defaults to False.
     """
 
     if not base_namespace:
@@ -1152,6 +1311,7 @@ def convert_avro_to_csharp(
     avrotocs.cbor_annotation = cbor_annotation
     avrotocs.avro_annotation = avro_annotation
     avrotocs.protobuf_net_annotation = protobuf_net_annotation
+    avrotocs.openapi_generator_compat = openapi_generator_compat
     avrotocs.convert(avro_schema_path, cs_file_path)
 
 
@@ -1167,7 +1327,8 @@ def convert_avro_schema_to_csharp(
     msgpack_annotation: bool = False,
     cbor_annotation: bool = False,
     avro_annotation: bool = False,
-    protobuf_net_annotation: bool = False
+    protobuf_net_annotation: bool = False,
+    openapi_generator_compat: bool = False
 ):
     """Converts Avro schema to C# classes
 
@@ -1195,4 +1356,5 @@ def convert_avro_schema_to_csharp(
     avrotocs.cbor_annotation = cbor_annotation
     avrotocs.avro_annotation = avro_annotation
     avrotocs.protobuf_net_annotation = protobuf_net_annotation
+    avrotocs.openapi_generator_compat = openapi_generator_compat
     avrotocs.convert_schema(avro_schema, output_dir)

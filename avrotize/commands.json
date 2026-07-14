@@ -137,6 +137,163 @@
     ]
   },
   {
+    "command": "fbs2a",
+    "description": "Convert FlatBuffers schema to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.flatbufferstoavro.convert_flatbuffers_to_avro",
+      "args": {
+        "fbs_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".fbs"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the FlatBuffers .fbs file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2fbs",
+    "description": "Convert Avrotize schema to FlatBuffers schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotoflatbuffers.convert_avro_to_flatbuffers",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "fbs_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the FlatBuffers .fbs file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the FlatBuffers schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.fbs",
+    "prompts": []
+  },
+  {
+    "command": "fbs2s",
+    "description": "Convert FlatBuffers schema to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.flatbufferstojstruct.convert_flatbuffers_to_json_structure",
+      "args": {
+        "fbs_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".fbs"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the FlatBuffers .fbs file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema bridge",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2fbs",
+    "description": "Convert JSON Structure to FlatBuffers schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jstructtoflatbuffers.convert_json_structure_to_flatbuffers",
+      "args": {
+        "structure_file": "input_file_path",
+        "fbs_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the FlatBuffers .fbs file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the FlatBuffers schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.fbs",
+    "prompts": []
+  },
+  {
     "command": "s2p",
     "description": "Convert JSON Structure to Protocol Buffers (.proto)",
     "group": "1_Schemas",
@@ -1023,6 +1180,85 @@
       }
     ],
     "skip_input_file_handling": true
+  },
+  {
+    "command": "surreal2a",
+    "description": "Convert SurrealQL schema to Avrotize schema",
+    "group": "5_SQL",
+    "function": {
+      "name": "avrotize.surrealtoavro.convert_surrealql_to_avro",
+      "args": {
+        "surrealql_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".surql",
+      ".surrealql"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the SurrealQL schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2surreal",
+    "description": "Convert Avrotize schema to SurrealQL schema",
+    "group": "5_SQL",
+    "function": {
+      "name": "avrotize.avrotosurreal.convert_avro_to_surrealql",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "surrealql_file_path": "output_file_path",
+        "record_type": "args.record_type"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the SurrealQL schema file",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Specific Avro record type to convert",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.surql",
+    "prompts": []
   },
   {
     "command": "a2sql",
@@ -1979,6 +2215,73 @@
     ]
   },
   {
+    "command": "s2pq",
+    "description": "Convert JSON Structure to Parquet schema",
+    "group": "3_Datalake",
+    "function": {
+      "name": "avrotize.structuretoparquet.convert_structure_to_parquet",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "parquet_file_path": "output_file_path",
+        "structure_record_type": "args.record_type",
+        "emit_cloudevents_columns": "args.emit_cloudevents_columns",
+        "output_format": "args.format"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Parquet file",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Record type in the JSON Structure schema",
+        "required": false
+      },
+      {
+        "name": "--emit-cloudevents-columns",
+        "type": "bool",
+        "help": "Add CloudEvents columns to the Parquet file",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--format",
+        "type": "str",
+        "help": "Output format: 'parquet' for an empty Parquet file carrying the schema (default), 'schema' for JSON",
+        "choices": [
+          "parquet",
+          "schema"
+        ],
+        "default": "parquet",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.parquet",
+    "prompts": [
+      {
+        "name": "--emit-cloudevents-columns",
+        "message": "Add CloudEvents columns to the Parquet file?",
+        "type": "bool",
+        "default": false
+      }
+    ]
+  },
+  {
     "command": "a2tsml",
     "description": "Convert Avrotize schema to Tabular Model Scripting Language (TMSL) schema",
     "group": "3_Datalake",
@@ -2271,7 +2574,8 @@
         "msgpack_annotation": "args.msgpack_annotation",
         "cbor_annotation": "args.cbor_annotation",
         "pascal_properties": "args.pascal_properties",
-        "base_namespace": "args.namespace"
+        "base_namespace": "args.namespace",
+        "openapi_generator_compat": "args.openapi_generator_compat"
       }
     },
     "extensions": [
@@ -2358,6 +2662,13 @@
         "help": "Use PascalCase properties",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--openapi-generator-compat",
+        "type": "bool",
+        "help": "Generate OpenAPI Generator-compatible C# models with Option<T> optional properties and System.Text.Json converters",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-cs",
@@ -2407,7 +2718,8 @@
         "avro_annotation": "args.avro_annotation",
         "pascal_properties": "args.pascal_properties",
         "base_namespace": "args.namespace",
-        "project_name": "args.project_name"
+        "project_name": "args.project_name",
+        "openapi_generator_compat": "args.openapi_generator_compat"
       }
     },
     "extensions": [
@@ -2478,6 +2790,13 @@
         "name": "--pascal-properties",
         "type": "bool",
         "help": "Use PascalCase properties",
+        "default": false,
+        "required": false
+      },
+      {
+        "name": "--openapi-generator-compat",
+        "type": "bool",
+        "help": "Generate OpenAPI Generator-compatible C# models with Option<T> optional properties and System.Text.Json converters",
         "default": false,
         "required": false
       }
@@ -4381,6 +4700,165 @@
     "prompts": []
   },
   {
+    "command": "jtd2a",
+    "description": "Convert JSON Type Definition (JTD) to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jtdtoavro.convert_jtd_to_avro",
+      "args": {
+        "jtd_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".jtd.json",
+      ".jtd"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Type Definition file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for generated Avrotize records and enums",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2jtd",
+    "description": "Convert Avrotize schema to JSON Type Definition (JTD)",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotojtd.convert_avro_to_jtd",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "jtd_file_path": "output_file_path",
+        "record_type": "args.record_type"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Type Definition file",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Name of the Avro record type to convert",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.jtd.json",
+    "prompts": []
+  },
+  {
+    "command": "jtd2s",
+    "description": "Convert JSON Type Definition (JTD) to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jtdtostructure.convert_jtd_to_structure",
+      "args": {
+        "jtd_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".jtd.json",
+      ".jtd"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Type Definition file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for generated intermediate Avrotize records and enums",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2jtd",
+    "description": "Convert JSON Structure to JSON Type Definition (JTD)",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretojtd.convert_structure_to_jtd",
+      "args": {
+        "structure_file": "input_file_path",
+        "jtd_file_path": "output_file_path",
+        "record_type": "args.record_type"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Type Definition file",
+        "required": false
+      },
+      {
+        "name": "--record-type",
+        "type": "str",
+        "help": "Name of the Structure/Avro record type to convert",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.jtd.json",
+    "prompts": []
+  },
+  {
     "command": "s2x",
     "description": "Convert JSON Structure to XSD schema",
     "group": "1_Schemas",
@@ -4641,5 +5119,812 @@
     ],
     "prompts": [],
     "skip_input_file_handling": true
+  },
+  {
+    "command": "cue2a",
+    "description": "Convert CUE schema subset to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.cuetoavro.convert_cue_to_avro",
+      "args": {
+        "cue_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".cue"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the CUE schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2cue",
+    "description": "Convert Avrotize schema to CUE schema subset",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotocue.convert_avro_to_cue",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "cue_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the CUE schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "CUE package/namespace hint",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.cue",
+    "prompts": []
+  },
+  {
+    "command": "cue2s",
+    "description": "Convert CUE schema subset to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.cuetostructure.convert_cue_to_json_structure",
+      "args": {
+        "cue_file_path": "input_file_path",
+        "json_structure_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".cue"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the CUE schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the intermediate Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2cue",
+    "description": "Convert JSON Structure to CUE schema subset",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretocue.convert_json_structure_to_cue",
+      "args": {
+        "structure_file": "input_file_path",
+        "cue_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the CUE schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "CUE package/namespace hint",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.cue",
+    "prompts": []
+  },
+  {
+    "command": "thrift2a",
+    "description": "Convert Apache Thrift IDL to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.thrifttoavro.convert_thrift_to_avro",
+      "args": {
+        "thrift_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".thrift"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the Thrift IDL file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2thrift",
+    "description": "Convert Avrotize schema to Apache Thrift IDL",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotothrift.convert_avro_to_thrift",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "thrift_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Thrift IDL file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Thrift IDL",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.thrift",
+    "prompts": []
+  },
+  {
+    "command": "thrift2s",
+    "description": "Convert Apache Thrift IDL to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.thriftstructure.convert_thrift_to_structure",
+      "args": {
+        "thrift_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".thrift"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the Thrift IDL file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the intermediate Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2thrift",
+    "description": "Convert JSON Structure to Apache Thrift IDL",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.thriftstructure.convert_structure_to_thrift",
+      "args": {
+        "structure_file": "input_file_path",
+        "thrift_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Thrift IDL file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Thrift IDL",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.thrift",
+    "prompts": []
+  },
+  {
+    "command": "smithy2a",
+    "description": "Convert Smithy IDL data shapes to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.smithytoavro.convert_smithy_to_avro",
+      "args": {
+        "smithy_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".smithy"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Smithy IDL file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2smithy",
+    "description": "Convert Avrotize schema to Smithy IDL data shapes",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotosmithy.convert_avro_to_smithy",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "smithy_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Smithy IDL file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Smithy namespace to emit",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.smithy",
+    "prompts": []
+  },
+  {
+    "command": "smithy2s",
+    "description": "Convert Smithy IDL data shapes to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.smithytojstruct.convert_smithy_to_json_structure",
+      "args": {
+        "smithy_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".smithy"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Smithy IDL file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the intermediate Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2smithy",
+    "description": "Convert JSON Structure to Smithy IDL data shapes",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jstructtosmithy.convert_json_structure_to_smithy",
+      "args": {
+        "structure_file": "input_file_path",
+        "smithy_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Smithy IDL file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Smithy namespace to emit",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.smithy",
+    "prompts": []
+  },
+  {
+    "command": "capnp2a",
+    "description": "Convert Cap'n Proto schema to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.capnprototoavro.convert_capnproto_to_avro",
+      "args": {
+        "capnp_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".capnp"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the Cap'n Proto schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2capnp",
+    "description": "Convert Avrotize schema to Cap'n Proto schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotocapnproto.convert_avro_to_capnproto",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "capnp_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Cap'n Proto schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace note to include in the generated Cap'n Proto schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.capnp",
+    "prompts": []
+  },
+  {
+    "command": "capnp2s",
+    "description": "Convert Cap'n Proto schema to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.capnprototoavro.convert_capnproto_to_json_structure",
+      "args": {
+        "capnp_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace",
+        "naming_mode": "args.naming",
+        "avro_encoding": "args.avro_encoding"
+      }
+    },
+    "extensions": [
+      ".capnp"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the Cap'n Proto schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the intermediate Avrotize schema",
+        "required": false
+      },
+      {
+        "name": "--naming",
+        "type": "str",
+        "help": "Type naming convention",
+        "choices": [
+          "snake",
+          "camel",
+          "pascal",
+          "default"
+        ],
+        "required": false,
+        "default": "default"
+      },
+      {
+        "name": "--avro-encoding",
+        "type": "bool",
+        "help": "Enable Avro encoding for unions",
+        "default": false,
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2capnp",
+    "description": "Convert JSON Structure to Cap'n Proto schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotocapnproto.convert_json_structure_to_capnproto",
+      "args": {
+        "structure_file": "input_file_path",
+        "capnp_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Cap'n Proto schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace note to include in the generated Cap'n Proto schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.capnp",
+    "prompts": []
+  },
+  {
+    "command": "raml2a",
+    "description": "Convert RAML Data Types to Avrotize schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.ramltoavro.convert_raml_to_avro",
+      "args": {
+        "raml_file_path": "input_file_path",
+        "avro_schema_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".raml"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the RAML file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.avsc",
+    "prompts": []
+  },
+  {
+    "command": "a2raml",
+    "description": "Convert Avrotize schema to RAML Data Types",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotoraml.convert_avro_to_raml",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "raml_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the RAML file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace to strip from RAML type references",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.raml",
+    "prompts": []
+  },
+  {
+    "command": "raml2s",
+    "description": "Convert RAML Data Types to JSON Structure",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.ramltojstruct.convert_raml_to_json_structure",
+      "args": {
+        "raml_file_path": "input_file_path",
+        "json_structure_file": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".raml"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path of the RAML file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the JSON Structure file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace for the intermediate Avrotize schema",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.struct.json",
+    "prompts": []
+  },
+  {
+    "command": "s2raml",
+    "description": "Convert JSON Structure to RAML Data Types",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.jstructtoraml.convert_json_structure_to_raml",
+      "args": {
+        "structure_file": "input_file_path",
+        "raml_file_path": "output_file_path",
+        "namespace": "args.namespace"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the RAML file",
+        "required": false
+      },
+      {
+        "name": "--namespace",
+        "type": "str",
+        "help": "Namespace to strip from RAML type references",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.raml",
+    "prompts": []
   }
 ]

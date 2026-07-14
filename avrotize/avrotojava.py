@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple, Union
 from avrotize.constants import (AVRO_VERSION, JACKSON_ANNOTATIONS_VERSION, JACKSON_VERSION,
                                 JDK_VERSION, JUNIT_VERSION, MAVEN_COMPILER_VERSION, MAVEN_SUREFIRE_VERSION)
 
-from avrotize.common import pascal, camel, is_generic_avro_type, inline_avro_references, build_flat_type_dict
+from avrotize.common import pascal, camel, is_generic_avro_type, is_any_value_type, inline_avro_references, build_flat_type_dict
 
 INDENT = '    '
 POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
@@ -296,6 +296,9 @@ class AvroToJava:
     
     def map_primitive_to_java(self, avro_type: str, is_optional: bool) -> JavaType:
         """Maps Avro primitive types to Java types"""
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if is_any_value_type(avro_type):
+            return AvroToJava.JavaType('Object')
         optional_mapping = {
             'null': 'Void',
             'boolean': 'Boolean',
@@ -1314,9 +1317,10 @@ class AvroToJava:
             
             union_variable_name = self.safe_identifier(union_variable_name, class_name)
 
-            # Constructor for each type
-            class_definition_ctors += \
-                f"{INDENT*1}public {union_class_name}({union_type.type_name} {union_variable_name}) {{\n{INDENT*2}this._{camel(union_variable_name)} = {union_variable_name};\n{INDENT*1}}}\n"
+            # Constructor for each type (skip Object to avoid duplicate with the generic Object constructor)
+            if union_type.type_name != 'Object':
+                class_definition_ctors += \
+                    f"{INDENT*1}public {union_class_name}({union_type.type_name} {union_variable_name}) {{\n{INDENT*2}this._{camel(union_variable_name)} = {union_variable_name};\n{INDENT*1}}}\n"
 
             # Declarations
             class_definition_decls += \

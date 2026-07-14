@@ -1,7 +1,66 @@
 # sort the dependencies
 
 import copy
-from typing import List
+from typing import List, Set
+
+
+def _collect_named_references(node, defined_keys: Set[str], found: Set[str]) -> None:
+    """Recursively collect every string that references one of the top-level named
+    types in ``defined_keys`` (matched by bare name or fully-qualified name)."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == 'dependencies':
+                continue
+            _collect_named_references(value, defined_keys, found)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_named_references(item, defined_keys, found)
+    elif isinstance(node, str):
+        if node in defined_keys:
+            found.add(node)
+
+
+def sort_and_inline_dependencies(avro_schema):
+    """Make a list of top-level Avro named types safe to parse by re-deriving each
+    type's dependencies from the references that actually appear in its fields and
+    then reusing :func:`sort_messages_by_dependencies` to order and, where necessary,
+    inline them to break cycles.
+
+    Unlike :func:`sort_messages_by_dependencies`, this helper does not require the
+    converter to have populated ``dependencies`` keys; it computes them from ground
+    truth (the emitted field types), so it corrects both missing and incorrect
+    dependency bookkeeping. Non-list inputs are returned unchanged.
+    """
+    if not isinstance(avro_schema, list):
+        return avro_schema
+    named = [t for t in avro_schema
+             if isinstance(t, dict) and 'name' in t and t.get('type') in ('record', 'enum', 'fixed', 'error')]
+    if len(named) < 2:
+        return avro_schema
+
+    defined_keys: Set[str] = set()
+    for t in named:
+        name = t['name']
+        namespace = t.get('namespace', '')
+        defined_keys.add(name)
+        defined_keys.add(f"{namespace}.{name}" if namespace else name)
+
+    for t in named:
+        name = t['name']
+        namespace = t.get('namespace', '')
+        fqn = f"{namespace}.{name}" if namespace else name
+        refs: Set[str] = set()
+        for field in t.get('fields', []):
+            _collect_named_references(field, defined_keys, refs)
+        # self-references are valid Avro back-references, not dependencies to inline
+        refs.discard(name)
+        refs.discard(fqn)
+        if refs:
+            t['dependencies'] = sorted(refs)
+        elif 'dependencies' in t:
+            del t['dependencies']
+
+    return sort_messages_by_dependencies(avro_schema)
 
 
     
