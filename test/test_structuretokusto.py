@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import time
+import re
 import pytest
 
 current_script_path = os.path.abspath(__file__)
@@ -51,6 +52,52 @@ def kusto_container():
 
 
 # pylint: disable=redefined-outer-name
+
+
+def _parse_kusto_verbatim_string(literal: str) -> str:
+    assert literal.startswith('@"') and literal.endswith('"')
+    return literal[2:-1].replace('""', '"')
+
+
+def test_convert_structure_docstrings_escape_kql_literals(tmp_path):
+    """Structure-to-Kusto docstrings with embedded JSON are escaped once."""
+    original_doc = 'Field whose description contains a nested JSON schema doc: { "doc": "Schema too large to inline. Please refer to the JSON Structure schema for more details." } with \\ and newline\nnext line'
+    schema = {
+        "$schema": "https://json-structure.org/meta/core/v0/",
+        "$id": "https://example.org/schemas/repro",
+        "name": "ReproEvent",
+        "namespace": "Example.Repro",
+        "type": "object",
+        "properties": {
+            "id": {"type": "string", "description": "Plain id"},
+            "tricky": {
+                "type": "object",
+                "description": original_doc,
+                "properties": {"v": {"type": "string"}},
+            },
+        },
+    }
+    struct_path = tmp_path / "schema.json"
+    kql_path = tmp_path / "out.kql"
+    struct_path.write_text(json.dumps(schema), encoding="utf-8")
+
+    convert_structure_to_kusto_file(
+        str(struct_path),
+        "Example.Repro.ReproEvent",
+        str(kql_path),
+        False,
+        False,
+        True,
+        "Example.Repro",
+    )
+
+    kql = kql_path.read_text(encoding="utf-8")
+    assert "\\\\\"" not in kql
+
+    column_match = re.search(r"\[tricky\]: (@\"(?:\"\"|[^\"])*\")", kql)
+    assert column_match is not None
+    column_doc_json = json.loads(_parse_kusto_verbatim_string(column_match.group(1)))
+    assert column_doc_json["description"] == original_doc
 
 
 def test_convert_address_struct_to_kusto_server(kusto_container):
@@ -205,6 +252,48 @@ def test_convert_structure_with_wrapped_nullable_types_to_kusto():
     assert "_cloudevents_dispatch | where (specversion == '1.0' and type == 'WrappedTypes')" in kql
 
 
+def test_convert_structure_with_non_identifier_names_to_kusto():
+    """Issue #382: non-identifier property keys must be bracket/quote-escaped."""
+    schema = {
+        "$schema": "https://json-structure.org/meta/extended/v0/#",
+        "$id": "https://example.com/test/non-identifier-names",
+        "type": "object",
+        "name": "Ev",
+        "properties": {
+            "dr-type": {"type": "string"},
+            "1": {"type": "int32"},
+            "status": {"type": "string"},
+        },
+    }
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        struct_path = os.path.join(temp_dir, "non-identifier.struct.json")
+        kql_path = os.path.join(temp_dir, "non-identifier.kql")
+        with open(struct_path, "w", encoding="utf-8") as struct_file:
+            json.dump(schema, struct_file)
+        convert_structure_to_kusto_file(struct_path, "Ev", kql_path, True, True)
+        with open(kql_path, "r", encoding="utf-8") as kql_file:
+            kql = kql_file.read()
+
+    # Non-identifier columns are quoted; clean identifiers keep the bare form.
+    assert "['dr-type']: string" in kql
+    assert "['1']: int" in kql
+    assert "[status]: string" in kql
+    # Ingestion-mapping JSONPaths use bracket notation for non-identifier keys.
+    assert '"path": "$[\'dr-type\']"' in kql
+    assert '"path": "$[\'1\']"' in kql
+    assert '"path": "$.status"' in kql
+    # The mapping column values stay the plain (unbracketed) column names.
+    assert '"column": "dr-type"' in kql
+    # CloudEvents structured mapping also bracket-escapes under $.data.
+    assert '"path": "$.data[\'dr-type\']"' in kql
+    # All fenced JSON blocks must remain valid JSON.
+    blocks = re.findall(r'```\n(.*?)\n```', kql, re.DOTALL)
+    assert len(blocks) > 0
+    for block in blocks:
+        json.loads(block.strip())
+
+
 def convert_case(file_base_name: str, emit_cloudevents_columns, emit_cloudevents_dispatch_table):
     """Convert a JSON Structure schema to Kusto query language"""
     cwd = os.getcwd()
@@ -228,8 +317,36 @@ def convert_case(file_base_name: str, emit_cloudevents_columns, emit_cloudevents
         assert content1 == content2
 
 
+def test_kql_json_blocks_are_valid():
+    """Test that all JSON blocks in generated KQL are valid JSON (no trailing commas)."""
+    cwd = os.getcwd()
+    struct_path = os.path.join(cwd, "test", "avsc", "address-ref.struct.json")
+    kql_path = os.path.join(tempfile.gettempdir(), "avrotize", "address-json-valid.kql")
+    dir_name = os.path.dirname(kql_path)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name, exist_ok=True)
+
+    convert_structure_to_kusto_file(struct_path, None, kql_path, True, True)
+
+    with open(kql_path, 'r', encoding="utf-8") as f:
+        content = f.read()
+
+    # Extract all JSON blocks between ``` fences
+    blocks = re.findall(r'```\n(.*?)\n```', content, re.DOTALL)
+    assert len(blocks) > 0, "Expected at least one fenced JSON block"
+    for i, block in enumerate(blocks):
+        block = block.strip()
+        if block.startswith('[') or block.startswith('{'):
+            try:
+                json.loads(block)
+            except json.JSONDecodeError as e:
+                raise AssertionError(
+                    f"Invalid JSON in block {i}: {e}\n---\n{block}\n---")
+
+
 if __name__ == '__main__':
     test_convert_address_struct_to_kusto()
     test_convert_address_struct_to_kusto_ce()
     test_convert_address_struct_to_kusto_ce_dt()
+    test_kql_json_blocks_are_valid()
     print("All tests passed!")

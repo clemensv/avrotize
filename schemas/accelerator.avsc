@@ -1,7 +1,7 @@
 {
     "type": "record",
     "name": "Properties_with_Additional_Properties",
-    "namespace": "C:\\git\\avrotize\\test\\jsons\\addlprops2",
+    "namespace": "com.test.example",
     "fields": [
         {
             "name": "id",

@@ -8,7 +8,7 @@ import random
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -342,11 +342,24 @@ class StructureToTypeScript:
                         is_enum = True
                         break
             
+            # Get source type - handle nullable unions like ["int64", "null"]
+            if isinstance(prop_schema, dict):
+                raw_type = prop_schema.get('type', 'string')
+                if isinstance(raw_type, str):
+                    source_type = raw_type
+                elif isinstance(raw_type, list):
+                    non_null_types = [t for t in raw_type if t != 'null']
+                    source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
+                else:
+                    source_type = 'object'
+            else:
+                source_type = 'object'
             fields.append({
                 'name': self.safe_name(prop_name),
-                'original_name': prop_name,
+                'original_name': json_wire_name(prop_name, prop_schema),
                 'type': field_type,
                 'type_no_null': field_type_no_null,
+                'source_type': source_type,
                 'is_required': is_required,
                 'is_optional': is_optional,
                 'is_primitive': self.is_typescript_primitive(field_type_no_null.replace('[]', '')),
@@ -408,7 +421,8 @@ class StructureToTypeScript:
         if typescript_qualified_name in self.generated_types:
             return typescript_qualified_name
 
-        symbols = structure_schema.get('enum', [])
+        raw_symbols = structure_schema.get('enum', [])
+        symbols = [{'name': str(s), 'value': json_enum_wire_value(s, structure_schema)} for s in raw_symbols]
         
         enum_definition = process_template(
             "structuretots/enum_core.ts.jinja",
