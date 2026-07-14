@@ -44,6 +44,8 @@ jobs:
             pattern: "test/test_cddltostructure.py test/test_structuretocddl.py test/test_openapitostructure.py"
           - name: "Validation & Inference"
             pattern: "test/test_validate.py test/test_choice_inference.py test/test_json2a_inference.py test/test_json2s_inference.py test/test_schema_inference.py"
+          - name: "MCP Server"
+            pattern: "test/test_mcp_server.py"
     name: "Tests: ${{ matrix.test-group.name }}"
     steps:
     - name: Checkout code
