@@ -1,3 +1,50 @@
+    {%- if openapi_generator_compat %}
+    /// <summary>
+    /// Validates this instance.
+    /// </summary>
+    public System.Collections.Generic.IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(System.ComponentModel.DataAnnotations.ValidationContext validationContext)
+    {
+        return System.Linq.Enumerable.Empty<System.ComponentModel.DataAnnotations.ValidationResult>();
+    }
+
+    /// <summary>
+    /// System.Text.Json converter for {{ class_name }}.
+    /// </summary>
+    public class {{ class_name }}JsonConverter : System.Text.Json.Serialization.JsonConverter<{{ class_name }}>
+    {
+        public override {{ class_name }}? Read(ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+        {
+            using var document = System.Text.Json.JsonDocument.ParseValue(ref reader);
+            var obj = new {{ class_name }}();
+    {%- for field in openapi_fields %}
+            if (document.RootElement.TryGetProperty("{{ field.wire_name }}", out var {{ field.property_name }}Element))
+            {
+                obj.{{ field.property_name }} = System.Text.Json.JsonSerializer.Deserialize<{{ field.type }}>({{ field.property_name }}Element.GetRawText(), options);
+            }
+    {%- endfor %}
+            return obj;
+        }
+
+        public override void Write(System.Text.Json.Utf8JsonWriter writer, {{ class_name }} value, System.Text.Json.JsonSerializerOptions options)
+        {
+            writer.WriteStartObject();
+    {%- for field in openapi_fields %}
+        {%- if field.is_optional %}
+            if (value.{{ field.option_name }}.IsSet)
+            {
+                writer.WritePropertyName("{{ field.wire_name }}");
+                System.Text.Json.JsonSerializer.Serialize(writer, value.{{ field.property_name }}, options);
+            }
+        {%- else %}
+            writer.WritePropertyName("{{ field.wire_name }}");
+            System.Text.Json.JsonSerializer.Serialize(writer, value.{{ field.property_name }}, options);
+        {%- endif %}
+    {%- endfor %}
+            writer.WriteEndObject();
+        }
+    }
+    {%- endif %}
+
     {%- if avro_annotation or system_text_json_annotation or newtonsoft_json_annotation or system_xml_annotation or protobuf_net_annotation or msgpack_annotation or cbor_annotation %}
     /// <summary>
     /// Creates an object from the data

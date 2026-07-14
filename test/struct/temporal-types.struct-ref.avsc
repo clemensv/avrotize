@@ -9,7 +9,7 @@
         "null",
         {
           "type": "string",
-          "logicalType": "date"
+          "logicalType": "rfc3339-date"
         }
       ],
       "doc": "A date field",
@@ -21,7 +21,7 @@
         "null",
         {
           "type": "string",
-          "logicalType": "time-millis"
+          "logicalType": "rfc3339-time-millis"
         }
       ],
       "doc": "A time field",
@@ -31,7 +31,7 @@
       "name": "datetimeField",
       "type": {
         "type": "string",
-        "logicalType": "timestamp-millis"
+        "logicalType": "rfc3339-timestamp-millis"
       },
       "doc": "A datetime field"
     },
@@ -41,7 +41,7 @@
         "null",
         {
           "type": "string",
-          "logicalType": "timestamp-millis"
+          "logicalType": "rfc3339-timestamp-millis"
         }
       ],
       "doc": "A timestamp field",
@@ -53,7 +53,7 @@
         "null",
         {
           "type": "string",
-          "logicalType": "duration"
+          "logicalType": "rfc3339-duration"
         }
       ],
       "doc": "A duration field",

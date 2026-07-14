@@ -8,7 +8,7 @@ import re
 import random
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
 from avrotize.jstructtoavro import JsonStructureToAvro
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
@@ -437,8 +437,9 @@ class StructureToPython:
         """ Generates a field for a Python dataclass """
         # Sanitize field name for Python identifier validity
         field_name = self.safe_identifier(prop_name, class_name)
-        # Track if we need a field_name annotation for JSON serialization
-        needs_field_name_annotation = field_name != prop_name
+        # Wire key honors JSON Structure altnames.json; annotation needed when it differs
+        wire_name = json_wire_name(prop_name, prop_schema)
+        needs_field_name_annotation = wire_name != field_name
 
         # Check if this is a const field
         if 'const' in prop_schema:
@@ -447,7 +448,7 @@ class StructureToPython:
                 class_name, field_name, prop_schema, parent_namespace, import_types)
             return {
                 'name': field_name,
-                'json_name': prop_name if needs_field_name_annotation else None,
+                'json_name': wire_name if needs_field_name_annotation else None,
                 'type': prop_type,
                 'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
                 'is_enum': False,
@@ -469,12 +470,20 @@ class StructureToPython:
         if not is_required and not prop_type.startswith('typing.Optional['):
             prop_type = f'typing.Optional[{prop_type}]'
 
-        # Get source type from structure schema
-        source_type = prop_schema.get('type', 'string') if isinstance(prop_schema.get('type'), str) else 'object'
+        # Get source type from structure schema - handle nullable unions like ["int64", "null"]
+        raw_type = prop_schema.get('type', 'string')
+        if isinstance(raw_type, str):
+            source_type = raw_type
+        elif isinstance(raw_type, list):
+            # Extract the non-null type from a nullable union
+            non_null_types = [t for t in raw_type if t != 'null']
+            source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
+        else:
+            source_type = 'object'
 
         return {
             'name': field_name,
-            'json_name': prop_name if needs_field_name_annotation else None,
+            'json_name': wire_name if needs_field_name_annotation else None,
             'type': prop_type,
             'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
             'is_enum': prop_type in self.generated_types and self.generated_types[prop_type] == 'enum',
@@ -489,17 +498,51 @@ class StructureToPython:
         field_docstring = f"{field_name} ({field_type})"
         return field_docstring
 
+    # Mapping of special characters to descriptive names for enum member
+    # identifiers.  Applied *before* the catch-all regex so that symbols
+    # like "5+" and "5-" produce distinct identifiers instead of both
+    # collapsing to "5_".
+    _CHAR_NAME_MAP = {
+        '+': '_PLUS',
+        '-': '_MINUS',
+        '*': '_STAR',
+        '/': '_SLASH',
+        '&': '_AMP',
+        '|': '_PIPE',
+        '!': '_BANG',
+        '?': '_QMARK',
+        '#': '_HASH',
+        '%': '_PCT',
+        '@': '_AT',
+        '^': '_CARET',
+        '~': '_TILDE',
+        '<': '_LT',
+        '>': '_GT',
+        '=': '_EQ',
+        '.': '_DOT',
+        ',': '_COMMA',
+        ':': '_COLON',
+        ';': '_SEMI',
+        '(': '_LPAREN',
+        ')': '_RPAREN',
+        '[': '_LBRACK',
+        ']': '_RBRACK',
+        '{': '_LBRACE',
+        '}': '_RBRACE',
+    }
+
     def _python_enum_member_name(self, value) -> str:
         """Derives a valid Python identifier for an enum member from a JSON
         Structure enum value.
 
         Numeric values (including negative integers) are prefixed with
         ``VALUE_`` (with negatives spelled ``VALUE_NEG_n``) so the generated
-        class body is valid Python. String values that aren't already valid
-        identifiers — e.g. they start with a digit or contain hyphens/spaces —
-        are coerced via ``pascal`` and prefixed with ``VALUE_`` if they still
-        don't start with a letter or underscore. Reserved words get a
-        trailing underscore.
+        class body is valid Python.  String values are sanitized by
+        replacing known special characters with descriptive names (e.g.
+        ``+`` → ``_PLUS``, ``-`` → ``_MINUS``) and then replacing any
+        remaining non-identifier characters with underscores.  Values that
+        start with a digit are prefixed with ``VALUE_``.  Reserved words
+        get a trailing underscore.
         """
         if isinstance(value, bool):
             return "TRUE_" if value else "FALSE_"
@@ -512,7 +555,18 @@ class StructureToPython:
                 token = str(value)
             return f"VALUE_{token}"
         text = str(value)
-        candidate = re.sub(r'[^0-9A-Za-z_]', '_', text)
+        # Replace known special characters with descriptive names
+        parts: list[str] = []
+        for ch in text:
+            if ch in self._CHAR_NAME_MAP:
+                parts.append(self._CHAR_NAME_MAP[ch])
+            else:
+                parts.append(ch)
+        candidate = ''.join(parts)
+        # Replace any remaining invalid identifier characters
+        candidate = re.sub(r'[^0-9A-Za-z_]', '_', candidate)
+        # Collapse runs of underscores and strip leading/trailing underscores
+        candidate = re.sub(r'_+', '_', candidate).strip('_')
         if not candidate or not (candidate[0].isalpha() or candidate[0] == '_'):
             candidate = f"VALUE_{candidate}" if candidate else "VALUE_"
         if is_python_reserved_word(candidate):
@@ -540,14 +594,26 @@ class StructureToPython:
         # Build (member_name, repr) pairs. ``repr`` is rendered verbatim into the
         # class body, so for numeric enums we emit the bare numeric literal and
         # for string enums a quoted Python string literal.
+        # Names that collide with each other or with generated methods are
+        # disambiguated with numeric suffixes.
         members: List[Tuple[str, str]] = []
         symbols: List[str] = []
+        # Pre-seed with names that would clash with generated Enum methods or
+        # Python Enum internals.
+        used_names: set[str] = {'from_ordinal', 'to_ordinal', 'mro', '_ignore_',
+                                '_generate_next_value_', '_missing_', '_order_'}
         for value in raw_values:
-            member_name = self._python_enum_member_name(value)
+            base_name = self._python_enum_member_name(value)
+            member_name = base_name
+            suffix = 2
+            while member_name in used_names:
+                member_name = f"{base_name}_{suffix}"
+                suffix += 1
+            used_names.add(member_name)
             if is_numeric:
                 value_repr = repr(value)
             else:
-                value_repr = repr(str(value))
+                value_repr = repr(json_enum_wire_value(value, structure_schema))
             members.append((member_name, value_repr))
             symbols.append(member_name)
 

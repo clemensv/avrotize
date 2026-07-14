@@ -1,9 +1,5 @@
 scalar JSON
 
-type TopLevelType {
-  version: String!
-  document: JSON!
-}
 type RecordType1 {
   field1: String!
   field2: Int!
@@ -59,4 +55,8 @@ type RecordType4b {
   field4: Float
   field5: Int
   fieldA: JSON!
+}
+type TopLevelType {
+  version: String!
+  document: JSON!
 }

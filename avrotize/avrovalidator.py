@@ -414,6 +414,33 @@ class AvroValidator:
         """
         base_type = schema.get('type')
 
+        # Avrotize Schema rfc3339-* string temporal family (issue #335). These are
+        # valid standard Avro because rfc3339-* is not a reserved Avro logical type;
+        # the value is an RFC 3339 textual string on a string base.
+        if isinstance(logical_type, str) and logical_type.startswith('rfc3339-'):
+            if base_type != 'string':
+                raise AvroValidationError(
+                    f"{logical_type} logical type requires string base type", path)
+            if not isinstance(instance, str):
+                raise AvroValidationError(
+                    f"Expected string for {logical_type}, got {type(instance).__name__}", path)
+            core = logical_type[len('rfc3339-'):]
+            if core == 'date':
+                pattern = self.DATE_PATTERN
+            elif core in ('time-millis', 'time-micros'):
+                pattern = self.TIME_PATTERN
+            elif core in ('timestamp-millis', 'timestamp-micros',
+                          'local-timestamp-millis', 'local-timestamp-micros'):
+                pattern = self.DATETIME_PATTERN
+            elif core == 'duration':
+                pattern = self.DURATION_PATTERN
+            else:
+                pattern = None
+            if pattern is not None and not pattern.match(instance):
+                raise AvroValidationError(
+                    f"Invalid {logical_type} format: {instance}", path)
+            return
+
         if logical_type == 'decimal':
             self._validate_decimal(instance, schema, path)
 

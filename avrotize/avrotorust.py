@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Dict, List, Union
-from avrotize.common import is_generic_avro_type, render_template, pascal, camel, snake
+from avrotize.common import is_generic_avro_type, is_any_value_type, render_template, pascal, camel, snake
 
 INDENT = '    '
 
@@ -44,6 +44,9 @@ class AvroToRust:
 
     def map_primitive_to_rust(self, avro_fullname: str, is_optional: bool) -> str:
         """Maps Avro primitive types to Rust types"""
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if is_any_value_type(avro_fullname):
+            return 'Option<serde_json::Value>' if is_optional else 'serde_json::Value'
         optional_mapping = {
             'null': 'None',
             'boolean': 'Option<bool>',
@@ -279,15 +282,25 @@ class AvroToRust:
         
         # Track seen predicates to identify structurally identical variants
         seen_predicates: set = set()
+        # Track seen variant names to deduplicate
+        seen_names: dict = {}
         union_fields = []
         for i, t in enumerate(union_types):
             predicate = self.get_is_json_match_clause(field_name, t, for_union=True)
             # Mark if this is the first variant with this predicate structure
-            # Subsequent variants with same predicate can't be distinguished during JSON deserialization
             is_first_with_predicate = predicate not in seen_predicates
             seen_predicates.add(predicate)
+            
+            # Deduplicate variant names
+            variant_name = pascal(t.rsplit('::',1)[-1])
+            if variant_name in seen_names:
+                seen_names[variant_name] += 1
+                variant_name = f"{variant_name}{seen_names[variant_name]}"
+            else:
+                seen_names[variant_name] = 1
+            
             union_fields.append({
-                'name': pascal(t.rsplit('::',1)[-1]), 
+                'name': variant_name, 
                 'type': t, 
                 'random_value': self.generate_random_value(t),
                 'default_value': 'Default::default()',
@@ -379,7 +392,7 @@ class AvroToRust:
         dependencies = []
         if self.serde_annotation or self.avro_annotation:
             dependencies.append('serde = { version = "1.0", features = ["derive"] }')
-            dependencies.append('serde_json = "1.0"')
+        dependencies.append('serde_json = "1.0"')
         dependencies.append('chrono = { version = "0.4", features = ["serde"] }')
         dependencies.append('uuid = { version = "1.11", features = ["serde", "v4"] }')
         if self.avro_annotation or self.serde_annotation:
