@@ -1,0 +1,42 @@
+#%RAML 1.0 Library
+types:
+  Address:
+    type: object
+    properties:
+      street: string
+      city: string
+  Status:
+    type: string
+    enum: [new, active, suspended]
+  Person:
+    type: object
+    description: Person record
+    properties:
+      id:
+        type: integer
+        description: Identifier
+      name: string
+      nickname?: string
+      active:
+        type: boolean
+        required: false
+      score: number
+      birthday: date-only
+      alarm: time-only
+      created: datetime
+      avatar: file
+      tags: string[]
+      values:
+        type: array
+        items: integer
+      status: Status
+      address: Address
+      choice: string | integer
+      metadata:
+        type: object
+        properties:
+          "//": string
+      child:
+        type: object
+        properties:
+          value: string

@@ -172,7 +172,9 @@
                             "fieldA": {
                                 "type": "map",
                                 "values": {
-                                    "$ref": "#/definitions/com/example/avro/RecordType4aMapValue"
+                                    "type": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType4aMapValue"
+                                    }
                                 }
                             }
                         },
@@ -221,7 +223,9 @@
                             "fieldA": {
                                 "type": "map",
                                 "values": {
-                                    "$ref": "#/definitions/com/example/avro/RecordType4bMapValue"
+                                    "type": {
+                                        "$ref": "#/definitions/com/example/avro/RecordType4bMapValue"
+                                    }
                                 }
                             }
                         },
@@ -243,22 +247,34 @@
                                 "type": "choice",
                                 "choices": {
                                     "RecordType1": {
-                                        "$ref": "#/definitions/com/example/avro/RecordType1"
+                                        "type": {
+                                            "$ref": "#/definitions/com/example/avro/RecordType1"
+                                        }
                                     },
                                     "RecordType2": {
-                                        "$ref": "#/definitions/com/example/avro/RecordType2"
+                                        "type": {
+                                            "$ref": "#/definitions/com/example/avro/RecordType2"
+                                        }
                                     },
                                     "RecordType3a": {
-                                        "$ref": "#/definitions/com/example/avro/RecordType3a"
+                                        "type": {
+                                            "$ref": "#/definitions/com/example/avro/RecordType3a"
+                                        }
                                     },
                                     "RecordType3b": {
-                                        "$ref": "#/definitions/com/example/avro/RecordType3b"
+                                        "type": {
+                                            "$ref": "#/definitions/com/example/avro/RecordType3b"
+                                        }
                                     },
                                     "RecordType4a": {
-                                        "$ref": "#/definitions/com/example/avro/RecordType4a"
+                                        "type": {
+                                            "$ref": "#/definitions/com/example/avro/RecordType4a"
+                                        }
                                     },
                                     "RecordType4b": {
-                                        "$ref": "#/definitions/com/example/avro/RecordType4b"
+                                        "type": {
+                                            "$ref": "#/definitions/com/example/avro/RecordType4b"
+                                        }
                                     }
                                 }
                             }
