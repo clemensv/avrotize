@@ -2139,4 +2139,40 @@ avrotize a2graphql myschema.avsc --out myschema.graphql
 cat myschema.avsc | avrotize a2graphql > myschema.graphql
 ```
 
+## Reference documentation
+
+In addition to the command reference above, the repository includes in-depth companion documents for specific formats and features:
+
+**Schema model & specifications**
+
+- [Avrotize Schema — formal specification](specs/avrotize-schema.md) — the Apache Avro-derived schema model used as the tool's intermediate representation.
+- [Apache Avro Schema — formal specification](specs/avro-schema.md) — reference for the underlying Avro schema format.
+
+**JSON Schema & JSON Structure**
+
+- [JSON Schema handling](jsonschema.md) — how Avrotize interprets and converts JSON Schema documents.
+- [JSON Structure handling](jsonstructure.md) — JSON Structure support and mappings.
+- [JSON Schema → JSON Structure conversion](jsonschematostructure.md) — conversion rules from JSON Schema to JSON Structure.
+- [JSON Structure → JSON Schema conversion](structuretojsonschema.md) — conversion rules from JSON Structure back to JSON Schema.
+
+**Avro encodings & other data formats**
+
+- ["Plain JSON" encoding for Apache Avro](avrojson.md) — the plain-JSON encoding used by Avrotize.
+- [CDDL handling](cddl.md) — CDDL (RFC 8610) to JSON Structure conversion (`cddl2s`).
+
+**Code generation**
+
+- [C# code generation](csharpcodegen.md) — C# type mappings and emitted-code options.
+- [Java code generation](javacodegen.md) — Java type mappings and emitted-code options.
+
+**SQL & NoSQL databases**
+
+- [SQL conversion notes](sqlcodegen.md) — Avro → SQL type mappings for each supported dialect (`a2sql`).
+- [SQL → Avro type mappings](sql.md) — type mappings used when converting live SQL schemas to Avro (`sql2a`).
+- [NoSQL conversion notes](nosqlcodegen.md) — type mappings for Cassandra, DynamoDB, MongoDB, and other NoSQL targets.
+
+**MCP server**
+
+- [VS Code + Copilot MCP quickstart](copilot-vscode-mcp-quickstart.md) — using the Avrotize MCP server from GitHub Copilot in VS Code.
+
 This document provides an overview of the usage and functionality of Avrotize. For more detailed information, please refer to the [Avrotize Schema documentation](specs/avrotize-schema.md) and the individual command help messages.
