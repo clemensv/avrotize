@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple
 import xml.etree.ElementTree as ET
 import json
 from urllib.parse import urlparse
-from avrotize.common import avro_namespace, generic_type
+from avrotize.common import avro_namespace, deduplicate_any_value_record, generic_type
 
 from avrotize.dependency_resolver import inline_dependencies_of, sort_messages_by_dependencies
 
@@ -381,6 +381,7 @@ class XSDToAvro:
                 element, namespaces))
 
         avro_schema = sort_messages_by_dependencies(avro_schema)
+        deduplicate_any_value_record(avro_schema)
         if len(avro_schema) == 1:
             return avro_schema[0]
         else:

@@ -1,0 +1,358 @@
+[
+  {
+    "type": "record",
+    "name": "PrimitiveSample",
+    "namespace": "example.capnp",
+    "fields": [
+      {
+        "name": "voidField",
+        "type": "null",
+        "default": null,
+        "capnpOrdinal": 0
+      },
+      {
+        "name": "boolField",
+        "type": [
+          "null",
+          "boolean"
+        ],
+        "default": null,
+        "capnpOrdinal": 1
+      },
+      {
+        "name": "int8Field",
+        "type": [
+          "null",
+          "int"
+        ],
+        "default": null,
+        "capnpOrdinal": 2
+      },
+      {
+        "name": "int16Field",
+        "type": [
+          "null",
+          "int"
+        ],
+        "default": null,
+        "capnpOrdinal": 3
+      },
+      {
+        "name": "int32Field",
+        "type": [
+          "null",
+          "int"
+        ],
+        "default": null,
+        "capnpOrdinal": 4
+      },
+      {
+        "name": "int64Field",
+        "type": [
+          "null",
+          "long"
+        ],
+        "default": null,
+        "capnpOrdinal": 5
+      },
+      {
+        "name": "uint8Field",
+        "type": [
+          "null",
+          "long"
+        ],
+        "default": null,
+        "capnpOrdinal": 6
+      },
+      {
+        "name": "uint16Field",
+        "type": [
+          "null",
+          "long"
+        ],
+        "default": null,
+        "capnpOrdinal": 7
+      },
+      {
+        "name": "uint32Field",
+        "type": [
+          "null",
+          "long"
+        ],
+        "default": null,
+        "capnpOrdinal": 8
+      },
+      {
+        "name": "uint64Field",
+        "type": [
+          "null",
+          "long"
+        ],
+        "default": null,
+        "capnpOrdinal": 9
+      },
+      {
+        "name": "float32Field",
+        "type": [
+          "null",
+          "float"
+        ],
+        "default": null,
+        "capnpOrdinal": 10
+      },
+      {
+        "name": "float64Field",
+        "type": [
+          "null",
+          "double"
+        ],
+        "default": null,
+        "capnpOrdinal": 11
+      },
+      {
+        "name": "textField",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null,
+        "capnpOrdinal": 12
+      },
+      {
+        "name": "dataField",
+        "type": [
+          "null",
+          "bytes"
+        ],
+        "default": null,
+        "capnpOrdinal": 13
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "Status",
+    "namespace": "example.capnp.Person_types",
+    "symbols": [
+      "active",
+      "inactive"
+    ],
+    "capnpOrdinals": {
+      "active": 0,
+      "inactive": 1
+    }
+  },
+  {
+    "type": "enum",
+    "name": "Color",
+    "namespace": "example.capnp",
+    "symbols": [
+      "red",
+      "green",
+      "blue"
+    ],
+    "capnpOrdinals": {
+      "red": 0,
+      "green": 1,
+      "blue": 2
+    }
+  },
+  {
+    "type": "record",
+    "name": "Address",
+    "namespace": "example.capnp",
+    "fields": [
+      {
+        "name": "street",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null,
+        "capnpOrdinal": 0
+      },
+      {
+        "name": "zip",
+        "type": [
+          "null",
+          "long"
+        ],
+        "default": null,
+        "capnpOrdinal": 1
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Preference",
+    "namespace": "example.capnp.Person_types",
+    "fields": [
+      {
+        "name": "label",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null,
+        "capnpOrdinal": 0
+      },
+      {
+        "name": "weight",
+        "type": [
+          "null",
+          "double"
+        ],
+        "default": null,
+        "capnpOrdinal": 1
+      }
+    ]
+  },
+  {
+    "type": "record",
+    "name": "Person",
+    "namespace": "example.capnp",
+    "fields": [
+      {
+        "name": "name",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null,
+        "capnpOrdinal": 0
+      },
+      {
+        "name": "age",
+        "type": [
+          "null",
+          "long"
+        ],
+        "default": null,
+        "capnpOrdinal": 1
+      },
+      {
+        "name": "address",
+        "type": [
+          "null",
+          "example.capnp.Address"
+        ],
+        "default": null,
+        "capnpOrdinal": 2
+      },
+      {
+        "name": "tags",
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": "string"
+          }
+        ],
+        "default": null,
+        "capnpOrdinal": 3
+      },
+      {
+        "name": "scores",
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": "int"
+          }
+        ],
+        "default": null,
+        "capnpOrdinal": 4
+      },
+      {
+        "name": "favorite",
+        "type": [
+          "null",
+          "example.capnp.Color"
+        ],
+        "default": null,
+        "capnpOrdinal": 5
+      },
+      {
+        "name": "contact",
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "Contact",
+            "namespace": "example.capnp.Person_types",
+            "fields": [
+              {
+                "name": "email",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null,
+                "capnpOrdinal": 0
+              },
+              {
+                "name": "phone",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null,
+                "capnpOrdinal": 1
+              }
+            ]
+          }
+        ],
+        "default": null,
+        "capnpOrdinal": 6
+      },
+      {
+        "name": "noPet",
+        "type": "null",
+        "default": null,
+        "capnpOrdinal": 7,
+        "capnpUnion": "union"
+      },
+      {
+        "name": "dogName",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null,
+        "capnpOrdinal": 8,
+        "capnpUnion": "union"
+      },
+      {
+        "name": "catName",
+        "type": [
+          "null",
+          "string"
+        ],
+        "default": null,
+        "capnpOrdinal": 9,
+        "capnpUnion": "union"
+      },
+      {
+        "name": "prefs",
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": "example.capnp.Person_types.Preference"
+          }
+        ],
+        "default": null,
+        "capnpOrdinal": 10
+      },
+      {
+        "name": "status",
+        "type": [
+          "null",
+          "example.capnp.Person_types.Status"
+        ],
+        "default": null,
+        "capnpOrdinal": 11
+      }
+    ]
+  }
+]

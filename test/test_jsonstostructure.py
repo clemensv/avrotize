@@ -1430,5 +1430,277 @@ class TestCoreFunctionality(unittest.TestCase):
             self.assertEqual(normalized_def['altnames']['json'], '2d82_config')
 
 
+class TestJsonStructureRefCompliance(unittest.TestCase):
+    """Regression tests pinning JSON Structure Core reference shape.
+
+    A ``$ref`` is only valid either as the value of a ``type`` attribute
+    (``{"type": {"$ref": ...}}``) or as a member of a ``type`` union array
+    (``{"type": ["null", {"$ref": ...}]}``). A bare ``{"$ref": ...}`` sitting
+    directly in a property value, array ``items`` or map ``values`` position is
+    invalid (validator code ``SCHEMA_REF_NOT_IN_TYPE``). Historically j2s/oas2s
+    emitted bare refs for map values (``additionalProperties``); these tests
+    guard against that class of regression across every value position.
+    """
+
+    REF_SCHEMA = {
+        '$schema': 'http://json-schema.org/draft-07/schema#',
+        'type': 'object',
+        'properties': {
+            'prop': {'$ref': '#/definitions/Address'},
+            'arr': {'type': 'array', 'items': {'$ref': '#/definitions/Address'}},
+            'mapv': {'type': 'object', 'additionalProperties': {'$ref': '#/definitions/Address'}},
+            'nul': {'oneOf': [{'type': 'null'}, {'$ref': '#/definitions/Address'}]},
+        },
+        'definitions': {
+            'Address': {'type': 'object', 'properties': {'city': {'type': 'string'}}},
+        },
+    }
+
+    def _convert(self, schema):
+        conv = JsonToStructureConverter()
+        conv.root_namespace = 'example.com'
+        conv.root_class_name = 'document'
+        return conv.jsons_to_structure(schema, conv.root_namespace, '')
+
+    @staticmethod
+    def _find_bare_refs(node, path='#', type_position=False):
+        """Return paths of bare ``{"$ref"}`` dicts outside a ``type`` position."""
+        bad = []
+        if isinstance(node, dict):
+            if set(node.keys()) == {'$ref'} and not type_position:
+                bad.append(path)
+            for key, value in node.items():
+                bad += TestJsonStructureRefCompliance._find_bare_refs(
+                    value, f"{path}/{key}", type_position=(key == 'type'))
+        elif isinstance(node, list):
+            for i, value in enumerate(node):
+                bad += TestJsonStructureRefCompliance._find_bare_refs(
+                    value, f"{path}[{i}]", type_position=type_position)
+        return bad
+
+    def test_no_bare_refs_in_any_value_position(self):
+        """Property, array-items and map-values refs must all be wrapped."""
+        result = self._convert(self.REF_SCHEMA)
+        bad = self._find_bare_refs(result)
+        self.assertEqual(bad, [], f"Bare (unwrapped) $ref found at: {bad}")
+
+    def test_map_values_ref_is_wrapped(self):
+        """A map value that is a reference must be ``{"type": {"$ref": ...}}``."""
+        result = self._convert(self.REF_SCHEMA)
+
+        def find_maps(node):
+            if isinstance(node, dict):
+                if node.get('type') == 'map' and 'values' in node:
+                    yield node['values']
+                for value in node.values():
+                    yield from find_maps(value)
+            elif isinstance(node, list):
+                for value in node:
+                    yield from find_maps(value)
+
+        map_values = list(find_maps(result))
+        self.assertTrue(map_values, "Expected at least one map type in the output")
+        for values in map_values:
+            self.assertIsInstance(values, dict)
+            self.assertIn('type', values,
+                          f"map 'values' must be a wrapped schema object, got {values}")
+            if isinstance(values['type'], dict) and '$ref' in values['type']:
+                self.assertEqual(set(values['type'].keys()), {'$ref'})
+
+    def test_official_validator_accepts_ref_shapes(self):
+        """The official json_structure validator must report no ref errors."""
+        try:
+            from json_structure.schema_validator import validate_json_structure_schema_core
+        except Exception:
+            self.skipTest("official json_structure validator not installed")
+        result = self._convert(self.REF_SCHEMA)
+        text = json.dumps(result)
+        errors = validate_json_structure_schema_core(
+            result, text, allow_dollar=False, allow_import=True)
+        ref_errors = [e for e in errors
+                      if 'SCHEMA_REF_NOT_IN_TYPE' in str(getattr(e, 'code', e))]
+        self.assertEqual(ref_errors, [],
+                         f"Official validator reported bare-ref errors: {ref_errors}")
+
+
+class TestJsonStructureValidationCompliance(unittest.TestCase):
+    """Regression tests for JSON Structure Core validity classes fixed in 3.7.4.
+
+    Each pins an independent spec-compliance fix in the JSON Schema ->
+    JSON Structure converter, each of which previously produced output the
+    official ``json_structure`` Core validator rejected:
+
+    * heterogeneous / nullable ``enum`` -> declared type widened to a type-union
+      admitting every enum value's family (``SCHEMA_CONSTRAINT_TYPE_MISMATCH``);
+    * ``required`` reconciled against the emitted (possibly normalised) property
+      keys, dropping entries that reference no property (``SCHEMA_ERROR``);
+    * definitions-only documents (type libraries) nominate a ``$root`` so the
+      root carries a schema-defining keyword (``SCHEMA_ROOT_MISSING_TYPE``);
+    * ``choice`` branches that are references are wrapped as
+      ``{"type": {"$ref": ...}}`` (``SCHEMA_REF_NOT_IN_TYPE``).
+    """
+
+    def _convert(self, schema):
+        conv = JsonToStructureConverter()
+        conv.root_namespace = 'example.com'
+        conv.root_class_name = 'document'
+        return conv.convert_json_schema_to_structure(schema, '')
+
+    def _validate(self, result):
+        try:
+            from json_structure.schema_validator import validate_json_structure_schema_core
+        except Exception:
+            self.skipTest("official json_structure validator not installed")
+        return validate_json_structure_schema_core(
+            result, json.dumps(result), allow_dollar=False, allow_import=True)
+
+    @staticmethod
+    def _codes(errors):
+        return sorted({str(getattr(e, 'code', e)) for e in errors})
+
+    # ---- Class 1: enum type widening ----------------------------------
+    def test_heterogeneous_enum_widens_type_to_union(self):
+        """An enum mixing booleans and strings must widen the type to a union."""
+        schema = {
+            '$schema': 'http://json-schema.org/draft-07/schema#',
+            'type': 'object', 'name': 'Doc',
+            'properties': {
+                'mixed': {'type': 'string', 'enum': ['non_admins', 'everyone', False]},
+            },
+        }
+        result = self._convert(schema)
+        mixed_type = result['properties']['mixed']['type']
+        self.assertIsInstance(mixed_type, list,
+            f"heterogeneous enum type must widen to a union, got {mixed_type!r}")
+        self.assertIn('string', mixed_type)
+        self.assertIn('boolean', mixed_type)
+        self.assertEqual(self._validate(result), [],
+            "heterogeneous enum output must validate against Core")
+
+    def test_nullable_enum_widens_type_with_null(self):
+        """An enum containing null must widen the type to admit null (null first)."""
+        schema = {
+            '$schema': 'http://json-schema.org/draft-07/schema#',
+            'type': 'object', 'name': 'Doc',
+            'properties': {'nl': {'type': 'string', 'enum': ['a', 'b', None]}},
+        }
+        result = self._convert(schema)
+        nl_type = result['properties']['nl']['type']
+        self.assertIsInstance(nl_type, list)
+        self.assertEqual(nl_type[0], 'null', "null should be floated to the front")
+        self.assertIn('string', nl_type)
+        self.assertEqual(self._validate(result), [])
+
+    def test_homogeneous_enum_keeps_scalar_type(self):
+        """A pure string enum must not be widened (no spurious union)."""
+        schema = {
+            '$schema': 'http://json-schema.org/draft-07/schema#',
+            'type': 'object', 'name': 'Doc',
+            'properties': {'s': {'type': 'string', 'enum': ['x', 'y']}},
+        }
+        result = self._convert(schema)
+        self.assertEqual(result['properties']['s']['type'], 'string')
+        self.assertEqual(self._validate(result), [])
+
+    # ---- Class 2: required reconciliation -----------------------------
+    def test_required_reconciled_to_emitted_properties(self):
+        """required must reference emitted (normalised) property keys only."""
+        schema = {
+            '$schema': 'http://json-schema.org/draft-07/schema#',
+            'type': 'object', 'name': 'Doc',
+            'properties': {'+1': {'type': 'integer'}, 'name': {'type': 'string'}},
+            'required': ['+1', 'name', 'ghost'],
+        }
+        result = self._convert(schema)
+        props = set(result.get('properties', {}).keys())
+        required = result.get('required', [])
+        self.assertTrue(set(required) <= props,
+            f"required {required} must be a subset of properties {sorted(props)}")
+        self.assertIn('name', required)
+        self.assertNotIn('ghost', required, "dangling required entry must be dropped")
+        self.assertEqual(len(required), 2, "the non-identifier key must be normalised, not duplicated")
+        self.assertEqual(self._validate(result), [])
+
+    # ---- Class 3: definitions-only root nomination --------------------
+    def test_definitions_only_document_nominates_root_union(self):
+        """A multi-type library must gain a $root over a synthetic type-union."""
+        schema = {
+            '$schema': 'http://json-schema.org/draft-07/schema#',
+            'definitions': {
+                'Alpha': {'type': 'object', 'properties': {'a': {'type': 'string'}}},
+                'Beta': {'type': 'object', 'properties': {'b': {'type': 'integer'}}},
+            },
+        }
+        result = self._convert(schema)
+        self.assertNotIn('type', result, "a library must not fabricate a root type")
+        self.assertIn('$root', result)
+        root_target = result['$root'].split('/')[-1]
+        union = result['definitions'][root_target]
+        self.assertIsInstance(union['type'], list, "synthetic root must be a type-union")
+        targets = {member['$ref'].split('/')[-1] for member in union['type']}
+        self.assertEqual(targets, {'Alpha', 'Beta'},
+            "the union must cover every top-level definition")
+        self.assertEqual(self._validate(result), [])
+
+    def test_single_definition_document_points_root_at_it(self):
+        """A single-type library must point $root straight at that type."""
+        schema = {
+            '$schema': 'http://json-schema.org/draft-07/schema#',
+            'definitions': {'Solo': {'type': 'object', 'properties': {'x': {'type': 'string'}}}},
+        }
+        result = self._convert(schema)
+        self.assertEqual(result.get('$root'), '#/definitions/Solo')
+        self.assertNotIn('document', result.get('definitions', {}),
+            "no synthetic union should be created for a single definition")
+        self.assertEqual(self._validate(result), [])
+
+    # ---- Class 4: choice branch refs wrapped --------------------------
+    def test_choice_ref_branches_are_wrapped(self):
+        """Discriminated-union choice branches that are refs must be wrapped."""
+        schema = {
+            '$schema': 'http://json-schema.org/draft-07/schema#',
+            'type': 'object', 'name': 'Doc',
+            'properties': {
+                'pet': {
+                    'oneOf': [
+                        {'$ref': '#/definitions/Dog'},
+                        {'$ref': '#/definitions/Cat'},
+                    ],
+                    'discriminator': {
+                        'propertyName': 'petType',
+                        'mapping': {'dog': '#/definitions/Dog', 'cat': '#/definitions/Cat'},
+                    },
+                },
+            },
+            'definitions': {
+                'Dog': {'type': 'object', 'properties': {'bark': {'type': 'boolean'}}},
+                'Cat': {'type': 'object', 'properties': {'meow': {'type': 'boolean'}}},
+            },
+        }
+        result = self._convert(schema)
+
+        def find_choices(node):
+            if isinstance(node, dict):
+                if node.get('type') == 'choice' and isinstance(node.get('choices'), dict):
+                    yield node['choices']
+                for value in node.values():
+                    yield from find_choices(value)
+            elif isinstance(node, list):
+                for value in node:
+                    yield from find_choices(value)
+
+        choice_maps = list(find_choices(result))
+        self.assertTrue(choice_maps, "expected a choice type in the output")
+        for choices in choice_maps:
+            for key, branch in choices.items():
+                self.assertNotEqual(set(branch.keys()), {'$ref'},
+                    f"choice branch {key!r} is a bare $ref: {branch}")
+                if isinstance(branch.get('type'), dict) and '$ref' in branch['type']:
+                    self.assertEqual(set(branch['type'].keys()), {'$ref'})
+        ref_errors = [e for e in self._validate(result)
+                      if 'SCHEMA_REF_NOT_IN_TYPE' in str(getattr(e, 'code', e))]
+        self.assertEqual(ref_errors, [], f"choice branch refs still unwrapped: {ref_errors}")
+
+
 if __name__ == '__main__':
     unittest.main()

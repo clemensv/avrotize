@@ -12,16 +12,13 @@
                         "type": "object",
                         "properties": {
                             "name": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "href": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "email": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             }
                         },
                         "required": []
@@ -31,16 +28,13 @@
                         "type": "object",
                         "properties": {
                             "name": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "href": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "email": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             }
                         },
                         "required": []
@@ -50,20 +44,16 @@
                         "type": "object",
                         "properties": {
                             "value": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "type": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "language": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "base": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             }
                         },
                         "required": []
@@ -73,20 +63,16 @@
                         "type": "object",
                         "properties": {
                             "value": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "type": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "language": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "base": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             }
                         },
                         "required": []
@@ -96,20 +82,16 @@
                         "type": "object",
                         "properties": {
                             "rel": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "href": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "type": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "title": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             }
                         },
                         "required": []
@@ -119,59 +101,53 @@
                         "type": "object",
                         "properties": {
                             "author": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "author_detail": {
-                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor",
-                                "default": null
+                                "type": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor"
+                                }
                             },
                             "contributors": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor"
-                                },
-                                "default": null
+                                    "type": {
+                                        "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor"
+                                    }
+                                }
                             },
                             "icon": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "id": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "link": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "links": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/Link"
-                                },
-                                "default": null
+                                    "type": {
+                                        "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/Link"
+                                    }
+                                }
                             },
                             "logo": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "rights": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "subtitle": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "title": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "updated": {
                                 "type": "int64",
-                                "logicalType": "timestampMillis",
-                                "default": null
+                                "logicalType": "timestampMillis"
                             }
                         },
                         "required": []
@@ -181,20 +157,16 @@
                         "type": "object",
                         "properties": {
                             "value": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "type": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "language": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "base": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             }
                         },
                         "required": []
@@ -204,16 +176,13 @@
                         "type": "object",
                         "properties": {
                             "href": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "length": {
-                                "type": "int64",
-                                "default": null
+                                "type": "int64"
                             },
                             "type": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             }
                         },
                         "required": []
@@ -223,84 +192,86 @@
                         "type": "object",
                         "properties": {
                             "author": {
-                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor",
-                                "default": null
+                                "type": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor"
+                                }
                             },
                             "publisher": {
-                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemPublisher",
-                                "default": null
+                                "type": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemPublisher"
+                                }
                             },
                             "summary": {
-                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemSummary",
-                                "default": null
+                                "type": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemSummary"
+                                }
                             },
                             "title": {
-                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemTitle",
-                                "default": null
+                                "type": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemTitle"
+                                }
                             },
                             "source": {
-                                "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemSource",
-                                "default": null
+                                "type": {
+                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemSource"
+                                }
                             },
                             "content": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemContent"
-                                },
-                                "default": null
+                                    "type": {
+                                        "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemContent"
+                                    }
+                                }
                             },
                             "enclosures": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemEnclosure"
-                                },
-                                "default": null
+                                    "type": {
+                                        "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemEnclosure"
+                                    }
+                                }
                             },
                             "published": {
                                 "type": "int64",
-                                "logicalType": "timestampMillis",
-                                "default": null
+                                "logicalType": "timestampMillis"
                             },
                             "updated": {
                                 "type": "int64",
-                                "logicalType": "timestampMillis",
-                                "default": null
+                                "logicalType": "timestampMillis"
                             },
                             "created": {
                                 "type": "int64",
-                                "logicalType": "timestampMillis",
-                                "default": null
+                                "logicalType": "timestampMillis"
                             },
                             "expired": {
                                 "type": "int64",
-                                "logicalType": "timestampMillis",
-                                "default": null
+                                "logicalType": "timestampMillis"
                             },
                             "id": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "license": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "comments": {
-                                "type": "string",
-                                "default": null
+                                "type": "string"
                             },
                             "contributors": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor"
-                                },
-                                "default": null
+                                    "type": {
+                                        "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/FeedItemAuthor"
+                                    }
+                                }
                             },
                             "links": {
                                 "type": "array",
                                 "items": {
-                                    "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/Link"
-                                },
-                                "default": null
+                                    "type": {
+                                        "$ref": "#/definitions/Microsoft/OpenData/RssFeeds/Link"
+                                    }
+                                }
                             }
                         },
                         "required": []

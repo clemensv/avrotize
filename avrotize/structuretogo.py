@@ -6,7 +6,7 @@ import json
 import os
 from typing import Any, Dict, List, Set, Union, Optional, cast
 
-from avrotize.common import pascal, render_template
+from avrotize.common import pascal, render_template, json_wire_name, json_enum_wire_value
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -329,10 +329,20 @@ class StructureToGo:
             if not is_required and not field_type.startswith('*') and not field_type.startswith('[') and not field_type.startswith('map[') and field_type != 'interface{}':
                 field_type = f'*{field_type}'
             
+            # Get source type - handle nullable unions like ["int64", "null"]
+            raw_type = prop_schema.get('type', 'string')
+            if isinstance(raw_type, str):
+                source_type = raw_type
+            elif isinstance(raw_type, list):
+                non_null_types = [t for t in raw_type if t != 'null']
+                source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
+            else:
+                source_type = 'object'
             fields.append({
                 'name': pascal(prop_name),
                 'type': field_type,
-                'original_name': prop_name
+                'original_name': json_wire_name(prop_name, prop_schema),
+                'source_type': source_type
             })
 
         # Get imports needed
@@ -391,7 +401,8 @@ class StructureToGo:
         self.generated_types[go_enum_name] = "enum"
         self.generated_structure_types[go_enum_name] = structure_schema
 
-        symbols = structure_schema.get('enum', [])
+        raw_symbols = structure_schema.get('enum', [])
+        symbols = [{'name': str(s), 'value': json_enum_wire_value(s, structure_schema)} for s in raw_symbols]
         
         # Determine base type
         base_type = structure_schema.get('type', 'string')
@@ -413,10 +424,10 @@ class StructureToGo:
 
         self.enums.append({
             'name': go_enum_name,
-            'symbols': symbols,
+            'symbols': [s['name'] for s in symbols],
         })
 
-        self.generate_unit_test('enum', go_enum_name, symbols)
+        self.generate_unit_test('enum', go_enum_name, [s['name'] for s in symbols])
 
         return go_enum_name
 

@@ -62,7 +62,9 @@
                                 "description": "The creation timestamp of the telemetry record."
                             },
                             "timespan": {
-                                "$ref": "#/definitions/racing/fabrikam/com/RecordRange",
+                                "type": {
+                                    "$ref": "#/definitions/racing/fabrikam/com/RecordRange"
+                                },
                                 "description": "The timespan of the telemetry record."
                             },
                             "data": {

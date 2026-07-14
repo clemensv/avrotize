@@ -7,7 +7,7 @@ import os
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, snake, render_template
+from avrotize.common import pascal, snake, render_template, json_wire_name, json_enum_wire_value
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -307,7 +307,7 @@ class StructureToRust:
             if 'const' in prop_schema:
                 continue
             
-            original_field_name = prop_name
+            original_field_name = json_wire_name(prop_name, prop_schema)
             field_name = self.safe_identifier(snake(prop_name))
             
             # Determine if required
@@ -324,10 +324,20 @@ class StructureToRust:
             
             serde_rename = field_name != original_field_name
             
+            # Get source type - handle nullable unions like ["int64", "null"]
+            raw_type = prop_schema.get('type', 'string')
+            if isinstance(raw_type, str):
+                source_type = raw_type
+            elif isinstance(raw_type, list):
+                non_null_types = [t for t in raw_type if t != 'null']
+                source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
+            else:
+                source_type = 'object'
             fields.append({
                 'original_name': original_field_name,
                 'name': field_name,
                 'type': prop_type,
+                'source_type': source_type,
                 'serde_rename': serde_rename,
                 'random_value': self.generate_random_value(prop_type)
             })
@@ -372,12 +382,11 @@ class StructureToRust:
         # Convert enum values to valid Rust identifiers
         symbols = []
         for value in enum_values:
+            wire = json_enum_wire_value(value, structure_schema)
             if isinstance(value, str):
-                # Convert to PascalCase and make it a valid Rust identifier
                 symbol = pascal(value.replace('-', '_').replace(' ', '_'))
-                symbols.append({'name': symbol, 'value': value})
+                symbols.append({'name': symbol, 'value': wire})
             else:
-                # For numeric values, use Value prefix
                 symbols.append({'name': f"Value{value}", 'value': str(value)})
 
         doc = structure_schema.get('description', structure_schema.get('doc', enum_name))

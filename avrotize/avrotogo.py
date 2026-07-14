@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Dict, List, Union, Set
-from avrotize.common import get_longest_namespace_prefix, is_generic_avro_type, pascal, render_template
+from avrotize.common import get_longest_namespace_prefix, is_generic_avro_type, is_any_value_type, pascal, render_template
 
 INDENT = '    '
 
@@ -55,6 +55,9 @@ class AvroToGo:
 
     def map_primitive_to_go(self, avro_type: str, is_optional: bool) -> str:
         """Maps Avro primitive types to Go types"""
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if is_any_value_type(avro_type):
+            return 'interface{}'
         optional_mapping = {
             'null': 'interface{}',
             'boolean': '*bool',
