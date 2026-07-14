@@ -1,7 +1,7 @@
 import copy
 import json
 from typing import Dict, Any, Union, List
-from avrotize.common import build_tree_hash_list, group_by_hash, is_generic_json_type, NodeHashReference
+from avrotize.common import build_tree_hash_list, group_by_hash, is_any_value_type, is_generic_json_type, NodeHashReference
 from functools import reduce
 import jsonpath_ng 
 
@@ -98,21 +98,33 @@ class AvroToJsonSchemaConverter:
                     json_type['type'] = 'integer'
                     json_type['format'] = 'int64'
                     return json_type
-                # Avrotize schema extensions: string-based logical types
-                elif base_type == 'string' and logical_type == 'date':
+                # Avrotize schema extensions: string-based logical types.
+                # The rfc3339-* family is the current emission; the bare reserved
+                # names on a string base are still recognized for backward compat.
+                elif base_type == 'string' and logical_type in ['date', 'rfc3339-date']:
                     # Avrotize extension: string with date logicalType
                     json_type['type'] = 'string'
                     json_type['format'] = 'date'
                     return json_type
-                elif base_type == 'string' and logical_type in ['timestamp-millis', 'timestamp-micros', 'datetime']:
+                elif base_type == 'string' and logical_type in [
+                        'timestamp-millis', 'timestamp-micros', 'datetime',
+                        'rfc3339-timestamp-millis', 'rfc3339-timestamp-micros',
+                        'rfc3339-local-timestamp-millis', 'rfc3339-local-timestamp-micros']:
                     # Avrotize extension: string with datetime logicalType
                     json_type['type'] = 'string'
                     json_type['format'] = 'date-time'
                     return json_type
-                elif base_type == 'string' and logical_type in ['time-millis', 'time-micros', 'time']:
+                elif base_type == 'string' and logical_type in [
+                        'time-millis', 'time-micros', 'time',
+                        'rfc3339-time-millis', 'rfc3339-time-micros']:
                     # Avrotize extension: string with time logicalType
                     json_type['type'] = 'string'
                     json_type['format'] = 'time'
+                    return json_type
+                elif base_type == 'string' and logical_type in ['duration', 'rfc3339-duration']:
+                    # Avrotize extension: string with duration logicalType (RFC 3339)
+                    json_type['type'] = 'string'
+                    json_type['format'] = 'duration'
                     return json_type
                 elif logical_type == 'decimal':
                     json_type['type'] = 'number'
@@ -141,8 +153,11 @@ class AvroToJsonSchemaConverter:
             'double': {'type': 'number', 'format': 'double'},
             'bytes': {'type': 'string', 'contentEncoding': 'base64'},
             'string': {'type': 'string'},
-            'fixed': {'type': 'string'}  # Could specify length in a format or a separate attribute
+            'fixed': {'type': 'string'},  # Could specify length in a format or a separate attribute
         }
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if isinstance(avro_type, str) and is_any_value_type(avro_type):
+            return {}
         type_ref = mapping.get(avro_type, '')  # Defaulting to string type for any unknown types
         if not type_ref:
             raise ValueError(f"Avro schema contains unexpected type {avro_type}")

@@ -1,0 +1,13 @@
+{
+  "definitions": {
+    "Node": {
+      "properties": {
+        "name": {"type": "string"}
+      },
+      "optionalProperties": {
+        "child": {"ref": "Node"}
+      }
+    }
+  },
+  "ref": "Node"
+}

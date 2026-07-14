@@ -5,7 +5,94 @@
   "fields": [
     {
       "name": "person",
-      "type": "object"
+      "type": {
+        "type": "record",
+        "name": "PersonType",
+        "fields": [
+          {
+            "name": "firstName",
+            "type": "string",
+            "doc": "[maxLength: 50]"
+          },
+          {
+            "name": "lastName",
+            "type": "string",
+            "doc": "[maxLength: 50]"
+          },
+          {
+            "name": "address",
+            "type": {
+              "type": "record",
+              "name": "AddressType",
+              "fields": [
+                {
+                  "name": "street",
+                  "type": "string",
+                  "doc": "[maxLength: 100]"
+                },
+                {
+                  "name": "city",
+                  "type": "string",
+                  "doc": "[maxLength: 50]"
+                },
+                {
+                  "name": "country",
+                  "type": "string",
+                  "doc": "[maxLength: 50]"
+                },
+                {
+                  "name": "coordinates",
+                  "type": [
+                    "null",
+                    {
+                      "type": "record",
+                      "name": "CoordinatesType",
+                      "fields": [
+                        {
+                          "name": "latitude",
+                          "type": "double",
+                          "doc": "[minimum: -90.0, maximum: 90.0]"
+                        },
+                        {
+                          "name": "longitude",
+                          "type": "double",
+                          "doc": "[minimum: -180.0, maximum: 180.0]"
+                        }
+                      ]
+                    }
+                  ],
+                  "default": null
+                }
+              ]
+            }
+          },
+          {
+            "name": "phoneNumbers",
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "PhoneNumbersType",
+                  "fields": [
+                    {
+                      "name": "type",
+                      "type": "string"
+                    },
+                    {
+                      "name": "number",
+                      "type": "string",
+                      "doc": "[pattern: ^\\+?[1-9]\\d{1,14}$]"
+                    }
+                  ]
+                }
+              }
+            ],
+            "default": null
+          }
+        ]
+      }
     }
   ]
 }

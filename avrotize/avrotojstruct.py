@@ -2,6 +2,8 @@ import json
 import uuid
 from typing import Any, Dict, List, Union
 
+from avrotize.common import is_any_value_type
+
 
 class AvroToJsonStructure:
     """
@@ -146,7 +148,11 @@ class AvroToJsonStructure:
                 
                 resolved_field_type = self.resolve_avro_type(field_type_schema, record_fields_namespace, definitions)
 
-                if "default" in field:
+                if "default" in field and field["default"] is not None:
+                    # Optionality/nullability is conveyed by absence from ``required``;
+                    # a redundant ``default: null`` is meaningless in JSON Structure Core
+                    # (and would decorate a non-nullable type reference), so only concrete
+                    # defaults are emitted.
                     resolved_field_type["default"] = self.encode_default_value(field["default"], resolved_field_type.get("type", "unknown"))
                 
                 if not self.is_nullable_union(field_type_schema):
@@ -220,6 +226,8 @@ class AvroToJsonStructure:
 
         # ------------------ STRING (primitive or reference) --------------
         if isinstance(avro_type_schema, str):
+            if is_any_value_type(avro_type_schema):
+                return {"type": "any"}
             if avro_type_schema in self.get_primitive_types():
                 return {"type": self.get_primitive_types()[avro_type_schema]}
             # Named type reference
@@ -227,7 +235,10 @@ class AvroToJsonStructure:
                 ref_fqn = avro_type_schema.replace(".", "/")
             else:
                 ref_fqn = self.get_fqn(context_namespace, self.clean_name(avro_type_schema))
-            return {"$ref": f"#/definitions/{ref_fqn}"}
+            # JSON Structure Core requires a type reference to be the value of the
+            # ``type`` keyword (``{"type": {"$ref": ...}}``); a bare ``{"$ref": ...}``
+            # is only permitted inside a type-union array. See spec 3.3.6 / 3.7.1.
+            return {"type": {"$ref": f"#/definitions/{ref_fqn}"}}
 
         # ------------------ UNION ----------------------------------------
         if isinstance(avro_type_schema, list):
@@ -259,7 +270,9 @@ class AvroToJsonStructure:
                 self.register_definition(avro_type_schema, inline_ns, definitions)
                 ref_name = self.clean_name(avro_type_schema["name"])
                 ref_fqn = self.get_fqn(inline_ns, ref_name)
-                return {"$ref": f"#/definitions/{ref_fqn}"}
+                # Wrap the reference under ``type`` (see note above) so the emitted
+                # property/items/values/choice node is a valid JSON Structure schema.
+                return {"type": {"$ref": f"#/definitions/{ref_fqn}"}}
 
             if category == "array":
                 return {
@@ -281,6 +294,26 @@ class AvroToJsonStructure:
             if logical_type:
                 return self.resolve_logical_type(logical_type, avro_type_schema)
 
+            jtd_type = avro_type_schema.get("jtdType")
+            if jtd_type:
+                jtd_mapping = {
+                    "boolean": "boolean",
+                    "float32": "float",
+                    "float64": "double",
+                    "int8": "int8",
+                    "uint8": "uint8",
+                    "int16": "int16",
+                    "uint16": "uint16",
+                    "int32": "int32",
+                    "uint32": "uint32",
+                    "string": "string",
+                }
+                if jtd_type in jtd_mapping:
+                    return {"type": jtd_mapping[jtd_type]}
+
+            if category in self.get_primitive_types():
+                return {"type": self.get_primitive_types()[category]}
+
         raise ValueError(f"Unsupported Avro type schema: {avro_type_schema}")
 
     # ------------------------------------------------------------------ HELPERS
@@ -301,6 +334,16 @@ class AvroToJsonStructure:
             "timestamp-millis": {"type": "int64", "logicalType": "timestampMillis"},
             "date": {"type": "int32", "logicalType": "date"},
             "uuid": {"type": "string", "format": "uuid"},
+            # Avrotize Schema rfc3339-* string temporal family -> JSON Structure native
+            # temporal types (round-trips with jstructtoavro). See issue #335.
+            "rfc3339-date": {"type": "date"},
+            "rfc3339-time-millis": {"type": "time"},
+            "rfc3339-time-micros": {"type": "time"},
+            "rfc3339-timestamp-millis": {"type": "datetime"},
+            "rfc3339-timestamp-micros": {"type": "datetime"},
+            "rfc3339-local-timestamp-millis": {"type": "datetime"},
+            "rfc3339-local-timestamp-micros": {"type": "datetime"},
+            "rfc3339-duration": {"type": "duration"},
         }
         return mapping.get(logical_type, {"type": "string"})
 

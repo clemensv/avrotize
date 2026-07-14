@@ -672,6 +672,183 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         assert "VALUE_2 = 2" in enum_source, f"Expected 'VALUE_2 = 2' in:\n{enum_source}"
         assert "0 = '0'" not in enum_source, "Bare numeric member name regressed"
 
+    def test_int64_decimal_serialized_as_json_strings(self):
+        """Regression test for issue #346.
+
+        int64, uint64, int128, uint128, and decimal fields MUST be serialized
+        as JSON strings (not numbers) because IEEE-754 doubles cannot represent
+        the full range of these types without precision loss.
+        """
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        schema = {
+            "type": "object",
+            "name": "LargeNumbers",
+            "namespace": "test.issue346",
+            "properties": {
+                "id": {"type": "string"},
+                "bigInt": {"type": "int64"},
+                "bigUint": {"type": "uint64"},
+                "hugeInt": {"type": "int128"},
+                "hugeUint": {"type": "uint128"},
+                "price": {"type": "decimal"},
+            },
+            "required": ["id", "bigInt", "bigUint", "hugeInt", "hugeUint", "price"]
+        }
+
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-346-string-numbers")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        convert_structure_schema_to_python(schema, output_dir, package_name="test_issue346",
+                                          dataclasses_json_annotation=True)
+
+        # Find the generated class file
+        src_dir = os.path.join(output_dir, "src")
+        class_file = None
+        for root, _dirs, files in os.walk(src_dir):
+            for f in files:
+                if "largenumbers" in f.lower() and f.endswith(".py"):
+                    class_file = os.path.join(root, f)
+                    break
+
+        assert class_file is not None, f"Expected LargeNumbers class file under {src_dir}"
+
+        with open(class_file, "r", encoding="utf-8") as fh:
+            source = fh.read()
+
+        # Verify the generated code has encoder/decoder for string serialization
+        assert "encoder=lambda v: str(v)" in source, \
+            f"Expected string encoder for numeric fields in:\n{source}"
+        assert "decoder=lambda v: int(v)" in source, \
+            f"Expected int decoder for int64/uint64 fields in:\n{source}"
+        assert "decimal.Decimal(v)" in source, \
+            f"Expected Decimal decoder for decimal field in:\n{source}"
+
+        # Verify to_serializer_dict has string conversion
+        assert "str(asdict_result[" in source or "= str(asdict_result" in source, \
+            f"Expected to_serializer_dict to convert numeric fields to strings in:\n{source}"
+
+        # Verify the code is syntactically valid and can be imported
+        import ast
+        ast.parse(source)
+
+    def test_nullable_int64_serialized_as_json_strings(self):
+        """Regression test for issue #348.
+
+        Nullable int64/uint64 fields (typed as ["int64", "null"]) must also be
+        serialized as JSON strings, not just bare int64 fields.
+        """
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        schema = {
+            "type": "object",
+            "name": "NullableNumbers",
+            "namespace": "test.issue348",
+            "properties": {
+                "id": {"type": "string"},
+                "sequence_number": {"type": "int64"},
+                "user_id": {"type": ["int64", "null"]},
+                "big_decimal": {"type": ["decimal", "null"]},
+            },
+            "required": ["id", "sequence_number"]
+        }
+
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-348-nullable-strings")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        convert_structure_schema_to_python(schema, output_dir, package_name="test_issue348",
+                                          dataclasses_json_annotation=True)
+
+        # Find the generated class file
+        src_dir = os.path.join(output_dir, "src")
+        class_file = None
+        for root, _dirs, files in os.walk(src_dir):
+            for f in files:
+                if "nullablenumbers" in f.lower() and f.endswith(".py"):
+                    class_file = os.path.join(root, f)
+                    break
+
+        assert class_file is not None, f"Expected NullableNumbers class file under {src_dir}"
+
+        with open(class_file, "r", encoding="utf-8") as fh:
+            source = fh.read()
+
+        # Both required int64 and nullable int64 must have string encoder
+        # Count encoder occurrences - should have at least 3 (sequence_number, user_id, big_decimal)
+        encoder_count = source.count("encoder=lambda v: str(v)")
+        assert encoder_count >= 3, \
+            f"Expected at least 3 string encoders (for sequence_number, user_id, big_decimal), got {encoder_count} in:\n{source}"
+
+        # Verify to_serializer_dict stringifies user_id (nullable field)
+        assert "user_id" in source, f"Expected user_id field in source"
+        
+        # Check that to_serializer_dict converts nullable fields too
+        serializer_section = source[source.find("def to_serializer_dict"):]
+        assert "str(asdict_result" in serializer_section, \
+            f"Expected to_serializer_dict to stringify nullable int64 fields"
+
+        # Verify valid Python
+        import ast
+        ast.parse(source)
+
+
+    def test_enum_collision_shindo_scale(self):
+        """Test that enum symbols differing only by +/- produce unique member names.
+
+        Reproduces issue #349: the Japanese shindo intensity scale has symbols
+        like "5-" and "5+" which, after sanitization, must yield distinct Python
+        identifiers (e.g. VALUE_5_MINUS vs VALUE_5_PLUS) and the generated
+        module must be importable without TypeError.
+        """
+        schema = {
+            "definitions": {
+                "ShindoScale": {
+                    "name": "ShindoScale",
+                    "namespace": "test.seismic",
+                    "description": "Japanese seismic intensity scale",
+                    "type": "enum",
+                    "enum": ["1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+                }
+            }
+        }
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "shindo-enum-py")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        struct_path = os.path.join(py_path, "shindo.struct.json")
+        with open(struct_path, "w") as f:
+            json.dump(schema, f)
+
+        convert_structure_to_python(struct_path, py_path)
+
+        # Find and read the generated enum source
+        enum_file = os.path.join(py_path, "src", "shindo", "test", "seismic", "shindoscale.py")
+        assert os.path.exists(enum_file), f"Expected enum file at {enum_file}"
+
+        with open(enum_file) as f:
+            source = f.read()
+
+        # Verify it parses (no duplicate keys)
+        import ast
+        ast.parse(source)
+
+        # Verify distinct member names for +/- variants
+        assert "VALUE_5_MINUS" in source, "Expected VALUE_5_MINUS for '5-'"
+        assert "VALUE_5_PLUS" in source, "Expected VALUE_5_PLUS for '5+'"
+        assert "VALUE_6_MINUS" in source, "Expected VALUE_6_MINUS for '6-'"
+        assert "VALUE_6_PLUS" in source, "Expected VALUE_6_PLUS for '6+'"
+
+        # Verify the .value strings remain the original symbols
+        assert "'5-'" in source, "Enum value for 5- must be the original string"
+        assert "'5+'" in source, "Enum value for 5+ must be the original string"
+        assert "'6-'" in source, "Enum value for 6- must be the original string"
+        assert "'6+'" in source, "Enum value for 6+ must be the original string"
+
 
 if __name__ == '__main__':
     unittest.main()

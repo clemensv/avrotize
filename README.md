@@ -18,8 +18,17 @@ The tool leans on the Apache Avro-derived [Avrotize Schema](specs/avrotize-schem
 
 - Programming languages: Python, C#, Java, TypeScript, JavaScript, Rust, Go, C++
 - SQL Databases: MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, SQLite, BigQuery, Snowflake, Redshift, DB2
-- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
+- Other databases: KQL/Kusto, SurrealDB, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
 - Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet
+
+- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
+- Data schema formats: Avro, JSON Schema, JSON Structure, RAML 1.0 Data Types, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet
+
+- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
+- Data schema formats: Avro, JSON Schema, JSON Structure, XML Schema (XSD), Protocol Buffers 2 and 3, Smithy IDL, ASN.1, Apache Parquet
+
+- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
+- Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, Apache Thrift IDL, ASN.1, Apache Parquet
 
 ## Installation
 
@@ -58,11 +67,23 @@ Avrotize provides several commands for converting schema formats via Avrotize Sc
 Converting to Avrotize Schema:
 
 - [`avrotize p2a`](#convert-proto-schema-to-avrotize-schema) - Convert Protobuf (2 or 3) schema to Avrotize Schema.
+- [`avrotize cue2a`](#convert-cue-schema-subset-to-avrotize-schema) - Convert a supported CUE schema subset to Avrotize Schema.
+
+- [`avrotize fbs2a`](#convert-flatbuffers-schema-to-avrotize-schema) - Convert FlatBuffers schema to Avrotize Schema.
+
+- [`avrotize thrift2a`](#convert-apache-thrift-idl-to-avrotize-schema) - Convert Apache Thrift IDL to Avrotize Schema.
+
+- [`avrotize smithy2a`](#convert-smithy-idl-data-shapes-to-avrotize-schema) - Convert Smithy 2.0 IDL data shapes to Avrotize Schema.
+
+- [`avrotize capnp2a`](#convert-capn-proto-schema-to-avrotize-schema) - Convert Cap'n Proto schema to Avrotize Schema.
+
+- [`avrotize raml2a`](#convert-raml-data-types-to-avrotize-schema) - Convert RAML 1.0 Data Types to Avrotize Schema.
 - [`avrotize j2a`](#convert-json-schema-to-avrotize-schema) - Convert JSON schema to Avrotize Schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
 - [`avrotize k2a`](#convert-kusto-table-definition-to-avrotize-schema) - Convert Kusto table definitions to Avrotize Schema.
 - [`avrotize sql2a`](#convert-sql-database-schema-to-avrotize-schema) - Convert SQL database schema to Avrotize Schema.
+- [`avrotize surreal2a`](#convert-surrealql-schema-to-avrotize-schema) - Convert SurrealQL schema definitions to Avrotize Schema.
 - [`avrotize json2a`](#infer-avro-schema-from-json-files) - Infer Avro schema from JSON files.
 - [`avrotize json2s`](#infer-json-structure-schema-from-json-files) - Infer JSON Structure schema from JSON files.
 - [`avrotize xml2a`](#infer-avro-schema-from-xml-files) - Infer Avro schema from XML files.
@@ -70,19 +91,33 @@ Converting to Avrotize Schema:
 - [`avrotize pq2a`](#convert-parquet-schema-to-avrotize-schema) - Convert Parquet schema to Avrotize Schema.
 - [`avrotize csv2a`](#convert-csv-file-to-avrotize-schema) - Convert CSV file to Avrotize Schema.
 - [`avrotize kstruct2a`](#convert-kafka-connect-schema-to-avrotize-schema) - Convert Kafka Connect Schema to Avrotize Schema.
+- [`avrotize jtd2a`](#convert-json-type-definition-jtd-to-avrotize-schema) - Convert JSON Type Definition (JTD) to Avrotize Schema.
 
 Converting from Avrotize Schema:
 
 - [`avrotize a2p`](#convert-avrotize-schema-to-proto-schema) - Convert Avrotize Schema to Protobuf 3 schema.
+- [`avrotize a2cue`](#convert-avrotize-schema-to-cue-schema-subset) - Convert Avrotize Schema to the supported CUE schema subset.
+
+- [`avrotize a2fbs`](#convert-avrotize-schema-to-flatbuffers-schema) - Convert Avrotize Schema to FlatBuffers schema.
+
+- [`avrotize a2thrift`](#convert-avrotize-schema-to-apache-thrift-idl) - Convert Avrotize Schema to Apache Thrift IDL.
+
+- [`avrotize a2smithy`](#convert-avrotize-schema-to-smithy-idl-data-shapes) - Convert Avrotize Schema to Smithy 2.0 IDL data shapes.
+
+- [`avrotize a2capnp`](#convert-avrotize-schema-to-capn-proto-schema) - Convert Avrotize Schema to Cap'n Proto schema.
+
+- [`avrotize a2raml`](#convert-avrotize-schema-to-raml-data-types) - Convert Avrotize Schema to RAML 1.0 Data Types.
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
 - [`avrotize s2k`](#convert-json-structure-schema-to-kusto-table-declaration) - Convert JSON Structure Schema to Kusto table definition.
 - [`avrotize a2sql`](#convert-avrotize-schema-to-sql-table-definition) - Convert Avrotize Schema to SQL table definition.
+- [`avrotize a2surreal`](#convert-avrotize-schema-to-surrealql-schema) - Convert Avrotize Schema to SurrealQL schema definitions.
 - [`avrotize s2sql`](#convert-json-structure-schema-to-sql-schema) - Convert JSON Structure Schema to SQL table definition.
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
 - [`avrotize s2ib`](#convert-json-structure-to-iceberg-schema) - Convert JSON Structure to Iceberg schema.
+- [`avrotize s2pq`](#convert-json-structure-to-empty-parquet-file) - Convert JSON Structure to Parquet schema.
 - [`avrotize a2mongo`](#convert-avrotize-schema-to-mongodb-schema) - Convert Avrotize Schema to MongoDB schema.
 - [`avrotize a2cassandra`](#convert-avrotize-schema-to-cassandra-schema) - Convert Avrotize Schema to Cassandra schema.
 - [`avrotize s2cassandra`](#convert-json-structure-schema-to-cassandra-schema) - Convert JSON Structure Schema to Cassandra schema.
@@ -96,11 +131,28 @@ Converting from Avrotize Schema:
 - [`avrotize a2dp`](#convert-avrotize-schema-to-datapackage-schema) - Convert Avrotize Schema to Datapackage schema.
 - [`avrotize a2md`](#convert-avrotize-schema-to-markdown-documentation) - Convert Avrotize Schema to Markdown documentation.
 - [`avrotize s2md`](#convert-json-structure-schema-to-markdown-documentation) - Convert JSON Structure schema to Markdown documentation.
+- [`avrotize a2jtd`](#convert-avrotize-schema-to-json-type-definition-jtd) - Convert Avrotize Schema to JSON Type Definition (JTD).
 
 Direct conversions (JSON Structure):
 
 - [`avrotize s2p`](#convert-json-structure-to-protocol-buffers) - Convert JSON Structure to Protocol Buffers (.proto files).
+- [`avrotize fbs2s`](#convert-flatbuffers-schema-to-json-structure) - Convert FlatBuffers schema to JSON Structure.
+- [`avrotize s2fbs`](#convert-json-structure-to-flatbuffers-schema) - Convert JSON Structure to FlatBuffers schema.
+
+- [`avrotize thrift2s`](#convert-apache-thrift-idl-to-json-structure) - Convert Apache Thrift IDL to JSON Structure.
+- [`avrotize s2thrift`](#convert-json-structure-to-apache-thrift-idl) - Convert JSON Structure to Apache Thrift IDL.
+
+- [`avrotize smithy2s`](#convert-smithy-idl-data-shapes-to-json-structure) - Convert Smithy 2.0 IDL data shapes to JSON Structure.
+- [`avrotize s2smithy`](#convert-json-structure-to-smithy-idl-data-shapes) - Convert JSON Structure to Smithy 2.0 IDL data shapes.
+
+- [`avrotize capnp2s`](#convert-capn-proto-schema-to-json-structure) - Convert Cap'n Proto schema to JSON Structure.
+- [`avrotize s2capnp`](#convert-json-structure-to-capn-proto-schema) - Convert JSON Structure to Cap'n Proto schema.
 - [`avrotize oas2s`](#convert-openapi-to-json-structure) - Convert OpenAPI 3.x document to JSON Structure.
+- [`avrotize cue2s`](#convert-cue-schema-subset-to-json-structure) - Convert a supported CUE schema subset to JSON Structure.
+- [`avrotize s2cue`](#convert-json-structure-to-cue-schema-subset) - Convert JSON Structure to the supported CUE schema subset.
+
+- [`avrotize raml2s`](#convert-raml-data-types-to-json-structure) - Convert RAML 1.0 Data Types to JSON Structure.
+- [`avrotize s2raml`](#convert-json-structure-to-raml-data-types) - Convert JSON Structure to RAML 1.0 Data Types.
 
 Generate code from Avrotize Schema:
 
@@ -130,6 +182,8 @@ Direct JSON Structure conversions:
 - [`avrotize s2x`](#convert-json-structure-to-xml-schema-xsd) - Convert JSON Structure to XML Schema (XSD).
 - [`avrotize s2graphql`](#convert-json-structure-schema-to-graphql-schema) - Convert JSON Structure schema to GraphQL schema.
 - [`avrotize a2graphql`](#convert-avrotize-schema-to-graphql-schema) - Convert Avrotize schema to GraphQL schema.
+- [`avrotize jtd2s`](#convert-json-type-definition-jtd-to-json-structure) - Convert JSON Type Definition (JTD) to JSON Structure.
+- [`avrotize s2jtd`](#convert-json-structure-to-json-type-definition-jtd) - Convert JSON Structure to JSON Type Definition (JTD).
 
 Other commands:
 
@@ -263,6 +317,299 @@ Conversion notes:
 - Avro namespaces are resolved into distinct proto package definitions. The tool will create a new `.proto` file with the package definition and an `import` statement for each namespace found in the Avrotize Schema.
 - Avro type unions `[]` are converted to `oneof` expressions in Proto. Avro allows for maps and arrays in the type union, whereas Proto only supports scalar types and message type references. The tool will therefore emit message types containing a single array or map field for any such case and add it to the containing type, and will also recursively resolve further unions in the array and map values.
 - The sequence of fields in a message follows the sequence of fields in the Avro record. When type unions need to be resolved into `oneof` expressions, the alternative fields need to be assigned field numbers, which will shift the field numbers for any subsequent fields.
+
+### Convert CUE schema subset to Avrotize Schema
+
+```bash
+avrotize cue2a <path_to_cue_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+
+### Convert FlatBuffers schema to Avrotize Schema
+
+```bash
+avrotize fbs2a <path_to_fbs_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+
+### Convert Apache Thrift IDL to Avrotize Schema
+
+```bash
+avrotize thrift2a <path_to_thrift_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+
+### Convert Smithy IDL data shapes to Avrotize Schema
+
+```bash
+avrotize smithy2a <path_to_smithy_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+
+### Convert Cap'n Proto schema to Avrotize Schema
+
+```bash
+avrotize capnp2a <path_to_capnp_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+
+### Convert RAML Data Types to Avrotize Schema
+
+```bash
+avrotize raml2a <path_to_raml_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+```
+
+Parameters:
+
+- `<path_to_cue_file>`: The path to the CUE file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace for generated Avrotize Schema records. If omitted, a simple CUE `package` name is used as the namespace.
+
+Supported subset / limitations:
+
+- Supported: schema-style definitions `#Name: { ... }`, top-level fields as a generated record, required fields `name: T`, optional fields `name?: T`, primitive types `string`, `int`, `float`, `number`, `bool`, `bytes`, and `null` (`int` maps to Avro `long`; `number` maps to Avro `double`).
+- Supported: nested structs as records, open lists `[...T]` as arrays, open structs `{ [string]: T }` as maps, references to other definitions (`#Other`), disjunctions as Avro unions, nullable disjunctions such as `*null | T` or `T | null`, string-literal disjunctions as Avro enums with sanitized symbols, and simple defaults like `name: T | *default`.
+- Out of scope: full CUE constraint solving, imports beyond a simple package declaration, complex constraints and comprehensions, computed or unified expressions, bounds and regex constraints (`>0`, `=~"..."`), interpolation, and package/module resolution. Unsupported constructs are skipped or mapped to a broad string type with a conversion note rather than causing a crash.
+
+Example:
+
+```cue
+package demo
+
+#Person: {
+  name: string
+  age?: int
+  tags: [...string]
+  status: "new" | "active"
+}
+```
+
+### Convert Avrotize Schema to CUE schema subset
+
+```bash
+avrotize a2cue <path_to_avro_schema_file> [--out <path_to_cue_file>] [--namespace <cue_package_hint>]
+```
+
+Conversion notes:
+
+- Avro records become CUE definitions (`#Name: { ... }`), fields become `name: Type`, nullable unions become optional fields where possible, enums become string disjunctions, arrays become `[...T]`, and maps become `{ [string]: T }`.
+- Avro `int` and `long` both emit as CUE `int`; `float` emits as `float`; `double` emits as `number`. Avro namespaces are reduced to a simple CUE package name using the last namespace segment.
+- The converter emits the same practical schema subset accepted by `cue2a`; it does not attempt to reconstruct CUE constraints, imports, comprehensions, or computed expressions.
+
+### Convert CUE schema subset to JSON Structure
+
+```bash
+avrotize cue2s <path_to_cue_file> [--out <path_to_structure_file>] [--namespace <namespace>]
+```
+
+`cue2s` bridges through an intermediate Avrotize Schema file and therefore uses the same supported CUE subset and limitations as `cue2a`.
+
+### Convert JSON Structure to CUE schema subset
+
+```bash
+avrotize s2cue <path_to_structure_file> [--out <path_to_cue_file>] [--namespace <cue_package_hint>]
+```
+
+`s2cue` bridges through an intermediate Avrotize Schema file and emits the same practical CUE schema subset as `a2cue`.
+
+- `<path_to_fbs_file>`: The path to the FlatBuffers `.fbs` schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the FlatBuffers namespace for the Avrotize Schema.
+
+Conversion notes and limitations:
+
+- FlatBuffers `namespace` declarations are mapped to Avro namespaces. `table` and `struct` declarations are mapped to Avro records; FlatBuffers structs carry fixed inline layout semantics that Avro does not represent, so this is documented on the generated record.
+- FlatBuffers enums are mapped to Avro enums. Integer enum values are preserved in the non-standard Avrotize `ordinals` annotation; consumers that only understand Avro enum symbols may ignore those integer values.
+- FlatBuffers unions are mapped to Avro unions of their member record types.
+- Scalar mappings: signed 8/16/32-bit integers map to Avro `int`; unsigned 32-bit integers and all 64-bit integers map to Avro `long`; `uint64`/`ulong` values beyond signed 64-bit range cannot be represented exactly by Avro `long`; `float` and `double` map to Avro `float` and `double`; `string` maps to Avro `string`.
+- Vectors map to Avro arrays, except `[ubyte]`/`[uint8]`, which maps to Avro `bytes`.
+- Table fields without `(required)` are emitted as nullable Avro fields with `null` defaults. FlatBuffers field defaults are preserved as the Avrotize `fbsDefault` annotation for nullable fields.
+- `root_type` is preserved as a record-level `root_type` annotation.
+
+### Convert Avrotize Schema to FlatBuffers schema
+
+```bash
+avrotize a2fbs <path_to_avro_schema_file> [--out <path_to_fbs_file>] [--namespace <flatbuffers_namespace>]
+
+- `<path_to_thrift_file>`: The path to the Apache Thrift IDL file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the Avro namespace. Without an override, `namespace *` is used, then the first language-specific namespace.
+
+Conversion notes and limitations:
+
+- `struct`, `exception`, and `union` declarations are emitted as Avro records. Thrift unions are modeled as records whose fields are all nullable; Avro does not enforce the Thrift rule that at most one field is set.
+- `enum` declarations are emitted as Avro enums. Ordinals are preserved in an `ordinals` annotation. Symbols and names that are not valid Avro names are sanitized.
+- `typedef` aliases are resolved to their target type. `const` declarations and `service` definitions are skipped because they do not describe persistent data structures.
+- `set<T>` is emitted as an Avro array and does not preserve uniqueness semantics. `map<string,V>` is emitted as an Avro map; maps with non-string keys are emitted as arrays of `{ key, value }` records.
+- `include` statements are recorded by the parser but are not recursively resolved by the converter. Convert included IDL files separately or pre-expand them before conversion.
+
+### Convert Avrotize Schema to Apache Thrift IDL
+
+```bash
+avrotize a2thrift <path_to_avro_schema_file> [--out <path_to_thrift_file>] [--namespace <thrift_namespace>]
+
+- `<path_to_smithy_file>`: The path to the Smithy 2.0 IDL file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the Smithy `namespace` for the emitted Avro namespace.
+
+Conversion notes:
+
+- Phase 1 supports Smithy data shapes only: `structure`, `union`, `enum`, `intEnum`, `list`, `map`, and scalar shape references. `service`, `operation`, `resource`, HTTP/protocol traits, mixins beyond simple parsing, and `apply` statements are explicitly out of scope and are skipped without failing conversion.
+- Smithy `namespace` maps to Avro `namespace`. `@documentation` maps to Avro `doc`; `@required` makes a field non-nullable; non-required fields are nullable and default to `null`; `@default` maps to the Avro field default where Avro permits it. `@deprecated` and `@tags` are carried into `doc` text.
+- Smithy `union` shapes are represented as Avro records whose alternatives are nullable fields, preserving member names while keeping the Avro schema valid. Avro field unions convert back to Smithy `union` shapes.
+- Smithy `intEnum` converts to an Avro enum with an `ordinals` annotation; Avro itself stores enum symbols, so integer values are metadata for round-tripping.
+- Smithy `list` and `map` members map to Avro arrays and maps. Avro maps are string-keyed, so Smithy map keys should be `String`; other key declarations are noted but cannot be represented as Avro map keys.
+- Scalar mappings include `Blob`→`bytes`, `Boolean`→`boolean`, `String`→`string`, integer widths→`int`/`long`, floats→`float`/`double`, `Timestamp`→valid Avro `long` with `timestamp-millis`, `BigInteger`→`string`, `BigDecimal`→`double`, and `Document`→`string`.
+
+### Convert Avrotize Schema to Smithy IDL data shapes
+
+```bash
+avrotize a2smithy <path_to_avro_schema_file> [--out <path_to_smithy_file>] [--namespace <smithy_namespace>]
+
+- `<path_to_capnp_file>`: The path to the Cap'n Proto `.capnp` schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: Optional Avro namespace. If omitted, the input file name is used.
+
+Conversion notes and limitations:
+
+- Structs map to Avro records, enums map to Avro enums, and field ordinals are stored as `capnpOrdinal` metadata. Enum ordinals are stored as `capnpOrdinals`.
+- Cap'n Proto fields are pointer-default/zero-default optional in practice; Avrotize emits nullable Avro fields (`["null", T]`) with `default: null` for non-`Void` fields.
+- Primitive mapping: `Bool`→`boolean`; `Int8`/`Int16`/`Int32`→`int`; `Int64`→`long`; unsigned integers including `UInt64`→`long` (range checks are not represented); `Float32`→`float`; `Float64`→`double`; `Text`→`string`; `Data`→`bytes`; `Void`→`null`; `List(T)`→Avro array. No invalid Avro logical types are emitted.
+- Anonymous and named Cap'n Proto unions are represented as nullable fields tagged with `capnpUnion` metadata rather than as exclusive Avro unions; exclusivity constraints are not enforced by Avro.
+- Groups are represented as inline nested Avro records. Nested structs and enums are emitted as named Avro types in derived nested namespaces.
+- The file id is accepted but not used as an Avro namespace seed. `interface`, `const`, `annotation`, imports, and using declarations are skipped.
+
+### Convert Avrotize Schema to Cap'n Proto schema
+
+```bash
+avrotize a2capnp <path_to_avro_schema_file> [--out <path_to_capnp_file>] [--namespace <namespace_note>]
+
+- `<path_to_raml_file>`: The path to the RAML 1.0 file or library. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace for generated Avro named types.
+
+Conversion notes:
+
+- Phase 1 supports RAML 1.0 **Data Types** in the `types:` section only. API resources, methods, traits, resourceTypes, securitySchemes, annotations, and external `!include` expansion are explicitly out of scope and are ignored or left as inert YAML values.
+- Object types with `properties:` become Avro records. Optional properties (`name?` or `required: false`) become nullable Avro fields with `null` first and default `null`.
+- Scalar mappings are `string`→`string`, `number`→`double`, `integer`→`long`, `boolean`→`boolean`, `file`→`bytes`, and `nil`→`null`.
+- RAML date/time precision is normalized to valid Avro logical types: `date-only`→`int`/`date`, `time-only`→`int`/`time-millis`, and `datetime-only`/`datetime`→`long`/`timestamp-millis`.
+- Arrays use `T[]` or `type: array` with `items`. Unions use `A | B`; nullable `T?` is treated as `nil | T`.
+- Maps use the documented RAML convention `properties: { "//": T }` or `additionalProperties: T` and become Avro maps.
+- RAML enums become Avro enums; symbols are sanitized to Avro identifiers. Non-string enum base types are emitted as Avro enum symbols, so literal value typing is not preserved.
+
+### Convert Avrotize Schema to RAML Data Types
+
+```bash
+avrotize a2raml <path_to_avro_schema_file> [--out <path_to_raml_file>] [--namespace <namespace_to_strip>]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The path to the Avrotize Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the FlatBuffers `.fbs` file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the FlatBuffers namespace.
+
+Conversion notes and limitations:
+
+- Avro records are emitted as FlatBuffers tables, Avro enums as FlatBuffers enums, arrays as vectors, and Avro `bytes` as `[ubyte]`.
+- Nullable Avro unions (`["null", T]`) become optional FlatBuffers fields. Multi-branch Avro unions of named types are emitted as FlatBuffers `union` declarations.
+- Avro namespaces map to FlatBuffers namespaces. The top record, or the record annotated with `root_type`, is emitted as `root_type`.
+- Avro maps, logical types, fixed types, aliases, validation annotations, and arbitrary custom annotations have no direct FlatBuffers equivalent and are either simplified to compatible field types or omitted.
+
+### Convert FlatBuffers schema to JSON Structure
+
+```bash
+avrotize fbs2s <path_to_fbs_file> [--out <path_to_json_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+Parameters:
+
+- `<path_to_fbs_file>`: The path to the FlatBuffers `.fbs` schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Structure file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the namespace used by the Avrotize Schema bridge.
+
+Conversion notes:
+
+- This conversion bridges through Avrotize Schema (`fbs2a` followed by `a2s`) and therefore shares the FlatBuffers-to-Avro mapping limitations listed above.
+- The FlatBuffers `root_type` record is used as the JSON Structure root when present.
+
+### Convert JSON Structure to FlatBuffers schema
+
+```bash
+avrotize s2fbs <path_to_json_structure_file> [--out <path_to_fbs_file>] [--namespace <flatbuffers_namespace>]
+```
+
+Parameters:
+
+- `<path_to_json_structure_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the FlatBuffers `.fbs` file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the FlatBuffers namespace.
+
+Conversion notes:
+
+- This conversion bridges through Avrotize Schema (`s2a` followed by `a2fbs`) and therefore shares the Avro-to-FlatBuffers mapping limitations listed above.
+- JSON Structure constraints and metadata that do not survive the Avrotize Schema bridge are not represented in the generated FlatBuffers schema.
+
+- `--out`: The path to the Thrift IDL file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the emitted `namespace *` value.
+
+Conversion notes and limitations:
+
+- Avro records are emitted as Thrift `struct` definitions with sequential field ids. Avro enums are emitted as Thrift enums.
+- Nullable Avro unions (`["null", T]`) are emitted as `optional` fields; other multi-branch Avro unions are approximated as `string`.
+- Avro arrays are emitted as `list<T>` and Avro maps as `map<string,V>`. Thrift `set` and non-string map-key semantics cannot be recovered from Avro.
+- Avro logical types and custom annotations are not represented in Thrift IDL.
+
+### Convert Apache Thrift IDL to JSON Structure
+
+```bash
+avrotize thrift2s <path_to_thrift_file> [--out <path_to_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+Converts Thrift IDL to JSON Structure by first converting to Avrotize Schema. The Thrift-to-Avro limitations above therefore apply.
+
+### Convert JSON Structure to Apache Thrift IDL
+
+```bash
+avrotize s2thrift <path_to_structure_file> [--out <path_to_thrift_file>] [--namespace <thrift_namespace>]
+```
+
+Converts JSON Structure to Thrift IDL by first converting to Avrotize Schema. The Avro-to-Thrift limitations above therefore apply.
+
+- `--out`: The path to the Smithy IDL file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Override the Smithy namespace to emit.
+
+Conversion notes:
+
+- Avro records become Smithy `structure` shapes; nullable unions become optional members; non-null fields are emitted with `@required`.
+- Avro enums become Smithy `enum` shapes, or `intEnum` when an `ordinals` annotation is present. Avro arrays and maps become Smithy `list` and `map` shapes. Avro unions with multiple non-null alternatives become Smithy `union` shapes.
+- Service and operation modeling is explicitly out of phase-1 scope; this command emits Smithy data shapes only.
+
+- `--out`: The path to the Cap'n Proto schema file to write. If omitted, the output is directed to stdout.
+- `--namespace`: Optional namespace note included as a comment in the generated file.
+
+Conversion notes and limitations:
+
+- Avro records map to `struct`, enums to `enum`, arrays to `List(T)`, strings to `Text`, bytes/fixed to `Data`, and nullable unions to the non-null Cap'n Proto field type.
+- Fields are emitted with deterministic sequential ordinals (`@0`, `@1`, ...). A stable generated file id is emitted; replace it if the schema needs a project-owned Cap'n Proto id.
+- Multi-branch Avro unions are emitted as nested choice structs or `union` blocks when `capnpUnion` metadata is present. Avro maps are represented as lists of generated key/value entry structs because Cap'n Proto has no direct map primitive.
+
+### Convert Cap'n Proto schema to JSON Structure
+
+```bash
+avrotize capnp2s <path_to_capnp_file> [--out <path_to_json_structure_file>] [--namespace <avro_schema_namespace>] [--naming <naming_mode>] [--avro-encoding]
+```
+
+This conversion bridges through an intermediate Avrotize Schema, so the Cap'n Proto limitations documented for `capnp2a` apply.
+
+### Convert JSON Structure to Cap'n Proto schema
+
+```bash
+avrotize s2capnp <path_to_json_structure_file> [--out <path_to_capnp_file>] [--namespace <namespace_note>]
+```
+
+This conversion bridges through an intermediate Avrotize Schema, so the Avro-to-Cap'n Proto limitations documented for `a2capnp` apply.
+
+- `<path_to_avro_schema_file>`: The path to the Avrotize Schema file. If omitted, the file is read from stdin.
+- `--out`: The path to the RAML file to write. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace to strip from generated RAML type references.
+
+Conversion notes:
+
+- The converter emits a `#%RAML 1.0 Library` with a `types:` map. Full RAML API resource/method conversion is explicitly out of scope.
+- Avro records become RAML `object` types, nullable fields are emitted with the `name?` optional-property form, enums become `enum:`, arrays become `T[]`, maps use `properties: { "//": T }`, and unions become `A | B`.
+- Avro logical types map back to RAML `date-only`, `time-only`, or `datetime`. `datetime-only` cannot be distinguished from Avro timestamp logical types on reverse conversion.
 
 ### Convert JSON schema to Avrotize Schema
 
@@ -497,6 +844,29 @@ Conversion notes:
 - Table and column comments are preserved as Avro `doc` attributes where available.
 - Primary key columns are noted in the schema's `unique` attribute.
 
+### Convert SurrealQL Schema to Avrotize Schema
+
+```bash
+avrotize surreal2a <path_to_surrealql_schema_file> [--out <path_to_avro_schema_file>] [--namespace <namespace>]
+```
+
+Parameters:
+
+- `<path_to_surrealql_schema_file>`: The SurrealQL schema file containing `DEFINE TABLE` and `DEFINE FIELD` statements.
+- `--out`: The path to the Avrotize Schema file. If omitted, output goes to stdout.
+- `--namespace`: (optional) The Avro namespace for generated records.
+
+Conversion notes:
+
+- `DEFINE TABLE <name> SCHEMAFULL|SCHEMALESS` becomes an Avro record named `<name>`.
+- Dotted SurrealDB field paths such as `address.city` become nested Avro records; array item paths such as `phones[*].number` become arrays of nested records.
+- SurrealDB scalar types map as follows: `string` -> Avro `string`, `int` -> `long`, `float`/`number` -> `double`, `bool` -> `boolean`, `bytes` -> `bytes`, `datetime` -> `long` with `timestamp-millis`, `uuid` -> `string` with `uuid`, and `decimal` -> `bytes` with Avro `decimal` (`precision` 38, `scale` 9).
+- `option<T>` becomes a nullable Avro union `['null', T]` with default `null`.
+- `array<T>` and `set<T>` become Avro arrays. Avro has no native set semantics, so uniqueness is not represented.
+- `duration` and `geometry` are represented as strings.
+- `record<T>` references are represented as string record ids because Avro record references model embedded schemas, not SurrealDB record id links.
+
+
 ### Infer Avro schema from JSON files
 
 ```bash
@@ -668,6 +1038,26 @@ Parameters:
 - `--emit-cloudevents-columns`: (Optional) Add CloudEvents columns to the SQL table.
 
 For detailed conversion rules and type mappings for each SQL dialect, refer to the [SQL Conversion Notes](sqlcodegen.md) document.
+
+### Convert Avrotize Schema to SurrealQL Schema
+
+```bash
+avrotize a2surreal <path_to_avro_schema_file> [--out <path_to_surrealql_schema_file>] [--record-type <record_type>]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The Avrotize Schema file to convert.
+- `--out`: The path to the SurrealQL schema file. If omitted, output goes to stdout.
+- `--record-type`: (optional) Convert only the named Avro record.
+
+Conversion notes:
+
+- Each Avro record becomes `DEFINE TABLE <name> SCHEMAFULL`.
+- Nested Avro records are emitted as dotted SurrealDB field paths.
+- Avro arrays become `array<T>`; arrays of records are emitted with `[*]` item field definitions.
+- Nullable Avro unions of `null` plus one type become `option<T>`.
+- Avro `timestamp-millis`, `uuid`, and `decimal` logical types become `datetime`, `uuid`, and `decimal` respectively.
 
 ### Convert JSON Structure Schema to SQL Schema
 
@@ -896,6 +1286,102 @@ Conversion notes:
 - The `$extends` feature is supported - base type properties are included in the conversion.
 - Required and optional properties are handled via Iceberg's `required` field flag.
 
+### Convert JSON Structure to empty Parquet file
+
+```bash
+avrotize s2pq <path_to_structure_schema_file> [--out <path_to_parquet_file>] [--record-type <record-type-from-structure>] [--emit-cloudevents-columns] [--format parquet|schema]
+```
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Parquet file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) The name of the record type in `definitions` to convert to a Parquet schema.
+- `--emit-cloudevents-columns`: (optional) If set, the tool will add [CloudEvents](https://cloudevents.io) attribute columns to the Parquet schema: `___id`, `___source`, `___subject`, `___type`, and `___time`.
+- `--format`: (optional) Output format. `parquet` (default) writes an empty Parquet file whose footer carries the schema. `schema` writes the derived schema as JSON for inspection.
+
+Notes:
+
+- The emitted Parquet file contains only the schema, no data rows.
+- The tool supports JSON Structure schemas with `type: "object"` at the top level. If the schema contains a `$ref` or the record type is in `definitions`, the `--record-type` option can be used to specify which type to emit.
+- JSON Structure types are mapped to Parquet (PyArrow) types as follows:
+  - **Primitive types**: `string` → string, `boolean` → bool, sized integer types (`int8`…`int64`, `uint8`…`uint64`) → the matching PyArrow integer type, `float`/`float32` → float32, `double`/`float64` → float64, `decimal` → decimal128 honoring `precision`/`scale`, `bytes`/`binary` → binary, `uuid`/`uri`/`jsonpointer` → string.
+  - **Temporal types**: `date` → date32, `time` → time64[us], `datetime`/`timestamp` → timestamp[us], `duration` → int64 (microseconds).
+  - **Compound types**: `object` → struct, `array`/`set` → list, `map` → map, `tuple` → struct with indexed fields. A property-less (open) `object` becomes `map<string, string>`.
+  - **Choice types**: Mapped to a struct of optional alternatives (Parquet has no native union type).
+- The `$extends` feature is supported - base type properties are included in the conversion.
+- Required properties are emitted as non-nullable columns; all others are nullable.
+
+### Convert JSON Type Definition (JTD) to Avrotize Schema
+
+```bash
+avrotize jtd2a <path_to_jtd_file> [--out <path_to_avro_schema_file>] [--namespace <avro_schema_namespace>]
+```
+
+Parameters:
+
+- `<path_to_jtd_file>`: The path to the JSON Type Definition file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace for generated Avro records and enums.
+
+Conversion notes:
+
+- JTD `type` forms map to Avro primitives; `timestamp` is encoded as Avro `long` with `logicalType: "timestamp-millis"`.
+- JTD `enum` symbols are sanitized to Avro names when needed. The original JTD symbols are retained in `jtdEnumSymbols` metadata for round trips.
+- JTD `properties` become required Avro record fields. `optionalProperties` become nullable Avro fields with `default: null`.
+- JTD `elements` and `values` map to Avro arrays and maps. `definitions`/`ref` map to named Avro types.
+- JTD `discriminator`/`mapping` maps to an Avro union of records. Each branch carries the discriminator as a single-symbol enum field plus `jtdDiscriminator`/`jtdMappingKey` metadata for round trips.
+- Avro has no direct equivalent for JTD `additionalProperties`; the setting is preserved as `jtdAdditionalProperties` metadata but is not enforced by Avro.
+
+### Convert Avrotize Schema to JSON Type Definition (JTD)
+
+```bash
+avrotize a2jtd <path_to_avro_schema_file> [--out <path_to_jtd_file>] [--record-type <record-type-from-avro>]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The path to the Avrotize Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Type Definition file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) The name of the Avro record type to use as the JTD root when the file contains multiple named types.
+
+Conversion notes:
+
+- Avro primitives map to the closest JTD `type`; converter metadata such as `jtdType` is used to restore narrower JTD integer and float forms when present.
+- Avro `long` with `logicalType: "timestamp-millis"` maps to JTD `timestamp`.
+- Nullable Avro unions map to `nullable: true`; nullable fields with `default: null` map to JTD `optionalProperties`.
+- General Avro unions do not have a native JTD equivalent. Only discriminator unions emitted by `jtd2a` round-trip to JTD `discriminator`/`mapping`; other unions are retained as metadata.
+
+### Convert JSON Type Definition (JTD) to JSON Structure
+
+```bash
+avrotize jtd2s <path_to_jtd_file> [--out <path_to_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+Parameters:
+
+- `<path_to_jtd_file>`: The path to the JSON Type Definition file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Structure file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--namespace`: (optional) Namespace for generated intermediate Avro records and enums.
+
+Conversion notes:
+
+- The conversion bridges through Avrotize Schema, so the JTD-to-Avro limitations also apply.
+
+### Convert JSON Structure to JSON Type Definition (JTD)
+
+```bash
+avrotize s2jtd <path_to_structure_file> [--out <path_to_jtd_file>] [--record-type <record-type-from-structure>]
+```
+
+Parameters:
+
+- `<path_to_structure_file>`: The path to the JSON Structure file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the JSON Type Definition file to write the conversion result to. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) The name of the Structure/Avro record type to use as the JTD root.
+
+Conversion notes:
+
+- The conversion bridges through Avrotize Schema, so JSON Structure features without JTD equivalents may be simplified or emitted as metadata.
+
 ### Convert Parquet schema to Avrotize Schema
 
 ```bash
@@ -1030,6 +1516,7 @@ Conversion notes:
 
 - The tool generates TypeScript classes from the Avrotize Schema. Each record type in the Avrotize Schema is converted to a TypeScript class.
 - The fields of the record are mapped to properties in the TypeScript class. Nested records are mapped to nested classes in the TypeScript class.
+- TypeScript contextual keywords such as `type`, `namespace`, `module`, and `readonly` are preserved when used as field names.
 - The tool supports adding annotations to the properties in the TypeScript class. The `--avro-annotation` option adds Avro annotations, and the `--typedjson-annotation` option adds TypedJSON annotations.
 
 ### Convert JSON Structure to TypeScript classes
@@ -1405,6 +1892,23 @@ Conversion notes:
 - Complex types (records, arrays, maps) are represented as strings in CSV schema, as CSV format doesn't have native support for nested structures.
 - Only single record types can be converted to CSV schema.
 
+
+### Convert RAML Data Types to JSON Structure
+
+```bash
+avrotize raml2s <path_to_raml_file> [--out <path_to_json_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+Converts RAML 1.0 Data Types to JSON Structure by bridging through Avrotize Schema. The same RAML phase-1 limitations apply: only inline `types:` data types are in scope; API resources, methods, traits, resourceTypes, securitySchemes, annotations, and external `!include` expansion are out of scope.
+
+### Convert JSON Structure to RAML Data Types
+
+```bash
+avrotize s2raml <path_to_json_structure_file> [--out <path_to_raml_file>] [--namespace <namespace_to_strip>]
+```
+
+Converts JSON Structure to a RAML 1.0 Library by bridging through Avrotize Schema. The output contains RAML Data Types only and does not generate API resources or methods.
+
 ### Convert JSON Structure to Protocol Buffers
 
 ```bash
@@ -1427,6 +1931,23 @@ Conversion notes:
 - Type references (`$ref`) are resolved and converted to appropriate message types.
 - Choice types (unions) are converted to Protocol Buffers `oneof` constructs.
 - Abstract types and extensions (`$extends`) are handled by generating appropriate message hierarchies.
+
+
+### Convert Smithy IDL data shapes to JSON Structure
+
+```bash
+avrotize smithy2s <path_to_smithy_file> [--out <path_to_json_structure_file>] [--namespace <avro_schema_namespace>]
+```
+
+This command converts Smithy 2.0 IDL data shapes to JSON Structure by bridging through Avrotize Schema. It has the same Smithy phase-1 scope and limitations as `smithy2a`: service, operation, resource, and protocol modeling are out of scope and skipped.
+
+### Convert JSON Structure to Smithy IDL data shapes
+
+```bash
+avrotize s2smithy <path_to_json_structure_file> [--out <path_to_smithy_file>] [--namespace <smithy_namespace>]
+```
+
+This command converts JSON Structure to Smithy 2.0 IDL data shapes by bridging through Avrotize Schema. It emits data shapes only; Smithy service and operation modeling is explicitly out of scope for phase 1.
 
 ### Convert OpenAPI to JSON Structure
 
