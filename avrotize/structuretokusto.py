@@ -1,10 +1,49 @@
 """Converts a JSON Structure schema to a Kusto table schema."""
 
 import json
+import re
 import sys
 from typing import Any, List, Optional, Dict, Union
 from avrotize.common import build_flat_type_dict, inline_avro_references, strip_first_doc
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder, ClientRequestProperties
+
+
+_KUSTO_BARE_IDENTIFIER = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+
+
+def kusto_column_name(name: str) -> str:
+    """Return a Kusto-quoted column identifier.
+
+    Bare identifiers ([A-Za-z_][A-Za-z0-9_]*) are wrapped as [name]; any other
+    name (e.g. "dr-type") is quoted as ['name'] so hyphens and other characters
+    are valid (issue #382).
+    """
+    if _KUSTO_BARE_IDENTIFIER.match(name):
+        return f"[{name}]"
+    escaped = name.replace('\\', '\\\\').replace("'", "\\'")
+    return f"['{escaped}']"
+
+
+def kusto_json_path(name: str, prefix: str = "$") -> str:
+    """Return a JSONPath expression for an ingestion-mapping property name.
+
+    Bare identifiers use dotted notation (``$.name``); any other name uses
+    bracket notation (``$['dr-type']``) so non-identifier keys are valid.
+    """
+    if _KUSTO_BARE_IDENTIFIER.match(name):
+        return f"{prefix}.{name}"
+    escaped = name.replace('\\', '\\\\').replace("'", "\\'")
+    return f"{prefix}['{escaped}']"
+
+
+def kusto_string_literal(value: str) -> str:
+    """Return a KQL verbatim string literal for a raw Python string."""
+    return '@"' + value.replace('"', '""') + '"'
+
+
+def kusto_json_literal(value: Any) -> str:
+    """Return a KQL string literal containing one JSON encoding of value."""
+    return kusto_string_literal(json.dumps(value))
 
 
 class StructureToKusto:
@@ -258,7 +297,7 @@ class StructureToKusto:
             if isinstance(prop_schema, dict) and 'const' in prop_schema:
                 continue
             column_type = self.convert_structure_type_to_kusto_type(prop_schema, schema_doc)
-            columns.append(f"   [{column_name}]: {column_type}")
+            columns.append(f"   {kusto_column_name(column_name)}: {column_type}")
         if emit_cloudevents_columns:
             columns.append("   [___type]: string")
             columns.append("   [___source]: string")
@@ -284,9 +323,9 @@ class StructureToKusto:
             if notes:
                 doc_data = doc_data + " " + " ".join(notes)
             
-            doc_string = json.dumps(json.dumps({
+            doc_string = kusto_json_literal({
                 "description": doc_data
-            }))
+            })
             kusto.append(
                 f".alter table {table_ref} docstring {doc_string};")
             kusto.append("")
@@ -304,7 +343,7 @@ class StructureToKusto:
                 else:
                     doc_data = f"Constant field with value: {json.dumps(const_value)}"
                 doc_content = {"description": doc_data}
-                doc = json.dumps(json.dumps(doc_content))
+                doc = kusto_json_literal(doc_content)
                 # Add as comment - const fields are not stored in table
                 kusto.insert(len(kusto) - (2 if kusto and kusto[-1] == "" else 1), 
                            f"-- Const field '{column_name}' with value: {json.dumps(const_value)}")
@@ -323,7 +362,7 @@ class StructureToKusto:
                         doc_content["schema"] = '{ "doc": "Schema too large to inline. Please refer to the JSON Structure schema for more details." }'
                     else:
                         doc_content["schema"] = prop_schema
-                doc = json.dumps(json.dumps(doc_content))
+                doc = kusto_json_literal(doc_content)
                 doc_string_statement.append(f"   [{column_name}]: {doc}")
         if doc_string_statement and emit_cloudevents_columns:
             doc_string_statement.extend([
@@ -342,43 +381,39 @@ class StructureToKusto:
         # add the JSON mapping for the table
         kusto.append(
             f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_flat\"")
-        kusto.append("```\n[")
+        mapping_entries = []
         if emit_cloudevents_columns:
-            kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
-            kusto.append(
-                "  {\"column\": \"___source\", \"path\": \"$.source\"},")
-            kusto.append("  {\"column\": \"___id\", \"path\": \"$.id\"},")
-            kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
-            kusto.append(
-                "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
+            mapping_entries.append("  {\"column\": \"___type\", \"path\": \"$.type\"}")
+            mapping_entries.append("  {\"column\": \"___source\", \"path\": \"$.source\"}")
+            mapping_entries.append("  {\"column\": \"___id\", \"path\": \"$.id\"}")
+            mapping_entries.append("  {\"column\": \"___time\", \"path\": \"$.time\"}")
+            mapping_entries.append("  {\"column\": \"___subject\", \"path\": \"$.subject\"}")
         for prop_name, prop_schema in properties.items():
             # Skip const fields in JSON mapping since they're not stored as columns
             if isinstance(prop_schema, dict) and 'const' in prop_schema:
                 continue
             column_name = prop_name
-            kusto.append(
-                f"  {{\"column\": \"{column_name}\", \"path\": \"$.{prop_name}\"}},")
-        kusto.append("]\n```\n\n")
+            mapping_entries.append(
+                f"  {{\"column\": \"{column_name}\", \"path\": \"{kusto_json_path(prop_name)}\"}}")
+        kusto.append("```\n[\n" + ",\n".join(mapping_entries) + "\n]\n```\n\n")
 
         if emit_cloudevents_columns:
             kusto.append(
                 f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_ce_structured\"")
-            kusto.append("```\n[")
-            kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
-            kusto.append(
-                "  {\"column\": \"___source\", \"path\": \"$.source\"},")
-            kusto.append("  {\"column\": \"___id\", \"path\": \"$.id\"},")
-            kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
-            kusto.append(
-                "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
+            ce_entries = []
+            ce_entries.append("  {\"column\": \"___type\", \"path\": \"$.type\"}")
+            ce_entries.append("  {\"column\": \"___source\", \"path\": \"$.source\"}")
+            ce_entries.append("  {\"column\": \"___id\", \"path\": \"$.id\"}")
+            ce_entries.append("  {\"column\": \"___time\", \"path\": \"$.time\"}")
+            ce_entries.append("  {\"column\": \"___subject\", \"path\": \"$.subject\"}")
             for prop_name, prop_schema in properties.items():
                 # Skip const fields in JSON mapping since they're not stored as columns
                 if isinstance(prop_schema, dict) and 'const' in prop_schema:
                     continue
                 column_name = prop_name
-                kusto.append(
-                    f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{prop_name}\"}},")
-            kusto.append("]\n```\n\n")
+                ce_entries.append(
+                    f"  {{\"column\": \"{column_name}\", \"path\": \"{kusto_json_path(prop_name, '$.data')}\"}}")
+            kusto.append("```\n[\n" + ",\n".join(ce_entries) + "\n]\n```\n\n")
 
         if emit_cloudevents_columns:
             kusto.append(
@@ -411,7 +446,7 @@ class StructureToKusto:
             kusto.append(
                 f"  \"Query\": \"{query}\",")
             kusto.append("  \"IsTransactional\": false,")
-            kusto.append("  \"PropagateIngestionProperties\": true,")
+            kusto.append("  \"PropagateIngestionProperties\": true")
             kusto.append("}]")
             kusto.append("```\n")
 

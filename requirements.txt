@@ -74,6 +74,7 @@ pydantic_core>=2.18.3
 Pygments>=2.18.0
 pyiceberg>=0.6.1
 PyJWT>=2.8.0
+PyYAML>=6.0
 pylint>=3.2.2
 pymongo>=4.7.2
 PyMySQL>=1.1.1

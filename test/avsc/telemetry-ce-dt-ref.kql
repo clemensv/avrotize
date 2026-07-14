@@ -46,20 +46,20 @@
    [___subject]: string
 );
 
-.alter table [TelemetryRecord] docstring "{\"description\": \"Represents a telemetry record for a race car.\"}";
+.alter table [TelemetryRecord] docstring @"{""description"": ""Represents a telemetry record for a race car.""}";
 
 .alter table [TelemetryRecord] column-docstrings (
-   [id]: "{\"description\": \"The unique identifier of the telemetry record.\", \"schema\": [\"null\", \"string\"]}",
-   [version]: "{\"description\": \"The version of the telemetry record.\"}",
-   [channel]: "{\"description\": \"The channel of the telemetry record.\"}",
-   [carId]: "{\"description\": \"The identifier of the race car.\", \"schema\": [\"null\", \"string\"]}",
-   [intervalId]: "{\"description\": \"The interval identifier of the telemetry record.\", \"schema\": [\"null\", \"string\"]}",
-   [sampleCount]: "{\"description\": \"The sample count of the telemetry record.\"}",
-   [frequency]: "{\"description\": \"The frequency of the telemetry record.\"}",
-   [created]: "{\"description\": \"The creation timestamp of the telemetry record.\", \"schema\": [\"null\", \"long\"]}",
-   [timespan]: "{\"description\": \"The timespan of the telemetry record.\", \"schema\": {\"name\": \"RecordRange\", \"type\": \"record\", \"fields\": [{\"name\": \"started\", \"type\": \"long\", \"doc\": \"The start timestamp of the telemetry record.\"}, {\"name\": \"ended\", \"type\": \"long\", \"doc\": \"The end timestamp of the telemetry record.\"}]}}",
-   [data]: "{\"description\": \"The telemetry data.\", \"schema\": {\"type\": \"array\", \"items\": \"double\"}}",
-   [lapId]: "{\"description\": \"The identifier of the lap.\", \"schema\": [\"null\", \"string\"]}",
+   [id]: @"{""description"": ""The unique identifier of the telemetry record."", ""schema"": [""null"", ""string""]}",
+   [version]: @"{""description"": ""The version of the telemetry record.""}",
+   [channel]: @"{""description"": ""The channel of the telemetry record.""}",
+   [carId]: @"{""description"": ""The identifier of the race car."", ""schema"": [""null"", ""string""]}",
+   [intervalId]: @"{""description"": ""The interval identifier of the telemetry record."", ""schema"": [""null"", ""string""]}",
+   [sampleCount]: @"{""description"": ""The sample count of the telemetry record.""}",
+   [frequency]: @"{""description"": ""The frequency of the telemetry record.""}",
+   [created]: @"{""description"": ""The creation timestamp of the telemetry record."", ""schema"": [""null"", ""long""]}",
+   [timespan]: @"{""description"": ""The timespan of the telemetry record."", ""schema"": {""name"": ""RecordRange"", ""type"": ""record"", ""fields"": [{""name"": ""started"", ""type"": ""long"", ""doc"": ""The start timestamp of the telemetry record.""}, {""name"": ""ended"", ""type"": ""long"", ""doc"": ""The end timestamp of the telemetry record.""}]}}",
+   [data]: @"{""description"": ""The telemetry data."", ""schema"": {""type"": ""array"", ""items"": ""double""}}",
+   [lapId]: @"{""description"": ""The identifier of the lap."", ""schema"": [""null"", ""string""]}",
    [___type] : 'Event type',
    [___source]: 'Context origin/source of the event',
    [___id]: 'Event identifier',
@@ -85,7 +85,7 @@
   {"column": "created", "path": "$.created"},
   {"column": "timespan", "path": "$.timespan"},
   {"column": "data", "path": "$.data"},
-  {"column": "lapId", "path": "$.lapId"},
+  {"column": "lapId", "path": "$.lapId"}
 ]
 ```
 
@@ -108,7 +108,7 @@
   {"column": "created", "path": "$.data.created"},
   {"column": "timespan", "path": "$.data.timespan"},
   {"column": "data", "path": "$.data.data"},
-  {"column": "lapId", "path": "$.data.lapId"},
+  {"column": "lapId", "path": "$.data.lapId"}
 ]
 ```
 
@@ -126,6 +126,6 @@
   "Source": "_cloudevents_dispatch",
   "Query": "_cloudevents_dispatch | where (specversion == '1.0' and type == 'racing.fabrikam.com.TelemetryRecord') | project['id'] = tostring(data.['id']),['version'] = toint(data.['version']),['channel'] = tostring(data.['channel']),['carId'] = tostring(data.['carId']),['intervalId'] = tostring(data.['intervalId']),['sampleCount'] = tolong(data.['sampleCount']),['frequency'] = tolong(data.['frequency']),['created'] = tolong(data.['created']),['timespan'] = todynamic(data.['timespan']),['data'] = todynamic(data.['data']),['lapId'] = tostring(data.['lapId']),___type = type,___source = source,___id = ['id'],___time = ['time'],___subject = subject",
   "IsTransactional": false,
-  "PropagateIngestionProperties": true,
+  "PropagateIngestionProperties": true
 }]
 ```

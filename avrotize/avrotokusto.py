@@ -7,6 +7,16 @@ from avrotize.common import build_flat_type_dict, inline_avro_references, strip_
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder, ClientRequestProperties
 
 
+def kusto_string_literal(value: str) -> str:
+    """Return a KQL verbatim string literal for a raw Python string."""
+    return '@"' + value.replace('"', '""') + '"'
+
+
+def kusto_json_literal(value: Any) -> str:
+    """Return a KQL string literal containing one JSON encoding of value."""
+    return kusto_string_literal(json.dumps(value))
+
+
 class AvroToKusto:
     """Converts an Avro schema to a Kusto table schema."""
 
@@ -60,9 +70,9 @@ class AvroToKusto:
         if "doc" in recordschema:
             doc_data = recordschema["doc"]
             doc_data = (doc_data[:997] + "...") if len(doc_data) > 1000 else doc_data
-            doc_string = json.dumps(json.dumps({
+            doc_string = kusto_json_literal({
                 "description": doc_data
-            }))
+            })
             kusto.append(
                 f".alter table {table_ref} docstring {doc_string};")
             kusto.append("")
@@ -89,7 +99,7 @@ class AvroToKusto:
                             doc_content["schema"] = inline_schema
                     else:
                         doc_content["schema"] = inline_schema
-                doc = json.dumps(json.dumps(doc_content))
+                doc = kusto_json_literal(doc_content)
                 doc_string_statement.append(f"   [{column_name}]: {doc}")
         if doc_string_statement and emit_cloudevents_columns:
             doc_string_statement.extend([
@@ -109,15 +119,13 @@ class AvroToKusto:
         # .create-or-alter table dfl_data_events ingestion json mapping
         kusto.append(
             f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_flat\"")
-        kusto.append("```\n[")
+        mapping_entries = []
         if emit_cloudevents_columns:
-            kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
-            kusto.append(
-                "  {\"column\": \"___source\", \"path\": \"$.source\"},")
-            kusto.append("  {\"column\": \"___id\", \"path\": \"$.id\"},")
-            kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
-            kusto.append(
-                "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
+            mapping_entries.append("  {\"column\": \"___type\", \"path\": \"$.type\"}")
+            mapping_entries.append("  {\"column\": \"___source\", \"path\": \"$.source\"}")
+            mapping_entries.append("  {\"column\": \"___id\", \"path\": \"$.id\"}")
+            mapping_entries.append("  {\"column\": \"___time\", \"path\": \"$.time\"}")
+            mapping_entries.append("  {\"column\": \"___subject\", \"path\": \"$.subject\"}")
         for field in fields:
             json_name = column_name = field["name"]
             if 'altnames' in field:
@@ -125,21 +133,19 @@ class AvroToKusto:
                     column_name = field['altnames']['kql']
                 if 'json' in field['altnames']:
                     json_name = field['altnames']['json']
-            kusto.append(
-                f"  {{\"column\": \"{column_name}\", \"path\": \"$.{json_name}\"}},")
-        kusto.append("]\n```\n\n")
+            mapping_entries.append(
+                f"  {{\"column\": \"{column_name}\", \"path\": \"$.{json_name}\"}}")
+        kusto.append("```\n[\n" + ",\n".join(mapping_entries) + "\n]\n```\n\n")
 
         if emit_cloudevents_columns:
             kusto.append(
                 f".create-or-alter table {table_ref} ingestion json mapping \"{mapping_base}_json_ce_structured\"")
-            kusto.append("```\n[")
-            kusto.append("  {\"column\": \"___type\", \"path\": \"$.type\"},")
-            kusto.append(
-                "  {\"column\": \"___source\", \"path\": \"$.source\"},")
-            kusto.append("  {\"column\": \"___id\", \"path\": \"$.id\"},")
-            kusto.append("  {\"column\": \"___time\", \"path\": \"$.time\"},")
-            kusto.append(
-                "  {\"column\": \"___subject\", \"path\": \"$.subject\"},")
+            ce_entries = []
+            ce_entries.append("  {\"column\": \"___type\", \"path\": \"$.type\"}")
+            ce_entries.append("  {\"column\": \"___source\", \"path\": \"$.source\"}")
+            ce_entries.append("  {\"column\": \"___id\", \"path\": \"$.id\"}")
+            ce_entries.append("  {\"column\": \"___time\", \"path\": \"$.time\"}")
+            ce_entries.append("  {\"column\": \"___subject\", \"path\": \"$.subject\"}")
             for field in fields:
                 json_name = column_name = field["name"]
                 if 'altnames' in field:
@@ -147,9 +153,9 @@ class AvroToKusto:
                         column_name = field['altnames']['kql']
                     if 'json' in field['altnames']:
                         json_name = field['altnames']['json']
-                kusto.append(
-                    f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{json_name}\"}},")
-            kusto.append("]\n```\n\n")
+                ce_entries.append(
+                    f"  {{\"column\": \"{column_name}\", \"path\": \"$.data.{json_name}\"}}")
+            kusto.append("```\n[\n" + ",\n".join(ce_entries) + "\n]\n```\n\n")
 
         if emit_cloudevents_columns:
             kusto.append(
@@ -186,7 +192,7 @@ class AvroToKusto:
             kusto.append(
                 f"  \"Query\": \"{query}\",")
             kusto.append("  \"IsTransactional\": false,")
-            kusto.append("  \"PropagateIngestionProperties\": true,")
+            kusto.append("  \"PropagateIngestionProperties\": true")
             kusto.append("}]")
             kusto.append("```\n")
 

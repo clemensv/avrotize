@@ -1,0 +1,15 @@
+{
+  "discriminator": "kind",
+  "mapping": {
+    "car": {
+      "properties": {
+        "wheels": {"type": "uint8"}
+      }
+    },
+    "boat-type": {
+      "properties": {
+        "draft": {"type": "float32"}
+      }
+    }
+  }
+}

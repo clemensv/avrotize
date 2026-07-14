@@ -70,7 +70,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
     {% endif %}
     {% for field in fields %}
     {%- set isdate = field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- endif -%}){%- endif %})
+    {%- set is_int_as_string = field.source_type in ['int64', 'uint64', 'int128', 'uint128'] %}
+    {%- set is_decimal_as_string = field.source_type == 'decimal' %}
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif is_int_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: int(v) if isinstance(v, str) else v{%- elif is_decimal_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: decimal.Decimal(v) if isinstance(v, str) else v{%- endif -%}){%- endif %})
     {%- endfor %}
 
     @classmethod
@@ -88,6 +90,13 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         {%- if field.name != field.original_name %}
         if '{{ field.original_name }}' in data:
             data['{{ field.name }}'] = data.pop('{{ field.original_name }}')
+        {%- endif %}
+        {%- if field.source_type in ['int64', 'uint64', 'int128', 'uint128'] %}
+        if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
+            data['{{ field.name }}'] = int(data['{{ field.name }}'])
+        {%- elif field.source_type == 'decimal' %}
+        if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
+            data['{{ field.name }}'] = decimal.Decimal(data['{{ field.name }}'])
         {%- endif %}
         {%- endfor %}
         return cls(**data)
@@ -155,6 +164,11 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         """
         asdict_result = dataclasses.asdict(self, dict_factory=self._dict_resolver)
         {%- for field in fields %}
+        {%- set field_key = field.original_name if field.name != field.original_name and field.original_name+'_' != field.name else field.name %}
+        {%- if field.source_type in ['int64', 'uint64', 'int128', 'uint128', 'decimal'] %}
+        if '{{ field_key }}' in asdict_result and asdict_result['{{ field_key }}'] is not None:
+            asdict_result['{{ field_key }}'] = str(asdict_result['{{ field_key }}'])
+        {%- endif %}
         {%- if field.name != field.original_name and field.original_name+'_' != field.name %}
         if '{{ field.name }}' in asdict_result:
             asdict_result['{{ field.original_name }}'] = asdict_result.pop('{{ field.name }}')
