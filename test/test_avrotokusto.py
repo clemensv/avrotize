@@ -3,6 +3,8 @@ from testcontainers.core.container import DockerContainer
 from avrotize.avrotokusto import convert_avro_to_kusto_db, convert_avro_to_kusto_file
 from unittest.mock import patch
 import unittest
+import json
+import re
 import os
 import sys
 import tempfile
@@ -62,6 +64,45 @@ def kusto_container():
     container.stop()
 
 # pylint: disable=redefined-outer-name
+
+
+def _parse_kusto_verbatim_string(literal: str) -> str:
+    assert literal.startswith('@"') and literal.endswith('"')
+    return literal[2:-1].replace('""', '"')
+
+
+def test_convert_avro_docstrings_escape_kql_literals(tmp_path):
+    """Docstrings with JSON-sensitive characters are escaped once for KQL."""
+    original_table_doc = 'Table doc has "quotes", a backslash \\, and a newline\nnext line'
+    original_field_doc = 'Field doc embeds JSON: { "doc": "see \\path" } and newline\nnext line'
+    schema = {
+        "type": "record",
+        "name": "EscapedDocs",
+        "namespace": "example.docs",
+        "doc": original_table_doc,
+        "fields": [
+            {"name": "id", "type": "string", "doc": original_field_doc}
+        ],
+    }
+    avro_path = tmp_path / "escaped-docs.avsc"
+    kql_path = tmp_path / "escaped-docs.kql"
+    avro_path.write_text(json.dumps(schema), encoding="utf-8")
+
+    convert_avro_to_kusto_file(str(avro_path), None, str(kql_path), False, False)
+
+    kql = kql_path.read_text(encoding="utf-8")
+    double_escaped_quote = "\\\\\""
+    assert double_escaped_quote not in kql
+
+    table_match = re.search(r"\.alter table \[EscapedDocs\] docstring (@\"(?:\"\"|[^\"])*\");", kql)
+    assert table_match is not None
+    table_doc_json = json.loads(_parse_kusto_verbatim_string(table_match.group(1)))
+    assert table_doc_json["description"] == original_table_doc
+
+    column_match = re.search(r"\[id\]: (@\"(?:\"\"|[^\"])*\")", kql)
+    assert column_match is not None
+    column_doc_json = json.loads(_parse_kusto_verbatim_string(column_match.group(1)))
+    assert column_doc_json["description"] == original_field_doc
 
 
 def test_convert_address_avsc_to_kusto_server(kusto_container):

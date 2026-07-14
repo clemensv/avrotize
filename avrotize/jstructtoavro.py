@@ -8,6 +8,8 @@ This is the reverse operation of avrotojstruct.py.
 import json
 from typing import Any, Dict, List, Union, Optional
 
+from avrotize.common import ANY_VALUE_RECORD, any_value_name, deduplicate_any_value_record, generic_type, avro_name, avro_name_with_altname
+
 
 class JsonStructureToAvro:
     """
@@ -18,6 +20,8 @@ class JsonStructureToAvro:
         """Initialize the converter."""
         self.structure_doc: Optional[Dict[str, Any]] = None
         self.converted_types: Dict[str, Dict[str, Any]] = {}
+        self._anon_object_counter: int = 0
+        self._generated_record_names: set = set()
         
     def convert(self, structure_schema: Dict[str, Any]) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
@@ -31,6 +35,8 @@ class JsonStructureToAvro:
         """
         self.structure_doc = structure_schema
         self.converted_types.clear()
+        self._anon_object_counter = 0
+        self._generated_record_names = set()
         
         # Check if this is an inline type (type at root) or uses $root
         root_ref = structure_schema.get('$root')
@@ -54,9 +60,12 @@ class JsonStructureToAvro:
                 # Filter out abstract types
                 concrete_types = [schema for schema in self.converted_types.values() 
                                  if not (schema.get('type') == 'null' and 'Abstract type' in schema.get('doc', ''))]
-                return [root_schema] + concrete_types if concrete_types else root_schema
+                result = [root_schema] + concrete_types if concrete_types else root_schema
+            else:
+                result = root_schema
             
-            return root_schema
+            deduplicate_any_value_record(result)
+            return result
         
         if not root_ref:
             raise ValueError("JSON Structure document must have either 'type' or '$root' property")
@@ -79,10 +88,13 @@ class JsonStructureToAvro:
         
         # Return single schema or list depending on how many types were defined
         if len(self.converted_types) == 1:
-            return root_schema
+            result = root_schema
         else:
             # Return all schemas as a list
-            return list(self.converted_types.values())
+            result = list(self.converted_types.values())
+        
+        deduplicate_any_value_record(result)
+        return result
     
     def _flatten_definitions(self, definitions: Dict[str, Any], prefix: str = '') -> Dict[str, Dict[str, Any]]:
         """
@@ -376,10 +388,16 @@ class JsonStructureToAvro:
         
         fields = []
         for prop_name, prop_schema in properties.items():
+            # Property keys may be non-identifiers (e.g. "dr-type", "1"). Avro field
+            # names must match [A-Za-z_][A-Za-z0-9_]*, so sanitize and preserve the
+            # original wire key as an Avro alias for round-trip fidelity (issue #382).
+            avro_field_name, original_name = avro_name_with_altname(prop_name)
             field = {
-                'name': prop_name,
-                'type': self._convert_type_reference(prop_schema)
+                'name': avro_field_name,
+                'type': self._convert_type_reference(prop_schema, name_hint=avro_field_name)
             }
+            if original_name is not None:
+                field['aliases'] = [original_name]
             
             # Build documentation with annotations
             doc = self._build_doc_with_annotations(
@@ -406,22 +424,61 @@ class JsonStructureToAvro:
         avro_record['fields'] = fields
         return avro_record
     
+    def _sanitize_enum_symbols(self, symbols: List[Any]) -> tuple:
+        """
+        Sanitize JSON Structure enum values into valid Avro enum symbols.
+
+        Avro enum symbols must match [A-Za-z_][A-Za-z0-9_]* and be unique. JSON
+        Structure enum values may be arbitrary (e.g. "N/A", "KAR-MQTT", 1). This
+        sanitizes each value, resolves collisions with a numeric suffix, and returns
+        both the symbol list and a mapping of sanitized-symbol -> original-value for
+        any symbol that was changed (issue #383).
+
+        Returns:
+            tuple: (avro_symbols, symbol_mapping)
+        """
+        avro_symbols: List[str] = []
+        symbol_mapping: Dict[str, Any] = {}
+        seen = set()
+        for value in symbols:
+            base = avro_name(str(value))
+            candidate = base
+            suffix = 1
+            while candidate in seen:
+                candidate = f"{base}_{suffix}"
+                suffix += 1
+            seen.add(candidate)
+            avro_symbols.append(candidate)
+            if candidate != str(value):
+                symbol_mapping[candidate] = value
+        return avro_symbols, symbol_mapping
+
     def _convert_enum(self, schema: Dict[str, Any], namespace: Optional[str], name: str) -> Dict[str, Any]:
         """Convert JSON Structure enum to Avro enum."""
+        avro_symbols, symbol_mapping = self._sanitize_enum_symbols(schema['enum'])
         avro_enum: Dict[str, Any] = {
             'type': 'enum',
             'name': name,
-            'symbols': schema['enum']
+            'symbols': avro_symbols
         }
         
         if namespace:
             avro_enum['namespace'] = namespace
         
+        doc_parts = []
         if 'description' in schema:
-            avro_enum['doc'] = schema['description']
+            doc_parts.append(schema['description'])
+        if symbol_mapping:
+            doc_parts.append(
+                'Original enum values (Avro symbol -> wire value): '
+                + json.dumps(symbol_mapping))
+        if doc_parts:
+            avro_enum['doc'] = ' '.join(doc_parts)
         
         if 'default' in schema:
-            avro_enum['default'] = schema['default']
+            original_values = list(schema['enum'])
+            if schema['default'] in original_values:
+                avro_enum['default'] = avro_symbols[original_values.index(schema['default'])]
         
         return avro_enum
     
@@ -519,11 +576,12 @@ class JsonStructureToAvro:
             # Build enum type for discriminator
             enum_name = f'{name}Type'
             choice_names = list(choices.keys())
+            discriminator_symbols, _ = self._sanitize_enum_symbols(choice_names)
             
             discriminator_enum: Dict[str, Any] = {
                 'type': 'enum',
                 'name': enum_name,
-                'symbols': choice_names
+                'symbols': discriminator_symbols
             }
             
             if namespace:
@@ -618,7 +676,7 @@ class JsonStructureToAvro:
         return avro_record
     
     def _convert_any(self, schema: Dict[str, Any], namespace: Optional[str], name: str) -> Dict[str, Any]:
-        """Convert JSON Structure 'any' type to Avro union of all basic types."""
+        """Convert JSON Structure 'any' type to Avro union of all basic types plus extensible record."""
         avro_record: Dict[str, Any] = {
             'type': 'record',
             'name': name
@@ -632,11 +690,10 @@ class JsonStructureToAvro:
         else:
             avro_record['doc'] = 'Any type'
         
-        # In Avro, 'any' can be represented as a union of all basic types
-        # or as a string containing JSON
+        # Use the generic_type() which includes primitives, AnyValue record, arrays, and maps
         avro_record['fields'] = [{
             'name': 'value',
-            'type': ['null', 'boolean', 'int', 'long', 'float', 'double', 'string', 'bytes']
+            'type': generic_type(name=any_value_name(name, 'value'))
         }]
         
         return avro_record
@@ -671,13 +728,55 @@ class JsonStructureToAvro:
         
         return avro_record
     
-    def _convert_type_reference(self, schema: Union[Dict[str, Any], str]) -> Union[str, Dict[str, Any], List]:
+    def _convert_union_member(self, member: Union[Dict[str, Any], str]) -> Union[str, Dict[str, Any], List]:
+        """Convert a single member of a JSON Structure union type.
+
+        Members are usually primitive type names, but a union may also list the
+        loose container names ``"object"`` and ``"array"`` (open, untyped). A
+        bare ``"object"``/``"array"`` is not a valid Avro type, so map them to
+        their canonical open Avro forms (string-valued map / string-element
+        array), consistent with how inline open objects are handled (#336).
+        """
+        if isinstance(member, str):
+            if member == 'object':
+                return {'type': 'map', 'values': 'string'}
+            if member == 'array':
+                return {'type': 'array', 'items': 'string'}
+            return self._map_primitive_type(member)
+        return self._convert_type_reference(member)
+
+    def _anonymous_object_name(self, name_hint: Optional[str]) -> str:
+        """Generate a valid, unique Avro record name for an inline object.
+
+        Prefers a name derived from the enclosing property (``name_hint``) so
+        that output is readable and round-trips sensibly; falls back to a
+        monotonically increasing generated name. A uniqueness suffix is added
+        when the same hint occurs more than once (e.g. like-named properties at
+        different nesting levels) to avoid Avro name redefinition errors.
+        """
+        if name_hint:
+            candidate = f"{name_hint[0].upper() + name_hint[1:]}Type"
+        else:
+            self._anon_object_counter += 1
+            candidate = f"AnonymousObject{self._anon_object_counter}"
+        unique = candidate
+        suffix = 2
+        while unique in self._generated_record_names:
+            unique = f"{candidate}_{suffix}"
+            suffix += 1
+        self._generated_record_names.add(unique)
+        return unique
+
+    def _convert_type_reference(self, schema: Union[Dict[str, Any], str], name_hint: Optional[str] = None) -> Union[str, Dict[str, Any], List]:
         """
         Convert a type reference or inline type definition.
         
         Args:
             schema: Type schema or reference
-            
+            name_hint: Optional name to use when an inline object must be
+                materialized as a named Avro record (e.g. the enclosing
+                property name). Falls back to a generated unique name.
+        
         Returns:
             Avro type (string, dict, or list for union)
         """
@@ -699,9 +798,13 @@ class JsonStructureToAvro:
         # Handle inline types
         type_value = schema.get('type')
         
+        # Handle type value that is itself a reference or complex type (e.g. {"$ref": "..."})
+        if isinstance(type_value, dict):
+            return self._convert_type_reference(type_value)
+        
         # Handle union types (type is an array like ["string", "null"])
         if isinstance(type_value, list):
-            return [self._map_primitive_type(t) if isinstance(t, str) else self._convert_type_reference(t) for t in type_value]
+            return [self._convert_union_member(t) for t in type_value]
         
         # Handle choice types
         if type_value == 'choice':
@@ -727,19 +830,44 @@ class JsonStructureToAvro:
         
         # Handle any types  
         if type_value == 'any':
-            # Return union of all basic types
-            return ['null', 'boolean', 'int', 'long', 'float', 'double', 'string', 'bytes']
+            # Return union of all basic types + extensible AnyValue record + arrays/maps
+            return generic_type()
         
         if type_value == 'array':
             return {
                 'type': 'array',
-                'items': self._convert_type_reference(schema['items'])
+                'items': self._convert_type_reference(schema['items'], name_hint=name_hint)
             }
         
         if type_value == 'map':
             return {
                 'type': 'map',
                 'values': self._convert_type_reference(schema['values'])
+            }
+        
+        # Handle object types appearing inline (i.e. not as a named $root or
+        # definition). Without this, an inline {"type": "object"} fell through
+        # to _map_primitive_type and emitted a bare "object", which is not a
+        # valid Avro type. See issue #336.
+        if type_value == 'object':
+            properties = schema.get('properties')
+            if properties:
+                # Object with a defined shape -> nested Avro record.
+                obj_name = schema.get('name') or self._anonymous_object_name(name_hint)
+                return self._convert_object(schema, None, obj_name)
+            # Open / property-less object -> Avro map. Honor an
+            # additionalProperties value type when specified, otherwise default
+            # to string (an open object carries arbitrary string-keyed values).
+            additional = schema.get('additionalProperties')
+            if isinstance(additional, dict):
+                values_type: Union[str, Dict[str, Any], List] = self._convert_type_reference(additional)
+            elif isinstance(additional, str):
+                values_type = self._map_primitive_type(additional)
+            else:
+                values_type = 'string'
+            return {
+                'type': 'map',
+                'values': values_type
             }
         
         # Handle logical types
@@ -756,8 +884,13 @@ class JsonStructureToAvro:
     def _map_primitive_type(self, struct_type: str) -> Union[str, Dict[str, Any]]:
         """Map JSON Structure primitive type to Avro primitive type.
         
-        For temporal types, returns Avrotize Schema format with string base type 
-        and logical type annotation (RFC 3339 format).
+        For temporal types, returns Avrotize Schema format with a string base type
+        and an ``rfc3339-*`` logical-type annotation carrying the RFC 3339 textual
+        value. The ``rfc3339-*`` names are NOT reserved Avro logical types, so strict
+        Avro parsers ignore the annotation and treat the value as a plain string,
+        which keeps the emitted schema valid *standard* Avro (see issue #335) while
+        Avrotize-aware tools still recognize the temporal semantics.
+        See specs/avrotize-schema.md (Logical Types).
         """
         # Simple types without logical type annotation
         simple_type_mapping = {
@@ -791,13 +924,16 @@ class JsonStructureToAvro:
             'jsonpointer': 'string',
         }
         
-        # Temporal types with Avrotize Schema string-based logical types (RFC 3339 format)
+        # Temporal types use the rfc3339-* string-based logical-type family so the
+        # output is valid *standard* Avro (rfc3339-* are not reserved Avro logical
+        # types, so strict parsers fall back to the string base) while preserving the
+        # RFC 3339 textual representation. See issue #335 and specs/avrotize-schema.md.
         temporal_type_mapping = {
-            'date': {'type': 'string', 'logicalType': 'date'},  # RFC 3339 full-date
-            'datetime': {'type': 'string', 'logicalType': 'timestamp-millis'},  # RFC 3339 date-time
-            'time': {'type': 'string', 'logicalType': 'time-millis'},  # RFC 3339 partial-time
-            'duration': {'type': 'string', 'logicalType': 'duration'},  # RFC 3339 duration
-            'timestamp': {'type': 'string', 'logicalType': 'timestamp-millis'},  # RFC 3339 date-time
+            'date': {'type': 'string', 'logicalType': 'rfc3339-date'},  # RFC 3339 full-date
+            'datetime': {'type': 'string', 'logicalType': 'rfc3339-timestamp-millis'},  # RFC 3339 date-time
+            'time': {'type': 'string', 'logicalType': 'rfc3339-time-millis'},  # RFC 3339 partial-time
+            'duration': {'type': 'string', 'logicalType': 'rfc3339-duration'},  # RFC 3339 duration
+            'timestamp': {'type': 'string', 'logicalType': 'rfc3339-timestamp-millis'},  # RFC 3339 date-time
         }
         
         # Special types with logical type annotation
@@ -820,29 +956,31 @@ class JsonStructureToAvro:
     def _map_logical_type(self, logical_type: str, base_type: Optional[str]) -> Dict[str, Any]:
         """Map JSON Structure logical type to Avro/Avrotize logical type.
         
-        Uses Avrotize Schema extensions for string-based temporal types (RFC 3339 format).
+        Temporal logical types map to the rfc3339-* string-based family so the output
+        is valid standard Avro (see issue #335 and specs/avrotize-schema.md).
         """
-        # Avrotize Schema: temporal types on string (RFC 3339 format)
+        # Avrotize Schema: temporal types on string carrying RFC 3339 text, using the
+        # rfc3339-* logical-type family (not reserved Avro names -> valid standard Avro).
         logical_mapping = {
             # Timestamps
-            'timestampMicros': {'type': 'string', 'logicalType': 'timestamp-micros'},
-            'timestampMillis': {'type': 'string', 'logicalType': 'timestamp-millis'},
-            'timestamp-micros': {'type': 'string', 'logicalType': 'timestamp-micros'},
-            'timestamp-millis': {'type': 'string', 'logicalType': 'timestamp-millis'},
+            'timestampMicros': {'type': 'string', 'logicalType': 'rfc3339-timestamp-micros'},
+            'timestampMillis': {'type': 'string', 'logicalType': 'rfc3339-timestamp-millis'},
+            'timestamp-micros': {'type': 'string', 'logicalType': 'rfc3339-timestamp-micros'},
+            'timestamp-millis': {'type': 'string', 'logicalType': 'rfc3339-timestamp-millis'},
             # Local timestamps (no timezone)
-            'localTimestampMicros': {'type': 'string', 'logicalType': 'local-timestamp-micros'},
-            'localTimestampMillis': {'type': 'string', 'logicalType': 'local-timestamp-millis'},
-            'local-timestamp-micros': {'type': 'string', 'logicalType': 'local-timestamp-micros'},
-            'local-timestamp-millis': {'type': 'string', 'logicalType': 'local-timestamp-millis'},
+            'localTimestampMicros': {'type': 'string', 'logicalType': 'rfc3339-local-timestamp-micros'},
+            'localTimestampMillis': {'type': 'string', 'logicalType': 'rfc3339-local-timestamp-millis'},
+            'local-timestamp-micros': {'type': 'string', 'logicalType': 'rfc3339-local-timestamp-micros'},
+            'local-timestamp-millis': {'type': 'string', 'logicalType': 'rfc3339-local-timestamp-millis'},
             # Date and time
-            'date': {'type': 'string', 'logicalType': 'date'},
-            'time-millis': {'type': 'string', 'logicalType': 'time-millis'},
-            'time-micros': {'type': 'string', 'logicalType': 'time-micros'},
-            'timeMillis': {'type': 'string', 'logicalType': 'time-millis'},
-            'timeMicros': {'type': 'string', 'logicalType': 'time-micros'},
+            'date': {'type': 'string', 'logicalType': 'rfc3339-date'},
+            'time-millis': {'type': 'string', 'logicalType': 'rfc3339-time-millis'},
+            'time-micros': {'type': 'string', 'logicalType': 'rfc3339-time-micros'},
+            'timeMillis': {'type': 'string', 'logicalType': 'rfc3339-time-millis'},
+            'timeMicros': {'type': 'string', 'logicalType': 'rfc3339-time-micros'},
             # Duration
-            'duration': {'type': 'string', 'logicalType': 'duration'},
-            # UUID
+            'duration': {'type': 'string', 'logicalType': 'rfc3339-duration'},
+            # UUID (valid standard Avro on a string base)
             'uuid': {'type': 'string', 'logicalType': 'uuid'},
             # Decimal (Avrotize extension: on string)
             'decimal': {'type': 'string', 'logicalType': 'decimal'},

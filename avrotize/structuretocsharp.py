@@ -8,7 +8,7 @@ import re
 from typing import Any, Dict, List, Tuple, Union, cast, Optional
 import uuid
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value, unique_name
 from avrotize.jstructtoavro import JsonStructureToAvro
 from avrotize.constants import (
     NEWTONSOFT_JSON_VERSION,
@@ -48,6 +48,8 @@ class StructureToCSharp:
         self.offers: Dict[str, Any] = {}  # Maps add-in names to property definitions from $offers
         self.needs_json_structure_converters = False  # Track if any types need JSON Structure converters
         self.discriminator_properties: Dict[str, str] = {}  # Maps type ref -> discriminator property name (for inline unions)
+        self.openapi_generator_compat = False
+        self.emitted_option_namespaces: set[str] = set()
 
     def get_qualified_name(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
@@ -394,10 +396,11 @@ class StructureToCSharp:
         # Check if any property in this class is a discriminator for an inline union
         discriminator_prop = self.discriminator_properties.get(ref, None)
         
+        property_names = self.get_csharp_property_names(properties, class_name)
         fields_str = []
-        for prop_name, prop_schema in properties.items():
+        for index, (prop_name, prop_schema) in enumerate(properties.items()):
             is_discriminator = (prop_name == discriminator_prop)
-            field_def = self.generate_property(prop_name, prop_schema, class_name, schema_namespace, required_props, is_discriminator=is_discriminator)
+            field_def = self.generate_property(prop_name, prop_schema, class_name, schema_namespace, required_props, is_discriminator=is_discriminator, property_name=property_names[index])
             fields_str.append(field_def)
         
         # Add dictionary for additional properties if needed
@@ -419,13 +422,16 @@ class StructureToCSharp:
         abstract_modifier = "abstract " if is_abstract else ""
         sealed_modifier = "sealed " if additional_props is False and not is_abstract else ""
         
-        class_definition += f"public {abstract_modifier}{sealed_modifier}partial class {class_name}\n{{\n{class_body}"
+        implements = " : System.ComponentModel.DataAnnotations.IValidatableObject" if self.openapi_generator_compat else ""
+        class_definition += f"public {abstract_modifier}{sealed_modifier}partial class {class_name}{implements}\n{{\n{class_body}"
         
         # Add default constructor (not for abstract classes with no concrete constructors)
         if not is_abstract or properties:
             class_definition += f"\n{INDENT}/// <summary>\n{INDENT}/// Default constructor\n{INDENT}/// </summary>\n"
             constructor_modifier = "protected" if is_abstract else "public"
             class_definition += f"{INDENT}{constructor_modifier} {class_name}()\n{INDENT}{{\n{INDENT}}}"
+        if self.openapi_generator_compat and properties and not is_abstract:
+            class_definition += self.generate_openapi_compat_constructor(class_name, properties, schema_namespace, required_props)
 
         # Convert JSON Structure schema to Avro schema if avro_annotation is enabled
         avro_schema_json = ''
@@ -442,7 +448,7 @@ class StructureToCSharp:
             needs_json_for_avro = not self.system_text_json_annotation and not self.newtonsoft_json_annotation
 
         # Add helper methods from template if any annotations are enabled
-        if self.system_text_json_annotation or self.newtonsoft_json_annotation or self.system_xml_annotation or self.avro_annotation:
+        if self.system_text_json_annotation or self.newtonsoft_json_annotation or self.system_xml_annotation or self.avro_annotation or self.openapi_generator_compat:
             class_definition += process_template(
                 "structuretocsharp/dataclass_core.jinja",
                 class_name=class_name,
@@ -450,7 +456,9 @@ class StructureToCSharp:
                 newtonsoft_json_annotation=self.newtonsoft_json_annotation,
                 system_xml_annotation=self.system_xml_annotation,
                 avro_annotation=self.avro_annotation,
-                avro_schema_json=avro_schema_json
+                avro_schema_json=avro_schema_json,
+                openapi_generator_compat=self.openapi_generator_compat,
+                openapi_fields=self.get_openapi_compat_fields(properties, class_name, schema_namespace, required_props, property_names)
             )
 
         # Generate Equals and GetHashCode
@@ -465,13 +473,35 @@ class StructureToCSharp:
         self.generated_structure_types[ref] = structure_schema
         return ref
 
-    def generate_property(self, prop_name: str, prop_schema: Dict, class_name: str, parent_namespace: str, required_props: List, is_discriminator: bool = False) -> str:
+    def get_csharp_property_names(self, properties: Dict, class_name: str) -> List[str]:
+        """Returns unique C# property names for the properties in a class."""
+        used: set[str] = set()
+        property_names: List[str] = []
+        for prop_name in properties.keys():
+            safe_name = self.safe_identifier(prop_name, class_name)
+            if self.openapi_generator_compat:
+                candidate = self.get_openapi_property_name(safe_name, class_name)
+                property_names.append(re.sub(r'_(\d+)$', r'\1', unique_name(candidate, used)))
+            elif self.pascal_properties:
+                candidate = pascal(safe_name.lstrip('@'))
+                if self.is_csharp_reserved_word(candidate):
+                    candidate = f"@{candidate}"
+                if candidate == class_name:
+                    candidate += "_"
+                property_names.append(unique_name(candidate, used))
+            else:
+                property_names.append(unique_name(safe_name, used))
+        return property_names
+
+    def generate_property(self, prop_name: str, prop_schema: Dict, class_name: str, parent_namespace: str, required_props: List, is_discriminator: bool = False, property_name: str | None = None) -> str:
         """ Generates a property for a class """
         property_definition = ''
         
         # Resolve property name using safe_identifier for special chars, numeric prefixes, etc.
         field_name = self.safe_identifier(prop_name, class_name)
-        if self.pascal_properties:
+        if property_name is not None:
+            field_name_cs = property_name
+        elif self.pascal_properties:
             field_name_cs = pascal(field_name.lstrip('@'))
             # Re-check for class name collision after pascal casing
             if field_name_cs == class_name:
@@ -479,8 +509,9 @@ class StructureToCSharp:
         else:
             field_name_cs = field_name
         
-        # Track if field name differs from original for JSON annotation
-        needs_json_annotation = field_name_cs != prop_name
+        # JSON wire key honors JSON Structure altnames.json; annotate when it differs
+        wire_name = json_wire_name(prop_name, prop_schema)
+        needs_json_annotation = field_name_cs != wire_name
         
         # Check if this is a const field
         if 'const' in prop_schema:
@@ -498,9 +529,9 @@ class StructureToCSharp:
             # Add JSON property name annotation when property name differs from schema name
             # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
             if needs_json_annotation:
-                property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
+                property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{wire_name}")]\n'
             if self.newtonsoft_json_annotation and needs_json_annotation:
-                property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
+                property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{wire_name}")]\n'
             
             # Add XML element annotation if enabled
             if self.system_xml_annotation:
@@ -521,6 +552,9 @@ class StructureToCSharp:
         # Add nullable marker if not required and not already nullable
         if not is_required and not prop_type.endswith('?') and not prop_type.startswith('List<') and not prop_type.startswith('HashSet<') and not prop_type.startswith('Dictionary<'):
             prop_type += '?'
+
+        if self.openapi_generator_compat:
+            return self.generate_openapi_compat_property(prop_name, prop_schema, prop_type, field_name_cs, is_required, class_name)
         
         # Generate documentation
         doc = prop_schema.get('description', prop_schema.get('doc', field_name_cs))
@@ -533,9 +567,9 @@ class StructureToCSharp:
         # Add JSON property name annotation when property name differs from schema name
         # This is needed for proper JSON serialization/deserialization, especially with pascal_properties
         elif needs_json_annotation:
-            property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{prop_name}")]\n'
+            property_definition += f'{INDENT}[System.Text.Json.Serialization.JsonPropertyName("{wire_name}")]\n'
         if self.newtonsoft_json_annotation and needs_json_annotation:
-            property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{prop_name}")]\n'
+            property_definition += f'{INDENT}[Newtonsoft.Json.JsonProperty("{wire_name}")]\n'
         
         # Add XML element annotation if enabled
         if self.system_xml_annotation:
@@ -665,6 +699,82 @@ class StructureToCSharp:
         
         return property_definition
 
+    def get_openapi_property_name(self, field_name: str, class_name: str) -> str:
+        """Returns the OpenAPI Generator-style C# property name."""
+        name = field_name[1:] if field_name.startswith('@') else field_name
+        property_name = pascal(name)
+        if property_name == class_name:
+            property_name += "_"
+        return property_name
+
+    def generate_openapi_compat_property(self, prop_name: str, prop_schema: Dict, prop_type: str, field_name_cs: str, is_required: bool, class_name: str) -> str:
+        """Generates an OpenAPI Generator-compatible property."""
+        property_name = field_name_cs
+        doc = prop_schema.get('description', prop_schema.get('doc', property_name))
+        prop = f"{INDENT}/// <summary>\n{INDENT}/// {doc}\n{INDENT}/// </summary>\n"
+        if not is_required:
+            option_name = f"{property_name}Option"
+            prop += f"{INDENT}[System.Text.Json.Serialization.JsonIgnore]\n"
+            prop += f"{INDENT}public Option<{prop_type}> {option_name} {{ get; private set; }}\n"
+            prop += f"{INDENT}[System.Text.Json.Serialization.JsonPropertyName(\"{prop_name}\")]\n"
+            prop += f"{INDENT}public {prop_type} {property_name} {{ get => {option_name}; set => {option_name} = new(value); }}\n"
+        else:
+            initialization = ""
+            if prop_type == "string":
+                initialization = " = string.Empty;"
+            elif prop_type.startswith("List<") or prop_type.startswith("HashSet<") or prop_type.startswith("Dictionary<"):
+                initialization = " = new();"
+            elif prop_type.startswith("global::") and not self.is_csharp_primitive_type(prop_type):
+                initialization = " = new();"
+            prop += f"{INDENT}[System.Text.Json.Serialization.JsonPropertyName(\"{prop_name}\")]\n"
+            prop += f"{INDENT}public {prop_type} {property_name} {{ get; set; }}{initialization}\n"
+        return prop
+
+    def is_openapi_required_property(self, prop_name: str, required_props: List) -> bool:
+        """Returns true if a JSON Structure property is required."""
+        return prop_name in required_props if not isinstance(required_props, list) or len(required_props) == 0 or not isinstance(required_props[0], list) else any(prop_name in req_set for req_set in required_props)
+
+    def get_openapi_compat_fields(self, properties: Dict, class_name: str, parent_namespace: str, required_props: List, property_names: List[str] | None = None) -> List[Dict[str, Any]]:
+        """Builds template metadata for OpenAPI Generator-compatible converters."""
+        if property_names is None:
+            property_names = self.get_csharp_property_names(properties, class_name)
+        result: List[Dict[str, Any]] = []
+        for index, (prop_name, prop_schema) in enumerate(properties.items()):
+            safe_name = self.safe_identifier(prop_name, class_name)
+            prop_type = self.convert_structure_type_to_csharp(class_name, safe_name, prop_schema, parent_namespace)
+            is_required = self.is_openapi_required_property(prop_name, required_props)
+            if not is_required and not prop_type.endswith('?') and not prop_type.startswith('List<') and not prop_type.startswith('HashSet<') and not prop_type.startswith('Dictionary<'):
+                prop_type += '?'
+            property_name = property_names[index]
+            result.append({
+                "wire_name": prop_name,
+                "property_name": property_name,
+                "option_name": f"{property_name}Option",
+                "type": prop_type,
+                "is_optional": not is_required
+            })
+        return result
+
+    def generate_openapi_compat_constructor(self, class_name: str, properties: Dict, parent_namespace: str, required_props: List) -> str:
+        """Generates an OpenAPI Generator-compatible all-properties constructor."""
+        openapi_fields = self.get_openapi_compat_fields(properties, class_name, parent_namespace, required_props)
+        parameters = []
+        assignments = []
+        for field in openapi_fields:
+            parameter_name = field["property_name"][0].lower() + field["property_name"][1:]
+            if field["is_optional"]:
+                parameters.append(f"Option<{field['type']}> {parameter_name}")
+                assignments.append(f"{INDENT*2}{field['option_name']} = {parameter_name};")
+            else:
+                parameters.append(f"{field['type']} {parameter_name}")
+                assignments.append(f"{INDENT*2}{field['property_name']} = {parameter_name};")
+        return (
+            f"\n\n{INDENT}/// <summary>\n{INDENT}/// Initializes a new instance with all properties.\n{INDENT}/// </summary>\n"
+            f"{INDENT}public {class_name}({', '.join(parameters)})\n{INDENT}{{\n"
+            + "\n".join(assignments) +
+            f"\n{INDENT}}}"
+        )
+
     def format_default_value(self, value: Any, csharp_type: str) -> str:
         """ Formats a default value for C# """
         if value is None:
@@ -765,7 +875,7 @@ class StructureToCSharp:
             enum_definition += f"{INDENT*2}{{\n"
             for value in enum_values:
                 member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                enum_definition += f'{INDENT*3}"{value}" => {enum_name}.{member_name},\n'
+                enum_definition += f'{INDENT*3}"{json_enum_wire_value(value, structure_schema)}" => {enum_name}.{member_name},\n'
             enum_definition += f'{INDENT*3}_ => throw new System.Text.Json.JsonException($"Unknown value \'{{stringValue}}\' for {enum_name}")\n'
             enum_definition += f"{INDENT*2}}};\n"
         
@@ -783,7 +893,7 @@ class StructureToCSharp:
             enum_definition += f"{INDENT*2}{{\n"
             for value in enum_values:
                 member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{value}",\n'
+                enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{json_enum_wire_value(value, structure_schema)}",\n'
             enum_definition += f'{INDENT*3}_ => throw new System.ArgumentOutOfRangeException(nameof(value))\n'
             enum_definition += f"{INDENT*2}}};\n"
             enum_definition += f"{INDENT*2}writer.WriteStringValue(stringValue);\n"
@@ -813,7 +923,7 @@ class StructureToCSharp:
                 enum_definition += f"{INDENT*2}{{\n"
                 for value in enum_values:
                     member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                    enum_definition += f'{INDENT*3}"{value}" => {enum_name}.{member_name},\n'
+                    enum_definition += f'{INDENT*3}"{json_enum_wire_value(value, structure_schema)}" => {enum_name}.{member_name},\n'
                 enum_definition += f'{INDENT*3}_ => throw new Newtonsoft.Json.JsonException($"Unknown value \'{{stringValue}}\' for {enum_name}")\n'
                 enum_definition += f"{INDENT*2}}};\n"
             
@@ -831,7 +941,7 @@ class StructureToCSharp:
                 enum_definition += f"{INDENT*2}{{\n"
                 for value in enum_values:
                     member_name = pascal(str(value).replace('-', '_').replace(' ', '_'))
-                    enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{value}",\n'
+                    enum_definition += f'{INDENT*3}{enum_name}.{member_name} => "{json_enum_wire_value(value, structure_schema)}",\n'
                 enum_definition += f'{INDENT*3}_ => throw new System.ArgumentOutOfRangeException(nameof(value))\n'
                 enum_definition += f"{INDENT*2}}};\n"
                 enum_definition += f"{INDENT*2}writer.WriteValue(stringValue);\n"
@@ -1487,14 +1597,9 @@ class StructureToCSharp:
         
         # Build equality comparisons for each non-const property
         equality_checks = []
-        for prop_name, prop_schema in non_const_properties.items():
-            field_name = prop_name
-            if self.is_csharp_reserved_word(field_name):
-                field_name = f"@{field_name}"
-            if self.pascal_properties:
-                field_name = pascal(field_name)
-            if field_name == class_name:
-                field_name += "_"
+        property_names = self.get_csharp_property_names(non_const_properties, class_name)
+        for index, (prop_name, prop_schema) in enumerate(non_const_properties.items()):
+            field_name = property_names[index]
             
             field_type = self.convert_structure_type_to_csharp(class_name, field_name, prop_schema, parent_namespace)
             
@@ -1537,14 +1642,8 @@ class StructureToCSharp:
         
         # Collect field names for HashCode.Combine (skip const fields)
         hash_fields = []
-        for prop_name, prop_schema in non_const_properties.items():
-            field_name = prop_name
-            if self.is_csharp_reserved_word(field_name):
-                field_name = f"@{field_name}"
-            if self.pascal_properties:
-                field_name = pascal(field_name)
-            if field_name == class_name:
-                field_name += "_"
+        for index, (prop_name, prop_schema) in enumerate(non_const_properties.items()):
+            field_name = property_names[index]
             
             field_type = self.convert_structure_type_to_csharp(class_name, field_name, prop_schema, parent_namespace)
             
@@ -1580,15 +1679,19 @@ class StructureToCSharp:
             self.output_dir, os.path.join('src', namespace.replace('.', os.sep)))
         if not os.path.exists(directory_path):
             os.makedirs(directory_path, exist_ok=True)
+        if self.openapi_generator_compat:
+            self.write_openapi_option_file(namespace)
         file_path = os.path.join(directory_path, f"{name}.cs")
 
         with open(file_path, 'w', encoding='utf-8') as file:
             # Common using statements (add more as needed)
             file_content = "using System;\nusing System.Collections.Generic;\n"
             file_content += "using System.Linq;\n"
-            if self.system_text_json_annotation:
+            if self.system_text_json_annotation or self.openapi_generator_compat:
                 file_content += "using System.Text.Json;\n"
                 file_content += "using System.Text.Json.Serialization;\n"
+            if self.openapi_generator_compat:
+                file_content += "using System.ComponentModel.DataAnnotations;\n"
             if self.newtonsoft_json_annotation:
                 file_content += "using Newtonsoft.Json;\n"
             if self.system_xml_annotation:  # Add XML serialization using directive
@@ -1606,6 +1709,35 @@ class StructureToCSharp:
                 file_content += f"{indented_definition}\n}}"
             else:
                 file_content += definition
+            file.write(file_content)
+
+    def write_openapi_option_file(self, namespace: str) -> None:
+        """Writes the reusable Option<T> type for OpenAPI Generator-compatible output."""
+        if namespace in self.emitted_option_namespaces:
+            return
+        self.emitted_option_namespaces.add(namespace)
+        directory_path = os.path.join(self.output_dir, os.path.join('src', namespace.replace('.', os.sep)))
+        os.makedirs(directory_path, exist_ok=True)
+        file_path = os.path.join(directory_path, "Option.cs")
+        file_content = (
+            "using System;\n\n"
+            f"namespace {namespace}\n{{\n"
+            f"{INDENT}/// <summary>\n"
+            f"{INDENT}/// Represents an optional value that distinguishes unset from explicit null/default.\n"
+            f"{INDENT}/// </summary>\n"
+            f"{INDENT}public readonly struct Option<T>\n{INDENT}{{\n"
+            f"{INDENT*2}public bool IsSet {{ get; }}\n"
+            f"{INDENT*2}public T Value {{ get; }}\n\n"
+            f"{INDENT*2}public Option(T value)\n{INDENT*2}{{\n"
+            f"{INDENT*3}IsSet = true;\n"
+            f"{INDENT*3}Value = value;\n"
+            f"{INDENT*2}}}\n\n"
+            f"{INDENT*2}public static implicit operator Option<T>(T value) => new(value);\n"
+            f"{INDENT*2}public static implicit operator T(Option<T> option) => option.Value;\n"
+            f"{INDENT}}}\n"
+            "}"
+        )
+        with open(file_path, 'w', encoding='utf-8') as file:
             file.write(file_content)
 
     def convert(self, structure_schema_path: str, output_dir: str) -> None:
@@ -2254,15 +2386,10 @@ class StructureToCSharp:
 
         fields: List[Field] = []
         if structure_schema and 'properties' in structure_schema:
-            for prop_name, prop_schema in cast(Dict[str, Dict], structure_schema['properties']).items():
-                field_name = prop_name
-                if self.pascal_properties:
-                    field_name = pascal(field_name)
-                if field_name == class_name:
-                    field_name += "_"
-                if self.is_csharp_reserved_word(field_name):
-                    field_name = f"@{field_name}"
-                
+            properties = cast(Dict[str, Dict], structure_schema['properties'])
+            property_names = self.get_csharp_property_names(properties, class_name)
+            for index, (prop_name, prop_schema) in enumerate(properties.items()):
+                field_name = property_names[index]
                 field_type = self.convert_structure_type_to_csharp(
                     class_name, field_name, prop_schema, str(structure_schema.get('namespace', '')))
                 is_class = field_type in self.generated_types and self.generated_types[field_type] == "class"
@@ -2383,7 +2510,8 @@ def convert_structure_to_csharp(
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,
-    avro_annotation: bool = False
+    avro_annotation: bool = False,
+    openapi_generator_compat: bool = False
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2397,6 +2525,7 @@ def convert_structure_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
+        openapi_generator_compat (bool, optional): Generate OpenAPI Generator-compatible C# models. Defaults to False.
     """
 
     if not base_namespace:
@@ -2409,6 +2538,7 @@ def convert_structure_to_csharp(
     structtocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
+    structtocs.openapi_generator_compat = openapi_generator_compat
     structtocs.convert(structure_schema_path, cs_file_path)
 
 
@@ -2421,7 +2551,8 @@ def convert_structure_schema_to_csharp(
     system_text_json_annotation: bool = False, 
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,
-    avro_annotation: bool = False
+    avro_annotation: bool = False,
+    openapi_generator_compat: bool = False
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2443,4 +2574,5 @@ def convert_structure_schema_to_csharp(
     structtocs.newtonsoft_json_annotation = newtonsoft_json_annotation
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
+    structtocs.openapi_generator_compat = openapi_generator_compat
     structtocs.convert_schema(structure_schema, output_dir)
