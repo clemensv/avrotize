@@ -12,7 +12,7 @@ import jsonpointer
 from jsonpointer import JsonPointerException
 import requests
 
-from avrotize.common import avro_name, avro_namespace, find_schema_node, generic_type, set_schema_node
+from avrotize.common import avro_name, avro_namespace, deduplicate_any_value_record, find_schema_node, generic_type, set_schema_node
 from avrotize.dependency_resolver import inline_dependencies_of, sort_messages_by_dependencies
 
 primitive_types = ['null', 'string', 'int',
@@ -591,14 +591,16 @@ class JsonToAvroConverter:
 
         # if you've got { 'type': 'string', 'format': ['date-time', 'duration'] }, I'm sorry
         if format and isinstance(format, str):
-            if format in ('date-time', 'date'):
+            if format == 'date-time':
+                avro_primitive = {'type': 'long', 'logicalType': 'timestamp-millis'}
+            elif format == 'date':
                 avro_primitive = {'type': 'int', 'logicalType': 'date'}
-            elif format in ('time'):
+            elif format == 'time':
                 avro_primitive = {'type': 'int', 'logicalType': 'time-millis'}
-            elif format in ('duration'):
+            elif format == 'duration':
                 avro_primitive = {'type': 'fixed',
                                   'size': 12, 'logicalType': 'duration'}
-            elif format in ('uuid'):
+            elif format == 'uuid':
                 avro_primitive = {'type': 'string', 'logicalType': 'uuid'}
 
         return avro_primitive
@@ -1357,7 +1359,14 @@ class JsonToAvroConverter:
         if isinstance(avro_type, dict) and 'type' in avro_type and (isinstance(avro_type, list) or not avro_type['type'] in ['array', 'map', 'record', 'enum', 'fixed']):
             if 'dependencies' in avro_type:
                 dependencies.extend(avro_type['dependencies'])
-            avro_type = avro_type['type']
+            # Preserve logical-type annotations (e.g. timestamp-millis, date,
+            # time-millis, uuid). Collapsing these to the bare base type would
+            # silently discard the logical meaning (and, for date-time, the
+            # required 64-bit width). See issue #337.
+            if 'logicalType' in avro_type:
+                avro_type = {k: v for k, v in avro_type.items() if k != 'dependencies'}
+            else:
+                avro_type = avro_type['type']
         return avro_type
 
     def register_type(self, avro_schema, avro_type) -> bool:
@@ -1733,8 +1742,9 @@ class JsonToAvroConverter:
                             # None type is a problem
                             raise ValueError(
                                 f"avro_field_type is None for field {field_name}")
-                        if isinstance(avro_field_type, dict) and 'type' in avro_field_type and not self.is_avro_complex_type(avro_field_type):
+                        if isinstance(avro_field_type, dict) and 'type' in avro_field_type and 'logicalType' not in avro_field_type and not self.is_avro_complex_type(avro_field_type):
                             # if the field type is a basic type, inline it
+                            # (logical types are kept intact, see issue #337)
                             avro_field_type = avro_field_type['type']
                         field_type_list.append(avro_field_type)
                         field_ref_type_list.append(avro_field_ref_type)
@@ -2124,6 +2134,8 @@ class JsonToAvroConverter:
         # drop the file name from the parsed URL to get the base URI
         avro_schema = self.jsons_to_avro(
             json_schema, namespace, parsed_url.geturl())
+        # Deduplicate AnyValue record definitions (keep only the first one)
+        deduplicate_any_value_record(avro_schema)
         if len(avro_schema) == 1:
             avro_schema = avro_schema[0]
 

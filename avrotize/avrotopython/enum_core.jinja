@@ -9,7 +9,7 @@ class {{ class_name }}(Enum):
     {{ docstring }}
     """
     {%- for symbol in symbols %}
-    {{ symbol }} = '{{symbol}}'
+    {{ symbol.name }} = {{ symbol.value_literal }}
     {%- endfor %}
 
     @classmethod

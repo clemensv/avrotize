@@ -1,0 +1,26 @@
+DEFINE TABLE person SCHEMAFULL TYPE NORMAL;
+DEFINE FIELD id ON TABLE person TYPE record<person> COMMENT 'record id';
+DEFINE FIELD name ON TABLE person TYPE string;
+DEFINE FIELD age ON TABLE person TYPE option<int> DEFAULT NULL;
+DEFINE FIELD score ON TABLE person TYPE float;
+DEFINE FIELD price ON TABLE person TYPE decimal;
+DEFINE FIELD active ON TABLE person TYPE bool;
+DEFINE FIELD created_at ON TABLE person TYPE datetime;
+DEFINE FIELD elapsed ON TABLE person TYPE duration;
+DEFINE FIELD external_id ON TABLE person TYPE uuid;
+DEFINE FIELD payload ON TABLE person TYPE bytes;
+DEFINE FIELD address ON TABLE person TYPE object FLEXIBLE;
+DEFINE FIELD address.city ON TABLE person TYPE string;
+DEFINE FIELD address.zip ON TABLE person TYPE int;
+DEFINE FIELD tags ON TABLE person TYPE array<string>;
+DEFINE FIELD roles ON TABLE person TYPE set<string>;
+DEFINE FIELD phones[*].kind ON TABLE person TYPE string;
+DEFINE FIELD phones[*].number ON TABLE person TYPE string;
+DEFINE FIELD shape ON TABLE person TYPE geometry;
+
+DEFINE TABLE order SCHEMALESS;
+DEFINE FIELD order_id ON TABLE order TYPE uuid;
+DEFINE FIELD customer ON TABLE order TYPE record<person>;
+DEFINE FIELD lines ON TABLE order TYPE array<object>;
+DEFINE FIELD lines[*].sku ON TABLE order TYPE string;
+DEFINE FIELD lines[*].qty ON TABLE order TYPE int;

@@ -7,6 +7,6 @@ type {{ enum_name }} {{ base_type }}
 
 const (
 {%- for symbol in symbols %}
-    {{ enum_name }}_{{ symbol }} {{ enum_name }} = {% if base_type == 'string' %}"{{ symbol }}"{% else %}{{ loop.index0 }}{% endif %}
+    {{ enum_name }}_{{ symbol.name }} {{ enum_name }} = {% if base_type == 'string' %}"{{ symbol.value }}"{% else %}{{ loop.index0 }}{% endif %}
 {%- endfor %}
 )
