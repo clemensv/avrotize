@@ -8,7 +8,7 @@ import random
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -356,7 +356,7 @@ class StructureToTypeScript:
                 source_type = 'object'
             fields.append({
                 'name': self.safe_name(prop_name),
-                'original_name': prop_name,
+                'original_name': json_wire_name(prop_name, prop_schema),
                 'type': field_type,
                 'type_no_null': field_type_no_null,
                 'source_type': source_type,
@@ -421,7 +421,8 @@ class StructureToTypeScript:
         if typescript_qualified_name in self.generated_types:
             return typescript_qualified_name
 
-        symbols = structure_schema.get('enum', [])
+        raw_symbols = structure_schema.get('enum', [])
+        symbols = [{'name': str(s), 'value': json_enum_wire_value(s, structure_schema)} for s in raw_symbols]
         
         enum_definition = process_template(
             "structuretots/enum_core.ts.jinja",

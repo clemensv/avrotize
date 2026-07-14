@@ -60,6 +60,24 @@ def avro_namespace(name):
     return val
 
 
+def unique_name(candidate: str, used: set) -> str:
+    """Return a name unique within ``used``, suffixing ``_1``, ``_2``, ... on collision.
+
+    This disambiguates distinct source names that collapse to the same identifier
+    after sanitization (e.g. ``a-b`` and ``a_b`` both become ``a_b``). The chosen
+    name is added to ``used`` so repeated calls keep producing fresh names.
+    """
+    if candidate not in used:
+        used.add(candidate)
+        return candidate
+    index = 1
+    while f"{candidate}_{index}" in used:
+        index += 1
+    result = f"{candidate}_{index}"
+    used.add(result)
+    return result
+
+
 ANY_VALUE_RECORD: dict = {
     "type": "record",
     "name": "AnyValue",
@@ -828,6 +846,52 @@ def altname(schema_obj: dict, purpose: str):
     if "altnames" in schema_obj and purpose in schema_obj["altnames"]:
         return schema_obj["altnames"][purpose]
     return schema_obj["name"]
+
+
+def json_wire_name(prop_name: str, prop_schema: Any) -> str:
+    """
+    Resolve the JSON wire key for a property, honoring JSON Structure ``altnames.json``.
+
+    JSON Structure requires property keys to be identifiers. A non-identifier wire key
+    (e.g. ``dr-type``) is modeled as an identifier property name (``dr_type``) carrying
+    ``altnames: {"json": "dr-type"}``. The ``json`` purpose is the canonical wire name.
+
+    Args:
+        prop_name (str): The property name (identifier) used as the schema key.
+        prop_schema (Any): The property schema; may carry an ``altnames`` map.
+
+    Returns:
+        str: ``altnames.json`` when present, otherwise ``prop_name``.
+    """
+    if isinstance(prop_schema, dict):
+        altnames = prop_schema.get("altnames")
+        if isinstance(altnames, dict) and "json" in altnames:
+            return altnames["json"]
+    return prop_name
+
+
+def json_enum_wire_value(value: Any, enum_schema: Any) -> str:
+    """
+    Resolve the JSON wire string for an enum value, honoring JSON Structure ``altenums.json``.
+
+    ``altenums.json`` is a map keyed by the original enum value; the language member name
+    stays derived from the original value, while the wire value uses the mapping when present.
+    Unmapped values serialize verbatim (identity fallback).
+
+    Args:
+        value: The original enum value (schema key).
+        enum_schema (Any): The enum schema; may carry an ``altenums`` map.
+
+    Returns:
+        str: ``altenums.json[value]`` when present, otherwise ``str(value)``.
+    """
+    if isinstance(enum_schema, dict):
+        altenums = enum_schema.get("altenums")
+        if isinstance(altenums, dict):
+            j = altenums.get("json")
+            if isinstance(j, dict) and str(value) in j:
+                return j[str(value)]
+    return str(value)
 
 
 def process_template(file_path: str, **kvargs) -> str:

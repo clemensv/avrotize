@@ -252,6 +252,48 @@ def test_convert_structure_with_wrapped_nullable_types_to_kusto():
     assert "_cloudevents_dispatch | where (specversion == '1.0' and type == 'WrappedTypes')" in kql
 
 
+def test_convert_structure_with_non_identifier_names_to_kusto():
+    """Issue #382: non-identifier property keys must be bracket/quote-escaped."""
+    schema = {
+        "$schema": "https://json-structure.org/meta/extended/v0/#",
+        "$id": "https://example.com/test/non-identifier-names",
+        "type": "object",
+        "name": "Ev",
+        "properties": {
+            "dr-type": {"type": "string"},
+            "1": {"type": "int32"},
+            "status": {"type": "string"},
+        },
+    }
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        struct_path = os.path.join(temp_dir, "non-identifier.struct.json")
+        kql_path = os.path.join(temp_dir, "non-identifier.kql")
+        with open(struct_path, "w", encoding="utf-8") as struct_file:
+            json.dump(schema, struct_file)
+        convert_structure_to_kusto_file(struct_path, "Ev", kql_path, True, True)
+        with open(kql_path, "r", encoding="utf-8") as kql_file:
+            kql = kql_file.read()
+
+    # Non-identifier columns are quoted; clean identifiers keep the bare form.
+    assert "['dr-type']: string" in kql
+    assert "['1']: int" in kql
+    assert "[status]: string" in kql
+    # Ingestion-mapping JSONPaths use bracket notation for non-identifier keys.
+    assert '"path": "$[\'dr-type\']"' in kql
+    assert '"path": "$[\'1\']"' in kql
+    assert '"path": "$.status"' in kql
+    # The mapping column values stay the plain (unbracketed) column names.
+    assert '"column": "dr-type"' in kql
+    # CloudEvents structured mapping also bracket-escapes under $.data.
+    assert '"path": "$.data[\'dr-type\']"' in kql
+    # All fenced JSON blocks must remain valid JSON.
+    blocks = re.findall(r'```\n(.*?)\n```', kql, re.DOTALL)
+    assert len(blocks) > 0
+    for block in blocks:
+        json.loads(block.strip())
+
+
 def convert_case(file_base_name: str, emit_cloudevents_columns, emit_cloudevents_dispatch_table):
     """Convert a JSON Structure schema to Kusto query language"""
     cwd = os.getcwd()

@@ -1,0 +1,63 @@
+{
+    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$id": "https://example.com/schemas/example/capnp/PrimitiveSample",
+    "name": "PrimitiveSample",
+    "$root": "#/definitions/example/capnp/PrimitiveSample",
+    "definitions": {
+        "example": {
+            "capnp": {
+                "PrimitiveSample": {
+                    "name": "PrimitiveSample",
+                    "type": "object",
+                    "properties": {
+                        "voidField": {
+                            "type": "null"
+                        },
+                        "boolField": {
+                            "type": "boolean"
+                        },
+                        "int8Field": {
+                            "type": "int32"
+                        },
+                        "int16Field": {
+                            "type": "int32"
+                        },
+                        "int32Field": {
+                            "type": "int32"
+                        },
+                        "int64Field": {
+                            "type": "int64"
+                        },
+                        "uint8Field": {
+                            "type": "int64"
+                        },
+                        "uint16Field": {
+                            "type": "int64"
+                        },
+                        "uint32Field": {
+                            "type": "int64"
+                        },
+                        "uint64Field": {
+                            "type": "int64"
+                        },
+                        "float32Field": {
+                            "type": "float"
+                        },
+                        "float64Field": {
+                            "type": "double"
+                        },
+                        "textField": {
+                            "type": "string"
+                        },
+                        "dataField": {
+                            "type": "binary"
+                        }
+                    },
+                    "required": [
+                        "voidField"
+                    ]
+                }
+            }
+        }
+    }
+}

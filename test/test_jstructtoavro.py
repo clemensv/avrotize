@@ -1231,5 +1231,141 @@ class TestInlineObjectConversion(unittest.TestCase):
                 self._assert_no_bare_object_type(result)
 
 
+class TestNameSanitization(unittest.TestCase):
+    """Issues #382 / #383: sanitize non-identifier property and enum-symbol names."""
+
+    def setUp(self):
+        self.converter = JsonStructureToAvro()
+
+    @staticmethod
+    def _assert_parses_strict(schema):
+        """Parse with the reference avro lib (strict on enum symbols) and fastavro."""
+        import avro.schema as avro_schema
+        from fastavro.schema import parse_schema
+        import copy
+        avro_schema.parse(json.dumps(schema))
+        parse_schema(copy.deepcopy(schema))
+
+    def test_hyphenated_field_names_get_sanitized_with_aliases(self):
+        """Property keys like 'dr-type' become valid Avro names with the original as alias."""
+        structure = {
+            "$schema": "https://json-structure.org/meta/core/v0/#",
+            "$id": "https://example.com/repro/382",
+            "name": "Ev",
+            "type": "object",
+            "properties": {
+                "dr-type": {"type": "string"},
+                "kar.id": {"type": "string"},
+            },
+            "required": ["dr-type", "kar.id"],
+        }
+        result = self.converter.convert(structure)
+        self._assert_parses_strict(result)
+        fields = {f['name']: f for f in result['fields']}
+        self.assertIn('dr_type', fields)
+        self.assertIn('kar_id', fields)
+        self.assertEqual(fields['dr_type'].get('aliases'), ['dr-type'])
+        self.assertEqual(fields['kar_id'].get('aliases'), ['kar.id'])
+
+    def test_numeric_field_name_prefixed(self):
+        """A numeric property key like '1' becomes '_1' with the original aliased."""
+        structure = {
+            "$schema": "https://json-structure.org/meta/core/v0/#",
+            "$id": "https://example.com/repro/382num",
+            "name": "Ev",
+            "type": "object",
+            "properties": {"1": {"type": "int32"}},
+            "required": ["1"],
+        }
+        result = self.converter.convert(structure)
+        self._assert_parses_strict(result)
+        field = result['fields'][0]
+        self.assertEqual(field['name'], '_1')
+        self.assertEqual(field.get('aliases'), ['1'])
+
+    def test_clean_field_name_has_no_alias(self):
+        """Identifier property keys are emitted verbatim with no spurious alias."""
+        structure = {
+            "$schema": "https://json-structure.org/meta/core/v0/#",
+            "$id": "https://example.com/repro/clean",
+            "name": "Ev",
+            "type": "object",
+            "properties": {"status": {"type": "string"}},
+            "required": ["status"],
+        }
+        result = self.converter.convert(structure)
+        self._assert_parses_strict(result)
+        field = result['fields'][0]
+        self.assertEqual(field['name'], 'status')
+        self.assertNotIn('aliases', field)
+
+    def _root_enum(self, values, default=None):
+        schema = {
+            "$schema": "https://json-structure.org/meta/extended/v0/#",
+            "$id": "urn:repro:bad-enum",
+            "name": "BadEnum",
+            "$root": "#/definitions/BadEnum",
+            "definitions": {
+                "BadEnum": {"name": "BadEnum", "type": "string", "enum": list(values)}
+            },
+        }
+        if default is not None:
+            schema["definitions"]["BadEnum"]["default"] = default
+        return schema
+
+    def test_root_enum_symbols_sanitized_and_parseable(self):
+        """Issue #383: digit/slash/hyphen enum values become valid, parseable symbols."""
+        result = self.converter.convert(self._root_enum(["1", "2", "N/A", "KAR-MQTT"]))
+        self._assert_parses_strict(result)
+        self.assertEqual(result['type'], 'enum')
+        self.assertEqual(result['symbols'], ['_1', '_2', 'N_A', 'KAR_MQTT'])
+
+    def test_enum_original_values_preserved_in_doc(self):
+        """The original wire values are recoverable from the enum doc mapping."""
+        result = self.converter.convert(self._root_enum(["1", "N/A"]))
+        self.assertIn('doc', result)
+        # The doc embeds a JSON object mapping sanitized symbol -> original value.
+        start = result['doc'].index('{')
+        mapping = json.loads(result['doc'][start:])
+        self.assertEqual(mapping, {"_1": "1", "N_A": "N/A"})
+
+    def test_enum_symbol_collision_uniqueness(self):
+        """Distinct values that sanitize to the same base get unique suffixes."""
+        result = self.converter.convert(self._root_enum(["N/A", "N-A", "N.A"]))
+        self._assert_parses_strict(result)
+        self.assertEqual(result['symbols'], ['N_A', 'N_A_1', 'N_A_2'])
+        self.assertEqual(len(set(result['symbols'])), 3)
+
+    def test_enum_default_maps_to_sanitized_symbol(self):
+        """A non-identifier default value is remapped to its sanitized symbol."""
+        result = self.converter.convert(self._root_enum(["1", "2", "N/A"], default="N/A"))
+        self._assert_parses_strict(result)
+        self.assertEqual(result['default'], 'N_A')
+        self.assertIn(result['default'], result['symbols'])
+
+    def test_sanitized_record_roundtrips_with_fastavro(self):
+        """The sanitized schema is usable end-to-end: write then read a record."""
+        from fastavro import writer, reader
+        from fastavro.schema import parse_schema
+        structure = {
+            "$schema": "https://json-structure.org/meta/core/v0/#",
+            "$id": "https://example.com/repro/rt",
+            "name": "Ev",
+            "type": "object",
+            "properties": {
+                "dr-type": {"type": "string"},
+                "1": {"type": "int32"},
+            },
+            "required": ["dr-type", "1"],
+        }
+        result = self.converter.convert(structure)
+        parsed = parse_schema(result)
+        buf = io.BytesIO()
+        writer(buf, parsed, [{"dr_type": "start", "_1": 7}])
+        buf.seek(0)
+        out = list(reader(buf))
+        self.assertEqual(out, [{"dr_type": "start", "_1": 7}])
+
+
 if __name__ == '__main__':
     unittest.main()

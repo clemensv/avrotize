@@ -6,7 +6,7 @@ import os
 from typing import Dict, List, Tuple, Union, Set, Optional, Any
 from avrotize.constants import JACKSON_VERSION, JACKSON_ANNOTATIONS_VERSION
 
-from avrotize.common import pascal, camel, process_template
+from avrotize.common import pascal, camel, process_template, json_wire_name, json_enum_wire_value
 
 INDENT = '    '
 
@@ -446,7 +446,7 @@ class StructureToJava:
             source_type = 'object'
         return {
             'name': safe_field_name,
-            'original_name': prop_name,
+            'original_name': json_wire_name(prop_name, prop_schema),
             'type': field_type.type_name,
             'source_type': source_type,
             'docstring': doc,
@@ -611,15 +611,16 @@ class StructureToJava:
                 symbols=symbol_list
             )
         else:
-            # String enum
-            safe_symbols = [self.safe_identifier(pascal(str(symbol).replace('-', '_').replace(' ', '_'))) for symbol in symbols]
+            # String enum — member name from original value; JSON wire value via altenums.json
+            symbol_list = [{'name': self.safe_identifier(pascal(str(symbol).replace('-', '_').replace(' ', '_'))),
+                            'value': json_enum_wire_value(symbol, structure_schema)} for symbol in symbols]
             enum_definition = process_template(
                 "structuretojava/enum_core.jinja",
                 class_name=enum_name,
                 docstring=doc,
                 deprecated=deprecated,
                 is_numeric=False,
-                symbols=safe_symbols
+                symbols=symbol_list
             )
         
         if write_file:
