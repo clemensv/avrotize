@@ -19,12 +19,10 @@
                     },
                     "Description": {
                         "type": "string",
-                        "default": null,
                         "description": "A description of the category."
                     },
                     "Picture": {
                         "type": "binary",
-                        "default": null,
                         "description": "A picture of the category."
                     }
                 },
