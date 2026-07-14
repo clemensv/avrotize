@@ -28,7 +28,11 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
-COPILOT_LOADER = Path(r"C:\ProgramData\global-npm\node_modules\@github\copilot\npm-loader.js")
+COPILOT_LOADER = Path(
+    os.environ.get("COPILOT_NPM_LOADER")
+    or Path(os.environ.get("ProgramData", ""))
+    / "global-npm" / "node_modules" / "@github" / "copilot" / "npm-loader.js"
+)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MCP_CONFIG = json.dumps({
     "mcpServers": {
