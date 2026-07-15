@@ -1,5 +1,96 @@
 [
   {
+    "command": "a2asn",
+    "description": "Convert Avrotize schema to ASN.1 schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.avrotoasn1.convert_avro_to_asn1",
+      "args": {
+        "avro_schema_path": "input_file_path",
+        "asn1_file_path": "output_file_path",
+        "module_name": "args.module"
+      }
+    },
+    "extensions": [
+      ".avsc"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the Avrotize schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the ASN.1 schema file",
+        "required": false
+      },
+      {
+        "name": "--avsc",
+        "type": "str",
+        "help": "Deprecated: Path to the Avrotize schema file (for backcompat)",
+        "required": false
+      },
+      {
+        "name": "--module",
+        "type": "str",
+        "help": "ASN.1 module name (defaults to the output file name)",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.asn1",
+    "prompts": []
+  },
+  {
+    "command": "s2asn",
+    "description": "Convert JSON Structure schema to ASN.1 schema",
+    "group": "1_Schemas",
+    "function": {
+      "name": "avrotize.structuretoasn1.convert_structure_to_asn1",
+      "args": {
+        "structure_schema_path": "input_file_path",
+        "asn1_file_path": "output_file_path",
+        "module_name": "args.module"
+      }
+    },
+    "extensions": [
+      ".struct.json",
+      ".json"
+    ],
+    "args": [
+      {
+        "name": "input",
+        "type": "str",
+        "nargs": "?",
+        "help": "Path to the JSON Structure schema file (or read from stdin if omitted)",
+        "required": false
+      },
+      {
+        "name": "--out",
+        "type": "str",
+        "help": "Path to the ASN.1 schema file",
+        "required": false
+      },
+      {
+        "name": "--struct",
+        "type": "str",
+        "help": "Deprecated: Path to the JSON Structure schema file (for backcompat)",
+        "required": false
+      },
+      {
+        "name": "--module",
+        "type": "str",
+        "help": "ASN.1 module name (defaults to the output file name)",
+        "required": false
+      }
+    ],
+    "suggested_output_file_path": "{input_file_name}.asn1",
+    "prompts": []
+  },
+  {
     "command": "p2a",
     "description": "Convert Proto schema to Avrotize schema",
     "group": "1_Schemas",
