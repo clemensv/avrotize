@@ -51,6 +51,8 @@ _mappings = {
     "convert_kafka_struct_to_avro_schema": (f"{mod}.kstructtoavro", "convert_kafka_struct_to_avro_schema"),
     "convert_kusto_to_avro": (f"{mod}.kustotoavro", "convert_kusto_to_avro"),
     "convert_asn1_to_avro": (f"{mod}.asn1toavro", "convert_asn1_to_avro"),
+    "convert_avro_to_asn1": (f"{mod}.avrotoasn1", "convert_avro_to_asn1"),
+    "convert_structure_to_asn1": (f"{mod}.structuretoasn1", "convert_structure_to_asn1"),
     "convert_xsd_to_avro": (f"{mod}.xsdtoavro", "convert_xsd_to_avro"),
     "convert_avro_to_json_schema": (f"{mod}.avrotojsons", "convert_avro_to_json_schema"),
     "convert_avro_to_kusto_file": (f"{mod}.avrotokusto", "convert_avro_to_kusto_file"),

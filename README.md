@@ -107,6 +107,8 @@ Converting from Avrotize Schema:
 - [`avrotize a2capnp`](#convert-avrotize-schema-to-capn-proto-schema) - Convert Avrotize Schema to Cap'n Proto schema.
 
 - [`avrotize a2raml`](#convert-avrotize-schema-to-raml-data-types) - Convert Avrotize Schema to RAML 1.0 Data Types.
+- [`avrotize a2asn`](#convert-avrotize-schema-to-asn1-schema) - Convert Avrotize Schema to ASN.1 schema.
+- [`avrotize s2asn`](#convert-json-structure-schema-to-asn1-schema) - Convert JSON Structure Schema to ASN.1 schema.
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
@@ -506,6 +508,48 @@ Conversion notes and limitations:
 - Nullable Avro unions (`["null", T]`) become optional FlatBuffers fields. Multi-branch Avro unions of named types are emitted as FlatBuffers `union` declarations.
 - Avro namespaces map to FlatBuffers namespaces. The top record, or the record annotated with `root_type`, is emitted as `root_type`.
 - Avro maps, logical types, fixed types, aliases, validation annotations, and arbitrary custom annotations have no direct FlatBuffers equivalent and are either simplified to compatible field types or omitted.
+
+### Convert Avrotize Schema to ASN.1 schema
+
+```bash
+avrotize a2asn <path_to_avro_schema_file> [--out <path_to_asn1_file>] [--module <asn1_module_name>]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The path to the Avrotize Schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the ASN.1 module file to write the conversion result to. If omitted, the output is directed to stdout. The ASN.1 module name is derived from the output file name when `--module` is not given.
+- `--module`: (optional) Override the ASN.1 module name.
+
+Conversion notes and limitations:
+
+- The emitted module uses `DEFINITIONS AUTOMATIC TAGS`, which lets the ASN.1 compiler disambiguate `OPTIONAL` and `CHOICE` tags automatically.
+- Avro records map to `SEQUENCE`, Avro enums to `ENUMERATED`, arrays to `SEQUENCE OF`, and `fixed` to `OCTET STRING (SIZE(n))`.
+- Avro maps map to `SEQUENCE OF SEQUENCE { key UTF8String, value ... }`.
+- Nullable unions (`["null", T]`) become `OPTIONAL` members; multi-branch unions become an ASN.1 `CHOICE`.
+- Logical types map to ASN.1 useful types: `date` → `DATE`, `time-millis`/`time-micros` → `TIME-OF-DAY`, `timestamp-*` → `DATE-TIME`; `decimal`, `uuid`, and `duration` are represented as `REAL`/`UTF8String` because ASN.1 has no exact equivalents.
+- Identifiers are sanitized to strict X.680 (hyphens instead of underscores); the module is validated by round-tripping through the `asn1tools` compiler.
+
+### Convert JSON Structure Schema to ASN.1 schema
+
+```bash
+avrotize s2asn <path_to_structure_schema_file> [--out <path_to_asn1_file>] [--module <asn1_module_name>]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to be converted. If omitted, the file is read from stdin.
+- `--out`: The path to the ASN.1 module file to write the conversion result to. If omitted, the output is directed to stdout. The ASN.1 module name is derived from the output file name when `--module` is not given.
+- `--module`: (optional) Override the ASN.1 module name.
+
+Conversion notes and limitations:
+
+- This is a direct JSON Structure → ASN.1 mapping; it does **not** route through Avrotize Schema, so the richer JSON Structure type system is preserved.
+- Sized integer types map to `INTEGER` with faithful range constraints (for example `int8` → `INTEGER (-128..127)`, `uint32` → `INTEGER (0..4294967295)`).
+- `object` maps to `SEQUENCE`, `array` to `SEQUENCE OF`, `set` to `SET OF`, `map` to `SEQUENCE OF SEQUENCE { key UTF8String, value ... }`, `tuple` to a positional `SEQUENCE`, and `choice` to `CHOICE`.
+- String `enum`/`const` values map to `ENUMERATED` (preserving the symbol labels and their ordinals); integer `enum`/`const` values map to an `INTEGER (v1 | v2 | ...)` value constraint (preserving the exact values).
+- `$extends` merges the base object's properties into the derived `SEQUENCE`; canonical `{"type": {"$ref": ...}}` references, bare `{"$ref": ...}` references, and nested definition namespaces are all resolved.
+- Non-required or nullable members become `OPTIONAL`. Types without an exact ASN.1 equivalent (`uuid`, `uri`, `duration`, `jsonpointer`) are represented as `UTF8String`; `any` maps to the ASN.1 open type `ANY`.
 
 ### Convert FlatBuffers schema to JSON Structure
 

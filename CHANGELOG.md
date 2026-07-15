@@ -1,5 +1,32 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.8.0] - 2026-07-15
+
+### Added
+
+- **`a2asn` — convert Avrotize Schema to ASN.1**: a new converter that emits an X.680
+  ASN.1 module directly from an Avro/Avrotize schema. Records map to `SEQUENCE`, enums to
+  `ENUMERATED`, arrays to `SEQUENCE OF`, maps to `SEQUENCE OF SEQUENCE { key UTF8String,
+  value ... }`, and `fixed` to `OCTET STRING (SIZE(n))`. Nullable unions (`["null", T]`)
+  become `OPTIONAL` members and multi-branch unions become an ASN.1 `CHOICE`. Avro logical
+  types map to ASN.1 useful types (`date` → `DATE`, `time-*` → `TIME-OF-DAY`, `timestamp-*`
+  → `DATE-TIME`). This closes the ASN.1 round-trip gap: the repository previously offered
+  only `asn2a` (ASN.1 → Avro) with no reverse path.
+- **`s2asn` — convert JSON Structure Schema to ASN.1**: a new converter that maps the
+  JSON Structure type system **directly** to ASN.1 (it does not route through Avrotize
+  Schema), preserving the richer JSON Structure semantics. Sized integers map to `INTEGER`
+  with faithful range constraints (`int8` → `INTEGER (-128..127)`, `uint32` → `INTEGER
+  (0..4294967295)`, …); `object`/`array`/`set`/`map`/`tuple`/`choice` map to `SEQUENCE`/
+  `SEQUENCE OF`/`SET OF`/key-value `SEQUENCE OF`/positional `SEQUENCE`/`CHOICE`. String
+  `enum`/`const` values become an `ENUMERATED` preserving the symbol labels and ordinals;
+  integer `enum`/`const` values become an `INTEGER (v1 | v2 | ...)` value constraint. The
+  converter resolves canonical `{"type": {"$ref": ...}}` references, bare `{"$ref": ...}`
+  references, and nested definition namespaces, and merges `$extends` base properties into
+  the derived `SEQUENCE`.
+- Both converters accept an optional `--module` flag to override the ASN.1 module name
+  (otherwise derived from the output file name), and both emit `DEFINITIONS AUTOMATIC TAGS`
+  modules that are validated by round-tripping through the `asn1tools` compiler.
+
 ## [3.7.4] - 2026-07-09
 
 ### Fixed
