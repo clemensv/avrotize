@@ -214,6 +214,15 @@ GALLERY_ITEMS = [
         "conversions": [{"cmd": "a2x", "args": ["--out", "{out}/telemetry.xsd"]}]
     },
     {
+        "id": "avro-to-asn1",
+        "title": "Avro -> ASN.1",
+        "description": "Convert Avro schema to an X.680 ASN.1 module",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2asn", "args": ["--out", "{out}/telemetry.asn"]}]
+    },
+    {
         "id": "avro-to-structure",
         "title": "Avro -> JSON Structure",
         "description": "Convert Avro schema to JSON Structure format",
@@ -878,6 +887,15 @@ GALLERY_ITEMS = [
         "source_path": GALLERY_SOURCES / "inventory.struct.json",
         "source_language": "json",
         "conversions": [{"cmd": "s2x", "args": ["--out", "{out}/inventory.xsd"]}]
+    },
+    {
+        "id": "struct-to-asn1",
+        "title": "Structure -> ASN.1",
+        "description": "Inventory management to an X.680 ASN.1 module",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2asn", "args": ["--out", "{out}/inventory.asn"]}]
     },
     {
         "id": "struct-to-graphql",
