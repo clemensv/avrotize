@@ -110,6 +110,47 @@ class TestAvroToPython(unittest.TestCase):
         finally:
             sys.path.remove(generated_src)
 
+    def test_issue_402_to_byte_array_application_json_returns_bytes(self):
+        """ Issue #402: to_byte_array('application/json') must return bytes, not str.
+
+        The dataclasses-json branch previously returned the str from to_json()
+        directly for plain 'application/json' (the encode-to-bytes step only ran
+        for the '+gzip' path), violating the '-> bytes' contract and breaking
+        from_data round-tripping and gzip. """
+        import importlib
+        schema = {
+            "type": "record",
+            "name": "Issue402Record",
+            "namespace": "example.issue402",
+            "fields": [
+                {"name": "tenantid", "type": "string"},
+                {"name": "count", "type": "int"},
+            ],
+        }
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "issue-402-py-json")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+        convert_avro_schema_to_python(
+            schema, py_path, package_name="issue_402_json", dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        try:
+            module = importlib.import_module("issue_402_json.example.issue402")
+            Issue402Record = module.Issue402Record
+            record = Issue402Record(tenantid="acme", count=7)
+
+            payload = record.to_byte_array("application/json")
+            assert isinstance(payload, bytes), f"expected bytes, got {type(payload).__name__}"
+
+            round_tripped = Issue402Record.from_data(payload, "application/json")
+            assert round_tripped == record
+        finally:
+            sys.path.remove(generated_src)
+
     def test_convert_address_avsc_to_python_avro(self):
         """ Test converting an address.avsc file to Python with avro annotation """
         cwd = os.getcwd()

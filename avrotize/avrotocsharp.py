@@ -58,6 +58,7 @@ class AvroToCSharp:
         self.avro_annotation = False
         self.protobuf_net_annotation = False
         self.openapi_generator_compat = False
+        self.target_framework = ''
         self.generated_types: Dict[str,str] = {}
         self.generated_avro_types: Dict[str, Dict[str, Union[str, Dict, List]]] = {}
         self.type_dict: Dict[str, Dict] = {}
@@ -1189,6 +1190,7 @@ class AvroToCSharp:
                     file.write(process_template(
                         "avrotocsharp/project.csproj.jinja",
                         project_name=project_name, 
+                        target_framework=self.target_framework,
                         avro_annotation=self.avro_annotation,
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
@@ -1216,6 +1218,7 @@ class AvroToCSharp:
                     file.write(process_template(
                         "avrotocsharp/testproject.csproj.jinja", 
                         project_name=project_name,
+                        target_framework=self.target_framework,
                         avro_annotation=self.avro_annotation,
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
@@ -1279,7 +1282,8 @@ def convert_avro_to_csharp(
     cbor_annotation=False,
     avro_annotation=False,
     protobuf_net_annotation=False,
-    openapi_generator_compat=False
+    openapi_generator_compat=False,
+    target_framework=''
 ):
     """Converts Avro schema to C# classes
 
@@ -1297,6 +1301,7 @@ def convert_avro_to_csharp(
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
         protobuf_net_annotation (bool, optional): Use protobuf-net annotations. Defaults to False.
         openapi_generator_compat (bool, optional): Generate OpenAPI Generator-compatible C# models. Defaults to False.
+        target_framework (str, optional): Target framework moniker written into the generated .csproj (e.g. 'net8.0'). A ';'-separated value emits <TargetFrameworks> for multi-targeting. Defaults to '' (net10.0).
     """
 
     if not base_namespace:
@@ -1312,6 +1317,7 @@ def convert_avro_to_csharp(
     avrotocs.avro_annotation = avro_annotation
     avrotocs.protobuf_net_annotation = protobuf_net_annotation
     avrotocs.openapi_generator_compat = openapi_generator_compat
+    avrotocs.target_framework = target_framework
     avrotocs.convert(avro_schema_path, cs_file_path)
 
 
@@ -1328,7 +1334,8 @@ def convert_avro_schema_to_csharp(
     cbor_annotation: bool = False,
     avro_annotation: bool = False,
     protobuf_net_annotation: bool = False,
-    openapi_generator_compat: bool = False
+    openapi_generator_compat: bool = False,
+    target_framework: str = ''
 ):
     """Converts Avro schema to C# classes
 
@@ -1345,6 +1352,7 @@ def convert_avro_schema_to_csharp(
         cbor_annotation (bool, optional): Use Dahomey.Cbor annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
         protobuf_net_annotation (bool, optional): Use protobuf-net annotations. Defaults to False.
+        target_framework (str, optional): Target framework moniker written into the generated .csproj (e.g. 'net8.0'). A ';'-separated value emits <TargetFrameworks> for multi-targeting. Defaults to '' (net10.0).
     """
     avrotocs = AvroToCSharp(base_namespace)
     avrotocs.project_name = project_name
@@ -1357,4 +1365,5 @@ def convert_avro_schema_to_csharp(
     avrotocs.avro_annotation = avro_annotation
     avrotocs.protobuf_net_annotation = protobuf_net_annotation
     avrotocs.openapi_generator_compat = openapi_generator_compat
+    avrotocs.target_framework = target_framework
     avrotocs.convert_schema(avro_schema, output_dir)

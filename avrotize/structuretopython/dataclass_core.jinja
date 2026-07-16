@@ -276,6 +276,8 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
             #pylint: disable=no-member
             result = self.to_json()
             #pylint: enable=no-member
+            if isinstance(result, str):
+                result = result.encode('utf-8')
         {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):

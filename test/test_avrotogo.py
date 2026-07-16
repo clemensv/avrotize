@@ -84,6 +84,81 @@ class TestAvroToGo(unittest.TestCase):
         
         
 
+    def test_issue_401_gofmt_clean_and_struct_tag_spacing(self):
+        """ Issue #401: the Go emitter must produce gofmt-clean, idiomatic Go.
+
+        Verifies the two things gofmt itself cannot: (a) struct tags are
+        space-separated (`json:"x" avro:"x"`, not `json:"x"avro:"x"`) -- gofmt
+        never rewrites raw string literals -- and (b) the package clause is a
+        valid Go identifier even for dotted/hyphenated inputs. Then, if the Go
+        toolchain is present, asserts `gofmt -l` reports nothing (fully clean:
+        tabs, sorted imports, aligned fields, blank lines, trailing newline). """
+        import re
+        from avrotize.avrotogo import convert_avro_schema_to_go
+
+        schema = [
+            {
+                "type": "record",
+                "name": "BrightnessChangedEventData",
+                "namespace": "example.iss401",
+                "fields": [
+                    {"name": "tenantid", "type": "string"},
+                    {"name": "deviceid", "type": "string"},
+                    {"name": "brightness", "type": "int"},
+                    {"name": "colorTemperature", "type": "int"},
+                ],
+            },
+            {
+                "type": "enum",
+                "name": "SwitchSource",
+                "namespace": "example.iss401",
+                "symbols": ["PhysicalSwitch", "AppSwitch", "VoiceSwitch"],
+            },
+        ]
+        go_path = os.path.join(tempfile.gettempdir(), "avrotize", "issue-401-go")
+        if os.path.exists(go_path):
+            shutil.rmtree(go_path, ignore_errors=True)
+        os.makedirs(go_path, exist_ok=True)
+
+        # Hyphen/dot in package name must be sanitized to a valid Go identifier.
+        convert_avro_schema_to_go(
+            schema, go_path, package_name="brightness-events.data",
+            json_annotation=True, avro_annotation=True)
+
+        go_files = []
+        for root, _dirs, files in os.walk(go_path):
+            for f in files:
+                if f.endswith(".go"):
+                    go_files.append(os.path.join(root, f))
+        assert go_files, "no .go files generated"
+
+        struct_file = None
+        for gf in go_files:
+            with open(gf, "r", encoding="utf-8") as fh:
+                content = fh.read()
+            # (b) package clause is a valid Go identifier (no dot/hyphen).
+            for line in content.splitlines():
+                if line.startswith("package "):
+                    pkg = line[len("package "):].strip()
+                    assert re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", pkg), \
+                        f"invalid Go package name {pkg!r} in {gf}"
+            if 'avro:"' in content:
+                struct_file = content
+
+        # (a) struct tags must be space-separated.
+        assert struct_file is not None, "expected a struct file with avro tags"
+        assert '"avro:' not in struct_file, \
+            'struct tags are glued without a space (json:"x"avro:"x")'
+        assert ' avro:"' in struct_file, "expected space-separated struct tags"
+
+        # If gofmt is available, the whole tree must be gofmt-clean.
+        gofmt = shutil.which("gofmt")
+        if gofmt:
+            result = subprocess.run(
+                [gofmt, "-l", go_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            unformatted = result.stdout.decode().strip()
+            assert unformatted == "", f"gofmt reports unformatted files:\n{unformatted}"
+
     def test_convert_jfrog_pipelines_jsons_to_avro_to_go(self):
         """ Test converting a jfrog-pipelines.json file to go """
         cwd = getcwd()        

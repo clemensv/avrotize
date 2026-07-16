@@ -477,6 +477,47 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         
         assert len(py_files) > 0, "No Python files were generated"
 
+    def test_issue_402_to_byte_array_application_json_returns_bytes(self):
+        """ Issue #402 (parity): s2py to_byte_array('application/json') must
+        return bytes, not str. Mirrors the a2py fix for the shared dataclasses
+        core template. """
+        import importlib
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        schema = {
+            "type": "object",
+            "name": "Issue402Struct",
+            "namespace": "example.issue402",
+            "properties": {
+                "tenantid": {"type": "string"},
+                "count": {"type": "int32"},
+            },
+            "required": ["tenantid", "count"],
+        }
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-402-s2py-json")
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        convert_structure_schema_to_python(
+            schema, output_dir, package_name="issue_402s_json", dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(output_dir, "src")
+        sys.path.insert(0, generated_src)
+        try:
+            module = importlib.import_module(
+                "issue_402s_json.example.issue402.issue402struct")
+            Issue402Struct = module.Issue402Struct
+            record = Issue402Struct(tenantid="acme", count=7)
+
+            payload = record.to_byte_array("application/json")
+            assert isinstance(payload, bytes), f"expected bytes, got {type(payload).__name__}"
+
+            round_tripped = Issue402Struct.from_data(payload, "application/json")
+            assert round_tripped == record
+        finally:
+            sys.path.remove(generated_src)
+
     def test_test_file_import_matches_module_structure(self):
         """
         Regression test: Generated test files should import from the correct module path.

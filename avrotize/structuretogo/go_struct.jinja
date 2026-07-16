@@ -28,7 +28,7 @@ import (
 type {{ struct_name }} struct {
     {%- for field in fields %}
     {%- set is_json_string = field.source_type in ['int64', 'uint64', 'int128', 'uint128', 'decimal'] %}
-    {{ field.name }} {{ field.type }}{% if json_annotation or avro_annotation %} `{%- if json_annotation -%}json:"{{ field.original_name }}{% if is_json_string %},string{% endif %}"{%- endif -%}{%- if avro_annotation %} avro:"{{ field.original_name }}"{%- endif -%}`{% endif %}
+    {{ field.name }} {{ field.type }}{% if json_annotation or avro_annotation %} `{% if json_annotation %}json:"{{ field.original_name }}{% if is_json_string %},string{% endif %}"{% endif %}{% if json_annotation and avro_annotation %} {% endif %}{% if avro_annotation %}avro:"{{ field.original_name }}"{% endif %}`{% endif %}
     {%- endfor %}
 }
 
