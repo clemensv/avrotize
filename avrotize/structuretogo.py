@@ -6,7 +6,7 @@ import json
 import os
 from typing import Any, Dict, List, Set, Union, Optional, cast
 
-from avrotize.common import pascal, render_template, json_wire_name, json_enum_wire_value
+from avrotize.common import pascal, render_template, json_wire_name, json_enum_wire_value, format_go_files
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -39,10 +39,19 @@ class StructureToGo:
         self.enums: List[Dict] = []
 
     def _safe_package_name(self, name: str) -> str:
-        """Converts a name to a safe Go package name"""
-        if name in self.GO_RESERVED_WORDS:
-            return f"{name}_"
-        return name
+        """Converts a name to a safe Go package name (a valid lowercase identifier).
+
+        Sanitizes any character that is not valid in a Go identifier (dots from
+        multi-part extensions such as ``.struct``, hyphens, etc.) to underscores
+        so the emitted ``package`` clause is compilable and gofmt-parseable.
+        """
+        import re
+        safe = re.sub(r'[^a-zA-Z0-9_]+', '_', name).strip('_').lower()
+        if not safe or not re.match(r'^[a-z]', safe):
+            safe = f"pkg_{safe}" if safe else "pkg"
+        if safe in self.GO_RESERVED_WORDS:
+            return f"{safe}_"
+        return safe
 
     def safe_identifier(self, name: str, fallback_prefix: str = 'field') -> str:
         """Converts a name to a safe Go identifier.
@@ -709,6 +718,7 @@ class StructureToGo:
         self.write_go_mod_file()
         self.write_modname_go_file()
         self.generate_helpers()
+        format_go_files(self.output_dir)
 
     def convert(self, structure_schema_path: str, output_dir: str):
         """Converts JSON Structure schema to Go"""

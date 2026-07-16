@@ -940,6 +940,47 @@ def render_template(template: str, output: str, **kvargs):
         f.write(out)
 
 
+def format_go_files(directory: str) -> bool:
+    """Run ``gofmt`` over every ``.go`` file under ``directory`` to produce
+    canonical, gofmt-clean output.
+
+    This normalizes indentation (tabs), sorts imports, aligns struct fields and
+    ``const`` blocks, fixes blank-line placement, and guarantees a trailing
+    newline at EOF -- everything the Go emitters cannot easily express in Jinja
+    templates. Struct-tag spacing is fixed in the templates instead, because
+    ``gofmt`` never rewrites the contents of raw string literals.
+
+    Best-effort: if the Go toolchain is not installed, the generated files are
+    left untouched and ``False`` is returned (the emitter still produced valid,
+    compilable Go).
+
+    Args:
+        directory (str): Directory containing generated ``.go`` files. ``gofmt``
+            processes it recursively.
+
+    Returns:
+        bool: ``True`` if ``gofmt`` (or ``go fmt``) ran, ``False`` otherwise.
+    """
+    import shutil
+    import subprocess
+    gofmt = shutil.which('gofmt')
+    try:
+        if gofmt:
+            subprocess.run(
+                [gofmt, '-w', directory], check=False,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        go = shutil.which('go')
+        if go:
+            subprocess.run(
+                [go, 'fmt', './...'], cwd=directory, check=False,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+    except OSError:
+        return False
+    return False
+
+
 def get_longest_namespace_prefix(schema):
     """ Get the longest common prefix for the namespace of all types in the schema. """
     namespaces = set(collect_namespaces(schema))

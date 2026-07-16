@@ -1480,7 +1480,7 @@ Conversion notes:
 ### Convert Avrotize Schema to C# classes
 
 ```bash
-avrotize a2cs <path_to_avro_schema_file> [--out <path_to_csharp_dir>] [--namespace <csharp_namespace>] [--avro-annotation] [--system_text_json_annotation] [--newtonsoft-json-annotation] [--pascal-properties]
+avrotize a2cs <path_to_avro_schema_file> [--out <path_to_csharp_dir>] [--namespace <csharp_namespace>] [--avro-annotation] [--system_text_json_annotation] [--newtonsoft-json-annotation] [--pascal-properties] [--target-framework <tfm>]
 ```
 
 Parameters:
@@ -1492,6 +1492,7 @@ Parameters:
 - `--system_text_json_annotation`: (optional) Use System.Text.Json annotations.
 - `--newtonsoft-json-annotation`: (optional) Use Newtonsoft.Json annotations.
 - `--pascal-properties`: (optional) Use PascalCase properties.
+- `--target-framework`: (optional) Target framework(s) for the generated `.csproj` (e.g. `net8.0`, or `net8.0;net10.0` for multi-targeting). Defaults to `net10.0`.
 
 Conversion notes:
 

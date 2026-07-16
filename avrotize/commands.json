@@ -2666,7 +2666,8 @@
         "cbor_annotation": "args.cbor_annotation",
         "pascal_properties": "args.pascal_properties",
         "base_namespace": "args.namespace",
-        "openapi_generator_compat": "args.openapi_generator_compat"
+        "openapi_generator_compat": "args.openapi_generator_compat",
+        "target_framework": "args.target_framework"
       }
     },
     "extensions": [
@@ -2760,6 +2761,12 @@
         "help": "Generate OpenAPI Generator-compatible C# models with Option<T> optional properties and System.Text.Json converters",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--target-framework",
+        "type": "str",
+        "help": "Target framework moniker written into the generated .csproj (e.g. net8.0). A ';'-separated value emits <TargetFrameworks> for multi-targeting. Defaults to net10.0.",
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-cs",
@@ -2810,7 +2817,8 @@
         "pascal_properties": "args.pascal_properties",
         "base_namespace": "args.namespace",
         "project_name": "args.project_name",
-        "openapi_generator_compat": "args.openapi_generator_compat"
+        "openapi_generator_compat": "args.openapi_generator_compat",
+        "target_framework": "args.target_framework"
       }
     },
     "extensions": [
@@ -2889,6 +2897,12 @@
         "type": "bool",
         "help": "Generate OpenAPI Generator-compatible C# models with Option<T> optional properties and System.Text.Json converters",
         "default": false,
+        "required": false
+      },
+      {
+        "name": "--target-framework",
+        "type": "str",
+        "help": "Target framework moniker written into the generated .csproj (e.g. net8.0). A ';'-separated value emits <TargetFrameworks> for multi-targeting. Defaults to net10.0.",
         "required": false
       }
     ],

@@ -51,6 +51,42 @@ class TestAvroToCSharp(unittest.TestCase):
     def test_convert_address_avsc_to_csharp_protobuf_net(self):
         self.run_convert_avsc_to_csharp("address", pascal_properties=True, protobuf_net_annotation=True)
 
+    def test_issue_403_target_framework_written_to_csproj(self):
+        """ Issue #403: --target-framework is written verbatim into the generated
+        .csproj; a ';'-separated value emits <TargetFrameworks> for multi-targeting;
+        the default preserves net10.0. (Fast: inspects .csproj, no dotnet build.) """
+        from avrotize.avrotocsharp import convert_avro_schema_to_csharp
+
+        schema = {
+            "type": "record",
+            "name": "Issue403Record",
+            "namespace": "example.issue403",
+            "fields": [{"name": "id", "type": "string"}],
+        }
+
+        def gen_and_read(tfm, tag):
+            out = os.path.join(tempfile.gettempdir(), "avrotize", "issue-403-cs-" + tag)
+            if os.path.exists(out):
+                shutil.rmtree(out, ignore_errors=True)
+            os.makedirs(out, exist_ok=True)
+            kwargs = {} if tfm is None else {"target_framework": tfm}
+            convert_avro_schema_to_csharp(schema, out, **kwargs)
+            src_dir = os.path.join(out, "src")
+            csprojs = [f for f in os.listdir(src_dir) if f.endswith(".csproj")]
+            assert csprojs, f"no .csproj generated in {src_dir}"
+            with open(os.path.join(src_dir, csprojs[0]), "r", encoding="utf-8") as f:
+                return f.read()
+
+        single = gen_and_read("net8.0", "single")
+        assert "<TargetFramework>net8.0</TargetFramework>" in single
+        assert "net10.0" not in single
+
+        multi = gen_and_read("net8.0;net10.0", "multi")
+        assert "<TargetFrameworks>net8.0;net10.0</TargetFrameworks>" in multi
+
+        default = gen_and_read(None, "default")
+        assert "<TargetFramework>net10.0</TargetFramework>" in default
+
                                         
     def test_convert_enumfield_avsc_to_csharp_annotated(self):
         """ Test converting an enumfield.avsc file to C# """

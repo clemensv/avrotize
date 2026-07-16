@@ -26,6 +26,28 @@ All notable changes to Avrotize are documented in this file.
 - Both converters accept an optional `--module` flag to override the ASN.1 module name
   (otherwise derived from the output file name), and both emit `DEFINITIONS AUTOMATIC TAGS`
   modules that are validated by round-tripping through the `asn1tools` compiler.
+- **`a2cs` / `s2cs` — `--target-framework` for generated C# projects** (#403): the C#
+  converters now accept `--target-framework` (Python `target_framework=`) to set the
+  `<TargetFramework>` written into the generated `.csproj`. A `;`-separated value (e.g.
+  `net8.0;net10.0`) emits `<TargetFrameworks>` for multi-targeting. When omitted, the
+  generated projects continue to target `net10.0` as before.
+
+### Fixed
+
+- **Go emitter now produces `gofmt`-clean, idiomatic Go** (#401): `a2go`/`s2go` previously
+  emitted space-indented code, unsorted imports, unaligned struct/`const` blocks, missing
+  blank lines, no trailing newline, and — most notably — struct tags glued together without
+  a separating space (`` `json:"x"avro:"x"` ``), which `gofmt` cannot repair because it lives
+  inside a raw string literal. The tag spacing is now fixed in the templates (`` `json:"x"
+  avro:"x"` ``) and every emitted file is run through `gofmt` as a final step (best-effort;
+  skipped cleanly when the Go toolchain is absent). The Go package name derived from the
+  input file name is also sanitized to a valid identifier, so the canonical `.struct.json`
+  extension no longer yields an un-compilable `package foo.struct` clause.
+- **Python `to_byte_array("application/json")` returns `bytes`** (#402): the dataclasses-json
+  serialization path returned the `str` from `to_json()` for plain `application/json`
+  (encoding to `bytes` only happened on the `+gzip` branch), violating the method's `-> bytes`
+  contract and breaking `from_data` round-tripping and gzip. `a2py` and `s2py` now encode the
+  JSON payload to UTF-8 `bytes` in the `application/json` branch.
 
 ## [3.7.4] - 2026-07-09
 

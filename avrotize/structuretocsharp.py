@@ -50,6 +50,7 @@ class StructureToCSharp:
         self.discriminator_properties: Dict[str, str] = {}  # Maps type ref -> discriminator property name (for inline unions)
         self.openapi_generator_compat = False
         self.emitted_option_namespaces: set[str] = set()
+        self.target_framework = ''
 
     def get_qualified_name(self, namespace: str, name: str) -> str:
         """ Concatenates namespace and name with a dot separator """
@@ -1802,6 +1803,7 @@ class StructureToCSharp:
                     file.write(process_template(
                         "structuretocsharp/project.csproj.jinja",
                         project_name=project_name, 
+                        target_framework=self.target_framework,
                         system_xml_annotation=self.system_xml_annotation,
                         # Avro annotation requires System.Text.Json for intermediate conversions
                         system_text_json_annotation=self.system_text_json_annotation or self.avro_annotation,
@@ -1825,6 +1827,7 @@ class StructureToCSharp:
                     file.write(process_template(
                         "structuretocsharp/testproject.csproj.jinja", 
                         project_name=project_name,
+                        target_framework=self.target_framework,
                         system_xml_annotation=self.system_xml_annotation,
                         system_text_json_annotation=self.system_text_json_annotation,
                         newtonsoft_json_annotation=self.newtonsoft_json_annotation,
@@ -2511,7 +2514,8 @@ def convert_structure_to_csharp(
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,
     avro_annotation: bool = False,
-    openapi_generator_compat: bool = False
+    openapi_generator_compat: bool = False,
+    target_framework: str = ''
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2526,6 +2530,7 @@ def convert_structure_to_csharp(
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
         openapi_generator_compat (bool, optional): Generate OpenAPI Generator-compatible C# models. Defaults to False.
+        target_framework (str, optional): Target framework moniker written into the generated .csproj. A ';'-separated value emits <TargetFrameworks>. Defaults to '' (net10.0).
     """
 
     if not base_namespace:
@@ -2539,6 +2544,7 @@ def convert_structure_to_csharp(
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
     structtocs.openapi_generator_compat = openapi_generator_compat
+    structtocs.target_framework = target_framework
     structtocs.convert(structure_schema_path, cs_file_path)
 
 
@@ -2552,7 +2558,8 @@ def convert_structure_schema_to_csharp(
     newtonsoft_json_annotation: bool = False, 
     system_xml_annotation: bool = False,
     avro_annotation: bool = False,
-    openapi_generator_compat: bool = False
+    openapi_generator_compat: bool = False,
+    target_framework: str = ''
 ):
     """Converts JSON Structure schema to C# classes
 
@@ -2566,6 +2573,7 @@ def convert_structure_schema_to_csharp(
         newtonsoft_json_annotation (bool, optional): Use Newtonsoft.Json annotations. Defaults to False.
         system_xml_annotation (bool, optional): Use System.Xml.Serialization annotations. Defaults to False.
         avro_annotation (bool, optional): Use Avro annotations. Defaults to False.
+        target_framework (str, optional): Target framework moniker written into the generated .csproj. A ';'-separated value emits <TargetFrameworks>. Defaults to '' (net10.0).
     """
     structtocs = StructureToCSharp(base_namespace)
     structtocs.project_name = project_name
@@ -2575,4 +2583,5 @@ def convert_structure_schema_to_csharp(
     structtocs.system_xml_annotation = system_xml_annotation
     structtocs.avro_annotation = avro_annotation
     structtocs.openapi_generator_compat = openapi_generator_compat
+    structtocs.target_framework = target_framework
     structtocs.convert_schema(structure_schema, output_dir)
