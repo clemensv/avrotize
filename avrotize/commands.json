@@ -2957,7 +2957,8 @@
         "package_name": "args.package",
         "avro_annotation": "args.avro_annotation",
         "jackson_annotation": "args.jackson_annotation",
-        "pascal_properties": "args.pascal_properties"
+        "pascal_properties": "args.pascal_properties",
+        "xml_annotation": "args.xml_annotation"
       }
     },
     "extensions": [
@@ -3009,6 +3010,13 @@
         "help": "Use PascalCase properties",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Use Jakarta JAXB annotations and XML serialization",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-java",
@@ -3028,6 +3036,12 @@
       {
         "name": "--pascal-properties",
         "message": "Use PascalCase properties?",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "--xml-annotation",
+        "message": "Use Jakarta JAXB annotations and XML serialization?",
         "type": "bool",
         "default": false
       }
@@ -3431,7 +3445,8 @@
         "java_file_path": "output_file_path",
         "package_name": "args.package",
         "pascal_properties": "args.pascal_properties",
-        "jackson_annotation": "args.jackson_annotation"
+        "jackson_annotation": "args.jackson_annotation",
+        "xml_annotation": "args.xml_annotation"
       }
     },
     "extensions": [
@@ -3471,6 +3486,13 @@
         "help": "Use PascalCase for property names",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Use Jakarta JAXB annotations and XML serialization",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-java",
@@ -3487,6 +3509,12 @@
         "message": "Use Jackson annotations?",
         "type": "bool",
         "default": true
+      },
+      {
+        "name": "--xml-annotation",
+        "message": "Use Jakarta JAXB annotations and XML serialization?",
+        "type": "bool",
+        "default": false
       }
     ]
   },

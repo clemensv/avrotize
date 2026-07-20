@@ -4,10 +4,12 @@
 import json
 import os
 from typing import Dict, List, Tuple, Union
-from avrotize.constants import (AVRO_VERSION, JACKSON_ANNOTATIONS_VERSION, JACKSON_VERSION,
+from avrotize.constants import (AVRO_VERSION, JAKARTA_XML_BIND_VERSION, JACKSON_ANNOTATIONS_VERSION, JACKSON_VERSION,
                                 JDK_VERSION, JUNIT_VERSION, MAVEN_COMPILER_VERSION, MAVEN_SUREFIRE_VERSION)
 
-from avrotize.common import pascal, camel, is_generic_avro_type, is_any_value_type, inline_avro_references, build_flat_type_dict
+from avrotize.common import (pascal, camel, is_generic_avro_type, is_any_value_type,
+                             inline_avro_references, build_flat_type_dict, xml_wire_name,
+                             xml_enum_wire_value)
 
 INDENT = '    '
 POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
@@ -43,6 +45,21 @@ POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <version>{JACKSON_ANNOTATIONS_VERSION}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+            <version>{JACKSON_VERSION}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
+            <version>{JACKSON_VERSION}</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+            <version>{JAKARTA_XML_BIND_VERSION}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -103,14 +120,14 @@ if (result != null && shouldCompress) {
         gzipOutputStream.finish();
         result = byteArrayOutputStream.toByteArray();
     } catch (IOException e) {
-        throw new UnsupportedOperationException("Error compressing data to gzip");
+        throw new UnsupportedOperationException("Error compressing data to gzip", e);
     }
 }
 """
 
 EPILOGUE_TOBYTEARRAY = \
 """
-throw new UnsupportedOperationException("Unsupported media type + mediaType");
+throw new UnsupportedOperationException("Unsupported media type " + contentType);
 """
 
 PREAMBLE_FROMDATA_COMPRESSION = \
@@ -136,7 +153,7 @@ if (mediaType.endsWith("+gzip")) {
         }
         data = outputStream.toByteArray();
     } catch (IOException e) {
-        e.printStackTrace();
+        throw new UnsupportedOperationException("Error decompressing gzip data", e);
     }
 }
 """
@@ -168,6 +185,28 @@ JSON_TOBYTEARRAY = \
     """
 if ( mediaType.equals("application/json")) {    
     result = new ObjectMapper().writeValueAsBytes(this);
+}
+"""
+
+XML_TOBYTEARRAY = \
+    """
+if (mediaType.equals("application/xml") || mediaType.equals("text/xml")) {
+    result = createXmlMapper().writeValueAsBytes(this);
+}
+"""
+
+XML_FROMDATA = \
+    """
+if (mediaType.equals("application/xml") || mediaType.equals("text/xml")) {
+    XmlMapper mapper = createXmlMapper();
+    if (data instanceof byte[]) {
+        return mapper.readValue((byte[]) data, {typeName}.class);
+    } else if (data instanceof InputStream) {
+        return mapper.readValue((InputStream) data, {typeName}.class);
+    } else if (data instanceof String) {
+        return mapper.readValue((String) data, {typeName}.class);
+    }
+    throw new UnsupportedOperationException("Data is not of a supported type for XML conversion to {typeName}");
 }
 """
 
@@ -239,18 +278,20 @@ def is_java_reserved_word(word: str) -> bool:
 
 
 class AvroToJava:
-    """Converts Avro schema to Java classes, including Jackson annotations and Avro SpecificRecord methods"""
+    """Converts Avro schema to Java classes with JSON, Avro, and XML support."""
 
     def __init__(self, base_package: str = '') -> None:
         self.base_package = base_package.replace('.', '/')
         self.output_dir = os.getcwd()
         self.avro_annotation = False
         self.jackson_annotations = False
+        self.xml_annotations = False
         self.pascal_properties = False
         self.generated_types_avro_namespace: Dict[str,str] = {}
         self.generated_types_java_package: Dict[str,str] = {}
         self.generated_avro_schemas: Dict[str, Dict] = {}
         self.discriminated_unions: Dict[str, List[Dict]] = {}  # Maps union name to list of subtype schemas
+        self.xml_package_namespaces: Dict[str, str] = {}
 
     def qualified_name(self, package: str, name: str) -> str:
         """Concatenates package and name using a dot separator"""
@@ -458,6 +499,8 @@ class AvroToJava:
         package = package.replace('.', '/').lower()
         package = self.safe_package(package)
         class_name = self.safe_identifier(avro_schema['name'])
+        xml_namespace = str(avro_schema.get('xmlns', ''))
+        xml_name = xml_wire_name(str(avro_schema['name']), avro_schema)
         namespace_qualified_name = self.qualified_name(namespace,avro_schema['name'])
         qualified_class_name = self.qualified_name(package.replace('/', '.'), class_name)
         if namespace_qualified_name in self.generated_types_avro_namespace:
@@ -478,8 +521,13 @@ class AvroToJava:
                 'qualified_name': qualified_class_name
             })
         
-        fields_str = [self.generate_property(class_name, field, namespace) for field in avro_schema.get('fields', [])]
+        fields_str = [self.generate_property(class_name, field, namespace, xml_namespace) for field in avro_schema.get('fields', [])]
         class_body = "\n".join(fields_str)
+        if self.xml_annotations:
+            namespace_arg = f", namespace = {json.dumps(xml_namespace)}" if xml_namespace else ""
+            class_definition += f"@XmlRootElement(name = {json.dumps(xml_name)}{namespace_arg})\n"
+            class_definition += f"@XmlType(name = {json.dumps(xml_name)}{namespace_arg})\n"
+            class_definition += "@XmlAccessorType(XmlAccessType.FIELD)\n"
         class_definition += f"public class {class_name}"
         
         # Add extends clause if this is a discriminated union subtype
@@ -557,12 +605,19 @@ class AvroToJava:
             class_definition += self.generate_avro_get_method(class_name, avro_schema.get('fields', []), namespace)
             class_definition += self.generate_avro_put_method(class_name, avro_schema.get('fields', []), namespace)
 
+        if self.xml_annotations:
+            class_definition += f"\n\n{INDENT}private static XmlMapper createXmlMapper() {{\n"
+            class_definition += f"{INDENT*2}XmlMapper mapper = new XmlMapper();\n"
+            class_definition += f"{INDENT*2}mapper.setAnnotationIntrospector(new JakartaXmlBindAnnotationIntrospector(mapper.getTypeFactory()));\n"
+            class_definition += f"{INDENT*2}return mapper;\n{INDENT}}}\n"
+
         # emit toByteArray method
         class_definition += f"\n\n{INDENT}/**\n{INDENT} * Converts the object to a byte array\n{INDENT} * @param contentType the content type of the byte array\n{INDENT} * @return the byte array\n{INDENT} */\n"
+        to_byte_array_throws = ",IOException" if self.avro_annotation or self.xml_annotations else (
+            ",JsonProcessingException" if self.jackson_annotations else "")
         class_definition += f"{INDENT}public byte[] toByteArray(String contentType) throws UnsupportedOperationException" + \
-            f"{ JSON_TOBYTEARRAY_THROWS if self.jackson_annotations else '' }" + \
-            f"{ AVRO_TOBYTEARRAY_THROWS if self.avro_annotation else '' }  {{"
-        if self.jackson_annotations or self.avro_annotation:
+            f"{to_byte_array_throws}  {{"
+        if self.jackson_annotations or self.avro_annotation or self.xml_annotations:
             class_definition += f'\n{INDENT*2}'.join((PREAMBLE_TOBYTEARRAY).split("\n"))
         if self.avro_annotation:
             class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
@@ -570,19 +625,22 @@ class AvroToJava:
         if self.jackson_annotations:
             class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
                 JSON_TOBYTEARRAY.strip().replace("{typeName}", class_name).split("\n"))
-        if self.avro_annotation or self.jackson_annotations:
+        if self.xml_annotations:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                XML_TOBYTEARRAY.strip().replace("{typeName}", class_name).split("\n"))
+        if self.avro_annotation or self.jackson_annotations or self.xml_annotations:
             class_definition += f'\n{INDENT*2}'.join(EPILOGUE_TOBYTEARRAY_COMPRESSION.split("\n"))
             class_definition += f'\n{INDENT*2}if ( result != null ) {{ return result; }}'        
         class_definition += (f'\n{INDENT*2}'.join((EPILOGUE_TOBYTEARRAY.strip()).split("\n")))+f"\n{INDENT}}}"
 
         # emit fromData factory method
         class_definition += f"\n\n{INDENT}/**\n{INDENT} * Converts the data to an object\n{INDENT} * @param data the data to convert\n{INDENT} * @param contentType the content type of the data\n{INDENT} * @return the object\n{INDENT} */\n"
+        from_data_throws = ",IOException" if self.avro_annotation or self.jackson_annotations or self.xml_annotations else ""
         class_definition += f"{INDENT}public static {class_name} fromData(Object data, String contentType) throws UnsupportedOperationException" + \
-            f"{ JSON_FROMDATA_THROWS if self.jackson_annotations else '' }" + \
-            f"{ AVRO_FROMDATA_THROWS if self.avro_annotation else '' }  {{"
+            f"{from_data_throws}  {{"
         class_definition += f'\n{INDENT*2}if ( data instanceof {class_name}) return ({class_name})data;'
         
-        if self.avro_annotation or self.jackson_annotations:
+        if self.avro_annotation or self.jackson_annotations or self.xml_annotations:
             class_definition += f'\n{INDENT*2}String mediaType = contentType.split(";")[0].trim().toLowerCase();'
             class_definition += f'\n{INDENT*2}'.join((PREAMBLE_FROMDATA_COMPRESSION).split("\n"))
         if self.avro_annotation:
@@ -591,6 +649,9 @@ class AvroToJava:
         if self.jackson_annotations:
             class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
                 JSON_FROMDATA.strip().replace("{typeName}", class_name).split("\n"))
+        if self.xml_annotations:
+            class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
+                XML_FROMDATA.strip().replace("{typeName}", class_name).split("\n"))
         class_definition += f"\n{INDENT*2}throw new UnsupportedOperationException(\"Unsupported media type \"+ contentType);\n{INDENT}}}"
         
         if self.jackson_annotations:
@@ -603,6 +664,8 @@ class AvroToJava:
         class_definition += "\n}"
 
         if write_file:
+            if self.xml_annotations and xml_namespace:
+                self.write_package_info(package, xml_namespace)
             self.write_to_file(package, class_name, class_definition)
         return AvroToJava.JavaType(qualified_class_name, is_class=True)
     
@@ -1216,6 +1279,8 @@ class AvroToJava:
             
         package = self.join_packages(self.base_package, avro_schema.get('namespace', parent_package)).replace('.', '/').lower()       
         enum_name = self.safe_identifier(avro_schema['name'])
+        xml_namespace = str(avro_schema.get('xmlns', ''))
+        xml_name = xml_wire_name(str(avro_schema['name']), avro_schema)
         type_name = self.qualified_name(package.replace('/', '.'), enum_name)
         self.generated_types_avro_namespace[self.qualified_name(avro_schema.get('namespace', parent_package),avro_schema['name'])] = "enum"
         self.generated_types_java_package[type_name] = "enum"
@@ -1237,11 +1302,18 @@ class AvroToJava:
             symbol_pairs.append((java_symbol, symbol))
         
         # Build enum with avroSymbol field for proper Avro serialization
+        if self.xml_annotations:
+            namespace_arg = f", namespace = {json.dumps(xml_namespace)}" if xml_namespace else ""
+            enum_definition += f"@XmlType(name = {json.dumps(xml_name)}{namespace_arg})\n"
+            enum_definition += "@XmlEnum\n"
         enum_definition += f"public enum {enum_name} {{\n"
         # Each enum constant has its original Avro symbol stored
         enum_constants = []
         for java_symbol, avro_symbol in symbol_pairs:
-            enum_constants.append(f'{java_symbol}("{avro_symbol}")')
+            xml_annotation = ""
+            if self.xml_annotations:
+                xml_annotation = f'@XmlEnumValue({json.dumps(xml_enum_wire_value(avro_symbol, avro_schema))}) '
+            enum_constants.append(f'{xml_annotation}{java_symbol}("{avro_symbol}")')
         enum_definition += f"{INDENT}" + ", ".join(enum_constants)
         
         # Add avroSymbol field and method with Jackson annotations for proper JSON serialization
@@ -1283,6 +1355,8 @@ class AvroToJava:
         
         enum_definition += "}\n"
         if write_file:
+            if self.xml_annotations and xml_namespace:
+                self.write_package_info(package, xml_namespace)
             self.write_to_file(package, enum_name, enum_definition)
         return AvroToJava.JavaType(type_name, is_enum=True)
     
@@ -1405,7 +1479,10 @@ class AvroToJava:
             if gij:
                 list_is_json_match.append(gij)
 
-        class_definition =  f"@JsonSerialize(using = {union_class_name}.Serializer.class)\n"
+        class_definition = ""
+        if self.xml_annotations:
+            class_definition += "@XmlAccessorType(XmlAccessType.FIELD)\n"
+        class_definition += f"@JsonSerialize(using = {union_class_name}.Serializer.class)\n"
         class_definition += f"@JsonDeserialize(using = {union_class_name}.Deserializer.class)\n"
         class_definition += f"public class {union_class_name} {{\n"
         class_definition += class_definition_decls
@@ -1465,7 +1542,7 @@ class AvroToJava:
         return union_class_name
 
 
-    def generate_property(self, class_name: str, field: Dict, parent_package: str) -> str:
+    def generate_property(self, class_name: str, field: Dict, parent_package: str, xml_namespace: str = '') -> str:
         """ Generates a Java property definition """
         field_name = pascal(field['name']) if self.pascal_properties else field['name']
         field_type = self.convert_avro_type_to_java(class_name, field_name, field['type'], parent_package)
@@ -1473,6 +1550,14 @@ class AvroToJava:
         property_def = ''
         if 'doc' in field:
             property_def += f"{INDENT}/** {field['doc']} */\n"
+
+        if self.xml_annotations:
+            xml_name = xml_wire_name(str(field['name']), field)
+            if field.get('xmlkind', 'element') == 'attribute':
+                property_def += f"{INDENT}@XmlAttribute(name = {json.dumps(xml_name)})\n"
+            else:
+                namespace_arg = f", namespace = {json.dumps(xml_namespace)}" if xml_namespace else ""
+                property_def += f"{INDENT}@XmlElement(name = {json.dumps(xml_name)}{namespace_arg})\n"
         
         # For discriminator const fields, don't put @JsonProperty on the field
         # The getter will handle JSON serialization/deserialization
@@ -1528,6 +1613,27 @@ class AvroToJava:
                 property_def += f"{INDENT}public {union_type.type_name} get{pascal(field_name)}As{flatten_type_name(union_type.type_name)}() {{ return ({union_type.type_name}){safe_field_name}; }}\n"
                 property_def += f"{INDENT}public void set{pascal(field_name)}As{flatten_type_name(union_type.type_name)}({union_type.type_name} {safe_field_name}) {{ this.{safe_field_name} = {safe_field_name}; }}\n"
         return property_def
+
+    def write_package_info(self, package: str, xml_namespace: str) -> None:
+        """Write JAXB package metadata for a package's default XML namespace."""
+        package = self.safe_package(package.lower())
+        package_name = package.replace('/', '.')
+        if not package_name:
+            return
+        previous = self.xml_package_namespaces.get(package_name)
+        if previous is not None and previous != xml_namespace:
+            return
+        self.xml_package_namespaces[package_name] = xml_namespace
+        directory_path = os.path.join(
+            self.output_dir, package.replace('.', os.sep).replace('/', os.sep))
+        os.makedirs(directory_path, exist_ok=True)
+        package_info_path = os.path.join(directory_path, "package-info.java")
+        with open(package_info_path, 'w', encoding='utf-8') as file:
+            file.write("@jakarta.xml.bind.annotation.XmlSchema(\n")
+            file.write(f"    namespace = {json.dumps(xml_namespace)},\n")
+            file.write("    elementFormDefault = jakarta.xml.bind.annotation.XmlNsForm.QUALIFIED\n")
+            file.write(")\n")
+            file.write(f"package {package_name};\n")
 
     def write_to_file(self, package: str, name: str, definition: str):
         """ Writes a Java class or enum to a file """
@@ -1641,7 +1747,27 @@ class AvroToJava:
                     file.write("import com.fasterxml.jackson.core.JsonGenerator;\n")
                 if 'TypeReference' in definition:
                     file.write("import com.fasterxml.jackson.core.type.TypeReference;\n")
-            if self.avro_annotation or self.jackson_annotations:
+            if self.xml_annotations:
+                if 'XmlRootElement' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlRootElement;\n")
+                if 'XmlType' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlType;\n")
+                if 'XmlAccessorType' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlAccessorType;\n")
+                    file.write("import jakarta.xml.bind.annotation.XmlAccessType;\n")
+                if 'XmlElement' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlElement;\n")
+                if 'XmlAttribute' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlAttribute;\n")
+                if 'XmlEnumValue' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlEnumValue;\n")
+                if '@XmlEnum' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlEnum;\n")
+                if 'XmlMapper' in definition:
+                    file.write("import com.fasterxml.jackson.dataformat.xml.XmlMapper;\n")
+                if 'JakartaXmlBindAnnotationIntrospector' in definition:
+                    file.write("import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector;\n")
+            if self.avro_annotation or self.jackson_annotations or self.xml_annotations:
                 if 'GZIPOutputStream' in definition:
                     file.write("import java.util.zip.GZIPOutputStream;\n")
                 if 'GZIPInputStream' in definition:
@@ -1691,7 +1817,8 @@ class AvroToJava:
                 fields=fields,
                 imports=imports,
                 avro_annotation=self.avro_annotation,
-                jackson_annotation=self.jackson_annotations
+                jackson_annotation=self.jackson_annotations,
+                xml_annotation=self.xml_annotations
             )
         elif type_kind == "enum":
             # Convert symbols to Java-safe identifiers in SCREAMING_CASE (same logic as generate_enum)
@@ -2165,6 +2292,7 @@ class AvroToJava:
                     AVRO_VERSION=AVRO_VERSION, 
                     JACKSON_VERSION=JACKSON_VERSION, 
                     JACKSON_ANNOTATIONS_VERSION=JACKSON_ANNOTATIONS_VERSION,
+                    JAKARTA_XML_BIND_VERSION=JAKARTA_XML_BIND_VERSION,
                     JDK_VERSION=JDK_VERSION, 
                     JUNIT_VERSION=JUNIT_VERSION,
                     MAVEN_COMPILER_VERSION=MAVEN_COMPILER_VERSION,
@@ -2187,15 +2315,9 @@ class AvroToJava:
         self.convert_schema(schema, output_dir)
 
 
-def convert_avro_to_java(avro_schema_path, java_file_path, package_name='', pascal_properties=False, jackson_annotation=False, avro_annotation=False):
-    """_summary_
-
-    Converts Avro schema to C# classes
-
-    Args:
-        avro_schema_path (_type_): Avro input schema path  
-        cs_file_path (_type_): Output C# file path 
-    """
+def convert_avro_to_java(avro_schema_path, java_file_path, package_name='', pascal_properties=False,
+                         jackson_annotation=False, avro_annotation=False, xml_annotation=False):
+    """Convert an Avro schema file to Java classes."""
     if not package_name:
         package_name = os.path.splitext(os.path.basename(java_file_path))[0].replace('-', '_').lower()
     avrotojava = AvroToJava()
@@ -2203,21 +2325,18 @@ def convert_avro_to_java(avro_schema_path, java_file_path, package_name='', pasc
     avrotojava.pascal_properties = pascal_properties
     avrotojava.avro_annotation = avro_annotation
     avrotojava.jackson_annotations = jackson_annotation
+    avrotojava.xml_annotations = xml_annotation
     avrotojava.convert(avro_schema_path, java_file_path)
 
 
-def convert_avro_schema_to_java(avro_schema: JsonNode, output_dir: str, package_name='', pascal_properties=False, jackson_annotation=False, avro_annotation=False):
-    """_summary_
-
-    Converts Avro schema to C# classes
-
-    Args:
-        avro_schema (_type_): Avro schema as a dictionary or list of dictionaries
-        output_dir (_type_): Output directory path 
-    """
+def convert_avro_schema_to_java(avro_schema: JsonNode, output_dir: str, package_name='',
+                                pascal_properties=False, jackson_annotation=False,
+                                avro_annotation=False, xml_annotation=False):
+    """Convert an Avro schema object to Java classes."""
     avrotojava = AvroToJava()
     avrotojava.base_package = package_name
     avrotojava.pascal_properties = pascal_properties
     avrotojava.avro_annotation = avro_annotation
     avrotojava.jackson_annotations = jackson_annotation
+    avrotojava.xml_annotations = xml_annotation
     avrotojava.convert_schema(avro_schema, output_dir)

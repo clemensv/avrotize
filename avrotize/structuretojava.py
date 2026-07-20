@@ -4,9 +4,10 @@
 import json
 import os
 from typing import Dict, List, Tuple, Union, Set, Optional, Any
-from avrotize.constants import JACKSON_VERSION, JACKSON_ANNOTATIONS_VERSION
+from avrotize.constants import JACKSON_VERSION, JACKSON_ANNOTATIONS_VERSION, JAKARTA_XML_BIND_VERSION
 
-from avrotize.common import pascal, camel, process_template, json_wire_name, json_enum_wire_value
+from avrotize.common import (pascal, camel, process_template, json_wire_name,
+                             json_enum_wire_value, xml_wire_name, xml_enum_wire_value)
 
 INDENT = '    '
 
@@ -35,17 +36,19 @@ def is_java_reserved_word(word: str) -> bool:
 
 
 class StructureToJava:
-    """Converts JSON Structure schema to Java classes, including Jackson annotations"""
+    """Converts JSON Structure schema to Java classes with JSON and XML support."""
 
     def __init__(self, base_package: str = '') -> None:
         self.base_package = base_package.replace('.', '/')
         self.output_dir = os.getcwd()
         self.jackson_annotations = True  # Always use Jackson annotations for JSON Structure
+        self.xml_annotations = False
         self.pascal_properties = False
         self.generated_types_structure_namespace: Dict[str,str] = {}
         self.generated_types_java_package: Dict[str,str] = {}
         self.schema_doc: JsonNode = None
         self.schema_registry: Dict[str, Dict] = {}
+        self.xml_package_namespaces: Dict[str, str] = {}
 
     def qualified_name(self, package: str, name: str) -> str:
         """Concatenates package and name using a dot separator"""
@@ -345,6 +348,10 @@ class StructureToJava:
         package = package.replace('.', '/').lower()
         package = self.safe_package(package)
         class_name = self.safe_identifier(class_name)
+        xml_namespace = str(structure_schema.get('xmlns', ''))
+        xml_name = xml_wire_name(
+            str(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass')),
+            structure_schema)
         namespace_qualified_name = self.qualified_name(schema_namespace, explicit_name or structure_schema.get('name', 'UnnamedClass'))
         qualified_class_name = self.qualified_name(package.replace('/', '.'), class_name)
         if namespace_qualified_name in self.generated_types_structure_namespace:
@@ -374,7 +381,7 @@ class StructureToJava:
         # Generate field information for template
         fields = []
         for prop_name, prop_schema in structure_schema.get('properties', {}).items():
-            field_info = self.generate_field_info(class_name, prop_name, prop_schema, schema_namespace)
+            field_info = self.generate_field_info(class_name, prop_name, prop_schema, schema_namespace, xml_namespace)
             fields.append(field_info)
         
         # Use template for class generation
@@ -386,7 +393,10 @@ class StructureToJava:
             deprecated=deprecated,
             base_class=base_class,
             fields=fields,
-            jackson_annotation=self.jackson_annotations
+            jackson_annotation=self.jackson_annotations,
+            xml_annotation=self.xml_annotations,
+            xml_name=json.dumps(xml_name),
+            xml_namespace=json.dumps(xml_namespace)
         )
         
         # Generate Equals and GetHashCode using template
@@ -409,14 +419,19 @@ class StructureToJava:
         create_test_instance = ''
         if not is_abstract:
             create_test_instance = self.generate_create_test_instance_method(class_name, fields, schema_namespace)
+
+        serialization_methods = self.generate_serialization_methods(class_name)
         
-        class_definition = class_definition.rstrip() + create_test_instance + equals_hashcode + "\n}\n"
+        class_definition = class_definition.rstrip() + create_test_instance + serialization_methods + equals_hashcode + "\n}\n"
 
         if write_file:
+            if self.xml_annotations and xml_namespace:
+                self.write_package_info(package, xml_namespace)
             self.write_to_file(package, class_name, class_definition)
         return StructureToJava.JavaType(qualified_class_name, is_class=True)
 
-    def generate_field_info(self, class_name: str, prop_name: str, prop_schema: Dict, parent_package: str) -> Dict:
+    def generate_field_info(self, class_name: str, prop_name: str, prop_schema: Dict,
+                            parent_package: str, xml_namespace: str = '') -> Dict:
         """ Generates field information for template """
         field_name_java = pascal(prop_name) if self.pascal_properties else prop_name
         field_type = self.convert_structure_type_to_java(class_name, prop_name, prop_schema, parent_package)
@@ -451,7 +466,10 @@ class StructureToJava:
             'source_type': source_type,
             'docstring': doc,
             'is_const': is_const,
-            'const_value': const_value
+            'const_value': const_value,
+            'xml_name': json.dumps(xml_wire_name(prop_name, prop_schema)),
+            'xml_namespace': json.dumps(xml_namespace),
+            'xmlkind': prop_schema.get('xmlkind', 'element')
         }
     
     def generate_property(self, class_name: str, field: Tuple[str, Dict], parent_package: str) -> str:
@@ -571,6 +589,82 @@ class StructureToJava:
         method += f"{INDENT}}}\n"
         return method
 
+    def generate_serialization_methods(self, class_name: str) -> str:
+        """Generate JSON/XML content-type serialization helpers."""
+        if not self.jackson_annotations and not self.xml_annotations:
+            return ''
+
+        code = "\n"
+        if self.xml_annotations:
+            code += f"{INDENT}private static XmlMapper createXmlMapper() {{\n"
+            code += f"{INDENT*2}XmlMapper mapper = new XmlMapper();\n"
+            code += f"{INDENT*2}mapper.setAnnotationIntrospector(new JakartaXmlBindAnnotationIntrospector(mapper.getTypeFactory()));\n"
+            code += f"{INDENT*2}mapper.findAndRegisterModules();\n"
+            code += f"{INDENT*2}return mapper;\n{INDENT}}}\n\n"
+
+        code += f"{INDENT}public byte[] toByteArray(String contentType) throws IOException {{\n"
+        code += f"{INDENT*2}String mediaType = contentType.split(\";\")[0].trim().toLowerCase();\n"
+        code += f"{INDENT*2}boolean shouldCompress = mediaType.endsWith(\"+gzip\");\n"
+        code += f"{INDENT*2}if (shouldCompress) mediaType = mediaType.substring(0, mediaType.length() - 5);\n"
+        code += f"{INDENT*2}byte[] result;\n"
+        if self.jackson_annotations:
+            code += f"{INDENT*2}if (mediaType.equals(\"application/json\")) {{\n"
+            code += f"{INDENT*3}result = new ObjectMapper().findAndRegisterModules().writeValueAsBytes(this);\n"
+            code += f"{INDENT*2}}}"
+            if self.xml_annotations:
+                code += " else "
+            else:
+                code += "\n"
+        if self.xml_annotations:
+            if not self.jackson_annotations:
+                code += f"{INDENT*2}"
+            code += "if (mediaType.equals(\"application/xml\") || mediaType.equals(\"text/xml\")) {\n"
+            code += f"{INDENT*3}result = createXmlMapper().writeValueAsBytes(this);\n"
+            code += f"{INDENT*2}}}\n"
+        code += f"{INDENT*2}else {{\n"
+        code += f"{INDENT*3}throw new UnsupportedOperationException(\"Unsupported media type \" + contentType);\n"
+        code += f"{INDENT*2}}}\n"
+        code += f"{INDENT*2}if (!shouldCompress) return result;\n"
+        code += f"{INDENT*2}try (ByteArrayOutputStream output = new ByteArrayOutputStream();\n"
+        code += f"{INDENT*3}GZIPOutputStream gzip = new GZIPOutputStream(output)) {{\n"
+        code += f"{INDENT*3}gzip.write(result);\n{INDENT*3}gzip.finish();\n"
+        code += f"{INDENT*3}return output.toByteArray();\n{INDENT*2}}}\n"
+        code += f"{INDENT}}}\n\n"
+
+        code += f"{INDENT}public static {class_name} fromData(Object data, String contentType) throws IOException {{\n"
+        code += f"{INDENT*2}if (data instanceof {class_name}) return ({class_name}) data;\n"
+        code += f"{INDENT*2}String mediaType = contentType.split(\";\")[0].trim().toLowerCase();\n"
+        code += f"{INDENT*2}if (mediaType.endsWith(\"+gzip\")) {{\n"
+        code += f"{INDENT*3}mediaType = mediaType.substring(0, mediaType.length() - 5);\n"
+        code += f"{INDENT*3}InputStream input;\n"
+        code += f"{INDENT*3}if (data instanceof byte[]) input = new ByteArrayInputStream((byte[]) data);\n"
+        code += f"{INDENT*3}else if (data instanceof InputStream) input = (InputStream) data;\n"
+        code += f"{INDENT*3}else throw new UnsupportedOperationException(\"Data is not of a supported type for gzip decompression\");\n"
+        code += f"{INDENT*3}try (GZIPInputStream gzip = new GZIPInputStream(input);\n"
+        code += f"{INDENT*4}ByteArrayOutputStream output = new ByteArrayOutputStream()) {{\n"
+        code += f"{INDENT*4}gzip.transferTo(output);\n{INDENT*4}data = output.toByteArray();\n{INDENT*3}}}\n"
+        code += f"{INDENT*2}}}\n"
+        if self.jackson_annotations:
+            code += f"{INDENT*2}if (mediaType.equals(\"application/json\")) {{\n"
+            code += f"{INDENT*3}ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();\n"
+            code += f"{INDENT*3}if (data instanceof byte[]) return mapper.readValue((byte[]) data, {class_name}.class);\n"
+            code += f"{INDENT*3}if (data instanceof InputStream) return mapper.readValue((InputStream) data, {class_name}.class);\n"
+            code += f"{INDENT*3}if (data instanceof JsonNode) return mapper.treeToValue((JsonNode) data, {class_name}.class);\n"
+            code += f"{INDENT*3}if (data instanceof String) return mapper.readValue((String) data, {class_name}.class);\n"
+            code += f"{INDENT*3}throw new UnsupportedOperationException(\"Data is not of a supported type for JSON conversion to {class_name}\");\n"
+            code += f"{INDENT*2}}}\n"
+        if self.xml_annotations:
+            code += f"{INDENT*2}if (mediaType.equals(\"application/xml\") || mediaType.equals(\"text/xml\")) {{\n"
+            code += f"{INDENT*3}XmlMapper mapper = createXmlMapper();\n"
+            code += f"{INDENT*3}if (data instanceof byte[]) return mapper.readValue((byte[]) data, {class_name}.class);\n"
+            code += f"{INDENT*3}if (data instanceof InputStream) return mapper.readValue((InputStream) data, {class_name}.class);\n"
+            code += f"{INDENT*3}if (data instanceof String) return mapper.readValue((String) data, {class_name}.class);\n"
+            code += f"{INDENT*3}throw new UnsupportedOperationException(\"Data is not of a supported type for XML conversion to {class_name}\");\n"
+            code += f"{INDENT*2}}}\n"
+        code += f"{INDENT*2}throw new UnsupportedOperationException(\"Unsupported media type \" + contentType);\n"
+        code += f"{INDENT}}}\n"
+        return code
+
     def generate_enum(self, structure_schema: Dict, field_name: str, parent_package: str, write_file: bool) -> JavaType:
         """ Generates a Java enum from JSON Structure enum schema """
         
@@ -579,6 +673,8 @@ class StructureToJava:
         schema_namespace = structure_schema.get('namespace', parent_package)
         package = self.join_packages(self.base_package, schema_namespace).replace('.', '/').lower()       
         enum_name = self.safe_identifier(enum_name)
+        xml_namespace = str(structure_schema.get('xmlns', ''))
+        xml_name = xml_wire_name(str(structure_schema.get('name', field_name + 'Enum')), structure_schema)
         type_name = self.qualified_name(package.replace('/', '.'), enum_name)
         namespace_qualified_name = self.qualified_name(schema_namespace, structure_schema.get('name', field_name + 'Enum'))
         self.generated_types_structure_namespace[namespace_qualified_name] = "enum"
@@ -600,7 +696,9 @@ class StructureToJava:
         
         if is_numeric:
             java_base_type = self.map_primitive_to_java(base_type, False).type_name
-            symbol_list = [{'name': f"VALUE_{value}".upper(), 'value': value} for value in symbols]
+            symbol_list = [{'name': f"VALUE_{value}".upper(), 'value': value,
+                            'xml_value': json.dumps(xml_enum_wire_value(value, structure_schema))}
+                           for value in symbols]
             enum_definition = process_template(
                 "structuretojava/enum_core.jinja",
                 class_name=enum_name,
@@ -608,22 +706,32 @@ class StructureToJava:
                 deprecated=deprecated,
                 is_numeric=True,
                 numeric_type=java_base_type,
-                symbols=symbol_list
+                symbols=symbol_list,
+                xml_annotation=self.xml_annotations,
+                xml_name=json.dumps(xml_name),
+                xml_namespace=json.dumps(xml_namespace)
             )
         else:
             # String enum — member name from original value; JSON wire value via altenums.json
             symbol_list = [{'name': self.safe_identifier(pascal(str(symbol).replace('-', '_').replace(' ', '_'))),
-                            'value': json_enum_wire_value(symbol, structure_schema)} for symbol in symbols]
+                            'value': json_enum_wire_value(symbol, structure_schema),
+                            'xml_value': json.dumps(xml_enum_wire_value(symbol, structure_schema))}
+                           for symbol in symbols]
             enum_definition = process_template(
                 "structuretojava/enum_core.jinja",
                 class_name=enum_name,
                 docstring=doc,
                 deprecated=deprecated,
                 is_numeric=False,
-                symbols=symbol_list
+                symbols=symbol_list,
+                xml_annotation=self.xml_annotations,
+                xml_name=json.dumps(xml_name),
+                xml_namespace=json.dumps(xml_namespace)
             )
         
         if write_file:
+            if self.xml_annotations and xml_namespace:
+                self.write_package_info(package, xml_namespace)
             self.write_to_file(package, enum_name, enum_definition)
         return StructureToJava.JavaType(type_name, is_enum=True)
 
@@ -789,6 +897,27 @@ class StructureToJava:
         
         return code
 
+    def write_package_info(self, package: str, xml_namespace: str) -> None:
+        """Write JAXB package metadata for a package's default XML namespace."""
+        package = self.safe_package(package.lower())
+        package_name = package.replace('/', '.')
+        if not package_name:
+            return
+        previous = self.xml_package_namespaces.get(package_name)
+        if previous is not None and previous != xml_namespace:
+            return
+        self.xml_package_namespaces[package_name] = xml_namespace
+        directory_path = os.path.join(
+            self.output_dir, package.replace('.', os.sep).replace('/', os.sep))
+        os.makedirs(directory_path, exist_ok=True)
+        package_info_path = os.path.join(directory_path, "package-info.java")
+        with open(package_info_path, 'w', encoding='utf-8') as file:
+            file.write("@jakarta.xml.bind.annotation.XmlSchema(\n")
+            file.write(f"    namespace = {json.dumps(xml_namespace)},\n")
+            file.write("    elementFormDefault = jakarta.xml.bind.annotation.XmlNsForm.QUALIFIED\n")
+            file.write(")\n")
+            file.write(f"package {package_name};\n")
+
     def write_to_file(self, package: str, name: str, definition: str):
         """ Writes a Java class or enum to a file """
         package = package.lower()
@@ -871,6 +1000,39 @@ class StructureToJava:
                     file.write("import com.fasterxml.jackson.core.JsonGenerator;\n")
                 if 'TypeReference' in definition:
                     file.write("import com.fasterxml.jackson.core.type.TypeReference;\n")
+            if self.xml_annotations:
+                if 'XmlRootElement' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlRootElement;\n")
+                if 'XmlType' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlType;\n")
+                if 'XmlAccessorType' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlAccessorType;\n")
+                    file.write("import jakarta.xml.bind.annotation.XmlAccessType;\n")
+                if 'XmlElement' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlElement;\n")
+                if 'XmlAttribute' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlAttribute;\n")
+                if 'XmlEnumValue' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlEnumValue;\n")
+                if '@XmlEnum' in definition:
+                    file.write("import jakarta.xml.bind.annotation.XmlEnum;\n")
+                if 'XmlMapper' in definition:
+                    file.write("import com.fasterxml.jackson.dataformat.xml.XmlMapper;\n")
+                if 'JakartaXmlBindAnnotationIntrospector' in definition:
+                    file.write("import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector;\n")
+            if self.jackson_annotations or self.xml_annotations:
+                if 'GZIPOutputStream' in definition:
+                    file.write("import java.util.zip.GZIPOutputStream;\n")
+                if 'GZIPInputStream' in definition:
+                    file.write("import java.util.zip.GZIPInputStream;\n")
+                if 'ByteArrayInputStream' in definition:
+                    file.write("import java.io.ByteArrayInputStream;\n")
+                if 'ByteArrayOutputStream' in definition:
+                    file.write("import java.io.ByteArrayOutputStream;\n")
+                if 'InputStream' in definition:
+                    file.write("import java.io.InputStream;\n")
+                if 'IOException' in definition:
+                    file.write("import java.io.IOException;\n")
             file.write("\n")
             file.write(definition)
 
@@ -890,7 +1052,8 @@ class StructureToJava:
                 groupid=groupid,
                 artifactid=artifactid,
                 jackson_version=JACKSON_VERSION,
-                jackson_annotations_version=JACKSON_ANNOTATIONS_VERSION
+                jackson_annotations_version=JACKSON_ANNOTATIONS_VERSION,
+                jakarta_xml_bind_version=JAKARTA_XML_BIND_VERSION
             )
             with open(pom_path, 'w', encoding='utf-8') as file:
                 file.write(pom_content)
@@ -933,7 +1096,9 @@ class StructureToJava:
         self.convert_schema(schema, output_dir)
 
 
-def convert_structure_to_java(structure_schema_path, java_file_path, package_name='', pascal_properties=False, jackson_annotation=True):
+def convert_structure_to_java(structure_schema_path, java_file_path, package_name='',
+                              pascal_properties=False, jackson_annotation=True,
+                              xml_annotation=False):
     """
     Converts JSON Structure schema to Java classes
 
@@ -943,6 +1108,7 @@ def convert_structure_to_java(structure_schema_path, java_file_path, package_nam
         package_name: Base package name
         pascal_properties: Use PascalCase for properties
         jackson_annotation: Add Jackson annotations (always True for Structure)
+        xml_annotation: Add Jakarta JAXB annotations and XML serialization helpers
     """
     if not package_name:
         package_name = os.path.splitext(os.path.basename(java_file_path))[0].replace('-', '_').lower()
@@ -950,10 +1116,13 @@ def convert_structure_to_java(structure_schema_path, java_file_path, package_nam
     structuretojava.base_package = package_name
     structuretojava.pascal_properties = pascal_properties
     structuretojava.jackson_annotations = jackson_annotation
+    structuretojava.xml_annotations = xml_annotation
     structuretojava.convert(structure_schema_path, java_file_path)
 
 
-def convert_structure_schema_to_java(structure_schema: JsonNode, output_dir: str, package_name='', pascal_properties=False, jackson_annotation=True):
+def convert_structure_schema_to_java(structure_schema: JsonNode, output_dir: str, package_name='',
+                                     pascal_properties=False, jackson_annotation=True,
+                                     xml_annotation=False):
     """
     Converts JSON Structure schema to Java classes
 
@@ -963,9 +1132,11 @@ def convert_structure_schema_to_java(structure_schema: JsonNode, output_dir: str
         package_name: Base package name
         pascal_properties: Use PascalCase for properties
         jackson_annotation: Add Jackson annotations (always True for Structure)
+        xml_annotation: Add Jakarta JAXB annotations and XML serialization helpers
     """
     structuretojava = StructureToJava()
     structuretojava.base_package = package_name
     structuretojava.pascal_properties = pascal_properties
     structuretojava.jackson_annotations = jackson_annotation
+    structuretojava.xml_annotations = xml_annotation
     structuretojava.convert_schema(structure_schema, output_dir)

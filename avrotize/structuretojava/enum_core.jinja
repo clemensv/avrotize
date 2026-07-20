@@ -2,10 +2,14 @@
 {%- if deprecated %}
 @Deprecated
 {%- endif %}
+{%- if xml_annotation %}
+@XmlType(name = {{ xml_name }}{% if xml_namespace != '""' %}, namespace = {{ xml_namespace }}{% endif %})
+@XmlEnum
+{%- endif %}
 public enum {{ class_name }} {
 {%- if is_numeric %}
 {%- for symbol in symbols %}
-    {{ symbol.name }}({{ symbol.value }}){% if not loop.last %},{% else %};{% endif %}
+    {% if xml_annotation %}@XmlEnumValue({{ symbol.xml_value }}) {% endif %}{{ symbol.name }}({{ symbol.value }}){% if not loop.last %},{% else %};{% endif %}
 
 {%- endfor %}
     
@@ -14,7 +18,7 @@ public enum {{ class_name }} {
     public {{ numeric_type }} getValue() { return value; }
 {%- else %}
 {%- for symbol in symbols %}
-    @com.fasterxml.jackson.annotation.JsonProperty("{{ symbol.value }}") {{ symbol.name }}{% if not loop.last %},{% else %};{% endif %}
+    {% if xml_annotation %}@XmlEnumValue({{ symbol.xml_value }}) {% endif %}@com.fasterxml.jackson.annotation.JsonProperty("{{ symbol.value }}") {{ symbol.name }}{% if not loop.last %},{% else %};{% endif %}
 {%- endfor %}
 {%- endif %}
 }

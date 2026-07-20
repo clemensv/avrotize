@@ -5,6 +5,11 @@
 {%- if deprecated %}
 @Deprecated
 {%- endif %}
+{%- if xml_annotation %}
+@XmlRootElement(name = {{ xml_name }}{% if xml_namespace != '""' %}, namespace = {{ xml_namespace }}{% endif %})
+@XmlType(name = {{ xml_name }}{% if xml_namespace != '""' %}, namespace = {{ xml_namespace }}{% endif %})
+@XmlAccessorType(XmlAccessType.FIELD)
+{%- endif %}
 public {{ 'abstract ' if is_abstract else '' }}class {{ class_name }}{% if base_class %} extends {{ base_class }}{% endif %} {
     {% if is_abstract %}protected{% else %}public{% endif %} {{ class_name }}() {}
 {%- for field in fields %}
@@ -15,6 +20,11 @@ public {{ 'abstract ' if is_abstract else '' }}class {{ class_name }}{% if base_
 {%- endif %}
 {%- if jackson_annotation and field.source_type in ['int64', 'uint64', 'int128', 'uint128', 'decimal'] %}
     @JsonFormat(shape = JsonFormat.Shape.STRING)
+{%- endif %}
+{%- if xml_annotation and field.xmlkind == 'attribute' %}
+    @XmlAttribute(name = {{ field.xml_name }})
+{%- elif xml_annotation %}
+    @XmlElement(name = {{ field.xml_name }}{% if field.xml_namespace != '""' %}, namespace = {{ field.xml_namespace }}{% endif %})
 {%- endif %}
 {%- if field.is_const %}
     public static final {{ field.type }} {{ field.name }} = {{ field.const_value }};
