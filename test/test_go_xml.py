@@ -9,18 +9,20 @@ import tempfile
 import pytest
 
 from avrotize.avrotogo import convert_avro_schema_to_go
-from avrotize.common import xml_enum_wire_value, xml_wire_name
+from avrotize.common import generic_type, xml_enum_wire_value, xml_wire_name
 from avrotize.structuretogo import convert_structure_schema_to_go
 
 AVRO_SCHEMA = {
     "type": "record", "name": "Order", "xmlns": "urn:orders", "altnames": {"xml": "order-doc"},
     "fields": [
         {"name": "id", "type": "string", "xmlkind": "attribute", "altnames": {"xml": "order-id"}},
+        {"name": "count", "type": "int"},
         {"name": "note", "type": ["null", "string"], "default": None},
         {"name": "child", "type": {"type": "record", "name": "Child", "fields": [{"name": "value", "type": "string"}]}},
         {"name": "items", "type": {"type": "array", "items": "string"}},
         {"name": "labels", "type": {"type": "map", "values": "string"}},
         {"name": "status", "type": {"type": "enum", "name": "Status", "symbols": ["NEW", "DONE"], "altsymbols": {"xml": {"NEW": "new-order"}}}},
+        {"name": "payload", "type": generic_type()},
     ],
 }
 
@@ -28,13 +30,15 @@ STRUCTURE_SCHEMA = {
     "type": "object", "name": "Order", "xmlns": "urn:orders", "altnames": {"xml": "order-doc"},
     "properties": {
         "id": {"type": "string", "xmlkind": "attribute", "altnames": {"xml": "order-id"}},
+        "count": {"type": "int32"},
         "note": {"type": "string"},
         "child": {"type": "object", "name": "Child", "properties": {"value": {"type": "string"}}, "required": ["value"]},
         "items": {"type": "array", "items": {"type": "string"}},
         "labels": {"type": "map", "values": {"type": "string"}},
         "status": {"type": "string", "name": "Status", "enum": ["NEW", "DONE"], "altenums": {"xml": {"NEW": "new-order"}}},
+        "payload": {"type": ["string", "int32"]},
     },
-    "required": ["id", "child", "items", "labels", "status"],
+    "required": ["id", "count", "child", "items", "labels", "status"],
 }
 
 
@@ -91,7 +95,7 @@ func strptr(value string) *string { return &value }
 
 func TestIssue412XMLRoundTrip(t *testing.T) {
     input := &Order{
-        Id: "42", Note: strptr("optional"), Child: Child{Value: "nested"},
+        Id: "42", Count: 3, Note: strptr("optional"), Child: Child{Value: "nested"},
         Items: []string{"one", "two"}, Labels: XMLMap[*string]{"a": strptr("A")},
         Status: Status_NEW,
     }
@@ -121,6 +125,71 @@ def test_generated_go_xml_round_trip(converter, schema):
     output = _generate(converter, schema, f"runtime-{converter.__name__}")
     package = output / "pkg" / "xmltest"
     (package / "issue412_runtime_test.go").write_text(GO_RUNTIME_TEST, encoding="utf-8")
+    subprocess.run([gofmt, "-w", str(output)], check=True, timeout=60)
+    subprocess.run([go, "build", "./..."], cwd=output, check=True, timeout=120)
+    subprocess.run([go, "test", "./..."], cwd=output, check=True, timeout=120)
+
+
+GO_ADVERSARIAL_TEST = r'''package xmltest
+
+import (
+    "strings"
+    "testing"
+)
+
+func validIssue412XML() string {
+    return `<order-doc xmlns="urn:orders" order-id="7"><count>1</count><child><value>x</value></child><items>x</items><labels><entry key="a">b</entry></labels><status>new-order</status></order-doc>`
+}
+
+func requireXMLFailure(t *testing.T, name string, data interface{}, contentType string) {
+    t.Helper()
+    value, err := OrderFromData(data, contentType)
+    if err == nil {
+        t.Fatalf("%s silently returned success-shaped value: %#v", name, value)
+    }
+}
+
+func TestIssue412AdversarialXML(t *testing.T) {
+    valid := validIssue412XML()
+    cases := []struct{name, xml string}{
+        {"malformed", `<order-doc xmlns="urn:orders"><count>1</oops>`},
+        {"truncated", valid[:len(valid)-12]},
+        {"doctype", `<!DOCTYPE order-doc>` + valid},
+        {"entity", `<!DOCTYPE order-doc [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>` + strings.Replace(valid, `<items>x</items>`, `<items>&xxe;</items>`, 1)},
+        {"namespace mismatch", strings.Replace(valid, `urn:orders`, `urn:attacker`, 1)},
+        {"attribute namespace mismatch", strings.Replace(valid, `order-id="7"`, `xmlns:a="urn:attacker" a:order-id="7"`, 1)},
+        {"missing required attribute", strings.Replace(valid, ` order-id="7"`, ``, 1)},
+        {"missing required element", strings.Replace(valid, `<count>1</count>`, ``, 1)},
+        {"duplicate singleton", strings.Replace(valid, `<count>1</count>`, `<count>1</count><count>2</count>`, 1)},
+        {"unknown field", strings.Replace(valid, `</order-doc>`, `<surprise>x</surprise></order-doc>`, 1)},
+        {"unknown attribute", strings.Replace(valid, `order-id="7"`, `order-id="7" surprise="x"`, 1)},
+        {"invalid scalar", strings.Replace(valid, `<count>1</count>`, `<count>not-an-int</count>`, 1)},
+        {"invalid enum", strings.Replace(valid, `<status>new-order</status>`, `<status>INVALID</status>`, 1)},
+        {"excessive nesting", strings.Replace(valid, `<items>x</items>`, `<items>` + strings.Repeat(`<x>`, 110) + `v` + strings.Repeat(`</x>`, 110) + `</items>`, 1)},
+        {"excessive size", strings.Replace(valid, `<items>x</items>`, `<items>` + strings.Repeat(`x`, maxXMLBytes+1) + `</items>`, 1)},
+        {"ambiguous interface union", strings.Replace(valid, `</order-doc>`, `<payload><string>x</string></payload></order-doc>`, 1)},
+        {"map missing key", strings.Replace(valid, `<entry key="a">b</entry>`, `<entry>b</entry>`, 1)},
+        {"map duplicate entry", strings.Replace(valid, `<entry key="a">b</entry>`, `<entry key="a">b</entry><entry key="a">c</entry>`, 1)},
+        {"map duplicate key attribute", strings.Replace(valid, `key="a"`, `key="a" key="b"`, 1)},
+        {"map unknown entry", strings.Replace(valid, `<entry key="a">b</entry>`, `<other key="a">b</other>`, 1)},
+    }
+    for _, tc := range cases {
+        t.Run(tc.name, func(t *testing.T) { requireXMLFailure(t, tc.name, tc.xml, "application/xml") })
+    }
+    requireXMLFailure(t, "corrupt gzip", []byte("not gzip"), "application/xml+gzip")
+}
+'''
+
+
+@pytest.mark.parametrize("converter,schema", [(convert_avro_schema_to_go, AVRO_SCHEMA), (convert_structure_schema_to_go, STRUCTURE_SCHEMA)])
+def test_generated_go_rejects_adversarial_xml(converter, schema):
+    go = shutil.which("go")
+    gofmt = shutil.which("gofmt")
+    if not go or not gofmt:
+        pytest.skip("Go toolchain is not installed")
+    output = _generate(converter, schema, f"adversarial-{converter.__name__}")
+    package = output / "pkg" / "xmltest"
+    (package / "issue412_adversarial_test.go").write_text(GO_ADVERSARIAL_TEST, encoding="utf-8")
     subprocess.run([gofmt, "-w", str(output)], check=True, timeout=60)
     subprocess.run([go, "build", "./..."], cwd=output, check=True, timeout=120)
     subprocess.run([go, "test", "./..."], cwd=output, check=True, timeout=120)

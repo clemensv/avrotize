@@ -174,12 +174,17 @@ class AvroToGo:
 
         fields = []
         for field in avro_schema.get('fields', []):
+            field_type = self.convert_avro_type_to_go(field['name'], field['type'], parent_namespace=namespace)
+            raw_type = field['type']
             fields.append({
                 'name': pascal(field['name']),
-                'type': self.convert_avro_type_to_go(field['name'], field['type'], parent_namespace=namespace),
+                'type': field_type,
                 'original_name': field['name'],
                 'xml_name': xml_wire_name(field['name'], field),
                 'xml_kind': field.get('xmlkind', 'element'),
+                'xml_required': not (isinstance(raw_type, list) and 'null' in raw_type) and not (isinstance(raw_type, dict) and raw_type.get('type') in ('array', 'map')),
+                'xml_repeated': isinstance(raw_type, dict) and raw_type.get('type') == 'array',
+                'xml_ambiguous': field_type.lstrip('*') == 'interface{}',
             })
 
         # Collect imports from field types

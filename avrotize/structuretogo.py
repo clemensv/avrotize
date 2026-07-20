@@ -356,6 +356,9 @@ class StructureToGo:
                 'original_name': json_wire_name(prop_name, prop_schema),
                 'xml_name': xml_wire_name(prop_name, prop_schema),
                 'xml_kind': prop_schema.get('xmlkind', 'element'),
+                'xml_required': is_required and source_type not in ('array', 'set', 'map'),
+                'xml_repeated': isinstance(raw_type, str) and raw_type in ('array', 'set'),
+                'xml_ambiguous': field_type.lstrip('*') == 'interface{}',
                 'source_type': source_type
             })
 
