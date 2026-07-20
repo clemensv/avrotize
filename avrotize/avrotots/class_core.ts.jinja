@@ -13,8 +13,11 @@ import avro, { type Type } from 'avro-js';
 {%- for import_type, import_path in imports.items() %}
 import { {{ import_type }} } from '{{ import_path }}';
 {%- endfor %}
-{%- if avro_annotation or typed_json_annotation %}
+{%- if avro_annotation or typed_json_annotation or xml_annotation %}
 import pako from 'pako';
+{%- endif %}
+{%- if xml_annotation %}
+import { deserializeXml, serializeXml, type XmlRecordMapping } from '{{ xml_runtime_import }}';
 {%- endif %}
 
 {%- if typed_json_annotation %}
@@ -23,6 +26,21 @@ import pako from 'pako';
 export class {{ class_name }} {
     {%- if avro_annotation %}
     public static AvroType: Type = avro.parse({{ avro_schema_json }});
+    {%- endif %}
+    {%- if xml_annotation %}
+    public static readonly XmlMapping: XmlRecordMapping<{{ class_name }}> = {
+        rootName: {{ xml_root_name | tojson }},
+        {%- if xml_namespace %}
+        namespace: {{ xml_namespace | tojson }},
+        {%- endif %}
+        assignMissing: true,
+        fields: [
+            {%- for field in fields %}
+            { property: {{ field.name | tojson }}, name: {{ field.xml_name | tojson }}, kind: '{{ field.xml_kind }}',{% if field.type.endswith('?') %} optional: true,{% endif %} type: {{ field.xml_type_mapping }} }{% if not loop.last %},{% endif %}
+            {%- endfor %}
+        ],
+        create: (values) => Object.assign(Object.create({{ class_name }}.prototype) as {{ class_name }}, values),
+    };
     {%- endif %}
 
     {%- for field in fields %}
@@ -52,63 +70,68 @@ export class {{ class_name }} {
         {%- endfor %}
     }
 
-    {%- if avro_annotation or typed_json_annotation %}
+    {%- if avro_annotation or typed_json_annotation or xml_annotation %}
     public toByteArray(contentTypeString: string): Uint8Array {
         const contentType = contentTypeString.split(';')[0].trim();
+        const isGzip = contentType.endsWith('+gzip');
+        const mediaType = isGzip ? contentType.slice(0, -5) : contentType;
         let result: Uint8Array | null = null;
 
         {%- if avro_annotation %}
-        if (contentType.startsWith('avro/binary') || contentType.startsWith('application/vnd.apache.avro+avro')) {
+        if (mediaType === 'avro/binary' || mediaType === 'application/vnd.apache.avro+avro') {
             result = ({{ class_name }}.AvroType.toBuffer(this) as unknown) as Uint8Array;
         }
         {%- endif %}
 
         {%- if typed_json_annotation %}
-        if (contentType.startsWith('application/json')) {
+        if (mediaType === 'application/json') {
             const serializer = new TypedJSON({{ class_name }});
             const jsonString = serializer.stringify(this);
             result = new TextEncoder().encode(jsonString);
         }
         {%- endif %}
 
-        if (result && contentTypeString.endsWith('+gzip')) {
+        {%- if xml_annotation %}
+        if (mediaType === 'application/xml' || mediaType === 'text/xml') {
+            result = new TextEncoder().encode(serializeXml(this, {{ class_name }}.XmlMapping));
+        }
+        {%- endif %}
+
+        if (result && isGzip) {
             result = pako.gzip(result);
         }
-
-        if (result) {
-            return result;
-        } else {
-            throw new Error(`Unsupported media type: ${contentTypeString}`);
-        }
+        if (!result) throw new Error(`Unsupported media type: ${contentTypeString}`);
+        return result;
     }
 
     public static fromData(data: any, contentTypeString: string): {{ class_name }} {
         const contentType = contentTypeString.split(';')[0].trim();
-
-        if (contentTypeString.endsWith('+gzip')) {
-            data = pako.ungzip(data);
-        }
+        const isGzip = contentType.endsWith('+gzip');
+        const mediaType = isGzip ? contentType.slice(0, -5) : contentType;
+        if (isGzip) data = pako.ungzip(data);
 
         {%- if avro_annotation %}
-        if (contentType.startsWith('avro/binary') || contentType.startsWith('application/vnd.apache.avro+avro')) {
+        if (mediaType === 'avro/binary' || mediaType === 'application/vnd.apache.avro+avro') {
             return {{ class_name }}.AvroType.fromBuffer(data);
         }
         {%- endif %}
 
         {%- if typed_json_annotation %}
-        if (contentType.startsWith('application/json')) {
+        if (mediaType === 'application/json') {
             const serializer = new TypedJSON({{ class_name }});
             const retval = serializer.parse(new TextDecoder().decode(data));
-            if (!(retval instanceof {{ class_name }})) {
-                throw new Error(`Deserialized object is not an instance of {{ class_name }}`);
-            }
+            if (!(retval instanceof {{ class_name }})) throw new Error(`Deserialized object is not an instance of {{ class_name }}`);
             return retval;
         }
         {%- endif %}
 
+        {%- if xml_annotation %}
+        if (mediaType === 'application/xml' || mediaType === 'text/xml') {
+            return deserializeXml(new TextDecoder().decode(data), {{ class_name }}.XmlMapping);
+        }
+        {%- endif %}
         throw new Error(`Unsupported media type: ${contentTypeString}`);
     }
-
 
     {%- if typed_json_annotation %}
     public static isJsonMatch(element: any): boolean {

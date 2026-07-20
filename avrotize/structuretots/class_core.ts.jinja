@@ -10,11 +10,31 @@ import { jsonObject, jsonMember, TypedJSON } from 'typedjson';
 {%- for import_type, import_path in imports.items() %}
 import { {{ import_type }} } from '{{ import_path }}';
 {%- endfor %}
+{%- if typedjson_annotation or xml_annotation %}
+import pako from 'pako';
+{%- endif %}
+{%- if xml_annotation %}
+import { deserializeXml, serializeXml, type XmlRecordMapping } from '{{ xml_runtime_import }}';
+{%- endif %}
 
 {%- if typedjson_annotation %}
 @jsonObject
 {%- endif %}
 export {% if is_abstract %}abstract {% endif %}class {{ class_name }}{% if base_class %} extends {{ base_class }}{% endif %} {
+    {%- if xml_annotation %}
+    public static readonly XmlMapping: XmlRecordMapping<{{ class_name }}> = {
+        rootName: {{ xml_root_name | tojson }},
+        {%- if xml_namespace %}
+        namespace: {{ xml_namespace | tojson }},
+        {%- endif %}
+        fields: [
+            {%- for field in fields %}
+            { property: {{ field.name | tojson }}, name: {{ field.xml_name | tojson }}, kind: '{{ field.xml_kind }}',{% if field.is_optional %} optional: true,{% endif %} type: {{ field.xml_type_mapping }} }{% if not loop.last %},{% endif %}
+            {%- endfor %}
+        ],
+        create: (values) => Object.assign(Object.create({{ class_name }}.prototype) as {{ class_name }}, values),
+    };
+    {%- endif %}
     {%- for field in fields %}
     /** {{ field.docstring }} */
     {%- if typedjson_annotation %}
@@ -66,6 +86,43 @@ export {% if is_abstract %}abstract {% endif %}class {{ class_name }}{% if base_
             throw new Error('Failed to deserialize {{ class_name }}');
         }
         return result;
+    }
+    {%- endif %}
+
+    {%- if typedjson_annotation or xml_annotation %}
+    public toByteArray(contentTypeString: string): Uint8Array {
+        const contentType = contentTypeString.split(';')[0].trim();
+        const isGzip = contentType.endsWith('+gzip');
+        const mediaType = isGzip ? contentType.slice(0, -5) : contentType;
+        let result: Uint8Array | null = null;
+        {%- if typedjson_annotation %}
+        if (mediaType === 'application/json') result = new TextEncoder().encode(this.toJSON());
+        {%- endif %}
+        {%- if xml_annotation %}
+        if (mediaType === 'application/xml' || mediaType === 'text/xml') {
+            result = new TextEncoder().encode(serializeXml(this, {{ class_name }}.XmlMapping));
+        }
+        {%- endif %}
+        if (result && isGzip) result = pako.gzip(result);
+        if (!result) throw new Error(`Unsupported media type: ${contentTypeString}`);
+        return result;
+    }
+
+    public static fromData(data: Uint8Array, contentTypeString: string): {{ class_name }} {
+        const contentType = contentTypeString.split(';')[0].trim();
+        const isGzip = contentType.endsWith('+gzip');
+        const mediaType = isGzip ? contentType.slice(0, -5) : contentType;
+        if (isGzip) data = pako.ungzip(data);
+        const text = new TextDecoder().decode(data);
+        {%- if typedjson_annotation %}
+        if (mediaType === 'application/json') return {{ class_name }}.fromJSON(text);
+        {%- endif %}
+        {%- if xml_annotation %}
+        if (mediaType === 'application/xml' || mediaType === 'text/xml') {
+            return deserializeXml(text, {{ class_name }}.XmlMapping);
+        }
+        {%- endif %}
+        throw new Error(`Unsupported media type: ${contentTypeString}`);
     }
     {%- endif %}
 

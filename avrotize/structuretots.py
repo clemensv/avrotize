@@ -31,10 +31,11 @@ def is_typescript_reserved_word(word: str) -> bool:
 class StructureToTypeScript:
     """ Converts JSON Structure schema to TypeScript classes """
 
-    def __init__(self, base_package: str = '', typedjson_annotation=False, avro_annotation=False) -> None:
+    def __init__(self, base_package: str = '', typedjson_annotation=False, avro_annotation=False, xml_annotation=False) -> None:
         self.base_package = base_package or ''
         self.typedjson_annotation = typedjson_annotation
         self.avro_annotation = avro_annotation
+        self.xml_annotation = xml_annotation
         self.output_dir = os.getcwd()
         self.schema_doc: JsonNode = None
         self.generated_types: Dict[str, str] = {}
@@ -110,6 +111,68 @@ class StructureToTypeScript:
             return name + "_"
         return name
 
+    @staticmethod
+    def xml_name(default_name: str, schema: Dict) -> str:
+        """Resolve an XML local name from an ``altnames.xml`` annotation."""
+        altnames = schema.get("altnames", {})
+        return str(altnames.get("xml", default_name)) if isinstance(altnames, dict) else default_name
+
+    @staticmethod
+    def xml_enum_values(schema: Dict) -> Dict[str, str]:
+        """Map generated enum values to their XML wire values."""
+        json_values = schema.get("altenums", {}).get("json", {}) if isinstance(schema.get("altenums"), dict) else {}
+        xml_values = schema.get("altenums", {}).get("xml", {}) if isinstance(schema.get("altenums"), dict) else {}
+        return {str(json_values.get(str(value), value)): str(xml_values.get(str(value), value)) for value in schema.get("enum", [])}
+
+    def xml_type_mapping(self, structure_type: JsonNode, parent_namespace: str) -> str:
+        """Render a typed XML value mapping for a JSON Structure property."""
+        if isinstance(structure_type, list):
+            non_null = [item for item in structure_type if item != "null"]
+            if len(non_null) == 1:
+                return self.xml_type_mapping(non_null[0], parent_namespace)
+            variants = ", ".join(self.xml_type_mapping(item, parent_namespace) for item in non_null)
+            return f"{{ kind: 'union', variants: [{variants}] }}"
+        if isinstance(structure_type, str):
+            if structure_type in ["boolean"]:
+                return "{ kind: 'boolean' }"
+            if structure_type in ["integer", "number", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float8", "float", "double", "binary32", "binary64"]:
+                return "{ kind: 'number' }"
+            if structure_type in ["int128", "uint128", "decimal", "string", "binary", "bytes", "duration", "uuid", "uri", "jsonpointer"]:
+                return "{ kind: 'string' }"
+            if structure_type in ["date", "time", "datetime", "timestamp"]:
+                return "{ kind: 'date' }"
+            return "{ kind: 'any' }"
+        if isinstance(structure_type, dict):
+            if "$ref" in structure_type:
+                ref_schema = self.resolve_ref(structure_type["$ref"])
+                if isinstance(ref_schema, dict) and "enum" in ref_schema:
+                    return f"{{ kind: 'enum', enumValues: {json.dumps(self.xml_enum_values(ref_schema))} }}"
+                ref_name = pascal(structure_type["$ref"].split("/")[-1])
+                return f"{{ kind: 'record', record: () => {ref_name}.XmlMapping }}"
+            if "enum" in structure_type:
+                return f"{{ kind: 'enum', enumValues: {json.dumps(self.xml_enum_values(structure_type))} }}"
+            schema_type = structure_type.get("type", "any")
+            if isinstance(schema_type, list):
+                return self.xml_type_mapping(schema_type, parent_namespace)
+            if schema_type == "object":
+                class_name = pascal(structure_type.get("name", "UnnamedClass"))
+                return f"{{ kind: 'record', record: () => {class_name}.XmlMapping }}"
+            if schema_type in ["array", "tuple"]:
+                items = structure_type.get("items", {"type": "any"})
+                if isinstance(items, list):
+                    variants = ", ".join(self.xml_type_mapping(item, parent_namespace) for item in items)
+                    return f"{{ kind: 'array', item: {{ kind: 'union', variants: [{variants}] }} }}"
+                return f"{{ kind: 'array', item: {self.xml_type_mapping(items, parent_namespace)} }}"
+            if schema_type == "set":
+                return f"{{ kind: 'set', item: {self.xml_type_mapping(structure_type.get('items', {'type': 'any'}), parent_namespace)} }}"
+            if schema_type == "map":
+                return f"{{ kind: 'map', value: {self.xml_type_mapping(structure_type.get('values', {'type': 'any'}), parent_namespace)} }}"
+            if schema_type == "choice":
+                variants = ", ".join(self.xml_type_mapping(item, parent_namespace) for item in structure_type.get("choices", {}).values())
+                return f"{{ kind: 'union', variants: [{variants}] }}"
+            return self.xml_type_mapping(schema_type, parent_namespace)
+        return "{ kind: 'any' }"
+
     def pascal_type_name(self, ref: str) -> str:
         """Converts a reference to a type name"""
         return '_'.join([pascal(part) for part in ref.split('.')[-1].split('_')])
@@ -158,6 +221,8 @@ class StructureToTypeScript:
 
         path = ref[2:].split('/')
         schema = context_schema if context_schema else self.schema_doc
+        if isinstance(schema, list) and len(schema) == 1:
+            schema = schema[0]
         for part in path:
             if not isinstance(schema, dict) or part not in schema:
                 return None
@@ -364,6 +429,9 @@ class StructureToTypeScript:
                 'is_optional': is_optional,
                 'is_primitive': self.is_typescript_primitive(field_type_no_null.replace('[]', '')),
                 'is_enum': is_enum,
+                'xml_name': self.xml_name(prop_name, prop_schema) if isinstance(prop_schema, dict) else prop_name,
+                'xml_kind': 'attribute' if isinstance(prop_schema, dict) and prop_schema.get('xmlkind') == 'attribute' else 'element',
+                'xml_type_mapping': self.xml_type_mapping(prop_schema, schema_namespace),
                 'docstring': prop_schema.get('description', '') if isinstance(prop_schema, dict) else ''
             })
 
@@ -399,6 +467,10 @@ class StructureToTypeScript:
             required_fields=required_fields,
             imports=imports_with_paths,
             typedjson_annotation=self.typedjson_annotation,
+            xml_annotation=self.xml_annotation,
+            xml_root_name=self.xml_name(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'), structure_schema),
+            xml_namespace=structure_schema.get('xmlns'),
+            xml_runtime_import=('../' * len(namespace.split('.')) if namespace else './') + 'xml.js',
         )
 
         if write_file:
@@ -718,12 +790,16 @@ class StructureToTypeScript:
         self.generate_package_json(package_name)
         self.generate_tsconfig()
         self.generate_gitignore()
+        if self.xml_annotation:
+            xml_runtime = process_template("structuretots/xml_runtime.ts.jinja")
+            with open(os.path.join(self.output_dir, 'src', 'xml.ts'), 'w', encoding='utf-8') as f:
+                f.write(xml_runtime)
         self.generate_index()
 
 
 def convert_structure_to_typescript(structure_schema_path: str, ts_file_path: str, 
                                    package_name: str = '', typedjson_annotation: bool = False, 
-                                   avro_annotation: bool = False) -> None:
+                                   avro_annotation: bool = False, xml_annotation: bool = False) -> None:
     """
     Converts a JSON Structure schema to TypeScript classes.
     
@@ -733,14 +809,15 @@ def convert_structure_to_typescript(structure_schema_path: str, ts_file_path: st
         package_name: Package name for the generated TypeScript project
         typedjson_annotation: Whether to include TypedJSON annotations
         avro_annotation: Whether to include Avro annotations
+        xml_annotation: Whether to generate XML mappings and serialization
     """
-    converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation)
+    converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation, xml_annotation)
     converter.convert(structure_schema_path, ts_file_path, package_name)
 
 
 def convert_structure_schema_to_typescript(structure_schema: JsonNode, output_dir: str, 
                                           package_name: str = '', typedjson_annotation: bool = False, 
-                                          avro_annotation: bool = False) -> None:
+                                          avro_annotation: bool = False, xml_annotation: bool = False) -> None:
     """
     Converts a JSON Structure schema to TypeScript classes.
     
@@ -750,6 +827,7 @@ def convert_structure_schema_to_typescript(structure_schema: JsonNode, output_di
         package_name: Package name for the generated TypeScript project
         typedjson_annotation: Whether to include TypedJSON annotations
         avro_annotation: Whether to include Avro annotations
+        xml_annotation: Whether to generate XML mappings and serialization
     """
-    converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation)
+    converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation, xml_annotation)
     converter.convert_schema(structure_schema, output_dir, package_name)

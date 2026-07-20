@@ -1,0 +1,148 @@
+import { XMLBuilder, XMLParser } from 'fast-xml-parser';
+
+export type XmlValueKind = 'string' | 'number' | 'boolean' | 'date' | 'enum' | 'record' | 'array' | 'set' | 'map' | 'union' | 'any';
+
+export interface XmlTypeMapping {
+    readonly kind: XmlValueKind;
+    readonly item?: XmlTypeMapping;
+    readonly value?: XmlTypeMapping;
+    readonly variants?: readonly XmlTypeMapping[];
+    readonly enumValues?: Readonly<Record<string, string>>;
+    readonly record?: () => XmlRecordMapping<any>;
+    readonly unwrap?: (value: unknown) => unknown;
+    readonly wrap?: (value: unknown) => unknown;
+}
+
+export interface XmlFieldMapping<T> {
+    readonly property: keyof T & string;
+    readonly name: string;
+    readonly kind: 'element' | 'attribute';
+    readonly optional?: boolean;
+    readonly type: XmlTypeMapping;
+}
+
+export interface XmlRecordMapping<T = unknown> {
+    readonly rootName: string;
+    readonly namespace?: string;
+    readonly fields: readonly XmlFieldMapping<T>[];
+    readonly assignMissing?: boolean;
+    readonly create: (values: Record<string, unknown>) => T;
+}
+
+function selectVariant(value: unknown, variants: readonly XmlTypeMapping[]): XmlTypeMapping {
+    if (Array.isArray(value)) return variants.find((v) => v.kind === 'array') ?? variants[0];
+    if (value instanceof Set) return variants.find((v) => v.kind === 'set') ?? variants[0];
+    if (value instanceof Date) return variants.find((v) => v.kind === 'date') ?? variants[0];
+    if (value !== null && typeof value === 'object') return variants.find((v) => v.kind === 'record' || v.kind === 'map') ?? variants[0];
+    return variants.find((v) => v.kind === typeof value) ?? variants.find((v) => v.kind === 'enum' && typeof value === 'string') ?? variants[0];
+}
+
+function toXmlValue(value: unknown, mapping: XmlTypeMapping): unknown {
+    if (value === undefined || value === null) return undefined;
+    switch (mapping.kind) {
+        case 'date': return value instanceof Date ? value.toISOString() : String(value);
+        case 'enum': return mapping.enumValues?.[String(value)] ?? String(value);
+        case 'record': {
+            const recordMapping = mapping.record!();
+            const fields = toXmlFields(value as Record<string, unknown>, recordMapping);
+            if (recordMapping.namespace) fields['@_xmlns'] = recordMapping.namespace;
+            return fields;
+        }
+        case 'array': return (value as unknown[]).map((item) => toXmlValue(item, mapping.item!));
+        case 'set': return Array.from(value as Set<unknown>, (item) => toXmlValue(item, mapping.item!));
+        case 'map': return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, toXmlValue(item, mapping.value!)]));
+        case 'union': {
+            const unwrapped = mapping.unwrap ? mapping.unwrap(value) : value;
+            return toXmlValue(unwrapped, selectVariant(unwrapped, mapping.variants!));
+        }
+        default: return value;
+    }
+}
+
+function fromXmlValue(value: unknown, mapping: XmlTypeMapping): unknown {
+    if (value === undefined || value === null) return undefined;
+    switch (mapping.kind) {
+        case 'number': return Number(value);
+        case 'boolean': return value === true || value === 'true' || value === '1';
+        case 'date': return new Date(String(value));
+        case 'enum': {
+            const wireValue = String(value);
+            const entry = Object.entries(mapping.enumValues ?? {}).find(([, xmlValue]) => xmlValue === wireValue);
+            return entry?.[0] ?? wireValue;
+        }
+        case 'record': return fromXmlFields(value as Record<string, unknown>, mapping.record!());
+        case 'array': return (Array.isArray(value) ? value : [value]).map((item) => fromXmlValue(item, mapping.item!));
+        case 'set': return new Set((Array.isArray(value) ? value : [value]).map((item) => fromXmlValue(item, mapping.item!)));
+        case 'map': return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([key]) => key !== '#text' && key !== '@_xmlns').map(([key, item]) => [key, fromXmlValue(item, mapping.value!)]));
+        case 'union': {
+            const variants = mapping.variants!;
+            const selected = value !== null && typeof value === 'object'
+                ? variants.find((v) => v.kind === 'record' || v.kind === 'map' || v.kind === 'array')
+                : variants.find((v) => v.kind === 'string' || v.kind === 'enum') ?? variants[0];
+            const converted = fromXmlValue(value, selected ?? variants[0]);
+            return mapping.wrap ? mapping.wrap(converted) : converted;
+        }
+        default: return value;
+    }
+}
+
+function toXmlFields<T>(value: T, mapping: XmlRecordMapping<T>): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+    for (const field of mapping.fields) {
+        const converted = toXmlValue(value[field.property], field.type);
+        if (converted !== undefined) {
+            result[field.kind === 'attribute' ? '@_' + field.name : field.name] = converted;
+        }
+    }
+    return result;
+}
+
+function fromXmlFields<T>(value: Record<string, unknown>, mapping: XmlRecordMapping<T>): T {
+    const fields: Record<string, unknown> = {};
+    for (const field of mapping.fields) {
+        if (mapping.assignMissing) fields[field.property] = undefined;
+        const key = field.kind === 'attribute' ? '@_' + field.name : field.name;
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+            fields[field.property] = fromXmlValue(value[key], field.type);
+        } else if (!field.optional && field.type.kind === 'array') {
+            fields[field.property] = [];
+        } else if (!field.optional && field.type.kind === 'set') {
+            fields[field.property] = new Set();
+        } else if (!field.optional && field.type.kind === 'map') {
+            fields[field.property] = {};
+        }
+    }
+    return mapping.create(fields);
+}
+
+export function serializeXml<T>(value: T, mapping: XmlRecordMapping<T>): string {
+    const body = toXmlFields(value, mapping);
+    if (mapping.namespace) body['@_xmlns'] = mapping.namespace;
+    const builder = new XMLBuilder({
+        ignoreAttributes: false,
+        attributeNamePrefix: '@_',
+        suppressEmptyNode: false,
+    });
+    return builder.build({ [mapping.rootName]: body });
+}
+
+export function deserializeXml<T>(xml: string, mapping: XmlRecordMapping<T>): T {
+    const parser = new XMLParser({
+        ignoreAttributes: false,
+        attributeNamePrefix: '@_',
+        parseAttributeValue: false,
+        parseTagValue: false,
+        processEntities: false,
+        trimValues: false,
+    });
+    const document = parser.parse(xml) as Record<string, unknown>;
+    let root = document[mapping.rootName];
+    if (root === undefined) {
+        const rootKey = Object.keys(document).find((key) => key.split(':').pop() === mapping.rootName);
+        if (rootKey) root = document[rootKey];
+    }
+    if (root === undefined || root === null || typeof root !== 'object') {
+        throw new Error(`Expected XML root element ${mapping.rootName}`);
+    }
+    return fromXmlFields(root as Record<string, unknown>, mapping);
+}

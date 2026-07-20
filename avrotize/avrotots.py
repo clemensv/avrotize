@@ -23,10 +23,11 @@ def is_typescript_reserved_word(word: str) -> bool:
 class AvroToTypeScript:
     """Converts Avro schema to TypeScript classes using templates with namespace support."""
 
-    def __init__(self, base_package: str = '', typed_json_annotation=False, avro_annotation=False) -> None:
+    def __init__(self, base_package: str = '', typed_json_annotation=False, avro_annotation=False, xml_annotation=False) -> None:
         self.base_package = base_package
         self.typed_json_annotation = typed_json_annotation
         self.avro_annotation = avro_annotation
+        self.xml_annotation = xml_annotation
         self.output_dir = os.getcwd()
         self.src_dir = os.path.join(self.output_dir, "src")
         self.generated_types: Dict[str, str] = {}
@@ -86,6 +87,60 @@ class AvroToTypeScript:
         if is_typescript_reserved_word(name):
             return name + "_"
         return name
+
+    @staticmethod
+    def xml_name(default_name: str, schema: Dict) -> str:
+        """Resolve an XML local name from an ``altnames.xml`` annotation."""
+        altnames = schema.get("altnames", {})
+        return str(altnames.get("xml", default_name)) if isinstance(altnames, dict) else default_name
+
+    def xml_enum_values(self, schema: Dict) -> Dict[str, str]:
+        """Build runtime-enum-value to XML-wire-value mappings."""
+        alternates = schema.get("altenums", {})
+        xml_alternates = alternates.get("xml", {}) if isinstance(alternates, dict) else {}
+        return {str(symbol): str(xml_alternates.get(str(symbol), symbol)) for symbol in schema.get("symbols", [])}
+
+    def xml_type_mapping(self, avro_type: Union[str, Dict, List], parent_namespace: str, wrapper_type: str = '') -> str:
+        """Render a typed XML value mapping for a generated field."""
+        if isinstance(avro_type, list):
+            non_null = [item for item in avro_type if item != "null"]
+            if len(non_null) == 1:
+                return self.xml_type_mapping(non_null[0], parent_namespace)
+            variants = ", ".join(self.xml_type_mapping(item, parent_namespace) for item in non_null)
+            if wrapper_type:
+                return f"{{ kind: 'union', variants: {wrapper_type}.XmlVariants, unwrap: (value) => (value as any).value, wrap: (value) => new {wrapper_type}(value as any) }}"
+            return f"{{ kind: 'union', variants: [{variants}] }}"
+        if isinstance(avro_type, str):
+            primitive_kinds = {
+                "boolean": "boolean", "int": "number", "long": "number",
+                "float": "number", "double": "number", "bytes": "string",
+                "string": "string", "null": "any",
+            }
+            if avro_type in primitive_kinds:
+                return f"{{ kind: '{primitive_kinds[avro_type]}' }}"
+            type_name = fullname(avro_type, parent_namespace)
+            named_schema = self.type_dict.get(type_name) if self.type_dict else None
+            if isinstance(named_schema, dict) and named_schema.get("type") == "enum":
+                values = json.dumps(self.xml_enum_values(named_schema))
+                return f"{{ kind: 'enum', enumValues: {values} }}"
+            class_name = pascal(avro_type.split(".")[-1])
+            return f"{{ kind: 'record', record: () => {class_name}.XmlMapping }}"
+        if isinstance(avro_type, dict):
+            logical_type = avro_type.get("logicalType")
+            if logical_type in ["date", "time-millis", "time-micros", "timestamp-millis", "timestamp-micros"]:
+                return "{ kind: 'date' }"
+            schema_type = avro_type.get("type")
+            if schema_type == "record":
+                return f"{{ kind: 'record', record: () => {pascal(avro_type['name'])}.XmlMapping }}"
+            if schema_type == "enum":
+                values = json.dumps(self.xml_enum_values(avro_type))
+                return f"{{ kind: 'enum', enumValues: {values} }}"
+            if schema_type == "array":
+                return f"{{ kind: 'array', item: {self.xml_type_mapping(avro_type['items'], parent_namespace)} }}"
+            if schema_type == "map":
+                return f"{{ kind: 'map', value: {self.xml_type_mapping(avro_type['values'], parent_namespace)} }}"
+            return self.xml_type_mapping(schema_type, parent_namespace)
+        return "{ kind: 'any' }"
 
     def convert_avro_type_to_typescript(self, avro_type: Union[str, Dict, List], parent_namespace: str, import_types: Set[str], class_name: str = '', field_name: str = '') -> str:
         """Convert Avro type to TypeScript type with namespace support."""
@@ -151,6 +206,7 @@ class AvroToTypeScript:
 
         fields = [{
             'definition': self.generate_field(field, avro_schema.get('namespace', parent_namespace), import_types, class_name),
+            'schema': field,
             'docstring': field.get('doc', '')
         } for field in avro_schema.get('fields', [])]
 
@@ -165,6 +221,9 @@ class AvroToTypeScript:
             'is_union': field['definition']['is_union'],
             'docstring': field['docstring'],
             'test_value': self.generate_test_value(field['definition']['type'], field['definition']['is_enum']),
+            'xml_name': self.xml_name(field['schema']['name'], field['schema']),
+            'xml_kind': 'attribute' if field['schema'].get('xmlkind') == 'attribute' else 'element',
+            'xml_type_mapping': self.xml_type_mapping(field['schema']['type'], avro_schema.get('namespace', parent_namespace), field['definition']['type'] if field['definition']['is_union'] else ''),
         } for field in fields]
 
         imports_with_paths: Dict[str, str] = {}
@@ -199,6 +258,10 @@ class AvroToTypeScript:
             base_package=self.base_package,
             avro_annotation=self.avro_annotation,
             typed_json_annotation=self.typed_json_annotation,
+            xml_annotation=self.xml_annotation,
+            xml_root_name=self.xml_name(avro_schema['name'], avro_schema),
+            xml_namespace=avro_schema.get('xmlns'),
+            xml_runtime_import=('../' * len(namespace.split('.')) if namespace else './') + 'xml.js',
             avro_schema_json=avro_schema_json,
             get_is_json_match_clause=self.get_is_json_match_clause,
         )
@@ -248,7 +311,7 @@ class AvroToTypeScript:
             'type': field_type,
             'is_primitive': self.is_typescript_primitive(field_type.replace('[]', '')),
             'is_array': field_type.endswith('[]'),
-            'is_union': self.generated_types.get(import_name, '') == 'union',
+            'is_union': any(kind == 'union' and name.endswith('.' + self.strip_nullable(field_type)) for name, kind in self.generated_types.items()),
             'is_enum': self.generated_types.get(import_name, '') == 'enum',
         }
 
@@ -266,7 +329,8 @@ class AvroToTypeScript:
         
         # Handle map/dict types
         if field_type.startswith('{ [key: string]:'):
-            return "{ 'key': 'value' }"
+            value_type = field_type[len('{ [key: string]:'):].rsplit('}', 1)[0].strip()
+            return f"{{ 'key': {self.generate_test_value(value_type)} }}"
         
         # Handle union types (pipe-separated)
         if '|' in field_type:
@@ -323,7 +387,7 @@ class AvroToTypeScript:
             elif field_type.endswith('[]'):
                 clause += f"Array.isArray(element['{field_name_js}'])"
             else:
-                clause += f"{field_type}.isJsonMatch(element['{field_name_js}'])"
+                clause += f"({field_type} as any).isJsonMatch(element['{field_name_js}'])"
 
         if is_optional:
             clause += f") || element['{field_name_js}'] === null"
@@ -355,10 +419,13 @@ class AvroToTypeScript:
             
         if self.typed_json_annotation:
             class_definition += "import 'reflect-metadata';\n"
-            class_definition += "import { CustomDeserializerParams, CustomSerializerParams } from 'typedjson/lib/types/metadata.js';\n"
+        class_definition += "import type { CustomDeserializerParams, CustomSerializerParams } from 'typedjson/lib/types/metadata.js';\n"
             
 
         class_definition += f"\nexport class {union_class_name} {{\n"
+        if self.xml_annotation:
+            xml_variants = ', '.join(self.xml_type_mapping(item, parent_namespace) for item in avro_type if item != 'null')
+            class_definition += f"{self.INDENT}public static readonly XmlVariants = [{xml_variants}] as const;\n\n"
 
         class_definition += f"{self.INDENT}private value: any;\n\n"
 
@@ -397,8 +464,8 @@ class AvroToTypeScript:
         class_definition += f"{self.INDENT}public static fromData(element: any, contentTypeString: string): {union_class_name} {{\n"
         class_definition += f"{self.INDENT*2}const unionTypes = [{', '.join([t.strip() for t in union_types if not self.is_typescript_primitive(t.strip())])}];\n"
         class_definition += f"{self.INDENT*2}for (const type of unionTypes) {{\n"
-        class_definition += f"{self.INDENT*3}if (type.isJsonMatch(element)) {{\n"
-        class_definition += f"{self.INDENT*4}return new {union_class_name}(type.fromData(element, contentTypeString));\n"
+        class_definition += f"{self.INDENT*3}if ((type as any).isJsonMatch(element)) {{\n"
+        class_definition += f"{self.INDENT*4}return new {union_class_name}((type as any).fromData(element, contentTypeString));\n"
         class_definition += f"{self.INDENT*3}}}\n"
         class_definition += f"{self.INDENT*2}}}\n"
         class_definition += f"{self.INDENT*2}throw new Error('No matching type for union');\n"
@@ -423,6 +490,10 @@ class AvroToTypeScript:
         class_definition += f"{self.INDENT*2}}}\n"
         class_definition += f"{self.INDENT}}}\n\n"
 
+        sample_value = self.generate_test_value(union_types[0])
+        class_definition += f"{self.INDENT}public static createInstance(): {union_class_name} {{\n"
+        class_definition += f"{self.INDENT*2}return new {union_class_name}({sample_value});\n"
+        class_definition += f"{self.INDENT}}}\n"
         class_definition += "}\n"
 
         if write_file:
@@ -502,6 +573,10 @@ class AvroToTypeScript:
         # Generate TypeScript type definitions for avro-js when using Avro annotations
         if self.avro_annotation:
             self.generate_avro_js_types(output_dir)
+        if self.xml_annotation:
+            xml_runtime = process_template("avrotots/xml_runtime.ts.jinja")
+            with open(os.path.join(self.src_dir, 'xml.ts'), 'w', encoding='utf-8') as file:
+                file.write(xml_runtime)
 
     def generate_avro_js_types(self, output_dir: str):
         """Generate TypeScript type declaration file for avro-js module."""
@@ -743,19 +818,19 @@ class AvroToTypeScript:
         self.generate_project_files(output_dir)
 
 
-def convert_avro_to_typescript(avro_schema_path, js_dir_path, package_name='', typedjson_annotation=False, avro_annotation=False):
+def convert_avro_to_typescript(avro_schema_path, js_dir_path, package_name='', typedjson_annotation=False, avro_annotation=False, xml_annotation=False):
     """Convert Avro schema to TypeScript classes."""
     if not package_name:
         package_name = os.path.splitext(os.path.basename(avro_schema_path))[0].lower().replace('-', '_')
 
     converter = AvroToTypeScript(package_name, typed_json_annotation=typedjson_annotation,
-                                 avro_annotation=avro_annotation)
+                                 avro_annotation=avro_annotation, xml_annotation=xml_annotation)
     converter.convert(avro_schema_path, js_dir_path)
 
 
-def convert_avro_schema_to_typescript(avro_schema, js_dir_path, package_name='', typedjson_annotation=False, avro_annotation=False):
+def convert_avro_schema_to_typescript(avro_schema, js_dir_path, package_name='', typedjson_annotation=False, avro_annotation=False, xml_annotation=False):
     """Convert Avro schema to TypeScript classes."""
     converter = AvroToTypeScript(package_name, typed_json_annotation=typedjson_annotation,
-                                 avro_annotation=avro_annotation)
+                                 avro_annotation=avro_annotation, xml_annotation=xml_annotation)
     converter.convert_schema(avro_schema, js_dir_path)
     converter.generate_project_files(js_dir_path)
