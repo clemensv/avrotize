@@ -595,12 +595,7 @@ class StructureToJava:
             return ''
 
         code = "\n"
-        if self.xml_annotations:
-            code += f"{INDENT}private static XmlMapper createXmlMapper() {{\n"
-            code += f"{INDENT*2}XmlMapper mapper = new XmlMapper();\n"
-            code += f"{INDENT*2}mapper.setAnnotationIntrospector(new JakartaXmlBindAnnotationIntrospector(mapper.getTypeFactory()));\n"
-            code += f"{INDENT*2}mapper.findAndRegisterModules();\n"
-            code += f"{INDENT*2}return mapper;\n{INDENT}}}\n\n"
+        xml_mapper = self.xml_mapper_reference()
 
         code += f"{INDENT}public byte[] toByteArray(String contentType) throws IOException {{\n"
         code += f"{INDENT*2}String mediaType = contentType.split(\";\")[0].trim().toLowerCase();\n"
@@ -619,7 +614,7 @@ class StructureToJava:
             if not self.jackson_annotations:
                 code += f"{INDENT*2}"
             code += "if (mediaType.equals(\"application/xml\") || mediaType.equals(\"text/xml\")) {\n"
-            code += f"{INDENT*3}result = createXmlMapper().writeValueAsBytes(this);\n"
+            code += f"{INDENT*3}result = {xml_mapper}.writeValueAsBytes(this);\n"
             code += f"{INDENT*2}}}\n"
         code += f"{INDENT*2}else {{\n"
         code += f"{INDENT*3}throw new UnsupportedOperationException(\"Unsupported media type \" + contentType);\n"
@@ -655,10 +650,9 @@ class StructureToJava:
             code += f"{INDENT*2}}}\n"
         if self.xml_annotations:
             code += f"{INDENT*2}if (mediaType.equals(\"application/xml\") || mediaType.equals(\"text/xml\")) {{\n"
-            code += f"{INDENT*3}XmlMapper mapper = createXmlMapper();\n"
-            code += f"{INDENT*3}if (data instanceof byte[]) return mapper.readValue((byte[]) data, {class_name}.class);\n"
-            code += f"{INDENT*3}if (data instanceof InputStream) return mapper.readValue((InputStream) data, {class_name}.class);\n"
-            code += f"{INDENT*3}if (data instanceof String) return mapper.readValue((String) data, {class_name}.class);\n"
+            code += f"{INDENT*3}if (data instanceof byte[]) return {xml_mapper}.readValue((byte[]) data, {class_name}.class);\n"
+            code += f"{INDENT*3}if (data instanceof InputStream) return {xml_mapper}.readValue((InputStream) data, {class_name}.class);\n"
+            code += f"{INDENT*3}if (data instanceof String) return {xml_mapper}.readValue((String) data, {class_name}.class);\n"
             code += f"{INDENT*3}throw new UnsupportedOperationException(\"Data is not of a supported type for XML conversion to {class_name}\");\n"
             code += f"{INDENT*2}}}\n"
         code += f"{INDENT*2}throw new UnsupportedOperationException(\"Unsupported media type \" + contentType);\n"
@@ -918,6 +912,23 @@ class StructureToJava:
             file.write(")\n")
             file.write(f"package {package_name};\n")
 
+    def xml_support_package(self) -> str:
+        """Return the package containing the project-wide XML runtime holder."""
+        package = self.safe_package(self.base_package.replace('.', '/').lower())
+        return package.replace('/', '.') or 'avrotize.generated.xml'
+
+    def xml_mapper_reference(self) -> str:
+        """Return the shared generated XmlMapper field reference."""
+        return f"{self.xml_support_package()}.AvrotizeXmlSupport.MAPPER"
+
+    def write_xml_support(self) -> None:
+        """Generate one cached XML mapper holder for the output project."""
+        definition = process_template("java/xml_support.java.jinja")
+        self.write_to_file(
+            self.xml_support_package().replace('.', '/'),
+            "AvrotizeXmlSupport",
+            definition)
+
     def write_to_file(self, package: str, name: str, definition: str):
         """ Writes a Java class or enum to a file """
         package = package.lower()
@@ -1062,6 +1073,8 @@ class StructureToJava:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
+        if self.xml_annotations:
+            self.write_xml_support()
         
         # Register all schemas with $id keywords
         for structure_schema in (x for x in schema if isinstance(x, dict)):

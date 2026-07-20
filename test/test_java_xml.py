@@ -117,9 +117,11 @@ public class XmlRoundTrip {{
 
 
 def _assert_xml_metadata(project: Path, package_path: Path):
-    order = (project / "src" / "main" / "java" / package_path / "Order.java").read_text("utf-8")
-    status = (project / "src" / "main" / "java" / package_path / "Status.java").read_text("utf-8")
-    package_info = (project / "src" / "main" / "java" / package_path / "package-info.java").read_text("utf-8")
+    source_root = project / "src" / "main" / "java"
+    order = (source_root / package_path / "Order.java").read_text("utf-8")
+    child = (source_root / package_path / "Child.java").read_text("utf-8")
+    status = (source_root / package_path / "Status.java").read_text("utf-8")
+    package_info = (source_root / package_path / "package-info.java").read_text("utf-8")
     pom = (project / "pom.xml").read_text("utf-8")
     assert '@XmlRootElement(name = "purchase-order", namespace = "urn:test:orders")' in order
     assert '@XmlAttribute(name = "order-id")' in order
@@ -129,6 +131,18 @@ def _assert_xml_metadata(project: Path, package_path: Path):
     assert "jackson-dataformat-xml" in pom
     assert "jackson-module-jakarta-xmlbind-annotations" in pom
     assert "jakarta.xml.bind-api" in pom
+
+    support_files = list(source_root.glob("**/AvrotizeXmlSupport.java"))
+    assert len(support_files) == 1
+    support = support_files[0].read_text("utf-8")
+    assert "public static final XmlMapper MAPPER = createMapper();" in support
+    assert support.count("new XmlMapper()") == 1
+    assert "AvrotizeXmlSupport.MAPPER" in order
+    assert "AvrotizeXmlSupport.MAPPER" in child
+    assert "createXmlMapper" not in order + child
+    assert "new XmlMapper()" not in order + child
+    all_sources = "".join(path.read_text("utf-8") for path in source_root.glob("**/*.java"))
+    assert all_sources.count("new XmlMapper()") == 1
 
 
 def test_java_xml_public_flags_and_annotations(tmp_path):
@@ -157,6 +171,8 @@ def test_java_xml_public_flags_and_annotations(tmp_path):
         plain_project / "src" / "main" / "java" / "test" / "xml" / "plain"
         / "example" / "model" / "Order.java").read_text("utf-8")
     assert "XmlRootElement" not in plain_order
+    assert not list((plain_project / "src" / "main" / "java").glob(
+        "**/AvrotizeXmlSupport.java"))
 
 
 @pytest.mark.skipif(shutil.which("mvn") is None or shutil.which("java") is None,

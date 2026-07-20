@@ -8,8 +8,8 @@ from avrotize.constants import (AVRO_VERSION, JAKARTA_XML_BIND_VERSION, JACKSON_
                                 JDK_VERSION, JUNIT_VERSION, MAVEN_COMPILER_VERSION, MAVEN_SUREFIRE_VERSION)
 
 from avrotize.common import (pascal, camel, is_generic_avro_type, is_any_value_type,
-                             inline_avro_references, build_flat_type_dict, xml_wire_name,
-                             xml_enum_wire_value)
+                             inline_avro_references, build_flat_type_dict, process_template,
+                             xml_wire_name, xml_enum_wire_value)
 
 INDENT = '    '
 POM_CONTENT = """<?xml version="1.0" encoding="UTF-8"?>
@@ -191,20 +191,19 @@ if ( mediaType.equals("application/json")) {
 XML_TOBYTEARRAY = \
     """
 if (mediaType.equals("application/xml") || mediaType.equals("text/xml")) {
-    result = createXmlMapper().writeValueAsBytes(this);
+    result = {xmlMapper}.writeValueAsBytes(this);
 }
 """
 
 XML_FROMDATA = \
     """
 if (mediaType.equals("application/xml") || mediaType.equals("text/xml")) {
-    XmlMapper mapper = createXmlMapper();
     if (data instanceof byte[]) {
-        return mapper.readValue((byte[]) data, {typeName}.class);
+        return {xmlMapper}.readValue((byte[]) data, {typeName}.class);
     } else if (data instanceof InputStream) {
-        return mapper.readValue((InputStream) data, {typeName}.class);
+        return {xmlMapper}.readValue((InputStream) data, {typeName}.class);
     } else if (data instanceof String) {
-        return mapper.readValue((String) data, {typeName}.class);
+        return {xmlMapper}.readValue((String) data, {typeName}.class);
     }
     throw new UnsupportedOperationException("Data is not of a supported type for XML conversion to {typeName}");
 }
@@ -605,12 +604,6 @@ class AvroToJava:
             class_definition += self.generate_avro_get_method(class_name, avro_schema.get('fields', []), namespace)
             class_definition += self.generate_avro_put_method(class_name, avro_schema.get('fields', []), namespace)
 
-        if self.xml_annotations:
-            class_definition += f"\n\n{INDENT}private static XmlMapper createXmlMapper() {{\n"
-            class_definition += f"{INDENT*2}XmlMapper mapper = new XmlMapper();\n"
-            class_definition += f"{INDENT*2}mapper.setAnnotationIntrospector(new JakartaXmlBindAnnotationIntrospector(mapper.getTypeFactory()));\n"
-            class_definition += f"{INDENT*2}return mapper;\n{INDENT}}}\n"
-
         # emit toByteArray method
         class_definition += f"\n\n{INDENT}/**\n{INDENT} * Converts the object to a byte array\n{INDENT} * @param contentType the content type of the byte array\n{INDENT} * @return the byte array\n{INDENT} */\n"
         to_byte_array_throws = ",IOException" if self.avro_annotation or self.xml_annotations else (
@@ -627,7 +620,10 @@ class AvroToJava:
                 JSON_TOBYTEARRAY.strip().replace("{typeName}", class_name).split("\n"))
         if self.xml_annotations:
             class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
-                XML_TOBYTEARRAY.strip().replace("{typeName}", class_name).split("\n"))
+                XML_TOBYTEARRAY.strip()
+                .replace("{typeName}", class_name)
+                .replace("{xmlMapper}", self.xml_mapper_reference())
+                .split("\n"))
         if self.avro_annotation or self.jackson_annotations or self.xml_annotations:
             class_definition += f'\n{INDENT*2}'.join(EPILOGUE_TOBYTEARRAY_COMPRESSION.split("\n"))
             class_definition += f'\n{INDENT*2}if ( result != null ) {{ return result; }}'        
@@ -651,7 +647,10 @@ class AvroToJava:
                 JSON_FROMDATA.strip().replace("{typeName}", class_name).split("\n"))
         if self.xml_annotations:
             class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
-                XML_FROMDATA.strip().replace("{typeName}", class_name).split("\n"))
+                XML_FROMDATA.strip()
+                .replace("{typeName}", class_name)
+                .replace("{xmlMapper}", self.xml_mapper_reference())
+                .split("\n"))
         class_definition += f"\n{INDENT*2}throw new UnsupportedOperationException(\"Unsupported media type \"+ contentType);\n{INDENT}}}"
         
         if self.jackson_annotations:
@@ -1635,6 +1634,23 @@ class AvroToJava:
             file.write(")\n")
             file.write(f"package {package_name};\n")
 
+    def xml_support_package(self) -> str:
+        """Return the package containing the project-wide XML runtime holder."""
+        package = self.safe_package(self.base_package.replace('.', '/').lower())
+        return package.replace('/', '.') or 'avrotize.generated.xml'
+
+    def xml_mapper_reference(self) -> str:
+        """Return the shared generated XmlMapper field reference."""
+        return f"{self.xml_support_package()}.AvrotizeXmlSupport.MAPPER"
+
+    def write_xml_support(self) -> None:
+        """Generate one cached XML mapper holder for the output project."""
+        definition = process_template("java/xml_support.java.jinja")
+        self.write_to_file(
+            self.xml_support_package().replace('.', '/'),
+            "AvrotizeXmlSupport",
+            definition)
+
     def write_to_file(self, package: str, name: str, definition: str):
         """ Writes a Java class or enum to a file """
         package = package.lower()
@@ -2303,6 +2319,8 @@ class AvroToJava:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
+        if self.xml_annotations:
+            self.write_xml_support()
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema, '')
         self.generate_discriminated_union_base_classes()

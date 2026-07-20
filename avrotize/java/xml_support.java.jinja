@@ -1,0 +1,14 @@
+public final class AvrotizeXmlSupport {
+    public static final XmlMapper MAPPER = createMapper();
+
+    private AvrotizeXmlSupport() {
+    }
+
+    private static XmlMapper createMapper() {
+        XmlMapper mapper = new XmlMapper();
+        mapper.setAnnotationIntrospector(
+            new JakartaXmlBindAnnotationIntrospector(mapper.getTypeFactory()));
+        mapper.findAndRegisterModules();
+        return mapper;
+    }
+}
