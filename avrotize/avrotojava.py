@@ -198,14 +198,8 @@ if (mediaType.equals("application/xml") || mediaType.equals("text/xml")) {
 XML_FROMDATA = \
     """
 if (mediaType.equals("application/xml") || mediaType.equals("text/xml")) {
-    if (data instanceof byte[]) {
-        return {xmlMapper}.readValue((byte[]) data, {typeName}.class);
-    } else if (data instanceof InputStream) {
-        return {xmlMapper}.readValue((InputStream) data, {typeName}.class);
-    } else if (data instanceof String) {
-        return {xmlMapper}.readValue((String) data, {typeName}.class);
-    }
-    throw new UnsupportedOperationException("Data is not of a supported type for XML conversion to {typeName}");
+    return {xmlSupport}.readValue(
+        data, {typeName}.class, {xmlRoot}, {xmlNamespace}, XML_FIELD_RULES);
 }
 """
 
@@ -486,6 +480,70 @@ class AvroToJava:
         method += f"{INDENT}}}\n"
         return method
 
+    def avro_xml_field_kind(self, avro_type) -> str:
+        """Return the generated XML validation kind for an Avro field type."""
+        if isinstance(avro_type, list):
+            non_null = [item for item in avro_type if item != 'null']
+            if len(non_null) > 1:
+                return "UNION_CONTAINER"
+            return self.avro_xml_field_kind(non_null[0]) if non_null else "SINGLE"
+        if isinstance(avro_type, dict):
+            type_name = avro_type.get('type')
+            if type_name in ('array',):
+                return "COLLECTION"
+            if type_name == 'map':
+                return "MAP_SCALAR" if self.is_avro_xml_scalar(
+                    avro_type.get('values')) else "MAP_OBJECT"
+        return "SINGLE"
+
+    def is_avro_xml_scalar(self, avro_type) -> bool:
+        """Return whether an Avro type has a scalar XML representation."""
+        if isinstance(avro_type, str):
+            if avro_type in {
+                    'null', 'boolean', 'int', 'long', 'float', 'double',
+                    'bytes', 'string'}:
+                return True
+            matching_kinds = [
+                kind for name, kind in self.generated_types_avro_namespace.items()
+                if name == avro_type or name.endswith('.' + avro_type)
+            ]
+            return bool(matching_kinds) and all(
+                kind == "enum" for kind in matching_kinds)
+        if isinstance(avro_type, list):
+            non_null = [item for item in avro_type if item != 'null']
+            return len(non_null) == 1 and self.is_avro_xml_scalar(non_null[0])
+        if isinstance(avro_type, dict):
+            return avro_type.get('type') not in ('record', 'array', 'map')
+        return True
+
+    def generate_xml_validation_metadata(
+            self, avro_schema: Dict, xml_namespace: str) -> str:
+        """Generate schema-derived validation rules for XML input."""
+        support = f"{self.xml_support_package()}.AvrotizeXmlSupport"
+        rules = []
+        for field in avro_schema.get('fields', []):
+            xml_name = json.dumps(xml_wire_name(str(field['name']), field))
+            nullable = isinstance(field.get('type'), list) and \
+                'null' in field.get('type', [])
+            required = not nullable and 'default' not in field and 'const' not in field
+            if field.get('xmlkind', 'element') == 'attribute':
+                rules.append(
+                    f"{support}.FieldRule.attribute({xml_name}, "
+                    f"{str(required).lower()})")
+                continue
+            kind = self.avro_xml_field_kind(field.get('type'))
+            if kind == "COLLECTION":
+                required = False
+            rules.append(
+                f"{support}.FieldRule.element({xml_name}, "
+                f"{json.dumps(xml_namespace)}, {str(required).lower()}, "
+                f"{support}.FieldKind.{kind})")
+        joined = f",\n{INDENT*2}".join(rules)
+        return (
+            f"\n{INDENT}private static final {support}.FieldRule[] "
+            f"XML_FIELD_RULES = new {support}.FieldRule[] {{\n"
+            f"{INDENT*2}{joined}\n{INDENT}}};\n")
+
     def generate_class(self, avro_schema: Dict, parent_package: str, write_file: bool) -> JavaType:
         """ Generates a Java class from an Avro record schema """
         class_definition = ''
@@ -549,6 +607,9 @@ class AvroToJava:
 
         # Generate createTestInstance() method for testing
         class_definition += self.generate_create_test_instance_method(class_name, avro_schema.get('fields', []), namespace)
+        if self.xml_annotations:
+            class_definition += self.generate_xml_validation_metadata(
+                avro_schema, xml_namespace)
 
         if self.avro_annotation:
             # Inline all schema references like C# does - each class has self-contained schema
@@ -649,7 +710,11 @@ class AvroToJava:
             class_definition += f'\n{INDENT*2}'+f'\n{INDENT*2}'.join(
                 XML_FROMDATA.strip()
                 .replace("{typeName}", class_name)
-                .replace("{xmlMapper}", self.xml_mapper_reference())
+                .replace(
+                    "{xmlSupport}",
+                    f"{self.xml_support_package()}.AvrotizeXmlSupport")
+                .replace("{xmlRoot}", json.dumps(xml_name))
+                .replace("{xmlNamespace}", json.dumps(xml_namespace))
                 .split("\n"))
         class_definition += f"\n{INDENT*2}throw new UnsupportedOperationException(\"Unsupported media type \"+ contentType);\n{INDENT}}}"
         
@@ -1645,11 +1710,15 @@ class AvroToJava:
 
     def write_xml_support(self) -> None:
         """Generate one cached XML mapper holder for the output project."""
-        definition = process_template("java/xml_support.java.jinja")
-        self.write_to_file(
-            self.xml_support_package().replace('.', '/'),
-            "AvrotizeXmlSupport",
-            definition)
+        package = self.xml_support_package()
+        definition = process_template(
+            "java/xml_support.java.jinja", package=package)
+        directory_path = os.path.join(
+            self.output_dir, package.replace('.', os.sep))
+        os.makedirs(directory_path, exist_ok=True)
+        with open(os.path.join(directory_path, "AvrotizeXmlSupport.java"),
+                  'w', encoding='utf-8') as file:
+            file.write(definition)
 
     def write_to_file(self, package: str, name: str, definition: str):
         """ Writes a Java class or enum to a file """

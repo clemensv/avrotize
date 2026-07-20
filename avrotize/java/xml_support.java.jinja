@@ -1,14 +1,389 @@
+package {{ package }};
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.dataformat.xml.XmlFactory;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.XMLInputFactory;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
 public final class AvrotizeXmlSupport {
+    private static final int MAX_XML_BYTES = 1_048_576;
+    private static final int MAX_XML_DEPTH = 100;
+
     public static final XmlMapper MAPPER = createMapper();
+
+    public enum FieldKind {
+        ATTRIBUTE,
+        SINGLE,
+        COLLECTION,
+        MAP_SCALAR,
+        MAP_OBJECT,
+        UNION_CONTAINER,
+        UNION_SCALAR
+    }
+
+    public record FieldRule(
+            String name,
+            String namespace,
+            boolean required,
+            FieldKind kind) {
+        public static FieldRule attribute(String name, boolean required) {
+            return new FieldRule(name, "", required, FieldKind.ATTRIBUTE);
+        }
+
+        public static FieldRule element(
+                String name,
+                String namespace,
+                boolean required,
+                FieldKind kind) {
+            return new FieldRule(name, namespace, required, kind);
+        }
+    }
 
     private AvrotizeXmlSupport() {
     }
 
     private static XmlMapper createMapper() {
-        XmlMapper mapper = new XmlMapper();
+        XMLInputFactory inputFactory = XMLInputFactory.newFactory();
+        setInputProperty(inputFactory, XMLInputFactory.SUPPORT_DTD, false);
+        setInputProperty(inputFactory, "javax.xml.stream.isSupportingExternalEntities", false);
+        setInputProperty(inputFactory, XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        setInputProperty(inputFactory, XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+
+        XmlFactory xmlFactory = XmlFactory.builder()
+            .xmlInputFactory(inputFactory)
+            .build();
+        xmlFactory.setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxNestingDepth(MAX_XML_DEPTH)
+            .maxStringLength(MAX_XML_BYTES)
+            .maxDocumentLength(MAX_XML_BYTES)
+            .build());
+        XmlMapper mapper = new XmlMapper(xmlFactory);
         mapper.setAnnotationIntrospector(
             new JakartaXmlBindAnnotationIntrospector(mapper.getTypeFactory()));
+        mapper.enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        mapper.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         mapper.findAndRegisterModules();
         return mapper;
+    }
+
+    private static void setInputProperty(
+            XMLInputFactory factory,
+            String property,
+            Object value) {
+        try {
+            factory.setProperty(property, value);
+        } catch (IllegalArgumentException ignored) {
+            // The secure DOM validation below remains authoritative when a StAX
+            // provider does not expose an optional JAXP property.
+        }
+    }
+
+    public static <T> T readValue(
+            Object data,
+            Class<T> type,
+            String rootName,
+            String rootNamespace,
+            FieldRule[] rules) throws IOException {
+        byte[] bytes = toBytes(data);
+        Document document = parseSecurely(bytes);
+        validate(document, rootName, rootNamespace, rules);
+        try {
+            return MAPPER.readValue(bytes, type);
+        } catch (JsonProcessingException exception) {
+            throw new IOException(
+                "Invalid XML value for " + type.getSimpleName() + ": "
+                    + exception.getOriginalMessage(),
+                exception);
+        }
+    }
+
+    private static byte[] toBytes(Object data) throws IOException {
+        if (data instanceof byte[] bytes) {
+            if (bytes.length > MAX_XML_BYTES) {
+                throw new IOException("XML payload exceeds the configured size limit");
+            }
+            return bytes;
+        }
+        if (data instanceof String text) {
+            byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+            if (bytes.length > MAX_XML_BYTES) {
+                throw new IOException("XML payload exceeds the configured size limit");
+            }
+            return bytes;
+        }
+        if (data instanceof InputStream input) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int total = 0;
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_XML_BYTES) {
+                    throw new IOException("XML payload exceeds the configured size limit");
+                }
+                output.write(buffer, 0, read);
+            }
+            return output.toByteArray();
+        }
+        throw new IOException("Data is not a supported XML input type");
+    }
+
+    private static Document parseSecurely(byte[] bytes) throws IOException {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            factory.setXIncludeAware(false);
+            factory.setExpandEntityReferences(false);
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setFeature(
+                "http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature(
+                "http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature(
+                "http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+            var builder = factory.newDocumentBuilder();
+            builder.setEntityResolver((publicId, systemId) -> {
+                throw new SAXException("External entity resolution is disabled");
+            });
+            Document document = builder.parse(new ByteArrayInputStream(bytes));
+            if (document.getDoctype() != null) {
+                throw new IOException("DOCTYPE declarations are not allowed");
+            }
+            enforceDepth(document.getDocumentElement(), 1);
+            return document;
+        } catch (ParserConfigurationException exception) {
+            throw new IOException("Unable to configure secure XML parsing", exception);
+        } catch (SAXException exception) {
+            throw new IOException("Malformed or unsafe XML data", exception);
+        }
+    }
+
+    private static void enforceDepth(Node node, int depth) throws IOException {
+        if (depth > MAX_XML_DEPTH) {
+            throw new IOException("XML nesting exceeds the configured depth limit");
+        }
+        NodeList children = node.getChildNodes();
+        for (int index = 0; index < children.getLength(); index++) {
+            Node child = children.item(index);
+            if (child.getNodeType() == Node.ELEMENT_NODE) {
+                enforceDepth(child, depth + 1);
+            }
+        }
+    }
+
+    private static void validate(
+            Document document,
+            String rootName,
+            String rootNamespace,
+            FieldRule[] rules) throws IOException {
+        Element root = document.getDocumentElement();
+        String actualRootName = localName(root);
+        String actualRootNamespace = namespace(root);
+        if (!rootName.equals(actualRootName)
+                || !normalize(rootNamespace).equals(actualRootNamespace)) {
+            throw new IOException(
+                "Unexpected XML root {" + actualRootNamespace + "}" + actualRootName
+                    + "; expected {" + normalize(rootNamespace) + "}" + rootName);
+        }
+
+        Map<String, FieldRule> attributes = new HashMap<>();
+        Map<String, FieldRule> elements = new HashMap<>();
+        for (FieldRule rule : rules) {
+            if (rule.kind() == FieldKind.ATTRIBUTE) {
+                attributes.put(rule.name(), rule);
+            } else {
+                elements.put(rule.name(), rule);
+            }
+        }
+
+        Set<String> presentAttributes = new HashSet<>();
+        NamedNodeMap rootAttributes = root.getAttributes();
+        for (int index = 0; index < rootAttributes.getLength(); index++) {
+            Attr attribute = (Attr) rootAttributes.item(index);
+            if (XMLConstants.XMLNS_ATTRIBUTE_NS_URI.equals(attribute.getNamespaceURI())) {
+                continue;
+            }
+            FieldRule rule = attributes.get(localName(attribute));
+            if (rule == null || !namespace(attribute).isEmpty()) {
+                throw new IOException(
+                    "Unknown XML attribute {" + namespace(attribute) + "}"
+                        + localName(attribute));
+            }
+            presentAttributes.add(rule.name());
+        }
+
+        Map<String, Integer> counts = new HashMap<>();
+        NodeList children = root.getChildNodes();
+        for (int index = 0; index < children.getLength(); index++) {
+            Node child = children.item(index);
+            if (child.getNodeType() != Node.ELEMENT_NODE) {
+                if (child.getNodeType() == Node.TEXT_NODE
+                        && !child.getTextContent().isBlank()) {
+                    throw new IOException("Unexpected text in XML record");
+                }
+                continue;
+            }
+            Element element = (Element) child;
+            FieldRule rule = elements.get(localName(element));
+            if (rule == null) {
+                throw new IOException(
+                    "Unknown XML element {" + namespace(element) + "}"
+                        + localName(element));
+            }
+            if (!normalize(rule.namespace()).equals(namespace(element))) {
+                throw new IOException(
+                    "Wrong namespace for XML element " + rule.name());
+            }
+            int count = counts.merge(rule.name(), 1, Integer::sum);
+            if (rule.kind() != FieldKind.COLLECTION && count > 1) {
+                throw new IOException("Duplicate XML field " + rule.name());
+            }
+            validateFieldValue(element, rule);
+        }
+
+        for (FieldRule rule : rules) {
+            if (!rule.required()) {
+                continue;
+            }
+            boolean present = rule.kind() == FieldKind.ATTRIBUTE
+                ? presentAttributes.contains(rule.name())
+                : counts.containsKey(rule.name());
+            if (!present) {
+                throw new IOException("Missing required XML field " + rule.name());
+            }
+        }
+    }
+
+    private static void validateFieldValue(
+            Element element,
+            FieldRule rule) throws IOException {
+        if (rule.kind() == FieldKind.MAP_SCALAR
+                || rule.kind() == FieldKind.MAP_OBJECT) {
+            validateMap(element, rule.kind() == FieldKind.MAP_SCALAR);
+        } else if (rule.kind() == FieldKind.UNION_CONTAINER) {
+            int values = populatedElementChildren(element);
+            if (values != 1) {
+                throw new IOException(
+                    "Ambiguous XML union " + rule.name()
+                        + " must contain exactly one value");
+            }
+        } else if (rule.kind() == FieldKind.UNION_SCALAR
+                && elementChildren(element) != 0) {
+            throw new IOException(
+                "Ambiguous XML union " + rule.name() + " must contain a scalar value");
+        }
+    }
+
+    private static void validateMap(
+            Element map,
+            boolean scalarValues) throws IOException {
+        if (hasNonWhitespaceText(map)) {
+            throw new IOException("Malformed XML map value");
+        }
+        Set<String> keys = new HashSet<>();
+        NodeList entries = map.getChildNodes();
+        for (int index = 0; index < entries.getLength(); index++) {
+            Node node = entries.item(index);
+            if (node.getNodeType() != Node.ELEMENT_NODE) {
+                continue;
+            }
+            Element entry = (Element) node;
+            String key = localName(entry);
+            if (!keys.add(key)) {
+                throw new IOException("Duplicate XML map key " + key);
+            }
+            if (scalarValues && elementChildren(entry) != 0) {
+                throw new IOException("Malformed scalar XML map entry " + key);
+            }
+        }
+    }
+
+    private static boolean hasNonWhitespaceText(Element element) {
+        NodeList children = element.getChildNodes();
+        for (int index = 0; index < children.getLength(); index++) {
+            Node child = children.item(index);
+            if (child.getNodeType() == Node.TEXT_NODE
+                    && !child.getTextContent().isBlank()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int elementChildren(Element element) {
+        int count = 0;
+        NodeList children = element.getChildNodes();
+        for (int index = 0; index < children.getLength(); index++) {
+            if (children.item(index).getNodeType() == Node.ELEMENT_NODE) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static int populatedElementChildren(Element element) {
+        int count = 0;
+        NodeList children = element.getChildNodes();
+        for (int index = 0; index < children.getLength(); index++) {
+            Node child = children.item(index);
+            if (child.getNodeType() != Node.ELEMENT_NODE) {
+                continue;
+            }
+            Element value = (Element) child;
+            if (hasDataAttributes(value)
+                    || elementChildren(value) != 0
+                    || !value.getTextContent().isBlank()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static boolean hasDataAttributes(Element element) {
+        NamedNodeMap attributes = element.getAttributes();
+        for (int index = 0; index < attributes.getLength(); index++) {
+            Node attribute = attributes.item(index);
+            if (!XMLConstants.XMLNS_ATTRIBUTE_NS_URI.equals(
+                    attribute.getNamespaceURI())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String localName(Node node) {
+        return node.getLocalName() != null ? node.getLocalName() : node.getNodeName();
+    }
+
+    private static String namespace(Node node) {
+        return normalize(node.getNamespaceURI());
+    }
+
+    private static String normalize(String namespace) {
+        return namespace == null ? "" : namespace;
     }
 }

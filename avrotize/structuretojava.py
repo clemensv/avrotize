@@ -420,9 +420,18 @@ class StructureToJava:
         if not is_abstract:
             create_test_instance = self.generate_create_test_instance_method(class_name, fields, schema_namespace)
 
-        serialization_methods = self.generate_serialization_methods(class_name)
+        xml_validation_metadata = ''
+        if self.xml_annotations:
+            xml_validation_metadata = self.generate_xml_validation_metadata(
+                structure_schema, xml_namespace)
+
+        serialization_methods = self.generate_serialization_methods(
+            class_name, xml_name, xml_namespace)
         
-        class_definition = class_definition.rstrip() + create_test_instance + serialization_methods + equals_hashcode + "\n}\n"
+        class_definition = (
+            class_definition.rstrip() + create_test_instance
+            + xml_validation_metadata + serialization_methods
+            + equals_hashcode + "\n}\n")
 
         if write_file:
             if self.xml_annotations and xml_namespace:
@@ -589,7 +598,73 @@ class StructureToJava:
         method += f"{INDENT}}}\n"
         return method
 
-    def generate_serialization_methods(self, class_name: str) -> str:
+    def is_structure_xml_scalar(self, structure_type) -> bool:
+        """Return whether a JSON Structure type has a scalar XML representation."""
+        if isinstance(structure_type, str):
+            return structure_type not in ('object', 'array', 'set', 'map', 'choice', 'tuple')
+        if isinstance(structure_type, list):
+            non_null = [item for item in structure_type if item != 'null']
+            return all(self.is_structure_xml_scalar(item) for item in non_null)
+        if isinstance(structure_type, dict):
+            if 'enum' in structure_type:
+                return True
+            return self.is_structure_xml_scalar(
+                structure_type.get('type', 'object'))
+        return False
+
+    def structure_xml_field_kind(self, prop_schema: Dict) -> str:
+        """Return the generated XML validation kind for a Structure property."""
+        structure_type = prop_schema.get('type', 'object')
+        if isinstance(structure_type, list):
+            non_null = [item for item in structure_type if item != 'null']
+            if len(non_null) > 1:
+                return "UNION_SCALAR" if all(
+                    self.is_structure_xml_scalar(item) for item in non_null
+                ) else "UNION_CONTAINER"
+            if non_null:
+                return self.structure_xml_field_kind({'type': non_null[0]})
+        if structure_type in ('array', 'set'):
+            return "COLLECTION"
+        if structure_type == 'map':
+            return "MAP_SCALAR" if self.is_structure_xml_scalar(
+                prop_schema.get('values', {'type': 'any'})) else "MAP_OBJECT"
+        return "SINGLE"
+
+    def generate_xml_validation_metadata(
+            self, structure_schema: Dict, xml_namespace: str) -> str:
+        """Generate schema-derived validation rules for XML input."""
+        support = f"{self.xml_support_package()}.AvrotizeXmlSupport"
+        required_props = structure_schema.get('required', [])
+        if required_props and isinstance(required_props[0], list):
+            required_names = set.intersection(
+                *(set(required_set) for required_set in required_props))
+        else:
+            required_names = set(required_props)
+        rules = []
+        for prop_name, prop_schema in structure_schema.get('properties', {}).items():
+            xml_name = json.dumps(xml_wire_name(prop_name, prop_schema))
+            required = prop_name in required_names and 'const' not in prop_schema
+            if prop_schema.get('xmlkind', 'element') == 'attribute':
+                rules.append(
+                    f"{support}.FieldRule.attribute({xml_name}, "
+                    f"{str(required).lower()})")
+                continue
+            kind = self.structure_xml_field_kind(prop_schema)
+            if kind == "COLLECTION":
+                required = False
+            rules.append(
+                f"{support}.FieldRule.element({xml_name}, "
+                f"{json.dumps(xml_namespace)}, {str(required).lower()}, "
+                f"{support}.FieldKind.{kind})")
+        joined = f",\n{INDENT*2}".join(rules)
+        return (
+            f"\n{INDENT}private static final {support}.FieldRule[] "
+            f"XML_FIELD_RULES = new {support}.FieldRule[] {{\n"
+            f"{INDENT*2}{joined}\n{INDENT}}};\n")
+
+    def generate_serialization_methods(
+            self, class_name: str, xml_name: str = '',
+            xml_namespace: str = '') -> str:
         """Generate JSON/XML content-type serialization helpers."""
         if not self.jackson_annotations and not self.xml_annotations:
             return ''
@@ -650,10 +725,8 @@ class StructureToJava:
             code += f"{INDENT*2}}}\n"
         if self.xml_annotations:
             code += f"{INDENT*2}if (mediaType.equals(\"application/xml\") || mediaType.equals(\"text/xml\")) {{\n"
-            code += f"{INDENT*3}if (data instanceof byte[]) return {xml_mapper}.readValue((byte[]) data, {class_name}.class);\n"
-            code += f"{INDENT*3}if (data instanceof InputStream) return {xml_mapper}.readValue((InputStream) data, {class_name}.class);\n"
-            code += f"{INDENT*3}if (data instanceof String) return {xml_mapper}.readValue((String) data, {class_name}.class);\n"
-            code += f"{INDENT*3}throw new UnsupportedOperationException(\"Data is not of a supported type for XML conversion to {class_name}\");\n"
+            support = f"{self.xml_support_package()}.AvrotizeXmlSupport"
+            code += f"{INDENT*3}return {support}.readValue(data, {class_name}.class, {json.dumps(xml_name)}, {json.dumps(xml_namespace)}, XML_FIELD_RULES);\n"
             code += f"{INDENT*2}}}\n"
         code += f"{INDENT*2}throw new UnsupportedOperationException(\"Unsupported media type \" + contentType);\n"
         code += f"{INDENT}}}\n"
@@ -923,11 +996,15 @@ class StructureToJava:
 
     def write_xml_support(self) -> None:
         """Generate one cached XML mapper holder for the output project."""
-        definition = process_template("java/xml_support.java.jinja")
-        self.write_to_file(
-            self.xml_support_package().replace('.', '/'),
-            "AvrotizeXmlSupport",
-            definition)
+        package = self.xml_support_package()
+        definition = process_template(
+            "java/xml_support.java.jinja", package=package)
+        directory_path = os.path.join(
+            self.output_dir, package.replace('.', os.sep))
+        os.makedirs(directory_path, exist_ok=True)
+        with open(os.path.join(directory_path, "AvrotizeXmlSupport.java"),
+                  'w', encoding='utf-8') as file:
+            file.write(definition)
 
     def write_to_file(self, package: str, name: str, definition: str):
         """ Writes a Java class or enum to a file """
