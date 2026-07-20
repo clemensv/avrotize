@@ -68,7 +68,7 @@ jobs:
         maven-version: '3.9.6'
         checkout-enabled: false
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: 3.10.12
     # we need to build the package for generating the _version.py file that isn't checked in
@@ -117,7 +117,7 @@ jobs:
       with:
         submodules: recursive
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.x'
     - name: Install dependencies
