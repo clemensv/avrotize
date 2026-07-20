@@ -68,6 +68,7 @@ dev = [
     "dataclasses>=0.8",
     "pydantic>=2.8.2",
     "avro>=1.12.0",
+    "xsdata>=26.2",
     "testcontainers>=4.7.2",
     "pymysql>=1.1.1",
     "psycopg2-binary>=2.9.9",

@@ -45,7 +45,7 @@ import uuid
 {%- endfor %}
 
 {% if xml_annotation %}
-{% include "python_xml_helpers.jinja" %}
+from {{ xml_runtime_module }} import parse_xml, serialize_xml
 {% endif %}
 
 {% if dataclasses_json_annotation %}
@@ -60,10 +60,15 @@ class {{ class_name }}:
         {{ field.docstring }}
         {%- endfor -%}
     """
+    {% if xml_annotation %}
+    class Meta:
+        name = {{ xml_name | tojson }}
+        namespace = {{ xml_namespace | tojson }}
+    {% endif %}
     {% for field in fields %}
     {%- set isdatetime = field.type == "datetime.datetime" or field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
     {%- set isdate = field.type == "datetime.date" or field.type == "typing.Optional[datetime.date]" %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdatetime -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d.isoformat() if isinstance(d, datetime.date) else d if d else None, decoder=lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.Date(format='iso'){%- endif -%}){%- endif %})
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdatetime -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d.isoformat() if isinstance(d, datetime.date) else d if d else None, decoder=lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.Date(format='iso'){%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
     {%- endfor %}
     {% if avro_annotation %}
     AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.make_avsc_object(
@@ -71,9 +76,6 @@ class {{ class_name }}:
     )
     {%- endif %}
 
-{% if xml_annotation %}
-{% include "python_xml_methods.jinja" %}
-{% endif %}
 
     def __post_init__(self):
         """ Initializes the dataclass with the provided keyword arguments."""
@@ -176,9 +178,7 @@ class {{ class_name }}:
 
         {%- if xml_annotation %}
         if base_content_type in ['application/xml', 'text/xml']:
-            if self.XMLNamespace:
-                ET.register_namespace('', self.XMLNamespace)
-            result = ET.tostring(self._to_xml_element(), encoding='utf-8', xml_declaration=True)
+            result = serialize_xml(self)
         {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):
@@ -276,11 +276,7 @@ class {{ class_name }}:
             if isinstance(data, io.BytesIO):
                 data = data.getvalue()
             if isinstance(data, (bytes, str)):
-                element = ET.fromstring(data)
-                expected_tag = _xml_qname(cls.XMLName, cls.XMLNamespace)
-                if element.tag != expected_tag:
-                    raise ValueError(f'Expected XML root {expected_tag}, got {element.tag}')
-                return cls._from_xml_element(element)
+                return parse_xml(data, cls)
             raise NotImplementedError('Data is not of a supported type for XML deserialization')
         {%- endif %}
 

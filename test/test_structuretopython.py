@@ -539,6 +539,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                           "altnames": {"xml": "catalog-state"},
                           "altenums": {"xml": {"open": "available"}}},
                 "items": {"type": "array", "items": {"type": "object", "name": "Item",
+                          "xmlns": "urn:avrotize:item",
                           "properties": {"code": {"type": "string", "xmlkind": "attribute"},
                                          "quantity": {"type": "int32"}},
                           "required": ["code", "quantity"]}},
@@ -549,8 +550,9 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         }
         output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-408-s2py-xml")
         shutil.rmtree(output_dir, ignore_errors=True)
-        convert_structure_schema_to_python(schema, output_dir, package_name="issue_408_s2py",
-                                           xml_annotation=True)
+        convert_structure_schema_to_python(
+            schema, output_dir, package_name="issue_408_s2py", xml_annotation=True,
+            dataclasses_json_annotation=True, avro_annotation=True)
 
         generated_src = os.path.join(output_dir, "src")
         for root, _dirs, files in os.walk(generated_src):
@@ -576,8 +578,33 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             assert root.find("{urn:avrotize:structure}display-name").text == "Summer"
             assert root.find("{urn:avrotize:structure}catalog-state").text == "available"
             assert root.find("{urn:avrotize:structure}note") is None
-            assert State.xml_name() == "catalog-state"
+            item = root.find("{urn:avrotize:item}items")
+            assert item.attrib == {"code": "P1"}
+            map_item = root.find("{urn:avrotize:structure}labels/{urn:avrotize:structure}item")
+            assert map_item.attrib == {"key": "region"} and map_item.text == "west"
+            assert State.__xml_name__ == "catalog-state"
+            version_metadata = Catalog.__dataclass_fields__["version"].metadata
+            assert version_metadata["name"] == "schema-version"
+            assert version_metadata["type"] == "Attribute"
+            catalog_source = os.path.join(generated_src, "issue_408_s2py", "example", "xml", "catalog.py")
+            with open(catalog_source, encoding="utf-8") as source:
+                generated_code = source.read()
+            assert "XMLFields" not in generated_code
+            assert "_to_xml_element" not in generated_code
+            assert "from issue_408_s2py.xml_runtime import parse_xml, serialize_xml" in generated_code
+            runtime_path = os.path.join(generated_src, "issue_408_s2py", "xml_runtime.py")
+            assert os.path.exists(runtime_path)
+            with open(runtime_path, encoding="utf-8") as runtime:
+                runtime_code = runtime.read()
+            assert "XmlParser" in runtime_code and "XmlSerializer" in runtime_code
+            assert "xml.etree" not in runtime_code
+            with open(os.path.join(output_dir, "pyproject.toml"), encoding="utf-8") as project:
+                assert 'xsdata = "^26.2"' in project.read()
             assert Catalog.from_data(payload, "text/xml") == value
+            json_round_trip = Catalog.from_data(
+                value.to_byte_array("application/json"), "application/json")
+            assert json_round_trip.version == value.version
+            assert Catalog.from_data(value.to_byte_array("avro/binary"), "avro/binary").version == value.version
 
             compressed = value.to_byte_array("application/xml+gzip")
             assert gzip.decompress(compressed).startswith(b"<?xml")

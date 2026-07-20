@@ -94,7 +94,7 @@ class AvroToPython:
     def safe_enum_symbols(self, symbols: List[str]) -> List[Dict[str, str]]:
         """Converts Avro enum symbols to collision-safe Python enum members."""
         enum_symbols = []
-        used_names = {'xml_name', 'xml_value', 'from_xml_value'} if self.xml_annotation else set()
+        used_names = set()
 
         for symbol in symbols:
             if symbol.isidentifier() and not is_python_reserved_word(symbol):
@@ -300,6 +300,18 @@ class AvroToPython:
                     f"self.{field['name']} = {self.init_field_value(field['type'], field['name'], field['is_enum'], 'value_'+field['name'], enum_types)}")
         return '\n'.join(init_statements)
 
+    def xml_namespace_for_type(self, avro_type: Any, default: str) -> str:
+        """Resolve the XML namespace of a field's record item type."""
+        if isinstance(avro_type, list):
+            candidates = [item for item in avro_type if item != 'null']
+            return self.xml_namespace_for_type(candidates[0], default) if len(candidates) == 1 else default
+        if isinstance(avro_type, dict):
+            if avro_type.get('type') == 'record':
+                return avro_type.get('xmlns', default)
+            if avro_type.get('type') == 'array':
+                return self.xml_namespace_for_type(avro_type.get('items'), default)
+        return default
+
     def generate_class(self, avro_schema: Dict, parent_package: str, write_file: bool) -> str:
         """
         Generates a Python data class from an Avro record schema
@@ -325,6 +337,7 @@ class AvroToPython:
             'docstring': self.generate_field_docstring(field, avro_schema.get('namespace', parent_package)),
             'xml_name': field.get('altnames', {}).get('xml', field['name']),
             'xml_kind': field.get('xmlkind', 'element'),
+            'xml_namespace': self.xml_namespace_for_type(field['type'], avro_schema.get('xmlns', '')),
         } for field in avro_schema.get('fields', [])]
         fields = [{
             'name': self.safe_name(field['definition']['name']),
@@ -336,6 +349,13 @@ class AvroToPython:
             'test_value': self.generate_test_value(field),
             'xml_name': field['xml_name'],
             'xml_kind': field['xml_kind'],
+            'xml_namespace': field['xml_namespace'],
+            'xml_metadata': {
+                'type': 'Attribute' if field['xml_kind'] == 'attribute' else 'Element',
+                'name': field['xml_name'],
+                **({'namespace': field['xml_namespace']}
+                   if field['xml_kind'] != 'attribute' and field['xml_namespace'] else {}),
+            },
         } for field in fields]
 
         # we are including a copy of the avro schema of this type. Since that may
@@ -361,6 +381,7 @@ class AvroToPython:
             xml_annotation=self.xml_annotation,
             xml_name=avro_schema.get('altnames', {}).get('xml', avro_schema['name']),
             xml_namespace=avro_schema.get('xmlns', ''),
+            xml_runtime_module=(f'{self.base_package.lower()}.xml_runtime' if self.base_package else '_avrotize_xml_runtime'),
             avro_schema_json=avro_schema_json,
             init_fields=self.init_fields(fields, enum_types),
         )
@@ -668,11 +689,22 @@ class AvroToPython:
         # main function
         write_init_files_recursive(organize_generated_types(), '')
 
+    def write_xml_runtime(self):
+        """Writes the shared xsdata XML runtime to the generated project."""
+        module_dir = os.path.join(self.output_dir, 'src')
+        if self.base_package:
+            module_dir = os.path.join(module_dir, *self.base_package.lower().split('.'))
+        os.makedirs(module_dir, exist_ok=True)
+        module_name = 'xml_runtime.py' if self.base_package else '_avrotize_xml_runtime.py'
+        with open(os.path.join(module_dir, module_name), 'w', encoding='utf-8') as file:
+            file.write(process_template('python_xml_runtime.jinja'))
+
     def write_pyproject_toml(self):
         """Writes pyproject.toml file to the output directory"""
         pyproject_content = process_template(
             "avrotopython/pyproject_toml.jinja",
-            package_name=self.base_package.replace('_', '-')
+            package_name=self.base_package.replace('_', '-'),
+            xml_annotation=self.xml_annotation,
         )
         with open(os.path.join(self.output_dir, 'pyproject.toml'), 'w', encoding='utf-8') as file:
             file.write(pyproject_content)
@@ -690,6 +722,8 @@ class AvroToPython:
                     avro_schema, self.base_package, write_file=True)
             elif avro_schema['type'] == 'record':
                 self.generate_class(avro_schema, self.base_package, write_file=True)
+        if self.xml_annotation:
+            self.write_xml_runtime()
         self.write_init_files()
         self.write_pyproject_toml()
 

@@ -344,6 +344,22 @@ class StructureToPython:
             return self.generate_tuple(structure_schema, parent_namespace, write_file, explicit_name=explicit_name)
         return 'typing.Any'
 
+    def xml_namespace_for_type(self, structure_type: Any, default: str) -> str:
+        """Resolve the XML namespace of a field's object item type."""
+        if not isinstance(structure_type, dict):
+            return default
+        if '$ref' in structure_type:
+            resolved = self.resolve_ref(structure_type['$ref'], self.schema_doc if isinstance(self.schema_doc, dict) else None)
+            return resolved.get('xmlns', default) if isinstance(resolved, dict) else default
+        nested_type = structure_type.get('type')
+        if isinstance(nested_type, (dict, list)):
+            return self.xml_namespace_for_type(nested_type, default)
+        if nested_type == 'object':
+            return structure_type.get('xmlns', default)
+        if nested_type in ('array', 'set'):
+            return self.xml_namespace_for_type(structure_type.get('items'), default)
+        return default
+
     def generate_class(self, structure_schema: Dict, parent_namespace: str, 
                       write_file: bool, explicit_name: str = '') -> str:
         """ Generates a Python dataclass from JSON Structure object type """
@@ -383,6 +399,8 @@ class StructureToPython:
         for prop_name, prop_schema in properties.items():
             field_def = self.generate_field(prop_name, prop_schema, class_name, schema_namespace, 
                                            required_props, import_types)
+            field_def['xml_namespace'] = self.xml_namespace_for_type(
+                prop_schema, structure_schema.get('xmlns', ''))
             fields.append(field_def)
 
         # Get docstring
@@ -400,6 +418,13 @@ class StructureToPython:
             'source_type': field.get('source_type', 'string'),
             'xml_name': field['xml_name'],
             'xml_kind': field['xml_kind'],
+            'xml_namespace': field['xml_namespace'],
+            'xml_metadata': {
+                'type': 'Attribute' if field['xml_kind'] == 'attribute' else 'Element',
+                'name': field['xml_name'],
+                **({'namespace': field['xml_namespace']}
+                   if field['xml_kind'] != 'attribute' and field['xml_namespace'] else {}),
+            },
         } for field in fields]
 
         # If avro_annotation is enabled, convert JSON Structure schema to Avro schema
@@ -425,6 +450,7 @@ class StructureToPython:
             xml_annotation=self.xml_annotation,
             xml_name=structure_schema.get('altnames', {}).get('xml', explicit_name or structure_schema.get('name', 'UnnamedClass')),
             xml_namespace=structure_schema.get('xmlns', ''),
+            xml_runtime_module=(f'{self.base_package.lower()}.xml_runtime' if self.base_package else '_avrotize_xml_runtime'),
             avro_schema_json=avro_schema_json,
             is_abstract=is_abstract,
             base_class=base_class,
@@ -612,8 +638,6 @@ class StructureToPython:
         # Python Enum internals.
         used_names: set[str] = {'from_ordinal', 'to_ordinal', 'mro', '_ignore_',
                                 '_generate_next_value_', '_missing_', '_order_'}
-        if self.xml_annotation:
-            used_names.update({'xml_name', 'xml_value', 'from_xml_value'})
         for value in raw_values:
             base_name = self._python_enum_member_name(value)
             member_name = base_name
@@ -938,13 +962,24 @@ class StructureToPython:
 
         write_init_files_recursive(organize_generated_types(), '')
 
+    def write_xml_runtime(self):
+        """Writes the shared xsdata XML runtime to the generated project."""
+        module_dir = os.path.join(self.output_dir, 'src')
+        if self.base_package:
+            module_dir = os.path.join(module_dir, *self.base_package.lower().split('.'))
+        os.makedirs(module_dir, exist_ok=True)
+        module_name = 'xml_runtime.py' if self.base_package else '_avrotize_xml_runtime.py'
+        with open(os.path.join(module_dir, module_name), 'w', encoding='utf-8') as file:
+            file.write(process_template('python_xml_runtime.jinja'))
+
     def write_pyproject_toml(self):
         """Writes pyproject.toml file to the output directory"""
         pyproject_content = process_template(
             "structuretopython/pyproject_toml.jinja",
             package_name=self.base_package.replace('_', '-'),
             dataclasses_json_annotation=self.dataclasses_json_annotation,
-            avro_annotation=self.avro_annotation
+            avro_annotation=self.avro_annotation,
+            xml_annotation=self.xml_annotation,
         )
         with open(os.path.join(self.output_dir, 'pyproject.toml'), 'w', encoding='utf-8') as file:
             file.write(pyproject_content)
@@ -1033,6 +1068,8 @@ class StructureToPython:
                     "$root, or definitions); no Python output generated for it."
                 )
 
+        if self.xml_annotation:
+            self.write_xml_runtime()
         self.write_init_files()
         self.write_pyproject_toml()
 

@@ -1,0 +1,329 @@
+{% raw %}"""Shared xsdata XML binding support for generated models."""
+
+from __future__ import annotations
+
+import dataclasses
+import datetime
+import types
+import typing
+import uuid
+from enum import Enum
+
+from xsdata.formats.dataclass.parsers import XmlParser
+from xsdata.formats.dataclass.serializers import XmlSerializer
+from xsdata.formats.dataclass.serializers.config import SerializerConfig
+from xsdata.formats.dataclass.serializers.writers import XmlEventWriter
+
+
+_XML_METADATA_KEYS = {
+    "choices", "format", "mixed", "name", "namespace", "nillable",
+    "process_contents", "required", "sequence", "tokens", "type", "wrapper",
+}
+_SHADOW_TYPES: dict[tuple[type, str], type] = {}
+_SHADOW_ENUMS: dict[type[Enum], type[Enum]] = {}
+_MAP_MODELS: dict[tuple[typing.Any, str], tuple[type, type]] = {}
+_XML_PARSER = XmlParser()
+_XML_SERIALIZER = XmlSerializer(
+    config=SerializerConfig(xml_declaration=True, encoding="UTF-8"),
+    writer=XmlEventWriter,
+)
+
+
+def _origin_args(data_type: typing.Any) -> tuple[typing.Any, tuple[typing.Any, ...]]:
+    return typing.get_origin(data_type), typing.get_args(data_type)
+
+
+def _union_args(data_type: typing.Any) -> tuple[typing.Any, ...]:
+    origin, args = _origin_args(data_type)
+    return args if origin in (typing.Union, types.UnionType) else ()
+
+
+def _allows_none(data_type: typing.Any) -> bool:
+    return type(None) in _union_args(data_type)
+
+
+def _concrete_type(data_type: typing.Any) -> typing.Any:
+    args = tuple(arg for arg in _union_args(data_type) if arg is not type(None))
+    return args[0] if len(args) == 1 else data_type
+
+
+def _replace_optional(data_type: typing.Any, concrete: typing.Any) -> typing.Any:
+    return typing.Optional[concrete] if _allows_none(data_type) else concrete
+
+
+def _xml_metadata(metadata: typing.Mapping[str, typing.Any]) -> dict[str, typing.Any]:
+    return {key: value for key, value in metadata.items() if key in _XML_METADATA_KEYS}
+
+
+def _model_namespace(model: typing.Any, fallback: str = "") -> str:
+    meta = getattr(model, "Meta", None)
+    return getattr(meta, "namespace", "") or fallback
+
+
+def _shadow_enum(enum_type: type[Enum]) -> type[Enum]:
+    shadow = _SHADOW_ENUMS.get(enum_type)
+    if shadow is None:
+        xml_values = getattr(enum_type, "__xml_values__", {})
+        shadow = Enum(
+            f"_Xml{enum_type.__name__}",
+            {member.name: xml_values.get(member.name, member.value) for member in enum_type},
+        )
+        shadow.__module__ = enum_type.__module__
+        _SHADOW_ENUMS[enum_type] = shadow
+    return shadow
+
+
+def _shadow_type(data_type: typing.Any, namespace: str = "") -> typing.Any:
+    if data_type in (typing.Any, object):
+        return str
+    if data_type is uuid.UUID:
+        return str
+    if data_type is datetime.timedelta:
+        return float
+    if data_type is type(None):
+        return type(None)
+
+    origin, args = _origin_args(data_type)
+    if origin in (typing.Union, types.UnionType):
+        return typing.Union[tuple(_shadow_type(arg, namespace) for arg in args)]
+    if origin in (list, set, tuple):
+        item_type = _shadow_type(args[0] if args else typing.Any, namespace)
+        return list[item_type]
+
+    concrete = _concrete_type(data_type)
+    if isinstance(concrete, type) and issubclass(concrete, Enum):
+        return _shadow_enum(concrete)
+    if isinstance(concrete, type) and dataclasses.is_dataclass(concrete):
+        return _shadow_class(concrete, namespace)
+    return data_type
+
+
+def _field_definition(data_type: typing.Any, metadata: dict[str, typing.Any]) -> dataclasses.Field:
+    kwargs: dict[str, typing.Any] = {"kw_only": True, "metadata": metadata}
+    concrete = _concrete_type(data_type)
+    origin, _ = _origin_args(concrete)
+    if _allows_none(data_type):
+        kwargs["default"] = None
+    elif origin in (list, set, tuple):
+        kwargs["default_factory"] = list
+    return dataclasses.field(**kwargs)
+
+
+def _map_models(data_type: typing.Any, namespace: str) -> tuple[type, type]:
+    concrete = _concrete_type(data_type)
+    _, args = _origin_args(concrete)
+    value_type = args[1] if len(args) > 1 else typing.Any
+    key = (value_type, namespace)
+    cached = _MAP_MODELS.get(key)
+    if cached is not None:
+        return cached
+
+    shadow_value_type = _shadow_type(value_type, namespace)
+    value_concrete = _concrete_type(value_type)
+    is_model = isinstance(value_concrete, type) and dataclasses.is_dataclass(value_concrete)
+    value_metadata: dict[str, typing.Any]
+    if is_model:
+        value_metadata = {
+            "type": "Element",
+            "name": "value",
+            "namespace": _model_namespace(value_concrete, namespace),
+        }
+    else:
+        value_metadata = {"type": "Text"}
+
+    entry_meta = type("Meta", (), {"name": "item", "namespace": namespace})
+    entry_type = dataclasses.make_dataclass(
+        f"_XmlMapEntry{len(_MAP_MODELS)}",
+        [
+            ("key", str, dataclasses.field(kw_only=True, metadata={"type": "Attribute", "name": "key"})),
+            ("value", shadow_value_type, _field_definition(shadow_value_type, value_metadata)),
+        ],
+        namespace={"Meta": entry_meta},
+        kw_only=True,
+    )
+    container_meta = type("Meta", (), {"name": "map", "namespace": namespace})
+    container_type = dataclasses.make_dataclass(
+        f"_XmlMap{len(_MAP_MODELS)}",
+        [
+            ("items", list[entry_type], dataclasses.field(
+                default_factory=list,
+                kw_only=True,
+                metadata={"type": "Element", "name": "item", "namespace": namespace},
+            )),
+        ],
+        namespace={"Meta": container_meta},
+        kw_only=True,
+    )
+    _MAP_MODELS[key] = (container_type, entry_type)
+    return container_type, entry_type
+
+
+def _shadow_class(model: type, inherited_namespace: str = "") -> type:
+    model_namespace = _model_namespace(model, inherited_namespace)
+    cache_key = (model, model_namespace)
+    cached = _SHADOW_TYPES.get(cache_key)
+    if cached is not None:
+        return cached
+
+    hints = typing.get_type_hints(model)
+    definitions = []
+    for model_field in dataclasses.fields(model):
+        data_type = hints.get(model_field.name, typing.Any)
+        metadata = _xml_metadata(model_field.metadata)
+        concrete = _concrete_type(data_type)
+        origin, _ = _origin_args(concrete)
+        if origin is dict:
+            field_namespace = metadata.get("namespace", model_namespace)
+            container_type, _ = _map_models(data_type, field_namespace)
+            shadow_data_type = _replace_optional(data_type, container_type)
+        else:
+            if metadata.get("type") == "Element" and model_namespace:
+                metadata.setdefault("namespace", model_namespace)
+            field_namespace = metadata.get("namespace", model_namespace)
+            shadow_data_type = _shadow_type(data_type, field_namespace)
+            if _concrete_type(data_type) is bytes:
+                metadata.setdefault("format", "base64")
+        definitions.append(
+            (model_field.name, shadow_data_type, _field_definition(shadow_data_type, metadata))
+        )
+
+    original_meta = getattr(model, "Meta", None)
+    shadow_meta = type(
+        "Meta",
+        (),
+        {
+            "name": getattr(original_meta, "name", model.__name__),
+            "namespace": getattr(original_meta, "namespace", "") or inherited_namespace,
+        },
+    )
+    shadow = dataclasses.make_dataclass(
+        f"_Xml{model.__name__}",
+        definitions,
+        namespace={"Meta": shadow_meta, "__module__": model.__module__},
+        kw_only=True,
+    )
+    _SHADOW_TYPES[cache_key] = shadow
+    return shadow
+
+
+def _select_union_type(value: typing.Any, data_type: typing.Any) -> typing.Any:
+    for candidate in _union_args(data_type):
+        if candidate is type(None) and value is None:
+            return candidate
+        concrete = _concrete_type(candidate)
+        if isinstance(concrete, type) and isinstance(value, concrete):
+            return candidate
+    return next((candidate for candidate in _union_args(data_type) if candidate is not type(None)), data_type)
+
+
+def _to_shadow_value(value: typing.Any, data_type: typing.Any, namespace: str = "") -> typing.Any:
+    if value is None:
+        return None
+    union = _union_args(data_type)
+    if union:
+        return _to_shadow_value(value, _select_union_type(value, data_type), namespace)
+    origin, args = _origin_args(data_type)
+    if origin in (list, set, tuple):
+        item_type = args[0] if args else typing.Any
+        return [_to_shadow_value(item, item_type, namespace) for item in value]
+    if isinstance(value, Enum):
+        return _shadow_enum(type(value))[value.name]
+    if dataclasses.is_dataclass(value):
+        return _to_shadow_model(value, namespace)
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, datetime.timedelta):
+        return value.total_seconds()
+    return value
+
+
+def _to_shadow_model(value: typing.Any, inherited_namespace: str = "") -> typing.Any:
+    model = type(value)
+    shadow = _shadow_class(model, inherited_namespace)
+    hints = typing.get_type_hints(model)
+    model_namespace = _model_namespace(model, inherited_namespace)
+    values: dict[str, typing.Any] = {}
+    for model_field in dataclasses.fields(model):
+        data_type = hints.get(model_field.name, typing.Any)
+        field_value = getattr(value, model_field.name)
+        field_namespace = model_field.metadata.get("namespace", model_namespace)
+        concrete = _concrete_type(data_type)
+        origin, _ = _origin_args(concrete)
+        if origin is dict and field_value is not None:
+            container_type, entry_type = _map_models(data_type, field_namespace)
+            _, args = _origin_args(concrete)
+            value_type = args[1] if len(args) > 1 else typing.Any
+            entries = [
+                entry_type(key=str(key), value=_to_shadow_value(item, value_type, field_namespace))
+                for key, item in field_value.items()
+            ]
+            values[model_field.name] = container_type(items=entries)
+        else:
+            values[model_field.name] = _to_shadow_value(field_value, data_type, field_namespace)
+    return shadow(**values)
+
+
+def _from_shadow_value(value: typing.Any, data_type: typing.Any, namespace: str = "") -> typing.Any:
+    if value is None:
+        return None
+    union = _union_args(data_type)
+    if union:
+        for candidate in union:
+            if candidate is type(None):
+                continue
+            shadow_candidate = _shadow_type(candidate, namespace)
+            if isinstance(shadow_candidate, type) and isinstance(value, shadow_candidate):
+                return _from_shadow_value(value, candidate, namespace)
+        return _from_shadow_value(value, next(candidate for candidate in union if candidate is not type(None)), namespace)
+    origin, args = _origin_args(data_type)
+    if origin in (list, set, tuple):
+        item_type = args[0] if args else typing.Any
+        items = [_from_shadow_value(item, item_type, namespace) for item in value]
+        return set(items) if origin is set else tuple(items) if origin is tuple else items
+    concrete = _concrete_type(data_type)
+    if isinstance(concrete, type) and issubclass(concrete, Enum):
+        return concrete[value.name]
+    if isinstance(concrete, type) and dataclasses.is_dataclass(concrete):
+        return _from_shadow_model(value, concrete, namespace)
+    if concrete is uuid.UUID:
+        return uuid.UUID(value)
+    if concrete is datetime.timedelta:
+        return datetime.timedelta(seconds=value)
+    return value
+
+
+def _from_shadow_model(value: typing.Any, model: type, inherited_namespace: str = "") -> typing.Any:
+    hints = typing.get_type_hints(model)
+    model_namespace = _model_namespace(model, inherited_namespace)
+    values: dict[str, typing.Any] = {}
+    for model_field in dataclasses.fields(model):
+        data_type = hints.get(model_field.name, typing.Any)
+        field_value = getattr(value, model_field.name)
+        field_namespace = model_field.metadata.get("namespace", model_namespace)
+        concrete = _concrete_type(data_type)
+        origin, args = _origin_args(concrete)
+        if origin is dict and field_value is not None:
+            value_type = args[1] if len(args) > 1 else typing.Any
+            values[model_field.name] = {
+                entry.key: _from_shadow_value(entry.value, value_type, field_namespace)
+                for entry in field_value.items
+            }
+        else:
+            values[model_field.name] = _from_shadow_value(field_value, data_type, field_namespace)
+    return model(**values)
+
+
+def serialize_xml(value: typing.Any) -> bytes:
+    """Serialize a generated model with xsdata."""
+    namespace = _model_namespace(type(value))
+    namespace_map = {None: namespace} if namespace else None
+    xml = _XML_SERIALIZER.render(_to_shadow_model(value), ns_map=namespace_map)
+    return xml.encode("utf-8")
+
+
+def parse_xml(data: bytes | str, model: type) -> typing.Any:
+    """Parse XML into a generated model with xsdata."""
+    source = data.encode("utf-8") if isinstance(data, str) else data
+    shadow = _XML_PARSER.from_bytes(source, _shadow_class(model))
+    return _from_shadow_model(shadow, model)
+{% endraw %}
