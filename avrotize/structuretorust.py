@@ -280,6 +280,134 @@ class StructureToRust:
             return self.generate_tuple(structure_schema, parent_namespace, write_file, explicit_name=explicit_name)
         return 'serde_json::Value'
 
+    def collect_xml_field_metadata(
+        self, structure_type
+    ) -> tuple[
+        set[str],
+        set[str],
+        set[str],
+        set[tuple[str, str]],
+        set[tuple[str, str, str]],
+        set[tuple[str, str]],
+    ]:
+        """Collects nested XML element, attribute, and map property names."""
+        elements: set[str] = set()
+        attributes: set[str] = set()
+        maps: set[str] = set()
+        relationships: set[tuple[str, str]] = set()
+        namespaces: set[tuple[str, str, str]] = set()
+        attribute_owners: set[tuple[str, str]] = set()
+        visited: set[tuple[int, str]] = set()
+
+        def nested_objects(node):
+            if isinstance(node, list):
+                return [record for item in node for record in nested_objects(item)]
+            if not isinstance(node, dict):
+                return []
+            if '$ref' in node:
+                resolved = self.resolve_ref(
+                    node['$ref'],
+                    self.schema_doc if isinstance(self.schema_doc, dict) else None,
+                )
+                return nested_objects(resolved)
+            node_type = node.get('type')
+            if node_type in ('object', 'tuple'):
+                return [node]
+            if node_type in ('array', 'set'):
+                return nested_objects(node.get('items'))
+            if node_type == 'choice':
+                return [
+                    record
+                    for choice in node.get('choices', {}).values()
+                    for record in nested_objects(choice)
+                ]
+            return []
+
+        def visit(node, parent_element=None, inherited_namespace=''):
+            if isinstance(node, list):
+                for item in node:
+                    visit(item, parent_element, inherited_namespace)
+            elif isinstance(node, dict):
+                if '$ref' in node:
+                    resolved = self.resolve_ref(
+                        node['$ref'],
+                        self.schema_doc if isinstance(self.schema_doc, dict) else None,
+                    )
+                    if resolved:
+                        visit(resolved, parent_element, inherited_namespace)
+                    return
+                node_type = node.get('type')
+                if node_type in ('object', 'tuple'):
+                    visit_key = (id(node), parent_element or '')
+                    if visit_key in visited:
+                        return
+                    visited.add(visit_key)
+                    record_namespace = node.get('xmlns', inherited_namespace)
+                    for prop_name, prop_schema in node.get('properties', {}).items():
+                        name = xml_wire_name(prop_name, prop_schema)
+                        if prop_schema.get('xmlkind', 'element') == 'attribute':
+                            attributes.add(name)
+                            attribute_owners.add((parent_element or '', name))
+                        else:
+                            elements.add(name)
+                            parent = parent_element or ''
+                            if parent_element:
+                                relationships.add((parent_element, name))
+                            if prop_schema.get('type') == 'map':
+                                maps.add(name)
+                            records = nested_objects(prop_schema)
+                            field_namespaces = {
+                                record.get('xmlns', record_namespace) for record in records
+                            } or {record_namespace}
+                            namespaces.update((parent, name, namespace) for namespace in field_namespaces)
+                        visit(prop_schema, name, record_namespace)
+                elif node_type in ('array', 'set'):
+                    visit(node.get('items'), parent_element, inherited_namespace)
+                elif node_type == 'map':
+                    visit(node.get('values'), parent_element, inherited_namespace)
+                elif node_type == 'choice':
+                    for choice in node.get('choices', {}).values():
+                        visit(choice, parent_element, inherited_namespace)
+
+        visit(structure_type)
+        return elements, attributes, maps, relationships, namespaces, attribute_owners
+
+    def add_xml_union_metadata(self, variants: list[dict]) -> dict[str, bool]:
+        """Marks union variants whose XML lexical forms cannot round-trip unambiguously."""
+        scalar_kinds = {
+            'String': 'string',
+            'bool': 'bool',
+            'i8': 'integer', 'i16': 'integer', 'i32': 'integer', 'i64': 'integer',
+            'u8': 'integer', 'u16': 'integer', 'u32': 'integer', 'u64': 'integer',
+            'isize': 'integer', 'usize': 'integer',
+            'f32': 'float', 'f64': 'float',
+        }
+        present_scalar_kinds = {scalar_kinds[variant['type']] for variant in variants if variant['type'] in scalar_kinds}
+        type_counts = {
+            rust_type: sum(1 for variant in variants if variant['type'] == rust_type)
+            for rust_type in {variant['type'] for variant in variants}
+        }
+        kind_counts = {
+            kind: sum(1 for variant in variants if scalar_kinds.get(variant['type']) == kind)
+            for kind in present_scalar_kinds
+        }
+        for variant in variants:
+            scalar_kind = scalar_kinds.get(variant['type'])
+            variant['xml_scalar_kind'] = scalar_kind or ''
+            variant['xml_guard_string'] = scalar_kind == 'string' and len(present_scalar_kinds) > 1
+            variant['xml_reject_value'] = (
+                type_counts[variant['type']] > 1
+                or (scalar_kind is not None and kind_counts[scalar_kind] > 1)
+                or (scalar_kind is not None and scalar_kind != 'string' and 'string' in present_scalar_kinds)
+                or (scalar_kind == 'integer' and 'float' in present_scalar_kinds)
+            )
+            variant['xml_safe_for_random'] = not variant['xml_reject_value']
+        return {
+            'bool': 'bool' in present_scalar_kinds,
+            'integer': 'integer' in present_scalar_kinds,
+            'float': 'float' in present_scalar_kinds,
+        }
+
     def generate_class(self, structure_schema: Dict, parent_namespace: str, write_file: bool, explicit_name: str = '') -> str:
         """ Generates a Rust struct from JSON Structure object type """
         # Get name and namespace
@@ -365,6 +493,14 @@ class StructureToRust:
 
         # Get docstring
         doc = structure_schema.get('description', structure_schema.get('doc', class_name))
+        (
+            descendant_elements,
+            descendant_attributes,
+            descendant_maps,
+            descendant_relationships,
+            element_namespaces,
+            attribute_owners,
+        ) = self.collect_xml_field_metadata(structure_schema)
 
         # Prepare context for template
         context = {
@@ -374,6 +510,12 @@ class StructureToRust:
             'struct_name': self.safe_identifier(class_name),
             'xml_name': xml_wire_name(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'), structure_schema),
             'xml_namespace': structure_schema.get('xmlns', ''),
+            'xml_descendant_elements': sorted(descendant_elements),
+            'xml_descendant_attributes': sorted(descendant_attributes),
+            'xml_descendant_maps': sorted(descendant_maps),
+            'xml_descendant_relationships': sorted(descendant_relationships),
+            'xml_element_namespaces': sorted(element_namespaces),
+            'xml_attribute_owners': sorted(attribute_owners),
             'fields': fields,
             'is_abstract': is_abstract,
         }
@@ -485,12 +627,14 @@ class StructureToRust:
                     })
 
         doc = structure_schema.get('description', structure_schema.get('doc', choice_name))
+        xml_string_guards = self.add_xml_union_metadata(choice_types)
 
         context = {
             'serde_annotation': self.serde_annotation,
             'xml_annotation': self.xml_annotation,
             'union_enum_name': self.safe_identifier(pascal(choice_name)),
             'variants': choice_types,
+            'xml_string_guards': xml_string_guards,
             'doc': doc,
         }
 
@@ -527,6 +671,7 @@ class StructureToRust:
                 'type': type_name,
                 'random_value': self.generate_random_value(type_name),
             })
+        xml_string_guards = self.add_xml_union_metadata(union_types)
         
         qualified_union_enum_name = self.safe_package(self.concat_package(ns, union_enum_name))
         
@@ -535,6 +680,7 @@ class StructureToRust:
             'xml_annotation': self.xml_annotation,
             'union_enum_name': union_enum_name,
             'variants': union_types,
+            'xml_string_guards': xml_string_guards,
             'doc': f'Union type for {field_name}',
         }
 
@@ -657,6 +803,8 @@ class StructureToRust:
         """Writes the lib.rs file for the Rust project"""
         modules = {name[(len('crate::')):].split('::')[0].replace('.', '_') for name in self.generated_types_rust_package if name.startswith('crate::')}
         mod_statements = '\n'.join(f'pub mod {self.escaped_identifier(module)};' for module in sorted(modules))
+        if self.xml_annotation:
+            mod_statements = 'pub(crate) mod xml_support;\n' + mod_statements
         
         lib_rs_content = f"""
 // This is the library entry point
@@ -668,6 +816,14 @@ class StructureToRust:
             os.makedirs(os.path.dirname(lib_rs_path), exist_ok=True)
         with open(lib_rs_path, 'w', encoding='utf-8') as file:
             file.write(lib_rs_content)
+
+    def write_xml_support_rs(self):
+        """Writes shared XML validation and bounded decompression helpers."""
+        if self.xml_annotation:
+            render_template(
+                'rust/xml_support.rs.jinja',
+                os.path.join(self.output_dir, "src", "xml_support.rs"),
+            )
 
     def process_definitions(self, definitions: Dict, namespace_path: str) -> None:
         """ Processes the definitions section recursively """
@@ -723,6 +879,7 @@ class StructureToRust:
                 self.process_definitions(self.definitions, '')
 
         self.write_cargo_toml()
+        self.write_xml_support_rs()
         self.write_lib_rs()
 
     def convert(self, structure_schema_path: str, output_dir: str):

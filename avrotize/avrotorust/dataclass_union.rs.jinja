@@ -22,9 +22,35 @@ impl Serialize for {{ union_enum_name }} {
     where
         S: serde::ser::Serializer
     {
+        {%- if xml_annotation %}
+        let is_xml = std::any::type_name::<S>().contains("quick_xml");
+        {%- endif %}
         match self {
             {%- for union_field in union_fields %}
-            {{ union_enum_name }}::{{ union_field.name}}(value) => value.serialize(serializer),
+            {{ union_enum_name }}::{{ union_field.name}}(value) => {
+                {%- if xml_annotation and union_field.xml_reject_value %}
+                if is_xml {
+                    return Err(serde::ser::Error::custom("ambiguous XML union value"));
+                }
+                {%- endif %}
+                {%- if xml_annotation and union_field.xml_guard_string %}
+                if is_xml && (
+                    {%- if xml_string_guards.bool %}
+                    value.parse::<bool>().is_ok() ||
+                    {%- endif %}
+                    {%- if xml_string_guards.integer %}
+                    value.parse::<i128>().is_ok() ||
+                    {%- endif %}
+                    {%- if xml_string_guards.float %}
+                    value.parse::<f64>().is_ok() ||
+                    {%- endif %}
+                    false
+                ) {
+                    return Err(serde::ser::Error::custom("ambiguous XML union scalar"));
+                }
+                {%- endif %}
+                value.serialize(serializer)
+            },
             {%- endfor %}
         }
     }
@@ -40,18 +66,30 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
         {%- endif %}
         let node = serde_json::Value::deserialize(deserializer)?;
         {%- if xml_annotation %}
+        if is_xml && xml_scalar_match_count(&node) > 1 {
+            return Err(serde::de::Error::custom("ambiguous XML union scalar"));
+        }
         let node = if is_xml { normalize_xml_value(node) } else { node };
+        if is_xml {
+            let match_count = 0usize
+                {%- for union_field in union_fields %}
+                + usize::from({{ union_field.json_match_predicate }})
+                {%- endfor %};
+            if match_count > 1 {
+                return Err(serde::de::Error::custom("ambiguous XML union value"));
+            }
+        }
         {%- endif %}
         {%- for union_field in union_fields %}
         if {{ union_field.json_match_predicate }} {
             {%- if union_field.type.startswith("Vec<") %}
             {%- set field_type = 'Vec::<'+union_field.type[4:] %}
-            let result = {{ field_type }}::deserialize(node).unwrap();
+            let result = {{ field_type }}::deserialize(node).map_err(serde::de::Error::custom)?;
             {%- elif union_field.type.startswith("std::collections::HashMap<") %}
             {%- set field_type = 'std::collections::HashMap::<'+union_field.type[26:] %}
-            let result = {{ field_type }}::deserialize(node).unwrap();
+            let result = {{ field_type }}::deserialize(node).map_err(serde::de::Error::custom)?;
             {%-else %}
-            let result = {{ union_field.type }}::deserialize(node).unwrap();
+            let result = {{ union_field.type }}::deserialize(node).map_err(serde::de::Error::custom)?;
             {%-endif %}
             return Ok({{ union_enum_name }}::{{ union_field.name }}(result));
         }
@@ -61,6 +99,30 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
 }
 
 {%- if xml_annotation %}
+fn xml_scalar_match_count(value: &serde_json::Value) -> usize {
+    let serde_json::Value::Object(object) = value else {
+        return 0;
+    };
+    if object.len() != 1 {
+        return 0;
+    }
+    let Some(serde_json::Value::String(text)) = object.get("$text") else {
+        return 0;
+    };
+    0usize
+        {%- for union_field in union_fields %}
+        {%- if union_field.type == "String" %}
+        + 1
+        {%- elif union_field.type == "bool" %}
+        + usize::from(text.parse::<bool>().is_ok())
+        {%- elif union_field.type in ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "isize", "usize"] %}
+        + usize::from(text.parse::<i128>().is_ok())
+        {%- elif union_field.type in ["f32", "f64"] %}
+        + usize::from(text.parse::<f64>().is_ok())
+        {%- endif %}
+        {%- endfor %}
+}
+
 fn normalize_xml_value(value: serde_json::Value) -> serde_json::Value {
     match value {
         serde_json::Value::Object(mut object) if object.len() == 1 && object.contains_key("$text") => {
@@ -115,9 +177,18 @@ impl {{ union_enum_name }} {
 #[cfg(test)]
 impl {{ union_enum_name }} {
 {%- set unique_fields = union_fields | selectattr('is_first_with_predicate') | list %}
+{%- set xml_safe_fields = union_fields | selectattr('xml_safe_for_random') | list %}
     pub fn generate_random_instance() -> {{ union_enum_name }} {
         let mut rng = rand::thread_rng();
-        {%- if serde_annotation and unique_fields | length < union_fields | length %}
+        {%- if xml_annotation and xml_safe_fields | length > 0 and xml_safe_fields | length < union_fields | length %}
+        // Avoid variants whose XML lexical form is inherently ambiguous.
+        match rand::Rng::gen_range(&mut rng, 0..{{ xml_safe_fields | length }}) {
+            {%- for union_field in xml_safe_fields %}
+            {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }}),
+            {%- endfor %}
+            _ => panic!("Invalid random index generated"),
+        }
+        {%- elif serde_annotation and unique_fields | length < union_fields | length %}
         // Only pick from variants with unique JSON structures to ensure round-trip works
         match rand::Rng::gen_range(&mut rng, 0..{{ unique_fields | length }}) {
             {%- for union_field in unique_fields %}
