@@ -2,7 +2,14 @@
 'use strict';
 
 const zlib = require('zlib');
-const { XMLBuilder, XMLParser } = require('fast-xml-parser');
+const { TextDecoder } = require('util');
+const { XMLBuilder, XMLParser, XMLValidator } = require('fast-xml-parser');
+
+const MAX_XML_BYTES = 1024 * 1024;
+const MAX_XML_DEPTH = 64;
+const MAX_XML_NODES = 100000;
+const MAX_COLLECTION_ITEMS = 100000;
+const XSI_NAMESPACE = 'http://www.w3.org/2001/XMLSchema-instance';
 
 const XML_OPTIONS = Object.freeze({
     ignoreAttributes: false,
@@ -11,9 +18,14 @@ const XML_OPTIONS = Object.freeze({
     parseAttributeValue: false,
     trimValues: false,
     processEntities: false,
-    allowBooleanAttributes: true,
+    ignoreDeclaration: true,
+    allowBooleanAttributes: false,
     suppressBooleanAttributes: false
 });
+
+function fail(message, path = '$') {
+    throw new Error(`Invalid XML at ${path}: ${message}`);
+}
 
 function contentTypeInfo(contentType) {
     let mediaType = String(contentType || 'application/json').split(';', 1)[0].trim().toLowerCase();
@@ -26,33 +38,85 @@ function isXml(mediaType) {
     return mediaType === 'application/xml' || mediaType === 'text/xml' || mediaType.endsWith('+xml');
 }
 
-function enumToWire(value, type) {
-    const key = String(value);
-    return Object.prototype.hasOwnProperty.call(type.values || {}, key) ? type.values[key] : key;
+function isObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function enumFromWire(value, type) {
-    const wire = String(value);
-    for (const [key, mapped] of Object.entries(type.values || {})) {
-        if (String(mapped) === wire) return key;
+function own(object, key) {
+    return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function assertKeys(value, allowed, path) {
+    if (!isObject(value)) fail('expected an element object', path);
+    for (const key of Object.keys(value)) {
+        if (!allowed.has(key)) fail(`unknown element or attribute '${key}'`, path);
     }
-    return wire;
+}
+
+function assertComplexity(value, depth = 0, state = { nodes: 0 }) {
+    if (depth > MAX_XML_DEPTH) fail(`maximum nesting depth ${MAX_XML_DEPTH} exceeded`);
+    state.nodes += 1;
+    if (state.nodes > MAX_XML_NODES) fail(`maximum node count ${MAX_XML_NODES} exceeded`);
+    if (Array.isArray(value)) {
+        for (const item of value) assertComplexity(item, depth + 1, state);
+    } else if (isObject(value)) {
+        for (const child of Object.values(value)) assertComplexity(child, depth + 1, state);
+    }
+}
+
+function parseXml(bytes) {
+    if (bytes.length > MAX_XML_BYTES) fail(`maximum document size ${MAX_XML_BYTES} bytes exceeded`);
+    let source;
+    try {
+        source = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (error) {
+        fail(`invalid UTF-8: ${error.message}`);
+    }
+    if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(source)) {
+        fail('DOCTYPE and entity declarations are forbidden');
+    }
+    const validation = XMLValidator.validate(source, { allowBooleanAttributes: false });
+    if (validation !== true) {
+        const detail = validation && validation.err && validation.err.msg ? validation.err.msg : 'malformed XML';
+        fail(detail);
+    }
+    const document = new XMLParser(XML_OPTIONS).parse(source);
+    assertComplexity(document);
+    return document;
+}
+
+function allowsNull(type) {
+    return type.kind === 'null' || (type.kind === 'union' && type.choices.some((choice) => choice.kind === 'null'));
+}
+
+function enumToWire(value, type) {
+    const key = String(value);
+    if (!own(type.values || {}, key)) fail(`invalid enum value '${key}'`);
+    return type.values[key];
+}
+
+function enumFromWire(value, type, path) {
+    if (isObject(value) || Array.isArray(value)) fail('expected an enum scalar', path);
+    const wire = String(value);
+    const matches = Object.entries(type.values || {}).filter(([, mapped]) => String(mapped) === wire);
+    if (matches.length !== 1) fail(`invalid or ambiguous enum value '${wire}'`, path);
+    return matches[0][0];
 }
 
 function selectUnionType(value, choices) {
-    if (value === null || value === undefined) return choices.find((t) => t.kind === 'null') || choices[0];
-    if (Array.isArray(value)) return choices.find((t) => t.kind === 'array') || choices[0];
-    if (value instanceof Set) return choices.find((t) => t.kind === 'set') || choices[0];
+    if (value === null || value === undefined) return choices.find((type) => type.kind === 'null') || choices[0];
+    if (Array.isArray(value)) return choices.find((type) => type.kind === 'array') || choices[0];
+    if (value instanceof Set) return choices.find((type) => type.kind === 'set') || choices[0];
     for (const type of choices) {
         if (type.kind === 'record' && type.ctor && value instanceof type.ctor) return type;
-        if (type.kind === 'enum' && Object.prototype.hasOwnProperty.call(type.values || {}, String(value))) return type;
-        if (type.kind === 'number' && typeof value === 'number') return type;
+        if (type.kind === 'enum' && own(type.values || {}, String(value))) return type;
+        if ((type.kind === 'number' || type.kind === 'integer') && typeof value === 'number') return type;
         if (type.kind === 'boolean' && typeof value === 'boolean') return type;
         if (type.kind === 'bigint' && typeof value === 'bigint') return type;
         if (type.kind === 'string' && typeof value === 'string') return type;
         if ((type.kind === 'map' || type.kind === 'any') && typeof value === 'object') return type;
     }
-    return choices.find((t) => t.kind !== 'null') || choices[0];
+    return choices.find((type) => type.kind !== 'null') || choices[0];
 }
 
 function toAnyXml(value) {
@@ -68,107 +132,219 @@ function toAnyXml(value) {
     return value;
 }
 
-function toXmlValue(value, type) {
+function toXmlValue(value, type, path) {
     if (value === null || value === undefined) return undefined;
     switch (type.kind) {
-        case 'record': return toXmlBody(value, type.ctor.XmlMapping);
+        case 'record':
+            if (!type.ctor || !(value instanceof type.ctor)) fail('invalid record value', path);
+            return toXmlBody(value, type.ctor.XmlMapping, path);
         case 'enum': return enumToWire(value, type);
-        case 'date': return value instanceof Date ? value.toISOString() : String(value);
-        case 'bigint': return String(value);
-        case 'array': return { item: value.map((item) => toXmlValue(item, type.items)) };
-        case 'set': return { item: Array.from(value, (item) => toXmlValue(item, type.items)) };
-        case 'map': return {
-            entry: Object.entries(value).map(([key, item]) => ({
-                '@_key': key,
-                value: toXmlValue(item, type.values)
-            }))
-        };
+        case 'string':
+            if (typeof value !== 'string') fail('expected a string', path);
+            return value;
+        case 'integer':
+            if (typeof value !== 'number' || !Number.isSafeInteger(value)) fail('expected a safe integer', path);
+            return value;
+        case 'number':
+            if (typeof value !== 'number' || !Number.isFinite(value)) fail('expected a finite number', path);
+            return value;
+        case 'boolean':
+            if (typeof value !== 'boolean') fail('expected a boolean', path);
+            return value;
+        case 'date': {
+            const date = value instanceof Date ? value : new Date(value);
+            if (Number.isNaN(date.getTime())) fail('expected a valid date', path);
+            return date.toISOString();
+        }
+        case 'bigint':
+            if (typeof value !== 'bigint') fail('expected a bigint', path);
+            return String(value);
+        case 'array':
+            if (!Array.isArray(value)) fail('expected an array', path);
+            if (value.length > MAX_COLLECTION_ITEMS) fail('collection is too large', path);
+            return { item: value.map((item, index) => toXmlValue(item, type.items, `${path}[${index}]`)) };
+        case 'set': {
+            if (!(value instanceof Set)) fail('expected a Set', path);
+            if (value.size > MAX_COLLECTION_ITEMS) fail('collection is too large', path);
+            return { item: Array.from(value, (item, index) => toXmlValue(item, type.items, `${path}[${index}]`)) };
+        }
+        case 'map': {
+            if (!isObject(value)) fail('expected a map object', path);
+            const entries = Object.entries(value);
+            if (entries.length > MAX_COLLECTION_ITEMS) fail('map is too large', path);
+            return { entry: entries.map(([key, item]) => ({ '@_key': key, value: toXmlValue(item, type.values, `${path}.${key}`) })) };
+        }
         case 'union': {
             const selected = selectUnionType(value, type.choices);
             const nonNull = type.choices.filter((choice) => choice.kind !== 'null');
-            if (nonNull.length <= 1) return toXmlValue(value, selected);
-            return { '@_union': String(type.choices.indexOf(selected)), value: toXmlValue(value, selected) };
+            if (!selected) fail('no matching union branch', path);
+            if (nonNull.length <= 1) return toXmlValue(value, selected, path);
+            return { '@_union': String(type.choices.indexOf(selected)), value: toXmlValue(value, selected, path) };
         }
         case 'any': return toAnyXml(value);
-        default: return value;
+        default: fail(`unsupported type '${type.kind}'`, path);
     }
 }
 
-function toXmlBody(value, mapping) {
+function toXmlBody(value, mapping, path = '$') {
     const result = {};
     if (mapping.namespace) result['@_xmlns'] = mapping.namespace;
     for (const [property, field] of Object.entries(mapping.fields)) {
         const child = value[property];
-        if (child === undefined) continue;
-        if (child === null) {
-            if (field.kind !== 'attribute') result[field.name] = { '@_xsi:nil': 'true', '@_xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance' };
+        const fieldPath = `${path}.${property}`;
+        if (child === undefined) {
+            if (field.required) fail('required value is missing', fieldPath);
             continue;
         }
-        const encoded = toXmlValue(child, field.type);
-        result[field.kind === 'attribute' ? `@_${field.name}` : field.name] = encoded;
+        if (child === null) {
+            if (!field.required) continue;
+            if (!allowsNull(field.type)) fail('null is not allowed', fieldPath);
+            if (field.kind === 'attribute') fail('null cannot be represented as an XML attribute', fieldPath);
+            result[field.name] = { '@_xsi:nil': 'true', '@_xmlns:xsi': XSI_NAMESPACE };
+            continue;
+        }
+        result[field.kind === 'attribute' ? `@_${field.name}` : field.name] = toXmlValue(child, field.type, fieldPath);
     }
     return result;
 }
 
-function coercePrimitive(value, kind) {
-    if (kind === 'string') return String(value ?? '');
-    if (kind === 'number') return Number(value);
-    if (kind === 'boolean') return value === true || String(value).toLowerCase() === 'true' || String(value) === '1';
-    if (kind === 'bigint') return BigInt(value);
-    if (kind === 'date') return new Date(String(value));
-    if (kind === 'null') return null;
+function parseScalar(value, kind, path) {
+    if (isObject(value) || Array.isArray(value)) fail(`expected a ${kind} scalar`, path);
+    const text = String(value);
+    if (kind === 'string') return text;
+    if (kind === 'integer') {
+        if (!/^[+-]?(?:0|[1-9]\d*)$/.test(text)) fail(`invalid integer '${text}'`, path);
+        const number = Number(text);
+        if (!Number.isSafeInteger(number)) fail(`integer is outside the safe range '${text}'`, path);
+        return number;
+    }
+    if (kind === 'number') {
+        if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text)) fail(`invalid number '${text}'`, path);
+        const number = Number(text);
+        if (!Number.isFinite(number)) fail(`invalid number '${text}'`, path);
+        return number;
+    }
+    if (kind === 'boolean') {
+        if (text === 'true' || text === '1') return true;
+        if (text === 'false' || text === '0') return false;
+        fail(`invalid boolean '${text}'`, path);
+    }
+    if (kind === 'bigint') {
+        if (!/^[+-]?(?:0|[1-9]\d*)$/.test(text)) fail(`invalid bigint '${text}'`, path);
+        return BigInt(text);
+    }
+    if (kind === 'date') {
+        const date = new Date(text);
+        if (Number.isNaN(date.getTime())) fail(`invalid date '${text}'`, path);
+        return date;
+    }
+    if (kind === 'null') fail('null requires xsi:nil', path);
     return value;
 }
 
-function fromXmlValue(value, type) {
-    if (value && typeof value === 'object' && String(value['@_xsi:nil']).toLowerCase() === 'true') return null;
+function isNilElement(value) {
+    return isObject(value) && own(value, '@_xsi:nil');
+}
+
+function fromXmlValue(value, type, path) {
+    if (isNilElement(value)) {
+        assertKeys(value, new Set(['@_xsi:nil', '@_xmlns:xsi']), path);
+        if (String(value['@_xsi:nil']) !== 'true' && String(value['@_xsi:nil']) !== '1') fail('invalid xsi:nil value', path);
+        if (value['@_xmlns:xsi'] !== undefined && value['@_xmlns:xsi'] !== XSI_NAMESPACE) fail('invalid xsi namespace', path);
+        if (!allowsNull(type)) fail('xsi:nil is not allowed for this field', path);
+        return null;
+    }
     switch (type.kind) {
-        case 'record': return fromXmlBody(value || {}, type.ctor.XmlMapping);
-        case 'enum': return enumFromWire(value, type);
+        case 'record':
+            if (!isObject(value)) fail('expected a record element', path);
+            return fromXmlBody(value, type.ctor.XmlMapping, path);
+        case 'enum': return enumFromWire(value, type, path);
         case 'array': {
-            if (value === '' || value === null || value === undefined) return [];
-            const items = typeof value === 'object' ? value.item : [];
-            if (items === undefined || items === '') return [];
-            return (Array.isArray(items) ? items : [items]).map((item) => fromXmlValue(item, type.items));
+            if (value === '') return [];
+            if (!isObject(value)) fail('array fields require an item wrapper', path);
+            assertKeys(value, new Set(['item']), path);
+            if (!own(value, 'item') || value.item === '') return [];
+            const items = Array.isArray(value.item) ? value.item : [value.item];
+            if (items.length > MAX_COLLECTION_ITEMS) fail('collection is too large', path);
+            return items.map((item, index) => fromXmlValue(item, type.items, `${path}[${index}]`));
         }
         case 'set': {
-            const array = fromXmlValue(value, { kind: 'array', items: type.items });
-            return new Set(array);
+            const items = fromXmlValue(value, { kind: 'array', items: type.items }, path);
+            const seen = new Set();
+            for (const item of items) {
+                const key = typeof item === 'object' ? JSON.stringify(item) : `${typeof item}:${String(item)}`;
+                if (seen.has(key)) fail('duplicate set item', path);
+                seen.add(key);
+            }
+            return new Set(items);
         }
         case 'map': {
-            if (value === '' || value === null || value === undefined) return {};
-            const rawEntries = typeof value === 'object' ? value.entry : [];
-            const entries = rawEntries === undefined || rawEntries === '' ? [] : (Array.isArray(rawEntries) ? rawEntries : [rawEntries]);
+            if (value === '') return {};
+            if (!isObject(value)) fail('map fields require an entry wrapper', path);
+            assertKeys(value, new Set(['entry']), path);
+            if (!own(value, 'entry') || value.entry === '') return {};
+            const entries = Array.isArray(value.entry) ? value.entry : [value.entry];
+            if (entries.length > MAX_COLLECTION_ITEMS) fail('map is too large', path);
             const result = {};
-            for (const entry of entries) result[String(entry['@_key'])] = fromXmlValue(entry.value, type.values);
+            const keys = new Set();
+            entries.forEach((entry, index) => {
+                const entryPath = `${path}.entry[${index}]`;
+                assertKeys(entry, new Set(['@_key', 'value']), entryPath);
+                if (!own(entry, '@_key') || Array.isArray(entry['@_key'])) fail('map entry requires one key attribute', entryPath);
+                if (!own(entry, 'value')) fail('map entry requires one value element', entryPath);
+                const key = String(entry['@_key']);
+                if (keys.has(key)) fail(`duplicate map key '${key}'`, entryPath);
+                if (key === '__proto__' || key === 'prototype' || key === 'constructor') fail(`unsafe map key '${key}'`, entryPath);
+                keys.add(key);
+                Object.defineProperty(result, key, {
+                    value: fromXmlValue(entry.value, type.values, `${entryPath}.value`),
+                    enumerable: true, writable: true, configurable: true
+                });
+            });
             return result;
         }
         case 'union': {
             const nonNull = type.choices.filter((choice) => choice.kind !== 'null');
-            if (value === null || value === undefined) return null;
-            if (typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, '@_union')) {
-                const selected = type.choices[Number(value['@_union'])];
-                if (!selected) throw new Error(`Invalid XML union branch '${value['@_union']}'`);
-                return fromXmlValue(value.value, selected);
-            }
-            if (typeof value === 'object') {
-                const record = nonNull.find((choice) => choice.kind === 'record');
-                if (record) return fromXmlValue(value, record);
-                const collection = nonNull.find((choice) => ['array', 'set', 'map'].includes(choice.kind));
-                if (collection) return fromXmlValue(value, collection);
-            }
-            const enumType = nonNull.find((choice) => choice.kind === 'enum' && Object.values(choice.values || {}).map(String).includes(String(value)));
-            return fromXmlValue(value, enumType || nonNull[0] || { kind: 'any' });
+            if (nonNull.length <= 1) return fromXmlValue(value, nonNull[0] || type.choices[0], path);
+            if (!isObject(value)) fail('ambiguous union requires an explicit branch marker', path);
+            assertKeys(value, new Set(['@_union', 'value']), path);
+            if (!own(value, '@_union') || Array.isArray(value['@_union'])) fail('union requires one branch marker', path);
+            if (!own(value, 'value')) fail('union requires one value element', path);
+            const branchText = String(value['@_union']);
+            if (!/^(?:0|[1-9]\d*)$/.test(branchText)) fail(`invalid union branch '${branchText}'`, path);
+            const selected = type.choices[Number(branchText)];
+            if (!selected || selected.kind === 'null') fail(`invalid union branch '${branchText}'`, path);
+            return fromXmlValue(value.value, selected, `${path}.value`);
         }
-        default: return coercePrimitive(value, type.kind);
+        case 'any': return value;
+        default: return parseScalar(value, type.kind, path);
     }
 }
 
-function fromXmlBody(body, mapping) {
+function fromXmlBody(body, mapping, path = '$') {
+    if (!isObject(body)) fail('expected a record element', path);
+    const allowed = new Set();
+    for (const field of Object.values(mapping.fields)) {
+        allowed.add(field.kind === 'attribute' ? `@_${field.name}` : field.name);
+    }
+    if (mapping.namespace) allowed.add('@_xmlns');
+    allowed.add('@_xmlns:xsi');
+    assertKeys(body, allowed, path);
+    if (mapping.namespace && body['@_xmlns'] !== mapping.namespace) {
+        fail(`expected namespace '${mapping.namespace}'`, path);
+    }
+    if (own(body, '@_xmlns:xsi') && body['@_xmlns:xsi'] !== XSI_NAMESPACE) fail('invalid xsi namespace', path);
+
     const instance = new mapping.ctor();
     for (const [property, field] of Object.entries(mapping.fields)) {
         const key = field.kind === 'attribute' ? `@_${field.name}` : field.name;
-        if (Object.prototype.hasOwnProperty.call(body, key)) instance[property] = fromXmlValue(body[key], field.type);
+        const fieldPath = `${path}.${property}`;
+        if (!own(body, key)) {
+            if (field.required) fail('required field is missing', fieldPath);
+            continue;
+        }
+        if (Array.isArray(body[key])) fail('duplicate singleton field', fieldPath);
+        instance[property] = fromXmlValue(body[key], field.type, fieldPath);
     }
     return instance;
 }
@@ -212,7 +388,7 @@ function fromPlainValue(value, type) {
 function fromPlainBody(body, mapping) {
     const instance = new mapping.ctor();
     for (const [property, field] of Object.entries(mapping.fields)) {
-        if (Object.prototype.hasOwnProperty.call(body, property)) instance[property] = fromPlainValue(body[property], field.type);
+        if (own(body, property)) instance[property] = fromPlainValue(body[property], field.type);
     }
     return instance;
 }
@@ -223,6 +399,7 @@ function toByteArray(value, mapping, contentType, avroType) {
     if (isXml(mediaType)) {
         const document = { [mapping.name]: toXmlBody(value, mapping) };
         result = Buffer.from(new XMLBuilder(XML_OPTIONS).build(document), 'utf8');
+        if (result.length > MAX_XML_BYTES) fail(`maximum document size ${MAX_XML_BYTES} bytes exceeded`);
     } else if (mediaType === 'application/json' || mediaType === 'avro/json' || mediaType.endsWith('+json')) {
         result = Buffer.from(JSON.stringify(toPlainBody(value, mapping)), 'utf8');
     } else if (avroType && (mediaType === 'avro/binary' || mediaType === 'application/vnd.apache.avro+avro')) {
@@ -238,12 +415,25 @@ function fromData(data, mapping, contentType, avroType) {
     if (data instanceof mapping.ctor) return data;
     const { mediaType, gzip } = contentTypeInfo(contentType);
     let bytes = Buffer.isBuffer(data) ? data : Buffer.from(data);
-    if (gzip) bytes = zlib.gunzipSync(bytes);
+    if (isXml(mediaType) && bytes.length > MAX_XML_BYTES) {
+        fail(`maximum input size ${MAX_XML_BYTES} bytes exceeded`);
+    }
+    if (gzip) {
+        try {
+            bytes = isXml(mediaType)
+                ? zlib.gunzipSync(bytes, { maxOutputLength: MAX_XML_BYTES })
+                : zlib.gunzipSync(bytes);
+        } catch (error) {
+            throw new Error(`Invalid gzip data: ${error.message}`, { cause: error });
+        }
+    }
     if (isXml(mediaType)) {
-        const document = new XMLParser(XML_OPTIONS).parse(bytes.toString('utf8'));
-        const body = document[mapping.name];
-        if (body === undefined) throw new Error(`Expected XML root element '${mapping.name}'`);
-        return fromXmlBody(body || {}, mapping);
+        const document = parseXml(bytes);
+        const roots = Object.keys(document);
+        if (roots.length !== 1 || roots[0] !== mapping.name || Array.isArray(document[mapping.name])) {
+            fail(`expected exactly one root element '${mapping.name}'`);
+        }
+        return fromXmlBody(document[mapping.name], mapping);
     }
     if (mediaType === 'application/json' || mediaType === 'avro/json' || mediaType.endsWith('+json')) {
         return fromPlainBody(JSON.parse(bytes.toString('utf8')), mapping);
@@ -254,4 +444,9 @@ function fromData(data, mapping, contentType, avroType) {
     throw new TypeError(`Unsupported media type: ${mediaType}`);
 }
 
-module.exports = { XML_OPTIONS, toByteArray, fromData };
+module.exports = {
+    XML_OPTIONS,
+    XML_LIMITS: Object.freeze({ maxBytes: MAX_XML_BYTES, maxDepth: MAX_XML_DEPTH, maxNodes: MAX_XML_NODES }),
+    toByteArray,
+    fromData
+};

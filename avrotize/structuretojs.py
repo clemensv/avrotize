@@ -257,10 +257,10 @@ class StructureToJavaScript:
         if isinstance(structure_type, str):
             kind = {
                 'null': 'null', 'boolean': 'boolean', 'string': 'string',
-                'integer': 'number', 'number': 'number', 'int8': 'number',
-                'uint8': 'number', 'int16': 'number', 'uint16': 'number',
-                'int32': 'number', 'uint32': 'number', 'int64': 'number',
-                'uint64': 'number', 'float8': 'number', 'float': 'number',
+                'integer': 'integer', 'number': 'number', 'int8': 'integer',
+                'uint8': 'integer', 'int16': 'integer', 'uint16': 'integer',
+                'int32': 'integer', 'uint32': 'integer', 'int64': 'integer',
+                'uint64': 'integer', 'float8': 'number', 'float': 'number',
                 'double': 'number', 'binary32': 'number', 'binary64': 'number',
                 'int128': 'bigint', 'uint128': 'bigint', 'date': 'date',
                 'datetime': 'date', 'timestamp': 'date', 'any': 'any'
@@ -396,6 +396,7 @@ class StructureToJavaScript:
                 'docstring': field_doc,
                 'xml_name': self.xml_name(prop_schema, prop_name),
                 'xml_kind': 'attribute' if prop_schema.get('xmlkind', 'element') == 'attribute' else 'element',
+                'xml_required': is_required,
                 'xml_type': self.xml_type_descriptor(prop_schema, schema_namespace)
             })
 

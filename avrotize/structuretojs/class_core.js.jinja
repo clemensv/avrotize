@@ -41,7 +41,7 @@ class {{ class_name }}{%- if base_class_name %} extends {{ base_class_name }}{%-
     ctor: {{ class_name }},
     fields: Object.freeze({
     {%- for field in fields %}
-        {{ field.name|tojson }}: { name: {{ field.xml_name|tojson }}, kind: {{ field.xml_kind|tojson }}, type: {{ field.xml_type|safe }} }{% if not loop.last %},{% endif %}
+        {{ field.name|tojson }}: { name: {{ field.xml_name|tojson }}, kind: {{ field.xml_kind|tojson }}, required: {{ field.xml_required|tojson }}, type: {{ field.xml_type|safe }} }{% if not loop.last %},{% endif %}
     {%- endfor %}
     })
 });

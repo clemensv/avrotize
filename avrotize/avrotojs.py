@@ -142,7 +142,7 @@ class AvroToJavaScript:
             if is_any_value_type(avro_type):
                 return '{ kind: "any" }'
             primitive = {
-                'null': 'null', 'boolean': 'boolean', 'int': 'number', 'long': 'number',
+                'null': 'null', 'boolean': 'boolean', 'int': 'integer', 'long': 'integer',
                 'float': 'number', 'double': 'number', 'bytes': 'string', 'string': 'string'
             }.get(avro_type)
             if primitive:
@@ -269,7 +269,7 @@ class AvroToJavaScript:
                 kind = 'attribute' if field.get('xmlkind', 'element') == 'attribute' else 'element'
                 descriptor = self.xml_type_descriptor(field['type'], schema_namespace)
                 mapping_fields.append(
-                    f'{json.dumps(property_name)}: {{ name: {json.dumps(wire_name)}, kind: "{kind}", type: {descriptor} }}')
+                    f'{json.dumps(property_name)}: {{ name: {json.dumps(wire_name)}, kind: "{kind}", required: true, type: {descriptor} }}')
             fields_literal = ',\n        '.join(mapping_fields)
             avro_type = f'{class_name}.AvroType' if self.avro_annotation else 'undefined'
             definition += f"""{class_name}.XmlOptions = xmlRuntime.XML_OPTIONS;

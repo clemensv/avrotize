@@ -99,6 +99,7 @@ class TestAvroToJavaScript(unittest.TestCase):
             source = generated.read()
         self.assertIn('Order.XmlMapping', source)
         self.assertIn('kind: "attribute"', source)
+        self.assertIn('required: true', source)
         with open(os.path.join(package_root, 'package.json'), encoding='utf-8') as package_file:
             package = json.load(package_file)
         self.assertIn('fast-xml-parser', package['dependencies'])
@@ -111,6 +112,7 @@ class TestAvroToJavaScript(unittest.TestCase):
         self.assertEqual(install.returncode, 0, install.stderr)
         script = r"""
 const assert = require('assert');
+const zlib = require('zlib');
 const Order = require('./demo/Order');
 const Child = require('./demo/Child');
 const Status = require('./demo/Status');
@@ -130,6 +132,64 @@ assert.match(xml, /xmlns="urn:example:orders"/);
 assert.match(xml, /order-id="A-1"/);
 assert.match(xml, /<status>new-order<\/status>/);
 assert.match(xml, /<tags><item>one<\/item><item>two<\/item><\/tags>/);
+
+function mustReject(label, payload, mediaType = 'application/xml') {
+  assert.throws(
+    () => Order.FromData(Buffer.isBuffer(payload) ? payload : Buffer.from(payload), mediaType),
+    undefined,
+    label
+  );
+}
+function appendElement(fragment) {
+  return xml.replace('</purchase-order>', `${fragment}</purchase-order>`);
+}
+
+mustReject('truncated XML', xml.slice(0, -12));
+mustReject('corrupt gzip', Buffer.from('not-a-gzip-stream'), 'application/xml+gzip');
+mustReject('invalid UTF-8', Buffer.from([0xff, 0xfe, 0xfd]));
+mustReject('gzip expansion limit', zlib.gzipSync(Buffer.alloc(1024 * 1024 + 1, 0x61)), 'application/xml+gzip');
+const entityPayload = '<!DOCTYPE purchase-order [<!ENTITY a "EXPAND"><!ENTITY b "&a;&a;&a;">]>' +
+  xml.replace('<status>new-order</status>', '<status>&b;</status>');
+mustReject('DOCTYPE/entity expansion', entityPayload);
+mustReject('namespace mismatch', xml.replace('urn:example:orders', 'urn:attacker'));
+mustReject('missing namespace', xml.replace(' xmlns="urn:example:orders"', ''));
+mustReject('missing required attribute', xml.replace(' order-id="A-1"', ''));
+mustReject('missing required element', xml.replace(/<status>.*?<\/status>/, ''));
+mustReject('missing nested required element', xml.replace('<count>3</count>', ''));
+mustReject('duplicate singleton', xml.replace(
+  '<status>new-order</status>', '<status>new-order</status><status>DONE</status>'));
+mustReject('unknown field', appendElement('<rogue>value</rogue>'));
+mustReject('invalid enum', xml.replace('<status>new-order</status>', '<status>UNKNOWN</status>'));
+mustReject('invalid scalar', xml.replace('<count>3</count>', '<count>not-an-integer</count>'));
+const deep = '<n>'.repeat(70) + 'x' + '</n>'.repeat(70);
+mustReject('excessive nesting', appendElement(`<rogue>${deep}</rogue>`));
+mustReject('excessive size', appendElement(`<rogue>${'x'.repeat(1024 * 1024)}</rogue>`));
+mustReject('ambiguous union', xml.replace(
+  /<variant union="\d+"><value>42<\/value><\/variant>/,
+  '<variant>42</variant>'));
+mustReject('invalid union branch', xml.replace(/<variant union="\d+">/, '<variant union="999">'));
+mustReject('map entry without key', xml.replace(' key="first"', ''));
+mustReject('duplicate map key', xml.replace(' key="second"', ' key="first"'));
+mustReject('invalid map shape', xml.replace(
+  /<metadata>.*?<\/metadata>/,
+  '<metadata><entry key="first"><other>1</other></entry></metadata>'));
+mustReject('direct singleton used as list', xml.replace(
+  /<tags>.*?<\/tags>/,
+  '<tags>one</tags>'));
+mustReject('duplicate list wrapper', xml.replace(
+  /(<tags>.*?<\/tags>)/,
+  '$1$1'));
+mustReject('duplicate attribute', xml.replace(
+  'order-id="A-1"',
+  'order-id="A-1" order-id="B"'));
+
+value.tags = ['only'];
+assert.deepStrictEqual(
+  Order.FromData(value.ToByteArray('application/xml'), 'application/xml').tags,
+  ['only'],
+  'a valid singleton list must remain a list'
+);
+
 """
         script_path = os.path.join(package_root, 'xml-runtime-test.js')
         with open(script_path, 'w', encoding='utf-8') as script_file:
