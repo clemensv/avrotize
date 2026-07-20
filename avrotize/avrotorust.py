@@ -8,9 +8,8 @@ from avrotize.common import (
     pascal,
     camel,
     snake,
-    xml_wire_name,
-    xml_enum_wire_value,
 )
+from avrotize.rust_xml import xml_wire_name, xml_enum_wire_value
 
 INDENT = '    '
 

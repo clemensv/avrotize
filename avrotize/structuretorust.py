@@ -13,9 +13,8 @@ from avrotize.common import (
     render_template,
     json_wire_name,
     json_enum_wire_value,
-    xml_wire_name,
-    xml_enum_wire_value,
 )
+from avrotize.rust_xml import xml_wire_name, xml_enum_wire_value
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
