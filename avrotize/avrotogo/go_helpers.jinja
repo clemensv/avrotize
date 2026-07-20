@@ -25,7 +25,7 @@ func random{{ struct.name }}() {{ struct.name }} {
 
 {%- for enum in enums %}
 func random{{ enum.name }}() {{ enum.name }} {
-    return 0
+    return {% if enum.string_enum %}{{ enum.name }}_{{ enum.symbols[0] }}{% else %}0{% endif %}
 }
 {%- endfor %}
 

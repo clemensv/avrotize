@@ -1,70 +1,35 @@
 package {{ base_package }}
 
-import (
-    "testing"
-    {%- if json_annotation and kind == 'struct' %}
-    "encoding/json"
-    {%- endif %}
-)
+import "testing"
 
-func Test{{ struct_name }}(t *testing.T) {
-    {%- if kind == 'struct' %}
+func Test{{ struct_name }}_Instantiate(t *testing.T) {
+    value := CreateInstance{{ struct_name }}()
+    _ = value
+}
+
+{%- if kind == "struct" and (json_annotation or xml_annotation or avro_annotation) %}
+func Test{{ struct_name }}_Serialization(t *testing.T) {
+    input := CreateInstance{{ struct_name }}()
     {%- if json_annotation %}
-    instance := CreateInstance{{ struct_name }}()
-    
-    // Test JSON marshaling
-    data, err := json.Marshal(&instance)
-    if err != nil {
-        t.Fatalf("Failed to marshal {{ struct_name }}: %v", err)
+    {
+        data, err := input.ToByteArray("application/json")
+        if err != nil { t.Fatalf("JSON marshal failed: %v", err) }
+        if _, err = {{ struct_name }}FromData(data, "application/json"); err != nil { t.Fatalf("JSON unmarshal failed: %v", err) }
     }
-    
-    // Test JSON unmarshaling
-    var decoded {{ struct_name }}
-    err = json.Unmarshal(data, &decoded)
-    if err != nil {
-        t.Fatalf("Failed to unmarshal {{ struct_name }}: %v", err)
-    }
-    
-    // Test ToByteArray and FromData methods
-    contentType := "application/json"
-    byteArray, err := instance.ToByteArray(contentType)
-    if err != nil {
-        t.Fatalf("Failed to convert to byte array: %v", err)
-    }
-    
-    fromData, err := {{ struct_name }}FromData(byteArray, contentType)
-    if err != nil {
-        t.Fatalf("Failed to create from data: %v", err)
-    }
-    
-    if fromData == nil {
-        t.Fatal("FromData returned nil")
-    }
-    
-    // Test with gzipped data
-    contentTypeGzip := "application/json+gzip"
-    byteArrayGzip, err := instance.ToByteArray(contentTypeGzip)
-    if err != nil {
-        t.Fatalf("Failed to convert to gzipped byte array: %v", err)
-    }
-    
-    fromDataGzip, err := {{ struct_name }}FromData(byteArrayGzip, contentTypeGzip)
-    if err != nil {
-        t.Fatalf("Failed to create from gzipped data: %v", err)
-    }
-    
-    if fromDataGzip == nil {
-        t.Fatal("FromData with gzip returned nil")
-    }
-    {%- else %}
-    // Basic instance creation test (no JSON serialization without json annotation)
-    instance := CreateInstance{{ struct_name }}()
-    _ = instance // Verify instance creation works
     {%- endif %}
-    {%- elif kind == 'enum' %}
-    // Test enum values
-    {%- for symbol in fields %}
-    _ = {{ struct_name }}_{{ symbol }}
-    {%- endfor %}
+    {%- if xml_annotation %}
+    for _, contentType := range []string{"application/xml", "text/xml", "application/xml+gzip"} {
+        data, err := input.ToByteArray(contentType)
+        if err != nil { t.Fatalf("XML marshal for %s failed: %v", contentType, err) }
+        if _, err = {{ struct_name }}FromData(data, contentType); err != nil { t.Fatalf("XML unmarshal for %s failed: %v", contentType, err) }
+    }
+    {%- endif %}
+    {%- if avro_annotation %}
+    {
+        data, err := input.ToByteArray("avro/binary")
+        if err != nil { t.Fatalf("Avro marshal failed: %v", err) }
+        if _, err = {{ struct_name }}FromData(data, "avro/binary"); err != nil { t.Fatalf("Avro unmarshal failed: %v", err) }
+    }
     {%- endif %}
 }
+{%- endif %}

@@ -7,7 +7,10 @@ import (
     {%- if json_annotation %}
     "encoding/json"
     {%- endif %}
-    {%- if json_annotation or avro_annotation %}
+    {%- if xml_annotation %}
+    "encoding/xml"
+    {%- endif %}
+    {%- if json_annotation or xml_annotation or avro_annotation %}
     "compress/gzip"
     "bytes"
     "fmt"
@@ -26,88 +29,65 @@ import (
 // {{ doc }}
 {%- endif %}
 type {{ struct_name }} struct {
+    {%- if xml_annotation and needs_xml_name %}
+    XMLName xml.Name `{% if json_annotation %}json:"-" {% endif %}{% if avro_annotation %}avro:"-" {% endif %}xml:"{% if xml_namespace %}{{ xml_namespace }} {% endif %}{{ xml_name }}"`
+    {%- endif %}
     {%- for field in fields %}
     {%- set is_json_string = field.source_type in ['int64', 'uint64', 'int128', 'uint128', 'decimal'] %}
-    {{ field.name }} {{ field.type }}{% if json_annotation or avro_annotation %} `{% if json_annotation %}json:"{{ field.original_name }}{% if is_json_string %},string{% endif %}"{% endif %}{% if json_annotation and avro_annotation %} {% endif %}{% if avro_annotation %}avro:"{{ field.original_name }}"{% endif %}`{% endif %}
+    {{ field.name }} {{ field.type }}{% if json_annotation or xml_annotation or avro_annotation %} `{% if json_annotation %}json:"{{ field.original_name }}{% if is_json_string %},string{% endif %}"{% endif %}{% if json_annotation and (xml_annotation or avro_annotation) %} {% endif %}{% if xml_annotation %}xml:"{{ field.xml_name }}{% if field.xml_kind == 'attribute' %},attr{% endif %}"{% endif %}{% if xml_annotation and avro_annotation %} {% endif %}{% if avro_annotation %}avro:"{{ field.original_name }}"{% endif %}`{% endif %}
     {%- endfor %}
 }
 
 {%- if base_interface %}
 
-// Verify that {{ struct_name }} implements {{ base_interface }} interface
 var _ {{ base_interface }} = (*{{ struct_name }})(nil)
-
 {%- for field in fields %}
 
-// Get{{ field.name }} returns the {{ field.original_name }} field
-func (s *{{ struct_name }}) Get{{ field.name }}() {{ field.type }} {
-    return s.{{ field.name }}
-}
-
-// Set{{ field.name }} sets the {{ field.original_name }} field
-func (s *{{ struct_name }}) Set{{ field.name }}(value {{ field.type }}) {
-    s.{{ field.name }} = value
-}
+func (s *{{ struct_name }}) Get{{ field.name }}() {{ field.type }} { return s.{{ field.name }} }
+func (s *{{ struct_name }}) Set{{ field.name }}(value {{ field.type }}) { s.{{ field.name }} = value }
 {%- endfor %}
 {%- endif %}
 
 {%- if avro_annotation and avro_schema %}
 
-// AvroSchema is the embedded Avro schema for {{ struct_name }}
 const {{ struct_name }}AvroSchema = `{{ avro_schema }}`
-
-// GetAvroSchema returns the parsed Avro schema for {{ struct_name }}
-func (s *{{ struct_name }}) GetAvroSchema() (avro.Schema, error) {
-    return avro.Parse({{ struct_name }}AvroSchema)
-}
+func (s *{{ struct_name }}) GetAvroSchema() (avro.Schema, error) { return avro.Parse({{ struct_name }}AvroSchema) }
 {%- endif %}
 
-{%- if json_annotation or avro_annotation %}
+{%- if json_annotation or xml_annotation or avro_annotation %}
 func (s *{{ struct_name }}) ToByteArray(contentType string) ([]byte, error) {
     var result []byte
     var err error
-    
-    // Strip +gzip suffix to get the base media type
-    mediaType := strings.Split(contentType, ";")[0]
+    mediaType := strings.TrimSpace(strings.Split(contentType, ";")[0])
     isGzipped := strings.HasSuffix(mediaType, "+gzip")
-    if isGzipped {
-        mediaType = strings.TrimSuffix(mediaType, "+gzip")
-    }
-    
+    if isGzipped { mediaType = strings.TrimSuffix(mediaType, "+gzip") }
     switch mediaType {
     {%- if json_annotation %}
     case "application/json":
         result, err = json.Marshal(s)
-        if err != nil {
-            return nil, err
-        }
+    {%- endif %}
+    {%- if xml_annotation %}
+    case "application/xml", "text/xml":
+        {%- if needs_xml_name %}
+        s.XMLName = xml.Name{Space: "{{ xml_namespace }}", Local: "{{ xml_name }}"}
+        {%- endif %}
+        result, err = xml.Marshal(s)
     {%- endif %}
     {%- if avro_annotation %}
     case "avro/binary", "application/vnd.apache.avro+avro":
-        schema, err := s.GetAvroSchema()
-        if err != nil {
-            return nil, fmt.Errorf("failed to parse Avro schema: %w", err)
-        }
+        schema, schemaErr := s.GetAvroSchema()
+        if schemaErr != nil { return nil, fmt.Errorf("failed to parse Avro schema: %w", schemaErr) }
         result, err = avro.Marshal(schema, s)
-        if err != nil {
-            return nil, fmt.Errorf("failed to marshal Avro: %w", err)
-        }
     {%- endif %}
     default:
         return nil, fmt.Errorf("unsupported media type: %s", mediaType)
     }
-    
+    if err != nil { return nil, err }
     if isGzipped {
         var buf bytes.Buffer
         gzipWriter := gzip.NewWriter(&buf)
-        _, err = gzipWriter.Write(result)
-        if err != nil {
-            return nil, err
-        }
-        err = gzipWriter.Close()
-        if err != nil {
-            return nil, err
-        }
+        if _, err = gzipWriter.Write(result); err != nil { return nil, err }
+        if err = gzipWriter.Close(); err != nil { return nil, err }
         result = buf.Bytes()
     }
     return result, nil
@@ -116,73 +96,60 @@ func (s *{{ struct_name }}) ToByteArray(contentType string) ([]byte, error) {
 func {{ struct_name }}FromData(data interface{}, contentType string) (*{{ struct_name }}, error) {
     var err error
     var s {{ struct_name }}
-    
-    // Strip +gzip suffix to get the base media type
-    mediaType := strings.Split(contentType, ";")[0]
+    mediaType := strings.TrimSpace(strings.Split(contentType, ";")[0])
     isGzipped := strings.HasSuffix(mediaType, "+gzip")
     if isGzipped {
         mediaType = strings.TrimSuffix(mediaType, "+gzip")
-    }
-    
-    if isGzipped {
         var reader io.Reader
         switch v := data.(type) {
-        case []byte:
-            reader = bytes.NewReader(v)
-        case io.Reader:
-            reader = v
-        default:
-            return nil, fmt.Errorf("unsupported data type for gzip: %T", data)
+        case []byte: reader = bytes.NewReader(v)
+        case io.Reader: reader = v
+        default: return nil, fmt.Errorf("unsupported data type for gzip: %T", data)
         }
-        gzipReader, err := gzip.NewReader(reader)
-        if err != nil {
-            return nil, err
-        }
+        gzipReader, gzipErr := gzip.NewReader(reader)
+        if gzipErr != nil { return nil, gzipErr }
         defer gzipReader.Close()
         data, err = io.ReadAll(gzipReader)
-        if err != nil {
-            return nil, err
-        }
+        if err != nil { return nil, err }
     }
-    
     switch mediaType {
     {%- if json_annotation %}
     case "application/json":
         switch v := data.(type) {
-        case []byte:
-            err = json.Unmarshal(v, &s)
-        case string:
-            err = json.Unmarshal([]byte(v), &s)
-        case io.Reader:
-            err = json.NewDecoder(v).Decode(&s)
-        default:
-            return nil, fmt.Errorf("unsupported data type for JSON: %T", data)
+        case []byte: err = json.Unmarshal(v, &s)
+        case string: err = json.Unmarshal([]byte(v), &s)
+        case io.Reader: err = json.NewDecoder(v).Decode(&s)
+        default: return nil, fmt.Errorf("unsupported data type for JSON: %T", data)
+        }
+    {%- endif %}
+    {%- if xml_annotation %}
+    case "application/xml", "text/xml":
+        switch v := data.(type) {
+        case []byte: err = xml.Unmarshal(v, &s)
+        case string: err = xml.Unmarshal([]byte(v), &s)
+        case io.Reader: err = xml.NewDecoder(v).Decode(&s)
+        default: return nil, fmt.Errorf("unsupported data type for XML: %T", data)
         }
     {%- endif %}
     {%- if avro_annotation %}
     case "avro/binary", "application/vnd.apache.avro+avro":
-        var tempInstance {{ struct_name }}
-        schema, schemaErr := tempInstance.GetAvroSchema()
-        if schemaErr != nil {
-            return nil, fmt.Errorf("failed to parse Avro schema: %w", schemaErr)
-        }
+        schema, schemaErr := s.GetAvroSchema()
+        if schemaErr != nil { return nil, fmt.Errorf("failed to parse Avro schema: %w", schemaErr) }
         switch v := data.(type) {
-        case []byte:
-            err = avro.Unmarshal(schema, v, &s)
-        default:
-            return nil, fmt.Errorf("unsupported data type for Avro: %T", data)
+        case []byte: err = avro.Unmarshal(schema, v, &s)
+        case io.Reader:
+            rawData, readErr := io.ReadAll(v)
+            if readErr != nil { return nil, readErr }
+            err = avro.Unmarshal(schema, rawData, &s)
+        default: return nil, fmt.Errorf("unsupported data type for Avro: %T", data)
         }
     {%- endif %}
     default:
         return nil, fmt.Errorf("unsupported media type: %s", mediaType)
     }
-    if err != nil {
-        return nil, err
-    }
+    if err != nil { return nil, err }
     return &s, nil
 }
 {%- endif %}
 
-func (s *{{ struct_name }}) ToObject() interface{} {
-    return s
-}
+func (s *{{ struct_name }}) ToObject() interface{} { return s }

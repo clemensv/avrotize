@@ -1,47 +1,35 @@
 package {{ base_package }}
 
-import (
-    "testing"
-)
+import "testing"
 
-func Test{{ struct_name }}_Instantiate(t *testing.T) {
-    random{{ struct_name }}()
-}
-
-{%- if kind == "struct" and (json_annotation or avro_annotation) %}
-
-func Test{{ struct_name }}_ToByteArray(t *testing.T) {
-    s := random{{ struct_name }}()
+func Test{{ struct_name }}(t *testing.T) {
+    {%- if kind == 'struct' %}
+    instance := random{{ struct_name }}()
     {%- if json_annotation %}
-    _, err := s.ToByteArray("application/json")
-    if err != nil {
-        t.Errorf("ToByteArray failed: %v", err)
+    {
+        data, err := instance.ToByteArray("application/json")
+        if err != nil { t.Fatalf("JSON marshal failed: %v", err) }
+        if _, err = {{ struct_name }}FromData(data, "application/json"); err != nil { t.Fatalf("JSON unmarshal failed: %v", err) }
+    }
+    {%- endif %}
+    {%- if xml_annotation %}
+    for _, contentType := range []string{"application/xml", "text/xml", "application/xml+gzip"} {
+        data, err := instance.ToByteArray(contentType)
+        if err != nil { t.Fatalf("XML marshal for %s failed: %v", contentType, err) }
+        if _, err = {{ struct_name }}FromData(data, contentType); err != nil { t.Fatalf("XML unmarshal for %s failed: %v", contentType, err) }
     }
     {%- endif %}
     {%- if avro_annotation %}
-    _, err := s.ToByteArray("avro/binary")
-    if err != nil {
-        t.Errorf("ToByteArray failed: %v", err)
+    {
+        data, err := instance.ToByteArray("avro/binary")
+        if err != nil { t.Fatalf("Avro marshal failed: %v", err) }
+        if _, err = {{ struct_name }}FromData(data, "avro/binary"); err != nil { t.Fatalf("Avro unmarshal failed: %v", err) }
     }
+    {%- endif %}
+    _ = instance
+    {%- elif kind == 'enum' %}
+    {%- for symbol in fields %}
+    _ = {{ struct_name }}_{{ symbol }}
+    {%- endfor %}
     {%- endif %}
 }
-
-func Test{{ struct_name }}_FromData(t *testing.T) {
-    input := random{{struct_name}}()
-    {%- if json_annotation %}    
-	dataj, _ := input.ToByteArray("application/json")
-    _, err := {{struct_name}}FromData(dataj, "application/json")
-    if err != nil {
-        t.Errorf("FromData failed: %v", err)
-    }
-    {%- endif %}
-    {%- if avro_annotation %}
-    dataa, _ := input.ToByteArray("avro/binary")
-    _, err := {{struct_name}}FromData(dataa, "avro/binary")
-    if err != nil {
-        t.Errorf("FromData failed: %v", err)
-    }
-    {%- endif %}
-}
-
-{%- endif %}

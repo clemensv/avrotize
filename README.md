@@ -1633,6 +1633,7 @@ Parameters:
 - `--namespace`: (optional) The namespace to use in the C++ classes.
 - `--avro-annotation`: (optional) Use Avro annotations.
 - `--json-annotation`: (optional) Use JSON annotations.
+- `--xml-annotation`: (optional) Use `encoding/xml` tags and XML serialization.
 
 Conversion notes:
 
@@ -1641,12 +1642,12 @@ Conversion notes:
 rotize Schema is converted to a C++ class.
 
 - The fields of the record are mapped to properties in the C++ class. Nested records are mapped to nested classes in the C++ class.
-- The tool supports adding annotations to the properties in the C++ class. The `--avro-annotation` option adds Avro annotations, and the `--json-annotation` option adds JSON annotations.
+- The tool supports adding annotations to the properties in the C++ class. The `--avro-annotation` option adds Avro annotations, the `--json-annotation` option adds JSON annotations, and the `--xml-annotation` option adds XML annotations.
 
 ### Convert Avrotize Schema to Go classes
 
 ```bash
-avrotize a2go <path_to_avro_schema_file> [--out <path_to_go_dir>] [--package <go_package>] [--avro-annotation] [--json-annotation] [--package-site <go_package_site>] [--package-username <go_package_username>]
+avrotize a2go <path_to_avro_schema_file> [--out <path_to_go_dir>] [--package <go_package>] [--avro-annotation] [--json-annotation] [--xml-annotation] [--package-site <go_package_site>] [--package-username <go_package_username>]
 ```
 
 Parameters:
@@ -1739,7 +1740,7 @@ Conversion notes:
 ### Convert JSON Structure to Go classes
 
 ```bash
-avrotize s2go <path_to_structure_file> --out <path_to_go_dir> [--package <go_package>] [--json-annotation] [--avro-annotation] [--package-site <package_site>] [--package-username <username>]
+avrotize s2go <path_to_structure_file> --out <path_to_go_dir> [--package <go_package>] [--json-annotation] [--avro-annotation] [--xml-annotation] [--package-site <package_site>] [--package-username <username>]
 ```
 
 Parameters:
@@ -1748,6 +1749,7 @@ Parameters:
 - `--out`: The path to the directory to write the Go structs to. Required.
 - `--package`: (optional) The package name to use in the Go code.
 - `--json-annotation`: (optional) Add JSON struct tags for encoding/json.
+- `--xml-annotation`: (optional) Add `encoding/xml` tags and XML serialization.
 - `--avro-annotation`: (optional) Add Avro struct tags.
 - `--package-site`: (optional) The package site for the Go module (e.g., github.com).
 - `--package-username`: (optional) The username/organization for the Go module.

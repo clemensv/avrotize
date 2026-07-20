@@ -1,0 +1,45 @@
+package {{ base_package }}
+
+import (
+    "encoding/xml"
+    "fmt"
+    "sort"
+)
+
+// XMLMap provides deterministic XML encoding for Go maps. Entries are encoded
+// as <entry key="..."></entry> children of the field element.
+type XMLMap[T any] map[string]T
+
+func (m XMLMap[T]) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+    if err := e.EncodeToken(start); err != nil { return err }
+    keys := make([]string, 0, len(m))
+    for key := range m { keys = append(keys, key) }
+    sort.Strings(keys)
+    for _, key := range keys {
+        entry := xml.StartElement{Name: xml.Name{Local: "entry"}, Attr: []xml.Attr{xml.Attr{Name: xml.Name{Local: "key"}, Value: key}}}
+        if err := e.EncodeElement(m[key], entry); err != nil { return err }
+    }
+    return e.EncodeToken(start.End())
+}
+
+func (m *XMLMap[T]) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+    if *m == nil { *m = make(XMLMap[T]) }
+    for {
+        token, err := d.Token()
+        if err != nil { return err }
+        switch element := token.(type) {
+        case xml.StartElement:
+            if element.Name.Local != "entry" { return fmt.Errorf("unexpected XML map element: %s", element.Name.Local) }
+            var key string
+            for _, attr := range element.Attr {
+                if attr.Name.Local == "key" { key = attr.Value; break }
+            }
+            if key == "" { return fmt.Errorf("XML map entry is missing key attribute") }
+            var value T
+            if err := d.DecodeElement(&value, &element); err != nil { return err }
+            (*m)[key] = value
+        case xml.EndElement:
+            if element.Name == start.Name { return nil }
+        }
+    }
+}
