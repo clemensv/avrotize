@@ -7,7 +7,15 @@ import os
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, snake, render_template, json_wire_name, json_enum_wire_value
+from avrotize.common import (
+    pascal,
+    snake,
+    render_template,
+    json_wire_name,
+    json_enum_wire_value,
+    xml_wire_name,
+    xml_enum_wire_value,
+)
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -17,9 +25,10 @@ INDENT = '    '
 class StructureToRust:
     """ Converts JSON Structure schema to Rust structs """
 
-    def __init__(self, base_package: str = '', serde_annotation: bool = False) -> None:
+    def __init__(self, base_package: str = '', serde_annotation: bool = False, xml_annotation: bool = False) -> None:
         self.base_package = base_package.replace('.', '/').lower()
         self.serde_annotation = serde_annotation
+        self.xml_annotation = xml_annotation
         self.output_dir = os.getcwd()
         self.schema_doc: JsonNode = None
         self.generated_types_rust_package: Dict[str, str] = {}
@@ -307,7 +316,9 @@ class StructureToRust:
             if 'const' in prop_schema:
                 continue
             
-            original_field_name = json_wire_name(prop_name, prop_schema)
+            json_name = json_wire_name(prop_name, prop_schema)
+            xml_name = xml_wire_name(prop_name, prop_schema)
+            original_field_name = xml_name if self.xml_annotation else json_name
             field_name = self.safe_identifier(snake(prop_name))
             
             # Determine if required
@@ -322,7 +333,9 @@ class StructureToRust:
             if not is_required and not prop_type.startswith('Option<'):
                 prop_type = f'Option<{prop_type}>'
             
-            serde_rename = field_name != original_field_name
+            xml_kind = prop_schema.get('xmlkind', 'element')
+            serde_name = f"@{xml_name}" if self.xml_annotation and xml_kind == 'attribute' else original_field_name
+            serde_rename = field_name != serde_name
             
             # Get source type - handle nullable unions like ["int64", "null"]
             raw_type = prop_schema.get('type', 'string')
@@ -333,12 +346,20 @@ class StructureToRust:
                 source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
             else:
                 source_type = 'object'
+            is_generated_type = prop_type in self.generated_types_rust_package or '::' in prop_type
             fields.append({
                 'original_name': original_field_name,
+                'json_name': json_name,
+                'serde_name': serde_name,
+                'serde_alias': json_name if self.serde_annotation and self.xml_annotation and json_name != serde_name else '',
+                'xml_name': xml_name,
+                'xml_kind': xml_kind,
                 'name': field_name,
                 'type': prop_type,
+                'is_optional': prop_type.startswith('Option<'),
                 'source_type': source_type,
                 'serde_rename': serde_rename,
+                'is_generated_type': is_generated_type,
                 'random_value': self.generate_random_value(prop_type)
             })
 
@@ -348,8 +369,11 @@ class StructureToRust:
         # Prepare context for template
         context = {
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'doc': doc,
             'struct_name': self.safe_identifier(class_name),
+            'xml_name': xml_wire_name(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'), structure_schema),
+            'xml_namespace': structure_schema.get('xmlns', ''),
             'fields': fields,
             'is_abstract': is_abstract,
         }
@@ -382,18 +406,29 @@ class StructureToRust:
         # Convert enum values to valid Rust identifiers
         symbols = []
         for value in enum_values:
-            wire = json_enum_wire_value(value, structure_schema)
+            wire = xml_enum_wire_value(value, structure_schema) if self.xml_annotation else json_enum_wire_value(value, structure_schema)
             if isinstance(value, str):
                 symbol = pascal(value.replace('-', '_').replace(' ', '_'))
-                symbols.append({'name': symbol, 'value': wire})
+                json_wire = json_enum_wire_value(value, structure_schema)
+                symbols.append({
+                    'name': symbol,
+                    'value': wire,
+                    'json_value': json_wire if symbol != json_wire else snake(symbol),
+                })
             else:
-                symbols.append({'name': f"Value{value}", 'value': str(value)})
+                symbols.append({
+                    'name': f"Value{value}",
+                    'value': str(value),
+                    'json_value': json_enum_wire_value(value, structure_schema),
+                })
 
         doc = structure_schema.get('description', structure_schema.get('doc', enum_name))
 
         context = {
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'enum_name': self.safe_identifier(enum_name),
+            'xml_name': xml_wire_name(structure_schema.get('name', field_name + 'Enum'), structure_schema),
             'symbols': symbols,
             'doc': doc,
         }
@@ -436,7 +471,8 @@ class StructureToRust:
                         choice_types.append({
                             'variant_name': pascal(choice_key),
                             'type': type_name,
-                            'tag': choice_key
+                            'tag': choice_key,
+                            'random_value': self.generate_random_value(type_ref),
                         })
                 elif 'type' in choice_schema:
                     # Generate inline type
@@ -444,13 +480,15 @@ class StructureToRust:
                     choice_types.append({
                         'variant_name': pascal(choice_key),
                         'type': rust_type,
-                        'tag': choice_key
+                        'tag': choice_key,
+                        'random_value': self.generate_random_value(rust_type),
                     })
 
         doc = structure_schema.get('description', structure_schema.get('doc', choice_name))
 
         context = {
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'union_enum_name': self.safe_identifier(pascal(choice_name)),
             'variants': choice_types,
             'doc': doc,
@@ -487,12 +525,14 @@ class StructureToRust:
             union_types.append({
                 'variant_name': variant_name,
                 'type': type_name,
+                'random_value': self.generate_random_value(type_name),
             })
         
         qualified_union_enum_name = self.safe_package(self.concat_package(ns, union_enum_name))
         
         context = {
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'union_enum_name': union_enum_name,
             'variants': union_types,
             'doc': f'Union type for {field_name}',
@@ -593,9 +633,11 @@ class StructureToRust:
     def write_cargo_toml(self):
         """Writes the Cargo.toml file for the Rust project"""
         dependencies = []
-        if self.serde_annotation:
+        if self.serde_annotation or self.xml_annotation:
             dependencies.append('serde = { version = "1.0", features = ["derive"] }')
             dependencies.append('serde_json = "1.0"')
+        if self.xml_annotation:
+            dependencies.append('quick-xml = { version = "0.38", features = ["serialize"] }')
         dependencies.append('chrono = { version = "0.4", features = ["serde"] }')
         dependencies.append('uuid = { version = "1.11", features = ["serde", "v4"] }')
         dependencies.append('flate2 = "1.0"')
@@ -690,7 +732,7 @@ class StructureToRust:
         self.convert_schema(schema, output_dir)
 
 
-def convert_structure_to_rust(structure_schema_path: str, rust_file_path: str, package_name: str = '', serde_annotation: bool = False):
+def convert_structure_to_rust(structure_schema_path: str, rust_file_path: str, package_name: str = '', serde_annotation: bool = False, xml_annotation: bool = False):
     """Converts JSON Structure schema to Rust structs
 
     Args:
@@ -698,6 +740,7 @@ def convert_structure_to_rust(structure_schema_path: str, rust_file_path: str, p
         rust_file_path (str): Output Rust file path
         package_name (str): Base package name
         serde_annotation (bool): Include Serde annotations
+        xml_annotation (bool): Include quick-xml compatible Serde annotations
     """
     if not package_name:
         package_name = os.path.splitext(os.path.basename(structure_schema_path))[0].lower().replace('-', '_')
@@ -705,10 +748,11 @@ def convert_structure_to_rust(structure_schema_path: str, rust_file_path: str, p
     structtorust = StructureToRust()
     structtorust.base_package = package_name
     structtorust.serde_annotation = serde_annotation
+    structtorust.xml_annotation = xml_annotation
     structtorust.convert(structure_schema_path, rust_file_path)
 
 
-def convert_structure_schema_to_rust(structure_schema: JsonNode, output_dir: str, package_name: str = '', serde_annotation: bool = False):
+def convert_structure_schema_to_rust(structure_schema: JsonNode, output_dir: str, package_name: str = '', serde_annotation: bool = False, xml_annotation: bool = False):
     """Converts JSON Structure schema to Rust structs
 
     Args:
@@ -716,8 +760,10 @@ def convert_structure_schema_to_rust(structure_schema: JsonNode, output_dir: str
         output_dir (str): Output directory path
         package_name (str): Base package name
         serde_annotation (bool): Include Serde annotations
+        xml_annotation (bool): Include quick-xml compatible Serde annotations
     """
     structtorust = StructureToRust()
     structtorust.base_package = package_name
     structtorust.serde_annotation = serde_annotation
+    structtorust.xml_annotation = xml_annotation
     structtorust.convert_schema(structure_schema, output_dir)

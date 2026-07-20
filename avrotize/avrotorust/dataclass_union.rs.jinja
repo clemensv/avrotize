@@ -1,4 +1,4 @@
-{%- if serde_annotation or avro_annotation %}
+{%- if serde_annotation or avro_annotation or xml_annotation %}
 use serde::{self, Serialize, Deserialize};
 {%- endif %}
 
@@ -16,7 +16,7 @@ impl Default for {{ union_enum_name }} {
     }
 }
 
-{% if serde_annotation or avro_annotation %}
+{% if serde_annotation or avro_annotation or xml_annotation %}
 impl Serialize for {{ union_enum_name }} {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -35,7 +35,13 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
     where
         D: serde::de::Deserializer<'de>
     {
+        {%- if xml_annotation %}
+        let is_xml = std::any::type_name::<D>().contains("quick_xml");
+        {%- endif %}
         let node = serde_json::Value::deserialize(deserializer)?;
+        {%- if xml_annotation %}
+        let node = if is_xml { normalize_xml_value(node) } else { node };
+        {%- endif %}
         {%- for union_field in union_fields %}
         if {{ union_field.json_match_predicate }} {
             {%- if union_field.type.startswith("Vec<") %}
@@ -53,6 +59,44 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
         Err(serde::de::Error::custom("No valid variant found"))
     }
 }
+
+{%- if xml_annotation %}
+fn normalize_xml_value(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(mut object) if object.len() == 1 && object.contains_key("$text") => {
+            normalize_xml_text(object.remove("$text").unwrap())
+        }
+        serde_json::Value::Object(object) => serde_json::Value::Object(
+            object.into_iter().map(|(key, value)| (key, normalize_xml_value(value))).collect()
+        ),
+        serde_json::Value::Array(values) => {
+            serde_json::Value::Array(values.into_iter().map(normalize_xml_value).collect())
+        }
+        other => other,
+    }
+}
+
+fn normalize_xml_text(value: serde_json::Value) -> serde_json::Value {
+    let serde_json::Value::String(text) = value else {
+        return normalize_xml_value(value);
+    };
+    if let Ok(value) = text.parse::<bool>() {
+        return serde_json::Value::Bool(value);
+    }
+    if let Ok(value) = text.parse::<i64>() {
+        return serde_json::Value::Number(value.into());
+    }
+    if let Ok(value) = text.parse::<u64>() {
+        return serde_json::Value::Number(value.into());
+    }
+    if let Ok(value) = text.parse::<f64>() {
+        if let Some(value) = serde_json::Number::from_f64(value) {
+            return serde_json::Value::Number(value);
+        }
+    }
+    serde_json::Value::String(text)
+}
+{%- endif %}
 
 impl {{ union_enum_name }} {
     pub fn is_json_match(node: &serde_json::Value) -> bool {
