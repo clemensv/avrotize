@@ -35,9 +35,10 @@ def is_javascript_primitive(word: str) -> bool:
 class StructureToJavaScript:
     """Convert JSON Structure schema to JavaScript classes"""
 
-    def __init__(self, base_package: str = '', avro_annotation=False) -> None:
+    def __init__(self, base_package: str = '', avro_annotation=False, xml_annotation=False) -> None:
         self.base_package = base_package
         self.avro_annotation = avro_annotation
+        self.xml_annotation = xml_annotation
         self.output_dir = os.getcwd()
         self.schema_doc: JsonNode = None
         self.generated_types: Dict[str, str] = {}
@@ -233,6 +234,77 @@ class StructureToJavaScript:
                 return self.convert_structure_type_to_javascript(class_name, field_name, struct_type, parent_namespace, import_types)
         return 'any'
 
+    @staticmethod
+    def xml_name(schema_obj: Dict, default_name: str) -> str:
+        """Resolve an XML local name, honoring ``altnames.xml``."""
+        altnames = schema_obj.get('altnames') if isinstance(schema_obj, dict) else None
+        if isinstance(altnames, dict) and isinstance(altnames.get('xml'), str):
+            return altnames['xml']
+        return default_name
+
+    @staticmethod
+    def xml_enum_values(schema: Dict, values: List[Any]) -> Dict[str, str]:
+        """Resolve enum XML values, honoring ``altenums.xml``."""
+        alternate = schema.get('altenums', {})
+        alternate = alternate.get('xml', {}) if isinstance(alternate, dict) else {}
+        return {str(value): str(alternate.get(str(value), value)) for value in values}
+
+    def xml_type_descriptor(self, structure_type: JsonNode, parent_namespace: str) -> str:
+        """Build the generated runtime descriptor for a JSON Structure type."""
+        if isinstance(structure_type, list):
+            choices = ', '.join(self.xml_type_descriptor(item, parent_namespace) for item in structure_type)
+            return f'{{ kind: "union", choices: [{choices}] }}'
+        if isinstance(structure_type, str):
+            kind = {
+                'null': 'null', 'boolean': 'boolean', 'string': 'string',
+                'integer': 'number', 'number': 'number', 'int8': 'number',
+                'uint8': 'number', 'int16': 'number', 'uint16': 'number',
+                'int32': 'number', 'uint32': 'number', 'int64': 'number',
+                'uint64': 'number', 'float8': 'number', 'float': 'number',
+                'double': 'number', 'binary32': 'number', 'binary64': 'number',
+                'int128': 'bigint', 'uint128': 'bigint', 'date': 'date',
+                'datetime': 'date', 'timestamp': 'date', 'any': 'any'
+            }.get(structure_type, 'string')
+            return f'{{ kind: "{kind}" }}'
+        if not isinstance(structure_type, dict):
+            return '{ kind: "any" }'
+        if '$ref' in structure_type:
+            resolved = self.resolve_ref(structure_type['$ref'], self.schema_doc)
+            if isinstance(resolved, dict) and 'enum' in resolved:
+                values = json.dumps(self.xml_enum_values(resolved, resolved.get('enum', [])), ensure_ascii=False)
+                return f'{{ kind: "enum", values: {values} }}'
+            return f'{{ kind: "record", ctor: {pascal(structure_type["$ref"].split("/")[-1])} }}'
+        if 'enum' in structure_type:
+            values = json.dumps(self.xml_enum_values(structure_type, structure_type.get('enum', [])), ensure_ascii=False)
+            return f'{{ kind: "enum", values: {values} }}'
+        struct_type = structure_type.get('type', 'any')
+        if isinstance(struct_type, list):
+            return self.xml_type_descriptor(struct_type, parent_namespace)
+        if struct_type == 'object':
+            return f'{{ kind: "record", ctor: {pascal(structure_type.get("name", "UnnamedClass"))} }}'
+        if struct_type in ('array', 'set'):
+            return f'{{ kind: "{struct_type}", items: {self.xml_type_descriptor(structure_type.get("items", "any"), parent_namespace)} }}'
+        if struct_type == 'map':
+            return f'{{ kind: "map", values: {self.xml_type_descriptor(structure_type.get("values", "any"), parent_namespace)} }}'
+        if struct_type == 'choice':
+            choices = ', '.join(self.xml_type_descriptor(choice, parent_namespace)
+                                for choice in structure_type.get('choices', {}).values())
+            return f'{{ kind: "union", choices: [{choices}] }}'
+        return self.xml_type_descriptor(struct_type, parent_namespace)
+
+    def package_root(self) -> str:
+        """Return the generated npm package root."""
+        if self.base_package:
+            return os.path.join(self.output_dir, self.base_package.replace('.', os.sep))
+        return self.output_dir
+
+    def xml_runtime_import(self, namespace: str) -> str:
+        """Return the class-relative path to the generated XML runtime."""
+        class_dir = os.path.join(self.output_dir, namespace.replace('.', os.sep), 'src')
+        runtime = os.path.join(self.package_root(), 'src', 'xml-runtime')
+        relative = os.path.relpath(runtime, class_dir).replace(os.sep, '/')
+        return relative if relative.startswith('.') else f'./{relative}'
+
     def generate_class_or_choice(self, structure_schema: Dict, parent_namespace: str,
                                  write_file: bool = True, explicit_name: str = '') -> str:
         """Generates a Class or Choice"""
@@ -321,7 +393,10 @@ class StructureToJavaScript:
                 'name': field_name,
                 'type': prop_type,
                 'default_value': default_val,
-                'docstring': field_doc
+                'docstring': field_doc,
+                'xml_name': self.xml_name(prop_schema, prop_name),
+                'xml_kind': 'attribute' if prop_schema.get('xmlkind', 'element') == 'attribute' else 'element',
+                'xml_type': self.xml_type_descriptor(prop_schema, schema_namespace)
             })
 
         # Get docstring
@@ -352,7 +427,11 @@ class StructureToJavaScript:
             static_fields=static_fields,
             imports=imports,
             is_abstract=is_abstract,
-            base_class_name=base_class_name
+            base_class_name=base_class_name,
+            xml_annotation=self.xml_annotation,
+            xml_name=self.xml_name(structure_schema, explicit_name if explicit_name else structure_schema.get('name', class_name)),
+            xml_namespace=structure_schema.get('xmlns', ''),
+            xml_runtime_path=self.xml_runtime_import(namespace) if self.xml_annotation else ''
         )
 
         if write_file:
@@ -388,6 +467,10 @@ class StructureToJavaScript:
             docstring=doc,
             symbols=symbols,
             symbol_values=symbol_values,
+            xml_annotation=self.xml_annotation,
+            xml_name=self.xml_name(structure_schema, structure_schema.get('name', class_name)),
+            xml_namespace=structure_schema.get('xmlns', ''),
+            xml_values=self.xml_enum_values(structure_schema, enum_values)
         )
 
         if write_file:
@@ -487,6 +570,9 @@ class StructureToJavaScript:
 
     def generate_test_value(self, field_type: str, field_name: str) -> str:
         """Generate appropriate test value based on field type"""
+        if '|' in field_type:
+            choices = [choice.strip() for choice in field_type.split('|') if choice.strip() != 'null']
+            return self.generate_test_value(choices[0], field_name) if choices else 'null'
         if field_type == 'string':
             return f'"test_{field_name}"'
         elif field_type in ['number', 'int', 'integer', 'float', 'double']:
@@ -501,8 +587,11 @@ class StructureToJavaScript:
             return '[]'
         elif field_type.startswith('Set'):
             return 'new Set()'
-        elif field_type.startswith('Map') or field_type == 'Object':
+        elif field_type.startswith('Map') or field_type.startswith('Object'):
             return '{}'
+        elif any(kind == 'enum' and qualified_name.split('.')[-1] == field_type
+                 for qualified_name, kind in self.generated_types.items()):
+            return f'Object.values({field_type})[0]'
         else:
             return f'new {field_type}()'
 
@@ -513,15 +602,12 @@ class StructureToJavaScript:
         for import_type in import_types:
             import_type_type = pascal(import_type.split('.')[-1])
             import_type_package = import_type.rsplit('.', 1)[0].replace('.', '/')
-            namespace_path = namespace.replace('.', '/')
-
-            if import_type_package:
-                rel_path = os.path.relpath(import_type_package, namespace_path).replace(os.sep, '/')
-                if not rel_path.startswith('.'):
-                    rel_path = f'./{rel_path}'
-                test_imports[import_type_type] = f'../{rel_path}/{import_type_type}'
-            else:
-                test_imports[import_type_type] = f'./{import_type_type}'
+            test_namespace_path = os.path.join(namespace.replace('.', '/'), 'test')
+            target_source_path = os.path.join(import_type_package, 'src') if import_type_package else 'src'
+            rel_path = os.path.relpath(target_source_path, test_namespace_path).replace(os.sep, '/')
+            if not rel_path.startswith('.'):
+                rel_path = f'./{rel_path}'
+            test_imports[import_type_type] = f'{rel_path}/{import_type_type}'
 
         test_fields = []
         for field in fields:
@@ -615,6 +701,25 @@ class StructureToJavaScript:
 
         # Generate test runner after all classes and enums are generated
         self.generate_test_runner()
+        self.generate_package_files()
+
+    def generate_package_files(self):
+        """Write npm metadata and the optional shared XML runtime."""
+        package_root = self.package_root()
+        os.makedirs(package_root, exist_ok=True)
+        if self.xml_annotation:
+            runtime_dir = os.path.join(package_root, 'src')
+            os.makedirs(runtime_dir, exist_ok=True)
+            runtime = process_template('javascript/xml_runtime.js.jinja')
+            with open(os.path.join(runtime_dir, 'xml-runtime.js'), 'w', encoding='utf-8') as file:
+                file.write(runtime)
+        package_name = (self.base_package or 'generated-structure-js').replace('.', '-').replace('_', '-').lower()
+        package = process_template(
+            'structuretojs/package.json.jinja',
+            package_name=package_name,
+            xml_annotation=self.xml_annotation)
+        with open(os.path.join(package_root, 'package.json'), 'w', encoding='utf-8') as file:
+            file.write(package)
 
     def generate_test_runner(self):
         """Generate the test runner script"""
@@ -640,18 +745,18 @@ class StructureToJavaScript:
         return self.convert_schemas(schema, output_dir)
 
 
-def convert_structure_to_javascript(structure_schema_path, js_file_path, package_name='', avro_annotation=False):
+def convert_structure_to_javascript(structure_schema_path, js_file_path, package_name='', avro_annotation=False, xml_annotation=False):
     """Converts JSON Structure schema to JavaScript classes"""
     if not package_name:
         package_name = os.path.splitext(os.path.basename(structure_schema_path))[0].lower().replace('-', '_')
 
-    structure_to_js = StructureToJavaScript(package_name, avro_annotation=avro_annotation)
+    structure_to_js = StructureToJavaScript(package_name, avro_annotation=avro_annotation, xml_annotation=xml_annotation)
     structure_to_js.convert(structure_schema_path, js_file_path)
 
 
-def convert_structure_schema_to_javascript(structure_schema, js_file_path, package_name='', avro_annotation=False):
+def convert_structure_schema_to_javascript(structure_schema, js_file_path, package_name='', avro_annotation=False, xml_annotation=False):
     """Converts JSON Structure schema to JavaScript classes"""
-    structure_to_js = StructureToJavaScript(package_name, avro_annotation=avro_annotation)
+    structure_to_js = StructureToJavaScript(package_name, avro_annotation=avro_annotation, xml_annotation=xml_annotation)
     if isinstance(structure_schema, dict):
         structure_schema = [structure_schema]
     structure_to_js.convert_schemas(structure_schema, js_file_path)

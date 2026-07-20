@@ -1,0 +1,11 @@
+{
+  "name": {{ package_name_json }},
+  "version": "1.0.0",
+  "description": "Generated JavaScript classes from Avro schema",
+  "license": "ISC"{% if dependencies %},
+  "dependencies": {
+{%- for name, version in dependencies.items() %}
+    {{ name|tojson }}: {{ version|tojson }}{% if not loop.last %},{% endif %}
+{%- endfor %}
+  }{% endif %}
+}

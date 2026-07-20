@@ -3500,7 +3500,8 @@
         "structure_schema_path": "input_file_path",
         "js_file_path": "output_file_path",
         "package_name": "args.package",
-        "avro_annotation": "args.avro_annotation"
+        "avro_annotation": "args.avro_annotation",
+        "xml_annotation": "args.xml_annotation"
       }
     },
     "extensions": [
@@ -3533,10 +3534,24 @@
         "help": "Add Avro binary serialization support",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Add XML serialization support",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-js",
-    "prompts": []
+    "prompts": [
+      {
+        "name": "--xml-annotation",
+        "message": "Add XML serialization support?",
+        "type": "bool",
+        "default": false
+      }
+    ]
   },
   {
     "command": "s2go",
@@ -3779,7 +3794,8 @@
         "avro_schema_path": "input_file_path",
         "js_dir_path": "output_file_path",
         "package_name": "args.package",
-        "avro_annotation": "args.avro_annotation"
+        "avro_annotation": "args.avro_annotation",
+        "xml_annotation": "args.xml_annotation"
       }
     },
     "extensions": [
@@ -3817,6 +3833,13 @@
         "help": "Use Avro annotations",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Add XML serialization support",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-js",
@@ -3824,6 +3847,12 @@
       {
         "name": "--avro-annotation",
         "message": "Use Avro annotations?",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "--xml-annotation",
+        "message": "Add XML serialization support?",
         "type": "bool",
         "default": false
       }

@@ -416,5 +416,79 @@ process.exit(testsFailed > 0 ? 1 : 0);
             self.assertIn('"1.0.0"', content)
 
 
+    def test_xml_annotation_runtime_roundtrip(self):
+        """Generated structure JavaScript maps XML names, collections, and attributes."""
+        if not shutil.which('node') or not shutil.which('npm'):
+            self.skipTest('Node.js and npm are required for the XML runtime test')
+        from avrotize.structuretojs import convert_structure_schema_to_javascript
+        output = os.path.join(tempfile.gettempdir(), 'avrotize', 'structure-js-xml')
+        shutil.rmtree(output, ignore_errors=True)
+        schema = {
+            'type': 'object', 'name': 'Order', 'namespace': 'demo',
+            'xmlns': 'urn:example:orders', 'altnames': {'xml': 'purchase-order'},
+            'properties': {
+                'id': {'type': 'string', 'xmlkind': 'attribute',
+                       'altnames': {'xml': 'order-id'}},
+                'status': {'type': 'string', 'enum': ['NEW', 'DONE'],
+                           'altenums': {'xml': {'NEW': 'new-order'}}},
+                'child': {'type': 'object', 'name': 'Child', 'properties': {
+                    'count': {'type': 'int32'}}, 'required': ['count']},
+                'tags': {'type': 'array', 'items': {'type': 'string'}},
+                'codes': {'type': 'set', 'items': {'type': 'int32'}},
+                'metadata': {'type': 'map', 'values': {'type': 'int64'}},
+                'note': {'type': 'string'},
+                'variant': {'type': ['string', 'int32']}
+            },
+            'required': ['id', 'status', 'child', 'tags', 'codes', 'metadata', 'variant']
+        }
+        convert_structure_schema_to_javascript(
+            schema, output, 'xmltest', xml_annotation=True)
+        package_root = os.path.join(output, 'xmltest')
+        class_file = os.path.join(package_root, 'demo', 'src', 'Order.js')
+        with open(class_file, encoding='utf-8') as generated:
+            source = generated.read()
+        self.assertIn('Order.XmlMapping', source)
+        self.assertIn('name: "child"', source)
+        with open(os.path.join(package_root, 'package.json'), encoding='utf-8') as package_file:
+            package = json.load(package_file)
+        self.assertIn('fast-xml-parser', package['dependencies'])
+
+        install = subprocess.run(
+            ['npm', 'install', '--ignore-scripts', '--no-audit', '--no-fund'],
+            cwd=package_root, capture_output=True, text=True,
+            shell=sys.platform == 'win32', timeout=120)
+        self.assertEqual(install.returncode, 0, install.stderr)
+        script = r"""
+const assert = require('assert');
+const Order = require('./demo/src/Order');
+const Child = require('./demo/src/Child');
+const value = new Order();
+value.id = 'A-1'; value.status = 'NEW';
+value.child = new Child(); value.child.count = 3;
+value.tags = ['one', 'two']; value.codes = new Set([7, 9]);
+value.metadata = { first: 1, second: 2 }; value.note = null; value.variant = 42;
+for (const mediaType of ['application/xml', 'text/xml', 'application/xml+gzip',
+                         'application/json', 'application/json+gzip']) {
+  assert.deepStrictEqual(Order.FromData(value.ToByteArray(mediaType), mediaType), value);
+}
+const xml = value.ToByteArray('application/xml').toString('utf8');
+assert.match(xml, /^<purchase-order /);
+assert.match(xml, /xmlns="urn:example:orders"/);
+assert.match(xml, /order-id="A-1"/);
+assert.match(xml, /<status>new-order<\/status>/);
+assert.match(xml, /<child><count>3<\/count><\/child>/);
+"""
+        script_path = os.path.join(package_root, 'xml-runtime-test.js')
+        with open(script_path, 'w', encoding='utf-8') as script_file:
+            script_file.write(script)
+        result = subprocess.run(['node', script_path], cwd=package_root,
+                                capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        generated_test = os.path.join(package_root, 'demo', 'test', 'test_Order.js')
+        result = subprocess.run(['node', generated_test], cwd=package_root,
+                                capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+
 if __name__ == '__main__':
     unittest.main()
