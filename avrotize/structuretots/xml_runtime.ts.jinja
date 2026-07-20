@@ -1,4 +1,4 @@
-import { XMLBuilder, XMLParser } from 'fast-xml-parser';
+import { XMLBuilder, XMLParser, XMLValidator } from 'fast-xml-parser';
 
 export type XmlValueKind = 'string' | 'number' | 'boolean' | 'date' | 'enum' | 'record' | 'array' | 'set' | 'map' | 'union' | 'any';
 
@@ -29,28 +29,92 @@ export interface XmlRecordMapping<T = unknown> {
     readonly create: (values: Record<string, unknown>) => T;
 }
 
+const MAX_XML_SIZE = 1024 * 1024;
+const MAX_XML_DEPTH = 64;
+const XML_NAME = /^[A-Za-z_][A-Za-z0-9._-]*$/;
+
+function isObject(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isMapObject(value: unknown): value is Record<string, unknown> {
+    return isObject(value) && !(value instanceof Date) && !(value instanceof Set);
+}
+
+function canSerialize(value: unknown, mapping: XmlTypeMapping): boolean {
+    switch (mapping.kind) {
+        case 'string': return typeof value === 'string';
+        case 'number': return typeof value === 'number' && Number.isFinite(value);
+        case 'boolean': return typeof value === 'boolean';
+        case 'date': return value instanceof Date && !Number.isNaN(value.getTime());
+        case 'enum': return typeof value === 'string' && Object.prototype.hasOwnProperty.call(mapping.enumValues ?? {}, value);
+        case 'record': return isMapObject(value);
+        case 'array': return Array.isArray(value);
+        case 'set': return value instanceof Set;
+        case 'map': return isMapObject(value);
+        case 'any': return true;
+        case 'union': return (mapping.variants ?? []).filter((variant) => canSerialize(value, variant)).length === 1;
+    }
+}
+
 function selectVariant(value: unknown, variants: readonly XmlTypeMapping[]): XmlTypeMapping {
-    if (Array.isArray(value)) return variants.find((v) => v.kind === 'array') ?? variants[0];
-    if (value instanceof Set) return variants.find((v) => v.kind === 'set') ?? variants[0];
-    if (value instanceof Date) return variants.find((v) => v.kind === 'date') ?? variants[0];
-    if (value !== null && typeof value === 'object') return variants.find((v) => v.kind === 'record' || v.kind === 'map') ?? variants[0];
-    return variants.find((v) => v.kind === typeof value) ?? variants.find((v) => v.kind === 'enum' && typeof value === 'string') ?? variants[0];
+    const matches = variants.filter((variant) => canSerialize(value, variant));
+    if (matches.length !== 1) {
+        throw new Error(`XML union value matches ${matches.length} variants; exactly one is required`);
+    }
+    return matches[0];
+}
+
+function emptyCollection(): Record<string, string> {
+    return { '@_empty': 'true' };
+}
+
+function isEmptyCollection(value: unknown): boolean {
+    return isObject(value) && value['@_empty'] === 'true' && Object.keys(value).length === 1;
 }
 
 function toXmlValue(value: unknown, mapping: XmlTypeMapping): unknown {
     if (value === undefined || value === null) return undefined;
     switch (mapping.kind) {
-        case 'date': return value instanceof Date ? value.toISOString() : String(value);
-        case 'enum': return mapping.enumValues?.[String(value)] ?? String(value);
+        case 'string':
+            if (typeof value !== 'string') throw new Error('Expected XML string value');
+            return value;
+        case 'number':
+            if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('Expected finite XML number value');
+            return value;
+        case 'boolean':
+            if (typeof value !== 'boolean') throw new Error('Expected XML boolean value');
+            return value;
+        case 'date':
+            if (!(value instanceof Date) || Number.isNaN(value.getTime())) throw new Error('Expected valid XML date value');
+            return value.toISOString();
+        case 'enum': {
+            const enumValue = mapping.enumValues?.[String(value)];
+            if (enumValue === undefined) throw new Error(`Invalid XML enum value: ${String(value)}`);
+            return enumValue;
+        }
         case 'record': {
+            if (!isMapObject(value)) throw new Error('Expected XML record value');
             const recordMapping = mapping.record!();
-            const fields = toXmlFields(value as Record<string, unknown>, recordMapping);
+            const fields = toXmlFields(value, recordMapping);
             if (recordMapping.namespace) fields['@_xmlns'] = recordMapping.namespace;
             return fields;
         }
-        case 'array': return (value as unknown[]).map((item) => toXmlValue(item, mapping.item!));
-        case 'set': return Array.from(value as Set<unknown>, (item) => toXmlValue(item, mapping.item!));
-        case 'map': return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, toXmlValue(item, mapping.value!)]));
+        case 'array': {
+            if (!Array.isArray(value)) throw new Error('Expected XML array value');
+            return value.length === 0 ? emptyCollection() : value.map((item) => toXmlValue(item, mapping.item!));
+        }
+        case 'set': {
+            if (!(value instanceof Set)) throw new Error('Expected XML set value');
+            return value.size === 0 ? emptyCollection() : Array.from(value, (item) => toXmlValue(item, mapping.item!));
+        }
+        case 'map': {
+            if (!isMapObject(value)) throw new Error('Expected XML map value');
+            return Object.fromEntries(Object.entries(value).map(([key, item]) => {
+                if (!XML_NAME.test(key)) throw new Error(`Invalid XML map key: ${key}`);
+                return [key, toXmlValue(item, mapping.value!)];
+            }));
+        }
         case 'union': {
             const unwrapped = mapping.unwrap ? mapping.unwrap(value) : value;
             return toXmlValue(unwrapped, selectVariant(unwrapped, mapping.variants!));
@@ -59,74 +123,167 @@ function toXmlValue(value: unknown, mapping: XmlTypeMapping): unknown {
     }
 }
 
+function scalarText(value: unknown, type: string): string {
+    if (typeof value !== 'string') throw new Error(`Expected scalar XML ${type} value`);
+    return value.trim();
+}
+
 function fromXmlValue(value: unknown, mapping: XmlTypeMapping): unknown {
     if (value === undefined || value === null) return undefined;
     switch (mapping.kind) {
-        case 'number': return Number(value);
-        case 'boolean': return value === true || value === 'true' || value === '1';
-        case 'date': return new Date(String(value));
-        case 'enum': {
-            const wireValue = String(value);
-            const entry = Object.entries(mapping.enumValues ?? {}).find(([, xmlValue]) => xmlValue === wireValue);
-            return entry?.[0] ?? wireValue;
+        case 'string':
+            if (typeof value !== 'string') throw new Error('Expected scalar XML string value');
+            return value;
+        case 'number': {
+            const text = scalarText(value, 'number');
+            if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text)) throw new Error(`Invalid XML number: ${text}`);
+            const numberValue = Number(text);
+            if (!Number.isFinite(numberValue)) throw new Error(`Invalid XML number: ${text}`);
+            return numberValue;
         }
-        case 'record': return fromXmlFields(value as Record<string, unknown>, mapping.record!());
-        case 'array': return (Array.isArray(value) ? value : [value]).map((item) => fromXmlValue(item, mapping.item!));
-        case 'set': return new Set((Array.isArray(value) ? value : [value]).map((item) => fromXmlValue(item, mapping.item!)));
-        case 'map': return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([key]) => key !== '#text' && key !== '@_xmlns').map(([key, item]) => [key, fromXmlValue(item, mapping.value!)]));
+        case 'boolean': {
+            const text = scalarText(value, 'boolean');
+            if (text === 'true' || text === '1') return true;
+            if (text === 'false' || text === '0') return false;
+            throw new Error(`Invalid XML boolean: ${text}`);
+        }
+        case 'date': {
+            const text = scalarText(value, 'date');
+            const date = new Date(text);
+            if (Number.isNaN(date.getTime())) throw new Error(`Invalid XML date: ${text}`);
+            return date;
+        }
+        case 'enum': {
+            const wireValue = scalarText(value, 'enum');
+            const entry = Object.entries(mapping.enumValues ?? {}).find(([, xmlValue]) => xmlValue === wireValue);
+            if (!entry) throw new Error(`Invalid XML enum value: ${wireValue}`);
+            return entry[0];
+        }
+        case 'record':
+            if (!isObject(value)) throw new Error('Expected XML record element');
+            validateNamespace(value, mapping.record!());
+            return fromXmlFields(value, mapping.record!());
+        case 'array': {
+            if (isEmptyCollection(value)) return [];
+            const values = Array.isArray(value) ? value : [value];
+            return values.map((item) => fromXmlValue(item, mapping.item!));
+        }
+        case 'set': {
+            if (isEmptyCollection(value)) return new Set();
+            const values = Array.isArray(value) ? value : [value];
+            return new Set(values.map((item) => fromXmlValue(item, mapping.item!)));
+        }
+        case 'map': {
+            if (value === '') return {};
+            if (!isObject(value)) throw new Error('Expected XML map element');
+            const text = value['#text'];
+            if (text !== undefined && text !== 0 && String(text).trim() !== '') throw new Error('XML map cannot contain text content');
+            const entries = Object.entries(value).filter(([key]) => key !== '#text' && !key.startsWith('@_xmlns'));
+            return Object.fromEntries(entries.map(([key, item]) => {
+                if (key.startsWith('@_')) throw new Error(`Unexpected XML map attribute: ${key.slice(2)}`);
+                if (Array.isArray(item)) throw new Error(`Duplicate XML map key: ${key}`);
+                return [key, fromXmlValue(item, mapping.value!)];
+            }));
+        }
         case 'union': {
-            const variants = mapping.variants!;
-            const selected = value !== null && typeof value === 'object'
-                ? variants.find((v) => v.kind === 'record' || v.kind === 'map' || v.kind === 'array')
-                : variants.find((v) => v.kind === 'string' || v.kind === 'enum') ?? variants[0];
-            const converted = fromXmlValue(value, selected ?? variants[0]);
-            return mapping.wrap ? mapping.wrap(converted) : converted;
+            const matches: unknown[] = [];
+            for (const variant of mapping.variants ?? []) {
+                try {
+                    matches.push(fromXmlValue(value, variant));
+                } catch {
+                    // A variant that rejects the wire value is not a match.
+                }
+            }
+            if (matches.length !== 1) throw new Error(`XML union value matches ${matches.length} variants; exactly one is required`);
+            return mapping.wrap ? mapping.wrap(matches[0]) : matches[0];
         }
         default: return value;
     }
 }
 
+function acceptsRepeatedValues(mapping: XmlTypeMapping): boolean {
+    return mapping.kind === 'array' || mapping.kind === 'set' ||
+        (mapping.kind === 'union' && (mapping.variants ?? []).some((variant) => acceptsRepeatedValues(variant)));
+}
+
 function toXmlFields<T>(value: T, mapping: XmlRecordMapping<T>): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     for (const field of mapping.fields) {
-        const converted = toXmlValue(value[field.property], field.type);
-        if (converted !== undefined) {
-            result[field.kind === 'attribute' ? '@_' + field.name : field.name] = converted;
+        const fieldValue = value[field.property];
+        if ((fieldValue === undefined || fieldValue === null) && !field.optional) {
+            throw new Error(`Missing required XML field: ${field.name}`);
         }
+        const converted = toXmlValue(fieldValue, field.type);
+        if (converted !== undefined) result[field.kind === 'attribute' ? '@_' + field.name : field.name] = converted;
     }
     return result;
 }
 
 function fromXmlFields<T>(value: Record<string, unknown>, mapping: XmlRecordMapping<T>): T {
     const fields: Record<string, unknown> = {};
+    const expectedKeys = new Map(mapping.fields.map((field) => [field.kind === 'attribute' ? '@_' + field.name : field.name, field]));
+    for (const key of Object.keys(value)) {
+        if (key === '#text' || key.startsWith('@_xmlns')) continue;
+        if (!expectedKeys.has(key)) throw new Error(`Unknown XML field or attribute: ${key.startsWith('@_') ? key.slice(2) : key}`);
+    }
+    const mixedText = value['#text'];
+    if (mixedText !== undefined && mixedText !== 0 && String(mixedText).trim() !== '') throw new Error('Unexpected XML text content in record');
     for (const field of mapping.fields) {
         if (mapping.assignMissing) fields[field.property] = undefined;
         const key = field.kind === 'attribute' ? '@_' + field.name : field.name;
-        if (Object.prototype.hasOwnProperty.call(value, key)) {
-            fields[field.property] = fromXmlValue(value[key], field.type);
-        } else if (!field.optional && field.type.kind === 'array') {
-            fields[field.property] = [];
-        } else if (!field.optional && field.type.kind === 'set') {
-            fields[field.property] = new Set();
-        } else if (!field.optional && field.type.kind === 'map') {
-            fields[field.property] = {};
+        if (!Object.prototype.hasOwnProperty.call(value, key)) {
+            if (!field.optional) throw new Error(`Missing required XML field: ${field.name}`);
+            continue;
         }
+        const rawValue = value[key];
+        if (Array.isArray(rawValue) && !acceptsRepeatedValues(field.type)) throw new Error(`Duplicate singleton XML field: ${field.name}`);
+        fields[field.property] = fromXmlValue(rawValue, field.type);
     }
     return mapping.create(fields);
+}
+
+function validateNamespace<T>(value: Record<string, unknown>, mapping: XmlRecordMapping<T>, prefix = ''): void {
+    if (!mapping.namespace) return;
+    const namespaceKey = prefix ? `@_xmlns:${prefix}` : '@_xmlns';
+    if (value[namespaceKey] !== mapping.namespace) {
+        throw new Error(`XML namespace mismatch for ${mapping.rootName}: expected ${mapping.namespace}`);
+    }
+}
+
+function assertDepth(value: unknown, depth = 0): void {
+    if (depth > MAX_XML_DEPTH) throw new Error(`XML nesting exceeds ${MAX_XML_DEPTH} levels`);
+    if (Array.isArray(value)) {
+        for (const item of value) assertDepth(item, depth);
+    } else if (isObject(value)) {
+        for (const child of Object.values(value)) assertDepth(child, depth + 1);
+    }
+}
+
+function assertSafeXml(xml: string): void {
+    if (xml.length > MAX_XML_SIZE || new TextEncoder().encode(xml).byteLength > MAX_XML_SIZE) {
+        throw new Error(`XML payload exceeds ${MAX_XML_SIZE} bytes`);
+    }
+    if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw new Error('DOCTYPE and ENTITY declarations are not allowed in XML');
+    const validation = XMLValidator.validate(xml, { allowBooleanAttributes: false });
+    if (validation !== true) {
+        const message = (validation as { err?: { msg?: string } }).err?.msg ?? 'invalid XML';
+        throw new Error(`Malformed XML: ${message}`);
+    }
 }
 
 export function serializeXml<T>(value: T, mapping: XmlRecordMapping<T>): string {
     const body = toXmlFields(value, mapping);
     if (mapping.namespace) body['@_xmlns'] = mapping.namespace;
-    const builder = new XMLBuilder({
-        ignoreAttributes: false,
-        attributeNamePrefix: '@_',
-        suppressEmptyNode: false,
-    });
-    return builder.build({ [mapping.rootName]: body });
+    const builder = new XMLBuilder({ ignoreAttributes: false, attributeNamePrefix: '@_', suppressEmptyNode: false });
+    const xml = builder.build({ [mapping.rootName]: body });
+    if (xml.length > MAX_XML_SIZE || new TextEncoder().encode(xml).byteLength > MAX_XML_SIZE) {
+        throw new Error(`XML payload exceeds ${MAX_XML_SIZE} bytes`);
+    }
+    return xml;
 }
 
 export function deserializeXml<T>(xml: string, mapping: XmlRecordMapping<T>): T {
+    assertSafeXml(xml);
     const parser = new XMLParser({
         ignoreAttributes: false,
         attributeNamePrefix: '@_',
@@ -135,14 +292,23 @@ export function deserializeXml<T>(xml: string, mapping: XmlRecordMapping<T>): T 
         processEntities: false,
         trimValues: false,
     });
-    const document = parser.parse(xml) as Record<string, unknown>;
-    let root = document[mapping.rootName];
+    let document: Record<string, unknown>;
+    try {
+        document = parser.parse(xml) as Record<string, unknown>;
+    } catch (error) {
+        throw new Error(`Malformed XML: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    assertDepth(document);
+    let rootKey = mapping.rootName;
+    let root = document[rootKey];
     if (root === undefined) {
-        const rootKey = Object.keys(document).find((key) => key.split(':').pop() === mapping.rootName);
-        if (rootKey) root = document[rootKey];
+        const match = Object.keys(document).filter((key) => key.split(':').pop() === mapping.rootName);
+        if (match.length !== 1) throw new Error(`Expected exactly one XML root element ${mapping.rootName}`);
+        rootKey = match[0];
+        root = document[rootKey];
     }
-    if (root === undefined || root === null || typeof root !== 'object') {
-        throw new Error(`Expected XML root element ${mapping.rootName}`);
-    }
-    return fromXmlFields(root as Record<string, unknown>, mapping);
+    if (!isObject(root)) throw new Error(`Expected XML root element ${mapping.rootName}`);
+    const prefix = rootKey.includes(':') ? rootKey.split(':', 1)[0] : '';
+    validateNamespace(root, mapping, prefix);
+    return fromXmlFields(root, mapping);
 }

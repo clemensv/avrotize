@@ -112,7 +112,16 @@ export {% if is_abstract %}abstract {% endif %}class {{ class_name }}{% if base_
         const contentType = contentTypeString.split(';')[0].trim();
         const isGzip = contentType.endsWith('+gzip');
         const mediaType = isGzip ? contentType.slice(0, -5) : contentType;
-        if (isGzip) data = pako.ungzip(data);
+        if (isGzip) {
+            if ((mediaType === 'application/xml' || mediaType === 'text/xml') && data.byteLength > 1024 * 1024) {
+                throw new Error('Compressed XML payload exceeds the input limit');
+            }
+            try {
+                data = pako.ungzip(data);
+            } catch (error) {
+                throw new Error(`Invalid gzip data: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
         const text = new TextDecoder().decode(data);
         {%- if typedjson_annotation %}
         if (mediaType === 'application/json') return {{ class_name }}.fromJSON(text);

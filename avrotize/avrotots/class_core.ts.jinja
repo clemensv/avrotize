@@ -108,7 +108,16 @@ export class {{ class_name }} {
         const contentType = contentTypeString.split(';')[0].trim();
         const isGzip = contentType.endsWith('+gzip');
         const mediaType = isGzip ? contentType.slice(0, -5) : contentType;
-        if (isGzip) data = pako.ungzip(data);
+        if (isGzip) {
+            if ((mediaType === 'application/xml' || mediaType === 'text/xml') && data.byteLength > 1024 * 1024) {
+                throw new Error('Compressed XML payload exceeds the input limit');
+            }
+            try {
+                data = pako.ungzip(data);
+            } catch (error) {
+                throw new Error(`Invalid gzip data: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
 
         {%- if avro_annotation %}
         if (mediaType === 'avro/binary' || mediaType === 'application/vnd.apache.avro+avro') {

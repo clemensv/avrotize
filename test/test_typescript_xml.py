@@ -29,6 +29,8 @@ AVRO_SCHEMA = {
         {"name": "choice", "type": ["string", {"type": "record", "name": "ChoiceDetail", "fields": [
             {"name": "code", "type": "int"}
         ]}]},
+        {"name": "ambiguous", "type": ["string", "int"]},
+        {"name": "stringOrList", "type": ["string", {"type": "array", "items": "string"}]},
     ],
 }
 
@@ -45,8 +47,10 @@ STRUCTURE_SCHEMA = {
         "state": {"type": "string", "name": "State", "enum": ["OPEN", "CLOSED"],
                   "altenums": {"json": {"OPEN": "open"}, "xml": {"OPEN": "open-order"}}},
         "scores": {"type": "map", "values": {"type": "double"}},
+        "ambiguous": {"type": ["string", "int32"]},
+        "stringOrList": {"type": ["string", {"type": "array", "items": {"type": "string"}}]},
     },
-    "required": ["id", "count", "child", "tags", "state", "scores"],
+    "required": ["id", "count", "child", "tags", "state", "scores", "ambiguous", "stringOrList"],
 }
 
 
@@ -92,7 +96,7 @@ import { State } from "./dist/xmltypes/example/State.js";
 import { ChoiceDetail } from "./dist/xmltypes/example/ChoiceDetail.js";
 import { ChoiceUnion } from "./dist/xmltypes/example/ChoiceUnion.js";
 const value = new Order("A-1", 3, undefined, new Child(true), ["one", "two"], State.OPEN,
-    {speed: 42.5}, new ChoiceUnion(new ChoiceDetail(9)));
+    {speed: 42.5}, new ChoiceUnion(new ChoiceDetail(9)), "plain", ["left", "right"]);
 const bytes = value.toByteArray("application/xml");
 const xml = new TextDecoder().decode(bytes);
 assert.match(xml, /<purchase[^>]*xmlns="urn:orders"[^>]*>/);
@@ -101,6 +105,35 @@ assert.match(xml, /<state>open-order<\/state>/);
 assert.deepStrictEqual(Order.fromData(bytes, "text/xml"), value);
 const gzip = value.toByteArray("application/xml+gzip");
 assert.deepStrictEqual(Order.fromData(gzip, "application/xml+gzip"), value);
+
+const encode = (text) => new TextEncoder().encode(text);
+const rejectXml = (text, pattern) => assert.throws(() => Order.fromData(encode(text), "application/xml"), pattern);
+const validXml = '<purchase order-id="A-1" xmlns="urn:orders"><count>3</count><child><active>true</active></child>' +
+    '<tags>solo</tags><state>open-order</state><scores><speed>1.5</speed></scores>' +
+    '<choice><code>9</code></choice><ambiguous>plain</ambiguous>' +
+    '<stringOrList>left</stringOrList><stringOrList>right</stringOrList></purchase>';
+const parsedSingletonList = Order.fromData(encode(validXml), "application/xml");
+assert.deepStrictEqual(parsedSingletonList.tags, ["solo"]);
+assert.deepStrictEqual(parsedSingletonList.stringOrList, ["left", "right"]);
+
+rejectXml(validXml.slice(0, -5), /Malformed XML/);                                      // truncated
+rejectXml(validXml.replace('<count>3</count>', '<count>3</counts>'), /Malformed XML/);         // malformed
+assert.throws(() => Order.fromData(new Uint8Array([1, 2, 3]), "application/xml+gzip"), /Invalid gzip data/);
+rejectXml('<!DOCTYPE purchase [<!ENTITY x "boom">]>' + validXml, /DOCTYPE and ENTITY/);
+rejectXml(validXml.replace('urn:orders', 'urn:wrong'), /namespace mismatch/);
+rejectXml(validXml.replace(' order-id="A-1"', ''), /Missing required XML field: order-id/);
+rejectXml(validXml.replace('<count>3</count>', '<count>3</count><count>4</count>'), /Duplicate singleton/);
+rejectXml(validXml.replace('</purchase>', '<unknown>value</unknown></purchase>'), /Unknown XML field/);
+rejectXml(validXml.replace('open-order', 'INVALID'), /Invalid XML enum/);
+rejectXml(validXml.replace('<count>3</count>', '<count>NaN</count>'), /Invalid XML number/);
+const nested = '<deep>' + '<x>'.repeat(70) + 'v' + '</x>'.repeat(70) + '</deep>';
+rejectXml(validXml.replace('</purchase>', nested + '</purchase>'), /nesting exceeds/);
+rejectXml(validXml.replace('</purchase>', '<note>' + 'x'.repeat(1024 * 1024) + '</note></purchase>'), /payload exceeds/);
+rejectXml(validXml.replace('<ambiguous>plain</ambiguous>', '<ambiguous>1</ambiguous>'), /union value matches 2 variants/);
+rejectXml(validXml.replace('<scores><speed>1.5</speed></scores>', '<scores>bad</scores>'), /Expected XML map/);
+rejectXml(validXml.replace('<speed>1.5</speed>', '<speed>1.5</speed><speed>2</speed>'), /Duplicate XML map key/);
+rejectXml(validXml.replace('<stringOrList>left</stringOrList><stringOrList>right</stringOrList>',
+    '<stringOrList>left</stringOrList>'), /union value matches 2 variants/);
 ''')
 
 
@@ -125,7 +158,8 @@ import assert from "node:assert/strict";
 import { Order } from "./dist/xmltypes/example/Order.js";
 import { Child } from "./dist/xmltypes/example/Child.js";
 import { State } from "./dist/xmltypes/example/State.js";
-const value = new Order("S-1", 5, new Child(false), ["one", "two"], State.OPEN, {speed: 7.5});
+const value = new Order("S-1", 5, new Child(false), ["one", "two"], State.OPEN, {speed: 7.5},
+    "plain", ["left", "right"]);
 const bytes = value.toByteArray("application/xml");
 const xml = new TextDecoder().decode(bytes);
 assert.match(xml, /<purchase[^>]*xmlns="urn:orders"[^>]*>/);
@@ -133,4 +167,32 @@ assert.match(xml, /<state>open-order<\/state>/);
 assert.deepStrictEqual(Order.fromData(bytes, "text/xml"), value);
 const gzip = value.toByteArray("text/xml+gzip");
 assert.deepStrictEqual(Order.fromData(gzip, "text/xml+gzip"), value);
+
+const encode = (text) => new TextEncoder().encode(text);
+const rejectXml = (text, pattern) => assert.throws(() => Order.fromData(encode(text), "application/xml"), pattern);
+const validXml = '<purchase order-id="S-1" xmlns="urn:orders"><count>5</count><child><active>false</active></child>' +
+    '<tags>solo</tags><state>open-order</state><scores><speed>1.5</speed></scores>' +
+    '<ambiguous>plain</ambiguous><stringOrList>left</stringOrList><stringOrList>right</stringOrList></purchase>';
+const parsedSingletonList = Order.fromData(encode(validXml), "application/xml");
+assert.deepStrictEqual(parsedSingletonList.tags, ["solo"]);
+assert.deepStrictEqual(parsedSingletonList.stringOrList, ["left", "right"]);
+
+rejectXml(validXml.slice(0, -5), /Malformed XML/);
+rejectXml(validXml.replace('<count>5</count>', '<count>5</counts>'), /Malformed XML/);
+assert.throws(() => Order.fromData(new Uint8Array([1, 2, 3]), "text/xml+gzip"), /Invalid gzip data/);
+rejectXml('<!DOCTYPE purchase [<!ENTITY x "boom">]>' + validXml, /DOCTYPE and ENTITY/);
+rejectXml(validXml.replace('urn:orders', 'urn:wrong'), /namespace mismatch/);
+rejectXml(validXml.replace(' order-id="S-1"', ''), /Missing required XML field: order-id/);
+rejectXml(validXml.replace('<count>5</count>', '<count>5</count><count>6</count>'), /Duplicate singleton/);
+rejectXml(validXml.replace('</purchase>', '<unknown>value</unknown></purchase>'), /Unknown XML field/);
+rejectXml(validXml.replace('open-order', 'INVALID'), /Invalid XML enum/);
+rejectXml(validXml.replace('<count>5</count>', '<count>NaN</count>'), /Invalid XML number/);
+const nested = '<deep>' + '<x>'.repeat(70) + 'v' + '</x>'.repeat(70) + '</deep>';
+rejectXml(validXml.replace('</purchase>', nested + '</purchase>'), /nesting exceeds/);
+rejectXml(validXml.replace('</purchase>', '<note>' + 'x'.repeat(1024 * 1024) + '</note></purchase>'), /payload exceeds/);
+rejectXml(validXml.replace('<ambiguous>plain</ambiguous>', '<ambiguous>1</ambiguous>'), /union value matches 2 variants/);
+rejectXml(validXml.replace('<scores><speed>1.5</speed></scores>', '<scores>bad</scores>'), /Expected XML map/);
+rejectXml(validXml.replace('<speed>1.5</speed>', '<speed>1.5</speed><speed>2</speed>'), /Duplicate XML map key/);
+rejectXml(validXml.replace('<stringOrList>left</stringOrList><stringOrList>right</stringOrList>',
+    '<stringOrList>left</stringOrList>'), /union value matches 2 variants/);
 ''')

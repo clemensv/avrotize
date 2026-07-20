@@ -606,6 +606,13 @@ class StructureToTypeScript:
             'null': 'null'
         }
         
+        # Use the first variant to create a valid sample for union fields.
+        if ' | ' in field_type:
+            union_field = dict(field)
+            union_field['type_no_null'] = field_type.split(' | ', 1)[0].strip()
+            union_field['is_enum'] = False
+            return self.generate_test_value(union_field)
+
         # Handle arrays
         if field_type.endswith('[]'):
             inner_type = field_type[:-2]
