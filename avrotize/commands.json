@@ -3044,7 +3044,8 @@
         "py_file_path": "output_file_path",
         "package_name": "args.package",
         "dataclasses_json_annotation": "args.dataclasses_json_annotation",
-        "avro_annotation": "args.avro_annotation"
+        "avro_annotation": "args.avro_annotation",
+        "xml_annotation": "args.xml_annotation"
       }
     },
     "extensions": [
@@ -3089,6 +3090,13 @@
         "help": "Use Avro annotations",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Add XML serialization support",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-py",
@@ -3102,6 +3110,12 @@
       {
         "name": "--avro-annotation",
         "message": "Use apache_avro annotations?",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "--xml-annotation",
+        "message": "Add XML serialization support?",
         "type": "bool",
         "default": false
       }
@@ -3118,7 +3132,8 @@
         "py_file_path": "output_file_path",
         "package_name": "args.package",
         "dataclasses_json_annotation": "args.dataclasses_json_annotation",
-        "avro_annotation": "args.avro_annotation"
+        "avro_annotation": "args.avro_annotation",
+        "xml_annotation": "args.xml_annotation"
       }
     },
     "extensions": [
@@ -3158,6 +3173,13 @@
         "help": "Add Avro binary serialization support with embedded Structure schema",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Add XML serialization support",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-py",
@@ -3165,6 +3187,12 @@
       {
         "name": "--dataclasses-json-annotation",
         "message": "Use dataclasses-json annotations?",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "--xml-annotation",
+        "message": "Add XML serialization support?",
         "type": "bool",
         "default": false
       }

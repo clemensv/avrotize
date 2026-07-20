@@ -9,6 +9,32 @@ class {{ class_name }}({% if is_numeric %}IntEnum{% else %}Enum{% endif %}):
     {{ member_name }} = {{ value_repr }}
     {%- endfor %}
 
+    {%- if xml_annotation %}
+
+    @classmethod
+    def xml_name(cls) -> str:
+        """Return the schema's XML type name."""
+        return {{ xml_name | tojson }}
+
+    @property
+    def xml_value(self) -> str:
+        """Return this member's XML wire value."""
+        {%- for member_name, xml_value_literal in xml_values %}
+        if self is {{ class_name }}.{{ member_name }}:
+            return {{ xml_value_literal }}
+        {%- endfor %}
+        return str(self.value)
+
+    @classmethod
+    def from_xml_value(cls, value: str) -> '{{ class_name }}':
+        """Resolve an enum member from its XML wire value."""
+        {%- for member_name, xml_value_literal in xml_values %}
+        if value == str({{ xml_value_literal }}):
+            return cls.{{ member_name }}
+        {%- endfor %}
+        return cls(value)
+    {%- endif %}
+
     @classmethod
     def from_ordinal(cls, ordinal: int | str) -> '{{ class_name }}':
         """

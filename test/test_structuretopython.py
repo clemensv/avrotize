@@ -518,6 +518,76 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         finally:
             sys.path.remove(generated_src)
 
+    def test_xml_annotation_round_trip_with_structure_metadata(self):
+        """Generated Structure classes provide XML-only serialization parity."""
+        import gzip
+        import importlib
+        import xml.etree.ElementTree as ET
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        schema = {
+            "type": "object",
+            "name": "Catalog",
+            "namespace": "example.xml",
+            "xmlns": "urn:avrotize:structure",
+            "altnames": {"xml": "product-catalog"},
+            "properties": {
+                "version": {"type": "string", "xmlkind": "attribute",
+                            "altnames": {"xml": "schema-version"}},
+                "title": {"type": "string", "altnames": {"xml": "display-name"}},
+                "state": {"type": "string", "name": "State", "enum": ["open", "closed"],
+                          "altnames": {"xml": "catalog-state"},
+                          "altenums": {"xml": {"open": "available"}}},
+                "items": {"type": "array", "items": {"type": "object", "name": "Item",
+                          "properties": {"code": {"type": "string", "xmlkind": "attribute"},
+                                         "quantity": {"type": "int32"}},
+                          "required": ["code", "quantity"]}},
+                "labels": {"type": "map", "values": {"type": "string"}},
+                "note": {"type": "string"},
+            },
+            "required": ["version", "title", "state", "items", "labels"],
+        }
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-408-s2py-xml")
+        shutil.rmtree(output_dir, ignore_errors=True)
+        convert_structure_schema_to_python(schema, output_dir, package_name="issue_408_s2py",
+                                           xml_annotation=True)
+
+        generated_src = os.path.join(output_dir, "src")
+        for root, _dirs, files in os.walk(generated_src):
+            for filename in files:
+                if filename.endswith(".py"):
+                    generated_file = os.path.join(root, filename)
+                    with open(generated_file, encoding="utf-8") as source:
+                        compile(source.read(), generated_file, "exec")
+
+        sys.path.insert(0, generated_src)
+        try:
+            Catalog = importlib.import_module("issue_408_s2py.example.xml.catalog").Catalog
+            Item = importlib.import_module("issue_408_s2py.example.xml.item").Item
+            State = importlib.import_module("issue_408_s2py.example.xml.state").State
+            value = Catalog(version="1", title="Summer", state=State.open,
+                            items=[Item(code="P1", quantity=2)], labels={"region": "west"},
+                            note=None)
+
+            payload = value.to_byte_array("text/xml")
+            root = ET.fromstring(payload)
+            assert root.tag == "{urn:avrotize:structure}product-catalog"
+            assert root.attrib == {"schema-version": "1"}
+            assert root.find("{urn:avrotize:structure}display-name").text == "Summer"
+            assert root.find("{urn:avrotize:structure}catalog-state").text == "available"
+            assert root.find("{urn:avrotize:structure}note") is None
+            assert State.xml_name() == "catalog-state"
+            assert Catalog.from_data(payload, "text/xml") == value
+
+            compressed = value.to_byte_array("application/xml+gzip")
+            assert gzip.decompress(compressed).startswith(b"<?xml")
+            assert Catalog.from_data(compressed, "application/xml+gzip") == value
+        finally:
+            sys.path.remove(generated_src)
+            for module_name in list(sys.modules):
+                if module_name == "issue_408_s2py" or module_name.startswith("issue_408_s2py."):
+                    sys.modules.pop(module_name, None)
+
     def test_test_file_import_matches_module_structure(self):
         """
         Regression test: Generated test files should import from the correct module path.

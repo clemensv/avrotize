@@ -2,7 +2,7 @@
 
 # pylint: disable=too-many-lines, too-many-locals, too-many-branches, too-many-statements, too-many-arguments, line-too-long, wildcard-import
 
-{%- if avro_annotation or dataclasses_json_annotation %}
+{%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 import io
 import gzip
 import json
@@ -44,6 +44,10 @@ import uuid
 {%- endif %}
 {%- endfor %}
 
+{% if xml_annotation %}
+{% include "python_xml_helpers.jinja" %}
+{% endif %}
+
 {% if dataclasses_json_annotation %}
 @dataclass_json(undefined=Undefined.EXCLUDE)
 {%- endif %}
@@ -66,6 +70,10 @@ class {{ class_name }}:
         json.loads("{{ avro_schema_json }}"), avro.name.Names()
     )
     {%- endif %}
+
+{% if xml_annotation %}
+{% include "python_xml_methods.jinja" %}
+{% endif %}
 
     def __post_init__(self):
         """ Initializes the dataclass with the provided keyword arguments."""
@@ -117,7 +125,7 @@ class {{ class_name }}:
         def _fix_key(k):
             return k[:-1] if k.endswith('_') else k
         return {_fix_key(k): _resolve_enum(v) for k, v in iter(data)}
-    {%- if avro_annotation or dataclasses_json_annotation %}
+    {%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 
     def to_byte_array(self, content_type_string: str) -> bytes:
         """
@@ -132,6 +140,9 @@ class {{ class_name }}:
                     {%- endif %}
                     {%- if dataclasses_json_annotation %}
                     'application/json': Encodes the data to JSON format.
+                    {%- endif %}
+                    {%- if xml_annotation %}
+                    'application/xml' / 'text/xml': Encodes the data to XML format.
                     {%- endif %}
                 Supported content type extensions:
                     '+gzip': Compresses the byte array using gzip, e.g. 'application/json+gzip'.
@@ -161,6 +172,13 @@ class {{ class_name }}:
             #pylint: enable=no-member
             if isinstance(result, str):
                 result = result.encode('utf-8')
+        {%- endif %}
+
+        {%- if xml_annotation %}
+        if base_content_type in ['application/xml', 'text/xml']:
+            if self.XMLNamespace:
+                ET.register_namespace('', self.XMLNamespace)
+            result = ET.tostring(self._to_xml_element(), encoding='utf-8', xml_declaration=True)
         {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):
@@ -194,6 +212,9 @@ class {{ class_name }}:
                     {%- endif %}
                     {%- if dataclasses_json_annotation %}
                     'application/json': Attempts to decode the data from JSON encoded format.
+                    {%- endif %}
+                    {%- if xml_annotation %}
+                    'application/xml' / 'text/xml': Attempts to decode the data from XML format.
                     {%- endif %}
                 Supported content type extensions:
                     '+gzip': First decompresses the data using gzip, e.g. 'application/json+gzip'.
@@ -248,6 +269,19 @@ class {{ class_name }}:
                 return {{ class_name }}.from_serializer_dict(_record)
             else:
                 raise NotImplementedError('Data is not of a supported type for JSON deserialization')
+        {%- endif %}
+
+        {%- if xml_annotation %}
+        if base_content_type in ['application/xml', 'text/xml']:
+            if isinstance(data, io.BytesIO):
+                data = data.getvalue()
+            if isinstance(data, (bytes, str)):
+                element = ET.fromstring(data)
+                expected_tag = _xml_qname(cls.XMLName, cls.XMLNamespace)
+                if element.tag != expected_tag:
+                    raise ValueError(f'Expected XML root {expected_tag}, got {element.tag}')
+                return cls._from_xml_element(element)
+            raise NotImplementedError('Data is not of a supported type for XML deserialization')
         {%- endif %}
 
         raise NotImplementedError(f'Unsupported media type {content_type}')

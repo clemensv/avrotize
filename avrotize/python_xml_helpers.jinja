@@ -1,0 +1,163 @@
+{% raw %}
+import base64
+import datetime as _xml_datetime
+import decimal as _xml_decimal
+import types as _xml_types
+import uuid as _xml_uuid
+import xml.etree.ElementTree as ET
+
+
+def _xml_qname(local_name: str, namespace: str = '') -> str:
+    return f'{{{namespace}}}{local_name}' if namespace else local_name
+
+
+def _xml_namespace(tag: str) -> str:
+    return tag[1:].split('}', 1)[0] if tag.startswith('{') else ''
+
+
+def _xml_origin_args(field_type: typing.Any) -> tuple[typing.Any, tuple[typing.Any, ...]]:
+    return typing.get_origin(field_type), typing.get_args(field_type)
+
+
+def _xml_non_null_types(field_type: typing.Any) -> list[typing.Any]:
+    origin, args = _xml_origin_args(field_type)
+    if origin in (typing.Union, _xml_types.UnionType):
+        return [arg for arg in args if arg is not type(None)]
+    return [field_type]
+
+
+def _xml_allows_none(field_type: typing.Any) -> bool:
+    origin, args = _xml_origin_args(field_type)
+    return origin in (typing.Union, _xml_types.UnionType) and type(None) in args
+
+
+def _xml_concrete_type(field_type: typing.Any) -> typing.Any:
+    candidates = _xml_non_null_types(field_type)
+    return candidates[0] if len(candidates) == 1 else field_type
+
+
+def _xml_type_namespace(field_type: typing.Any, default: str) -> str:
+    target = _xml_concrete_type(field_type)
+    origin, args = _xml_origin_args(target)
+    if origin in (list, set, tuple) and args:
+        target = _xml_concrete_type(args[0])
+    return getattr(target, 'XMLNamespace', '') or default
+
+
+def _xml_scalar(value: typing.Any) -> str:
+    if isinstance(value, enum.Enum):
+        xml_value = getattr(value, 'xml_value', None)
+        return str(xml_value if xml_value is not None else value.value)
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    if isinstance(value, bytes):
+        return base64.b64encode(value).decode('ascii')
+    if isinstance(value, _xml_datetime.timedelta):
+        return str(value.total_seconds())
+    if isinstance(value, (_xml_datetime.date, _xml_datetime.time, _xml_datetime.datetime)):
+        return value.isoformat()
+    return str(value)
+
+
+def _xml_convert_text(text: str | None, field_type: typing.Any) -> typing.Any:
+    candidates = _xml_non_null_types(field_type)
+    if len(candidates) > 1:
+        last_error: Exception | None = None
+        for candidate in candidates:
+            try:
+                return _xml_convert_text(text, candidate)
+            except (TypeError, ValueError) as exc:
+                last_error = exc
+        if last_error is not None:
+            raise last_error
+    target = candidates[0]
+    value = text or ''
+    if target in (typing.Any, object, str):
+        return value
+    if target is bool:
+        normalized = value.strip().lower()
+        if normalized in ('true', '1'):
+            return True
+        if normalized in ('false', '0'):
+            return False
+        raise ValueError(f'Invalid XML boolean value: {value}')
+    if target is int:
+        return int(value)
+    if target is float:
+        return float(value)
+    if target is bytes:
+        return base64.b64decode(value.encode('ascii'))
+    if target is _xml_datetime.datetime:
+        return _xml_datetime.datetime.fromisoformat(value)
+    if target is _xml_datetime.date:
+        return _xml_datetime.date.fromisoformat(value)
+    if target is _xml_datetime.time:
+        return _xml_datetime.time.fromisoformat(value)
+    if target is _xml_datetime.timedelta:
+        return _xml_datetime.timedelta(seconds=float(value))
+    if target is _xml_decimal.Decimal:
+        return _xml_decimal.Decimal(value)
+    if target is _xml_uuid.UUID:
+        return _xml_uuid.UUID(value)
+    if isinstance(target, type) and issubclass(target, enum.Enum):
+        from_xml_value = getattr(target, 'from_xml_value', None)
+        return from_xml_value(value) if from_xml_value else target(value)
+    return target(value)
+
+
+def _xml_append_value(parent: ET.Element, name: str, value: typing.Any,
+                      field_type: typing.Any, namespace: str) -> None:
+    origin, args = _xml_origin_args(field_type)
+    if origin in (typing.Union, _xml_types.UnionType):
+        matching = [arg for arg in args if arg is not type(None)]
+        field_type = next((arg for arg in matching if isinstance(arg, type) and isinstance(value, arg)),
+                          matching[0] if matching else typing.Any)
+        origin, args = _xml_origin_args(field_type)
+    if origin in (list, set, tuple) or isinstance(value, (list, set, tuple)):
+        item_type = args[0] if args else typing.Any
+        for item in value:
+            _xml_append_value(parent, name, item, item_type, namespace)
+        return
+    if origin is dict or isinstance(value, dict):
+        container = ET.SubElement(parent, _xml_qname(name, namespace))
+        for key, item_value in value.items():
+            item = ET.SubElement(container, _xml_qname('item', namespace), {'key': str(key)})
+            if hasattr(item_value, '_to_xml_element'):
+                item.append(item_value._to_xml_element('value', namespace))
+            else:
+                item.text = _xml_scalar(item_value)
+        return
+    if hasattr(value, '_to_xml_element'):
+        parent.append(value._to_xml_element(name, namespace))
+        return
+    child = ET.SubElement(parent, _xml_qname(name, namespace))
+    child.text = _xml_scalar(value)
+
+
+def _xml_read_element(element: ET.Element, field_type: typing.Any, namespace: str) -> typing.Any:
+    candidates = _xml_non_null_types(field_type)
+    if len(candidates) > 1:
+        nested = [candidate for candidate in candidates if isinstance(candidate, type) and hasattr(candidate, '_from_xml_element')]
+        if nested:
+            for candidate in nested:
+                try:
+                    return candidate._from_xml_element(element)
+                except (TypeError, ValueError):
+                    continue
+        return _xml_convert_text(element.text, field_type)
+    target = candidates[0]
+    origin, args = _xml_origin_args(target)
+    if origin is dict:
+        value_type = args[1] if len(args) > 1 else typing.Any
+        result: dict[str, typing.Any] = {}
+        for item in element.findall(_xml_qname('item', namespace)):
+            key = item.get('key', '')
+            value_element = item.find(_xml_qname('value', _xml_type_namespace(value_type, namespace)))
+            result[key] = _xml_read_element(value_element, value_type, namespace) if value_element is not None else _xml_convert_text(item.text, value_type)
+        return result
+    if isinstance(target, type) and hasattr(target, '_from_xml_element'):
+        return target._from_xml_element(element)
+    if target in (typing.Any, object) and list(element):
+        return {child.tag.rsplit('}', 1)[-1]: child.text for child in element}
+    return _xml_convert_text(element.text, target)
+{% endraw %}

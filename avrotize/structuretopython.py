@@ -70,10 +70,11 @@ def safe_package_name(name: str) -> str:
 class StructureToPython:
     """ Converts JSON Structure schema to Python classes """
 
-    def __init__(self, base_package: str = '', dataclasses_json_annotation=False, avro_annotation=False) -> None:
+    def __init__(self, base_package: str = '', dataclasses_json_annotation=False, avro_annotation=False, xml_annotation=False) -> None:
         self.base_package = base_package
         self.dataclasses_json_annotation = dataclasses_json_annotation
         self.avro_annotation = avro_annotation
+        self.xml_annotation = xml_annotation
         self.output_dir = os.getcwd()
         self.schema_doc: JsonNode = None
         self.generated_types: Dict[str, str] = {}
@@ -397,6 +398,8 @@ class StructureToPython:
             'docstring': self.generate_field_docstring(field, schema_namespace),
             'test_value': self.generate_test_value(field),
             'source_type': field.get('source_type', 'string'),
+            'xml_name': field['xml_name'],
+            'xml_kind': field['xml_kind'],
         } for field in fields]
 
         # If avro_annotation is enabled, convert JSON Structure schema to Avro schema
@@ -419,6 +422,9 @@ class StructureToPython:
             base_package=self.base_package,
             dataclasses_json_annotation=self.dataclasses_json_annotation,
             avro_annotation=self.avro_annotation,
+            xml_annotation=self.xml_annotation,
+            xml_name=structure_schema.get('altnames', {}).get('xml', explicit_name or structure_schema.get('name', 'UnnamedClass')),
+            xml_namespace=structure_schema.get('xmlns', ''),
             avro_schema_json=avro_schema_json,
             is_abstract=is_abstract,
             base_class=base_class,
@@ -454,7 +460,9 @@ class StructureToPython:
                 'is_enum': False,
                 'is_const': True,
                 'const_value': prop_schema['const'],
-                'source_type': prop_schema.get('type', 'string')
+                'source_type': prop_schema.get('type', 'string'),
+                'xml_name': prop_schema.get('altnames', {}).get('xml', prop_name),
+                'xml_kind': prop_schema.get('xmlkind', 'element'),
             }
 
         # Determine if required
@@ -488,7 +496,9 @@ class StructureToPython:
             'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
             'is_enum': prop_type in self.generated_types and self.generated_types[prop_type] == 'enum',
             'is_const': False,
-            'source_type': source_type
+            'source_type': source_type,
+            'xml_name': prop_schema.get('altnames', {}).get('xml', prop_name),
+            'xml_kind': prop_schema.get('xmlkind', 'element'),
         }
 
     def generate_field_docstring(self, field: Dict, parent_namespace: str) -> str:
@@ -602,6 +612,8 @@ class StructureToPython:
         # Python Enum internals.
         used_names: set[str] = {'from_ordinal', 'to_ordinal', 'mro', '_ignore_',
                                 '_generate_next_value_', '_missing_', '_order_'}
+        if self.xml_annotation:
+            used_names.update({'xml_name', 'xml_value', 'from_xml_value'})
         for value in raw_values:
             base_name = self._python_enum_member_name(value)
             member_name = base_name
@@ -619,6 +631,11 @@ class StructureToPython:
 
         doc = structure_schema.get('description', structure_schema.get('doc', f'A {class_name} enum.'))
 
+        xml_values = [
+            (member_name, repr(structure_schema.get('altenums', {}).get('xml', {}).get(str(raw_value), raw_value)))
+            for (member_name, _), raw_value in zip(members, raw_values)
+        ]
+
         enum_definition = process_template(
             "structuretopython/enum_core.jinja",
             class_name=class_name,
@@ -627,6 +644,9 @@ class StructureToPython:
             is_numeric=is_numeric,
             # ``symbols`` kept for backward compatibility with any external use
             symbols=symbols,
+            xml_annotation=self.xml_annotation,
+            xml_name=structure_schema.get('altnames', {}).get('xml', structure_schema.get('name', field_name + 'Enum')),
+            xml_values=xml_values,
         )
 
         if write_file:
@@ -1025,7 +1045,7 @@ class StructureToPython:
         return self.convert_schemas(schema, output_dir)
 
 
-def convert_structure_to_python(structure_schema_path, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False):
+def convert_structure_to_python(structure_schema_path, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False, xml_annotation=False):
     """Converts JSON Structure schema to Python dataclasses"""
     if not package_name:
         # Strip .json extension, then also strip .struct suffix if present (*.struct.json naming convention)
@@ -1035,17 +1055,18 @@ def convert_structure_to_python(structure_schema_path, py_file_path, package_nam
         package_name = base_name.lower().replace('-', '_')
     package_name = safe_package_name(package_name)
 
-    structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
+    structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation, xml_annotation=xml_annotation)
     structure_to_python.convert(structure_schema_path, py_file_path)
 
 
-def convert_structure_schema_to_python(structure_schema, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False):
+def convert_structure_schema_to_python(structure_schema, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False, xml_annotation=False):
     """Converts JSON Structure schema to Python dataclasses"""
     package_name = safe_package_name(package_name) if package_name else package_name
     structure_to_python = StructureToPython(
         package_name,
         dataclasses_json_annotation=dataclasses_json_annotation,
         avro_annotation=avro_annotation,
+        xml_annotation=xml_annotation,
     )
     if isinstance(structure_schema, dict):
         structure_schema = [structure_schema]
