@@ -10,6 +10,8 @@ import uuid
 from enum import Enum
 
 from xsdata.formats.dataclass.parsers import XmlParser
+from xsdata.formats.dataclass.parsers.config import ParserConfig
+from xsdata.formats.dataclass.parsers.handlers import XmlEventHandler
 from xsdata.formats.dataclass.serializers import XmlSerializer
 from xsdata.formats.dataclass.serializers.config import SerializerConfig
 from xsdata.formats.dataclass.serializers.writers import XmlEventWriter
@@ -22,7 +24,17 @@ _XML_METADATA_KEYS = {
 _SHADOW_TYPES: dict[tuple[type, str], type] = {}
 _SHADOW_ENUMS: dict[type[Enum], type[Enum]] = {}
 _MAP_MODELS: dict[tuple[typing.Any, str], tuple[type, type]] = {}
-_XML_PARSER = XmlParser()
+MAX_XML_BYTES = 4 * 1024 * 1024
+_XML_PARSER = XmlParser(
+    config=ParserConfig(
+        fail_on_unknown_properties=True,
+        fail_on_unknown_attributes=True,
+        fail_on_converter_warnings=True,
+        load_dtd=False,
+        process_xinclude=False,
+    ),
+    handler=XmlEventHandler,
+)
 _XML_SERIALIZER = XmlSerializer(
     config=SerializerConfig(xml_declaration=True, encoding="UTF-8"),
     writer=XmlEventWriter,
@@ -304,6 +316,9 @@ def _from_shadow_model(value: typing.Any, model: type, inherited_namespace: str 
         origin, args = _origin_args(concrete)
         if origin is dict and field_value is not None:
             value_type = args[1] if len(args) > 1 else typing.Any
+            keys = [entry.key for entry in field_value.items]
+            if len(keys) != len(set(keys)):
+                raise ValueError(f"Duplicate XML map key in {model.__name__}.{model_field.name}")
             values[model_field.name] = {
                 entry.key: _from_shadow_value(entry.value, value_type, field_namespace)
                 for entry in field_value.items
@@ -321,9 +336,19 @@ def serialize_xml(value: typing.Any) -> bytes:
     return xml.encode("utf-8")
 
 
+def _validate_xml_source(source: bytes) -> None:
+    """Reject unsafe declarations and unreasonably large XML documents."""
+    if len(source) > MAX_XML_BYTES:
+        raise ValueError(f"XML payload exceeds the {MAX_XML_BYTES}-byte limit")
+    normalized = source.replace(b"\x00", b"").lower()
+    if b"<!doctype" in normalized or b"<!entity" in normalized:
+        raise ValueError("DTD and entity declarations are not allowed")
+
+
 def parse_xml(data: bytes | str, model: type) -> typing.Any:
-    """Parse XML into a generated model with xsdata."""
+    """Parse XML into a generated model with strict, non-resolving settings."""
     source = data.encode("utf-8") if isinstance(data, str) else data
+    _validate_xml_source(source)
     shadow = _XML_PARSER.from_bytes(source, _shadow_class(model))
     return _from_shadow_model(shadow, model)
 {% endraw %}
