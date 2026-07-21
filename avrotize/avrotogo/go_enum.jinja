@@ -1,12 +1,65 @@
 package {{ base_package }}
 
-{%- if doc %}
-    // {{ doc }}
+{%- if xml_annotation %}
+import (
+    "encoding/xml"
+    "fmt"
+)
 {%- endif %}
-type {{ struct_name }} int
+
+{%- if doc %}
+// {{ doc }}
+{%- endif %}
+type {{ struct_name }} {% if string_enum %}string{% else %}int{% endif %}
 
 const (
 {%- for symbol in symbols %}
-    {{ struct_name }}_{{ symbol }} {{ struct_name }} = {{ loop.index0 }}
+    {{ struct_name }}_{{ symbol.name }} {{ struct_name }} = {% if string_enum %}"{{ symbol.name }}"{% else %}{{ loop.index0 }}{% endif %}
 {%- endfor %}
 )
+
+{%- if xml_annotation %}
+func (v {{ struct_name }}) xmlValue() (string, error) {
+    switch v {
+    {%- for symbol in symbols %}
+    case {{ struct_name }}_{{ symbol.name }}:
+        return "{{ symbol.xml_value }}", nil
+    {%- endfor %}
+    default:
+        return "", fmt.Errorf("invalid {{ struct_name }} value: %v", v)
+    }
+}
+
+func (v *{{ struct_name }}) setXMLValue(value string) error {
+    switch value {
+    {%- for symbol in symbols %}
+    case "{{ symbol.xml_value }}":
+        *v = {{ struct_name }}_{{ symbol.name }}
+    {%- endfor %}
+    default:
+        return fmt.Errorf("invalid {{ struct_name }} XML value: %s", value)
+    }
+    return nil
+}
+
+func (v {{ struct_name }}) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+    value, err := v.xmlValue()
+    if err != nil { return err }
+    return e.EncodeElement(value, start)
+}
+
+func (v *{{ struct_name }}) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+    var value string
+    if err := d.DecodeElement(&value, &start); err != nil { return err }
+    return v.setXMLValue(value)
+}
+
+func (v {{ struct_name }}) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
+    value, err := v.xmlValue()
+    return xml.Attr{Name: name, Value: value}, err
+}
+
+func (v *{{ struct_name }}) UnmarshalXMLAttr(attr xml.Attr) error {
+    return v.setXMLValue(attr.Value)
+}
+{%- endif %}

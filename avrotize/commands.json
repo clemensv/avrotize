@@ -3606,6 +3606,7 @@
         "package_name": "args.package",
         "json_annotation": "args.json_annotation",
         "avro_annotation": "args.avro_annotation",
+        "xml_annotation": "args.xml_annotation",
         "package_site": "args.package_site",
         "package_username": "args.package_username"
       }
@@ -3649,6 +3650,13 @@
         "required": false
       },
       {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Add encoding/xml struct tags and serialization support",
+        "default": false,
+        "required": false
+      },
+      {
         "name": "--package-site",
         "type": "str",
         "help": "Package site for Go module (e.g., github.com)",
@@ -3675,6 +3683,12 @@
       {
         "name": "--json-annotation",
         "message": "Add JSON struct tags?",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "--xml-annotation",
+        "message": "Use XML annotations?",
         "type": "bool",
         "default": false
       }
@@ -3978,6 +3992,7 @@
         "package_name": "args.package",
         "avro_annotation": "args.avro_annotation",
         "json_annotation": "args.json_annotation",
+        "xml_annotation": "args.xml_annotation",
         "package_site": "args.package_site",
         "package_username": "args.package_username"
       }
@@ -4036,6 +4051,13 @@
         "help": "Use JSON annotations",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Use encoding/xml annotations and serialization support",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-go",
@@ -4049,6 +4071,12 @@
       {
         "name": "--json-annotation",
         "message": "Use JSON annotations?",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "--xml-annotation",
+        "message": "Use XML annotations?",
         "type": "bool",
         "default": false
       },

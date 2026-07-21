@@ -6,7 +6,8 @@ import json
 import os
 from typing import Any, Dict, List, Set, Union, Optional, cast
 
-from avrotize.common import pascal, render_template, json_wire_name, json_enum_wire_value, format_go_files
+from avrotize.common import (pascal, render_template, json_wire_name, json_enum_wire_value, format_go_files,
+                              xml_wire_name, xml_enum_wire_value)
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -27,6 +28,7 @@ class StructureToGo:
         self.base_package = self._safe_package_name(base_package) if base_package else base_package
         self.output_dir = os.getcwd()
         self.json_annotation = False
+        self.xml_annotation = False
         self.avro_annotation = False
         self.package_site = 'github.com'
         self.package_username = 'username'
@@ -264,7 +266,8 @@ class StructureToGo:
                 values_type = self.convert_structure_type_to_go(
                     class_name, field_name+'Map', structure_type.get('values', {'type': 'any'}), 
                     parent_namespace, nullable=True)
-                return f"map[string]{values_type}"
+                map_type = f"map[string]{values_type}"
+                return f"XMLMap[{values_type}]" if self.xml_annotation else map_type
             elif struct_type == 'choice':
                 return self.generate_choice(structure_type, parent_namespace, write_file=True)
             elif struct_type == 'tuple':
@@ -335,7 +338,7 @@ class StructureToGo:
                 class_name, prop_name, prop_schema, schema_namespace, nullable=not is_required)
             
             # Add nullable marker if not required and not already nullable
-            if not is_required and not field_type.startswith('*') and not field_type.startswith('[') and not field_type.startswith('map[') and field_type != 'interface{}':
+            if not is_required and not field_type.startswith('*') and not field_type.startswith('[') and not field_type.startswith('map[') and not field_type.startswith('XMLMap[') and field_type != 'interface{}':
                 field_type = f'*{field_type}'
             
             # Get source type - handle nullable unions like ["int64", "null"]
@@ -351,6 +354,11 @@ class StructureToGo:
                 'name': pascal(prop_name),
                 'type': field_type,
                 'original_name': json_wire_name(prop_name, prop_schema),
+                'xml_name': xml_wire_name(prop_name, prop_schema),
+                'xml_kind': prop_schema.get('xmlkind', 'element'),
+                'xml_required': is_required and source_type not in ('array', 'set', 'map'),
+                'xml_repeated': isinstance(raw_type, str) and raw_type in ('array', 'set'),
+                'xml_ambiguous': field_type.lstrip('*') == 'interface{}',
                 'source_type': source_type
             })
 
@@ -375,6 +383,10 @@ class StructureToGo:
             'fields': fields,
             'imports': imports,
             'json_annotation': self.json_annotation,
+            'xml_annotation': self.xml_annotation,
+            'xml_name': xml_wire_name(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'), structure_schema),
+            'xml_namespace': structure_schema.get('xmlns', ''),
+            'needs_xml_name': bool(structure_schema.get('xmlns')) or xml_wire_name(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'), structure_schema) != go_struct_name,
             'avro_annotation': self.avro_annotation,
             'avro_schema': avro_schema_str,
             'base_package': self.base_package,
@@ -411,7 +423,8 @@ class StructureToGo:
         self.generated_structure_types[go_enum_name] = structure_schema
 
         raw_symbols = structure_schema.get('enum', [])
-        symbols = [{'name': str(s), 'value': json_enum_wire_value(s, structure_schema)} for s in raw_symbols]
+        symbols = [{'name': str(s), 'value': json_enum_wire_value(s, structure_schema),
+                    'xml_value': xml_enum_wire_value(s, structure_schema)} for s in raw_symbols]
         
         # Determine base type
         base_type = structure_schema.get('type', 'string')
@@ -423,6 +436,7 @@ class StructureToGo:
             'symbols': symbols,
             'base_type': go_base_type,
             'base_package': self.base_package,
+            'xml_annotation': self.xml_annotation,
         }
 
         pkg_dir = os.path.join(self.output_dir, 'pkg', self.base_package)
@@ -468,7 +482,7 @@ class StructureToGo:
                 interface_name, prop_name, prop_schema, schema_namespace, nullable=not is_required)
             
             # Add nullable marker if not required and not already nullable
-            if not is_required and not field_type.startswith('*') and not field_type.startswith('[') and not field_type.startswith('map[') and field_type != 'interface{}':
+            if not is_required and not field_type.startswith('*') and not field_type.startswith('[') and not field_type.startswith('map[') and not field_type.startswith('XMLMap[') and field_type != 'interface{}':
                 field_type = f'*{field_type}'
             
             # Generate getter method
@@ -622,6 +636,7 @@ class StructureToGo:
             'package_site': self.package_site,
             'package_username': self.package_username,
             'json_annotation': self.json_annotation,
+            'xml_annotation': self.xml_annotation,
             'avro_annotation': self.avro_annotation
         }
 
@@ -630,6 +645,13 @@ class StructureToGo:
             os.makedirs(pkg_dir, exist_ok=True)
         test_file_name = os.path.join(pkg_dir, f"{name}_test.go")
         render_template('structuretogo/go_test.jinja', test_file_name, **context)
+
+    def write_xml_helpers(self) -> None:
+        """Write generic XML support for map fields."""
+        if not self.xml_annotation:
+            return
+        helper_path = os.path.join(self.output_dir, 'pkg', self.base_package, 'xml_helpers.go')
+        render_template('structuretogo/xml_helpers.jinja', helper_path, base_package=self.base_package)
 
     def write_go_mod_file(self):
         """Writes the go.mod file for the Go project"""
@@ -718,6 +740,7 @@ class StructureToGo:
         self.write_go_mod_file()
         self.write_modname_go_file()
         self.generate_helpers()
+        self.write_xml_helpers()
         format_go_files(self.output_dir)
 
     def convert(self, structure_schema_path: str, output_dir: str):
@@ -733,7 +756,7 @@ class StructureToGo:
 
 def convert_structure_to_go(structure_schema_path: str, go_file_path: str, package_name: str = '',
                             json_annotation: bool = False, avro_annotation: bool = False,
-                            package_site: str = 'github.com', package_username: str = 'username'):
+                            xml_annotation: bool = False, package_site: str = 'github.com', package_username: str = 'username'):
     """Converts JSON Structure schema to Go structs
 
     Args:
@@ -742,6 +765,7 @@ def convert_structure_to_go(structure_schema_path: str, go_file_path: str, packa
         package_name (str): Base package name
         json_annotation (bool): Include JSON annotations
         avro_annotation (bool): Include Avro annotations
+        xml_annotation (bool): Include XML annotations and serialization
         package_site (str): Package site for Go module
         package_username (str): Package username for Go module
     """
@@ -751,6 +775,7 @@ def convert_structure_to_go(structure_schema_path: str, go_file_path: str, packa
     structuretogo = StructureToGo(package_name)
     structuretogo.json_annotation = json_annotation
     structuretogo.avro_annotation = avro_annotation
+    structuretogo.xml_annotation = xml_annotation
     structuretogo.package_site = package_site
     structuretogo.package_username = package_username
     structuretogo.convert(structure_schema_path, go_file_path)
@@ -758,7 +783,7 @@ def convert_structure_to_go(structure_schema_path: str, go_file_path: str, packa
 
 def convert_structure_schema_to_go(structure_schema: JsonNode, output_dir: str, package_name: str = '',
                                    json_annotation: bool = False, avro_annotation: bool = False,
-                                   package_site: str = 'github.com', package_username: str = 'username'):
+                                   xml_annotation: bool = False, package_site: str = 'github.com', package_username: str = 'username'):
     """Converts JSON Structure schema to Go structs
 
     Args:
@@ -767,12 +792,14 @@ def convert_structure_schema_to_go(structure_schema: JsonNode, output_dir: str, 
         package_name (str): Base package name
         json_annotation (bool): Include JSON annotations
         avro_annotation (bool): Include Avro annotations
+        xml_annotation (bool): Include XML annotations and serialization
         package_site (str): Package site for Go module
         package_username (str): Package username for Go module
     """
     structuretogo = StructureToGo(package_name)
     structuretogo.json_annotation = json_annotation
     structuretogo.avro_annotation = avro_annotation
+    structuretogo.xml_annotation = xml_annotation
     structuretogo.package_site = package_site
     structuretogo.package_username = package_username
     structuretogo.convert_schema(structure_schema, output_dir)

@@ -870,6 +870,29 @@ def json_wire_name(prop_name: str, prop_schema: Any) -> str:
     return prop_name
 
 
+def xml_wire_name(name: str, schema: Any) -> str:
+    """Resolve an XML local name, honoring ``altnames.xml``."""
+    if isinstance(schema, dict):
+        altnames = schema.get("altnames")
+        if isinstance(altnames, dict) and isinstance(altnames.get("xml"), str):
+            return altnames["xml"]
+    return name
+
+
+def xml_enum_wire_value(value: Any, enum_schema: Any) -> str:
+    """Resolve an XML enum value, honoring XML alternate-symbol maps."""
+    if isinstance(enum_schema, dict):
+        # JSON Structure calls this map ``altenums`` while Avrotize/Avro
+        # schemas historically use ``altsymbols``. Accept both spellings.
+        for key in ("altenums", "altsymbols"):
+            alternates = enum_schema.get(key)
+            if isinstance(alternates, dict):
+                xml_values = alternates.get("xml")
+                if isinstance(xml_values, dict) and str(value) in xml_values:
+                    return str(xml_values[str(value)])
+    return str(value)
+
+
 def json_enum_wire_value(value: Any, enum_schema: Any) -> str:
     """
     Resolve the JSON wire string for an enum value, honoring JSON Structure ``altenums.json``.

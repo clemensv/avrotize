@@ -1,7 +1,8 @@
 import json
 import os
 from typing import Dict, List, Union, Set
-from avrotize.common import get_longest_namespace_prefix, is_generic_avro_type, is_any_value_type, pascal, render_template, format_go_files
+from avrotize.common import (get_longest_namespace_prefix, is_generic_avro_type, is_any_value_type, pascal,
+                              render_template, format_go_files, xml_wire_name, xml_enum_wire_value)
 
 INDENT = '    '
 
@@ -26,6 +27,7 @@ class AvroToGo:
         self.referenced_packages_stack: List[Dict[str, Set[str]]] = []
         self.avro_annotation = False
         self.json_annotation = False
+        self.xml_annotation = False
         self.longest_common_prefix = ''
         self.package_site = 'github.com'
         self.package_username = 'username'
@@ -126,9 +128,8 @@ class AvroToGo:
                 return f"[]{item_type}"
             elif avro_type['type'] == 'map':
                 values_type = self.convert_avro_type_to_go(field_name, avro_type['values'], nullable=True, parent_namespace=parent_namespace)
-                if values_type.startswith('*'): 
-                    return f"map[string]{values_type}"
-                return f"map[string]{values_type}"
+                map_type = f"map[string]{values_type}"
+                return f"XMLMap[{values_type}]" if self.xml_annotation else map_type
             elif 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'date':
                     return 'time.Time'
@@ -171,11 +172,20 @@ class AvroToGo:
         self.generated_types_avro_namespace[avro_fullname] = "struct"
         self.generated_types_go_package[go_struct_name] = "struct"
 
-        fields = [{
-            'name': pascal(field['name']),
-            'type': self.convert_avro_type_to_go(field['name'], field['type'], parent_namespace=namespace),
-            'original_name': field['name']
-        } for field in avro_schema.get('fields', [])]
+        fields = []
+        for field in avro_schema.get('fields', []):
+            field_type = self.convert_avro_type_to_go(field['name'], field['type'], parent_namespace=namespace)
+            raw_type = field['type']
+            fields.append({
+                'name': pascal(field['name']),
+                'type': field_type,
+                'original_name': field['name'],
+                'xml_name': xml_wire_name(field['name'], field),
+                'xml_kind': field.get('xmlkind', 'element'),
+                'xml_required': not (isinstance(raw_type, list) and 'null' in raw_type) and not (isinstance(raw_type, dict) and raw_type.get('type') in ('array', 'map')),
+                'xml_repeated': isinstance(raw_type, dict) and raw_type.get('type') == 'array',
+                'xml_ambiguous': field_type.lstrip('*') == 'interface{}',
+            })
 
         # Collect imports from field types
         go_types = [f['type'] for f in fields]
@@ -187,6 +197,10 @@ class AvroToGo:
             'fields': fields,
             'avro_schema': json.dumps(avro_schema),
             'json_annotation': self.json_annotation,
+            'xml_annotation': self.xml_annotation,
+            'xml_name': xml_wire_name(avro_schema['name'], avro_schema),
+            'xml_namespace': avro_schema.get('xmlns', ''),
+            'needs_xml_name': bool(avro_schema.get('xmlns')) or xml_wire_name(avro_schema['name'], avro_schema) != go_struct_name,
             'avro_annotation': self.avro_annotation,
             'json_match_predicates': [self.get_is_json_match_clause(f['name'], f['type']) for f in fields],
             'base_package': self.base_package,
@@ -223,9 +237,14 @@ class AvroToGo:
         context = {
             'doc': avro_schema.get('doc', ''),
             'struct_name': enum_name,
-            'symbols': avro_schema.get('symbols', []),
+            'symbols': [
+                {'name': symbol, 'xml_value': xml_enum_wire_value(symbol, avro_schema)}
+                for symbol in avro_schema.get('symbols', [])
+            ],
             'imports': imports,
             'base_package': self.base_package,
+            'xml_annotation': self.xml_annotation,
+            'string_enum': self.avro_annotation,
             'referenced_packages': self.referenced_packages.keys()
         }
 
@@ -238,9 +257,10 @@ class AvroToGo:
         self.enums.append({
             'name': enum_name,
             'symbols': avro_schema.get('symbols', []),
+            'string_enum': self.avro_annotation,
         })
 
-        self.generate_unit_test('enum', enum_name, context['symbols'])
+        self.generate_unit_test('enum', enum_name, avro_schema.get('symbols', []))
 
         return enum_name
 
@@ -256,6 +276,7 @@ class AvroToGo:
             'union_class_name': union_class_name,
             'union_types': union_types,
             'json_annotation': self.json_annotation,
+            'xml_annotation': self.xml_annotation,
             'avro_annotation': self.avro_annotation,
             'get_is_json_match_clause': self.get_is_json_match_clause,
             'base_package': self.base_package,
@@ -303,14 +324,14 @@ class AvroToGo:
             return f"if _, ok := node[\"{field_name}\"].([]byte); !ok {{ return false }}"
         elif field_type == 'interface{}':
             return f"if _, ok := node[\"{field_name}\"].(interface{{}}); !ok {{ return false }}"
-        elif field_type.startswith('map[string]'):
+        elif field_type.startswith('map[string]') or field_type.startswith('XMLMap['):
             return f"if _, ok := node[\"{field_name}\"].(map[string]interface{{}}); !ok {{ return false }}"
         elif field_type.startswith('[]'):
             return f"if _, ok := node[\"{field_name}\"].([]interface{{}}); !ok {{ return false }}"
         elif field_type in self.generated_types_go_package:
             return f"if _, ok := node[\"{field_name}\"].({field_type}); !ok {{ return false }}"
         else:
-            return f"if _, ok := node[\"{field_name}\"].(map[string.interface{{}}); !ok {{ return false }}"
+            return f"if _, ok := node[\"{field_name}\"].(map[string]interface{{}}); !ok {{ return false }}"
 
     def get_imports_for_definition(self, types: List[str]) -> Set[str]:
         """Collects necessary imports for the Go definition based on the Go types"""
@@ -402,6 +423,7 @@ class AvroToGo:
             'package_site': self.package_site,
             'package_username': self.package_username,
             'json_annotation': self.json_annotation,
+            'xml_annotation': self.xml_annotation,
             'avro_annotation': self.avro_annotation
         }
 
@@ -427,7 +449,15 @@ class AvroToGo:
         self.write_go_mod_file()
         self.write_modname_go_file()
         self.generate_helpers()
+        self.write_xml_helpers()
         format_go_files(self.output_dir)
+
+    def write_xml_helpers(self) -> None:
+        """Write generic XML support for map fields."""
+        if not self.xml_annotation:
+            return
+        helper_path = os.path.join(self.output_dir, 'pkg', self.base_package, 'xml_helpers.go')
+        render_template('avrotogo/xml_helpers.jinja', helper_path, base_package=self.base_package)
 
     def write_go_mod_file(self):
         """Writes the go.mod file for the Go project"""
@@ -463,7 +493,7 @@ class AvroToGo:
         self.convert_schema(schema, output_dir)
 
 
-def convert_avro_to_go(avro_schema_path, go_file_path, package_name='', avro_annotation=False, json_annotation=False, package_site='github.com', package_username='username'):
+def convert_avro_to_go(avro_schema_path, go_file_path, package_name='', avro_annotation=False, json_annotation=False, xml_annotation=False, package_site='github.com', package_username='username'):
     """Converts Avro schema to Go structs
 
     Args:
@@ -472,6 +502,7 @@ def convert_avro_to_go(avro_schema_path, go_file_path, package_name='', avro_ann
         package_name (str): Base package name
         avro_annotation (bool): Include Avro annotations
         json_annotation (bool): Include JSON annotations
+        xml_annotation (bool): Include XML annotations and serialization
     """
     if not package_name:
         package_name = os.path.splitext(os.path.basename(avro_schema_path))[0]
@@ -479,12 +510,13 @@ def convert_avro_to_go(avro_schema_path, go_file_path, package_name='', avro_ann
     avrotogo = AvroToGo(package_name)
     avrotogo.avro_annotation = avro_annotation
     avrotogo.json_annotation = json_annotation
+    avrotogo.xml_annotation = xml_annotation
     avrotogo.package_site = package_site if package_site else 'github.com'
     avrotogo.package_username = package_username if package_username else 'username'
     avrotogo.convert(avro_schema_path, go_file_path)
 
 
-def convert_avro_schema_to_go(avro_schema: JsonNode, output_dir: str, package_name='', avro_annotation=False, json_annotation=False, package_site='github.com', package_username='username'):
+def convert_avro_schema_to_go(avro_schema: JsonNode, output_dir: str, package_name='', avro_annotation=False, json_annotation=False, xml_annotation=False, package_site='github.com', package_username='username'):
     """Converts Avro schema to Go structs
 
     Args:
@@ -493,10 +525,12 @@ def convert_avro_schema_to_go(avro_schema: JsonNode, output_dir: str, package_na
         package_name (str): Base package name
         avro_annotation (bool): Include Avro annotations
         json_annotation (bool): Include JSON annotations
+        xml_annotation (bool): Include XML annotations and serialization
     """
     avrotogo = AvroToGo(package_name)
     avrotogo.avro_annotation = avro_annotation
     avrotogo.json_annotation = json_annotation
+    avrotogo.xml_annotation = xml_annotation
     avrotogo.package_site = package_site if package_site else 'github.com'
     avrotogo.package_username = package_username if package_username else 'username'
     avrotogo.convert_schema(avro_schema, output_dir)
