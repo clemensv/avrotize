@@ -1,4 +1,4 @@
-{%- if serde_annotation %}
+{%- if serde_annotation or xml_annotation %}
 use serde::{self, Serialize, Deserialize};
 {%- endif %}
 
@@ -6,9 +6,6 @@ use serde::{self, Serialize, Deserialize};
 /// {{ doc }}
 {%- endif %}
 #[derive(Debug, PartialEq, Clone)]
-{%- if serde_annotation %}
-#[serde(untagged)]
-{%- endif %}
 pub enum {{ union_enum_name }} {
 {%- for variant in variants %}
     {{ variant.variant_name }}({{ variant.type -}})
@@ -22,15 +19,41 @@ impl Default for {{ union_enum_name }} {
     }
 }
 
-{%- if serde_annotation %}
+{%- if serde_annotation or xml_annotation %}
 impl Serialize for {{ union_enum_name }} {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::ser::Serializer
     {
+        {%- if xml_annotation %}
+        let is_xml = std::any::type_name::<S>().contains("quick_xml");
+        {%- endif %}
         match self {
             {%- for variant in variants %}
-            {{ union_enum_name }}::{{ variant.variant_name}}(value) => value.serialize(serializer),
+            {{ union_enum_name }}::{{ variant.variant_name}}(value) => {
+                {%- if xml_annotation and variant.xml_reject_value %}
+                if is_xml {
+                    return Err(serde::ser::Error::custom("ambiguous XML union value"));
+                }
+                {%- endif %}
+                {%- if xml_annotation and variant.xml_guard_string %}
+                if is_xml && (
+                    {%- if xml_string_guards.bool %}
+                    value.parse::<bool>().is_ok() ||
+                    {%- endif %}
+                    {%- if xml_string_guards.integer %}
+                    value.parse::<i128>().is_ok() ||
+                    {%- endif %}
+                    {%- if xml_string_guards.float %}
+                    value.parse::<f64>().is_ok() ||
+                    {%- endif %}
+                    false
+                ) {
+                    return Err(serde::ser::Error::custom("ambiguous XML union scalar"));
+                }
+                {%- endif %}
+                value.serialize(serializer)
+            },
             {%- endfor %}
         }
     }
@@ -41,7 +64,25 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
     where
         D: serde::de::Deserializer<'de>
     {
+        {%- if xml_annotation %}
+        let is_xml = std::any::type_name::<D>().contains("quick_xml");
+        {%- endif %}
         let node = serde_json::Value::deserialize(deserializer)?;
+        {%- if xml_annotation %}
+        if is_xml && xml_scalar_match_count(&node) > 1 {
+            return Err(serde::de::Error::custom("ambiguous XML union scalar"));
+        }
+        let node = if is_xml { normalize_xml_value(node) } else { node };
+        if is_xml {
+            let match_count = 0usize
+                {%- for variant in variants %}
+                + usize::from(serde_json::from_value::<{{ variant.type }}>(node.clone()).is_ok())
+                {%- endfor %};
+            if match_count > 1 {
+                return Err(serde::de::Error::custom("ambiguous XML union value"));
+            }
+        }
+        {%- endif %}
         {%- for variant in variants %}
         {
             if let Ok(value) = serde_json::from_value::<{{ variant.type }}>(node.clone()) {
@@ -54,16 +95,88 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
 }
 {%- endif %}
 
+{%- if xml_annotation %}
+fn xml_scalar_match_count(value: &serde_json::Value) -> usize {
+    let serde_json::Value::Object(object) = value else {
+        return 0;
+    };
+    if object.len() != 1 {
+        return 0;
+    }
+    let Some(serde_json::Value::String(text)) = object.get("$text") else {
+        return 0;
+    };
+    0usize
+        {%- for variant in variants %}
+        {%- if variant.type == "String" %}
+        + 1
+        {%- elif variant.type == "bool" %}
+        + usize::from(text.parse::<bool>().is_ok())
+        {%- elif variant.type in ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "isize", "usize"] %}
+        + usize::from(text.parse::<i128>().is_ok())
+        {%- elif variant.type in ["f32", "f64"] %}
+        + usize::from(text.parse::<f64>().is_ok())
+        {%- endif %}
+        {%- endfor %}
+}
+
+fn normalize_xml_value(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(mut object) if object.len() == 1 && object.contains_key("$text") => {
+            normalize_xml_text(object.remove("$text").unwrap())
+        }
+        serde_json::Value::Object(object) => serde_json::Value::Object(
+            object.into_iter().map(|(key, value)| (key, normalize_xml_value(value))).collect()
+        ),
+        serde_json::Value::Array(values) => {
+            serde_json::Value::Array(values.into_iter().map(normalize_xml_value).collect())
+        }
+        other => other,
+    }
+}
+
+fn normalize_xml_text(value: serde_json::Value) -> serde_json::Value {
+    let serde_json::Value::String(text) = value else {
+        return normalize_xml_value(value);
+    };
+    if let Ok(value) = text.parse::<bool>() {
+        return serde_json::Value::Bool(value);
+    }
+    if let Ok(value) = text.parse::<i64>() {
+        return serde_json::Value::Number(value.into());
+    }
+    if let Ok(value) = text.parse::<u64>() {
+        return serde_json::Value::Number(value.into());
+    }
+    if let Ok(value) = text.parse::<f64>() {
+        if let Some(value) = serde_json::Number::from_f64(value) {
+            return serde_json::Value::Number(value);
+        }
+    }
+    serde_json::Value::String(text)
+}
+{%- endif %}
+
 #[cfg(test)]
 impl {{ union_enum_name }} {
+{%- set xml_safe_variants = variants | selectattr('xml_safe_for_random') | list %}
     pub fn generate_random_instance() -> {{ union_enum_name }} {
         let mut rng = rand::thread_rng();
-        match rand::Rng::gen_range(&mut rng, 0..{{ variants | length }}) {
-            {%- for variant in variants %}
-            {{ loop.index0 }} => {{ union_enum_name }}::{{ variant.variant_name }}(Default::default()),
+        {%- if xml_annotation and xml_safe_variants | length > 0 %}
+        match rand::Rng::gen_range(&mut rng, 0..{{ xml_safe_variants | length }}) {
+            {%- for variant in xml_safe_variants %}
+            {{ loop.index0 }} => {{ union_enum_name }}::{{ variant.variant_name }}({{ variant.random_value }}),
             {%- endfor %}
             _ => panic!("Invalid random index generated"),
         }
+        {%- else %}
+        match rand::Rng::gen_range(&mut rng, 0..{{ variants | length }}) {
+            {%- for variant in variants %}
+            {{ loop.index0 }} => {{ union_enum_name }}::{{ variant.variant_name }}({{ variant.random_value }}),
+            {%- endfor %}
+            _ => panic!("Invalid random index generated"),
+        }
+        {%- endif %}
     }
 }
 
@@ -73,8 +186,9 @@ mod tests {
 
     #[test]
     fn test_union_variants_{{ union_enum_name.lower() }}() {
+        let mut rng = rand::thread_rng();
         {%- for variant in variants %}
-        let instance = {{ union_enum_name }}::{{ variant.variant_name }}(Default::default());
+        let instance = {{ union_enum_name }}::{{ variant.variant_name }}({{ variant.random_value }});
         assert!(matches!(instance, {{ union_enum_name }}::{{ variant.variant_name }}(_)));
         {%- endfor %}
     }

@@ -7,7 +7,14 @@ import os
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, snake, render_template, json_wire_name, json_enum_wire_value
+from avrotize.common import (
+    pascal,
+    snake,
+    render_template,
+    json_wire_name,
+    json_enum_wire_value,
+)
+from avrotize.rust_xml import xml_wire_name, xml_enum_wire_value
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -17,9 +24,10 @@ INDENT = '    '
 class StructureToRust:
     """ Converts JSON Structure schema to Rust structs """
 
-    def __init__(self, base_package: str = '', serde_annotation: bool = False) -> None:
+    def __init__(self, base_package: str = '', serde_annotation: bool = False, xml_annotation: bool = False) -> None:
         self.base_package = base_package.replace('.', '/').lower()
         self.serde_annotation = serde_annotation
+        self.xml_annotation = xml_annotation
         self.output_dir = os.getcwd()
         self.schema_doc: JsonNode = None
         self.generated_types_rust_package: Dict[str, str] = {}
@@ -271,6 +279,134 @@ class StructureToRust:
             return self.generate_tuple(structure_schema, parent_namespace, write_file, explicit_name=explicit_name)
         return 'serde_json::Value'
 
+    def collect_xml_field_metadata(
+        self, structure_type
+    ) -> tuple[
+        set[str],
+        set[str],
+        set[str],
+        set[tuple[str, str]],
+        set[tuple[str, str, str]],
+        set[tuple[str, str]],
+    ]:
+        """Collects nested XML element, attribute, and map property names."""
+        elements: set[str] = set()
+        attributes: set[str] = set()
+        maps: set[str] = set()
+        relationships: set[tuple[str, str]] = set()
+        namespaces: set[tuple[str, str, str]] = set()
+        attribute_owners: set[tuple[str, str]] = set()
+        visited: set[tuple[int, str]] = set()
+
+        def nested_objects(node):
+            if isinstance(node, list):
+                return [record for item in node for record in nested_objects(item)]
+            if not isinstance(node, dict):
+                return []
+            if '$ref' in node:
+                resolved = self.resolve_ref(
+                    node['$ref'],
+                    self.schema_doc if isinstance(self.schema_doc, dict) else None,
+                )
+                return nested_objects(resolved)
+            node_type = node.get('type')
+            if node_type in ('object', 'tuple'):
+                return [node]
+            if node_type in ('array', 'set'):
+                return nested_objects(node.get('items'))
+            if node_type == 'choice':
+                return [
+                    record
+                    for choice in node.get('choices', {}).values()
+                    for record in nested_objects(choice)
+                ]
+            return []
+
+        def visit(node, parent_element=None, inherited_namespace=''):
+            if isinstance(node, list):
+                for item in node:
+                    visit(item, parent_element, inherited_namespace)
+            elif isinstance(node, dict):
+                if '$ref' in node:
+                    resolved = self.resolve_ref(
+                        node['$ref'],
+                        self.schema_doc if isinstance(self.schema_doc, dict) else None,
+                    )
+                    if resolved:
+                        visit(resolved, parent_element, inherited_namespace)
+                    return
+                node_type = node.get('type')
+                if node_type in ('object', 'tuple'):
+                    visit_key = (id(node), parent_element or '')
+                    if visit_key in visited:
+                        return
+                    visited.add(visit_key)
+                    record_namespace = node.get('xmlns', inherited_namespace)
+                    for prop_name, prop_schema in node.get('properties', {}).items():
+                        name = xml_wire_name(prop_name, prop_schema)
+                        if prop_schema.get('xmlkind', 'element') == 'attribute':
+                            attributes.add(name)
+                            attribute_owners.add((parent_element or '', name))
+                        else:
+                            elements.add(name)
+                            parent = parent_element or ''
+                            if parent_element:
+                                relationships.add((parent_element, name))
+                            if prop_schema.get('type') == 'map':
+                                maps.add(name)
+                            records = nested_objects(prop_schema)
+                            field_namespaces = {
+                                record.get('xmlns', record_namespace) for record in records
+                            } or {record_namespace}
+                            namespaces.update((parent, name, namespace) for namespace in field_namespaces)
+                        visit(prop_schema, name, record_namespace)
+                elif node_type in ('array', 'set'):
+                    visit(node.get('items'), parent_element, inherited_namespace)
+                elif node_type == 'map':
+                    visit(node.get('values'), parent_element, inherited_namespace)
+                elif node_type == 'choice':
+                    for choice in node.get('choices', {}).values():
+                        visit(choice, parent_element, inherited_namespace)
+
+        visit(structure_type)
+        return elements, attributes, maps, relationships, namespaces, attribute_owners
+
+    def add_xml_union_metadata(self, variants: list[dict]) -> dict[str, bool]:
+        """Marks union variants whose XML lexical forms cannot round-trip unambiguously."""
+        scalar_kinds = {
+            'String': 'string',
+            'bool': 'bool',
+            'i8': 'integer', 'i16': 'integer', 'i32': 'integer', 'i64': 'integer',
+            'u8': 'integer', 'u16': 'integer', 'u32': 'integer', 'u64': 'integer',
+            'isize': 'integer', 'usize': 'integer',
+            'f32': 'float', 'f64': 'float',
+        }
+        present_scalar_kinds = {scalar_kinds[variant['type']] for variant in variants if variant['type'] in scalar_kinds}
+        type_counts = {
+            rust_type: sum(1 for variant in variants if variant['type'] == rust_type)
+            for rust_type in {variant['type'] for variant in variants}
+        }
+        kind_counts = {
+            kind: sum(1 for variant in variants if scalar_kinds.get(variant['type']) == kind)
+            for kind in present_scalar_kinds
+        }
+        for variant in variants:
+            scalar_kind = scalar_kinds.get(variant['type'])
+            variant['xml_scalar_kind'] = scalar_kind or ''
+            variant['xml_guard_string'] = scalar_kind == 'string' and len(present_scalar_kinds) > 1
+            variant['xml_reject_value'] = (
+                type_counts[variant['type']] > 1
+                or (scalar_kind is not None and kind_counts[scalar_kind] > 1)
+                or (scalar_kind is not None and scalar_kind != 'string' and 'string' in present_scalar_kinds)
+                or (scalar_kind == 'integer' and 'float' in present_scalar_kinds)
+            )
+            variant['xml_safe_for_random'] = not variant['xml_reject_value']
+        return {
+            'bool': 'bool' in present_scalar_kinds,
+            'integer': 'integer' in present_scalar_kinds,
+            'float': 'float' in present_scalar_kinds,
+        }
+
     def generate_class(self, structure_schema: Dict, parent_namespace: str, write_file: bool, explicit_name: str = '') -> str:
         """ Generates a Rust struct from JSON Structure object type """
         # Get name and namespace
@@ -307,7 +443,9 @@ class StructureToRust:
             if 'const' in prop_schema:
                 continue
             
-            original_field_name = json_wire_name(prop_name, prop_schema)
+            json_name = json_wire_name(prop_name, prop_schema)
+            xml_name = xml_wire_name(prop_name, prop_schema)
+            original_field_name = xml_name if self.xml_annotation else json_name
             field_name = self.safe_identifier(snake(prop_name))
             
             # Determine if required
@@ -322,7 +460,9 @@ class StructureToRust:
             if not is_required and not prop_type.startswith('Option<'):
                 prop_type = f'Option<{prop_type}>'
             
-            serde_rename = field_name != original_field_name
+            xml_kind = prop_schema.get('xmlkind', 'element')
+            serde_name = f"@{xml_name}" if self.xml_annotation and xml_kind == 'attribute' else original_field_name
+            serde_rename = field_name != serde_name
             
             # Get source type - handle nullable unions like ["int64", "null"]
             raw_type = prop_schema.get('type', 'string')
@@ -333,23 +473,48 @@ class StructureToRust:
                 source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
             else:
                 source_type = 'object'
+            is_generated_type = prop_type in self.generated_types_rust_package or '::' in prop_type
             fields.append({
                 'original_name': original_field_name,
+                'json_name': json_name,
+                'serde_name': serde_name,
+                'serde_alias': json_name if self.serde_annotation and self.xml_annotation and json_name != serde_name else '',
+                'xml_name': xml_name,
+                'xml_kind': xml_kind,
                 'name': field_name,
                 'type': prop_type,
+                'is_optional': prop_type.startswith('Option<'),
                 'source_type': source_type,
                 'serde_rename': serde_rename,
+                'is_generated_type': is_generated_type,
                 'random_value': self.generate_random_value(prop_type)
             })
 
         # Get docstring
         doc = structure_schema.get('description', structure_schema.get('doc', class_name))
+        (
+            descendant_elements,
+            descendant_attributes,
+            descendant_maps,
+            descendant_relationships,
+            element_namespaces,
+            attribute_owners,
+        ) = self.collect_xml_field_metadata(structure_schema)
 
         # Prepare context for template
         context = {
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'doc': doc,
             'struct_name': self.safe_identifier(class_name),
+            'xml_name': xml_wire_name(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'), structure_schema),
+            'xml_namespace': structure_schema.get('xmlns', ''),
+            'xml_descendant_elements': sorted(descendant_elements),
+            'xml_descendant_attributes': sorted(descendant_attributes),
+            'xml_descendant_maps': sorted(descendant_maps),
+            'xml_descendant_relationships': sorted(descendant_relationships),
+            'xml_element_namespaces': sorted(element_namespaces),
+            'xml_attribute_owners': sorted(attribute_owners),
             'fields': fields,
             'is_abstract': is_abstract,
         }
@@ -382,18 +547,29 @@ class StructureToRust:
         # Convert enum values to valid Rust identifiers
         symbols = []
         for value in enum_values:
-            wire = json_enum_wire_value(value, structure_schema)
+            wire = xml_enum_wire_value(value, structure_schema) if self.xml_annotation else json_enum_wire_value(value, structure_schema)
             if isinstance(value, str):
                 symbol = pascal(value.replace('-', '_').replace(' ', '_'))
-                symbols.append({'name': symbol, 'value': wire})
+                json_wire = json_enum_wire_value(value, structure_schema)
+                symbols.append({
+                    'name': symbol,
+                    'value': wire,
+                    'json_value': json_wire if symbol != json_wire else snake(symbol),
+                })
             else:
-                symbols.append({'name': f"Value{value}", 'value': str(value)})
+                symbols.append({
+                    'name': f"Value{value}",
+                    'value': str(value),
+                    'json_value': json_enum_wire_value(value, structure_schema),
+                })
 
         doc = structure_schema.get('description', structure_schema.get('doc', enum_name))
 
         context = {
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'enum_name': self.safe_identifier(enum_name),
+            'xml_name': xml_wire_name(structure_schema.get('name', field_name + 'Enum'), structure_schema),
             'symbols': symbols,
             'doc': doc,
         }
@@ -436,7 +612,8 @@ class StructureToRust:
                         choice_types.append({
                             'variant_name': pascal(choice_key),
                             'type': type_name,
-                            'tag': choice_key
+                            'tag': choice_key,
+                            'random_value': self.generate_random_value(type_ref),
                         })
                 elif 'type' in choice_schema:
                     # Generate inline type
@@ -444,15 +621,19 @@ class StructureToRust:
                     choice_types.append({
                         'variant_name': pascal(choice_key),
                         'type': rust_type,
-                        'tag': choice_key
+                        'tag': choice_key,
+                        'random_value': self.generate_random_value(rust_type),
                     })
 
         doc = structure_schema.get('description', structure_schema.get('doc', choice_name))
+        xml_string_guards = self.add_xml_union_metadata(choice_types)
 
         context = {
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'union_enum_name': self.safe_identifier(pascal(choice_name)),
             'variants': choice_types,
+            'xml_string_guards': xml_string_guards,
             'doc': doc,
         }
 
@@ -487,14 +668,18 @@ class StructureToRust:
             union_types.append({
                 'variant_name': variant_name,
                 'type': type_name,
+                'random_value': self.generate_random_value(type_name),
             })
+        xml_string_guards = self.add_xml_union_metadata(union_types)
         
         qualified_union_enum_name = self.safe_package(self.concat_package(ns, union_enum_name))
         
         context = {
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'union_enum_name': union_enum_name,
             'variants': union_types,
+            'xml_string_guards': xml_string_guards,
             'doc': f'Union type for {field_name}',
         }
 
@@ -593,9 +778,11 @@ class StructureToRust:
     def write_cargo_toml(self):
         """Writes the Cargo.toml file for the Rust project"""
         dependencies = []
-        if self.serde_annotation:
+        if self.serde_annotation or self.xml_annotation:
             dependencies.append('serde = { version = "1.0", features = ["derive"] }')
             dependencies.append('serde_json = "1.0"')
+        if self.xml_annotation:
+            dependencies.append('quick-xml = { version = "0.38", features = ["serialize"] }')
         dependencies.append('chrono = { version = "0.4", features = ["serde"] }')
         dependencies.append('uuid = { version = "1.11", features = ["serde", "v4"] }')
         dependencies.append('flate2 = "1.0"')
@@ -615,6 +802,8 @@ class StructureToRust:
         """Writes the lib.rs file for the Rust project"""
         modules = {name[(len('crate::')):].split('::')[0].replace('.', '_') for name in self.generated_types_rust_package if name.startswith('crate::')}
         mod_statements = '\n'.join(f'pub mod {self.escaped_identifier(module)};' for module in sorted(modules))
+        if self.xml_annotation:
+            mod_statements = 'pub(crate) mod xml_support;\n' + mod_statements
         
         lib_rs_content = f"""
 // This is the library entry point
@@ -626,6 +815,14 @@ class StructureToRust:
             os.makedirs(os.path.dirname(lib_rs_path), exist_ok=True)
         with open(lib_rs_path, 'w', encoding='utf-8') as file:
             file.write(lib_rs_content)
+
+    def write_xml_support_rs(self):
+        """Writes shared XML validation and bounded decompression helpers."""
+        if self.xml_annotation:
+            render_template(
+                'rust/xml_support.rs.jinja',
+                os.path.join(self.output_dir, "src", "xml_support.rs"),
+            )
 
     def process_definitions(self, definitions: Dict, namespace_path: str) -> None:
         """ Processes the definitions section recursively """
@@ -681,6 +878,7 @@ class StructureToRust:
                 self.process_definitions(self.definitions, '')
 
         self.write_cargo_toml()
+        self.write_xml_support_rs()
         self.write_lib_rs()
 
     def convert(self, structure_schema_path: str, output_dir: str):
@@ -690,7 +888,7 @@ class StructureToRust:
         self.convert_schema(schema, output_dir)
 
 
-def convert_structure_to_rust(structure_schema_path: str, rust_file_path: str, package_name: str = '', serde_annotation: bool = False):
+def convert_structure_to_rust(structure_schema_path: str, rust_file_path: str, package_name: str = '', serde_annotation: bool = False, xml_annotation: bool = False):
     """Converts JSON Structure schema to Rust structs
 
     Args:
@@ -698,6 +896,7 @@ def convert_structure_to_rust(structure_schema_path: str, rust_file_path: str, p
         rust_file_path (str): Output Rust file path
         package_name (str): Base package name
         serde_annotation (bool): Include Serde annotations
+        xml_annotation (bool): Include quick-xml compatible Serde annotations
     """
     if not package_name:
         package_name = os.path.splitext(os.path.basename(structure_schema_path))[0].lower().replace('-', '_')
@@ -705,10 +904,11 @@ def convert_structure_to_rust(structure_schema_path: str, rust_file_path: str, p
     structtorust = StructureToRust()
     structtorust.base_package = package_name
     structtorust.serde_annotation = serde_annotation
+    structtorust.xml_annotation = xml_annotation
     structtorust.convert(structure_schema_path, rust_file_path)
 
 
-def convert_structure_schema_to_rust(structure_schema: JsonNode, output_dir: str, package_name: str = '', serde_annotation: bool = False):
+def convert_structure_schema_to_rust(structure_schema: JsonNode, output_dir: str, package_name: str = '', serde_annotation: bool = False, xml_annotation: bool = False):
     """Converts JSON Structure schema to Rust structs
 
     Args:
@@ -716,8 +916,10 @@ def convert_structure_schema_to_rust(structure_schema: JsonNode, output_dir: str
         output_dir (str): Output directory path
         package_name (str): Base package name
         serde_annotation (bool): Include Serde annotations
+        xml_annotation (bool): Include quick-xml compatible Serde annotations
     """
     structtorust = StructureToRust()
     structtorust.base_package = package_name
     structtorust.serde_annotation = serde_annotation
+    structtorust.xml_annotation = xml_annotation
     structtorust.convert_schema(structure_schema, output_dir)

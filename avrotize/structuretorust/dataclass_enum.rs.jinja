@@ -1,25 +1,45 @@
-{%- if serde_annotation %}
+{%- if serde_annotation or xml_annotation %}
 use serde::{self, Serialize, Deserialize};
 {%- endif %}
 
 {% if doc %}
 /// {{ doc }}
 {%- endif %}
-#[derive(Debug{%- if serde_annotation %}, Serialize, Deserialize{%- endif %}, PartialEq, Clone, Default)]
-{%- if serde_annotation %}
+#[derive(Debug{%- if serde_annotation or xml_annotation %}{%- if not (serde_annotation and xml_annotation) %}, Serialize{%- endif %}, Deserialize{%- endif %}, PartialEq, Clone, Default)]
+{%- if xml_annotation %}
+#[serde(rename = "{{ xml_name }}")]
+{%- elif serde_annotation %}
 #[serde(rename_all = "snake_case")]
 {%- endif %}
 pub enum {{ enum_name }} {
     #[default]
 {%- for symbol in symbols %}
-    {%- if serde_annotation and symbol.name != symbol.value %}
-    #[serde(rename = "{{ symbol.value }}")]
+    {%- if (serde_annotation or xml_annotation) and (symbol.name != symbol.value or (serde_annotation and xml_annotation and symbol.json_value != symbol.value)) %}
+    #[serde(rename = "{{ symbol.value }}"{%- if serde_annotation and xml_annotation and symbol.json_value != symbol.value %}, alias = "{{ symbol.json_value }}"{%- endif %})]
     {%- endif %}
     {{ symbol.name }},
 {%- endfor %}
 }
 
-{%- if serde_annotation %}
+{%- if serde_annotation and xml_annotation %}
+impl Serialize for {{ enum_name }} {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let is_xml = std::any::type_name::<S>().contains("quick_xml");
+        match self {
+            {%- for symbol in symbols %}
+            {{ enum_name }}::{{ symbol.name }} => serializer.serialize_str(
+                if is_xml { "{{ symbol.value }}" } else { "{{ symbol.json_value }}" }
+            ),
+            {%- endfor %}
+        }
+    }
+}
+{%- endif %}
+
+{%- if serde_annotation or xml_annotation %}
 impl {{ enum_name }} {
     pub fn is_json_match(node: &serde_json::Value) -> bool {
         return node.is_string();
@@ -54,9 +74,9 @@ mod tests {
     fn test_enum_values_{{ enum_name.lower() }}() {
         {%- for symbol in symbols %}
         let instance = {{ enum_name }}::{{ symbol.name }};
-        {%- if serde_annotation %}
+        {%- if serde_annotation or xml_annotation %}
         let json = serde_json::to_string(&instance).unwrap();
-        assert!(json.contains("{{ symbol.value }}"));
+        assert!(json.contains("{% if serde_annotation %}{{ symbol.json_value }}{% else %}{{ symbol.value }}{% endif %}"));
         {%- endif %}
         {%- endfor %}
     }

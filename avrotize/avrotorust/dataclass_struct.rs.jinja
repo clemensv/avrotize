@@ -2,11 +2,16 @@
 use lazy_static::lazy_static;
 use apache_avro::Schema;
 {%- endif %}
-{%- if serde_annotation or avro_annotation %}
+{%- if serde_annotation or avro_annotation or xml_annotation %}
 use serde::{Serialize, Deserialize};
+{%- if xml_annotation %}
+use serde::ser::SerializeStruct;
+{%- endif %}
 use std::io::Write;
 use flate2::write::GzEncoder;
+{%- if not xml_annotation %}
 use flate2::read::GzDecoder;
+{%- endif %}
 {%- endif %}
 {%- set uses_chrono = false %}
 {%- set uses_uuid = false %}
@@ -36,15 +41,67 @@ use std::collections::HashMap;
 {% if doc %}
 /// {{ doc }}
 {%- endif %}
-#[derive(Debug{%- if serde_annotation or avro_annotation %}, Serialize, Deserialize{%- endif %}, PartialEq, Clone, Default)]
+#[derive(Debug{%- if serde_annotation or avro_annotation or xml_annotation %}{%- if not xml_annotation %}, Serialize{%- endif %}, Deserialize{%- endif %}, PartialEq, Clone, Default)]
+{%- if xml_annotation %}
+#[serde(rename = "{{ xml_name }}")]
+{%- endif %}
 pub struct {{ struct_name }} {
 {%- for field in fields %}
-    {%- if field.serde_rename and (serde_annotation or avro_annotation) %}
-    #[serde(rename = "{{ field.original_name }}")]
+    {%- if field.serde_rename and (serde_annotation or avro_annotation or xml_annotation) %}
+    #[serde(rename = "{{ field.serde_name }}"{%- if field.serde_alias %}, alias = "{{ field.serde_alias }}"{%- endif %})]
+    {%- endif %}
+    {%- if xml_annotation and field.is_optional %}
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     {%- endif %}
     pub {{ field.name }}: {{ field.type }},
 {%- endfor %}
 }
+
+{% if xml_annotation %}
+impl Serialize for {{ struct_name }} {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let is_xml = std::any::type_name::<S>().contains("quick_xml");
+        let field_count = {{ fields | length }}
+            {%- if xml_namespace %}
+            + usize::from(is_xml)
+            {%- endif %}
+            {%- for field in fields %}
+            {%- if field.is_optional %}
+            - usize::from(is_xml && self.{{ field.name }}.is_none())
+            {%- endif %}
+            {%- endfor %};
+        let mut state = serializer.serialize_struct(
+            if is_xml { "{{ xml_name }}" } else { "{{ struct_name }}" },
+            field_count,
+        )?;
+        {%- if xml_namespace %}
+        if is_xml {
+            state.serialize_field("@xmlns", XML_NAMESPACE)?;
+        }
+        {%- endif %}
+        {%- for field in fields %}
+        {%- if field.is_optional %}
+        if !is_xml || self.{{ field.name }}.is_some() {
+        {%- endif %}
+            state.serialize_field(
+                if is_xml { "{{ field.serde_name }}" } else { "{{ field.json_name }}" },
+                &self.{{ field.name }},
+            )?;
+        {%- if field.is_optional %}
+        }
+        {%- endif %}
+        {%- endfor %}
+        state.end()
+    }
+}
+{%- endif %}
+
+{% if xml_annotation and xml_namespace %}
+const XML_NAMESPACE: &str = r#"{{ xml_namespace }}"#;
+{%- endif %}
 
 {% if avro_annotation %}
 lazy_static! {
@@ -55,7 +112,7 @@ lazy_static! {
 {%- endif %}
 
 impl {{ struct_name }} {
-{%- if serde_annotation or avro_annotation %}
+{%- if serde_annotation or avro_annotation or xml_annotation %}
    /// Serializes the struct to a byte array based on the provided content type
     pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let result: Vec<u8>;
@@ -63,6 +120,16 @@ impl {{ struct_name }} {
         {%- if serde_annotation %}
         if media_type.starts_with("application/json") {
             result = serde_json::to_vec(self)?;
+        }
+        else {% endif -%}
+        {%- if xml_annotation %}
+        if media_type.starts_with("application/xml") ||
+           media_type.starts_with("text/xml") {
+            let xml = quick_xml::se::to_string(self)?;
+            result = xml.into_bytes();
+            if result.len() > crate::xml_support::MAX_XML_DATA_SIZE {
+                return Err("serialized XML exceeds the generated data size limit".into());
+            }
         }
         else {% endif -%}
         {%- if avro_annotation %}
@@ -86,10 +153,19 @@ impl {{ struct_name }} {
     }
 {%- endif %}
 
-{%- if serde_annotation or avro_annotation %}
+{%- if serde_annotation or avro_annotation or xml_annotation %}
     /// Deserializes the struct from a byte array based on the provided content type
     pub fn from_data(data: impl AsRef<[u8]>, content_type: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let media_type = content_type.split(';').next().unwrap_or("");
+        {%- if xml_annotation %}
+        let is_xml = media_type.starts_with("application/xml") ||
+                     media_type.starts_with("text/xml");
+        let data = crate::xml_support::decode_data(
+            data.as_ref(),
+            media_type.ends_with("+gzip"),
+            is_xml,
+        )?;
+        {%- else %}
         let data = if media_type.ends_with("+gzip") {
             let mut decoder = GzDecoder::new(data.as_ref());
             let mut decompressed_data = Vec::new();
@@ -98,9 +174,69 @@ impl {{ struct_name }} {
         } else {
             data.as_ref().to_vec()
         };
+        {%- endif %}
         {%- if serde_annotation %}
         if media_type.starts_with("application/json") {
             let result = serde_json::from_slice(&data)?;
+            return Ok(result)
+        }
+        {%- endif %}
+        {%- if xml_annotation %}
+        if is_xml {
+            crate::xml_support::validate_xml_document(
+                &data,
+                "{{ xml_name }}",
+                r#"{{ xml_namespace }}"#,
+                &[
+                    {%- for field in fields %}
+                    {%- if field.xml_kind != "attribute" %}
+                    (
+                        "{{ field.xml_name }}",
+                        {{ "true" if field.type.startswith("Vec<") or field.type.startswith("std::collections::HashSet<") else "false" }},
+                        {{ "true" if "std::collections::HashMap<String, " in field.type else "false" }},
+                    ),
+                    {%- endif %}
+                    {%- endfor %}
+                ],
+                &[
+                    {%- for field in fields %}
+                    {%- if field.xml_kind == "attribute" %}
+                    "{{ field.xml_name }}",
+                    {%- endif %}
+                    {%- endfor %}
+                ],
+                &[
+                    {%- for name in xml_descendant_elements %}
+                    "{{ name }}",
+                    {%- endfor %}
+                ],
+                &[
+                    {%- for name in xml_descendant_attributes %}
+                    "{{ name }}",
+                    {%- endfor %}
+                ],
+                &[
+                    {%- for name in xml_descendant_maps %}
+                    "{{ name }}",
+                    {%- endfor %}
+                ],
+                &[
+                    {%- for parent, child in xml_descendant_relationships %}
+                    ("{{ parent }}", "{{ child }}"),
+                    {%- endfor %}
+                ],
+                &[
+                    {%- for parent, element, namespace in xml_element_namespaces %}
+                    ("{{ parent }}", "{{ element }}", r#"{{ namespace }}"#),
+                    {%- endfor %}
+                ],
+                &[
+                    {%- for owner, attribute in xml_attribute_owners %}
+                    ("{{ owner }}", "{{ attribute }}"),
+                    {%- endfor %}
+                ],
+            )?;
+            let result = quick_xml::de::from_str(std::str::from_utf8(&data)?)?;
             return Ok(result)
         }
         {%- endif %}
@@ -115,7 +251,7 @@ impl {{ struct_name }} {
     }
 {%- endif %}
 
-{%- if serde_annotation or avro_annotation %}
+{%- if serde_annotation or avro_annotation or xml_annotation %}
     /// Checks if the given JSON value matches the schema of the struct
     pub fn is_json_match(node: &serde_json::Value) -> bool {
         {%- for predicate in json_match_predicates %}
@@ -174,7 +310,7 @@ mod tests {
         {%- endfor %}
     }
 
-    {%- if serde_annotation or avro_annotation %}
+    {%- if serde_annotation or avro_annotation or xml_annotation %}
     #[test]
     fn test_serialize_deserialize_{{ struct_name.lower() }}() {
         let instance = {{struct_name}}::generate_random_instance();
@@ -197,6 +333,44 @@ mod tests {
         let avro_gzip_bytes = instance.to_byte_array("avro/binary+gzip").unwrap();
         let deserialized_avro_gzip_instance: {{ struct_name }} = {{ struct_name }}::from_data(&avro_gzip_bytes, "avro/binary+gzip").unwrap();
         assert_eq!(instance, deserialized_avro_gzip_instance);
+        {%- endif %}
+        {%- if xml_annotation %}
+        // Test XML serialization and deserialization
+        let xml_bytes = instance.to_byte_array("application/xml").unwrap();
+        let xml = String::from_utf8(xml_bytes.clone()).unwrap();
+        assert!(xml.starts_with("<{{ xml_name }}"), "unexpected XML root: {}", xml);
+        {%- if xml_namespace %}
+        assert!(xml.contains("xmlns=\"{{ xml_namespace }}\""), "missing XML namespace: {}", xml);
+        {%- endif %}
+        {%- for field in fields %}
+        {%- if field.xml_kind == "attribute" %}
+        assert!(xml.contains(" {{ field.xml_name }}=\""), "missing XML attribute {{ field.xml_name }}: {}", xml);
+        {%- else %}
+        assert!(xml.contains("<{{ field.xml_name }}"), "missing XML element {{ field.xml_name }}: {}", xml);
+        {%- endif %}
+        {%- endfor %}
+        let deserialized_xml_instance = {{ struct_name }}::from_data(&xml_bytes, "application/xml").unwrap();
+        assert_eq!(instance, deserialized_xml_instance);
+        let text_xml_bytes = instance.to_byte_array("text/xml").unwrap();
+        let deserialized_text_xml_instance = {{ struct_name }}::from_data(&text_xml_bytes, "text/xml").unwrap();
+        assert_eq!(instance, deserialized_text_xml_instance);
+        let xml_gzip_bytes = instance.to_byte_array("application/xml+gzip").unwrap();
+        let deserialized_xml_gzip_instance = {{ struct_name }}::from_data(&xml_gzip_bytes, "application/xml+gzip").unwrap();
+        assert_eq!(instance, deserialized_xml_gzip_instance);
+        let text_xml_gzip_bytes = instance.to_byte_array("text/xml+gzip").unwrap();
+        let deserialized_text_xml_gzip_instance = {{ struct_name }}::from_data(&text_xml_gzip_bytes, "text/xml+gzip").unwrap();
+        assert_eq!(instance, deserialized_text_xml_gzip_instance);
+        {%- if fields | selectattr("is_optional") | list | length > 0 %}
+        let mut optional_instance = {{ struct_name }}::generate_random_instance();
+        {%- for field in fields %}
+        {%- if field.is_optional %}
+        optional_instance.{{ field.name }} = None;
+        {%- endif %}
+        {%- endfor %}
+        let optional_xml_bytes = optional_instance.to_byte_array("application/xml").unwrap();
+        let deserialized_optional_instance = {{ struct_name }}::from_data(&optional_xml_bytes, "application/xml").unwrap();
+        assert_eq!(optional_instance, deserialized_optional_instance);
+        {%- endif %}
         {%- endif %}
     }
     {%- endif %}

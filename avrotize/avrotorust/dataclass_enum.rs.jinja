@@ -1,30 +1,62 @@
 {%- if avro_annotation %}
 use lazy_static::lazy_static;
 use apache_avro::Schema;
-use apache_avro::{Reader, Writer};
 {%- endif %}
-{%- if serde_annotation %}
+{%- if serde_annotation or avro_annotation or xml_annotation %}
 use serde::{self,Serialize, Deserialize};
 {%- endif %}
 
-#[derive(Debug{%- if serde_annotation %}, Serialize, Deserialize{%- endif %}, PartialEq, Clone, Default)]
+#[derive(Debug{%- if serde_annotation or avro_annotation or xml_annotation %}{%- if not (xml_annotation and (serde_annotation or avro_annotation)) %}, Serialize{%- endif %}, Deserialize{%- endif %}, PartialEq, Clone, Default)]
+{%- if xml_annotation %}
+#[serde(rename = "{{ xml_name }}")]
+{%- endif %}
 pub enum {{ enum_name }} {
     #[default]
 {%- for symbol in symbols %}
-    {{ symbol }},
+    {%- if (serde_annotation or xml_annotation) and (symbol.name != symbol.value or (xml_annotation and (serde_annotation or avro_annotation) and symbol.json_value != symbol.value)) %}
+    #[serde(rename = "{{ symbol.value }}"{%- if xml_annotation and (serde_annotation or avro_annotation) and symbol.json_value != symbol.value %}, alias = "{{ symbol.json_value }}"{%- endif %})]
+    {%- endif %}
+    {{ symbol.name }},
 {%- endfor %}
 }
 
-impl {{ enum_name }} {
-    {%- if avro_annotation %}
-    lazy_static! {
-        /// The static Avro schema as a parsed object
-        pub static ref SCHEMA: Schema = Schema::parse_str(r#"{{ avro_schema | escape }}"#).unwrap();
+{%- if xml_annotation and (serde_annotation or avro_annotation) %}
+impl Serialize for {{ enum_name }} {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let is_xml = std::any::type_name::<S>().contains("quick_xml");
+        let is_avro = std::any::type_name::<S>().contains("apache_avro");
+        match self {
+            {%- for symbol in symbols %}
+            {{ enum_name }}::{{ symbol.name }} => {
+                if is_xml {
+                    serializer.serialize_str("{{ symbol.value }}")
+                } else if is_avro {
+                    serializer.serialize_unit_variant(
+                        "{{ enum_name }}",
+                        {{ loop.index0 }},
+                        "{{ symbol.json_value }}",
+                    )
+                } else {
+                    serializer.serialize_str("{{ symbol.json_value }}")
+                }
+            },
+            {%- endfor %}
+        }
     }
-    {%- endif %}
 }
+{%- endif %}
 
-{%- if serde_annotation or avro_annotation %}
+{%- if avro_annotation %}
+lazy_static! {
+    /// The static Avro schema as a parsed object
+    pub static ref SCHEMA: Schema = Schema::parse_str({{ avro_schema }}).unwrap();
+}
+{%- endif %}
+
+{%- if serde_annotation or avro_annotation or xml_annotation %}
 impl {{ enum_name }} {
     pub fn is_json_match(node: &serde_json::Value) -> bool {
         return node.is_string();
@@ -43,7 +75,7 @@ impl {{ enum_name }} {
         let mut rng = rand::thread_rng();
         match rand::Rng::gen_range(&mut rng, 0..{{ symbols | length }}) {
             {%- for symbol in symbols %}
-            {{ loop.index0 }} => {{ enum_name }}::{{ symbol }},
+            {{ loop.index0 }} => {{ enum_name }}::{{ symbol.name }},
             {%- endfor %}
             _ => panic!("Invalid random index generated"),
         }
@@ -55,11 +87,11 @@ mod tests {
     use super::*;
     use rand::Rng;
 
-    {%- if serde_annotation %}
+    {%- if serde_annotation or xml_annotation %}
     #[test]
     fn test_serialize_deserialize_{{ enum_name.lower() }}() {
         {%- for symbol in symbols %}
-        let instance = {{ enum_name }}::{{ symbol }};
+        let instance = {{ enum_name }}::{{ symbol.name }};
         let json_bytes = serde_json::to_vec(&instance).unwrap();
         let deserialized_instance: {{ enum_name }} = serde_json::from_slice(&json_bytes).unwrap();
         assert_eq!(instance, deserialized_instance);
@@ -70,7 +102,7 @@ mod tests {
     #[test]
     fn test_enum_variants_{{ enum_name.lower() }}() {
         {%- for symbol in symbols %}
-        let _instance = {{ enum_name }}::{{ symbol }};
+        let _instance = {{ enum_name }}::{{ symbol.name }};
         {%- endfor %}
     }
 }

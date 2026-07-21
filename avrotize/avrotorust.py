@@ -1,7 +1,15 @@
 import json
 import os
 from typing import Dict, List, Union
-from avrotize.common import is_generic_avro_type, is_any_value_type, render_template, pascal, camel, snake
+from avrotize.common import (
+    is_generic_avro_type,
+    is_any_value_type,
+    render_template,
+    pascal,
+    camel,
+    snake,
+)
+from avrotize.rust_xml import xml_wire_name, xml_enum_wire_value
 
 INDENT = '    '
 
@@ -16,8 +24,10 @@ class AvroToRust:
         self.output_dir = os.getcwd()
         self.generated_types_avro_namespace: Dict[str, str] = {}
         self.generated_types_rust_package: Dict[str, str] = {}
+        self.avro_named_types: Dict[str, Dict] = {}
         self.avro_annotation = False
         self.serde_annotation = False
+        self.xml_annotation = False
         
     reserved_words = [
             'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern', 'false', 'fn', 'for', 'if', 'impl',
@@ -89,7 +99,7 @@ class AvroToRust:
             type_name = self.map_primitive_to_rust(avro_type, nullable)
         elif isinstance(avro_type, list):
             if is_generic_avro_type(avro_type):
-                return 'serde_json::Value' if self.serde_annotation else 'std::collections::HashMap<String, String>'
+                return 'serde_json::Value' if self.serde_annotation or self.xml_annotation else 'std::collections::HashMap<String, String>'
             non_null_types = [t for t in avro_type if t != 'null']
             if len(non_null_types) == 1:
                 # Rust apache-avro has a bug in the union type handling, so we need to swap the types
@@ -128,7 +138,7 @@ class AvroToRust:
                 type_name = self.convert_avro_type_to_rust(field_name, avro_type['type'], namespace)
         if type_name:
             return type_name
-        return 'serde_json::Value' if self.serde_annotation else 'std::collections::HashMap<String, String>'
+        return 'serde_json::Value' if self.serde_annotation or self.xml_annotation else 'std::collections::HashMap<String, String>'
 
     def generate_class_or_enum(self, avro_schema: Dict, parent_namespace: str = '') -> str:
         """Generates a Rust struct or enum from an Avro schema"""
@@ -139,6 +149,114 @@ class AvroToRust:
             return self.generate_enum(avro_schema, namespace)
         return 'serde_json::Value'
 
+    def index_avro_named_types(self, node, parent_namespace=''):
+        """Indexes named Avro types so XML validation metadata can follow references."""
+        if isinstance(node, list):
+            for item in node:
+                self.index_avro_named_types(item, parent_namespace)
+            return
+        if not isinstance(node, dict):
+            return
+
+        node_type = node.get('type')
+        namespace = node.get('namespace', parent_namespace)
+        if node_type in ('record', 'enum', 'fixed') and node.get('name'):
+            name = node['name']
+            self.avro_named_types[name] = node
+            if namespace:
+                self.avro_named_types[f"{namespace}.{name}"] = node
+        if node_type == 'record':
+            for field in node.get('fields', []):
+                self.index_avro_named_types(field.get('type'), namespace)
+        elif node_type == 'array':
+            self.index_avro_named_types(node.get('items'), namespace)
+        elif node_type == 'map':
+            self.index_avro_named_types(node.get('values'), namespace)
+        elif isinstance(node_type, (dict, list)):
+            self.index_avro_named_types(node_type, namespace)
+
+    def collect_xml_field_metadata(
+        self, avro_type
+    ) -> tuple[
+        set[str],
+        set[str],
+        set[str],
+        set[tuple[str, str]],
+        set[tuple[str, str, str]],
+        set[tuple[str, str]],
+    ]:
+        """Collects nested XML element, attribute, and map field names."""
+        elements: set[str] = set()
+        attributes: set[str] = set()
+        maps: set[str] = set()
+        relationships: set[tuple[str, str]] = set()
+        namespaces: set[tuple[str, str, str]] = set()
+        attribute_owners: set[tuple[str, str]] = set()
+        visited: set[tuple[int, str]] = set()
+
+        def nested_records(node):
+            if isinstance(node, str):
+                resolved = self.avro_named_types.get(node)
+                return [resolved] if resolved and resolved.get('type') == 'record' else []
+            if isinstance(node, list):
+                return [record for item in node for record in nested_records(item)]
+            if not isinstance(node, dict):
+                return []
+            node_type = node.get('type')
+            if node_type == 'record':
+                return [node]
+            if node_type == 'array':
+                return nested_records(node.get('items'))
+            if isinstance(node_type, (dict, list)):
+                return nested_records(node_type)
+            return []
+
+        def visit(node, parent_element=None, inherited_namespace=''):
+            if isinstance(node, str):
+                resolved = self.avro_named_types.get(node)
+                if resolved:
+                    visit(resolved, parent_element, inherited_namespace)
+                return
+            if isinstance(node, list):
+                for item in node:
+                    visit(item, parent_element, inherited_namespace)
+            elif isinstance(node, dict):
+                node_type = node.get('type')
+                if node_type == 'record':
+                    visit_key = (id(node), parent_element or '')
+                    if visit_key in visited:
+                        return
+                    visited.add(visit_key)
+                    record_namespace = node.get('xmlns', inherited_namespace)
+                    for nested_field in node.get('fields', []):
+                        name = xml_wire_name(nested_field['name'], nested_field)
+                        if nested_field.get('xmlkind', 'element') == 'attribute':
+                            attributes.add(name)
+                            attribute_owners.add((parent_element or '', name))
+                        else:
+                            elements.add(name)
+                            parent = parent_element or ''
+                            if parent_element:
+                                relationships.add((parent_element, name))
+                            nested_type = nested_field.get('type')
+                            if isinstance(nested_type, dict) and nested_type.get('type') == 'map':
+                                maps.add(name)
+                            records = nested_records(nested_type)
+                            field_namespaces = {
+                                record.get('xmlns', record_namespace) for record in records
+                            } or {record_namespace}
+                            namespaces.update((parent, name, namespace) for namespace in field_namespaces)
+                        visit(nested_field.get('type'), name, record_namespace)
+                elif node_type == 'array':
+                    visit(node.get('items'), parent_element, inherited_namespace)
+                elif node_type == 'map':
+                    visit(node.get('values'), parent_element, inherited_namespace)
+                elif isinstance(node_type, (dict, list)):
+                    visit(node_type, parent_element, inherited_namespace)
+
+        visit(avro_type)
+        return elements, attributes, maps, relationships, namespaces, attribute_owners
+
     def generate_struct(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a Rust struct from an Avro record schema"""
         fields = []
@@ -146,14 +264,25 @@ class AvroToRust:
             original_field_name = field['name']
             field_name = self.safe_identifier(snake(original_field_name))
             field_type = self.convert_avro_type_to_rust(field_name, field['type'], parent_namespace)
-            serde_rename = field_name != original_field_name
+            xml_name = xml_wire_name(original_field_name, field)
+            xml_kind = field.get('xmlkind', 'element')
+            serde_name = f"@{xml_name}" if self.xml_annotation and xml_kind == 'attribute' else (
+                xml_name if self.xml_annotation else original_field_name
+            )
+            serde_rename = field_name != serde_name
             # Check if this is a generated type (enum, union, or record) where random values may match default
             is_generated_type = field_type in self.generated_types_rust_package or '::' in field_type
             fields.append({
                 'original_name': original_field_name,
+                'json_name': original_field_name,
+                'serde_name': serde_name,
+                'serde_alias': original_field_name if self.xml_annotation and (self.serde_annotation or self.avro_annotation) and original_field_name != serde_name else '',
+                'xml_name': xml_name,
+                'xml_kind': xml_kind,
                 'name': field_name,
                 'type': field_type,
                 'serde_rename': serde_rename,
+                'is_optional': field_type.startswith('Option<'),
                 'random_value': self.generate_random_value(field_type),
                 'is_generated_type': is_generated_type
             })
@@ -169,12 +298,29 @@ class AvroToRust:
             [avro_schema_str[i:i+80] for i in range(0, len(avro_schema_str), 80)])
         avro_schema_str = avro_schema_str.replace('§', '\\"')
         avro_schema_str = f"concat!(\"{avro_schema_str}\")"
+        (
+            descendant_elements,
+            descendant_attributes,
+            descendant_maps,
+            descendant_relationships,
+            element_namespaces,
+            attribute_owners,
+        ) = self.collect_xml_field_metadata(avro_schema)
 
         context = {
             'avro_annotation': self.avro_annotation,
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'doc': avro_schema.get('doc', ''),
             'struct_name': struct_name,
+            'xml_name': xml_wire_name(avro_schema['name'], avro_schema),
+            'xml_namespace': avro_schema.get('xmlns', ''),
+            'xml_descendant_elements': sorted(descendant_elements),
+            'xml_descendant_attributes': sorted(descendant_attributes),
+            'xml_descendant_maps': sorted(descendant_maps),
+            'xml_descendant_relationships': sorted(descendant_relationships),
+            'xml_element_namespaces': sorted(element_namespaces),
+            'xml_attribute_owners': sorted(attribute_owners),
             'fields': fields,
             'avro_schema': avro_schema_str,
             'json_match_predicates': [self.get_is_json_match_clause(f['original_name'], f['type']) for f in fields]
@@ -242,7 +388,11 @@ class AvroToRust:
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a Rust enum from an Avro enum schema"""
-        symbols = avro_schema.get('symbols', [])
+        symbols = [{
+            'name': symbol,
+            'value': xml_enum_wire_value(symbol, avro_schema) if self.xml_annotation else symbol,
+            'json_value': symbol,
+        } for symbol in avro_schema.get('symbols', [])]
         enum_name = self.safe_identifier(pascal(avro_schema['name']))
         ns = parent_namespace.replace('.', '::').lower()
         qualified_enum_name = self.safe_package(self.concat_package(ns, enum_name))
@@ -259,8 +409,10 @@ class AvroToRust:
         context = {
             'avro_annotation': self.avro_annotation,
             'serde_annotation': self.serde_annotation,
+            'xml_annotation': self.xml_annotation,
             'enum_name': enum_name,
             'symbols': symbols,
+            'xml_name': xml_wire_name(avro_schema['name'], avro_schema),
             'avro_schema': avro_schema_str,
         }
 
@@ -307,13 +459,43 @@ class AvroToRust:
                 'json_match_predicate': predicate,
                 'is_first_with_predicate': is_first_with_predicate,
             })
+        scalar_kinds = {
+            'String': 'string',
+            'bool': 'bool',
+            'i8': 'integer', 'i16': 'integer', 'i32': 'integer', 'i64': 'integer',
+            'u8': 'integer', 'u16': 'integer', 'u32': 'integer', 'u64': 'integer',
+            'isize': 'integer', 'usize': 'integer',
+            'f32': 'float', 'f64': 'float',
+        }
+        present_scalar_kinds = {scalar_kinds[field['type']] for field in union_fields if field['type'] in scalar_kinds}
+        predicate_counts = {
+            predicate: sum(1 for field in union_fields if field['json_match_predicate'] == predicate)
+            for predicate in {field['json_match_predicate'] for field in union_fields}
+        }
+        for field in union_fields:
+            scalar_kind = scalar_kinds.get(field['type'])
+            field['xml_scalar_kind'] = scalar_kind or ''
+            field['xml_guard_string'] = scalar_kind == 'string' and len(present_scalar_kinds) > 1
+            field['xml_reject_value'] = (
+                (scalar_kind is not None and scalar_kind != 'string' and 'string' in present_scalar_kinds)
+                or (scalar_kind == 'integer' and 'float' in present_scalar_kinds)
+                or predicate_counts[field['json_match_predicate']] > 1
+            )
+            field['xml_safe_for_random'] = not field['xml_reject_value']
+        xml_string_guards = {
+            'bool': 'bool' in present_scalar_kinds,
+            'integer': 'integer' in present_scalar_kinds,
+            'float': 'float' in present_scalar_kinds,
+        }
         
         qualified_union_enum_name = self.safe_package(self.concat_package(ns, union_enum_name))
         context = {
             'serde_annotation': self.serde_annotation,
             'avro_annotation': self.avro_annotation,
+            'xml_annotation': self.xml_annotation,
             'union_enum_name': union_enum_name,
             'union_fields': union_fields,
+            'xml_string_guards': xml_string_guards,
             'json_match_predicates': [self.get_is_json_match_clause(f['name'], f['type'], for_union=True) for f in union_fields]
         }
 
@@ -390,13 +572,15 @@ class AvroToRust:
     def write_cargo_toml(self):
         """Writes the Cargo.toml file for the Rust project"""
         dependencies = []
-        if self.serde_annotation or self.avro_annotation:
+        if self.serde_annotation or self.avro_annotation or self.xml_annotation:
             dependencies.append('serde = { version = "1.0", features = ["derive"] }')
         dependencies.append('serde_json = "1.0"')
         dependencies.append('chrono = { version = "0.4", features = ["serde"] }')
         dependencies.append('uuid = { version = "1.11", features = ["serde", "v4"] }')
-        if self.avro_annotation or self.serde_annotation:
+        if self.avro_annotation or self.serde_annotation or self.xml_annotation:
             dependencies.append('flate2 = "1.0"')
+        if self.xml_annotation:
+            dependencies.append('quick-xml = { version = "0.38", features = ["serialize"] }')
         if self.avro_annotation:
             dependencies.append('apache-avro = "0.17"')
             dependencies.append('lazy_static = "1.4"')
@@ -416,6 +600,8 @@ class AvroToRust:
         """Writes the lib.rs file for the Rust project"""
         modules = {name[(len('crate::')):].split('::')[0] for name in self.generated_types_rust_package}
         mod_statements = '\n'.join(f'pub mod {module};' for module in modules)
+        if self.xml_annotation:
+            mod_statements = 'pub(crate) mod xml_support;\n' + mod_statements
         
         lib_rs_content = f"""
 // This is the library entry point
@@ -428,6 +614,14 @@ class AvroToRust:
         with open(lib_rs_path, 'w', encoding='utf-8') as file:
             file.write(lib_rs_content)
 
+    def write_xml_support_rs(self):
+        """Writes shared XML validation and bounded decompression helpers."""
+        if self.xml_annotation:
+            render_template(
+                'rust/xml_support.rs.jinja',
+                os.path.join(self.output_dir, "src", "xml_support.rs"),
+            )
+
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to Rust"""
         if not isinstance(schema, list):
@@ -435,10 +629,12 @@ class AvroToRust:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
+        self.index_avro_named_types(schema)
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema)
 
         self.write_cargo_toml()
+        self.write_xml_support_rs()
         self.write_lib_rs()
 
     def convert(self, avro_schema_path: str, output_dir: str):
@@ -448,7 +644,7 @@ class AvroToRust:
         self.convert_schema(schema, output_dir)
 
 
-def convert_avro_to_rust(avro_schema_path, rust_file_path, package_name='', avro_annotation=False, serde_annotation=False):
+def convert_avro_to_rust(avro_schema_path, rust_file_path, package_name='', avro_annotation=False, serde_annotation=False, xml_annotation=False):
     """Converts Avro schema to Rust structs
 
     Args:
@@ -457,6 +653,7 @@ def convert_avro_to_rust(avro_schema_path, rust_file_path, package_name='', avro
         package_name (str): Base package name
         avro_annotation (bool): Include Avro annotations
         serde_annotation (bool): Include Serde annotations
+        xml_annotation (bool): Include quick-xml compatible Serde annotations
     """
     
     if not package_name:
@@ -466,10 +663,11 @@ def convert_avro_to_rust(avro_schema_path, rust_file_path, package_name='', avro
     avrotorust.base_package = package_name
     avrotorust.avro_annotation = avro_annotation
     avrotorust.serde_annotation = serde_annotation
+    avrotorust.xml_annotation = xml_annotation
     avrotorust.convert(avro_schema_path, rust_file_path)
 
 
-def convert_avro_schema_to_rust(avro_schema: JsonNode, output_dir: str, package_name='', avro_annotation=False, serde_annotation=False):
+def convert_avro_schema_to_rust(avro_schema: JsonNode, output_dir: str, package_name='', avro_annotation=False, serde_annotation=False, xml_annotation=False):
     """Converts Avro schema to Rust structs
 
     Args:
@@ -478,9 +676,11 @@ def convert_avro_schema_to_rust(avro_schema: JsonNode, output_dir: str, package_
         package_name (str): Base package name
         avro_annotation (bool): Include Avro annotations
         serde_annotation (bool): Include Serde annotations
+        xml_annotation (bool): Include quick-xml compatible Serde annotations
     """
     avrotorust = AvroToRust()
     avrotorust.base_package = package_name
     avrotorust.avro_annotation = avro_annotation
     avrotorust.serde_annotation = serde_annotation
+    avrotorust.xml_annotation = xml_annotation
     avrotorust.convert_schema(avro_schema, output_dir)

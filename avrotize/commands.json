@@ -3348,7 +3348,8 @@
         "structure_schema_path": "input_file_path",
         "rust_file_path": "output_file_path",
         "package_name": "args.package",
-        "serde_annotation": "args.json_annotation"
+        "serde_annotation": "args.json_annotation",
+        "xml_annotation": "args.xml_annotation"
       }
     },
     "extensions": [
@@ -3381,6 +3382,13 @@
         "help": "Use Serde JSON annotations",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Use quick-xml Serde annotations",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-rust",
@@ -3394,6 +3402,12 @@
       {
         "name": "--json-annotation",
         "message": "Use Serde JSON annotations?",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "--xml-annotation",
+        "message": "Use quick-xml Serde annotations?",
         "type": "bool",
         "default": false
       }
@@ -4140,7 +4154,8 @@
         "rust_file_path": "output_file_path",
         "package_name": "args.package",
         "avro_annotation": "args.avro_annotation",
-        "serde_annotation": "args.json_annotation"
+        "serde_annotation": "args.json_annotation",
+        "xml_annotation": "args.xml_annotation"
       }
     },
     "extensions": [
@@ -4185,6 +4200,13 @@
         "help": "Use JSON annotations",
         "default": false,
         "required": false
+      },
+      {
+        "name": "--xml-annotation",
+        "type": "bool",
+        "help": "Use quick-xml Serde annotations",
+        "default": false,
+        "required": false
       }
     ],
     "suggested_output_file_path": "{input_file_name}-rust",
@@ -4204,6 +4226,12 @@
       {
         "name": "--json-annotation",
         "message": "Use JSON annotations?",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "--xml-annotation",
+        "message": "Use quick-xml Serde annotations?",
         "type": "bool",
         "default": false
       }
