@@ -12,6 +12,7 @@ class {{ class_name }}(Enum):
     {{ symbol.name }} = {{ symbol.value_literal }}
     {%- endfor %}
 
+
     @classmethod
     def from_ordinal(cls, ordinal: int|str) -> '{{ class_name }}':
         """
@@ -84,4 +85,13 @@ class {{ class_name }}(Enum):
 
 {%- if ordinals | length == 0 %}
 _{{ class_name }}_members = list({{ class_name }})
+{%- endif %}
+
+{%- if xml_annotation %}
+{{ class_name }}.__xml_name__ = {{ xml_name | tojson }}
+{{ class_name }}.__xml_values__ = {
+    {%- for symbol in xml_values %}
+    {{ symbol.name | tojson }}: {{ symbol.xml_value_literal }},
+    {%- endfor %}
+}
 {%- endif %}

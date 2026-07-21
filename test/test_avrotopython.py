@@ -151,6 +151,98 @@ class TestAvroToPython(unittest.TestCase):
         finally:
             sys.path.remove(generated_src)
 
+    def test_xml_annotation_round_trip_with_schema_metadata(self):
+        """Generated Avro classes honor XML names, namespaces, kinds, and gzip."""
+        import gzip
+        import xml.etree.ElementTree as ET
+        from avrotize.avrotopython import convert_avro_schema_to_python
+
+        schema = {
+            "type": "record",
+            "name": "Order",
+            "namespace": "example.xml",
+            "xmlns": "urn:avrotize:test",
+            "altnames": {"xml": "purchase-order"},
+            "fields": [
+                {"name": "id", "type": "string", "xmlkind": "attribute",
+                 "altnames": {"xml": "order-id"}},
+                {"name": "note", "type": ["null", "string"], "default": None,
+                 "altnames": {"xml": "comment"}},
+                {"name": "status", "type": {"type": "enum", "name": "Status",
+                 "altnames": {"xml": "order-status"}, "symbols": ["NEW", "DONE"],
+                 "altenums": {"xml": {"NEW": "new-order"}}}},
+                {"name": "tags", "type": {"type": "array", "items": "string"}},
+                {"name": "choice", "type": ["int", "string"]},
+                {"name": "properties", "type": {"type": "map", "values": "int"}},
+                {"name": "child", "type": {"type": "record", "name": "Child",
+                 "xmlns": "urn:avrotize:child",
+                 "fields": [{"name": "value", "type": "int"}]}},
+            ],
+        }
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-408-a2py-xml")
+        shutil.rmtree(output_dir, ignore_errors=True)
+        convert_avro_schema_to_python(
+            schema, output_dir, package_name="issue_408_a2py", xml_annotation=True,
+            dataclasses_json_annotation=True, avro_annotation=True)
+
+        generated_src = os.path.join(output_dir, "src")
+        for root, _dirs, files in os.walk(generated_src):
+            for filename in files:
+                if filename.endswith(".py"):
+                    generated_file = os.path.join(root, filename)
+                    with open(generated_file, encoding="utf-8") as source:
+                        compile(source.read(), generated_file, "exec")
+
+        sys.path.insert(0, generated_src)
+        try:
+            Order = importlib.import_module("issue_408_a2py.example.xml.order").Order
+            Child = importlib.import_module("issue_408_a2py.example.xml.child").Child
+            Status = importlib.import_module("issue_408_a2py.example.xml.status").Status
+            value = Order(id="A-1", note=None, status=Status.NEW, tags=["red", "blue"],
+                          choice="selected", properties={"priority": 3}, child=Child(value=7))
+
+            payload = value.to_byte_array("application/xml")
+            root = ET.fromstring(payload)
+            assert root.tag == "{urn:avrotize:test}purchase-order"
+            assert root.attrib == {"order-id": "A-1"}
+            assert root.find("{urn:avrotize:test}comment") is None
+            assert [node.text for node in root.findall("{urn:avrotize:test}tags")] == ["red", "blue"]
+            assert root.find("{urn:avrotize:test}choice").text == "selected"
+            assert root.find("{urn:avrotize:test}status").text == "new-order"
+            map_item = root.find("{urn:avrotize:test}properties/{urn:avrotize:test}item")
+            assert map_item.attrib == {"key": "priority"} and map_item.text == "3"
+            assert root.find("{urn:avrotize:child}child/{urn:avrotize:child}value").text == "7"
+            assert Status.__xml_name__ == "order-status"
+            id_metadata = Order.__dataclass_fields__["id"].metadata
+            assert id_metadata["name"] == "order-id"
+            assert id_metadata["type"] == "Attribute"
+            order_source = os.path.join(generated_src, "issue_408_a2py", "example", "xml", "order.py")
+            with open(order_source, encoding="utf-8") as source:
+                generated_code = source.read()
+            assert "XMLFields" not in generated_code
+            assert "_to_xml_element" not in generated_code
+            assert "from issue_408_a2py.xml_runtime import parse_xml, serialize_xml" in generated_code
+            runtime_path = os.path.join(generated_src, "issue_408_a2py", "xml_runtime.py")
+            assert os.path.exists(runtime_path)
+            with open(runtime_path, encoding="utf-8") as runtime:
+                runtime_code = runtime.read()
+            assert "XmlParser" in runtime_code and "XmlSerializer" in runtime_code
+            assert "xml.etree" not in runtime_code
+            with open(os.path.join(output_dir, "pyproject.toml"), encoding="utf-8") as project:
+                assert 'xsdata = "^26.2"' in project.read()
+            assert Order.from_data(payload, "application/xml") == value
+            assert Order.from_data(value.to_byte_array("application/json"), "application/json") == value
+            assert Order.from_data(value.to_byte_array("avro/binary"), "avro/binary") == value
+
+            compressed = value.to_byte_array("text/xml+gzip")
+            assert gzip.decompress(compressed).startswith(b"<?xml")
+            assert Order.from_data(compressed, "text/xml+gzip") == value
+        finally:
+            sys.path.remove(generated_src)
+            for module_name in list(sys.modules):
+                if module_name == "issue_408_a2py" or module_name.startswith("issue_408_a2py."):
+                    sys.modules.pop(module_name, None)
+
     def test_convert_address_avsc_to_python_avro(self):
         """ Test converting an address.avsc file to Python with avro annotation """
         cwd = os.getcwd()

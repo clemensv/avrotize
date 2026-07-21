@@ -8,6 +8,9 @@ packages = [ { include = "{{ package_name|replace('-','_')|lower }}", from="src"
 
 [tool.poetry.dependencies]
 python = "<4.0,>=3.10"
+{%- if xml_annotation %}
+xsdata = "^26.2"
+{%- endif %}
 dataclasses-json = "^0.6.7"
 
 [tool.poetry.dev-dependencies]

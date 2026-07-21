@@ -3,7 +3,7 @@
 # pylint: disable=too-many-lines, too-many-locals, too-many-branches, too-many-statements, too-many-arguments, line-too-long, wildcard-import
 from __future__ import annotations
 
-{%- if avro_annotation or dataclasses_json_annotation %}
+{%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 import io
 import gzip
 {%- endif %}
@@ -23,7 +23,7 @@ from marshmallow import fields
 {%- endif %}
 {%- endfor %}
 {%- endif %}
-{%- if avro_annotation or dataclasses_json_annotation %}
+{%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 import json
 {%- endif %}
 {%- if avro_annotation %}
@@ -49,6 +49,10 @@ import uuid
 {%- endif %}
 {%- endfor %}
 
+{% if xml_annotation %}
+from {{ xml_runtime_module }} import parse_xml, serialize_xml
+{% endif %}
+
 {% if dataclasses_json_annotation %}
 @dataclass_json(undefined=Undefined.EXCLUDE)
 {%- endif %}
@@ -63,6 +67,11 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         {%- endfor -%}
     {% endif %}
     """
+    {% if xml_annotation %}
+    class Meta:
+        name = {{ xml_name | tojson }}
+        namespace = {{ xml_namespace | tojson }}
+    {% endif %}
     {% if avro_annotation %}
     AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.parse(
         "{{ avro_schema_json }}"
@@ -72,8 +81,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
     {%- set isdate = field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
     {%- set is_int_as_string = field.source_type in ['int64', 'uint64', 'int128', 'uint128'] %}
     {%- set is_decimal_as_string = field.source_type == 'decimal' %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif is_int_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: int(v) if isinstance(v, str) else v{%- elif is_decimal_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: decimal.Decimal(v) if isinstance(v, str) else v{%- endif -%}){%- endif %})
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif is_int_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: int(v) if isinstance(v, str) else v{%- elif is_decimal_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: decimal.Decimal(v) if isinstance(v, str) else v{%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
     {%- endfor %}
+
 
     @classmethod
     def from_serializer_dict(cls, data: dict) -> '{{ class_name }}':
@@ -234,7 +244,7 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         
         return converted
     {%- endif %}
-    {%- if avro_annotation or dataclasses_json_annotation %}
+    {%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 
     def to_byte_array(self, content_type_string: str) -> bytes:
         """
@@ -245,6 +255,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
                 Supported content types:
                     {%- if dataclasses_json_annotation %}
                     'application/json': Encodes the data to JSON format.
+                    {%- endif %}
+                    {%- if xml_annotation %}
+                    'application/xml' / 'text/xml': Encodes the data to XML format.
                     {%- endif %}
                     {%- if avro_annotation %}
                     'avro/binary': Encodes the data to Avro binary format.
@@ -280,6 +293,11 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
                 result = result.encode('utf-8')
         {%- endif %}
 
+        {%- if xml_annotation %}
+        if base_content_type in ['application/xml', 'text/xml']:
+            result = serialize_xml(self)
+        {%- endif %}
+
         if result is not None and content_type.endswith('+gzip'):
             # Handle string result from to_json()
             if isinstance(result, str):
@@ -305,6 +323,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
                 Supported content types:
                     {%- if dataclasses_json_annotation %}
                     'application/json': Attempts to decode the data from JSON encoded format.
+                    {%- endif %}
+                    {%- if xml_annotation %}
+                    'application/xml' / 'text/xml': Attempts to decode the data from XML format.
                     {%- endif %}
                     {%- if avro_annotation %}
                     'avro/binary': Attempts to decode the data from Avro binary format.
@@ -362,6 +383,15 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
             else:
                 raise NotImplementedError('Data is not of a supported type for JSON deserialization')
         {%- endif %}
+        {%- if xml_annotation %}
+        if base_content_type in ['application/xml', 'text/xml']:
+            if isinstance(data, io.BytesIO):
+                data = data.getvalue()
+            if isinstance(data, (bytes, str)):
+                return parse_xml(data, cls)
+            raise NotImplementedError('Data is not of a supported type for XML deserialization')
+        {%- endif %}
+
         raise NotImplementedError(f'Unsupported media type {content_type}')
     {%- endif %}
 

@@ -9,6 +9,7 @@ class {{ class_name }}({% if is_numeric %}IntEnum{% else %}Enum{% endif %}):
     {{ member_name }} = {{ value_repr }}
     {%- endfor %}
 
+
     @classmethod
     def from_ordinal(cls, ordinal: int | str) -> '{{ class_name }}':
         """
@@ -43,3 +44,12 @@ class {{ class_name }}({% if is_numeric %}IntEnum{% else %}Enum{% endif %}):
         """
         members = list(cls)
         return members.index(member)
+
+{%- if xml_annotation %}
+{{ class_name }}.__xml_name__ = {{ xml_name | tojson }}
+{{ class_name }}.__xml_values__ = {
+    {%- for member_name, xml_value_literal in xml_values %}
+    {{ member_name | tojson }}: {{ xml_value_literal }},
+    {%- endfor %}
+}
+{%- endif %}

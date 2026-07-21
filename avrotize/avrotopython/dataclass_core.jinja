@@ -2,7 +2,7 @@
 
 # pylint: disable=too-many-lines, too-many-locals, too-many-branches, too-many-statements, too-many-arguments, line-too-long, wildcard-import
 
-{%- if avro_annotation or dataclasses_json_annotation %}
+{%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 import io
 import gzip
 import json
@@ -44,6 +44,10 @@ import uuid
 {%- endif %}
 {%- endfor %}
 
+{% if xml_annotation %}
+from {{ xml_runtime_module }} import parse_xml, serialize_xml
+{% endif %}
+
 {% if dataclasses_json_annotation %}
 @dataclass_json(undefined=Undefined.EXCLUDE)
 {%- endif %}
@@ -56,16 +60,22 @@ class {{ class_name }}:
         {{ field.docstring }}
         {%- endfor -%}
     """
+    {% if xml_annotation %}
+    class Meta:
+        name = {{ xml_name | tojson }}
+        namespace = {{ xml_namespace | tojson }}
+    {% endif %}
     {% for field in fields %}
     {%- set isdatetime = field.type == "datetime.datetime" or field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
     {%- set isdate = field.type == "datetime.date" or field.type == "typing.Optional[datetime.date]" %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdatetime -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d.isoformat() if isinstance(d, datetime.date) else d if d else None, decoder=lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.Date(format='iso'){%- endif -%}){%- endif %})
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdatetime -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d.isoformat() if isinstance(d, datetime.date) else d if d else None, decoder=lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.Date(format='iso'){%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
     {%- endfor %}
     {% if avro_annotation %}
     AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.make_avsc_object(
         json.loads("{{ avro_schema_json }}"), avro.name.Names()
     )
     {%- endif %}
+
 
     def __post_init__(self):
         """ Initializes the dataclass with the provided keyword arguments."""
@@ -117,7 +127,7 @@ class {{ class_name }}:
         def _fix_key(k):
             return k[:-1] if k.endswith('_') else k
         return {_fix_key(k): _resolve_enum(v) for k, v in iter(data)}
-    {%- if avro_annotation or dataclasses_json_annotation %}
+    {%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 
     def to_byte_array(self, content_type_string: str) -> bytes:
         """
@@ -132,6 +142,9 @@ class {{ class_name }}:
                     {%- endif %}
                     {%- if dataclasses_json_annotation %}
                     'application/json': Encodes the data to JSON format.
+                    {%- endif %}
+                    {%- if xml_annotation %}
+                    'application/xml' / 'text/xml': Encodes the data to XML format.
                     {%- endif %}
                 Supported content type extensions:
                     '+gzip': Compresses the byte array using gzip, e.g. 'application/json+gzip'.
@@ -161,6 +174,11 @@ class {{ class_name }}:
             #pylint: enable=no-member
             if isinstance(result, str):
                 result = result.encode('utf-8')
+        {%- endif %}
+
+        {%- if xml_annotation %}
+        if base_content_type in ['application/xml', 'text/xml']:
+            result = serialize_xml(self)
         {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):
@@ -194,6 +212,9 @@ class {{ class_name }}:
                     {%- endif %}
                     {%- if dataclasses_json_annotation %}
                     'application/json': Attempts to decode the data from JSON encoded format.
+                    {%- endif %}
+                    {%- if xml_annotation %}
+                    'application/xml' / 'text/xml': Attempts to decode the data from XML format.
                     {%- endif %}
                 Supported content type extensions:
                     '+gzip': First decompresses the data using gzip, e.g. 'application/json+gzip'.
@@ -248,6 +269,15 @@ class {{ class_name }}:
                 return {{ class_name }}.from_serializer_dict(_record)
             else:
                 raise NotImplementedError('Data is not of a supported type for JSON deserialization')
+        {%- endif %}
+
+        {%- if xml_annotation %}
+        if base_content_type in ['application/xml', 'text/xml']:
+            if isinstance(data, io.BytesIO):
+                data = data.getvalue()
+            if isinstance(data, (bytes, str)):
+                return parse_xml(data, cls)
+            raise NotImplementedError('Data is not of a supported type for XML deserialization')
         {%- endif %}
 
         raise NotImplementedError(f'Unsupported media type {content_type}')
