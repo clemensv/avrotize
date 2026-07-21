@@ -1,10 +1,20 @@
 /**
  * {{ docstring }}
  */
-const {{ class_name }} = Object.freeze({
+const {{ class_name }} = {
 {%- for symbol in symbols %}
     {{ symbol }}: "{{ symbol_values[loop.index0] }}",
 {%- endfor %}
+};
+{%- if xml_annotation %}
+Object.defineProperty({{ class_name }}, 'XmlMapping', {
+    value: Object.freeze({
+        name: {{ xml_name|tojson }},
+        namespace: {{ xml_namespace|tojson }},
+        values: {{ xml_values|tojson }}
+    })
 });
+{%- endif %}
+Object.freeze({{ class_name }});
 
 module.exports = {{ class_name }};

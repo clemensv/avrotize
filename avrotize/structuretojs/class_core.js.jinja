@@ -1,7 +1,10 @@
 {%- for import_type, import_path in imports.items() %}
 const {{ import_type }} = require('{{ import_path }}');
 {%- endfor %}
-{%- if imports %}
+{%- if xml_annotation %}
+const xmlRuntime = require('{{ xml_runtime_path }}');
+{%- endif %}
+{%- if imports or xml_annotation %}
 
 {%- endif %}
 /**
@@ -29,5 +32,27 @@ class {{ class_name }}{%- if base_class_name %} extends {{ base_class_name }}{%-
 {%- endfor %}
     }
 }
+{%- if xml_annotation %}
+
+{{ class_name }}.XmlOptions = xmlRuntime.XML_OPTIONS;
+{{ class_name }}.XmlMapping = Object.freeze({
+    name: {{ xml_name|tojson }},
+    namespace: {{ xml_namespace|tojson }},
+    ctor: {{ class_name }},
+    fields: Object.freeze({
+    {%- for field in fields %}
+        {{ field.name|tojson }}: { name: {{ field.xml_name|tojson }}, kind: {{ field.xml_kind|tojson }}, required: {{ field.xml_required|tojson }}, type: {{ field.xml_type|safe }} }{% if not loop.last %},{% endif %}
+    {%- endfor %}
+    })
+});
+
+{{ class_name }}.prototype.ToByteArray = function(contentType) {
+    return xmlRuntime.toByteArray(this, {{ class_name }}.XmlMapping, contentType);
+};
+
+{{ class_name }}.FromData = function(data, contentType) {
+    return xmlRuntime.fromData(data, {{ class_name }}.XmlMapping, contentType);
+};
+{%- endif %}
 
 module.exports = {{ class_name }};
