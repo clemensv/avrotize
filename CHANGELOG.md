@@ -1,5 +1,46 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.9.0] - 2026-07-22
+
+### Added
+
+- **XML serialization for every non-C# language emitter** (#407–#413): the Avro and
+  JSON Structure converters for Python, Java, JavaScript, TypeScript, Go, and Rust now
+  emit XML-capable models. The generated mappings honor record `xmlns`, field
+  `xmlkind` (`element` or `attribute`), alternate XML names, enum symbols, nested
+  records, optional values, collections, maps, and unions.
+- **`--xml-annotation` for all twelve affected commands**: `a2py`/`s2py`,
+  `a2java`/`s2java`, `a2js`/`s2js`, `a2ts`/`s2ts`, `a2go`/`s2go`, and
+  `a2rust`/`s2rust` can opt into XML generation. The matching Python API parameter is
+  `xml_annotation=True`; C# retains its existing `system_xml_annotation` option.
+- Generated content-type dispatch now supports `application/xml` and `text/xml`,
+  including their `+gzip` variants, alongside the existing JSON and Avro formats.
+  Each target uses its ecosystem's native or idiomatic XML stack: xsdata for Python,
+  JAXB/Jackson XML for Java, fast-xml-parser for JavaScript and TypeScript,
+  `encoding/xml` for Go, and quick-xml/Serde for Rust.
+
+### Security
+
+- Generated XML readers now reject malformed and truncated documents, DTD/entity
+  declarations, namespace mismatches, unknown or duplicate singleton fields, invalid
+  scalar and enum values, ambiguous unions, malformed maps, corrupt gzip streams, and
+  excessive input size or nesting. The language-specific adversarial suites exercise
+  both Avro and JSON Structure output and include XXE, entity-expansion, decompression,
+  and parser-limit cases.
+
+### Changed
+
+- Java projects generate one shared, cached `AvrotizeXmlSupport` mapper instead of
+  constructing an XML mapper for each class or operation.
+- Python XML binding uses xsdata field metadata and one shared parser/serializer
+  runtime, removing the generated per-class ElementTree walkers.
+
+### Dependencies
+
+- Updated `click` to >=8.4.2, `geomet` to >=1.1.0, `isodate` to >=0.7.2,
+  `jinja2` to >=3.1.6, and `pyodbc` to >=5.3.0.
+- Updated the GitHub Actions Python setup action.
+
 ## [3.8.0] - 2026-07-16
 
 ### Added
