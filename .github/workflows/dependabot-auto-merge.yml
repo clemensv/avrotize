@@ -45,7 +45,37 @@ jobs:
 
       - name: Wait for remaining checks
         if: steps.pull-request.outputs.eligible == 'true'
-        run: gh pr checks "$PR_URL" --watch --fail-fast
+        run: |
+          deadline=$((SECONDS + 3600))
+          while (( SECONDS < deadline )); do
+            checks="$(gh pr checks "$PR_URL" --json name,bucket || true)"
+            external_checks="$(
+              jq '[.[] | select(.name != "dependabot")]' <<< "$checks"
+            )"
+            failures="$(
+              jq '[.[] | select(.bucket == "fail" or .bucket == "cancel")] | length' \
+                <<< "$external_checks"
+            )"
+            pending="$(
+              jq '[.[] | select(.bucket == "pending")] | length' \
+                <<< "$external_checks"
+            )"
+            total="$(jq 'length' <<< "$external_checks")"
+
+            if (( failures > 0 )); then
+              jq -r '.[] | select(.bucket == "fail" or .bucket == "cancel") |
+                "\(.name): \(.bucket)"' <<< "$external_checks"
+              exit 1
+            fi
+            if (( total > 0 && pending == 0 )); then
+              exit 0
+            fi
+
+            sleep 15
+          done
+
+          echo "Timed out waiting for pull request checks."
+          exit 1
         env:
           PR_URL: ${{ steps.pull-request.outputs.url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
