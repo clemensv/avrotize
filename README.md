@@ -19,16 +19,7 @@ The tool leans on the Apache Avro-derived [Avrotize Schema](specs/avrotize-schem
 - Programming languages: Python, C#, Java, TypeScript, JavaScript, Rust, Go, C++
 - SQL Databases: MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, SQLite, BigQuery, Snowflake, Redshift, DB2
 - Other databases: KQL/Kusto, SurrealDB, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
-- Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet
-
-- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
-- Data schema formats: Avro, JSON Schema, JSON Structure, RAML 1.0 Data Types, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet
-
-- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
-- Data schema formats: Avro, JSON Schema, JSON Structure, XML Schema (XSD), Protocol Buffers 2 and 3, Smithy IDL, ASN.1, Apache Parquet
-
-- Other databases: KQL/Kusto, MongoDB, Cassandra, Redis, Elasticsearch, DynamoDB, CosmosDB
-- Data schema formats: Avro, JSON Schema, XML Schema (XSD), Protocol Buffers 2 and 3, Apache Thrift IDL, ASN.1, Apache Parquet
+- Data schema formats: Avro, JSON Schema, JSON Structure, XML Schema (XSD), Protocol Buffers 2 and 3, ASN.1, Apache Parquet, JSON Type Definition (JTD), CDDL, CUE, FlatBuffers, Apache Thrift IDL, Smithy IDL, Cap'n Proto, RAML 1.0 Data Types, and OpenAPI 3.x
 
 ## Installation
 
@@ -66,63 +57,47 @@ Avrotize provides several commands for converting schema formats via Avrotize Sc
 
 Converting to Avrotize Schema:
 
-- [`avrotize p2a`](#convert-proto-schema-to-avrotize-schema) - Convert Protobuf (2 or 3) schema to Avrotize Schema.
-- [`avrotize cue2a`](#convert-cue-schema-subset-to-avrotize-schema) - Convert a supported CUE schema subset to Avrotize Schema.
-
-- [`avrotize fbs2a`](#convert-flatbuffers-schema-to-avrotize-schema) - Convert FlatBuffers schema to Avrotize Schema.
-
-- [`avrotize thrift2a`](#convert-apache-thrift-idl-to-avrotize-schema) - Convert Apache Thrift IDL to Avrotize Schema.
-
-- [`avrotize smithy2a`](#convert-smithy-idl-data-shapes-to-avrotize-schema) - Convert Smithy 2.0 IDL data shapes to Avrotize Schema.
-
-- [`avrotize capnp2a`](#convert-capn-proto-schema-to-avrotize-schema) - Convert Cap'n Proto schema to Avrotize Schema.
-
-- [`avrotize raml2a`](#convert-raml-data-types-to-avrotize-schema) - Convert RAML 1.0 Data Types to Avrotize Schema.
+- [`avrotize s2a`](jsonstructure.md#conversion-from-json-structure-into-avro-schema) - Convert JSON Structure to Avrotize Schema.
 - [`avrotize j2a`](#convert-json-schema-to-avrotize-schema) - Convert JSON schema to Avrotize Schema.
+- [`avrotize p2a`](#convert-proto-schema-to-avrotize-schema) - Convert Protobuf (2 or 3) schema to Avrotize Schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
 - [`avrotize asn2a`](#convert-asn1-schema-to-avrotize-schema) - Convert ASN.1 to Avrotize Schema.
-- [`avrotize k2a`](#convert-kusto-table-definition-to-avrotize-schema) - Convert Kusto table definitions to Avrotize Schema.
+- [`avrotize jtd2a`](#convert-json-type-definition-jtd-to-avrotize-schema) - Convert JSON Type Definition (JTD) to Avrotize Schema.
+- [`avrotize cue2a`](#convert-cue-schema-subset-to-avrotize-schema) - Convert a supported CUE schema subset to Avrotize Schema.
+- [`avrotize fbs2a`](#convert-flatbuffers-schema-to-avrotize-schema) - Convert FlatBuffers schema to Avrotize Schema.
+- [`avrotize thrift2a`](#convert-apache-thrift-idl-to-avrotize-schema) - Convert Apache Thrift IDL to Avrotize Schema.
+- [`avrotize smithy2a`](#convert-smithy-idl-data-shapes-to-avrotize-schema) - Convert Smithy 2.0 IDL data shapes to Avrotize Schema.
+- [`avrotize capnp2a`](#convert-capn-proto-schema-to-avrotize-schema) - Convert Cap'n Proto schema to Avrotize Schema.
+- [`avrotize raml2a`](#convert-raml-data-types-to-avrotize-schema) - Convert RAML 1.0 Data Types to Avrotize Schema.
+- [`avrotize kstruct2a`](#convert-kafka-connect-schema-to-avrotize-schema) - Convert Kafka Connect Schema to Avrotize Schema.
 - [`avrotize sql2a`](#convert-sql-database-schema-to-avrotize-schema) - Convert SQL database schema to Avrotize Schema.
+- [`avrotize k2a`](#convert-kusto-table-definition-to-avrotize-schema) - Convert Kusto table definitions to Avrotize Schema.
 - [`avrotize surreal2a`](#convert-surrealql-schema-to-avrotize-schema) - Convert SurrealQL schema definitions to Avrotize Schema.
-- [`avrotize json2a`](#infer-avro-schema-from-json-files) - Infer Avro schema from JSON files.
-- [`avrotize json2s`](#infer-json-structure-schema-from-json-files) - Infer JSON Structure schema from JSON files.
-- [`avrotize xml2a`](#infer-avro-schema-from-xml-files) - Infer Avro schema from XML files.
-- [`avrotize xml2s`](#infer-json-structure-schema-from-xml-files) - Infer JSON Structure schema from XML files.
 - [`avrotize pq2a`](#convert-parquet-schema-to-avrotize-schema) - Convert Parquet schema to Avrotize Schema.
 - [`avrotize csv2a`](#convert-csv-file-to-avrotize-schema) - Convert CSV file to Avrotize Schema.
-- [`avrotize kstruct2a`](#convert-kafka-connect-schema-to-avrotize-schema) - Convert Kafka Connect Schema to Avrotize Schema.
-- [`avrotize jtd2a`](#convert-json-type-definition-jtd-to-avrotize-schema) - Convert JSON Type Definition (JTD) to Avrotize Schema.
 
 Converting from Avrotize Schema:
 
-- [`avrotize a2p`](#convert-avrotize-schema-to-proto-schema) - Convert Avrotize Schema to Protobuf 3 schema.
-- [`avrotize a2cue`](#convert-avrotize-schema-to-cue-schema-subset) - Convert Avrotize Schema to the supported CUE schema subset.
-
-- [`avrotize a2fbs`](#convert-avrotize-schema-to-flatbuffers-schema) - Convert Avrotize Schema to FlatBuffers schema.
-
-- [`avrotize a2thrift`](#convert-avrotize-schema-to-apache-thrift-idl) - Convert Avrotize Schema to Apache Thrift IDL.
-
-- [`avrotize a2smithy`](#convert-avrotize-schema-to-smithy-idl-data-shapes) - Convert Avrotize Schema to Smithy 2.0 IDL data shapes.
-
-- [`avrotize a2capnp`](#convert-avrotize-schema-to-capn-proto-schema) - Convert Avrotize Schema to Cap'n Proto schema.
-
-- [`avrotize a2raml`](#convert-avrotize-schema-to-raml-data-types) - Convert Avrotize Schema to RAML 1.0 Data Types.
-- [`avrotize a2asn`](#convert-avrotize-schema-to-asn1-schema) - Convert Avrotize Schema to ASN.1 schema.
-- [`avrotize s2asn`](#convert-json-structure-schema-to-asn1-schema) - Convert JSON Structure Schema to ASN.1 schema.
+- [`avrotize a2s`](jsonstructure.md#conversion-of-avro-schema-into-json-structure) - Convert Avrotize Schema to JSON Structure.
 - [`avrotize a2j`](#convert-avrotize-schema-to-json-schema) - Convert Avrotize Schema to JSON schema.
+- [`avrotize a2p`](#convert-avrotize-schema-to-proto-schema) - Convert Avrotize Schema to Protobuf 3 schema.
 - [`avrotize a2x`](#convert-avrotize-schema-to-xml-schema) - Convert Avrotize Schema to XML schema.
-- [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
-- [`avrotize s2k`](#convert-json-structure-schema-to-kusto-table-declaration) - Convert JSON Structure Schema to Kusto table definition.
+- [`avrotize a2asn`](#convert-avrotize-schema-to-asn1-schema) - Convert Avrotize Schema to ASN.1 schema.
+- [`avrotize a2jtd`](#convert-avrotize-schema-to-json-type-definition-jtd) - Convert Avrotize Schema to JSON Type Definition (JTD).
+- [`avrotize a2cue`](#convert-avrotize-schema-to-cue-schema-subset) - Convert Avrotize Schema to the supported CUE schema subset.
+- [`avrotize a2fbs`](#convert-avrotize-schema-to-flatbuffers-schema) - Convert Avrotize Schema to FlatBuffers schema.
+- [`avrotize a2thrift`](#convert-avrotize-schema-to-apache-thrift-idl) - Convert Avrotize Schema to Apache Thrift IDL.
+- [`avrotize a2smithy`](#convert-avrotize-schema-to-smithy-idl-data-shapes) - Convert Avrotize Schema to Smithy 2.0 IDL data shapes.
+- [`avrotize a2capnp`](#convert-avrotize-schema-to-capn-proto-schema) - Convert Avrotize Schema to Cap'n Proto schema.
+- [`avrotize a2raml`](#convert-avrotize-schema-to-raml-data-types) - Convert Avrotize Schema to RAML 1.0 Data Types.
 - [`avrotize a2sql`](#convert-avrotize-schema-to-sql-table-definition) - Convert Avrotize Schema to SQL table definition.
+- [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
+- `avrotize a2tsml` - Convert Avrotize Schema to Tabular Model Scripting Language (TMSL).
 - [`avrotize a2surreal`](#convert-avrotize-schema-to-surrealql-schema) - Convert Avrotize Schema to SurrealQL schema definitions.
-- [`avrotize s2sql`](#convert-json-structure-schema-to-sql-schema) - Convert JSON Structure Schema to SQL table definition.
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
-- [`avrotize s2ib`](#convert-json-structure-to-iceberg-schema) - Convert JSON Structure to Iceberg schema.
-- [`avrotize s2pq`](#convert-json-structure-to-empty-parquet-file) - Convert JSON Structure to Parquet schema.
 - [`avrotize a2mongo`](#convert-avrotize-schema-to-mongodb-schema) - Convert Avrotize Schema to MongoDB schema.
 - [`avrotize a2cassandra`](#convert-avrotize-schema-to-cassandra-schema) - Convert Avrotize Schema to Cassandra schema.
-- [`avrotize s2cassandra`](#convert-json-structure-schema-to-cassandra-schema) - Convert JSON Structure Schema to Cassandra schema.
 - [`avrotize a2es`](#convert-avrotize-schema-to-elasticsearch-schema) - Convert Avrotize Schema to Elasticsearch schema.
 - [`avrotize a2dynamodb`](#convert-avrotize-schema-to-dynamodb-schema) - Convert Avrotize Schema to DynamoDB schema.
 - [`avrotize a2cosmos`](#convert-avrotize-schema-to-cosmosdb-schema) - Convert Avrotize Schema to CosmosDB schema.
@@ -131,30 +106,52 @@ Converting from Avrotize Schema:
 - [`avrotize a2hbase`](#convert-avrotize-schema-to-hbase-schema) - Convert Avrotize Schema to HBase schema.
 - [`avrotize a2neo4j`](#convert-avrotize-schema-to-neo4j-schema) - Convert Avrotize Schema to Neo4j schema.
 - [`avrotize a2dp`](#convert-avrotize-schema-to-datapackage-schema) - Convert Avrotize Schema to Datapackage schema.
+- [`avrotize a2csv`](#convert-avrotize-schema-to-csv-schema) - Convert Avrotize schema to CSV schema.
+- [`avrotize a2graphql`](#convert-avrotize-schema-to-graphql-schema) - Convert Avrotize schema to GraphQL schema.
 - [`avrotize a2md`](#convert-avrotize-schema-to-markdown-documentation) - Convert Avrotize Schema to Markdown documentation.
-- [`avrotize s2md`](#convert-json-structure-schema-to-markdown-documentation) - Convert JSON Structure schema to Markdown documentation.
-- [`avrotize a2jtd`](#convert-avrotize-schema-to-json-type-definition-jtd) - Convert Avrotize Schema to JSON Type Definition (JTD).
 
-Direct conversions (JSON Structure):
+Converting to and from JSON Structure:
 
+- [`avrotize j2s`](jsonschematostructure.md) - Convert JSON Schema to JSON Structure.
+- [`avrotize s2j`](structuretojsonschema.md) - Convert JSON Structure to JSON Schema.
 - [`avrotize s2p`](#convert-json-structure-to-protocol-buffers) - Convert JSON Structure to Protocol Buffers (.proto files).
-- [`avrotize fbs2s`](#convert-flatbuffers-schema-to-json-structure) - Convert FlatBuffers schema to JSON Structure.
-- [`avrotize s2fbs`](#convert-json-structure-to-flatbuffers-schema) - Convert JSON Structure to FlatBuffers schema.
-
-- [`avrotize thrift2s`](#convert-apache-thrift-idl-to-json-structure) - Convert Apache Thrift IDL to JSON Structure.
-- [`avrotize s2thrift`](#convert-json-structure-to-apache-thrift-idl) - Convert JSON Structure to Apache Thrift IDL.
-
-- [`avrotize smithy2s`](#convert-smithy-idl-data-shapes-to-json-structure) - Convert Smithy 2.0 IDL data shapes to JSON Structure.
-- [`avrotize s2smithy`](#convert-json-structure-to-smithy-idl-data-shapes) - Convert JSON Structure to Smithy 2.0 IDL data shapes.
-
-- [`avrotize capnp2s`](#convert-capn-proto-schema-to-json-structure) - Convert Cap'n Proto schema to JSON Structure.
-- [`avrotize s2capnp`](#convert-json-structure-to-capn-proto-schema) - Convert JSON Structure to Cap'n Proto schema.
+- [`avrotize s2x`](#convert-json-structure-to-xml-schema-xsd) - Convert JSON Structure to XML Schema (XSD).
+- [`avrotize s2asn`](#convert-json-structure-schema-to-asn1-schema) - Convert JSON Structure Schema to ASN.1 schema.
+- [`avrotize jtd2s`](#convert-json-type-definition-jtd-to-json-structure) - Convert JSON Type Definition (JTD) to JSON Structure.
+- [`avrotize s2jtd`](#convert-json-structure-to-json-type-definition-jtd) - Convert JSON Structure to JSON Type Definition (JTD).
+- [`avrotize cddl2s`](cddl.md) - Convert CDDL schema to JSON Structure.
+- [`avrotize s2cddl`](cddl.md) - Convert JSON Structure to CDDL schema.
 - [`avrotize oas2s`](#convert-openapi-to-json-structure) - Convert OpenAPI 3.x document to JSON Structure.
 - [`avrotize cue2s`](#convert-cue-schema-subset-to-json-structure) - Convert a supported CUE schema subset to JSON Structure.
 - [`avrotize s2cue`](#convert-json-structure-to-cue-schema-subset) - Convert JSON Structure to the supported CUE schema subset.
-
+- [`avrotize fbs2s`](#convert-flatbuffers-schema-to-json-structure) - Convert FlatBuffers schema to JSON Structure.
+- [`avrotize s2fbs`](#convert-json-structure-to-flatbuffers-schema) - Convert JSON Structure to FlatBuffers schema.
+- [`avrotize thrift2s`](#convert-apache-thrift-idl-to-json-structure) - Convert Apache Thrift IDL to JSON Structure.
+- [`avrotize s2thrift`](#convert-json-structure-to-apache-thrift-idl) - Convert JSON Structure to Apache Thrift IDL.
+- [`avrotize smithy2s`](#convert-smithy-idl-data-shapes-to-json-structure) - Convert Smithy 2.0 IDL data shapes to JSON Structure.
+- [`avrotize s2smithy`](#convert-json-structure-to-smithy-idl-data-shapes) - Convert JSON Structure to Smithy 2.0 IDL data shapes.
+- [`avrotize capnp2s`](#convert-capn-proto-schema-to-json-structure) - Convert Cap'n Proto schema to JSON Structure.
+- [`avrotize s2capnp`](#convert-json-structure-to-capn-proto-schema) - Convert JSON Structure to Cap'n Proto schema.
 - [`avrotize raml2s`](#convert-raml-data-types-to-json-structure) - Convert RAML 1.0 Data Types to JSON Structure.
 - [`avrotize s2raml`](#convert-json-structure-to-raml-data-types) - Convert JSON Structure to RAML 1.0 Data Types.
+- [`avrotize s2sql`](#convert-json-structure-schema-to-sql-schema) - Convert JSON Structure Schema to SQL table definition.
+- [`avrotize s2k`](#convert-json-structure-schema-to-kusto-table-declaration) - Convert JSON Structure Schema to Kusto table definition.
+- [`avrotize k2s`](#convert-kusto-table-definition-to-json-structure) - Convert Kusto table definitions to JSON Structure.
+- `avrotize s2tsml` - Convert JSON Structure to Tabular Model Scripting Language (TMSL).
+- [`avrotize s2pq`](#convert-json-structure-to-empty-parquet-file) - Convert JSON Structure to Parquet schema.
+- [`avrotize s2ib`](#convert-json-structure-to-iceberg-schema) - Convert JSON Structure to Iceberg schema.
+- [`avrotize s2cassandra`](#convert-json-structure-schema-to-cassandra-schema) - Convert JSON Structure Schema to Cassandra schema.
+- [`avrotize s2graphql`](#convert-json-structure-schema-to-graphql-schema) - Convert JSON Structure schema to GraphQL schema.
+- [`avrotize s2dp`](#convert-json-structure-schema-to-datapackage-schema) - Convert JSON Structure schema to Datapackage schema.
+- [`avrotize s2csv`](#convert-json-structure-to-csv-schema) - Convert JSON Structure schema to CSV schema.
+- [`avrotize s2md`](#convert-json-structure-schema-to-markdown-documentation) - Convert JSON Structure schema to Markdown documentation.
+
+Inferring schemas from data:
+
+- [`avrotize json2a`](#infer-avro-schema-from-json-files) - Infer Avro schema from JSON files.
+- [`avrotize json2s`](#infer-json-structure-schema-from-json-files) - Infer JSON Structure schema from JSON files.
+- [`avrotize xml2a`](#infer-avro-schema-from-xml-files) - Infer Avro schema from XML files.
+- [`avrotize xml2s`](#infer-json-structure-schema-from-xml-files) - Infer JSON Structure schema from XML files.
 
 Generate code from Avrotize Schema:
 
@@ -163,40 +160,27 @@ Generate code from Avrotize Schema:
 - [`avrotize a2py`](#convert-avrotize-schema-to-python-classes) - Generate Python code from Avrotize Schema.
 - [`avrotize a2ts`](#convert-avrotize-schema-to-typescript-classes) - Generate TypeScript code from Avrotize Schema.
 - [`avrotize a2js`](#convert-avrotize-schema-to-javascript-classes) - Generate JavaScript code from Avrotize Schema.
-- [`avrotize a2cpp`](#convert-avrotize-schema-to-c-classes) - Generate C++ code from Avrotize Schema.
 - [`avrotize a2go`](#convert-avrotize-schema-to-go-classes) - Generate Go code from Avrotize Schema.
 - [`avrotize a2rust`](#convert-avrotize-schema-to-rust-classes) - Generate Rust code from Avrotize Schema.
+- [`avrotize a2cpp`](#convert-avrotize-schema-to-c-classes) - Generate C++ code from Avrotize Schema.
 
 Generate code from JSON Structure:
 
-- [`avrotize s2cpp`](#convert-json-structure-to-c-classes) - Generate C++ code from JSON Structure schema.
 - [`avrotize s2cs`](#convert-json-structure-to-c-classes) - Generate C# code from JSON Structure schema.
-- [`avrotize s2go`](#convert-json-structure-to-go-classes) - Generate Go code from JSON Structure schema.
 - [`avrotize s2java`](#convert-json-structure-to-java-classes) - Generate Java code from JSON Structure schema.
 - [`avrotize s2py`](#convert-json-structure-to-python-classes) - Generate Python code from JSON Structure schema.
-- [`avrotize s2rust`](#convert-json-structure-to-rust-classes) - Generate Rust code from JSON Structure schema.
 - [`avrotize s2ts`](#convert-json-structure-to-typescript-classes) - Generate TypeScript code from JSON Structure schema.
-
-Direct JSON Structure conversions:
-
-- [`avrotize s2csv`](#convert-json-structure-to-csv-schema) - Convert JSON Structure schema to CSV schema.
-- [`avrotize a2csv`](#convert-avrotize-schema-to-csv-schema) - Convert Avrotize schema to CSV schema.
-- [`avrotize s2x`](#convert-json-structure-to-xml-schema-xsd) - Convert JSON Structure to XML Schema (XSD).
-- [`avrotize s2graphql`](#convert-json-structure-schema-to-graphql-schema) - Convert JSON Structure schema to GraphQL schema.
-- [`avrotize a2graphql`](#convert-avrotize-schema-to-graphql-schema) - Convert Avrotize schema to GraphQL schema.
-- [`avrotize jtd2s`](#convert-json-type-definition-jtd-to-json-structure) - Convert JSON Type Definition (JTD) to JSON Structure.
-- [`avrotize s2jtd`](#convert-json-structure-to-json-type-definition-jtd) - Convert JSON Structure to JSON Type Definition (JTD).
+- [`avrotize s2js`](#convert-json-structure-to-javascript-classes) - Generate JavaScript code from JSON Structure schema.
+- [`avrotize s2go`](#convert-json-structure-to-go-classes) - Generate Go code from JSON Structure schema.
+- [`avrotize s2rust`](#convert-json-structure-to-rust-classes) - Generate Rust code from JSON Structure schema.
+- [`avrotize s2cpp`](#convert-json-structure-to-c-classes) - Generate C++ code from JSON Structure schema.
 
 Other commands:
 
-- [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
 - [`avrotize validate`](#validate-json-instances-against-schemas) - Validate JSON instances against Avro or JSON Structure schemas.
 - `avrotize mcp` - Run Avrotize as a local MCP server exposing conversion tools to MCP clients.
+- [`avrotize pcf`](#create-the-parsing-canonical-form-pcf-of-an-avrotize-schema) - Create the Parsing Canonical Form (PCF) of an Avrotize Schema.
 - [`avrotize validate-tmsl`](#validate-tmsl-scripts-locally) - Validate TMSL scripts locally against documented object structure.
-
-JSON Structure conversions:
-
-- [`avrotize s2dp`](#convert-json-structure-schema-to-datapackage-schema) - Convert JSON Structure schema to Datapackage schema.
 
 ## Overview
 
@@ -829,6 +813,14 @@ Conversion notes:
   - `timespan` is mapped to a logical Avro type with the `logicalType` set to `duration`.
 - For `dynamic` columns, the tool will sample the data in the table to determine the structure of the dynamic column. The tool will map the dynamic column to an Avro record type with fields that correspond to the fields found in the dynamic column. If the dynamic column contains nested dynamic columns, the tool will recursively map those to Avro record types. If records with conflicting structures are found in the dynamic column, the tool will emit a union of record types for the dynamic column.
 - If the `--emit-cloudevents-xregistry` option is set, the tool will emit an [xRegistry](http://xregistry.io) registry manifest file with a CloudEvent message definition for each table in the Kusto database and a separate Avro Schema for each table in the embedded schema registry. If one or more tables are found to contain CloudEvent data (as indicated by the presence of the CloudEvents attribute columns), the tool will inspect the content of the `type` (or `__type` or `__type`) columns to determine which CloudEvent types have been stored in the table and will emit a CloudEvent definition and schema for each unique type.
+
+### Convert Kusto table definition to JSON Structure
+
+```bash
+avrotize k2s [<path_to_kusto_file>] [--out <path_to_structure_file>] [--kusto-uri <kusto_cluster_uri>] [--kusto-database <kusto_database>] [--table-name <table_name>]
+```
+
+The command accepts either a Kusto definition file or a live Kusto cluster and database. It can sample `dynamic` columns to infer nested structures, choices, and enums. Use `--emit-cloudevents` to add CloudEvents declarations or `--emit-xregistry` to emit an xRegistry manifest instead of a single JSON Structure schema.
 
 ### Convert SQL database schema to Avrotize Schema
 
