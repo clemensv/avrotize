@@ -92,7 +92,7 @@ Converting from Avrotize Schema:
 - [`avrotize a2raml`](#convert-avrotize-schema-to-raml-data-types) - Convert Avrotize Schema to RAML 1.0 Data Types.
 - [`avrotize a2sql`](#convert-avrotize-schema-to-sql-table-definition) - Convert Avrotize Schema to SQL table definition.
 - [`avrotize a2k`](#convert-avrotize-schema-to-kusto-table-declaration) - Convert Avrotize Schema to Kusto table definition.
-- `avrotize a2tsml` - Convert Avrotize Schema to Tabular Model Scripting Language (TMSL).
+- [`avrotize a2tsml`](#convert-avrotize-schema-to-tabular-model-scripting-language-tmsl) - Convert Avrotize Schema to Tabular Model Scripting Language (TMSL).
 - [`avrotize a2surreal`](#convert-avrotize-schema-to-surrealql-schema) - Convert Avrotize Schema to SurrealQL schema definitions.
 - [`avrotize a2pq`](#convert-avrotize-schema-to-empty-parquet-file) - Convert Avrotize Schema to Parquet or Iceberg schema.
 - [`avrotize a2ib`](#convert-avrotize-schema-to-iceberg-schema) - Convert Avrotize Schema to Iceberg schema.
@@ -137,7 +137,7 @@ Converting to and from JSON Structure:
 - [`avrotize s2sql`](#convert-json-structure-schema-to-sql-schema) - Convert JSON Structure Schema to SQL table definition.
 - [`avrotize s2k`](#convert-json-structure-schema-to-kusto-table-declaration) - Convert JSON Structure Schema to Kusto table definition.
 - [`avrotize k2s`](#convert-kusto-table-definition-to-json-structure) - Convert Kusto table definitions to JSON Structure.
-- `avrotize s2tsml` - Convert JSON Structure to Tabular Model Scripting Language (TMSL).
+- [`avrotize s2tsml`](#convert-json-structure-to-tabular-model-scripting-language-tmsl) - Convert JSON Structure to Tabular Model Scripting Language (TMSL).
 - [`avrotize s2pq`](#convert-json-structure-to-empty-parquet-file) - Convert JSON Structure to Parquet schema.
 - [`avrotize s2ib`](#convert-json-structure-to-iceberg-schema) - Convert JSON Structure to Iceberg schema.
 - [`avrotize s2cassandra`](#convert-json-structure-schema-to-cassandra-schema) - Convert JSON Structure Schema to Cassandra schema.
@@ -1058,6 +1058,49 @@ Conversion notes:
   - `time`, `duration` → `timespan`
   - `uuid` → `guid`
   - `binary` → `dynamic`
+
+### Convert Avrotize Schema to Tabular Model Scripting Language (TMSL)
+
+```bash
+avrotize a2tsml <path_to_avro_schema_file> [--out <path_to_tmsl_file>] [--record-type <record_type>] [--database-name <database_name>] [--compatibility-level <level>] [--emit-cloudevents-columns]
+```
+
+Parameters:
+
+- `<path_to_avro_schema_file>`: The path to the Avrotize Schema file to convert. If omitted, the file is read from stdin.
+- `--out`: The path to the TMSL JSON file. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) Select a record by its simple or fully qualified name. If omitted, all top-level records are emitted as tables.
+- `--database-name`: (optional) Set the tabular model database name. The first selected record name is used by default.
+- `--compatibility-level`: (optional) Set the tabular model compatibility level. The default is `1605`.
+- `--emit-cloudevents-columns`: (optional) Add nullable `___type`, `___source`, `___id`, `___time`, and `___subject` columns to each table.
+
+Conversion notes:
+
+- Each top-level Avro record becomes a TMSL table and each field becomes a column.
+- Avro `unique` metadata marks matching TMSL columns as keys. Avro `foreignKeys` metadata becomes TMSL model relationships when the referenced records are present.
+- Primitive numeric, Boolean, string, binary, decimal, and temporal types map to their corresponding TMSL data types. Records, arrays, maps, and general unions map to `variant`.
+- The result is a TMSL `createOrReplace` command containing the database and model definition. It defines the semantic model structure but does not create data-source partitions or load data.
+
+### Convert JSON Structure to Tabular Model Scripting Language (TMSL)
+
+```bash
+avrotize s2tsml <path_to_structure_schema_file> [--out <path_to_tmsl_file>] [--record-type <record_type>] [--database-name <database_name>] [--compatibility-level <level>] [--emit-cloudevents-columns]
+```
+
+Parameters:
+
+- `<path_to_structure_schema_file>`: The path to the JSON Structure schema file to convert. If omitted, the file is read from stdin.
+- `--out`: The path to the TMSL JSON file. If omitted, the output is directed to stdout.
+- `--record-type`: (optional) Select the object type to emit. If omitted, all converted top-level records are emitted as tables.
+- `--database-name`: (optional) Set the tabular model database name. The first selected type name is used by default.
+- `--compatibility-level`: (optional) Set the tabular model compatibility level. The default is `1605`.
+- `--emit-cloudevents-columns`: (optional) Add nullable `___type`, `___source`, `___id`, `___time`, and `___subject` columns to each table.
+
+Conversion notes:
+
+- The converter first maps JSON Structure to Avrotize Schema and then applies the same table, column, key, relationship, and type mappings as `a2tsml`.
+- JSON Structure features without direct tabular equivalents, including nested objects, collections, and choices, are represented as `variant` columns.
+- The result is a TMSL `createOrReplace` command containing the database and model definition. It defines the semantic model structure but does not create data-source partitions or load data.
 
 ### Convert Avrotize Schema to SQL Schema
 
