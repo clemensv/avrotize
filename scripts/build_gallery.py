@@ -1440,16 +1440,6 @@ GALLERY_ITEMS = [
         "source_language": "json",
         "conversions": [{"cmd": "a2graphql", "args": ["--out", "{out}/telemetry.graphql"]}]
     },
-    {
-        "id": "struct-to-javascript",
-        "title": "Structure -> JavaScript",
-        "description": "JavaScript classes with Avro serialization support",
-        "source_file": "inventory.struct.json",
-        "source_path": GALLERY_SOURCES / "inventory.struct.json",
-        "source_language": "json",
-        "conversions": [{"cmd": "s2js", "args": ["--out", "{out}/javascript", "--avro-annotation"]}]
-    },
-    
     # ============================================================
     # CLOUDEVENTS DATABASE EXAMPLES (Multi-table with CE columns)
     # ============================================================
@@ -1489,18 +1479,210 @@ GALLERY_ITEMS = [
         "source_language": "json",
         "conversions": [{"cmd": "s2k", "args": ["--emit-cloudevents-columns", "--out", "{out}/ecommerce_ce.kql"]}]
     },
+    # ============================================================
+    # INFERENCE, VALIDATION, AND SERVICE COMMANDS
+    # ============================================================
+    {
+        "id": "json-data-to-avro",
+        "title": "JSON Data -> Avro",
+        "description": "Infer an Avro schema from representative device JSON",
+        "source_file": "device.json",
+        "source_path": GALLERY_SOURCES / "device.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "json2a", "args": ["--type-name", "Device", "--namespace", "com.example.devices", "--out", "{out}/device.avsc"]}]
+    },
+    {
+        "id": "json-data-to-struct",
+        "title": "JSON Data -> JSON Structure",
+        "description": "Infer a JSON Structure schema from representative device JSON",
+        "source_file": "device.json",
+        "source_path": GALLERY_SOURCES / "device.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "json2s", "args": ["--type-name", "Device", "--base-id", "https://example.com/devices/", "--out", "{out}/device.struct.json"]}]
+    },
+    {
+        "id": "xml-data-to-avro",
+        "title": "XML Data -> Avro",
+        "description": "Infer an Avro schema from representative device XML",
+        "source_file": "device.xml",
+        "source_path": GALLERY_SOURCES / "device.xml",
+        "source_language": "xml",
+        "conversions": [{"cmd": "xml2a", "args": ["--type-name", "Device", "--namespace", "com.example.devices", "--out", "{out}/device.avsc"]}]
+    },
+    {
+        "id": "xml-data-to-struct",
+        "title": "XML Data -> JSON Structure",
+        "description": "Infer a JSON Structure schema from representative device XML",
+        "source_file": "device.xml",
+        "source_path": GALLERY_SOURCES / "device.xml",
+        "source_language": "xml",
+        "conversions": [{"cmd": "xml2s", "args": ["--type-name", "Device", "--base-id", "https://example.com/devices/", "--out", "{out}/device.struct.json"]}]
+    },
+    {
+        "id": "kusto-to-avro",
+        "title": "Kusto -> Avro",
+        "description": "Infer an Avro schema from a Kusto table definition",
+        "source_file": "telemetry.kql",
+        "source_path": GALLERY_SOURCES / "telemetry.kql",
+        "source_language": "kusto",
+        "execution": "static",
+        "static_reason": "Kusto inference requires a live authenticated cluster. The gallery records a representative command and artifact without opening an external connection.",
+        "static_outputs": [
+            {"path": "telemetry.avsc", "content": "{\n  \"type\": \"record\",\n  \"name\": \"TelemetryReading\",\n  \"namespace\": \"Telemetry\",\n  \"fields\": [\n    {\"name\": \"DeviceId\", \"type\": \"string\"},\n    {\"name\": \"SensorType\", \"type\": \"string\"},\n    {\"name\": \"Timestamp\", \"type\": {\"type\": \"long\", \"logicalType\": \"timestamp-millis\"}},\n    {\"name\": \"Temperature\", \"type\": \"double\"},\n    {\"name\": \"Humidity\", \"type\": \"double\"},\n    {\"name\": \"Pressure\", \"type\": \"double\"},\n    {\"name\": \"Location\", \"type\": \"bytes\"},\n    {\"name\": \"Metadata\", \"type\": \"bytes\"}\n  ]\n}\n"}
+        ],
+        "conversions": [{"cmd": "k2a", "input": None, "args": ["--kusto-uri", "https://cluster.example.com", "--kusto-database", "Telemetry", "--table-name", "TelemetryReading", "--out", "{out}/telemetry.avsc"]}]
+    },
+    {
+        "id": "kusto-to-struct",
+        "title": "Kusto -> JSON Structure",
+        "description": "Infer a JSON Structure schema from a Kusto table definition",
+        "source_file": "telemetry.kql",
+        "source_path": GALLERY_SOURCES / "telemetry.kql",
+        "source_language": "kusto",
+        "execution": "static",
+        "static_reason": "Kusto inference requires a live authenticated cluster. The gallery records a representative command and artifact without opening an external connection.",
+        "static_outputs": [
+            {"path": "telemetry.struct.json", "content": "{\n  \"$schema\": \"https://json-structure.org/meta/extended/v0/#\",\n  \"$id\": \"https://Telemetry.example.com/TelemetryReading\",\n  \"name\": \"TelemetryReading\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"DeviceId\": {\"type\": \"string\"},\n    \"SensorType\": {\"type\": \"string\"},\n    \"Timestamp\": {\"type\": \"string\", \"format\": \"date-time\"},\n    \"Temperature\": {\"type\": \"number\"},\n    \"Humidity\": {\"type\": \"number\"},\n    \"Pressure\": {\"type\": \"number\"},\n    \"Location\": {\"type\": \"object\"},\n    \"Metadata\": {\"type\": \"object\"}\n  }\n}\n"}
+        ],
+        "conversions": [{"cmd": "k2s", "input": None, "args": ["--kusto-uri", "https://cluster.example.com", "--kusto-database", "Telemetry", "--table-name", "TelemetryReading", "--out", "{out}/telemetry.struct.json"]}]
+    },
+    {
+        "id": "sql-to-avro",
+        "title": "SQLite -> Avro",
+        "description": "Infer an Avro schema from a deterministic local SQLite database",
+        "source_file": "telemetry.sql",
+        "source_path": GALLERY_SOURCES / "telemetry.sql",
+        "source_language": "sql",
+        "execution": "static",
+        "static_reason": "The current SQLite sql2a backend does not implement table metadata discovery. The gallery records the intended local command and representative artifact until that backend gap is closed.",
+        "static_outputs": [
+            {"path": "telemetry.avsc", "content": "{\n  \"type\": \"record\",\n  \"name\": \"telemetry_reading\",\n  \"namespace\": \"com.example.telemetry\",\n  \"fields\": [\n    {\"name\": \"reading_id\", \"type\": [\"null\", \"int\"]},\n    {\"name\": \"device_id\", \"type\": \"string\"},\n    {\"name\": \"sensor_type\", \"type\": \"string\"},\n    {\"name\": \"recorded_at\", \"type\": \"string\"},\n    {\"name\": \"value\", \"type\": \"float\"},\n    {\"name\": \"unit\", \"type\": [\"null\", \"string\"]},\n    {\"name\": \"quality\", \"type\": \"int\"}\n  ],\n  \"altnames\": {\"sql\": \"main.telemetry_reading\"}\n}\n"}
+        ],
+        "conversions": [{"cmd": "sql2a", "input": None, "args": ["--connection-string", "telemetry.db", "--dialect", "sqlite", "--namespace", "com.example.telemetry", "--out", "{out}/telemetry.avsc"]}]
+    },
+    {
+        "id": "cddl-to-struct",
+        "title": "CDDL -> JSON Structure",
+        "description": "Convert an IoT sensor CDDL model to JSON Structure",
+        "source_file": "iot_sensor.cddl",
+        "source_path": TEST_DIR / "cddl" / "iot_sensor.cddl",
+        "source_language": "cddl",
+        "conversions": [{"cmd": "cddl2s", "args": ["--namespace", "https://example.com/iot/", "--out", "{out}/iot_sensor.struct.json"]}]
+    },
+    {
+        "id": "struct-to-cddl",
+        "title": "JSON Structure -> CDDL",
+        "description": "Convert the inventory JSON Structure model to CDDL",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2cddl", "args": ["--out", "{out}/inventory.cddl"]}]
+    },
+    {
+        "id": "openapi-to-struct",
+        "title": "OpenAPI -> JSON Structure",
+        "description": "Extract reusable data types from a compact OpenAPI 3 document",
+        "source_file": "simple.json",
+        "source_path": TEST_DIR / "openapi" / "simple.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "oas2s", "args": ["--namespace", "https://example.com/api/", "--out", "{out}/simple.struct.json"]}]
+    },
+    {
+        "id": "avro-to-tmsl",
+        "title": "Avro -> TMSL",
+        "description": "Generate a Power BI tabular model script from Avro",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "a2tsml", "args": ["--database-name", "TelemetryModel", "--out", "{out}/telemetry.tmsl.json"]}]
+    },
+    {
+        "id": "struct-to-tmsl",
+        "title": "JSON Structure -> TMSL",
+        "description": "Generate a Power BI tabular model script from JSON Structure",
+        "source_file": "inventory.struct.json",
+        "source_path": GALLERY_SOURCES / "inventory.struct.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "s2tsml", "args": ["--database-name", "InventoryModel", "--out", "{out}/inventory.tmsl.json"]}]
+    },
+    {
+        "id": "avro-parsing-canonical-form",
+        "title": "Avro -> Parsing Canonical Form",
+        "description": "Print the Avro Parsing Canonical Form used for schema identity",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "conversions": [{"cmd": "pcf", "args": [], "capture_stdout": "{out}/telemetry.pcf.json"}]
+    },
+    {
+        "id": "validate-json-instance",
+        "title": "JSON Instance Validation",
+        "description": "Validate a device instance against a JSON Structure schema",
+        "source_file": "device.json",
+        "source_path": GALLERY_SOURCES / "device.json",
+        "source_language": "json",
+        "conversions": [{"cmd": "validate", "args": ["--schema", "{sources}/device.struct.json"], "capture_stdout": "{out}/validation.txt"}]
+    },
+    {
+        "id": "validate-generated-tmsl",
+        "title": "Generated TMSL Validation",
+        "description": "Generate a TMSL model from Avro and validate it locally",
+        "source_file": "telemetry.avsc",
+        "source_path": GALLERY_SOURCES / "telemetry.avsc",
+        "source_language": "json",
+        "setup": [{"cmd": "a2tsml", "args": ["--database-name", "TelemetryModel", "--out", "{out}/telemetry.tmsl.json"]}],
+        "conversions": [{"cmd": "validate-tmsl", "input": "{out}/telemetry.tmsl.json", "display_input": "telemetry.tmsl.json", "args": [], "capture_stdout": "{out}/validation.txt", "success_message": "TMSL validation completed successfully.\n"}]
+    },
+    {
+        "id": "mcp-stdio-service",
+        "title": "Avrotize MCP Service",
+        "description": "Expose Avrotize commands to an MCP client over stdio",
+        "source_file": "mcp-client.json",
+        "source_path": GALLERY_SOURCES / "mcp-client.json",
+        "source_language": "json",
+        "execution": "static",
+        "static_reason": "The MCP command is a long-running stdio service and is intentionally not launched during a batch gallery build.",
+        "static_outputs": [
+            {"path": "service.txt", "content": "This gallery item documents a long-running stdio service.\n\nConfigure an MCP client with the source configuration, then let the client launch:\n\n    avrotize mcp --transport stdio\n\nThe process remains attached to stdin/stdout until the MCP client closes the session.\n"}
+        ],
+        "conversions": [{"cmd": "mcp", "input": None, "args": ["--transport", "stdio"]}]
+    },
 ]
 
 
-def run_avrotize(cmd: str, input_file: Path | str, args: list[str], cwd: Path) -> bool:
+def _format_value(value: str, output_dir: Path) -> str:
+    """Resolve gallery placeholders in a command or setup value."""
+    return value.replace("{out}", str(output_dir)).replace("{sources}", str(GALLERY_SOURCES))
+
+
+def run_avrotize(
+    cmd: str,
+    input_file: Path | str | None,
+    args: list[str],
+    cwd: Path,
+    capture_stdout: Path | None = None,
+    success_message: str = "",
+) -> bool:
     """Run an avrotize command."""
-    full_cmd = ["avrotize", cmd, str(input_file)] + args
-    print(f"  Running: {' '.join(full_cmd)}")
+    full_cmd = [sys.executable, "-m", "avrotize", cmd]
+    display_cmd = ["avrotize", cmd]
+    if input_file is not None:
+        full_cmd.append(str(input_file))
+        display_cmd.append(str(input_file))
+    full_cmd.extend(args)
+    display_cmd.extend(args)
+    print(f"  Running: {' '.join(display_cmd)}")
     try:
-        result = subprocess.run(full_cmd, cwd=cwd, capture_output=True, text=True, timeout=120)
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(PROJECT_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+        env["PYTHONIOENCODING"] = "utf-8"
+        result = subprocess.run(full_cmd, cwd=cwd, capture_output=True, text=True, timeout=120, env=env)
         if result.returncode != 0:
-            print(f"  Error: {result.stderr}")
+            print(f"  Error: {result.stderr or result.stdout}")
             return False
+        if capture_stdout:
+            capture_stdout.parent.mkdir(parents=True, exist_ok=True)
+            capture_stdout.write_text(result.stdout or success_message, encoding="utf-8")
         return True
     except subprocess.TimeoutExpired:
         print("  Error: Command timed out")
@@ -1508,6 +1690,16 @@ def run_avrotize(cmd: str, input_file: Path | str, args: list[str], cwd: Path) -
     except Exception as e:
         print(f"  Error: {e}")
         return False
+
+
+def write_static_outputs(item: dict, output_dir: Path) -> None:
+    """Write intentional artifacts for commands that cannot run in a batch build."""
+    reason = item.get("static_reason", "This command is intentionally not executed.")
+    for output in item.get("static_outputs", []):
+        output_path = output_dir / output["path"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(output["content"], encoding="utf-8")
+    (output_dir / "execution-note.txt").write_text(reason + "\n", encoding="utf-8")
 
 
 def build_file_tree(directory: Path, base_path: Path) -> list[dict[str, Any]]:
@@ -1577,6 +1769,8 @@ def get_language_for_extension(ext: str) -> str:
         ".smithy": "smithy",
         ".raml": "yaml",
         ".surql": "sql",
+        ".cddl": "cddl",
+        ".txt": "plaintext",
     }
     return lang_map.get(ext.lower(), "plaintext")
 
@@ -1951,10 +2145,11 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
     # Database/data format commands
     db_cmds = {'a2sql', 'a2k', 'a2pq', 'a2ib', 'a2mongo', 'a2cassandra', 'a2dynamodb', 
                'a2es', 'a2cosmos', 'a2neo4j', 'a2firebase', 'a2couchdb', 'a2hbase',
-               's2sql', 's2k', 's2ib', 's2cassandra', 's2csv', 'a2csv'}
+               's2sql', 's2k', 's2ib', 's2cassandra', 's2csv', 'a2csv', 'a2tsml', 's2tsml'}
     
     # Documentation commands
     doc_cmds = {'a2md', 's2md'}
+    utility_items = []
     
     for item in successful_items:
         item_id = item["id"]
@@ -1985,7 +2180,20 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
                 struct_doc_output.append(item)
             else:
                 struct_schema_output.append(item)
-    
+        else:
+            utility_items.append(item)
+
+    categorized_ids = {
+        item["id"]
+        for category in (
+            avro_input, avro_schema_output, avro_code_output, avro_db_output, avro_doc_output,
+            struct_input, struct_schema_output, struct_code_output, struct_db_output, struct_doc_output,
+            utility_items,
+        )
+        for item in category
+    }
+    utility_items.extend(item for item in successful_items if item["id"] not in categorized_ids)
+
     def build_example_command(item: dict, is_structurize: bool) -> str:
         """Build a full example command string."""
         conversions = item.get("conversions", [])
@@ -1995,7 +2203,12 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
         last_conv = conversions[-1]
         cmd = last_conv.get("cmd", "")
         args = last_conv.get("args", [])
-        source_file = item.get("source_file", "input")
+        if "display_input" in last_conv:
+            display_input = last_conv["display_input"]
+        elif "input" in last_conv:
+            display_input = last_conv["input"]
+        else:
+            display_input = item.get("source_file")
         
         # Build argument string
         arg_str = ""
@@ -2005,15 +2218,15 @@ def generate_gallery_index(successful_items: list[dict]) -> None:
                 if i + 1 < len(args) and not args[i + 1].startswith("--"):
                     val = args[i + 1]
                     # Simplify output path for display
-                    if "{out}" in val:
-                        val = val.replace("{out}/", "").replace("{out}", "")
+                    val = val.replace("{out}/", "").replace("{out}", "")
+                    val = val.replace("{sources}/", "").replace("{sources}", "")
                     arg_str += f" {arg} {val}"
                 else:
                     arg_str += f" {arg}"
         
         # Build the full command
-        tool = "structurize" if is_structurize else "avrotize"
-        return f"{tool} {cmd} {source_file}{arg_str}"
+        input_str = f" {display_input}" if display_input else ""
+        return f"avrotize {cmd}{input_str}{arg_str}"
     
     def render_card(item: dict, is_structurize: bool = False) -> str:
         """Render a single gallery card."""
@@ -2145,6 +2358,14 @@ permalink: /gallery/
         avro_doc_output,
         is_structurize=False
     )
+
+    page_content += render_section(
+        "utilities",
+        "Inference, Validation & Services",
+        "Infer schemas, validate artifacts, and expose Avrotize as a service",
+        utility_items,
+        is_structurize=False
+    )
     
     page_content += '''
   </div>
@@ -2249,7 +2470,7 @@ document.addEventListener('DOMContentLoaded', function() {
     output_path.write_text(page_content, encoding="utf-8")
     print(f"\nGenerated gallery index: {output_path}")
 
-def _ensure_test_files_from_master() -> None:
+def _ensure_test_files_from_master() -> list[str]:
     """Ensure test files are available from master branch."""
     # Files needed from master branch test directory
     needed_files = [
@@ -2257,19 +2478,28 @@ def _ensure_test_files_from_master() -> None:
         ("test/asn1/movie.asn", TEST_DIR / "asn1" / "movie.asn"),
         ("test/parquet/address.parquet", TEST_DIR / "parquet" / "address.parquet"),
         ("test/kstruct/cardata.json", TEST_DIR / "kstruct" / "cardata.json"),
+        ("test/cddl/iot_sensor.cddl", TEST_DIR / "cddl" / "iot_sensor.cddl"),
+        ("test/openapi/simple.json", TEST_DIR / "openapi" / "simple.json"),
     ]
+    failures = []
     
     for git_path, local_path in needed_files:
         if not local_path.exists():
             print(f"  Fetching {git_path} from master...")
             local_path.parent.mkdir(parents=True, exist_ok=True)
             try:
-                result = subprocess.run(
-                    ["git", "show", f"master:{git_path}"],
-                    cwd=PROJECT_ROOT,
-                    capture_output=True,
-                    check=True
-                )
+                result = None
+                for ref in ("origin/master", "master"):
+                    attempt = subprocess.run(
+                        ["git", "show", f"{ref}:{git_path}"],
+                        cwd=PROJECT_ROOT,
+                        capture_output=True,
+                    )
+                    if attempt.returncode == 0:
+                        result = attempt
+                        break
+                if result is None:
+                    raise RuntimeError(f"not found in origin/master or master: {git_path}")
                 # Handle binary files (like parquet)
                 if git_path.endswith(".parquet"):
                     local_path.write_bytes(result.stdout)
@@ -2278,8 +2508,41 @@ def _ensure_test_files_from_master() -> None:
                 print(f"    Fetched: {local_path}")
             except subprocess.CalledProcessError as e:
                 print(f"    Failed to fetch {git_path}: {e.stderr.decode() if e.stderr else e}")
+                failures.append(f"Failed to fetch {git_path}")
             except Exception as e:
                 print(f"    Error fetching {git_path}: {e}")
+                failures.append(f"Failed to fetch {git_path}: {e}")
+    return failures
+
+
+def validate_command_catalog() -> None:
+    """Require one gallery item for every command in the local catalog."""
+    item_ids = [item["id"] for item in GALLERY_ITEMS]
+    duplicate_ids = sorted({item_id for item_id in item_ids if item_ids.count(item_id) > 1})
+    if duplicate_ids:
+        raise RuntimeError("Duplicate gallery item IDs: " + ", ".join(duplicate_ids))
+
+    catalog_path = PROJECT_ROOT / "avrotize" / "commands.json"
+    if not catalog_path.exists():
+        raise RuntimeError(f"Command catalog not found: {catalog_path}")
+
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    catalog_commands = {entry["command"] for entry in catalog}
+    gallery_commands = {
+        conversion["cmd"]
+        for item in GALLERY_ITEMS
+        for conversion in item.get("conversions", [])
+    }
+    missing = sorted(catalog_commands - gallery_commands)
+    unknown = sorted(gallery_commands - catalog_commands)
+    if missing or unknown:
+        details = []
+        if missing:
+            details.append("missing commands: " + ", ".join(missing))
+        if unknown:
+            details.append("unknown commands: " + ", ".join(unknown))
+        raise RuntimeError("Gallery command catalog mismatch: " + "; ".join(details))
+    print(f"  Command catalog coverage: {len(catalog_commands)}/{len(catalog_commands)}")
 
 
 def build_gallery() -> None:
@@ -2289,6 +2552,8 @@ def build_gallery() -> None:
     print(f"  Test directory: {TEST_DIR}")
     print(f"  Gallery directory: {GALLERY_DIR}")
     print(f"  Temp directory: {TMP_DIR}")
+
+    validate_command_catalog()
     
     # Ensure gallery directories exist
     GALLERY_DIR.mkdir(parents=True, exist_ok=True)
@@ -2296,20 +2561,28 @@ def build_gallery() -> None:
     # Checkout test files from master branch if not present
     if not TEST_DIR.exists():
         TEST_DIR.mkdir(parents=True, exist_ok=True)
-    _ensure_test_files_from_master()
+    failures = _ensure_test_files_from_master()
+
+    for item in GALLERY_ITEMS:
+        source_path = item.get("source_path")
+        if source_path and not source_path.exists():
+            failures.append(f"{item['id']}: source file not found: {source_path}")
+    if failures:
+        print("\nGallery preflight failures:")
+        for failure in failures:
+            print(f"  - {failure}")
+        raise RuntimeError(f"Gallery preflight failed with {len(failures)} error(s)")
+
+    if TMP_DIR.exists():
+        shutil.rmtree(TMP_DIR)
+    TMP_DIR.mkdir(parents=True)
     
     # Track successful items for index generation
-    successful_items = []
+    successful_items: list[tuple[dict, Path]] = []
+    failures = []
     
     for item in GALLERY_ITEMS:
         print(f"\nProcessing: {item['title']}")
-        
-        # Check if source file exists
-        source_path = item.get("source_path")
-        if source_path and not source_path.exists():
-            print(f"  Source file not found: {source_path}")
-            print(f"  Skipping item")
-            continue
         
         # Create temporary output directory
         output_dir = TMP_DIR / item["id"]
@@ -2317,43 +2590,73 @@ def build_gallery() -> None:
             shutil.rmtree(output_dir)
         output_dir.mkdir(parents=True)
         
+        if item.get("execution") == "static":
+            write_static_outputs(item, output_dir)
+            successful_items.append((item, output_dir))
+            print(f"  Static artifact: {item['static_reason']}")
+            continue
+
         # Run setup commands if any
         setup_commands = item.get("setup", [])
         success = True
         for setup in setup_commands:
-            input_file = setup.get("input", item["source_path"])
-            args = [arg.replace("{out}", str(output_dir)) for arg in setup.get("args", [])]
-            if not run_avrotize(setup["cmd"], input_file, args, output_dir):
-                print(f"  Setup failed, skipping item")
+            input_value = setup.get("input", item.get("source_path"))
+            input_file = Path(_format_value(input_value, output_dir)) if isinstance(input_value, str) else input_value
+            args = [_format_value(arg, output_dir) for arg in setup.get("args", [])]
+            capture = setup.get("capture_stdout")
+            capture_path = Path(_format_value(capture, output_dir)) if capture else None
+            if not run_avrotize(setup["cmd"], input_file, args, output_dir, capture_path, setup.get("success_message", "")):
                 success = False
                 break
         
         if not success:
+            failures.append(f"{item['id']}: setup failed")
             continue
         
         # Run conversion commands
-        source_input = item["source_path"]
         for conv in item["conversions"]:
             if "input" in conv:
-                source_input = Path(conv["input"].replace("{out}", str(output_dir)))
-            
-            args = [arg.replace("{out}", str(output_dir)) for arg in conv.get("args", [])]
-            
-            if not run_avrotize(conv["cmd"], source_input, args, output_dir):
-                print(f"  Conversion failed, skipping item")
+                input_value = conv["input"]
+                source_input = Path(_format_value(input_value, output_dir)) if isinstance(input_value, str) else None
+            else:
+                source_input = item.get("source_path")
+
+            args = [_format_value(arg, output_dir) for arg in conv.get("args", [])]
+            capture = conv.get("capture_stdout")
+            capture_path = Path(_format_value(capture, output_dir)) if capture else None
+
+            conversion_succeeded = run_avrotize(
+                conv["cmd"],
+                source_input,
+                args,
+                output_dir,
+                capture_path,
+                conv.get("success_message", ""),
+            )
+            if not conversion_succeeded:
                 success = False
                 break
         
         if success:
-            # Files base URL for the generated page - use 'files' subdirectory (not _data which Jekyll ignores)
-            files_base_url = f"/gallery/files/{item['id']}"
-            
-            # Generate the gallery page
-            generate_gallery_page(item, output_dir, files_base_url)
-            successful_items.append(item)
+            if not any(path.is_file() for path in output_dir.rglob("*")):
+                failures.append(f"{item['id']}: conversion produced no output artifact")
+            else:
+                successful_items.append((item, output_dir))
+        else:
+            failures.append(f"{item['id']}: conversion failed")
+
+    if failures:
+        print("\nGallery build failures:")
+        for failure in failures:
+            print(f"  - {failure}")
+        raise RuntimeError(f"Gallery build failed with {len(failures)} error(s)")
+
+    for item, output_dir in successful_items:
+        files_base_url = f"/gallery/files/{item['id']}"
+        generate_gallery_page(item, output_dir, files_base_url)
     
     # Generate the main gallery index page
-    generate_gallery_index(successful_items)
+    generate_gallery_index([item for item, _ in successful_items])
     
     print("\nGallery build complete!")
     print(f"Generated {len(successful_items)} gallery pages in: {GALLERY_DIR}")
@@ -2362,4 +2665,3 @@ def build_gallery() -> None:
 
 if __name__ == "__main__":
     build_gallery()
-

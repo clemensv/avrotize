@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<device>
+  <deviceId>sensor-042</deviceId>
+  <deviceType>temperature</deviceType>
+  <enabled>true</enabled>
+  <installedAt>2026-07-15T09:30:00Z</installedAt>
+  <location>
+    <building>North</building>
+    <floor>3</floor>
+  </location>
+  <readings>
+    <reading>
+      <timestamp>2026-08-03T20:00:00Z</timestamp>
+      <value>21.7</value>
+      <unit>C</unit>
+    </reading>
+  </readings>
+  <tags>
+    <tag>production</tag>
+    <tag>indoor</tag>
+  </tags>
+</device>

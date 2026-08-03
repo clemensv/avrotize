@@ -1,0 +1,18 @@
+{
+  "deviceId": "sensor-042",
+  "deviceType": "temperature",
+  "enabled": true,
+  "installedAt": "2026-07-15T09:30:00Z",
+  "location": {
+    "building": "North",
+    "floor": 3
+  },
+  "readings": [
+    {
+      "timestamp": "2026-08-03T20:00:00Z",
+      "value": 21.7,
+      "unit": "C"
+    }
+  ],
+  "tags": ["production", "indoor"]
+}
