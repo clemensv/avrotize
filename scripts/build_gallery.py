@@ -1958,6 +1958,11 @@ source_is_binary: {str(source_is_binary).lower()}
 source_file_url: "{source_file_url}"
 source_content_b64: "{source_content_b64}"
 files_base_url: "{files_base_url}"
+image:
+  path: /assets/images/social/gallery.png
+  width: 1200
+  height: 630
+  alt: Avrotize conversion gallery
 permalink: /gallery/{item['id']}/
 ---
 
@@ -2289,6 +2294,11 @@ layout: default
 title: Gallery
 description: See real conversion examples with full output
 permalink: /gallery/
+image:
+  path: /assets/images/social/gallery.png
+  width: 1200
+  height: 630
+  alt: Avrotize conversion gallery
 ---
 
 <section class="hero" style="padding: var(--spacing-xl) var(--spacing-xl);">

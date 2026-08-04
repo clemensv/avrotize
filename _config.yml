@@ -40,3 +40,12 @@ defaults:
       type: "pages"
     values:
       layout: "default"
+  - scope:
+      path: "gallery"
+      type: "pages"
+    values:
+      image:
+        path: /assets/images/social/gallery.png
+        width: 1200
+        height: 630
+        alt: Avrotize conversion gallery
