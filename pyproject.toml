@@ -41,7 +41,7 @@ mcp = [
     "mcp>=1.26.0"
 ]
 postgres = [
-    "psycopg2-binary>=2.9.9"
+    "psycopg2-binary>=2.9.12"
 ]
 mysql = [
     "pymysql>=1.1.1"
@@ -53,7 +53,7 @@ oracle = [
     "oracledb>=3.4.2"
 ]
 all-sql = [
-    "psycopg2-binary>=2.9.9",
+    "psycopg2-binary>=2.9.12",
     "pymysql>=1.1.1",
     "pyodbc>=5.3.0",
     "oracledb>=3.4.2"
@@ -71,7 +71,7 @@ dev = [
     "xsdata>=26.2",
     "testcontainers>=4.7.2",
     "pymysql>=1.1.1",
-    "psycopg2-binary>=2.9.9",
+    "psycopg2-binary>=2.9.12",
     "pyodbc>=5.3.0",
     "pymongo>=4.8.0",
     "oracledb>=3.4.2",
