@@ -1,5 +1,7 @@
 # Avrotize & Structurize
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.clemensv%2Favrotize.svg)](https://mcptoplist.com/server/io.github.clemensv%2Favrotize)
+
 mcp-name: io.github.clemensv/avrotize
 
 [![PyPI version](https://img.shields.io/pypi/v/avrotize)](https://pypi.org/project/avrotize/)
