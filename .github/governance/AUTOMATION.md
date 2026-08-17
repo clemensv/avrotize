@@ -12,7 +12,7 @@ behavior.
 | `python-runtime-versions-test.yml` | Build artifacts and exercise Python 3.10-3.14 installation/CLI smoke coverage | Compatibility signal | Build and matrix job failures propagate, but the current basic pytest command is a non-gating smoke signal. It is not represented as full evidence. |
 | `validate-mcp-server-json.yml` | Validate the MCP registry manifest | MCP publication evidence | Validation failure fails the workflow. |
 | `dependabot-auto-merge.yml` | Merge eligible Dependabot PRs only after the named build workflow succeeds | Narrow delegated dependency merge | Non-Dependabot and workflow-changing PRs are ineligible; failed or pending external checks prevent merge. |
-| `governance-observe.yml` | Validate governance surfaces, conversion-profile parity, and exact checkout revision | Advisory observation only | Findings are annotations and summaries; observe mode exits successfully and cannot satisfy or block a merge gate. |
+| `governance-observe.yml` | Validate governance surfaces, command-capability profile parity, and exact checkout revision | Advisory observation only | Findings are annotations and summaries; observe mode exits successfully and cannot satisfy or block a merge gate. |
 
 A green workflow proves only its named responsibility.
 
@@ -44,7 +44,7 @@ report stale records but cannot delete or rewrite them.
 Before enforcement, a merge guard will deterministically require:
 
 - an authorized linked item or a recorded owner exception;
-- complete metadata and affected conversion cells;
+- complete metadata and affected commands, shared semantics, generated targets, and public surfaces;
 - required evidence produced from the current head;
 - current-head domain, outcome, compatibility, security, and release verdicts;
 - all existing required checks passing;
@@ -87,15 +87,15 @@ sum active job durations.
 | MCP manifest validation | 1 | 0.18-3.05; median 1.08 | 0.07-0.13; median 0.12 |
 | Governance observe | 1 | projected 1 | projected 1 |
 
-Initial conversion-profile budgets distinguish elapsed from summed runner time:
+Initial Avrotize capability budgets distinguish elapsed from summed runner time:
 
 | Scope | Elapsed | Typical runner | P95 runner | Ceiling |
 | --- | ---: | ---: | ---: | ---: |
 | Documentation-only PR | 3 | 5 | 10 | 15 |
-| One conversion cell | 10 | 20 | 45 | 60 |
-| Shared importer/exporter helper | 15 | 60 | 120 | 180 |
-| Core intermediate-model change | 25 | 180 | 360 | 480 |
-| Full conversion matrix | 25 | 180 | 300 | 420 |
+| One command implementation | 10 | 20 | 45 | 60 |
+| Shared schema/IDL transformation helper | 15 | 60 | 120 | 180 |
+| Avrotize Schema or JSON Structure semantic change | 25 | 180 | 360 | 480 |
+| Full command and generated-target matrix | 25 | 180 | 300 | 420 |
 | Supported-runtime matrix | 15 | 40 | 80 | 120 |
 | Package and extension release | 35 | 220 | 380 | 480 |
 
@@ -110,7 +110,7 @@ optional diagnostics. If required scope cannot finish, report
 `BLOCKED: ACTIONS-BUDGET-INSUFFICIENT`, unfinished scope, and a revised
 projection; never silently skip it.
 
-Telemetry records exact SHA, event and dedupe IDs, jobs/cells, runner classes,
+Telemetry records exact SHA, event and dedupe IDs, jobs/commands, runner classes,
 queue/setup/active/elapsed time, runner minutes, cache/artifact reuse,
 cancellations/skips/retries/timeouts, projected values, platform run IDs,
 platform-reported AIC, optional token counts, and disposition. AIC projections

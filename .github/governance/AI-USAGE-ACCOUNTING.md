@@ -31,18 +31,19 @@ distributions:
 
 | Responsibility | Sample size | Observed P50 AIC | Observed P95 AIC | Per-run guardrail | Daily guardrail |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Cell intake or impact analysis | 0 | TBD | TBD | TBD | TBD |
-| Target or type-system review | 0 | TBD | TBD | TBD | TBD |
-| Failed-cell triage | 0 | TBD | TBD | TBD | TBD |
-| Shared-model campaign review | 0 | TBD | TBD | TBD | TBD |
-| Scheduled drift | 0 | TBD | TBD | TBD | TBD |
+| Command impact or issue triage | 0 | TBD | TBD | TBD | TBD |
+| Avrotize Schema or JSON Structure semantic review | 0 | TBD | TBD | TBD | TBD |
+| Generated language/runtime review | 0 | TBD | TBD | TBD | TBD |
+| Failed command/test-cluster triage | 0 | TBD | TBD | TBD | TBD |
+| Cross-command semantic campaign review | 0 | TBD | TBD | TBD | TBD |
+| Scheduled command/documentation drift | 0 | TBD | TBD | TBD | TBD |
 | Release-candidate compatibility | 0 | TBD | TBD | TBD | TBD |
 
 Until telemetry exists, projections and guardrails remain explicitly
 uncalibrated. Do not substitute task scores or token-derived estimates.
 
-Passing cells do not invoke AI. Deterministic automation clusters related
-failures before one AI invocation. When the platform reports guardrail
+Passing commands and tests do not invoke AI. Deterministic automation clusters
+related failures before one AI invocation. When the platform reports guardrail
 exhaustion or the required structured result cannot complete, return
 `ESCALATE: AIC-GUARDRAIL-EXHAUSTED`; partial output is not success.
 

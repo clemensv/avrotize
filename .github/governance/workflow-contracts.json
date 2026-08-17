@@ -186,10 +186,10 @@
       "implementation": ".github/workflows/governance-observe.yml",
       "state": "observe",
       "authority_owner": "repository-owner",
-      "purpose": "Report governance surface, conversion profile, and checkout revision findings without mutation or blocking.",
+      "purpose": "Report governance surface, command-capability profile, and checkout revision findings without mutation or blocking.",
       "events": ["pull_request:master", "push:master", "workflow_dispatch"],
       "inputs": {
-        "authoritative": ["checked-in governance surfaces", "avrotize/commands.json", "expected event SHA"],
+        "authoritative": ["checked-in governance surfaces", "avrotize/commands.json", ".github/governance/avrotize-capabilities.json", "expected event SHA"],
         "advisory": [],
         "untrusted": ["pull request content"]
       },
@@ -236,7 +236,7 @@
       "purpose": "Fail closed on unauthorized, incomplete, stale, or unproven merges and releases.",
       "events": ["pull_request", "merge_group", "release-candidate-tag"],
       "inputs": {
-        "authoritative": ["authorization", "diff-derived impact", "exact-head evidence", "current verdicts", "immutable tag and artifact provenance"],
+        "authoritative": ["authorization", "diff-derived command and surface impact", "exact-head evidence", "current verdicts", "immutable tag and artifact provenance"],
         "advisory": ["bounded structured AI recommendations under a future contract"],
         "untrusted": ["pull request content", "generated artifacts before digest verification"]
       },
@@ -267,8 +267,8 @@
       "actions": {
         "runner_classes": ["repository policy at activation time"],
         "typical_fan_out": 1,
-        "maximum_fan_out": "derived bounded matrix",
-        "runner_minutes_ceiling": "scope-specific conversion profile ceiling"
+        "maximum_fan_out": "derived bounded command and generated-target matrix",
+        "runner_minutes_ceiling": "scope-specific Avrotize capability ceiling"
       },
       "mutations": ["none in guard", "publication only in separately approved release workflow"],
       "permissions": ["contents:read", "pull-requests:read"],

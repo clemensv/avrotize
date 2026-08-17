@@ -20,22 +20,38 @@ REQUIRED_FILES = (
     ".github/CODEOWNERS",
     ".github/pull_request_template.md",
     ".github/ISSUE_TEMPLATE/config.yml",
-    ".github/ISSUE_TEMPLATE/defect.yml",
-    ".github/ISSUE_TEMPLATE/capability.yml",
-    ".github/ISSUE_TEMPLATE/compatibility.yml",
-    ".github/ISSUE_TEMPLATE/release.yml",
+    ".github/ISSUE_TEMPLATE/bug.yml",
+    ".github/ISSUE_TEMPLATE/feature.yml",
     ".github/governance/AUTOMATION.md",
     ".github/governance/AI-USAGE-ACCOUNTING.md",
     ".github/governance/ADOPTION.md",
-    ".github/governance/conversion-matrix.json",
+    ".github/governance/avrotize-capabilities.json",
     ".github/governance/workflow-contracts.json",
 )
 
 ISSUE_FORM_REQUIREMENTS = {
-    "defect.yml": ("id: outcome", "id: lane", "id: reproduction", "id: acceptance", "id: risk"),
-    "capability.yml": ("id: outcome", "id: lane", "id: cells", "id: acceptance", "id: compatibility"),
-    "compatibility.yml": ("id: outcome", "id: lane", "id: release_class", "id: migration", "id: acceptance"),
-    "release.yml": ("id: version", "id: release_class", "id: evidence", "id: artifacts", "id: authority"),
+    "bug.yml": (
+        "id: version",
+        "id: surface",
+        "id: command",
+        "id: invocation",
+        "id: input",
+        "id: output",
+        "id: actual",
+        "id: expected",
+        "id: environment",
+        "id: regression",
+    ),
+    "feature.yml": (
+        "id: outcome",
+        "id: command",
+        "id: input",
+        "id: output",
+        "id: semantics",
+        "id: options",
+        "id: validation",
+        "id: documentation",
+    ),
 }
 
 UNRESOLVED_MARKERS = ("{{TODO", "<TODO>", "[TODO]", "REPLACE_ME")
@@ -80,8 +96,8 @@ def _validate_issue_forms(root: Path, findings: list[Finding]) -> None:
                 findings.append(Finding(path.relative_to(root).as_posix(), f"missing required field {fragment!r}"))
 
 
-def _validate_conversion_profile(root: Path, findings: list[Finding]) -> None:
-    profile_path = root / ".github" / "governance" / "conversion-matrix.json"
+def _validate_capability_profile(root: Path, findings: list[Finding]) -> None:
+    profile_path = root / ".github" / "governance" / "avrotize-capabilities.json"
     profile = _load_json(profile_path, findings)
     if not isinstance(profile, dict):
         return
@@ -136,6 +152,67 @@ def _validate_conversion_profile(root: Path, findings: list[Finding]) -> None:
                 f"expected_groups {expected_groups!r} do not match registry groups {dict(groups)!r}",
             )
         )
+
+    command_group_areas = profile.get("command_group_areas")
+    expected_area_groups = set(expected_groups or {}) - {"7_Utility"}
+    if not isinstance(command_group_areas, dict):
+        findings.append(Finding(profile_path.relative_to(root).as_posix(), "command_group_areas must be an object"))
+    else:
+        assigned_groups = [
+            group
+            for area_groups in command_group_areas.values()
+            if isinstance(area_groups, list)
+            for group in area_groups
+        ]
+        duplicate_groups = sorted(group for group, count in Counter(assigned_groups).items() if count > 1)
+        if duplicate_groups:
+            findings.append(
+                Finding(
+                    profile_path.relative_to(root).as_posix(),
+                    f"command groups assigned more than once: {', '.join(duplicate_groups)}",
+                )
+            )
+        if set(assigned_groups) != expected_area_groups:
+            findings.append(
+                Finding(
+                    profile_path.relative_to(root).as_posix(),
+                    f"command_group_areas must cover registry groups {sorted(expected_area_groups)!r}",
+                )
+            )
+
+    utility_commands = {
+        command["command"]
+        for command in commands
+        if isinstance(command, dict)
+        and command.get("group") == "7_Utility"
+        and isinstance(command.get("command"), str)
+    }
+    utility_command_areas = profile.get("utility_command_areas")
+    if not isinstance(utility_command_areas, dict):
+        findings.append(Finding(profile_path.relative_to(root).as_posix(), "utility_command_areas must be an object"))
+    elif set(utility_command_areas) != utility_commands or not all(
+        isinstance(area, str) and area for area in utility_command_areas.values()
+    ):
+        findings.append(
+            Finding(
+                profile_path.relative_to(root).as_posix(),
+                f"utility_command_areas must classify exactly {sorted(utility_commands)!r}",
+            )
+        )
+
+    responsibility_domains = profile.get("responsibility_domains")
+    if not isinstance(responsibility_domains, dict) or not responsibility_domains:
+        findings.append(Finding(profile_path.relative_to(root).as_posix(), "responsibility_domains must be a non-empty object"))
+    elif isinstance(command_group_areas, dict):
+        classified_areas = set(command_group_areas)
+        undefined_areas = sorted(classified_areas - set(responsibility_domains))
+        if undefined_areas:
+            findings.append(
+                Finding(
+                    profile_path.relative_to(root).as_posix(),
+                    f"command classifications reference undefined responsibility domains: {', '.join(undefined_areas)}",
+                )
+            )
 
     surfaces = profile.get("surfaces")
     if not isinstance(surfaces, dict):
@@ -236,7 +313,7 @@ def validate_repo(root: Path, expected_sha: str | None = None) -> list[Finding]:
     findings: list[Finding] = []
     _validate_required_files(root, findings)
     _validate_issue_forms(root, findings)
-    _validate_conversion_profile(root, findings)
+    _validate_capability_profile(root, findings)
     _validate_workflow_contracts(root, findings)
     _validate_expected_sha(root, expected_sha, findings)
     return findings

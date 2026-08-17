@@ -24,6 +24,7 @@ def _repository(tmp_path: Path) -> Path:
     commands = [
         {"command": "a2x", "group": "schemas"},
         {"command": "x2a", "group": "schemas"},
+        {"command": "mcp", "group": "7_Utility"},
     ]
     _write(tmp_path / "avrotize" / "commands.json", json.dumps(commands))
 
@@ -34,12 +35,15 @@ def _repository(tmp_path: Path) -> Path:
     _write(tmp_path / "pyproject.toml")
     profile = {
         "command_registry": "avrotize/commands.json",
-        "expected_command_count": 2,
-        "expected_groups": {"schemas": 2},
+        "expected_command_count": 3,
+        "expected_groups": {"schemas": 2, "7_Utility": 1},
+        "command_group_areas": {"schema-transformations": ["schemas"]},
+        "utility_command_areas": {"mcp": "command-access"},
+        "responsibility_domains": {"schema-transformations": ["avrotize/**"]},
         "surfaces": surfaces,
     }
     _write(
-        tmp_path / ".github" / "governance" / "conversion-matrix.json",
+        tmp_path / ".github" / "governance" / "avrotize-capabilities.json",
         json.dumps(profile),
     )
 
@@ -89,14 +93,46 @@ class GovernanceValidatorTests(unittest.TestCase):
         self.assertEqual(validate_governance.validate_repo(self.root), [])
 
     def test_registry_drift_is_reported(self) -> None:
-        profile_path = self.root / ".github" / "governance" / "conversion-matrix.json"
+        profile_path = self.root / ".github" / "governance" / "avrotize-capabilities.json"
         profile = json.loads(profile_path.read_text(encoding="utf-8"))
-        profile["expected_command_count"] = 3
+        profile["expected_command_count"] = 4
         profile_path.write_text(json.dumps(profile), encoding="utf-8")
 
         findings = validate_governance.validate_repo(self.root)
 
         self.assertTrue(any("expected_command_count" in finding.message for finding in findings))
+
+    def test_unclassified_utility_command_is_reported(self) -> None:
+        profile_path = self.root / ".github" / "governance" / "avrotize-capabilities.json"
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        profile["utility_command_areas"] = {}
+        profile_path.write_text(json.dumps(profile), encoding="utf-8")
+
+        findings = validate_governance.validate_repo(self.root)
+
+        self.assertTrue(any("utility_command_areas must classify exactly" in finding.message for finding in findings))
+
+    def test_uncovered_command_group_is_reported(self) -> None:
+        profile_path = self.root / ".github" / "governance" / "avrotize-capabilities.json"
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        profile["command_group_areas"].pop("schema-transformations")
+        profile_path.write_text(json.dumps(profile), encoding="utf-8")
+
+        findings = validate_governance.validate_repo(self.root)
+
+        self.assertTrue(any("command_group_areas must cover registry groups" in finding.message for finding in findings))
+
+    def test_undefined_responsibility_domain_is_reported(self) -> None:
+        profile_path = self.root / ".github" / "governance" / "avrotize-capabilities.json"
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        profile["command_group_areas"]["unknown-domain"] = profile["command_group_areas"].pop(
+            "schema-transformations"
+        )
+        profile_path.write_text(json.dumps(profile), encoding="utf-8")
+
+        findings = validate_governance.validate_repo(self.root)
+
+        self.assertTrue(any("undefined responsibility domains" in finding.message for finding in findings))
 
     def test_missing_declared_surface_is_reported(self) -> None:
         (self.root / "pyproject.toml").unlink()

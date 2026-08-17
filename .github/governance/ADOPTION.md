@@ -5,7 +5,7 @@ issues or pull requests and without making a new governance check blocking.
 
 ## Phase 1: observe
 
-- Publish authority, lanes, lifecycle, compatibility, contributor, and workflow contracts.
+- Publish authority, responsibility domains, lifecycle, compatibility, contributor, and workflow contracts.
 - Add structured intake and PR surfaces for new work.
 - Run deterministic, read-only validation in advisory mode.
 - Record existing inconsistencies without relabeling, closing, retargeting, or
@@ -25,9 +25,9 @@ owner direction.
 
 Make deterministic checks required only after current repository state can
 satisfy them reliably. Candidate gates are authorized linkage, metadata,
-declared/diff impact, exact-head evidence, changed-cell/runtime/interface
-checks, current-head reviews, merge guard, and immutable release
-provenance/approval.
+declared/diff impact, exact-head evidence, changed-command/shared-semantic/
+generated-runtime/interface checks, current-head reviews, merge guard, and
+immutable release provenance/approval.
 
 Enforcement must not create a green path through falsified metadata, exception
 labels, suppressed failures, weakened tests, or skipped required scope. AI

@@ -4,12 +4,15 @@ All notable changes to Avrotize are documented in this file.
 
 ### Added
 
-- Adopted repository-specific conversion-matrix governance with continuous
-  ranked flow, durable delivery lanes, structured contributor and intake
-  surfaces, exact-head evidence policy, platform-reported AIC telemetry,
-  empirical GitHub Actions accounting, and deterministic advisory governance
-  validation. Enforcement is intentionally deferred until existing repository
-  state can satisfy the new checks reliably.
+- Adopted repository-specific capability governance based on Avrotize's actual
+  command families, shared Avrotize Schema and JSON Structure semantics,
+  generated language targets, data-platform schemas, inference/validation,
+  access surfaces, and distribution artifacts. The model uses continuous ranked
+  flow, durable responsibility domains, structured contributor intake,
+  exact-head evidence, platform-reported AIC telemetry, empirical GitHub Actions
+  accounting, and deterministic advisory validation. Enforcement is
+  intentionally deferred until existing repository state can satisfy the new
+  checks reliably.
 
 ## [3.9.0] - 2026-07-22
 

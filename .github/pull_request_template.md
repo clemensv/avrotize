@@ -1,42 +1,49 @@
-## Authorization and outcome
+## What changes
 
-- Authoritative work item:
-- Observable outcome:
-- Owner-authorized exception, if no work item:
-- Primary delivery lane:
-- Work class:
-- Compatibility class: patch / minor / major / not applicable
-- Affected users:
+- Authoritative work item or owner-authorized exception:
+- User-visible outcome:
+- Exact commands, Python functions, MCP tools, or VS Code actions:
+- Accepted input kind, dialect/version, and example:
+- Emitted schema/IDL/database artifact/generated language/validation result:
+- Flags, options, defaults, namespaces, or annotations:
+- Generated runtime or toolchain:
+- In scope:
+- Out of scope:
 
 This repository's governance-adoption PR may state the owner-directed bootstrap
 exception defined in `GOVERNANCE.md`; it does not close or fix an issue.
 
-## Scope and conversion impact
+## Shared behavior and public surfaces
 
-- In scope:
-- Out of scope:
-- Affected conversion cells:
-  - Source format/version:
-  - Importer/parser and intermediate representation:
-  - Target format/language/database:
-  - Options/defaults and generated runtime/toolchain:
-  - Python runtime cohort:
-- Affected surfaces: Python API / CLI / MCP / VS Code / package / specification
-- Shared neighbors or campaign:
+- Avrotize Schema semantics:
+- JSON Structure semantics:
+- Direct or multi-stage transformation path:
+- Python API / CLI:
+- MCP server/manifests:
+- VS Code extension:
+- Avrotize / Structurize packages:
+- Specifications, README examples, and changelog:
+- Related commands or generated targets:
 
 ## Exact-head evidence
 
 - PR head SHA:
 - Acceptance manifest:
 - Positive, invalid, and boundary fixtures:
-- Semantic or intermediate-output assertions:
-- Round trips:
-- Generated compiler/runtime evidence:
+- Schema/model semantic or output assertions:
+- Compatibility-regression fixtures:
+- Meaningful round trips, if documented:
+- Generated compiler/runtime/serialization evidence:
+- Database or schema-validator evidence:
 - Interface contract evidence:
 - Package/release evidence:
 
-## Reviews and risk
+## Maintainer classification and review
 
+- Primary responsibility domain:
+- Work class:
+- Compatibility class: patch / minor / major / not applicable
+- Affected users and contracts:
 - Domain review:
 - Outcome review:
 - Compatibility review:

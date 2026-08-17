@@ -2259,7 +2259,7 @@ In addition to the command reference above, the repository includes in-depth com
 
 **Project governance and contribution**
 
-- [Governance](GOVERNANCE.md) — authority, continuous ranked flow, delivery lanes, conversion impact, compatibility, review, release, and bootstrap policy.
+- [Governance](GOVERNANCE.md) — authority, continuous ranked flow, command-capability impact, compatibility, review, release, and bootstrap policy.
 - [Contributing](CONTRIBUTING.md) — authorization, evidence, fixtures, generated-output review, and local checks.
 - [Security](SECURITY.md) — supported versions and private vulnerability reporting.
 - [Support](SUPPORT.md) — supported surfaces and diagnostic expectations.

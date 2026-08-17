@@ -1,19 +1,21 @@
 # Avrotize Governance
 
 This file is the authoritative governance policy for Avrotize. It adopts the
-conversion-matrix profile staged in
+governance model staged in
 [`clemensv/project-governance`](https://github.com/clemensv/project-governance)
-at commit `7e843f2d92054ecd73a3476ab9bf0a3adeeb45cd`, tailored to this repository.
-If this policy, contributor templates, and automation disagree, this policy
-controls and the ambiguity fails closed until the repository owner resolves it.
+at commit `7e843f2d92054ecd73a3476ab9bf0a3adeeb45cd` and defines an
+Avrotize-specific command-capability profile. If this policy, contributor
+templates, and automation disagree, this policy controls and the ambiguity
+fails closed until the repository owner resolves it.
 
 ## Mission
 
-Avrotize provides reliable, testable conversion among schema languages, data
-models, generated programming-language APIs, database representations, and
-public tool surfaces. Governance protects semantic fidelity, compatibility,
-security, reproducible publication, and evidence tied to the exact revision
-being approved.
+Avrotize provides reliable, testable transformation of data structure
+definitions across schema and IDL languages, generated programming-language
+models, database and analytical schemas, and its CLI, Python, MCP, and VS Code
+surfaces. Governance protects semantic fidelity, compatibility, security,
+reproducible publication, and evidence tied to the exact revision being
+approved.
 
 ## Authority
 
@@ -41,38 +43,41 @@ publishing an unapproved artifact.
 Avrotize uses continuous ranked flow, not mandatory sprints. The repository
 owner controls rank and may change cadence or WIP when the reason is recorded.
 
-- Each item has one primary delivery lane and may affect several lanes.
-- Default WIP is one active item per lane. Review and blocked work count toward
-  WIP until the owner records an exception.
+- Each item names the commands, Python entry points, shared schema semantics,
+  generated targets, or public surfaces it changes. Maintainers assign one
+  primary responsibility domain and may record additional affected domains.
+- Default WIP is one active item per responsibility domain. Review and blocked
+  work count toward WIP until the owner records an exception.
 - `BLOCKED` means authorized work cannot advance because of a hard dependency.
   `PARKED` means work is intentionally removed from active flow.
-- Campaigns coordinate coupled changes across several conversion cells or
-  lanes. A campaign declares its matrix, compatibility strategy, sequence, exit
-  criteria, and disposition of incomplete cells.
+- Campaigns coordinate coupled changes across command families, Avrotize Schema
+  or JSON Structure semantics, generated language targets, or distribution
+  surfaces. A campaign declares affected commands and artifacts, compatibility
+  strategy, sequence, exit criteria, and disposition of incomplete work.
 - Release milestones group compatibility and publication decisions. They do not
   authorize unranked implementation and are not delivery sprints.
 
-## Delivery lanes
+## Responsibility domains
 
-Lanes are durable responsibility and review domains, not assumed teams.
-CODEOWNERS routes review but does not grant merge or release authority.
+Domains are durable maintenance and review scopes, not assumed teams and not
+concepts that issue reporters must classify. CODEOWNERS routes review but does
+not grant merge or release authority.
 
-| Lane | Scope |
+| Domain | Avrotize scope |
 | --- | --- |
-| Core model | Shared Python type-system, normalization, references, and intermediate schema behavior |
-| Importers | Source-format parsers, inference, invalid-input handling, and normalized representations |
-| Schema exporters and specifications | Target schema emitters, semantic equivalence, validators, round trips, and normative specs |
-| Code generators | Generated C++, C#, Go, Java, JavaScript, Python, Rust, TypeScript, and runtime contracts |
-| Data platforms | SQL, NoSQL, Kusto, Parquet, Iceberg, TMSL, and related mappings |
-| Public interfaces | Python API, command registry and CLI, MCP server/manifests, and VS Code extension |
-| Packaging and release | Python packages, Structurize, extension packaging, documentation, changelog, CI, and publication |
+| Avrotize Schema and JSON Structure semantics | The two shared schema models, references, unions/choices, logical types, defaults, validation, canonical form, and formal specifications |
+| Schema and IDL transformations | Named commands that transform Avrotize Schema, JSON Structure, JSON Schema, Proto, XSD, ASN.1, JTD, CDDL, CUE, FlatBuffers, Thrift, Smithy, Cap'n Proto, RAML, OpenAPI, Kafka Struct, CSV, and related definitions |
+| Programming-language model generation | `a2*` and `s2*` commands that generate C++, C#, Go, Java, JavaScript, Python, Rust, or TypeScript projects and their serialization/runtime contracts |
+| Database and analytical schemas | SQL discovery and generation, SurrealQL, Cassandra, NoSQL schemas, Kusto, Parquet, Iceberg, TMSL, and generated data-platform artifacts |
+| Data inference and validation | JSON/XML inference, instance validation, TMSL validation, invalid/boundary behavior, and semantic fixtures |
+| Command access and distribution | `commands.json`, CLI dispatch, Python APIs, MCP tools/manifests, VS Code commands, Avrotize and Structurize packages, documentation, CI, changelog, and publication |
 
 ## Work classes
 
 | Class | Meaning | Minimum review |
 | --- | --- | --- |
 | Defect | Restores documented behavior without an intended contract change | Domain and outcome review |
-| Capability | Adds a conversion cell, option, interface, or supported target | Domain, outcome, and compatibility review |
+| Capability | Adds a command, transformation, option, generated target, validation behavior, or public access path | Domain, outcome, and compatibility review |
 | Compatibility | Changes accepted input, defaults, schemas, generated APIs, CLI/MCP contracts, runtime floors, or output semantics | Compatibility and release review; migration plan when breaking |
 | Security | Changes trust boundaries, parsers, generated readers, credentials, or publication security | Security/risk review |
 | Maintenance | Dependencies, refactoring, build, tests, or tooling with no intended public change | Domain review and evidence proportional to impact |
@@ -80,42 +85,50 @@ CODEOWNERS routes review but does not grant merge or release authority.
 | Release | Classifies, assembles, approves, or publishes immutable artifacts | Release authority |
 | Emergency | Minimum safe restoration under recorded owner authority | Exact evidence, rollback, and permanent follow-up |
 
-## Conversion impact matrix
+## Avrotize capability matrix
 
-The primary governed unit is a conversion capability cell:
-
-`source format -> intermediate model -> target format/language -> options -> generated runtime/toolchain`
+The primary governed unit is a named Avrotize capability, normally one or more
+entries in `avrotize/commands.json` and their Python implementation. Some work
+instead changes shared Avrotize Schema or JSON Structure semantics, a generated
+language runtime, or an access/distribution surface.
 
 The checked-in profile is
-[`.github/governance/conversion-matrix.json`](.github/governance/conversion-matrix.json).
-Every authorized item and PR identifies changed cells and neighboring cells
-affected through shared parsers, models, exporters, generators, fixtures,
-runtimes, or public interfaces.
+[`.github/governance/avrotize-capabilities.json`](.github/governance/avrotize-capabilities.json).
+Every authorized item and PR identifies, as applicable:
 
-The impact declaration covers, as applicable:
+- exact command names, Python functions, MCP tools, or VS Code commands;
+- the accepted input kind and dialect, including schema version or live
+  database/data-sample behavior;
+- whether semantics are carried by Avrotize Schema, JSON Structure, a direct
+  transformation, or a shared helper;
+- the emitted schema, IDL, documentation, database artifact, generated project,
+  or validation result;
+- flags, defaults, namespaces, annotations, serialization options, and other
+  behavior visible in `--help`;
+- generated runtime and toolchain expectations, including Python, .NET, Java,
+  Node.js/TypeScript, Go, Rust, or C++ cohorts;
+- Python API, CLI, MCP, VS Code, package, specification, and publication effects;
+- positive, invalid, boundary, compatibility-regression, and documentation examples.
 
-- source format and version;
-- importer/parser and normalized representation;
-- target schema, language, database, or analytical model;
-- options, defaults, generated runtime, and toolchain version;
-- Python runtime cohort;
-- Python API, CLI, MCP, and VS Code surfaces;
-- package or publication artifact;
-- positive, negative, boundary, and meaningful round-trip fixtures.
+Avrotize capabilities are intentionally asymmetric. A supported command in one
+direction does not imply an inverse command, and not every command passes
+through the same schema model. Round-trip evidence is required only when the
+documented semantics make a round trip meaningful.
 
-Shared core-model changes require a campaign unless the owner records why the
-impact is demonstrably local.
+Changes to shared Avrotize Schema or JSON Structure semantics normally require
+a campaign across representative commands and generated targets unless the
+owner records why the impact is demonstrably local.
 
 ## Readiness
 
 Before implementation, an authorized item records:
 
 1. Observable outcome and work class.
-2. Primary lane, affected cells/lanes, and continuous-flow rank.
+2. Affected commands, shared semantics, generated targets, public surfaces, and continuous-flow rank.
 3. Hard dependencies, accountable delivery owner, and known reviewers.
 4. Frozen acceptance manifest: positive, invalid, and boundary fixtures;
-   expected intermediate representation or semantic output; meaningful round
-   trips; generated-code compiler/runtime targets; supported options/defaults;
+   expected schema/model semantics or output; meaningful round trips;
+   generated-code compiler/runtime targets; supported flags/defaults;
    documentation examples; and existing-fixture compatibility.
 5. Evidence plan and risk across users, operations, security, data,
    compatibility, and release.
@@ -166,7 +179,7 @@ publication, or release workflows.
 Releases:
 
 1. Classify compatibility and approve the release scope.
-2. Run the required conversion, runtime, interface, package, and extension evidence.
+2. Run the required command, generated-runtime, interface, package, and extension evidence.
 3. Update the changelog and migration guidance when required.
 4. Build once from the approved immutable tag.
 5. Record artifact provenance and digests, then promote those artifacts rather than rebuilding.

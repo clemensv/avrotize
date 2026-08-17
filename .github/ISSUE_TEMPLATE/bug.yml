@@ -1,0 +1,97 @@
+name: Bug report
+description: Report an Avrotize command, API, MCP, VS Code, or generated-output problem.
+title: "[Bug] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Use the names shown by `avrotize --help`,
+        the Python API, MCP, or the VS Code "Convert to" menu. Do not include
+        credentials, proprietary schemas, personal data, or other sensitive content.
+  - type: input
+    id: version
+    attributes:
+      label: Avrotize or Structurize version
+      description: Paste the output of `avrotize --version`, or the installed package/extension version.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did you run it?
+      options:
+        - Avrotize CLI
+        - Structurize CLI
+        - Python API
+        - MCP server
+        - VS Code extension
+        - Generated project or code
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Exact command, Python function, MCP tool, or VS Code action
+      placeholder: avrotize j2s, avrotize.structuretojava.convert_structure_to_java, run_conversion, Convert to > Java classes
+    validations:
+      required: true
+  - type: textarea
+    id: invocation
+    attributes:
+      label: Invocation and flags
+      description: Paste the complete command or API call with secrets removed. Include every flag and option.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Input kind, dialect, and minimal input
+      description: Name the schema/data/database kind and version or dialect, then attach or paste the smallest non-sensitive input that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output kind, language, and runtime
+      description: Name the emitted schema/IDL/database artifact/generated language, plus its runtime or toolchain when applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual output or error
+      description: Include the complete relevant output, generated fragment, traceback, or validation failure.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected output or behavior
+      description: Show the expected schema/model semantics or generated behavior, not only "it should work".
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and toolchain
+      description: Include OS, Python version, package extras, and relevant .NET/JDK/Node/Go/Rust/C++/database versions.
+    validations:
+      required: true
+  - type: textarea
+    id: regression
+    attributes:
+      label: Compatibility regression
+      description: Did this work in an earlier version? If so, name the last working version and describe any changed defaults or output.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I supplied a minimal non-sensitive reproducer.
+          required: true
+        - label: I searched for an existing report of this behavior.
+          required: true

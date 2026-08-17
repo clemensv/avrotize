@@ -1,0 +1,76 @@
+name: Feature or transformation request
+description: Propose a command, transformation, generated target, option, validation feature, or access improvement.
+title: "[Feature] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the request using Avrotize command and format names where
+        possible. You do not need to classify internal ownership or release impact.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What should Avrotize let you do?
+      description: Describe the user-visible outcome and why the existing commands or surfaces do not meet it.
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: Requested command, API, MCP, or VS Code capability
+      description: Name a proposed command or the existing command/surface to extend.
+      placeholder: s2graphql, a new format-to-JSON-Structure command, run_conversion option, Convert to menu action
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Starting definition or data
+      description: Name the input schema/IDL/data/database kind, dialect/version, and provide a small example.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Requested output or result
+      description: Name the schema, IDL, database artifact, generated language/project, documentation, or validation result.
+    validations:
+      required: true
+  - type: textarea
+    id: semantics
+    attributes:
+      label: Semantics that must be preserved
+      description: Describe references, namespaces, records/objects, unions/choices, logical types, constraints, defaults, annotations, or other important meaning.
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Flags, options, and defaults
+      description: Describe required choices and what should happen when each option is omitted.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation and runtime expectations
+      description: Explain how to validate the result, including compiler, runtime, database, schema validator, or meaningful round trip.
+    validations:
+      required: true
+  - type: textarea
+    id: documentation
+    attributes:
+      label: Documentation example
+      description: Show a concise command or API example and the expected result.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I checked `avrotize --help` and the README for an existing capability.
+          required: true
+        - label: The example contains no sensitive or proprietary data.
+          required: true

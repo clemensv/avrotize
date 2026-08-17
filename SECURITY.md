@@ -14,7 +14,7 @@ Do not open a public issue for a suspected vulnerability. Use
 and include:
 
 - affected Avrotize, Structurize, MCP, or VS Code version and environment;
-- affected conversion cell or generated runtime;
+- affected command, schema/model behavior, or generated runtime;
 - minimal reproducer and impact;
 - whether the report involves untrusted schema/data, generated code, secrets,
   package publication, or dependency compromise;

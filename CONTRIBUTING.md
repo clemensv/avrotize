@@ -1,36 +1,39 @@
 # Contributing to Avrotize
 
 Read [GOVERNANCE.md](GOVERNANCE.md) before proposing or implementing work.
-New work normally starts with the matching structured issue form and becomes
-implementable only when the repository owner marks it ready and ranks it.
+New work normally starts with the bug or feature form and becomes implementable
+only when the repository owner marks it ready and ranks it.
 
 ## Contribution flow
 
-1. File one structured work item with an observable outcome, class, primary
-   lane, affected conversion cells, dependencies, acceptance manifest, evidence
-   plan, compatibility/risk, and known reviewers.
+1. File one structured work item. Name the exact command, Python API, MCP tool,
+   VS Code action, or generated target; describe the input, output, flags,
+   expected semantics, runtime/toolchain, and observable outcome.
 2. Wait for owner authorization. Intake is not implementation authorization.
 3. Use one item, branch, and pull request. Add newly discovered scope to the
    authorized item or file it separately.
 4. Complete the PR template, including the exact head SHA and all affected
-   Python API, CLI, MCP, VS Code, package, specification, and generated surfaces.
-5. Run the smallest evidence set covering the changed cells and their shared
-   neighbors. Do not suppress a required command failure.
+   commands, Python API, CLI, MCP, VS Code, package, specification, and generated
+   surfaces.
+5. Run the smallest evidence set covering the changed commands, shared schema
+   semantics, and generated targets. Do not suppress a required command failure.
 
-## Conversion evidence
+## Command and generated-output evidence
 
-For changed cells, include positive, invalid, and boundary fixtures; expected
-intermediate or semantic output; meaningful round trips; and supported option
-defaults. Generator changes also compile or run the affected generated target
-and exercise serialization where applicable. Interface changes contract-test
-the Python API, CLI, MCP, or VS Code surface and update help and documentation.
+For changed transformations, include positive, invalid, and boundary fixtures;
+expected schema/model semantics or output; meaningful round trips; and
+supported flag defaults. Generation changes also compile or run the affected
+generated target and exercise serialization where applicable. Interface changes
+contract-test the Python API, CLI, MCP, or VS Code surface and update help and
+documentation.
 
 Golden-file changes require semantic review. Do not approve snapshots merely
 because a tool regenerated them. Identify the source generator, command,
 version/toolchain, and fixture so generated-file provenance is reproducible.
 
-Shared intermediate-model changes are normally campaigns and require
-representative importer/exporter coverage plus an explicit compatibility and
+Changes to shared Avrotize Schema or JSON Structure behavior are normally
+campaigns and require representative schema transformations, generated
+language targets, data-platform outputs, and an explicit compatibility and
 migration strategy.
 
 ## Local checks
