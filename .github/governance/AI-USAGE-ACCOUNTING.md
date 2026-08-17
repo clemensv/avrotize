@@ -38,6 +38,13 @@ distributions:
 | Cross-command semantic campaign review | 0 | TBD | TBD | TBD | TBD |
 | Scheduled command/documentation drift | 0 | TBD | TBD | TBD | TBD |
 | Release-candidate compatibility | 0 | TBD | TBD | TBD | TBD |
+| Guarded reproduction evidence review | 0 | TBD | TBD | TBD | TBD |
+
+Issue intake, Dependabot intake, guarded bug reproduction, and reproduction
+label reconciliation are fully deterministic and invoke no model, so their AIC is
+zero rather than uncalibrated. Guarded reproduction has no semantic phase today;
+the row above exists only so a future owner-authorized, read-only evidence review
+has a place to record platform-reported telemetry.
 
 Until telemetry exists, projections and guardrails remain explicitly
 uncalibrated. Do not substitute task scores or token-derived estimates.

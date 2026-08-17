@@ -36,6 +36,41 @@ campaigns and require representative schema transformations, generated
 language targets, data-platform outputs, and an explicit compatibility and
 migration strategy.
 
+## Reporting a reproducible bug
+
+The bug form asks two optional questions that decide whether maintainers can run
+guarded reproduction on your report:
+
+- **Expected command result** — choose `Successful completion (exit 0)`,
+  `Command failure (nonzero exit)`, `Exact output match`, or
+  `Human semantic review`. Automation compares only structured facts, so an
+  undeclared expectation can only end in "needs review".
+- **Exact expected output** — required only when you choose `Exact output match`.
+  Paste the exact expected file content or standard output.
+
+Guarded reproduction additionally needs the Avrotize CLI surface, a command in
+`.github/governance/repro-command-policy.json`, and the minimal input pasted
+inline (ideally in a fenced block). Attachments, links, and file names cannot be
+reproduced automatically. Reporter-supplied input and output paths are discarded
+and replaced with workspace paths, so only your flags and the input content
+matter.
+
+## Requesting guarded reproduction (maintainers)
+
+Apply the exact `repro-requested` label, or dispatch **Guarded bug reproduction**
+with the issue number. Maintain or admin permission is required, the decision is
+made before any checkout or issue content read, and a denial changes nothing on
+the issue. The run replaces the governed labels with `repro-in-progress`, then
+publishes exactly one of `repro-confirmed`, `repro-not-reproduced`,
+`repro-blocked`, or `repro-needs-review` with a comment linking the run, the
+evidence artifact, the trusted source revision, and the authorized issue
+revision. Evidence is a record, not an authorization: implementation still needs
+owner authorization under [GOVERNANCE.md](GOVERNANCE.md).
+
+Run **Reconcile reproduction label catalog** manually when the six governed
+labels are missing or drift from `.github/governance/repro-label-catalog.json`.
+It reconciles repository labels only and never touches issue state.
+
 ## Local checks
 
 Use the existing checks that match the change:
@@ -53,9 +88,11 @@ npm ci
 npm test
 Pop-Location
 
-# Governance validator
+# Governance validator and governance suites
 python tools\validate_governance.py
-python -m pytest test\test_governance_validator.py
+python -m pytest test\test_governance_validator.py test\test_governance_schema.py `
+  test\test_governance_intake.py test\test_governance_authorize.py `
+  test\test_governance_repro.py test\test_governance_workflows.py
 ```
 
 The GitHub Actions matrix remains authoritative for its named responsibility.

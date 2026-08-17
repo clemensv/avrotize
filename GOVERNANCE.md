@@ -215,3 +215,52 @@ issues or pull requests.
 
 Later rollout follows observe, reconcile, and enforce phases documented in
 [`.github/governance/ADOPTION.md`](.github/governance/ADOPTION.md).
+
+## Guarded bug reproduction
+
+Guarded reproduction is a maintainer-requested, policy-bounded execution of one
+reported Avrotize CLI command against the trusted default branch. It records
+evidence. It does not authorize implementation, approve compatibility, merge,
+release, or change any priority.
+
+**Authority boundary.** Only a maintainer or admin can request it, by applying
+the exact `repro-requested` label or dispatching the workflow with an issue
+number. Authorization is decided before any checkout, dependency install, or
+issue content read, and a denial changes no label and writes no comment. The
+only repository mutations the workflow performs are the governed reproduction
+state labels and one comment linking the run, artifact, trusted source revision,
+and authorized issue revision.
+
+**Eligibility.** A report is eligible only when it is a complete `[Bug]` form
+with the exact contract heading set, names the Avrotize CLI surface, names a
+command listed in `.github/governance/repro-command-policy.json`, and supplies
+an inline minimal input. Every other command is blocked by default and needs
+manual maintainer reproduction. The first policy version allows only local,
+deterministic, single-input schema transformations that perform no network or
+database discovery and never compile or execute generated output.
+
+**Execution bounds.** The engine builds the process arguments itself from the
+policy: it never runs a shell, rejects shell metacharacters, `@`, URLs, absolute
+paths, traversal, and `--flag=value` forms, and replaces reporter-supplied input
+and output paths with workspace-controlled paths. The fixture is inert data, so
+only UTF-8 validity, control characters, and a 64 KiB size limit apply to it.
+Execution runs in a temporary workspace outside the repository with a minimal
+sanitized environment, a 60-second timeout, a 1 MiB combined output budget, and
+at most 32 produced files totalling 4 MiB, none of which is ever executed.
+
+**Outcomes.** Evidence is classified only from structured facts: readiness,
+policy, timeout, and resource refusals produce `BLOCKED`; expected success with a
+nonzero exit produces `CONFIRMED`; expected failure with a nonzero exit produces
+`NOT_REPRODUCED`; a declared exact output that matches the single comparison
+target produces `NOT_REPRODUCED` and a difference produces `CONFIRMED`; and
+anything undeclared, human-review, or ambiguous produces `NEEDS_REVIEW`.
+Natural-language "actual" and "expected" prose is never compared, never appended
+to execution output, and never treated as a result.
+
+**State labels.** The six governed labels live in
+`.github/governance/repro-label-catalog.json` and are reconciled on the
+repository by a separate manual workflow. Each run ends with exactly one
+terminal label; contradictory labels are removed in the same step. If the
+reproduction job itself fails for infrastructure reasons, the run publishes
+`repro-blocked` with the run link and states that no execution evidence exists
+rather than fabricating an outcome.

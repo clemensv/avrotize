@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "policy_version": "2026-08-17.1",
+  "description": "Explicit allowlist of Avrotize CLI commands eligible for guarded, issue-requested reproduction. A command qualifies only when it is a local, deterministic, single-input schema transformation that performs no network or database discovery and never compiles or executes generated output. Every other command in avrotize/commands.json is blocked and requires manual maintainer reproduction.",
+  "authority_statement": "This policy bounds what automation may execute. It does not authorize implementation, merge, release, or any repository mutation beyond governed reproduction state labels.",
+  "limits": {
+    "timeout_seconds": 60,
+    "max_fixture_bytes": 65536,
+    "max_stream_bytes": 1048576,
+    "max_produced_files": 32,
+    "max_produced_bytes": 4194304,
+    "max_invocation_tokens": 32,
+    "max_option_value_length": 128
+  },
+  "eligible_surfaces": [
+    "Avrotize CLI"
+  ],
+  "executables": [
+    "avrotize"
+  ],
+  "reserved_option_names": [
+    "--out",
+    "--output",
+    "--input",
+    "--avsc",
+    "--struct",
+    "--proto",
+    "--jsons"
+  ],
+  "commands": [
+    {
+      "command": "a2j",
+      "executable": "avrotize",
+      "description": "Convert an Avrotize schema to JSON Schema.",
+      "rationale": "Pure in-process transformation of a single local file; no network, database, code generation, or compilation.",
+      "input_mode": "positional",
+      "input_extension": ".avsc",
+      "input_option_aliases": [
+        "--avsc"
+      ],
+      "output_mode": "option",
+      "output_option": "--out",
+      "output_extension": ".json",
+      "timeout_seconds": 60,
+      "reporter_options": [
+        {
+          "name": "--naming",
+          "kind": "choice",
+          "choices": [
+            "snake",
+            "camel",
+            "pascal",
+            "default"
+          ],
+          "description": "Type naming convention."
+        }
+      ]
+    },
+    {
+      "command": "a2asn",
+      "executable": "avrotize",
+      "description": "Convert an Avrotize schema to an ASN.1 schema.",
+      "rationale": "Pure in-process transformation of a single local file; no network, database, code generation, or compilation.",
+      "input_mode": "positional",
+      "input_extension": ".avsc",
+      "input_option_aliases": [
+        "--avsc"
+      ],
+      "output_mode": "option",
+      "output_option": "--out",
+      "output_extension": ".asn1",
+      "timeout_seconds": 60,
+      "reporter_options": [
+        {
+          "name": "--module",
+          "kind": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9-]{0,63}$",
+          "max_length": 64,
+          "description": "ASN.1 module name."
+        }
+      ]
+    },
+    {
+      "command": "s2asn",
+      "executable": "avrotize",
+      "description": "Convert a JSON Structure schema to an ASN.1 schema.",
+      "rationale": "Pure in-process transformation of a single local file; no network, database, code generation, or compilation.",
+      "input_mode": "positional",
+      "input_extension": ".struct.json",
+      "input_option_aliases": [
+        "--struct"
+      ],
+      "output_mode": "option",
+      "output_option": "--out",
+      "output_extension": ".asn1",
+      "timeout_seconds": 60,
+      "reporter_options": [
+        {
+          "name": "--module",
+          "kind": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9-]{0,63}$",
+          "max_length": 64,
+          "description": "ASN.1 module name."
+        }
+      ]
+    },
+    {
+      "command": "pcf",
+      "executable": "avrotize",
+      "description": "Emit the Parsing Canonical Form of an Avrotize schema on standard output.",
+      "rationale": "Pure in-process canonicalization of a single local file; writes only to standard output.",
+      "input_mode": "positional",
+      "input_extension": ".avsc",
+      "input_option_aliases": [],
+      "output_mode": "stdout",
+      "timeout_seconds": 60,
+      "reporter_options": []
+    }
+  ],
+  "exclusions": [
+    {
+      "scope": "j2s",
+      "reason": "JSON Schema conversion dereferences remote $ref targets over HTTP, so reporter-supplied fixture data could drive outbound requests."
+    },
+    {
+      "scope": "code and project generation commands",
+      "reason": "Generated projects would have to be compiled or executed to be meaningful, which guarded reproduction never does."
+    },
+    {
+      "scope": "database, registry, and cloud commands",
+      "reason": "They perform network or database discovery against systems this automation must never contact."
+    },
+    {
+      "scope": "every command not listed in this policy",
+      "reason": "Unlisted commands are blocked by default and require manual maintainer reproduction."
+    }
+  ]
+}

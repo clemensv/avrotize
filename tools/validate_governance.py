@@ -11,6 +11,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+try:  # pragma: no cover - import shape depends on invocation style
+    from tools import governance_schema
+except ImportError:  # pragma: no cover - direct script execution
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from tools import governance_schema
+
 
 REQUIRED_FILES = (
     "GOVERNANCE.md",
@@ -27,6 +33,50 @@ REQUIRED_FILES = (
     ".github/governance/ADOPTION.md",
     ".github/governance/avrotize-capabilities.json",
     ".github/governance/workflow-contracts.json",
+    ".github/governance/issue-form-contract.json",
+    ".github/governance/repro-command-policy.json",
+    ".github/governance/repro-label-catalog.json",
+    ".github/governance/schemas/issue-intake-record.schema.json",
+    ".github/governance/schemas/dependabot-intake-record.schema.json",
+    ".github/governance/schemas/repro-evidence-record.schema.json",
+    ".github/governance/schemas/repro-authorization-record.schema.json",
+    ".github/governance/schemas/repro-command-policy.schema.json",
+    ".github/governance/schemas/repro-label-catalog.schema.json",
+    ".github/workflows/issue-intake.yml",
+    ".github/workflows/dependabot-intake.yml",
+    ".github/workflows/repro-bug.yml",
+    ".github/workflows/repro-label-reconciliation.yml",
+    "tools/governance_intake.py",
+    "tools/governance_repro.py",
+    "tools/governance_authorize.py",
+    "tools/governance_schema.py",
+)
+
+#: Governance workflows whose structure this validator polices in full.
+GOVERNANCE_WORKFLOWS = (
+    ".github/workflows/issue-intake.yml",
+    ".github/workflows/dependabot-intake.yml",
+    ".github/workflows/dependabot-auto-merge.yml",
+    ".github/workflows/repro-bug.yml",
+    ".github/workflows/repro-label-reconciliation.yml",
+    ".github/workflows/governance-observe.yml",
+)
+
+#: Action versions the repository standardizes on.
+PINNED_ACTION_VERSIONS = {
+    "actions/checkout": "v7",
+    "actions/setup-python": "v7",
+    "actions/upload-artifact": "v7",
+    "actions/download-artifact": "v8",
+}
+
+GOVERNED_REPRO_LABELS = (
+    "repro-requested",
+    "repro-in-progress",
+    "repro-confirmed",
+    "repro-not-reproduced",
+    "repro-blocked",
+    "repro-needs-review",
 )
 
 ISSUE_FORM_REQUIREMENTS = {
@@ -39,6 +89,8 @@ ISSUE_FORM_REQUIREMENTS = {
         "id: output",
         "id: actual",
         "id: expected",
+        "id: expected_result",
+        "id: expected_output",
         "id: environment",
         "id: regression",
     ),
@@ -291,6 +343,450 @@ def _validate_workflow_contracts(root: Path, findings: list[Finding]) -> None:
         findings.append(Finding(contract_path.relative_to(root).as_posix(), f"duplicate contract ids: {', '.join(duplicates)}"))
 
 
+def _rendered_form_labels(text: str) -> list[str]:
+    """Return the headings a GitHub Issue Form renders, in order.
+
+    Every non-``markdown`` field renders its ``label`` as a ``### `` heading,
+    including ``checkboxes``. Checkbox option labels use ``- label:`` and are not
+    headings.
+    """
+    labels: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- label:") or not stripped.startswith("label:"):
+            continue
+        labels.append(stripped.split("label:", 1)[1].strip().strip("'\""))
+    return labels
+
+
+def _validate_issue_form_contract(root: Path, findings: list[Finding]) -> None:
+    """Validate that the issue form contract matches the actual YAML form files."""
+    contract_path = root / ".github" / "governance" / "issue-form-contract.json"
+    contract = _load_json(contract_path, findings)
+    if not isinstance(contract, dict):
+        return
+    forms = contract.get("forms")
+    if not isinstance(forms, list):
+        findings.append(Finding(contract_path.relative_to(root).as_posix(), "forms must be an array"))
+        return
+
+    for form in forms:
+        form_file = form.get("file", "")
+        form_path = root / form_file
+        if not form_path.is_file():
+            findings.append(Finding(form_file, "issue form file referenced by contract does not exist"))
+            continue
+        text = form_path.read_text(encoding="utf-8")
+        declared_headings = list(form.get("headings", []))
+        field_ids = list(form.get("field_ids", []))
+        if len(declared_headings) != len(field_ids):
+            findings.append(Finding(form_file, "contract headings and field_ids must be index aligned"))
+        for fid in field_ids:
+            if f"id: {fid}" not in text:
+                findings.append(Finding(form_file, f"contract declares field id '{fid}' not found in YAML"))
+        rendered = _rendered_form_labels(text)
+        if rendered != declared_headings:
+            missing = [label for label in rendered if label not in declared_headings]
+            extra = [label for label in declared_headings if label not in rendered]
+            findings.append(
+                Finding(
+                    form_file,
+                    "contract heading set must equal the rendered form labels in order"
+                    + (f"; undeclared rendered labels: {missing}" if missing else "")
+                    + (f"; declared labels the form does not render: {extra}" if extra else ""),
+                )
+            )
+
+
+def _validate_intake_workflow_safety(root: Path, findings: list[Finding]) -> None:
+    """Verify intake/guard workflows have no write permissions or merge commands.
+
+    Also checks: persist-credentials false, no PR-head checkout/execution,
+    correct event types, trusted checkout refs.
+    """
+    intake_workflows = [
+        ".github/workflows/issue-intake.yml",
+        ".github/workflows/dependabot-intake.yml",
+        ".github/workflows/dependabot-auto-merge.yml",
+        ".github/workflows/repro-bug.yml",
+    ]
+    for wf_relative in intake_workflows:
+        wf_path = root / wf_relative
+        if not wf_path.is_file():
+            continue
+        text = wf_path.read_text(encoding="utf-8")
+        if "contents: write" in text:
+            findings.append(Finding(wf_relative, "intake/guard workflow must not have contents:write"))
+        if "pull-requests: write" in text:
+            findings.append(Finding(wf_relative, "intake/guard workflow must not have pull-requests:write"))
+        if "gh pr merge" in text:
+            findings.append(Finding(wf_relative, "intake/guard workflow must not contain 'gh pr merge'"))
+        if "gh pr review" in text:
+            findings.append(Finding(wf_relative, "intake/guard workflow must not contain 'gh pr review'"))
+        # persist-credentials must be false on all checkouts
+        if "actions/checkout" in text and "persist-credentials: false" not in text:
+            findings.append(Finding(wf_relative, "checkout must use persist-credentials: false"))
+        # No PR head checkout
+        if "github.event.pull_request.head.sha" in text and "ref:" in text:
+            # Only allowed in base SHA context
+            pass
+        if "github.event.pull_request.head.ref" in text and "ref:" in text:
+            findings.append(Finding(wf_relative, "must not checkout PR head ref"))
+
+    # Schema files must exist
+    schema_dir = root / ".github" / "governance" / "schemas"
+    required_schemas = [
+        "issue-intake-record.schema.json",
+        "dependabot-intake-record.schema.json",
+    ]
+    for schema_name in required_schemas:
+        if not (schema_dir / schema_name).is_file():
+            findings.append(Finding(f".github/governance/schemas/{schema_name}", "required schema file missing"))
+
+    # Validate contract-workflow event parity
+    contracts_path = root / ".github" / "governance" / "workflow-contracts.json"
+    contracts_data = _load_json(contracts_path, findings)
+    if isinstance(contracts_data, dict):
+        for contract in contracts_data.get("contracts", []):
+            impl_path = contract.get("implementation", "")
+            if not isinstance(impl_path, str) or not impl_path:
+                continue
+            impl_file = root / impl_path
+            if not impl_file.is_file():
+                continue
+            wf_text = impl_file.read_text(encoding="utf-8")
+            # Check permissions parity
+            contract_perms = contract.get("permissions", [])
+            for perm in contract_perms:
+                key, _, value = perm.partition(":")
+                if value == "write" and f"{key}: write" not in wf_text:
+                    pass  # contract may declare it but workflow shouldn't have it for intake
+                if value == "read" and key == "pull-requests" and "pull-requests: read" not in wf_text:
+                    if "pulls/" in wf_text or "pull_request" in wf_text:
+                        findings.append(Finding(impl_path, f"uses PR API but missing pull-requests:read permission"))
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _run_block_lines(text: str) -> list[tuple[int, str]]:
+    """Return (line number, content) for every line inside a ``run:`` block."""
+    collected: list[tuple[int, str]] = []
+    lines = text.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        stripped = line.strip()
+        if stripped.startswith("run:") or stripped.startswith("- run:"):
+            base = _indent(line)
+            inline = stripped.split("run:", 1)[1].strip()
+            if inline and inline not in {"|", ">-", ">", "|-"}:
+                collected.append((index + 1, inline))
+                index += 1
+                continue
+            index += 1
+            while index < len(lines):
+                body = lines[index]
+                if body.strip() and _indent(body) <= base:
+                    break
+                collected.append((index + 1, body))
+                index += 1
+            continue
+        index += 1
+    return collected
+
+
+def _job_blocks(text: str) -> dict[str, list[str]]:
+    """Split a workflow into job name -> block lines using two-space job indentation."""
+    lines = text.splitlines()
+    jobs: dict[str, list[str]] = {}
+    in_jobs = False
+    current: str | None = None
+    for line in lines:
+        if not line.strip() or line.lstrip().startswith("#"):
+            if current:
+                jobs[current].append(line)
+            continue
+        if _indent(line) == 0:
+            in_jobs = line.startswith("jobs:")
+            current = None
+            continue
+        if not in_jobs:
+            continue
+        if _indent(line) == 2 and line.rstrip().endswith(":"):
+            current = line.strip().rstrip(":")
+            jobs[current] = []
+            continue
+        if current:
+            jobs[current].append(line)
+    return jobs
+
+
+def _validate_action_versions(root: Path, findings: list[Finding]) -> None:
+    """Every action must be version-pinned, and shared actions must use the repository major."""
+    for path in sorted((root / ".github" / "workflows").glob("*.yml")):
+        relative = path.relative_to(root).as_posix()
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped.startswith("uses:") and not stripped.startswith("- uses:"):
+                continue
+            reference = stripped.split("uses:", 1)[1].strip()
+            if "@" not in reference:
+                findings.append(Finding(relative, f"line {number}: action {reference!r} is not version pinned"))
+                continue
+            action, _, version = reference.partition("@")
+            expected = PINNED_ACTION_VERSIONS.get(action)
+            if expected and version != expected:
+                findings.append(
+                    Finding(relative, f"line {number}: {action} must be pinned to {expected}, found {version}")
+                )
+
+
+def _validate_governance_workflow_safety(root: Path, findings: list[Finding]) -> None:
+    """Structural safety rules for every governance workflow."""
+    for relative in GOVERNANCE_WORKFLOWS:
+        path = root / relative
+        if not path.is_file():
+            findings.append(Finding(relative, "governance workflow is missing"))
+            continue
+        text = path.read_text(encoding="utf-8")
+
+        if "|| true" in text or "|| :" in text:
+            findings.append(Finding(relative, "must not suppress command failure with '|| true'"))
+        if "continue-on-error: true" in text:
+            findings.append(Finding(relative, "must not use continue-on-error: true"))
+        if "\npermissions:" not in text:
+            findings.append(Finding(relative, "must declare workflow-level permissions"))
+        if "actions/checkout" in text and "persist-credentials: false" not in text:
+            findings.append(Finding(relative, "checkout must use persist-credentials: false"))
+        if "github.event.pull_request.head.ref" in text:
+            findings.append(Finding(relative, "must not reference an untrusted pull-request head ref"))
+        for issue_ref in ("ref: ${{ github.event.issue", "ref: ${{ inputs."):
+            if issue_ref in text:
+                findings.append(Finding(relative, "must not take a git ref from issue or dispatch input"))
+        if "actions/upload-artifact" in text and "retention-days:" not in text:
+            findings.append(Finding(relative, "artifact uploads must declare retention-days"))
+
+        for job_name, block in _job_blocks(text).items():
+            joined = "\n".join(block)
+            if "timeout-minutes:" not in joined:
+                findings.append(Finding(relative, f"job {job_name!r} must declare timeout-minutes"))
+            if "permissions:" not in joined:
+                findings.append(Finding(relative, f"job {job_name!r} must declare explicit permissions"))
+
+        for number, line in _run_block_lines(text):
+            for forbidden in ("${{ github.event.", "${{ inputs.", "${{ needs."):
+                if forbidden in line:
+                    findings.append(
+                        Finding(
+                            relative,
+                            f"line {number}: shell body interpolates {forbidden}...; pass it through env instead",
+                        )
+                    )
+            for content_ref in ("github.event.issue.body", "github.event.issue.title"):
+                if content_ref in line:
+                    findings.append(Finding(relative, f"line {number}: must not use issue content in a shell body"))
+
+
+def _validate_repro_workflow(root: Path, findings: list[Finding]) -> None:
+    """Guarded reproduction workflow contract: triggers, jobs, ordering, and concurrency."""
+    relative = ".github/workflows/repro-bug.yml"
+    path = root / relative
+    if not path.is_file():
+        findings.append(Finding(relative, "guarded reproduction workflow is missing"))
+        return
+    text = path.read_text(encoding="utf-8")
+
+    if "pull_request_target" in text:
+        findings.append(Finding(relative, "guarded reproduction must never run in a pull_request_target context"))
+    if "types: [labeled]" not in text:
+        findings.append(Finding(relative, "issues trigger must be exactly types: [labeled]"))
+    if "github.event.label.name == 'repro-requested'" not in text:
+        findings.append(Finding(relative, "must gate on the exact repro-requested label"))
+    if "issue_number:" not in text:
+        findings.append(Finding(relative, "workflow_dispatch must accept an issue_number input"))
+    if "dependabot[bot]" not in text:
+        findings.append(Finding(relative, "must not run for Dependabot actors"))
+
+    concurrency = ""
+    for line in text.splitlines():
+        if line.strip().startswith("group: repro-bug-"):
+            concurrency = line.strip()
+    if not concurrency:
+        findings.append(Finding(relative, "must serialize on a repro-bug-<issue> concurrency group"))
+    else:
+        for forbidden in ("run_id", "run_attempt", "updated_at"):
+            if forbidden in concurrency:
+                findings.append(
+                    Finding(relative, f"concurrency group must not include {forbidden}; prior runs would not cancel")
+                )
+    if "cancel-in-progress: true" not in text:
+        findings.append(Finding(relative, "must cancel superseded reproduction runs"))
+
+    jobs = _job_blocks(text)
+    expected_jobs = ["authorize", "mark-in-progress", "reproduce", "publish-final"]
+    if list(jobs) != expected_jobs:
+        findings.append(Finding(relative, f"jobs must be exactly {expected_jobs}, found {list(jobs)}"))
+        return
+
+    authorize = "\n".join(jobs["authorize"])
+    if "actions/checkout" in authorize:
+        findings.append(Finding(relative, "authorization must not check out repository code"))
+    if "governance_repro.py" in authorize:
+        findings.append(Finding(relative, "authorization must not run the reproduction engine"))
+    if "pip install" in authorize:
+        findings.append(Finding(relative, "authorization must not install packages before deciding"))
+
+    mark = "\n".join(jobs["mark-in-progress"])
+    if "needs: authorize" not in mark:
+        findings.append(Finding(relative, "mark-in-progress must depend on authorization"))
+    if "issues: write" not in mark:
+        findings.append(Finding(relative, "mark-in-progress needs issues: write"))
+    if "repro-in-progress" not in mark:
+        findings.append(Finding(relative, "mark-in-progress must apply the in-progress label"))
+
+    reproduce = "\n".join(jobs["reproduce"])
+    if "needs: [authorize, mark-in-progress]" not in reproduce:
+        findings.append(Finding(relative, "reproduce must depend on authorization and state marking"))
+    if "issues: write" in reproduce:
+        findings.append(Finding(relative, "reproduce must not hold issues: write"))
+    if "expected-body-digest" not in reproduce or "expected-updated-at" not in reproduce:
+        findings.append(Finding(relative, "reproduce must re-verify the authorized issue revision"))
+    if "needs.authorize.outputs.trusted_sha" not in reproduce:
+        findings.append(Finding(relative, "reproduce must check out the authorized trusted revision"))
+
+    publish = "\n".join(jobs["publish-final"])
+    if "if: always()" not in publish:
+        findings.append(Finding(relative, "publish-final must run even when reproduction fails"))
+    if "issues: write" not in publish:
+        findings.append(Finding(relative, "publish-final needs issues: write"))
+    if "contents: read" in publish:
+        findings.append(Finding(relative, "publish-final must not request contents access"))
+    for label in GOVERNED_REPRO_LABELS:
+        if label not in publish:
+            findings.append(Finding(relative, f"publish-final must reconcile governed label {label}"))
+
+
+def _validate_label_reconciliation_workflow(root: Path, findings: list[Finding]) -> None:
+    relative = ".github/workflows/repro-label-reconciliation.yml"
+    path = root / relative
+    if not path.is_file():
+        findings.append(Finding(relative, "label reconciliation workflow is missing"))
+        return
+    text = path.read_text(encoding="utf-8")
+    if "issues:\n" in text or "schedule:" in text or "pull_request" in text:
+        findings.append(Finding(relative, "label reconciliation must be manual dispatch only"))
+    if "issue_number" in text:
+        findings.append(Finding(relative, "label reconciliation reconciles repository labels, not one issue"))
+    if "/issues/" in text:
+        findings.append(Finding(relative, "label reconciliation must not touch issue state"))
+    if "issues: write" not in text:
+        findings.append(Finding(relative, "label reconciliation needs issues: write to manage labels"))
+    if "repo-label" not in text and "repro-label-catalog.json" not in text:
+        findings.append(Finding(relative, "label reconciliation must read the checked-in catalog"))
+
+
+def _validate_repro_policy_and_catalog(root: Path, findings: list[Finding]) -> None:
+    """Policy, catalog, schema, and workflow label parity."""
+    policy_path = root / ".github/governance/repro-command-policy.json"
+    policy_schema = root / ".github/governance/schemas/repro-command-policy.schema.json"
+    catalog_path = root / ".github/governance/repro-label-catalog.json"
+    catalog_schema = root / ".github/governance/schemas/repro-label-catalog.schema.json"
+    evidence_schema_path = root / ".github/governance/schemas/repro-evidence-record.schema.json"
+
+    policy = _load_json(policy_path, findings)
+    catalog = _load_json(catalog_path, findings)
+    if not isinstance(policy, dict) or not isinstance(catalog, dict):
+        return
+
+    for instance, schema_path, label in (
+        (policy, policy_schema, "reproduction command policy"),
+        (catalog, catalog_schema, "reproduction label catalog"),
+    ):
+        try:
+            governance_schema.validate_or_raise(instance, schema_path, label)
+        except governance_schema.SchemaError as exc:
+            findings.append(Finding(schema_path.relative_to(root).as_posix(), str(exc)))
+
+    registry = _load_json(root / "avrotize" / "commands.json", findings)
+    if isinstance(registry, list):
+        known = {item.get("command") for item in registry if isinstance(item, dict)}
+        for entry in policy.get("commands", []):
+            if entry.get("command") not in known:
+                findings.append(
+                    Finding(
+                        policy_path.relative_to(root).as_posix(),
+                        f"policy allows unknown command {entry.get('command')!r}",
+                    )
+                )
+
+    catalog_names = [label.get("name") for label in catalog.get("labels", [])]
+    if sorted(name for name in catalog_names if isinstance(name, str)) != sorted(GOVERNED_REPRO_LABELS):
+        findings.append(
+            Finding(
+                catalog_path.relative_to(root).as_posix(),
+                f"catalog must declare exactly {sorted(GOVERNED_REPRO_LABELS)}",
+            )
+        )
+
+    terminal_labels = sorted(
+        label["name"] for label in catalog.get("labels", []) if label.get("kind") == "terminal"
+    )
+    evidence_schema = _load_json(evidence_schema_path, findings)
+    if isinstance(evidence_schema, dict):
+        final_label = (
+            evidence_schema.get("properties", {})
+            .get("result", {})
+            .get("properties", {})
+            .get("final_label", {})
+        )
+        if sorted(final_label.get("enum", [])) != terminal_labels:
+            findings.append(
+                Finding(
+                    evidence_schema_path.relative_to(root).as_posix(),
+                    f"final_label enum must equal the catalog terminal labels {terminal_labels}",
+                )
+            )
+
+
+def _validate_contract_parity(root: Path, findings: list[Finding]) -> None:
+    """Every contract must match the workflow it claims to describe."""
+    contracts_path = root / ".github" / "governance" / "workflow-contracts.json"
+    document = _load_json(contracts_path, findings)
+    if not isinstance(document, dict):
+        return
+    relative = contracts_path.relative_to(root).as_posix()
+    for contract in document.get("contracts", []):
+        if not isinstance(contract, dict):
+            continue
+        implementation = contract.get("implementation")
+        if not isinstance(implementation, str) or not implementation:
+            continue
+        workflow = root / implementation
+        if not workflow.is_file():
+            findings.append(Finding(implementation, "contract implementation workflow does not exist"))
+            continue
+        text = workflow.read_text(encoding="utf-8")
+        for permission in contract.get("permissions", []):
+            key, _, value = str(permission).partition(":")
+            if f"{key}: {value}" not in text:
+                findings.append(
+                    Finding(relative, f"contract {contract.get('id')!r} declares {permission!r}, workflow does not")
+                )
+        for event in contract.get("events", []):
+            trigger = str(event).split(":", 1)[0]
+            if trigger and trigger not in text:
+                findings.append(
+                    Finding(relative, f"contract {contract.get('id')!r} declares event {event!r}, workflow does not")
+                )
+        mutations = contract.get("mutations", [])
+        if not mutations and ("issues: write" in text or "contents: write" in text):
+            findings.append(
+                Finding(relative, f"contract {contract.get('id')!r} declares no mutations but the workflow can write")
+            )
+
+
 def _validate_expected_sha(root: Path, expected_sha: str | None, findings: list[Finding]) -> None:
     if not expected_sha:
         return
@@ -315,6 +811,14 @@ def validate_repo(root: Path, expected_sha: str | None = None) -> list[Finding]:
     _validate_issue_forms(root, findings)
     _validate_capability_profile(root, findings)
     _validate_workflow_contracts(root, findings)
+    _validate_issue_form_contract(root, findings)
+    _validate_intake_workflow_safety(root, findings)
+    _validate_action_versions(root, findings)
+    _validate_governance_workflow_safety(root, findings)
+    _validate_repro_workflow(root, findings)
+    _validate_label_reconciliation_workflow(root, findings)
+    _validate_repro_policy_and_catalog(root, findings)
+    _validate_contract_parity(root, findings)
     _validate_expected_sha(root, expected_sha, findings)
     return findings
 

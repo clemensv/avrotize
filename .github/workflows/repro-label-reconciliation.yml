@@ -1,0 +1,154 @@
+name: Reconcile reproduction label catalog
+
+# Manual only. Reconciles the six governed repository labels with the checked-in
+# catalog. It never reads, classifies, or mutates any issue.
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: repro-label-catalog
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Authorize maintainer
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Query collaborator permission
+        id: permission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKFLOW_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WORKFLOW_ACTOR}" ]; then
+            echo "::error::no actor login on the dispatch event"
+            exit 1
+          fi
+          if [ "${WORKFLOW_ACTOR}" != "${TRIGGERING_ACTOR}" ]; then
+            echo "::error::re-run actor ${TRIGGERING_ACTOR} differs from recorded actor ${WORKFLOW_ACTOR}"
+            exit 1
+          fi
+          encoded_actor=$(printf '%s' "${WORKFLOW_ACTOR}" | jq -sRr @uri)
+          http_status=$(curl --silent --show-error --output permission-body.json \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${REPO}/collaborators/${encoded_actor}/permission")
+          case "${http_status}" in
+            200) ;;
+            404) echo "::error::actor ${WORKFLOW_ACTOR} is not a collaborator"; exit 1 ;;
+            *) echo "::error::collaborator permission endpoint returned HTTP ${http_status}"; exit 1 ;;
+          esac
+          permission=$(jq -r '.permission // empty' permission-body.json)
+          case "${permission}" in
+            admin|maintain) ;;
+            "") echo "::error::collaborator permission response is malformed"; exit 1 ;;
+            *) echo "::error::actor ${WORKFLOW_ACTOR} holds ${permission}, which is below maintain"; exit 1 ;;
+          esac
+          echo "Authorized ${WORKFLOW_ACTOR} (${permission})." >> "$GITHUB_STEP_SUMMARY"
+
+  reconcile:
+    name: Reconcile repository labels
+    needs: authorize
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Validate catalog against its schema
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          from tools import governance_repro
+
+          catalog = governance_repro.load_label_catalog()
+          print(f"catalog declares {len(catalog['labels'])} governed labels")
+          Path("label-catalog.json").write_text(
+              Path(".github/governance/repro-label-catalog.json").read_text(encoding="utf-8"),
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Create or update governed labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          api() {
+            curl --silent --show-error --output "$2" --write-out '%{http_code}' \
+              --request "$1" \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header "Accept: application/vnd.github+json" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "${@:3}"
+          }
+          count=$(jq '.labels | length' label-catalog.json)
+          index=0
+          while [ "${index}" -lt "${count}" ]; do
+            name=$(jq -r ".labels[${index}].name" label-catalog.json)
+            color=$(jq -r ".labels[${index}].color" label-catalog.json)
+            description=$(jq -r ".labels[${index}].description" label-catalog.json)
+            encoded_name=$(printf '%s' "${name}" | jq -sRr @uri)
+            jq -n --arg name "${name}" --arg color "${color}" --arg description "${description}" \
+              '{name: $name, color: $color, description: $description}' > label-payload.json
+            status=$(api GET label-response.json \
+              "${GITHUB_API_URL}/repos/${REPO}/labels/${encoded_name}")
+            case "${status}" in
+              200)
+                status=$(api PATCH label-response.json \
+                  --header "Content-Type: application/json" \
+                  --data @label-payload.json \
+                  "${GITHUB_API_URL}/repos/${REPO}/labels/${encoded_name}")
+                if [ "${status}" != "200" ]; then
+                  echo "::error::failed to update label ${name} (HTTP ${status})"
+                  cat label-response.json
+                  exit 1
+                fi
+                echo "updated ${name}" >> "$GITHUB_STEP_SUMMARY"
+                ;;
+              404)
+                status=$(api POST label-response.json \
+                  --header "Content-Type: application/json" \
+                  --data @label-payload.json \
+                  "${GITHUB_API_URL}/repos/${REPO}/labels")
+                if [ "${status}" != "201" ]; then
+                  echo "::error::failed to create label ${name} (HTTP ${status})"
+                  cat label-response.json
+                  exit 1
+                fi
+                echo "created ${name}" >> "$GITHUB_STEP_SUMMARY"
+                ;;
+              *)
+                echo "::error::failed to read label ${name} (HTTP ${status})"
+                cat label-response.json
+                exit 1
+                ;;
+            esac
+            index=$((index + 1))
+          done
+          echo "Reconciled ${count} governed labels. Issue state was not read or changed." >> "$GITHUB_STEP_SUMMARY"

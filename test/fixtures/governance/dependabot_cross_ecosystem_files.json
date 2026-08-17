@@ -1,0 +1,7 @@
+[
+  { "filename": "requirements.txt", "status": "modified" },
+  { "filename": "avrotize/dependencies/typescript/node22/package.json", "status": "modified" },
+  { "filename": "avrotize/dependencies/typescript/node22/package-lock.json", "status": "modified" },
+  { "filename": ".github/workflows/build_deploy.yml", "status": "modified" },
+  { "filename": "docs/notes.md", "status": "modified" }
+]

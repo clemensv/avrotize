@@ -1,0 +1,87 @@
+name: Issue intake
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  workflow_dispatch:
+    inputs:
+      fixture:
+        description: "Fixture event file (relative to test/fixtures/governance/)"
+        required: true
+        type: choice
+        options:
+          - issue_bug_complete.json
+          - issue_feature_complete.json
+          - issue_incomplete.json
+          - issue_unknown.json
+          - issue_malformed.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-intake-${{ github.event.issue.number || inputs.fixture }}
+  cancel-in-progress: true
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted default-branch code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Prepare event payload
+        id: event
+        env:
+          REAL_EVENT: ${{ toJSON(github.event) }}
+          FIXTURE: ${{ inputs.fixture }}
+        run: |
+          if [ -n "$FIXTURE" ]; then
+            cp "test/fixtures/governance/$FIXTURE" event.json
+            echo "source=fixture" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s' "$REAL_EVENT" > event.json
+            echo "source=live" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Emit event identity
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || '0' }}
+          EVENT_ACTION: ${{ github.event.action || 'workflow_dispatch' }}
+        run: |
+          echo "### Event Identity" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Issue: #${ISSUE_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Action: ${EVENT_ACTION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source: ${{ steps.event.outputs.source }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Body digest: $(sha256sum event.json | cut -c1-16)..." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run intake normalizer
+        run: |
+          python tools/governance_intake.py issue \
+            --event event.json \
+            --output-json intake-record.json \
+            --output-md intake-summary.md
+
+      - name: Write step summary
+        run: cat intake-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload intake artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: issue-intake-${{ github.event.issue.number || inputs.fixture }}
+          path: |
+            intake-record.json
+            intake-summary.md
+          retention-days: 14

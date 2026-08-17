@@ -1,4 +1,15 @@
-name: Dependabot auto-merge
+# Dependabot policy guard (read-only)
+#
+# BEHAVIORAL CHANGE (2026-08-17): This workflow was previously an auto-merge
+# automation that squash-merged eligible Dependabot PRs after checks passed.
+# It has been converted to a read-only policy guard that summarizes Dependabot
+# PR eligibility without performing any merge, branch deletion, or write
+# mutation. Dependabot PRs are intake and require explicit owner authorization
+# before merge, like any other change.
+#
+# The file is retained at this path for explicit migration visibility.
+
+name: Dependabot policy guard
 
 on:
   workflow_run:
@@ -8,13 +19,16 @@ on:
       - completed
 
 permissions:
-  contents: write
-  pull-requests: write
-  checks: read
+  contents: read
+  pull-requests: read
 
 jobs:
-  dependabot:
+  policy-summary:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
@@ -28,61 +42,28 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           author="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq '.user.login')"
+          echo "author=$author" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
           if [[ "$author" != "dependabot[bot]" ]]; then
-            echo "eligible=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "is_dependabot=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_dependabot=true" >> "$GITHUB_OUTPUT"
           fi
 
-          if gh pr diff "$PR_NUMBER" --repo "$REPOSITORY" --name-only |
-              grep -q '^\.github/workflows/'; then
-            echo "Workflow updates require a maintainer merge."
-            echo "eligible=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "eligible=true" >> "$GITHUB_OUTPUT"
-          echo "url=https://github.com/$REPOSITORY/pull/$PR_NUMBER" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for remaining checks
-        if: steps.pull-request.outputs.eligible == 'true'
+      - name: Summarize policy
+        env:
+          PR_NUMBER: ${{ steps.pull-request.outputs.pr_number }}
+          IS_DEPENDABOT: ${{ steps.pull-request.outputs.is_dependabot }}
+          AUTHOR: ${{ steps.pull-request.outputs.author }}
         run: |
-          deadline=$((SECONDS + 3600))
-          while (( SECONDS < deadline )); do
-            checks="$(gh pr checks "$PR_URL" --json name,bucket || true)"
-            external_checks="$(
-              jq '[.[] | select(.name != "dependabot")]' <<< "$checks"
-            )"
-            failures="$(
-              jq '[.[] | select(.bucket == "fail" or .bucket == "cancel")] | length' \
-                <<< "$external_checks"
-            )"
-            pending="$(
-              jq '[.[] | select(.bucket == "pending")] | length' \
-                <<< "$external_checks"
-            )"
-            total="$(jq 'length' <<< "$external_checks")"
-
-            if (( failures > 0 )); then
-              jq -r '.[] | select(.bucket == "fail" or .bucket == "cancel") |
-                "\(.name): \(.bucket)"' <<< "$external_checks"
-              exit 1
-            fi
-            if (( total > 0 && pending == 0 )); then
-              exit 0
-            fi
-
-            sleep 15
-          done
-
-          echo "Timed out waiting for pull request checks."
-          exit 1
-        env:
-          PR_URL: ${{ steps.pull-request.outputs.url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Squash and merge
-        if: steps.pull-request.outputs.eligible == 'true'
-        run: gh pr merge --squash --delete-branch "$PR_URL"
-        env:
-          PR_URL: ${{ steps.pull-request.outputs.url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "## Dependabot Policy Guard" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- PR: #${PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Author: ${AUTHOR}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Is Dependabot: ${IS_DEPENDABOT}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build workflow: success" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> This workflow is a read-only policy guard. Automatic merge is" >> "$GITHUB_STEP_SUMMARY"
+          echo "> disabled. Dependabot PRs require explicit owner authorization" >> "$GITHUB_STEP_SUMMARY"
+          echo "> before merge." >> "$GITHUB_STEP_SUMMARY"

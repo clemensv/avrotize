@@ -1,0 +1,11 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 460,
+    "title": "Bump requests from 2.31.0 to 3.0.0 in /",
+    "user": { "login": "dependabot[bot]" },
+    "head": { "sha": "abc123def456789", "ref": "dependabot/pip/requests-3.0.0" },
+    "base": { "sha": "c3c51c2aaa000111", "ref": "master" },
+    "body": "Bumps [requests](https://github.com/psf/requests) from 2.31.0 to 3.0.0.\n\n---\nupdated-dependencies:\n- dependency-name: requests\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n..."
+  }
+}

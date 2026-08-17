@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "description": "Governed reproduction state labels. Guarded reproduction ends in exactly one terminal label; every other governed label is removed in the same reconciliation.",
+  "labels": [
+    {
+      "name": "repro-requested",
+      "color": "d4c5f9",
+      "description": "Maintainer requested guarded CLI reproduction",
+      "kind": "request",
+      "outcome": ""
+    },
+    {
+      "name": "repro-in-progress",
+      "color": "0e8a16",
+      "description": "Guarded reproduction is running for this issue",
+      "kind": "progress",
+      "outcome": ""
+    },
+    {
+      "name": "repro-confirmed",
+      "color": "b60205",
+      "description": "Guarded execution reproduced the reported defect",
+      "kind": "terminal",
+      "outcome": "CONFIRMED"
+    },
+    {
+      "name": "repro-not-reproduced",
+      "color": "0075ca",
+      "description": "Guarded execution matched the reported expectation",
+      "kind": "terminal",
+      "outcome": "NOT_REPRODUCED"
+    },
+    {
+      "name": "repro-blocked",
+      "color": "e4e669",
+      "description": "Guarded reproduction was blocked by readiness, policy, limits, or infrastructure",
+      "kind": "terminal",
+      "outcome": "BLOCKED"
+    },
+    {
+      "name": "repro-needs-review",
+      "color": "fbca04",
+      "description": "Guarded execution completed but the outcome needs maintainer adjudication",
+      "kind": "terminal",
+      "outcome": "NEEDS_REVIEW"
+    }
+  ]
+}

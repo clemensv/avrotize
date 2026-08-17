@@ -1,0 +1,13 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 640,
+    "title": "Bump the multi-ecosystem group with 3 updates",
+    "user": { "login": "dependabot[bot]" },
+    "head": { "ref": "dependabot/multi/group-3-updates", "sha": "1111111111111111111111111111111111111111" },
+    "base": { "sha": "2222222222222222222222222222222222222222" },
+    "body": "Bumps three dependencies.\n\n- dependency-name: requests\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n- dependency-name: typescript\n  dependency-type: direct:development\n  update-type: version-update:semver-major\n- dependency-name: actions/checkout\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n"
+  },
+  "repository": { "full_name": "clemensv/avrotize" },
+  "sender": { "login": "dependabot[bot]" }
+}

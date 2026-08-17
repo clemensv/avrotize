@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/clemensv/avrotize/schemas/issue-intake-record.schema.json",
+  "title": "Issue Intake Record",
+  "description": "Deterministic intake normalization record for GitHub Issue Form submissions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "record_kind", "event_identity", "classification", "normalized_facts", "authority"],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Record schema version."
+    },
+    "record_kind": {
+      "enum": ["issue-intake"],
+      "description": "Discriminator for record type."
+    },
+    "event_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issue_number", "event_type", "body_digest", "source_digest", "update"],
+      "properties": {
+        "issue_number": { "type": "integer" },
+        "repository": { "type": "string" },
+        "url": { "type": "string" },
+        "event_type": { "enum": ["opened", "edited", "reopened", "workflow_dispatch"] },
+        "sender": { "type": "string" },
+        "body_digest": { "type": "string", "minLength": 64, "maxLength": 64 },
+        "source_digest": { "type": "string", "minLength": 64, "maxLength": 64 },
+        "update": { "type": "boolean" }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["form_type", "status", "missing_fields", "unexpected_headings", "missing_headings"],
+      "properties": {
+        "form_type": { "enum": ["bug", "feature", "unclassified"] },
+        "status": { "enum": ["complete", "incomplete", "malformed", "manual-triage"] },
+        "missing_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "unexpected_headings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missing_headings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "normalized_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "command_known", "surface", "semantic_paths", "expected_result_kind"],
+      "properties": {
+        "command": { "type": ["string", "null"] },
+        "command_known": { "type": ["boolean", "null"] },
+        "surface": { "type": ["string", "null"] },
+        "semantic_paths": { "type": "array", "items": { "type": "string" } },
+        "source_representation": { "type": ["string", "null"] },
+        "result_representation": { "type": ["string", "null"] },
+        "flags_options": { "type": ["string", "null"] },
+        "input_reproducer": { "type": ["string", "null"] },
+        "actual_behavior": { "type": ["string", "null"] },
+        "expected_behavior": { "type": ["string", "null"] },
+        "expected_result_choice": { "type": ["string", "null"] },
+        "expected_result_kind": {
+          "enum": ["success", "failure", "exact_output", "human_review", "undeclared"]
+        },
+        "expected_output": { "type": ["string", "null"] },
+        "environment": { "type": ["string", "null"] },
+        "regression": { "type": ["string", "null"] },
+        "semantics": { "type": ["string", "null"] },
+        "validation_expectations": { "type": ["string", "null"] },
+        "documentation": { "type": ["string", "null"] }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorized", "statement"],
+      "properties": {
+        "authorized": { "const": false },
+        "statement": { "type": "string" }
+      }
+    }
+  }
+}

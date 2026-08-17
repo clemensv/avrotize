@@ -1,0 +1,11 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 461,
+    "title": "Bump the npm group in /avrotize/dependencies/typescript/node22 with 2 updates",
+    "user": { "login": "dependabot[bot]" },
+    "head": { "sha": "def456abc789012", "ref": "dependabot/npm_and_yarn/avrotize/dependencies/typescript/node22/multi-abc123" },
+    "base": { "sha": "c3c51c2bbb000222", "ref": "master" },
+    "body": "Bumps the npm group in /avrotize/dependencies/typescript/node22 with 2 updates: typescript and eslint."
+  }
+}

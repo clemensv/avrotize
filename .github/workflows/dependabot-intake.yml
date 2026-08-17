@@ -1,0 +1,106 @@
+name: Dependabot intake
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      fixture:
+        description: "Fixture event file (relative to test/fixtures/governance/)"
+        required: true
+        type: choice
+        options:
+          - dependabot_python_major.json
+          - dependabot_multi_ecosystem.json
+          - dependabot_non_dependabot.json
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: dependabot-intake-${{ github.event.pull_request.number || inputs.fixture }}
+  cancel-in-progress: true
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Checkout base (trusted code only)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Prepare event payload
+        id: event
+        env:
+          REAL_EVENT: ${{ toJSON(github.event) }}
+          FIXTURE: ${{ inputs.fixture }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -n "$FIXTURE" ]; then
+            cp "test/fixtures/governance/$FIXTURE" event.json
+            # Use fixture files list if it exists
+            fixture_files="${FIXTURE%.json}_files.json"
+            if [ -f "test/fixtures/governance/$fixture_files" ]; then
+              cp "test/fixtures/governance/$fixture_files" files.json
+            else
+              echo "[]" > files.json
+            fi
+            echo "source=fixture" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s' "$REAL_EVENT" > event.json
+            # gh api --paginate --slurp produces [[page1], [page2]...]
+            # Python normalizer handles flattening internally
+            gh api --paginate --slurp \
+              "repos/$REPO/pulls/$PR_NUMBER/files" > files.json
+            echo "source=live" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Emit event identity
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || '0' }}
+          EVENT_ACTION: ${{ github.event.action || 'workflow_dispatch' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || 'fixture' }}
+        run: |
+          echo "### Event Identity" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- PR: #${PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Action: ${EVENT_ACTION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source: ${{ steps.event.outputs.source }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Head SHA: ${HEAD_SHA:0:12}..." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run intake normalizer
+        run: |
+          python tools/governance_intake.py dependabot \
+            --event event.json \
+            --files files.json \
+            --output-json intake-record.json \
+            --output-md intake-summary.md
+
+      - name: Write step summary
+        run: cat intake-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload intake artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependabot-intake-${{ github.event.pull_request.number || inputs.fixture }}
+          path: |
+            intake-record.json
+            intake-summary.md
+          retention-days: 14

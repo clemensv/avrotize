@@ -18,6 +18,9 @@ jobs:
   validate:
     name: Observe governance consistency
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - name: Checkout exact event revision
         uses: actions/checkout@v7

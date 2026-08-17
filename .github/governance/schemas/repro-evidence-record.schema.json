@@ -1,0 +1,515 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/clemensv/avrotize/schemas/repro-evidence-record.schema.json",
+  "title": "Reproduction Evidence Record",
+  "description": "Structured evidence produced by guarded bug reproduction. Every field is derived from execution, policy, or authorization facts; no natural-language similarity is recorded or compared.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_kind",
+    "issue_number",
+    "request",
+    "source",
+    "environment",
+    "readiness",
+    "execution",
+    "result",
+    "artifact",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "record_kind": {
+      "const": "repro-evidence"
+    },
+    "issue_number": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "issue_number",
+        "issue_url",
+        "issue_updated_at",
+        "issue_body_digest",
+        "actor",
+        "event_name",
+        "requested_label",
+        "run_id",
+        "run_attempt",
+        "run_url",
+        "authorization_digest",
+        "revision_verified",
+        "revision_note"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "issue_number": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "issue_url": {
+          "type": "string"
+        },
+        "issue_updated_at": {
+          "type": "string"
+        },
+        "issue_body_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "actor": {
+          "type": "string"
+        },
+        "event_name": {
+          "type": "string"
+        },
+        "requested_label": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "run_attempt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "run_url": {
+          "type": "string"
+        },
+        "authorization_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "revision_verified": {
+          "type": "boolean"
+        },
+        "revision_note": {
+          "type": "string"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trusted_sha",
+        "default_branch",
+        "policy_version",
+        "policy_digest",
+        "command_registry_digest",
+        "issue_form_contract_digest",
+        "label_catalog_digest"
+      ],
+      "properties": {
+        "trusted_sha": {
+          "type": "string"
+        },
+        "default_branch": {
+          "type": "string"
+        },
+        "policy_version": {
+          "type": "string"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "command_registry_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "issue_form_contract_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "label_catalog_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine_version",
+        "python_version",
+        "platform",
+        "avrotize_executable",
+        "avrotize_version"
+      ],
+      "properties": {
+        "engine_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "python_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "avrotize_executable": {
+          "type": "string"
+        },
+        "avrotize_version": {
+          "type": "string"
+        }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "form_type",
+        "intake_status",
+        "missing_fields",
+        "surface",
+        "command",
+        "eligible",
+        "expectation",
+        "notes"
+      ],
+      "properties": {
+        "form_type": {
+          "type": "string"
+        },
+        "intake_status": {
+          "type": "string"
+        },
+        "missing_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "surface": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "expectation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "declared_choice",
+            "exact_output_provided",
+            "exact_output_digest"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "success",
+                "failure",
+                "exact_output",
+                "human_review",
+                "undeclared"
+              ]
+            },
+            "declared_choice": {
+              "type": "string"
+            },
+            "exact_output_provided": {
+              "type": "boolean"
+            },
+            "exact_output_digest": {
+              "type": "string"
+            }
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executed",
+        "argv",
+        "argv_digest",
+        "timeout_seconds",
+        "returncode",
+        "timed_out",
+        "duration_seconds",
+        "resource_status",
+        "input_substitutions",
+        "fixture",
+        "stdout",
+        "stderr",
+        "outputs"
+      ],
+      "properties": {
+        "executed": {
+          "type": "boolean"
+        },
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "argv_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "returncode": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "timed_out": {
+          "type": "boolean"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "resource_status": {
+          "enum": [
+            "not-executed",
+            "within-limits",
+            "stream-limit-exceeded",
+            "output-limit-exceeded",
+            "timeout"
+          ]
+        },
+        "input_substitutions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fixture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "digest",
+            "bytes",
+            "source_field",
+            "extension"
+          ],
+          "properties": {
+            "digest": {
+              "$ref": "#/$defs/digest"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "source_field": {
+              "type": "string"
+            },
+            "extension": {
+              "type": "string"
+            }
+          }
+        },
+        "stdout": {
+          "$ref": "#/$defs/stream"
+        },
+        "stderr": {
+          "$ref": "#/$defs/stream"
+        },
+        "outputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "file_count",
+            "total_bytes",
+            "limit_exceeded",
+            "files"
+          ],
+          "properties": {
+            "file_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total_bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit_exceeded": {
+              "type": "boolean"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "bytes",
+                  "digest"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "digest": {
+                    "$ref": "#/$defs/digest"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason_code",
+        "reason",
+        "final_label",
+        "comparison"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "CONFIRMED",
+            "NOT_REPRODUCED",
+            "BLOCKED",
+            "NEEDS_REVIEW"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "final_label": {
+          "enum": [
+            "repro-confirmed",
+            "repro-not-reproduced",
+            "repro-blocked",
+            "repro-needs-review"
+          ]
+        },
+        "comparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "performed",
+            "target",
+            "match",
+            "expected_digest",
+            "actual_digest"
+          ],
+          "properties": {
+            "performed": {
+              "type": "boolean"
+            },
+            "target": {
+              "type": "string"
+            },
+            "match": {
+              "type": "boolean"
+            },
+            "expected_digest": {
+              "type": "string"
+            },
+            "actual_digest": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "retention_days"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 90
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorized",
+        "statement"
+      ],
+      "properties": {
+        "authorized": {
+          "const": false
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "bytes",
+        "truncated",
+        "excerpt"
+      ],
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "excerpt": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

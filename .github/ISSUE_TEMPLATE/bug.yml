@@ -72,6 +72,31 @@ body:
       description: Show the expected schema/model semantics or generated behavior, not only "it should work".
     validations:
       required: true
+  - type: dropdown
+    id: expected_result
+    attributes:
+      label: Expected command result
+      description: >-
+        Optional for filing, required before maintainers can request guarded reproduction.
+        Maintainers use this choice to decide the reproduction outcome deterministically;
+        without it a guarded run can only end in "needs review".
+      options:
+        - Successful completion (exit 0)
+        - Command failure (nonzero exit)
+        - Exact output match
+        - Human semantic review
+    validations:
+      required: false
+  - type: textarea
+    id: expected_output
+    attributes:
+      label: Exact expected output
+      description: >-
+        Optional. Required only when you chose "Exact output match" above. Paste the exact
+        expected file content or standard output, with nothing added or omitted. A single
+        surrounding code fence is removed before comparison.
+    validations:
+      required: false
   - type: textarea
     id: environment
     attributes:

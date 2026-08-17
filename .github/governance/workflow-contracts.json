@@ -7,14 +7,28 @@
       "state": "current",
       "authority_owner": "repository-owner",
       "purpose": "Run conversion and VS Code evidence, then publish only for version tags.",
-      "events": ["pull_request:master", "push:master", "push:tag:v*"],
+      "events": [
+        "pull_request:master",
+        "push:master",
+        "push:tag:v*"
+      ],
       "inputs": {
-        "authoritative": ["repository content at checked-out revision", "test group matrix", "version tag"],
+        "authoritative": [
+          "repository content at checked-out revision",
+          "test group matrix",
+          "version tag"
+        ],
         "advisory": [],
-        "untrusted": ["pull request content"]
+        "untrusted": [
+          "pull request content"
+        ]
       },
       "deterministic": {
-        "outputs": ["pytest results", "VS Code test result", "tag publication result"],
+        "outputs": [
+          "pytest results",
+          "VS Code test result",
+          "tag publication result"
+        ],
         "fail_closed": true
       },
       "copilot": {
@@ -32,14 +46,21 @@
         "token_telemetry": "operational-only"
       },
       "actions": {
-        "runner_classes": ["ubuntu-latest"],
+        "runner_classes": [
+          "ubuntu-latest"
+        ],
         "typical_fan_out": 15,
         "maximum_fan_out": 16,
         "observed_runner_minutes_median": 60.82,
         "runner_minutes_ceiling": 480
       },
-      "mutations": ["tag-only PyPI publication", "tag-only VS Code Marketplace publication"],
-      "permissions": ["contents:read"],
+      "mutations": [
+        "tag-only PyPI publication",
+        "tag-only VS Code Marketplace publication"
+      ],
+      "permissions": [
+        "contents:read"
+      ],
       "result": {
         "exact_revision": "checked-out SHA",
         "blocking_scope": "technical evidence and tag publication",
@@ -52,14 +73,29 @@
       "state": "current",
       "authority_owner": "repository-owner",
       "purpose": "Build distributions and exercise installation and CLI behavior on Python 3.10 through 3.14.",
-      "events": ["pull_request:master|main", "push:master|main", "workflow_dispatch"],
+      "events": [
+        "pull_request:master|main",
+        "push:master|main",
+        "workflow_dispatch"
+      ],
       "inputs": {
-        "authoritative": ["built wheel and sdist", "Python runtime matrix"],
-        "advisory": ["basic pytest smoke command"],
-        "untrusted": ["pull request content"]
+        "authoritative": [
+          "built wheel and sdist",
+          "Python runtime matrix"
+        ],
+        "advisory": [
+          "basic pytest smoke command"
+        ],
+        "untrusted": [
+          "pull request content"
+        ]
       },
       "deterministic": {
-        "outputs": ["build artifact", "runtime installation and CLI results", "matrix summary"],
+        "outputs": [
+          "build artifact",
+          "runtime installation and CLI results",
+          "matrix summary"
+        ],
         "fail_closed": false,
         "known_gap": "The existing basic pytest command is warning-shaped on failure and cannot satisfy a future required test gate."
       },
@@ -78,14 +114,18 @@
         "token_telemetry": "operational-only"
       },
       "actions": {
-        "runner_classes": ["ubuntu-latest"],
+        "runner_classes": [
+          "ubuntu-latest"
+        ],
         "typical_fan_out": 7,
         "maximum_fan_out": 7,
         "observed_runner_minutes_median": 4.37,
         "runner_minutes_ceiling": 120
       },
       "mutations": [],
-      "permissions": ["contents:read"],
+      "permissions": [
+        "contents:read"
+      ],
       "result": {
         "exact_revision": "checked-out SHA",
         "blocking_scope": "build and runtime jobs; basic pytest remains advisory",
@@ -98,14 +138,23 @@
       "state": "current",
       "authority_owner": "repository-owner",
       "purpose": "Validate server.json against the MCP registry publisher.",
-      "events": ["pull_request:master", "workflow_dispatch"],
+      "events": [
+        "pull_request:master",
+        "workflow_dispatch"
+      ],
       "inputs": {
-        "authoritative": ["server.json"],
+        "authoritative": [
+          "server.json"
+        ],
         "advisory": [],
-        "untrusted": ["pull request content"]
+        "untrusted": [
+          "pull request content"
+        ]
       },
       "deterministic": {
-        "outputs": ["mcp-publisher validation result"],
+        "outputs": [
+          "mcp-publisher validation result"
+        ],
         "fail_closed": true
       },
       "copilot": {
@@ -123,14 +172,18 @@
         "token_telemetry": "operational-only"
       },
       "actions": {
-        "runner_classes": ["ubuntu-latest"],
+        "runner_classes": [
+          "ubuntu-latest"
+        ],
         "typical_fan_out": 1,
         "maximum_fan_out": 1,
         "observed_runner_minutes_median": 0.12,
         "runner_minutes_ceiling": 15
       },
       "mutations": [],
-      "permissions": ["contents:read"],
+      "permissions": [
+        "contents:read"
+      ],
       "result": {
         "exact_revision": "checked-out SHA",
         "blocking_scope": "MCP manifest validity",
@@ -138,20 +191,29 @@
       }
     },
     {
-      "id": "dependabot-merge",
+      "id": "dependabot-policy-guard",
       "implementation": ".github/workflows/dependabot-auto-merge.yml",
       "state": "current",
       "authority_owner": "repository-owner",
-      "purpose": "Merge eligible Dependabot changes after external checks succeed.",
-      "events": ["workflow_run:Upload Python Package and VS Code Extension"],
+      "purpose": "Read-only policy guard that summarizes Dependabot PR eligibility. Does not merge, approve, or delete branches. Previously an auto-merge workflow; converted to intake-only guard because Dependabot PRs require explicit owner authorization.",
+      "events": [
+        "workflow_run:Upload Python Package and VS Code Extension"
+      ],
       "inputs": {
-        "authoritative": ["workflow conclusion", "pull request author", "changed paths", "current check buckets"],
+        "authoritative": [
+          "workflow conclusion",
+          "pull request author"
+        ],
         "advisory": [],
-        "untrusted": ["dependency pull request content"]
+        "untrusted": [
+          "dependency pull request content"
+        ]
       },
       "deterministic": {
-        "outputs": ["eligibility decision", "squash merge or no mutation"],
-        "fail_closed": true
+        "outputs": [
+          "policy summary in step summary"
+        ],
+        "fail_closed": false
       },
       "copilot": {
         "enabled": false,
@@ -168,17 +230,149 @@
         "token_telemetry": "operational-only"
       },
       "actions": {
-        "runner_classes": ["ubuntu-latest"],
+        "runner_classes": [
+          "ubuntu-latest"
+        ],
         "typical_fan_out": 1,
         "maximum_fan_out": 1,
-        "runner_minutes_ceiling": 60
+        "runner_minutes_ceiling": 15
       },
-      "mutations": ["eligible Dependabot squash merge", "eligible branch deletion"],
-      "permissions": ["contents:write", "pull-requests:write", "checks:read"],
+      "mutations": [],
+      "permissions": [
+        "contents:read",
+        "pull-requests:read"
+      ],
       "result": {
         "exact_revision": "workflow_run associated pull request head",
-        "blocking_scope": "narrow delegated Dependabot merge",
-        "retention": "GitHub Actions and pull request history"
+        "blocking_scope": "read-only policy summary only",
+        "retention": "GitHub Actions run summary"
+      }
+    },
+    {
+      "id": "issue-intake",
+      "implementation": ".github/workflows/issue-intake.yml",
+      "state": "current",
+      "authority_owner": "repository-owner",
+      "purpose": "Normalize GitHub Issue Form submissions into deterministic intake records. No mutations, labels, comments, or project writes.",
+      "events": [
+        "issues:[opened,edited,reopened]",
+        "workflow_dispatch:fixture"
+      ],
+      "inputs": {
+        "authoritative": [
+          "checked-in issue form contract",
+          "commands.json",
+          "governance config"
+        ],
+        "advisory": [],
+        "untrusted": [
+          "issue body content"
+        ]
+      },
+      "deterministic": {
+        "outputs": [
+          "versioned JSON intake record",
+          "Markdown summary"
+        ],
+        "fail_closed": true,
+        "corruption_vs_incomplete": "Corrupt config/workflow raises infrastructure failure. Incomplete/unknown/malformed issue bodies produce explicit non-ready records and exit successfully."
+      },
+      "copilot": {
+        "enabled": false,
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only"
+      },
+      "actions": {
+        "runner_classes": [
+          "ubuntu-latest"
+        ],
+        "typical_fan_out": 1,
+        "maximum_fan_out": 1,
+        "runner_minutes_ceiling": 5
+      },
+      "mutations": [],
+      "permissions": [
+        "contents:read"
+      ],
+      "concurrency": "issue-intake-${issue_number_or_fixture}",
+      "artifact_retention_days": 14,
+      "result": {
+        "exact_revision": "default branch HEAD at workflow execution",
+        "blocking_scope": "intake normalization only; does not authorize or schedule",
+        "retention": "14-day artifact and step summary"
+      }
+    },
+    {
+      "id": "dependabot-intake",
+      "implementation": ".github/workflows/dependabot-intake.yml",
+      "state": "current",
+      "authority_owner": "repository-owner",
+      "purpose": "Normalize Dependabot PR metadata into deterministic intake records. Inspects changed filenames only from REST; never checks out or runs the PR head.",
+      "events": [
+        "pull_request_target:[opened,reopened,synchronize,ready_for_review]",
+        "workflow_dispatch:fixture"
+      ],
+      "inputs": {
+        "authoritative": [
+          "dependabot.yml config",
+          "capability profile",
+          "changed-file metadata from REST"
+        ],
+        "advisory": [],
+        "untrusted": [
+          "PR head content (never checked out or executed)"
+        ]
+      },
+      "deterministic": {
+        "outputs": [
+          "versioned JSON intake record",
+          "Markdown summary"
+        ],
+        "fail_closed": true,
+        "corruption_vs_incomplete": "Corrupt dependabot.yml or workflow config raises infrastructure failure. Non-Dependabot PRs produce ignored records. Incomplete parsing produces explicit non-ready records."
+      },
+      "copilot": {
+        "enabled": false,
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only"
+      },
+      "actions": {
+        "runner_classes": [
+          "ubuntu-latest"
+        ],
+        "typical_fan_out": 1,
+        "maximum_fan_out": 1,
+        "runner_minutes_ceiling": 5
+      },
+      "mutations": [],
+      "permissions": [
+        "contents:read",
+        "pull-requests:read"
+      ],
+      "concurrency": "dependabot-intake-${pr_number_and_head_sha_or_fixture}",
+      "artifact_retention_days": 14,
+      "result": {
+        "exact_revision": "PR base SHA (trusted code only)",
+        "blocking_scope": "intake normalization only; completeness is not authorization",
+        "retention": "14-day artifact and step summary"
       }
     },
     {
@@ -187,14 +381,28 @@
       "state": "observe",
       "authority_owner": "repository-owner",
       "purpose": "Report governance surface, command-capability profile, and checkout revision findings without mutation or blocking.",
-      "events": ["pull_request:master", "push:master", "workflow_dispatch"],
+      "events": [
+        "pull_request:master",
+        "push:master",
+        "workflow_dispatch"
+      ],
       "inputs": {
-        "authoritative": ["checked-in governance surfaces", "avrotize/commands.json", ".github/governance/avrotize-capabilities.json", "expected event SHA"],
+        "authoritative": [
+          "checked-in governance surfaces",
+          "avrotize/commands.json",
+          ".github/governance/avrotize-capabilities.json",
+          "expected event SHA"
+        ],
         "advisory": [],
-        "untrusted": ["pull request content"]
+        "untrusted": [
+          "pull request content"
+        ]
       },
       "deterministic": {
-        "outputs": ["GitHub annotations", "step summary"],
+        "outputs": [
+          "GitHub annotations",
+          "step summary"
+        ],
         "fail_closed": false,
         "observe_semantics": "Findings are explicit but process exit is zero."
       },
@@ -213,14 +421,18 @@
         "token_telemetry": "operational-only"
       },
       "actions": {
-        "runner_classes": ["ubuntu-latest"],
+        "runner_classes": [
+          "ubuntu-latest"
+        ],
         "typical_fan_out": 1,
         "maximum_fan_out": 1,
         "runner_minutes_typical": 1,
         "runner_minutes_ceiling": 3
       },
       "mutations": [],
-      "permissions": ["contents:read"],
+      "permissions": [
+        "contents:read"
+      ],
       "concurrency": "governance-observe-${pull_request_number_or_ref}",
       "result": {
         "exact_revision": "github.event.pull_request.head.sha or github.sha",
@@ -234,14 +446,33 @@
       "state": "proposed-after-reconciliation",
       "authority_owner": "repository-owner",
       "purpose": "Fail closed on unauthorized, incomplete, stale, or unproven merges and releases.",
-      "events": ["pull_request", "merge_group", "release-candidate-tag"],
+      "events": [
+        "pull_request",
+        "merge_group",
+        "release-candidate-tag"
+      ],
       "inputs": {
-        "authoritative": ["authorization", "diff-derived command and surface impact", "exact-head evidence", "current verdicts", "immutable tag and artifact provenance"],
-        "advisory": ["bounded structured AI recommendations under a future contract"],
-        "untrusted": ["pull request content", "generated artifacts before digest verification"]
+        "authoritative": [
+          "authorization",
+          "diff-derived command and surface impact",
+          "exact-head evidence",
+          "current verdicts",
+          "immutable tag and artifact provenance"
+        ],
+        "advisory": [
+          "bounded structured AI recommendations under a future contract"
+        ],
+        "untrusted": [
+          "pull request content",
+          "generated artifacts before digest verification"
+        ]
       },
       "deterministic": {
-        "outputs": ["PASS", "BLOCKED", "INDETERMINATE"],
+        "outputs": [
+          "PASS",
+          "BLOCKED",
+          "INDETERMINATE"
+        ],
         "fail_closed": true
       },
       "copilot": {
@@ -265,17 +496,180 @@
         ]
       },
       "actions": {
-        "runner_classes": ["repository policy at activation time"],
+        "runner_classes": [
+          "repository policy at activation time"
+        ],
         "typical_fan_out": 1,
         "maximum_fan_out": "derived bounded command and generated-target matrix",
         "runner_minutes_ceiling": "scope-specific Avrotize capability ceiling"
       },
-      "mutations": ["none in guard", "publication only in separately approved release workflow"],
-      "permissions": ["contents:read", "pull-requests:read"],
+      "mutations": [
+        "none in guard",
+        "publication only in separately approved release workflow"
+      ],
+      "permissions": [
+        "contents:read",
+        "pull-requests:read"
+      ],
       "result": {
         "exact_revision": "immutable PR head or release tag SHA",
         "blocking_scope": "authorized metadata, evidence, reviews, merge and release provenance",
         "retention": "structured decision, evidence hashes, and publication provenance"
+      }
+    },
+    {
+      "id": "guarded-bug-reproduction",
+      "implementation": ".github/workflows/repro-bug.yml",
+      "state": "current",
+      "authority_owner": "repository-owner",
+      "purpose": "Run a policy-bounded default-branch reproduction of an eligible bug report when a maintainer or admin requests it, then record structured evidence and exactly one governed state label.",
+      "events": [
+        "issues:[labeled=repro-requested]",
+        "workflow_dispatch:issue_number"
+      ],
+      "jobs": [
+        "authorize: decide permission before any checkout, install, or issue content read",
+        "mark-in-progress: replace governed labels with repro-in-progress",
+        "reproduce: execute the allowlisted command at the authorized trusted revision",
+        "publish-final: always publish exactly one terminal governed label and a run comment"
+      ],
+      "inputs": {
+        "authoritative": [
+          "collaborator permission API response",
+          "trusted default-branch revision",
+          "checked-in reproduction command policy",
+          "checked-in issue form contract",
+          "checked-in label catalog",
+          "commands.json"
+        ],
+        "advisory": [],
+        "untrusted": [
+          "issue body content",
+          "reporter invocation text",
+          "reporter minimal input fixture"
+        ]
+      },
+      "deterministic": {
+        "outputs": [
+          "versioned authorization record",
+          "versioned reproduction evidence record",
+          "Markdown evidence summary"
+        ],
+        "fail_closed": true,
+        "corruption_vs_incomplete": "Corrupt policy, schema, catalog, or authorization is an infrastructure failure and the workflow fails. Readiness, policy, timeout, and resource refusals produce BLOCKED evidence and exit 0.",
+        "outcome_rules": [
+          "readiness, policy, timeout, or resource refusal => BLOCKED",
+          "expected success and nonzero exit => CONFIRMED",
+          "expected success and zero exit without exact output => NEEDS_REVIEW",
+          "declared exact output that matches the single output target => NOT_REPRODUCED",
+          "declared exact output that differs from the single output target => CONFIRMED",
+          "expected failure and nonzero exit => NOT_REPRODUCED",
+          "expected failure and zero exit => CONFIRMED",
+          "human semantic review, undeclared expectation, or ambiguous target => NEEDS_REVIEW"
+        ]
+      },
+      "copilot": {
+        "enabled": false,
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only"
+      },
+      "actions": {
+        "runner_classes": [
+          "ubuntu-latest"
+        ],
+        "typical_fan_out": 4,
+        "maximum_fan_out": 4,
+        "runner_minutes_ceiling": 40
+      },
+      "mutations": [
+        "governed reproduction state labels on the requested issue",
+        "one issue comment linking the run, artifact, trusted revision, and authorized issue revision"
+      ],
+      "permissions": [
+        "contents:read",
+        "issues:read",
+        "issues:write"
+      ],
+      "concurrency": "repro-bug-${issue_number}-${requesting_label_or_dispatch}",
+      "artifact_retention_days": 14,
+      "result": {
+        "exact_revision": "trusted default-branch SHA resolved during authorization",
+        "blocking_scope": "guarded reproduction evidence and state labels only",
+        "retention": "14-day authorization and evidence artifacts, step summaries, and one issue comment"
+      }
+    },
+    {
+      "id": "repro-label-reconciliation",
+      "implementation": ".github/workflows/repro-label-reconciliation.yml",
+      "state": "current",
+      "authority_owner": "repository-owner",
+      "purpose": "Manually reconcile the six governed reproduction labels on the repository with the checked-in catalog. It never reads, classifies, or changes issue state.",
+      "events": [
+        "workflow_dispatch"
+      ],
+      "jobs": [
+        "authorize: require maintain or admin before any checkout",
+        "reconcile: create or update repository labels from the validated catalog"
+      ],
+      "inputs": {
+        "authoritative": [
+          "collaborator permission API response",
+          "checked-in label catalog",
+          "current repository labels"
+        ],
+        "advisory": [],
+        "untrusted": []
+      },
+      "deterministic": {
+        "outputs": [
+          "idempotent repository label reconciliation summary"
+        ],
+        "fail_closed": true,
+        "corruption_vs_incomplete": "A corrupt catalog or any unexpected label API status fails the workflow; no status is ignored."
+      },
+      "copilot": {
+        "enabled": false,
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only"
+      },
+      "actions": {
+        "runner_classes": [
+          "ubuntu-latest"
+        ],
+        "typical_fan_out": 2,
+        "maximum_fan_out": 2,
+        "runner_minutes_ceiling": 10
+      },
+      "mutations": [
+        "repository label name, color, and description only"
+      ],
+      "permissions": [
+        "contents:read",
+        "issues:write"
+      ],
+      "concurrency": "repro-label-catalog",
+      "result": {
+        "exact_revision": "default branch HEAD at workflow execution",
+        "blocking_scope": "repository label catalog only",
+        "retention": "workflow run log and step summary"
       }
     }
   ]

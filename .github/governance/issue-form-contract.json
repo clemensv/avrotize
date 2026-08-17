@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "description": "Checked-in contract mapping GitHub Issue Form types to their rendered headings, field IDs, title prefixes, and required semantic fields for deterministic intake normalization. The heading list is exact: a rendered body with an unlisted heading is malformed.",
+  "expected_result_choices": {
+    "Successful completion (exit 0)": "success",
+    "Command failure (nonzero exit)": "failure",
+    "Exact output match": "exact_output",
+    "Human semantic review": "human_review"
+  },
+  "forms": [
+    {
+      "type": "bug",
+      "file": ".github/ISSUE_TEMPLATE/bug.yml",
+      "title_prefix": "[Bug]",
+      "headings": [
+        "Avrotize or Structurize version",
+        "Where did you run it?",
+        "Exact command, Python function, MCP tool, or VS Code action",
+        "Invocation and flags",
+        "Input kind, dialect, and minimal input",
+        "Output kind, language, and runtime",
+        "Actual output or error",
+        "Expected output or behavior",
+        "Expected command result",
+        "Exact expected output",
+        "Environment and toolchain",
+        "Compatibility regression",
+        "Confirmation"
+      ],
+      "field_ids": [
+        "version",
+        "surface",
+        "command",
+        "invocation",
+        "input",
+        "output",
+        "actual",
+        "expected",
+        "expected_result",
+        "expected_output",
+        "environment",
+        "regression",
+        "confirmation"
+      ],
+      "required_semantic_fields": [
+        "version",
+        "surface",
+        "command",
+        "invocation",
+        "input",
+        "output",
+        "actual",
+        "expected",
+        "environment",
+        "regression"
+      ]
+    },
+    {
+      "type": "feature",
+      "file": ".github/ISSUE_TEMPLATE/feature.yml",
+      "title_prefix": "[Feature]",
+      "headings": [
+        "What should Avrotize let you do?",
+        "Requested command, API, MCP, or VS Code capability",
+        "Starting definition or data",
+        "Requested output or result",
+        "Semantics that must be preserved",
+        "Flags, options, and defaults",
+        "Validation and runtime expectations",
+        "Documentation example",
+        "Confirmation"
+      ],
+      "field_ids": [
+        "outcome",
+        "command",
+        "input",
+        "output",
+        "semantics",
+        "options",
+        "validation",
+        "documentation",
+        "confirmation"
+      ],
+      "required_semantic_fields": [
+        "outcome",
+        "command",
+        "input",
+        "output",
+        "semantics",
+        "options",
+        "validation",
+        "documentation"
+      ]
+    }
+  ]
+}

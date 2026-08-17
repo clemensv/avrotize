@@ -13,6 +13,76 @@ All notable changes to Avrotize are documented in this file.
   accounting, and deterministic advisory validation. Enforcement is
   intentionally deferred until existing repository state can satisfy the new
   checks reliably.
+- Deterministic intake automation (`tools/governance_intake.py`) normalizing
+  GitHub Issue Form submissions and Dependabot PRs into versioned JSON records
+  and Markdown summaries. Standard library only; no mutations, labels, comments,
+  or merge behavior. Incomplete/unknown/malformed inputs produce explicit
+  non-ready records and exit successfully.
+- Issue intake workflow (`.github/workflows/issue-intake.yml`) for issues events
+  with workflow_dispatch fixture dry-runs. Checksout only trusted default-branch
+  code; `contents: read` only; concurrency by issue number.
+- Dependabot intake workflow (`.github/workflows/dependabot-intake.yml`) for
+  pull_request_target events with workflow_dispatch fixtures. Never checks out
+  or runs PR head; uses REST file metadata only; `contents: read` and
+  `pull-requests: read`.
+- Checked-in issue form contract (`.github/governance/issue-form-contract.json`)
+  mapping form types, headings, field IDs, and required semantic fields.
+- JSON Schema definitions for issue and Dependabot intake records under
+  `.github/governance/schemas/`.
+- Validator checks for issue form contract consistency and intake workflow
+  safety (no write permissions, no merge commands).
+- Comprehensive unit tests for intake normalizer covering complete, incomplete,
+  unknown, malformed issues; Dependabot major/multi-ecosystem/non-Dependabot;
+  config mapping; and authority=false invariant.
+- Guarded bug reproduction (`.github/workflows/repro-bug.yml`,
+  `tools/governance_repro.py`): a maintainer-requested, policy-bounded execution
+  of one reported Avrotize CLI command against the trusted default branch.
+  Ordered `authorize` → `mark-in-progress` → `reproduce` → `publish-final` jobs
+  hold least-privilege permissions, and each run ends with exactly one governed
+  state label plus a comment linking the run, evidence artifact, trusted source
+  revision, and authorized issue revision.
+- Deterministic authorization helper (`tools/governance_authorize.py`) that
+  decides ALLOW/DENY/ERROR from event, action, exact label, actor identity,
+  re-run actor agreement, dispatch issue number, and the collaborator permission
+  API response before any checkout, install, or issue content read. Permission
+  API failures fail the workflow instead of masquerading as denials.
+- Checked-in reproduction command policy
+  (`.github/governance/repro-command-policy.json`) allowlisting only local,
+  deterministic, single-input schema transformations (`a2j`, `a2asn`, `s2asn`,
+  `pcf`) that perform no network or database discovery and never compile or
+  execute generated output. `j2s` is excluded because it dereferences remote
+  `$ref` targets. Every other command is blocked by default.
+- Governed reproduction label catalog
+  (`.github/governance/repro-label-catalog.json`) and a manual-dispatch
+  reconciliation workflow that creates or updates the six repository labels
+  idempotently without reading or changing issue state.
+- Standard-library deep JSON Schema subset validator
+  (`tools/governance_schema.py`) used to structurally validate every governance
+  record before it is written, plus schemas for reproduction evidence,
+  authorization decisions, the command policy, and the label catalog.
+- Structured `Expected command result` and `Exact expected output` fields on the
+  bug form, so reproduction outcomes are derived from a declared expectation
+  instead of natural-language similarity.
+- Static workflow validation covering action version pinning, per-job
+  permissions and timeouts, trusted refs, `persist-credentials`, artifact
+  retention, concurrency cancellation, suppressed-failure detection,
+  issue-content interpolation, manual-only label reconciliation, and
+  contract/workflow parity, with negative tests for each rule.
+
+### Changed
+
+- Converted `dependabot-auto-merge.yml` from an auto-merge workflow to a
+  read-only policy guard. Dependabot PRs are intake requiring explicit owner
+  authorization; the workflow now only summarizes eligibility without merge,
+  approval, or branch deletion. Write permissions removed; file retained at
+  original path for migration visibility.
+- Issue intake now enforces the exact contract heading set, reporting unexpected
+  and missing headings, and records the structured expected-result choice.
+- Dependabot intake classifies each matched ecosystem's files with that
+  ecosystem's own manifest and lockfile rules instead of applying one primary
+  ecosystem to every changed file, and records unmatched files explicitly.
+  Dependabot config and capability profile read failures now fail closed.
+- Governance workflows declare per-job permissions and timeouts.
 
 ## [3.9.0] - 2026-07-22
 

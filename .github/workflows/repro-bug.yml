@@ -1,0 +1,511 @@
+name: Guarded bug reproduction
+
+# Authorization runs before any checkout, install, or issue content processing.
+# Issue content is only ever passed to a Python program as a file; it is never
+# interpolated into a shell command and never used as a git ref.
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to reproduce
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  # Scoped to the issue and the request that started the run. A repeated
+  # repro-requested supersedes the earlier reproduction for the same issue, while
+  # an unrelated label event (which triggers a run whose jobs are all skipped)
+  # cannot cancel an authorized reproduction that is already executing.
+  group: repro-bug-${{ github.event.issue.number || inputs.issue_number }}-${{ github.event.label.name || 'workflow_dispatch' }}
+  cancel-in-progress: true
+
+jobs:
+  authorize:
+    name: Authorize request
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      github.event.sender.login != 'dependabot[bot]' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (github.event.action == 'labeled' && github.event.label.name == 'repro-requested')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      decision: ${{ steps.decide.outputs.decision }}
+      issue_number: ${{ steps.decide.outputs.issue_number }}
+      actor: ${{ steps.decide.outputs.actor }}
+      trusted_sha: ${{ steps.trusted.outputs.trusted_sha }}
+      default_branch: ${{ steps.trusted.outputs.default_branch }}
+      issue_updated_at: ${{ steps.metadata.outputs.issue_updated_at }}
+      issue_body_digest: ${{ steps.metadata.outputs.issue_body_digest }}
+      issue_url: ${{ steps.metadata.outputs.issue_url }}
+    steps:
+      - name: Resolve trusted default-branch revision
+        id: trusted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          default_branch=$(gh api "repos/${REPO}" --jq '.default_branch')
+          trusted_sha=$(gh api "repos/${REPO}/commits/${default_branch}" --jq '.sha')
+          printf 'default_branch=%s\n' "${default_branch}" >> "$GITHUB_OUTPUT"
+          printf 'trusted_sha=%s\n' "${trusted_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch authorization helper from the trusted revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TRUSTED_SHA: ${{ steps.trusted.outputs.trusted_sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPO}/contents/tools/governance_authorize.py?ref=${TRUSTED_SHA}" \
+            -H "Accept: application/vnd.github.raw" > governance_authorize.py
+          test -s governance_authorize.py
+
+      - name: Query collaborator permission
+        id: permission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          SENDER_LOGIN: ${{ github.event.sender.login }}
+          WORKFLOW_ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "issues" ]; then
+            actor="${SENDER_LOGIN}"
+          else
+            actor="${WORKFLOW_ACTOR}"
+          fi
+          if [ -z "${actor}" ]; then
+            printf 'http_status=0\n' >> "$GITHUB_OUTPUT"
+            printf '{}\n' > permission-body.json
+            exit 0
+          fi
+          encoded_actor=$(printf '%s' "${actor}" | jq -sRr @uri)
+          http_status=$(curl --silent --show-error --output permission-body.json \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${REPO}/collaborators/${encoded_actor}/permission")
+          printf 'http_status=%s\n' "${http_status}" >> "$GITHUB_OUTPUT"
+
+      - name: Evaluate authorization
+        id: decide
+        env:
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          SENDER_LOGIN: ${{ github.event.sender.login }}
+          WORKFLOW_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_ID: ${{ github.run_id }}
+          ISSUE_NUMBER_EVENT: ${{ github.event.issue.number }}
+          ISSUE_NUMBER_INPUT: ${{ inputs.issue_number }}
+          PERMISSION_HTTP_STATUS: ${{ steps.permission.outputs.http_status }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          body = None
+          raw = Path("permission-body.json")
+          if raw.is_file() and raw.stat().st_size:
+              try:
+                  body = json.loads(raw.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  body = None
+
+          request = {
+              "repository": os.environ.get("REPO", ""),
+              "event_name": os.environ.get("EVENT_NAME", ""),
+              "action": os.environ.get("EVENT_ACTION", ""),
+              "label_name": os.environ.get("LABEL_NAME", ""),
+              "sender_login": os.environ.get("SENDER_LOGIN", ""),
+              "actor": os.environ.get("WORKFLOW_ACTOR", ""),
+              "triggering_actor": os.environ.get("TRIGGERING_ACTOR", ""),
+              "run_attempt": int(os.environ.get("RUN_ATTEMPT") or 1),
+              "run_id": os.environ.get("RUN_ID", ""),
+              "issue_number_event": os.environ.get("ISSUE_NUMBER_EVENT", ""),
+              "issue_number_input": os.environ.get("ISSUE_NUMBER_INPUT", ""),
+              "permission_response": {
+                  "http_status": int(os.environ.get("PERMISSION_HTTP_STATUS") or 0),
+                  "body": body,
+              },
+          }
+          Path("authorization-request.json").write_text(json.dumps(request, indent=2), encoding="utf-8")
+          PY
+          status=0
+          python governance_authorize.py evaluate \
+            --request authorization-request.json \
+            --output-json authorization.json \
+            --output-markdown authorization-summary.md || status=$?
+          decision=$(python -c 'import json;print(json.load(open("authorization.json"))["decision"])')
+          reason_code=$(python -c 'import json;print(json.load(open("authorization.json"))["reason_code"])')
+          issue_number=$(python -c 'import json;print(json.load(open("authorization.json"))["request"]["issue_number"])')
+          actor=$(python -c 'import json;print(json.load(open("authorization.json"))["request"]["actor"])')
+          printf 'decision=%s\n' "${decision}" >> "$GITHUB_OUTPUT"
+          printf 'reason_code=%s\n' "${reason_code}" >> "$GITHUB_OUTPUT"
+          printf 'issue_number=%s\n' "${issue_number}" >> "$GITHUB_OUTPUT"
+          printf 'actor=%s\n' "${actor}" >> "$GITHUB_OUTPUT"
+          printf 'exit_status=%s\n' "${status}" >> "$GITHUB_OUTPUT"
+          cat authorization-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload authorization decision
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: repro-authorization-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            authorization.json
+            authorization-summary.md
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Enforce authorization decision
+        env:
+          DECISION: ${{ steps.decide.outputs.decision }}
+          REASON_CODE: ${{ steps.decide.outputs.reason_code }}
+          EXIT_STATUS: ${{ steps.decide.outputs.exit_status }}
+        run: |
+          set -euo pipefail
+          if [ "${DECISION}" != "ALLOW" ]; then
+            echo "::error::guarded reproduction not authorized (${DECISION}/${REASON_CODE}); no issue content was processed and no label was changed"
+            exit 1
+          fi
+          if [ "${EXIT_STATUS}" != "0" ]; then
+            echo "::error::authorization evaluation reported exit status ${EXIT_STATUS}"
+            exit 1
+          fi
+
+      - name: Resolve authorized issue metadata
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.decide.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPO}/issues/${ISSUE_NUMBER}" > issue.json
+          python governance_authorize.py metadata \
+            --issue issue.json \
+            --expected-issue-number "${ISSUE_NUMBER}" \
+            --output-json issue-metadata.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metadata = json.loads(Path("issue-metadata.json").read_text(encoding="utf-8"))
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as handle:
+              handle.write(f"issue_updated_at={metadata['issue_updated_at']}\n")
+              handle.write(f"issue_body_digest={metadata['issue_body_digest']}\n")
+              handle.write(f"issue_url={metadata['issue_url']}\n")
+          PY
+
+  mark-in-progress:
+    name: Mark reproduction in progress
+    needs: authorize
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Replace governed labels with in-progress
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          api() {
+            curl --silent --show-error --output "$2" --write-out '%{http_code}' \
+              --request "$1" \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header "Accept: application/vnd.github+json" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "${@:3}"
+          }
+          for label in repro-requested repro-confirmed repro-not-reproduced repro-blocked repro-needs-review; do
+            status=$(api DELETE remove-response.json \
+              "${GITHUB_API_URL}/repos/${REPO}/issues/${ISSUE_NUMBER}/labels/${label}")
+            case "${status}" in
+              200|204|404) ;;
+              *) echo "::error::failed to remove label ${label} (HTTP ${status})"; cat remove-response.json; exit 1 ;;
+            esac
+          done
+          status=$(api POST add-response.json \
+            --header "Content-Type: application/json" \
+            --data '{"labels":["repro-in-progress"]}' \
+            "${GITHUB_API_URL}/repos/${REPO}/issues/${ISSUE_NUMBER}/labels")
+          case "${status}" in
+            200|201) ;;
+            *) echo "::error::failed to add repro-in-progress (HTTP ${status})"; cat add-response.json; exit 1 ;;
+          esac
+
+  reproduce:
+    name: Run guarded reproduction
+    needs: [authorize, mark-in-progress]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Checkout trusted revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.authorize.outputs.trusted_sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Verify checked-out revision
+        env:
+          TRUSTED_SHA: ${{ needs.authorize.outputs.trusted_sha }}
+        run: |
+          set -euo pipefail
+          actual=$(git rev-parse HEAD)
+          if [ "${actual}" != "${TRUSTED_SHA}" ]; then
+            echo "::error::checked-out revision ${actual} does not match authorized ${TRUSTED_SHA}"
+            exit 1
+          fi
+
+      - name: Download authorization decision
+        uses: actions/download-artifact@v8
+        with:
+          name: repro-authorization-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install trusted package
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install .
+
+      - name: Record trusted executable
+        id: tool
+        run: |
+          set -euo pipefail
+          executable=$(command -v avrotize)
+          version=$(avrotize --version | head -n 1)
+          printf 'executable=%s\n' "${executable}" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch authorized issue payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPO}/issues/${ISSUE_NUMBER}" > issue.json
+
+      - name: Run guarded reproduction
+        env:
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+          EXPECTED_UPDATED_AT: ${{ needs.authorize.outputs.issue_updated_at }}
+          EXPECTED_BODY_DIGEST: ${{ needs.authorize.outputs.issue_body_digest }}
+          TRUSTED_SHA: ${{ needs.authorize.outputs.trusted_sha }}
+          DEFAULT_BRANCH: ${{ needs.authorize.outputs.default_branch }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AVROTIZE_EXECUTABLE: ${{ steps.tool.outputs.executable }}
+          AVROTIZE_VERSION: ${{ steps.tool.outputs.version }}
+        run: |
+          set -euo pipefail
+          python tools/governance_repro.py \
+            --issue issue.json \
+            --authorization authorization.json \
+            --policy .github/governance/repro-command-policy.json \
+            --repository "${REPO}" \
+            --expected-updated-at "${EXPECTED_UPDATED_AT}" \
+            --expected-body-digest "${EXPECTED_BODY_DIGEST}" \
+            --trusted-sha "${TRUSTED_SHA}" \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --run-id "${RUN_ID}" \
+            --run-attempt "${RUN_ATTEMPT}" \
+            --run-url "${RUN_URL}" \
+            --avrotize-executable "${AVROTIZE_EXECUTABLE}" \
+            --avrotize-version "${AVROTIZE_VERSION}" \
+            --artifact-name "repro-evidence-${ISSUE_NUMBER}" \
+            --retention-days 14 \
+            --output-json repro-evidence.json \
+            --output-markdown repro-summary.md
+          cat repro-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reproduction evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: repro-evidence-${{ needs.authorize.outputs.issue_number }}
+          path: |
+            repro-evidence.json
+            repro-summary.md
+          retention-days: 14
+          if-no-files-found: error
+
+  publish-final:
+    name: Publish final reproduction state
+    needs: [authorize, mark-in-progress, reproduce]
+    if: always() && needs.authorize.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - name: Download reproduction evidence
+        if: needs.reproduce.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: repro-evidence-${{ needs.authorize.outputs.issue_number }}
+
+      - name: Determine final state
+        id: final
+        env:
+          REPRODUCE_RESULT: ${{ needs.reproduce.result }}
+          MARK_RESULT: ${{ needs.mark-in-progress.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+          TRUSTED_SHA: ${{ needs.authorize.outputs.trusted_sha }}
+          ISSUE_UPDATED_AT: ${{ needs.authorize.outputs.issue_updated_at }}
+          ISSUE_BODY_DIGEST: ${{ needs.authorize.outputs.issue_body_digest }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          allowed = {
+              "CONFIRMED": "repro-confirmed",
+              "NOT_REPRODUCED": "repro-not-reproduced",
+              "BLOCKED": "repro-blocked",
+              "NEEDS_REVIEW": "repro-needs-review",
+          }
+          issue_number = os.environ["ISSUE_NUMBER"]
+          run_url = os.environ["RUN_URL"]
+          trusted_sha = os.environ["TRUSTED_SHA"]
+          updated_at = os.environ["ISSUE_UPDATED_AT"]
+          body_digest = os.environ["ISSUE_BODY_DIGEST"]
+          reproduce_result = os.environ["REPRODUCE_RESULT"]
+          mark_result = os.environ["MARK_RESULT"]
+          artifact = f"repro-evidence-{issue_number}"
+          evidence_path = Path("repro-evidence.json")
+
+          if reproduce_result == "success" and evidence_path.is_file():
+              evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+              status = evidence["result"]["status"]
+              label = evidence["result"]["final_label"]
+              if allowed.get(status) != label:
+                  raise SystemExit(f"evidence status {status!r} does not map to label {label!r}")
+              # Only the machine-readable code is published: reason text can quote
+              # reporter-supplied tokens and must not reach an issue comment.
+              reason_code = evidence["result"]["reason_code"]
+              if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", reason_code):
+                  raise SystemExit(f"evidence reason code {reason_code!r} is not a governed code")
+              evidence_available = "yes"
+          else:
+              status = "BLOCKED"
+              label = allowed[status]
+              reason_code = "REPRODUCTION_INFRASTRUCTURE_FAILURE"
+              evidence_available = "no"
+
+          detail = {
+              "yes": "The evidence artifact records the full reason, argv, digests, and output manifest.",
+              "no": (
+                  f"The reproduction job did not complete (result: {reproduce_result}, "
+                  f"state marking: {mark_result}), so no execution evidence exists and no "
+                  "reproduction outcome is asserted."
+              ),
+          }[evidence_available]
+
+          comment = "\n".join(
+              [
+                  "## Guarded bug reproduction",
+                  "",
+                  f"- Outcome: **{status}** (`{reason_code}`)",
+                  f"- Final label: `{label}`",
+                  f"- Evidence artifact: `{artifact}` (available: {evidence_available}, retention 14 days)",
+                  f"- Workflow run: {run_url}",
+                  f"- Trusted source revision: `{trusted_sha}`",
+                  f"- Authorized issue revision: `{updated_at}` (body digest `{body_digest}`)",
+                  "",
+                  detail,
+                  "",
+                  "> Guarded reproduction records evidence only. It does not authorize implementation, "
+                  "merge, release, or any repository mutation beyond governed reproduction state labels. "
+                  "Repository owner retains authority.",
+              ]
+          )
+          Path("final-comment.md").write_text(comment + "\n", encoding="utf-8")
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as handle:
+              handle.write(f"label={label}\n")
+              handle.write(f"status={status}\n")
+          PY
+
+      - name: Reconcile governed labels and comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+          FINAL_LABEL: ${{ steps.final.outputs.label }}
+        run: |
+          set -euo pipefail
+          api() {
+            curl --silent --show-error --output "$2" --write-out '%{http_code}' \
+              --request "$1" \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header "Accept: application/vnd.github+json" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "${@:3}"
+          }
+          for label in repro-requested repro-in-progress repro-confirmed repro-not-reproduced repro-blocked repro-needs-review; do
+            status=$(api DELETE remove-response.json \
+              "${GITHUB_API_URL}/repos/${REPO}/issues/${ISSUE_NUMBER}/labels/${label}")
+            case "${status}" in
+              200|204|404) ;;
+              *) echo "::error::failed to remove label ${label} (HTTP ${status})"; cat remove-response.json; exit 1 ;;
+            esac
+          done
+          jq -n --arg label "${FINAL_LABEL}" '{labels: [$label]}' > add-label.json
+          status=$(api POST add-response.json \
+            --header "Content-Type: application/json" \
+            --data @add-label.json \
+            "${GITHUB_API_URL}/repos/${REPO}/issues/${ISSUE_NUMBER}/labels")
+          case "${status}" in
+            200|201) ;;
+            *) echo "::error::failed to add ${FINAL_LABEL} (HTTP ${status})"; cat add-response.json; exit 1 ;;
+          esac
+          jq -n --rawfile body final-comment.md '{body: $body}' > comment.json
+          status=$(api POST comment-response.json \
+            --header "Content-Type: application/json" \
+            --data @comment.json \
+            "${GITHUB_API_URL}/repos/${REPO}/issues/${ISSUE_NUMBER}/comments")
+          case "${status}" in
+            201) ;;
+            *) echo "::error::failed to comment (HTTP ${status})"; cat comment-response.json; exit 1 ;;
+          esac
+          cat final-comment.md >> "$GITHUB_STEP_SUMMARY"
