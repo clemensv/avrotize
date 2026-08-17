@@ -172,16 +172,16 @@ Releases:
 5. Record artifact provenance and digests, then promote those artifacts rather than rebuilding.
 6. Preserve a rollback or corrective-release plan.
 
-## Automation and AI cost
+## Automation and AI usage
 
 [`.github/governance/AUTOMATION.md`](.github/governance/AUTOMATION.md)
 defines workflow responsibilities, exact-head evidence, stale approvals,
 permissions, failure semantics, Actions projections, and later guards.
-[`.github/governance/AI-COST-ACCOUNTING.md`](.github/governance/AI-COST-ACCOUNTING.md)
-defines inference cost in AIC. Deterministic workflows are preferred and use
-zero AIC. Copilot may advise only within an explicit workflow contract; it
-cannot authorize work, approve risk, merge, release, or exercise owner
-exceptions.
+[`.github/governance/AI-USAGE-ACCOUNTING.md`](.github/governance/AI-USAGE-ACCOUNTING.md)
+defines AIC usage accounting from GitHub/Copilot platform telemetry.
+Deterministic workflows are preferred and use zero AIC. Copilot may advise only
+within an explicit workflow contract; it cannot authorize work, approve risk,
+merge, release, or exercise owner exceptions.
 
 Governance automation begins in advisory observe mode. It becomes blocking only
 after existing repository state can satisfy the deterministic rule reliably and

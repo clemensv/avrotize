@@ -6,10 +6,10 @@ All notable changes to Avrotize are documented in this file.
 
 - Adopted repository-specific conversion-matrix governance with continuous
   ranked flow, durable delivery lanes, structured contributor and intake
-  surfaces, exact-head evidence policy, realistic AIC and GitHub Actions
-  accounting, and deterministic advisory governance validation. Enforcement is
-  intentionally deferred until existing repository state can satisfy the new
-  checks reliably.
+  surfaces, exact-head evidence policy, platform-reported AIC telemetry,
+  empirical GitHub Actions accounting, and deterministic advisory governance
+  validation. Enforcement is intentionally deferred until existing repository
+  state can satisfy the new checks reliably.
 
 ## [3.9.0] - 2026-07-22
 

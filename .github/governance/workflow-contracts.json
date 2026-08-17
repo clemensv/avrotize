@@ -19,7 +19,17 @@
       },
       "copilot": {
         "enabled": false,
-        "aic_baseline": 0
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only"
       },
       "actions": {
         "runner_classes": ["ubuntu-latest"],
@@ -55,7 +65,17 @@
       },
       "copilot": {
         "enabled": false,
-        "aic_baseline": 0
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only"
       },
       "actions": {
         "runner_classes": ["ubuntu-latest"],
@@ -90,7 +110,17 @@
       },
       "copilot": {
         "enabled": false,
-        "aic_baseline": 0
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only"
       },
       "actions": {
         "runner_classes": ["ubuntu-latest"],
@@ -125,7 +155,17 @@
       },
       "copilot": {
         "enabled": false,
-        "aic_baseline": 0
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only"
       },
       "actions": {
         "runner_classes": ["ubuntu-latest"],
@@ -160,7 +200,17 @@
       },
       "copilot": {
         "enabled": false,
-        "aic_baseline": 0
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only"
       },
       "actions": {
         "runner_classes": ["ubuntu-latest"],
@@ -196,7 +246,23 @@
       },
       "copilot": {
         "enabled": false,
-        "activation_prerequisites": ["named model", "dated pricing catalog", "token assumptions", "structured output", "AIC ceiling"]
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {
+          "sample_size": 0,
+          "p50": "TBD",
+          "p95": "TBD"
+        },
+        "guardrails": {
+          "per_run": "TBD",
+          "daily": "TBD"
+        },
+        "token_telemetry": "operational-only",
+        "activation_prerequisites": [
+          "named model",
+          "structured output",
+          "platform-reported AIC telemetry",
+          "platform-configured per-run and daily AIC guardrails"
+        ]
       },
       "actions": {
         "runner_classes": ["repository policy at activation time"],

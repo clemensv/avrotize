@@ -53,7 +53,19 @@ def _repository(tmp_path: Path) -> Path:
                 "events": ["pull_request"],
                 "inputs": {},
                 "deterministic": {},
-                "copilot": {},
+                "copilot": {
+                    "aic_source": "github-copilot-platform",
+                    "observed_run_aic": {
+                        "sample_size": 0,
+                        "p50": "TBD",
+                        "p95": "TBD",
+                    },
+                    "guardrails": {
+                        "per_run": "TBD",
+                        "daily": "TBD",
+                    },
+                    "token_telemetry": "operational-only",
+                },
                 "actions": {},
                 "permissions": ["contents:read"],
                 "result": {},
@@ -92,6 +104,36 @@ class GovernanceValidatorTests(unittest.TestCase):
         findings = validate_governance.validate_repo(self.root)
 
         self.assertTrue(any("declared 'package' surface does not exist" in finding.message for finding in findings))
+
+    def test_non_platform_aic_source_is_reported(self) -> None:
+        contract_path = self.root / ".github" / "governance" / "workflow-contracts.json"
+        document = json.loads(contract_path.read_text(encoding="utf-8"))
+        document["contracts"][0]["copilot"]["aic_source"] = "derived"
+        contract_path.write_text(json.dumps(document), encoding="utf-8")
+
+        findings = validate_governance.validate_repo(self.root)
+
+        self.assertTrue(any("must use platform-reported AIC" in finding.message for finding in findings))
+
+    def test_missing_empirical_aic_distribution_is_reported(self) -> None:
+        contract_path = self.root / ".github" / "governance" / "workflow-contracts.json"
+        document = json.loads(contract_path.read_text(encoding="utf-8"))
+        del document["contracts"][0]["copilot"]["observed_run_aic"]["p95"]
+        contract_path.write_text(json.dumps(document), encoding="utf-8")
+
+        findings = validate_governance.validate_repo(self.root)
+
+        self.assertTrue(any("lacks observed AIC sample size, P50, or P95" in finding.message for finding in findings))
+
+    def test_unobserved_aic_distribution_must_remain_uncalibrated(self) -> None:
+        contract_path = self.root / ".github" / "governance" / "workflow-contracts.json"
+        document = json.loads(contract_path.read_text(encoding="utf-8"))
+        document["contracts"][0]["copilot"]["observed_run_aic"]["p50"] = 10
+        contract_path.write_text(json.dumps(document), encoding="utf-8")
+
+        findings = validate_governance.validate_repo(self.root)
+
+        self.assertTrue(any("must keep AIC P50 and P95 uncalibrated" in finding.message for finding in findings))
 
     def test_advisory_mode_reports_but_succeeds(self) -> None:
         (self.root / "GOVERNANCE.md").unlink()

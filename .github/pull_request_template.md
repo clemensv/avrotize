@@ -49,10 +49,13 @@ exception defined in `GOVERNANCE.md`; it does not close or fix an issue.
 
 ## Resource accounting
 
-- GitHub Actions projection: elapsed / runner / billable-equivalent minutes
-- Actual GitHub Actions: elapsed / runner / billable-equivalent minutes
-- AI activation: none, or model + dated pricing catalog
-- Projected/actual AIC:
+- GitHub Actions projection: elapsed / summed runner minutes
+- Actual GitHub Actions: elapsed / summed runner minutes
+- AI activation: none, or platform run IDs and model
+- Platform-reported AIC for this run:
+- Observed AIC distribution: sample size / P50 / P95, or TBD
+- Platform-configured AIC guardrails: per run / daily, or TBD
+- Operational token telemetry, if available:
 
 ## Checklist
 

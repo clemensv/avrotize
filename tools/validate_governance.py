@@ -25,7 +25,7 @@ REQUIRED_FILES = (
     ".github/ISSUE_TEMPLATE/compatibility.yml",
     ".github/ISSUE_TEMPLATE/release.yml",
     ".github/governance/AUTOMATION.md",
-    ".github/governance/AI-COST-ACCOUNTING.md",
+    ".github/governance/AI-USAGE-ACCOUNTING.md",
     ".github/governance/ADOPTION.md",
     ".github/governance/conversion-matrix.json",
     ".github/governance/workflow-contracts.json",
@@ -166,6 +166,45 @@ def _validate_workflow_contracts(root: Path, findings: list[Finding]) -> None:
         for field in ("purpose", "authority_owner", "events", "inputs", "deterministic", "copilot", "actions", "permissions", "result"):
             if field not in contract:
                 findings.append(Finding(contract_path.relative_to(root).as_posix(), f"contract {contract_id or index!r} lacks {field!r}"))
+        copilot = contract.get("copilot")
+        if isinstance(copilot, dict):
+            if copilot.get("aic_source") != "github-copilot-platform":
+                findings.append(
+                    Finding(
+                        contract_path.relative_to(root).as_posix(),
+                        f"contract {contract_id or index!r} must use platform-reported AIC",
+                    )
+                )
+            observed = copilot.get("observed_run_aic")
+            if not isinstance(observed, dict) or not all(field in observed for field in ("sample_size", "p50", "p95")):
+                findings.append(
+                    Finding(
+                        contract_path.relative_to(root).as_posix(),
+                        f"contract {contract_id or index!r} lacks observed AIC sample size, P50, or P95",
+                    )
+                )
+            elif observed["sample_size"] == 0 and (observed["p50"] != "TBD" or observed["p95"] != "TBD"):
+                findings.append(
+                    Finding(
+                        contract_path.relative_to(root).as_posix(),
+                        f"contract {contract_id or index!r} must keep AIC P50 and P95 uncalibrated without observations",
+                    )
+                )
+            guardrails = copilot.get("guardrails")
+            if not isinstance(guardrails, dict) or not all(field in guardrails for field in ("per_run", "daily")):
+                findings.append(
+                    Finding(
+                        contract_path.relative_to(root).as_posix(),
+                        f"contract {contract_id or index!r} lacks per-run or daily AIC guardrails",
+                    )
+                )
+            if copilot.get("token_telemetry") != "operational-only":
+                findings.append(
+                    Finding(
+                        contract_path.relative_to(root).as_posix(),
+                        f"contract {contract_id or index!r} must keep token telemetry operational-only",
+                    )
+                )
         implementation = contract.get("implementation")
         if implementation is not None and (not isinstance(implementation, str) or not (root / implementation).is_file()):
             findings.append(Finding(str(implementation), f"contract {contract_id or index!r} implementation does not exist"))

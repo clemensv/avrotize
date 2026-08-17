@@ -23,11 +23,15 @@ comparison, dependency state, test selection, artifact hashes, lifecycle
 projection, stale-verdict detection, budgets, and guard decisions.
 
 Copilot may activate only when a checked-in workflow contract defines the
-ambiguity, lowest adequate model, prompt version, structured output, AIC budget,
-and prohibited actions. It may classify or recommend `PASS`, `REVISE`, or
-`ESCALATE`; it may not authorize work, change priority, approve compatibility or
-risk, merge, publish, delete evidence, or exercise owner authority. No current
-governance workflow invokes Copilot, so its baseline and actual AIC are zero.
+ambiguity, lowest adequate model, prompt version, structured output,
+platform-configured AIC guardrails, and prohibited actions. It may classify or
+recommend `PASS`, `REVISE`, or `ESCALATE`; it may not authorize work, change
+priority, approve compatibility or risk, merge, publish, delete evidence, or
+exercise owner authority. No current governance workflow invokes Copilot, so
+its baseline and actual AIC are zero.
+AIC is accepted only as the usage quantity reported by the GitHub/Copilot
+execution platform. Workflow code does not derive AIC from tokens or any other
+input.
 
 ## Exact-head evidence and stale approvals
 
@@ -74,16 +78,14 @@ built from the approved tag rather than rebuild them.
 
 The following calibration uses the five most recent successful pull-request
 runs observed on 2026-08-17. Elapsed minutes are wall-clock time. Runner minutes
-sum active job durations. Billable-minute equivalents sum each Linux job
-rounded to a whole minute; this is an estimate, not a hard-coded billing
-multiplier policy.
+sum active job durations.
 
-| Workflow | Fan-out/jobs | Observed elapsed | Observed runner minutes | Billable equivalents |
-| --- | ---: | ---: | ---: | ---: |
-| Build/deploy PR evidence | 15 | 9.68-24.43; median 19.35 | 58.28-62.02; median 60.82 | 67-71; median 68 |
-| Python runtime matrix | 7 (build, 5 runtimes, summary) | 1.75-14.65; median 12.70 | 4.05-4.45; median 4.37 | 7-8; median 7 |
-| MCP manifest validation | 1 | 0.18-3.05; median 1.08 | 0.07-0.13; median 0.12 | 1 |
-| Governance observe | 1 | projected 1 | projected 1 | projected 1 |
+| Workflow | Fan-out/jobs | Observed elapsed | Observed runner minutes |
+| --- | ---: | ---: | ---: |
+| Build/deploy PR evidence | 15 | 9.68-24.43; median 19.35 | 58.28-62.02; median 60.82 |
+| Python runtime matrix | 7 (build, 5 runtimes, summary) | 1.75-14.65; median 12.70 | 4.05-4.45; median 4.37 |
+| MCP manifest validation | 1 | 0.18-3.05; median 1.08 | 0.07-0.13; median 0.12 |
+| Governance observe | 1 | projected 1 | projected 1 |
 
 Initial conversion-profile budgets distinguish elapsed from summed runner time:
 
@@ -99,8 +101,7 @@ Initial conversion-profile budgets distinguish elapsed from summed runner time:
 
 Parallel fan-out can reduce elapsed time but not summed runner time. Projections
 include matrix children, reusable workflows, retries, and descendants. Record
-runner class and the repository billing policy effective date rather than
-embedding a permanent multiplier.
+the runner class with each observation.
 
 Controls are cancellation of superseded heads, content-hash deduplication,
 fail-safe impact filters, explicit cache keys, immutable build artifacts,
@@ -110,7 +111,10 @@ optional diagnostics. If required scope cannot finish, report
 projection; never silently skip it.
 
 Telemetry records exact SHA, event and dedupe IDs, jobs/cells, runner classes,
-queue/setup/active/elapsed time, runner and billable minutes, cache/artifact
-reuse, cancellations/skips/retries/timeouts, projected values, actual AIC, and
-disposition. Recalibrate after 20 representative runs, a material matrix,
-runner, cache, or model change, or sustained P95 deviation greater than 25%.
+queue/setup/active/elapsed time, runner minutes, cache/artifact reuse,
+cancellations/skips/retries/timeouts, projected values, platform run IDs,
+platform-reported AIC, optional token counts, and disposition. AIC projections
+remain `TBD` until representative platform telemetry exists, then use observed
+P50 and P95 distributions. Recalibrate after 20 representative runs, a material
+matrix, runner, cache, or model change, or sustained P95 deviation greater than
+25%.
