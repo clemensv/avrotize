@@ -1,0 +1,74 @@
+name: Compatibility change
+description: Propose a change to defaults, accepted input, outputs, generated APIs, public interfaces, or runtime floors.
+title: "[Compatibility] "
+labels: []
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Observable outcome
+    validations:
+      required: true
+  - type: dropdown
+    id: lane
+    attributes:
+      label: Primary delivery lane
+      options:
+        - Core model
+        - Importers
+        - Schema exporters and specifications
+        - Code generators
+        - Data platforms
+        - Public interfaces
+        - Packaging and release
+    validations:
+      required: true
+  - type: dropdown
+    id: release_class
+    attributes:
+      label: Proposed release class
+      options:
+        - Patch
+        - Minor
+        - Major
+    validations:
+      required: true
+  - type: textarea
+    id: affected
+    attributes:
+      label: Affected users, cells, defaults, and contracts
+    validations:
+      required: true
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration and rollback
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Hard dependencies and campaign sequence
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance manifest and evidence plan
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Compatibility, security, data, operations, and release risk
+    validations:
+      required: true
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Readiness confirmations
+      options:
+        - label: I identified all known public and generated contracts.
+          required: true
+        - label: I understand that release authority makes the final classification.
+          required: true

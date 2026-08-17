@@ -2257,4 +2257,11 @@ In addition to the command reference above, the repository includes in-depth com
 
 - [VS Code + Copilot MCP quickstart](copilot-vscode-mcp-quickstart.md) — using the Avrotize MCP server from GitHub Copilot in VS Code.
 
+**Project governance and contribution**
+
+- [Governance](GOVERNANCE.md) — authority, continuous ranked flow, delivery lanes, conversion impact, compatibility, review, release, and bootstrap policy.
+- [Contributing](CONTRIBUTING.md) — authorization, evidence, fixtures, generated-output review, and local checks.
+- [Security](SECURITY.md) — supported versions and private vulnerability reporting.
+- [Support](SUPPORT.md) — supported surfaces and diagnostic expectations.
+
 This document provides an overview of the usage and functionality of Avrotize. For more detailed information, please refer to the [Avrotize Schema documentation](specs/avrotize-schema.md) and the individual command help messages.

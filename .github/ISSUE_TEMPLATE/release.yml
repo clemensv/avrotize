@@ -1,0 +1,52 @@
+name: Release
+description: Authorize and evidence an immutable package or extension release.
+title: "[Release] "
+labels: []
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Proposed version
+    validations:
+      required: true
+  - type: dropdown
+    id: release_class
+    attributes:
+      label: Release class
+      options:
+        - Patch
+        - Minor
+        - Major
+    validations:
+      required: true
+  - type: textarea
+    id: included
+    attributes:
+      label: Included authorized items and conversion cells
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Full matrix, runtime, package, MCP, and extension evidence
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Immutable tag, artifacts, provenance, and digests
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Changelog, migration, limitations, and rollback
+    validations:
+      required: true
+  - type: checkboxes
+    id: authority
+    attributes:
+      label: Release authority
+      options:
+        - label: The repository owner approved this version, class, scope, and tagged revision.
+          required: true

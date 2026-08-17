@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "contracts": [
+    {
+      "id": "technical-evidence-and-tag-publication",
+      "implementation": ".github/workflows/build_deploy.yml",
+      "state": "current",
+      "authority_owner": "repository-owner",
+      "purpose": "Run conversion and VS Code evidence, then publish only for version tags.",
+      "events": ["pull_request:master", "push:master", "push:tag:v*"],
+      "inputs": {
+        "authoritative": ["repository content at checked-out revision", "test group matrix", "version tag"],
+        "advisory": [],
+        "untrusted": ["pull request content"]
+      },
+      "deterministic": {
+        "outputs": ["pytest results", "VS Code test result", "tag publication result"],
+        "fail_closed": true
+      },
+      "copilot": {
+        "enabled": false,
+        "aic_baseline": 0
+      },
+      "actions": {
+        "runner_classes": ["ubuntu-latest"],
+        "typical_fan_out": 15,
+        "maximum_fan_out": 16,
+        "observed_runner_minutes_median": 60.82,
+        "runner_minutes_ceiling": 480
+      },
+      "mutations": ["tag-only PyPI publication", "tag-only VS Code Marketplace publication"],
+      "permissions": ["contents:read"],
+      "result": {
+        "exact_revision": "checked-out SHA",
+        "blocking_scope": "technical evidence and tag publication",
+        "retention": "GitHub Actions run and publication logs"
+      }
+    },
+    {
+      "id": "supported-python-runtime-signal",
+      "implementation": ".github/workflows/python-runtime-versions-test.yml",
+      "state": "current",
+      "authority_owner": "repository-owner",
+      "purpose": "Build distributions and exercise installation and CLI behavior on Python 3.10 through 3.14.",
+      "events": ["pull_request:master|main", "push:master|main", "workflow_dispatch"],
+      "inputs": {
+        "authoritative": ["built wheel and sdist", "Python runtime matrix"],
+        "advisory": ["basic pytest smoke command"],
+        "untrusted": ["pull request content"]
+      },
+      "deterministic": {
+        "outputs": ["build artifact", "runtime installation and CLI results", "matrix summary"],
+        "fail_closed": false,
+        "known_gap": "The existing basic pytest command is warning-shaped on failure and cannot satisfy a future required test gate."
+      },
+      "copilot": {
+        "enabled": false,
+        "aic_baseline": 0
+      },
+      "actions": {
+        "runner_classes": ["ubuntu-latest"],
+        "typical_fan_out": 7,
+        "maximum_fan_out": 7,
+        "observed_runner_minutes_median": 4.37,
+        "runner_minutes_ceiling": 120
+      },
+      "mutations": [],
+      "permissions": ["contents:read"],
+      "result": {
+        "exact_revision": "checked-out SHA",
+        "blocking_scope": "build and runtime jobs; basic pytest remains advisory",
+        "retention": "GitHub Actions run and five-day build artifact"
+      }
+    },
+    {
+      "id": "mcp-manifest-validation",
+      "implementation": ".github/workflows/validate-mcp-server-json.yml",
+      "state": "current",
+      "authority_owner": "repository-owner",
+      "purpose": "Validate server.json against the MCP registry publisher.",
+      "events": ["pull_request:master", "workflow_dispatch"],
+      "inputs": {
+        "authoritative": ["server.json"],
+        "advisory": [],
+        "untrusted": ["pull request content"]
+      },
+      "deterministic": {
+        "outputs": ["mcp-publisher validation result"],
+        "fail_closed": true
+      },
+      "copilot": {
+        "enabled": false,
+        "aic_baseline": 0
+      },
+      "actions": {
+        "runner_classes": ["ubuntu-latest"],
+        "typical_fan_out": 1,
+        "maximum_fan_out": 1,
+        "observed_runner_minutes_median": 0.12,
+        "runner_minutes_ceiling": 15
+      },
+      "mutations": [],
+      "permissions": ["contents:read"],
+      "result": {
+        "exact_revision": "checked-out SHA",
+        "blocking_scope": "MCP manifest validity",
+        "retention": "GitHub Actions run"
+      }
+    },
+    {
+      "id": "dependabot-merge",
+      "implementation": ".github/workflows/dependabot-auto-merge.yml",
+      "state": "current",
+      "authority_owner": "repository-owner",
+      "purpose": "Merge eligible Dependabot changes after external checks succeed.",
+      "events": ["workflow_run:Upload Python Package and VS Code Extension"],
+      "inputs": {
+        "authoritative": ["workflow conclusion", "pull request author", "changed paths", "current check buckets"],
+        "advisory": [],
+        "untrusted": ["dependency pull request content"]
+      },
+      "deterministic": {
+        "outputs": ["eligibility decision", "squash merge or no mutation"],
+        "fail_closed": true
+      },
+      "copilot": {
+        "enabled": false,
+        "aic_baseline": 0
+      },
+      "actions": {
+        "runner_classes": ["ubuntu-latest"],
+        "typical_fan_out": 1,
+        "maximum_fan_out": 1,
+        "runner_minutes_ceiling": 60
+      },
+      "mutations": ["eligible Dependabot squash merge", "eligible branch deletion"],
+      "permissions": ["contents:write", "pull-requests:write", "checks:read"],
+      "result": {
+        "exact_revision": "workflow_run associated pull request head",
+        "blocking_scope": "narrow delegated Dependabot merge",
+        "retention": "GitHub Actions and pull request history"
+      }
+    },
+    {
+      "id": "governance-observe",
+      "implementation": ".github/workflows/governance-observe.yml",
+      "state": "observe",
+      "authority_owner": "repository-owner",
+      "purpose": "Report governance surface, conversion profile, and checkout revision findings without mutation or blocking.",
+      "events": ["pull_request:master", "push:master", "workflow_dispatch"],
+      "inputs": {
+        "authoritative": ["checked-in governance surfaces", "avrotize/commands.json", "expected event SHA"],
+        "advisory": [],
+        "untrusted": ["pull request content"]
+      },
+      "deterministic": {
+        "outputs": ["GitHub annotations", "step summary"],
+        "fail_closed": false,
+        "observe_semantics": "Findings are explicit but process exit is zero."
+      },
+      "copilot": {
+        "enabled": false,
+        "aic_baseline": 0
+      },
+      "actions": {
+        "runner_classes": ["ubuntu-latest"],
+        "typical_fan_out": 1,
+        "maximum_fan_out": 1,
+        "runner_minutes_typical": 1,
+        "runner_minutes_ceiling": 3
+      },
+      "mutations": [],
+      "permissions": ["contents:read"],
+      "concurrency": "governance-observe-${pull_request_number_or_ref}",
+      "result": {
+        "exact_revision": "github.event.pull_request.head.sha or github.sha",
+        "blocking_scope": "none until separately authorized enforcement",
+        "retention": "GitHub Actions run summary"
+      }
+    },
+    {
+      "id": "governance-merge-and-release-guards",
+      "implementation": null,
+      "state": "proposed-after-reconciliation",
+      "authority_owner": "repository-owner",
+      "purpose": "Fail closed on unauthorized, incomplete, stale, or unproven merges and releases.",
+      "events": ["pull_request", "merge_group", "release-candidate-tag"],
+      "inputs": {
+        "authoritative": ["authorization", "diff-derived impact", "exact-head evidence", "current verdicts", "immutable tag and artifact provenance"],
+        "advisory": ["bounded structured AI recommendations under a future contract"],
+        "untrusted": ["pull request content", "generated artifacts before digest verification"]
+      },
+      "deterministic": {
+        "outputs": ["PASS", "BLOCKED", "INDETERMINATE"],
+        "fail_closed": true
+      },
+      "copilot": {
+        "enabled": false,
+        "activation_prerequisites": ["named model", "dated pricing catalog", "token assumptions", "structured output", "AIC ceiling"]
+      },
+      "actions": {
+        "runner_classes": ["repository policy at activation time"],
+        "typical_fan_out": 1,
+        "maximum_fan_out": "derived bounded matrix",
+        "runner_minutes_ceiling": "scope-specific conversion profile ceiling"
+      },
+      "mutations": ["none in guard", "publication only in separately approved release workflow"],
+      "permissions": ["contents:read", "pull-requests:read"],
+      "result": {
+        "exact_revision": "immutable PR head or release tag SHA",
+        "blocking_scope": "authorized metadata, evidence, reviews, merge and release provenance",
+        "retention": "structured decision, evidence hashes, and publication provenance"
+      }
+    }
+  ]
+}

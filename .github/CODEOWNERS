@@ -1,0 +1,21 @@
+# Review routing by durable delivery domain. Ownership here does not grant
+# authorization, merge, compatibility, release, or owner-exception authority.
+* @clemensv
+
+/avrotize/common.py @clemensv
+/avrotize/*toavro.py @clemensv
+/avrotize/*tostructure.py @clemensv
+/avrotize/avroto*.py @clemensv
+/avrotize/structureto*.py @clemensv
+/specs/ @clemensv
+/schemas/ @clemensv
+/avrotize/commands.json @clemensv
+/avrotize/avrotize.py @clemensv
+/avrotize/mcp_server.py @clemensv
+/server.json @clemensv
+/mcp-server.json @clemensv
+/vscode/ @clemensv
+/pyproject.toml @clemensv
+/structurize/ @clemensv
+/.github/workflows/ @clemensv
+/.github/governance/ @clemensv

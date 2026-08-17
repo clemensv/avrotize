@@ -1,0 +1,43 @@
+name: Governance observe
+
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-observe-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Observe governance consistency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact event revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate in advisory mode
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          python tools/validate_governance.py
+          --advisory
+          --expected-sha "$EXPECTED_SHA"
+          --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Exercise validator tests in advisory mode
+        shell: bash
+        run: |
+          if ! python -m unittest test.test_governance_validator -v; then
+            echo "::warning file=test/test_governance_validator.py::Governance validator tests failed in observe mode."
+          fi
