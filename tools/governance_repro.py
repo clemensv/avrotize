@@ -177,6 +177,30 @@ def label_for_outcome(catalog: dict[str, Any], status: str) -> str:
     raise InfrastructureError(f"label catalog has no label for outcome {status!r}")
 
 
+#: Maximum rendered length of any reporter-derived fragment in a Markdown summary.
+MAX_SUMMARY_FRAGMENT = 200
+
+
+def summary_safe(value: Any, limit: int = MAX_SUMMARY_FRAGMENT) -> str:
+    """Render a possibly reporter-derived value as inert single-line Markdown.
+
+    Policy refusal reasons quote the offending token so a maintainer can see what
+    was rejected, and that token is reporter-controlled. Step summaries are
+    rendered as Markdown, so collapse whitespace, neutralize the characters that
+    could close a code span, break a table row, or start a heading/quote, and
+    truncate. This is presentation hygiene only; it is not an authorization
+    control.
+    """
+    text = str(value)
+    text = _CONTROL_RE.sub(" ", text.replace("\x00", " "))
+    text = " ".join(text.split())
+    text = text.replace("`", "'").replace("|", "/")
+    text = text.replace("<", "&lt;").replace(">", "&gt;")
+    if len(text) > limit:
+        text = text[:limit] + "..."
+    return text
+
+
 # ---------------------------------------------------------------------------
 # Token, fixture, and argv policy
 # ---------------------------------------------------------------------------
@@ -1063,7 +1087,11 @@ def reproduce(
 
 
 def render_summary(record: dict[str, Any]) -> str:
-    """Render the Markdown evidence summary. Reporter prose is never echoed."""
+    """Render the Markdown evidence summary.
+
+    Reporter prose is never echoed. Policy refusal reasons may quote a rejected
+    reporter token, so every such fragment passes through :func:`summary_safe`.
+    """
     request = record["request"]
     execution = record["execution"]
     result = record["result"]
@@ -1072,7 +1100,7 @@ def render_summary(record: dict[str, Any]) -> str:
         "",
         f"- **Issue**: #{record['issue_number']}",
         f"- **Outcome**: {result['status']} (`{result['reason_code']}`)",
-        f"- **Reason**: {result['reason']}",
+        f"- **Reason**: {summary_safe(result['reason'])}",
         f"- **Final label**: `{result['final_label']}`",
         f"- **Requested by**: `{request['actor'] or 'unknown'}` via `{request['event_name'] or 'unknown'}`",
         f"- **Issue revision**: `{request['issue_updated_at'] or 'unknown'}` "
@@ -1100,10 +1128,12 @@ def render_summary(record: dict[str, Any]) -> str:
         f"({execution['outputs']['total_bytes']} bytes)",
     ]
     for produced in execution["outputs"]["files"]:
-        lines.append(f"  - `{produced['path']}` {produced['bytes']} bytes `{produced['digest'][:16]}...`")
+        lines.append(
+            f"  - `{summary_safe(produced['path'])}` {produced['bytes']} bytes `{produced['digest'][:16]}...`"
+        )
     if execution["input_substitutions"]:
         lines.append("- **Input handling**:")
-        lines.extend(f"  - {note}" for note in execution["input_substitutions"])
+        lines.extend(f"  - {summary_safe(note)}" for note in execution["input_substitutions"])
     comparison = result["comparison"]
     if comparison["performed"]:
         lines.extend(

@@ -69,7 +69,9 @@ owner authorization under [GOVERNANCE.md](GOVERNANCE.md).
 
 Run **Reconcile reproduction label catalog** manually when the six governed
 labels are missing or drift from `.github/governance/repro-label-catalog.json`.
-It reconciles repository labels only and never touches issue state.
+It reconciles repository labels only and never touches issue state. The labels
+do not exist yet, so this dispatch is a one-time prerequisite before the first
+`repro-requested` can be applied.
 
 ## Local checks
 
@@ -98,6 +100,17 @@ python -m pytest test\test_governance_validator.py test\test_governance_schema.p
 The GitHub Actions matrix remains authoritative for its named responsibility.
 A warning-shaped success or ignored exit code is not evidence for a required
 gate.
+
+### Adding or removing a command
+
+`.github/governance/avrotize-capabilities.json` pins the command registry: it
+records `expected_command_count` and a per-group count in `expected_groups`.
+Any change to `avrotize/commands.json` therefore makes
+`python tools\validate_governance.py` report drift until the profile is updated
+in the same pull request. That is the intended detection, not a bug. A new
+command group also needs an entry in `command_group_areas`, and a new
+`7_Utility` command needs one in `utility_command_areas`, mapped to a domain
+declared in `responsibility_domains`.
 
 ## Compatibility and release notes
 

@@ -26,7 +26,10 @@ def _label_request(**overrides):
         "run_id": "12345",
         "issue_number_event": 42,
         "issue_number_input": "",
-        "permission_response": {"http_status": 200, "body": {"permission": "maintain"}},
+        "permission_response": {
+            "http_status": 200,
+            "body": {"permission": "write", "role_name": "maintain"},
+        },
     }
     request.update(overrides)
     return request
@@ -45,7 +48,10 @@ def _dispatch_request(**overrides):
         "run_id": "999",
         "issue_number_event": "",
         "issue_number_input": "77",
-        "permission_response": {"http_status": 200, "body": {"permission": "admin"}},
+        "permission_response": {
+            "http_status": 200,
+            "body": {"permission": "admin", "role_name": "admin"},
+        },
     }
     request.update(overrides)
     return request
@@ -118,10 +124,59 @@ class PermissionLevelTests(unittest.TestCase):
 
     def test_malformed_body_is_infrastructure_error(self) -> None:
         record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {"role_name": "maintain"}})
+            _label_request(permission_response={"http_status": 200, "body": {}})
         )
         self.assertEqual(record["decision"], "ERROR")
         self.assertEqual(record["reason_code"], "PERMISSION_RESPONSE_MALFORMED")
+
+    def test_role_name_maintain_is_authorized(self) -> None:
+        record = governance_authorize.evaluate(
+            _label_request(
+                permission_response={
+                    "http_status": 200,
+                    "body": {"permission": "write", "role_name": "maintain"},
+                }
+            )
+        )
+        self.assertEqual(record["decision"], "ALLOW")
+        self.assertEqual(record["permission"]["level"], "maintain")
+
+    def test_plain_write_collaborator_is_denied(self) -> None:
+        record = governance_authorize.evaluate(
+            _label_request(
+                permission_response={
+                    "http_status": 200,
+                    "body": {"permission": "write", "role_name": "write"},
+                }
+            )
+        )
+        self.assertEqual(record["decision"], "DENY")
+        self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
+
+    def test_custom_role_is_denied(self) -> None:
+        record = governance_authorize.evaluate(
+            _label_request(
+                permission_response={
+                    "http_status": 200,
+                    "body": {"permission": "write", "role_name": "custom-elevated"},
+                }
+            )
+        )
+        self.assertEqual(record["decision"], "DENY")
+        self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
+
+    def test_write_without_role_name_is_denied(self) -> None:
+        record = governance_authorize.evaluate(
+            _label_request(permission_response={"http_status": 200, "body": {"permission": "write"}})
+        )
+        self.assertEqual(record["decision"], "DENY")
+        self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
+
+    def test_admin_without_role_name_is_authorized(self) -> None:
+        record = governance_authorize.evaluate(
+            _label_request(permission_response={"http_status": 200, "body": {"permission": "admin"}})
+        )
+        self.assertEqual(record["decision"], "ALLOW")
 
     def test_missing_response_is_infrastructure_error(self) -> None:
         record = governance_authorize.evaluate(_label_request(permission_response=None))

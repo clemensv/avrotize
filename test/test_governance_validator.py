@@ -193,6 +193,16 @@ class GovernanceValidatorTests(unittest.TestCase):
 
         self.assertTrue(any("utility_command_areas must classify exactly" in finding.message for finding in findings))
 
+    def test_malformed_expected_groups_is_reported_without_crashing(self) -> None:
+        profile_path = self.root / ".github" / "governance" / "avrotize-capabilities.json"
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        profile["expected_groups"] = 8
+        profile_path.write_text(json.dumps(profile), encoding="utf-8")
+
+        findings = validate_governance.validate_repo(self.root)
+
+        self.assertTrue(any("expected_groups must be an object" in finding.message for finding in findings))
+
     def test_uncovered_command_group_is_reported(self) -> None:
         profile_path = self.root / ".github" / "governance" / "avrotize-capabilities.json"
         profile = json.loads(profile_path.read_text(encoding="utf-8"))

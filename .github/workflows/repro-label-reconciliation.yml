@@ -49,12 +49,24 @@ jobs:
             *) echo "::error::collaborator permission endpoint returned HTTP ${http_status}"; exit 1 ;;
           esac
           permission=$(jq -r '.permission // empty' permission-body.json)
-          case "${permission}" in
+          role_name=$(jq -r '.role_name // empty' permission-body.json)
+          # The legacy .permission field reports maintainers as "write", so the
+          # granular .role_name is authoritative. Without it, only an exact
+          # "admin" is unambiguous; "write" must not pass.
+          if [ -n "${role_name}" ]; then
+            level="${role_name}"
+          elif [ "${permission}" = "admin" ]; then
+            level="admin"
+          elif [ -n "${permission}" ]; then
+            echo "::error::actor ${WORKFLOW_ACTOR} holds ${permission}, which is below maintain"; exit 1
+          else
+            echo "::error::collaborator permission response is malformed"; exit 1
+          fi
+          case "${level}" in
             admin|maintain) ;;
-            "") echo "::error::collaborator permission response is malformed"; exit 1 ;;
-            *) echo "::error::actor ${WORKFLOW_ACTOR} holds ${permission}, which is below maintain"; exit 1 ;;
+            *) echo "::error::actor ${WORKFLOW_ACTOR} holds ${level}, which is below maintain"; exit 1 ;;
           esac
-          echo "Authorized ${WORKFLOW_ACTOR} (${permission})." >> "$GITHUB_STEP_SUMMARY"
+          echo "Authorized ${WORKFLOW_ACTOR} (${level})." >> "$GITHUB_STEP_SUMMARY"
 
   reconcile:
     name: Reconcile repository labels

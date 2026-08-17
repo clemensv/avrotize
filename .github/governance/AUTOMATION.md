@@ -16,7 +16,7 @@ behavior.
 | `dependabot-intake.yml` | Normalize Dependabot PR metadata into intake records using REST file metadata only, classifying each matched ecosystem separately | Intake normalization only; never checks out or runs PR head | Corrupt config fails closed; non-Dependabot PRs produce ignored records. |
 | `repro-bug.yml` | Authorize, mark, run, and publish one policy-bounded CLI reproduction of an eligible bug report | Evidence and governed state labels only; never authorizes work, merge, or release | Denied or erroring authorization stops the run and mutates nothing. Readiness, policy, timeout, and resource refusals produce `BLOCKED` evidence. Infrastructure failure publishes `repro-blocked` and states that no evidence exists. |
 | `repro-label-reconciliation.yml` | Manually reconcile the six governed reproduction labels on the repository from the checked-in catalog | Repository label name, color, and description only | Unauthorized actors, corrupt catalogs, and unexpected label API statuses fail the workflow. Issue state is never read or changed. |
-| `governance-observe.yml` | Validate governance surfaces, command-capability profile parity, workflow static safety, and exact checkout revision | Advisory observation only | Findings are annotations and summaries; observe mode exits successfully and cannot satisfy or block a merge gate. |
+| `governance-observe.yml` | Validate governance surfaces, command-capability profile parity, and workflow static safety | Advisory observation only | Findings are annotations and summaries; observe mode exits successfully and cannot satisfy or block a merge gate. |
 
 A green workflow proves only its named responsibility.
 

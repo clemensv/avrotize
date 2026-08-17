@@ -34,7 +34,12 @@ RECORD_KIND = "repro-authorization"
 
 #: Only this exact label requests a guarded reproduction.
 REQUEST_LABEL = "repro-requested"
-#: Only these collaborator permission levels may request guarded execution.
+#: Only these collaborator roles may request guarded execution.
+#:
+#: These are matched against the API's granular ``role_name`` field. The legacy
+#: ``permission`` field cannot express "maintain" -- it reports maintainers as
+#: "write" -- so it is only trusted for an exact "admin" match. Accepting
+#: "write" there would silently widen this gate to every write collaborator.
 ALLOWED_PERMISSIONS = ("maintain", "admin")
 
 AUTHORITY_STATEMENT = (
@@ -109,13 +114,21 @@ def _decide_permission(response: Any) -> tuple[str, str, int | None, str | None]
     body = response.get("body")
     if not isinstance(body, dict):
         return DECISION_ERROR, "PERMISSION_RESPONSE_MALFORMED", status, None
+    role_name = body.get("role_name")
     permission = body.get("permission")
-    if not isinstance(permission, str) or not permission.strip():
+    if isinstance(role_name, str) and role_name.strip():
+        level = role_name.strip().lower()
+    elif isinstance(permission, str) and permission.strip():
+        # Without role_name only "admin" is unambiguous; "write" may be either a
+        # plain write collaborator or a maintainer, so it must not pass.
+        level = permission.strip().lower()
+        if level != "admin":
+            return DECISION_DENY, "PERMISSION_INSUFFICIENT", status, level
+    else:
         return DECISION_ERROR, "PERMISSION_RESPONSE_MALFORMED", status, None
-    permission = permission.strip().lower()
-    if permission in ALLOWED_PERMISSIONS:
-        return DECISION_ALLOW, "AUTHORIZED", status, permission
-    return DECISION_DENY, "PERMISSION_INSUFFICIENT", status, permission
+    if level in ALLOWED_PERMISSIONS:
+        return DECISION_ALLOW, "AUTHORIZED", status, level
+    return DECISION_DENY, "PERMISSION_INSUFFICIENT", status, level
 
 
 def evaluate(request: dict[str, Any]) -> dict[str, Any]:

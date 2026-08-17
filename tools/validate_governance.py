@@ -197,6 +197,7 @@ def _validate_capability_profile(root: Path, findings: list[Finding]) -> None:
     expected_groups = profile.get("expected_groups")
     if not isinstance(expected_groups, dict):
         findings.append(Finding(profile_path.relative_to(root).as_posix(), "expected_groups must be an object"))
+        expected_groups = None
     elif dict(sorted(groups.items())) != dict(sorted(expected_groups.items())):
         findings.append(
             Finding(
@@ -206,7 +207,10 @@ def _validate_capability_profile(root: Path, findings: list[Finding]) -> None:
         )
 
     command_group_areas = profile.get("command_group_areas")
-    expected_area_groups = set(expected_groups or {}) - {"7_Utility"}
+    # Fall back to the registry's own groups when the declared mapping is
+    # unusable, so a malformed profile still yields findings instead of raising.
+    declared_groups = expected_groups if isinstance(expected_groups, dict) else groups
+    expected_area_groups = set(declared_groups) - {"7_Utility"}
     if not isinstance(command_group_areas, dict):
         findings.append(Finding(profile_path.relative_to(root).as_posix(), "command_group_areas must be an object"))
     else:

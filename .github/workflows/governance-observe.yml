@@ -2,9 +2,9 @@ name: Governance observe
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ master, main ]
   push:
-    branches: [ master ]
+    branches: [ master, main ]
   workflow_dispatch:
 
 permissions:
@@ -29,13 +29,19 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
       - name: Validate in advisory mode
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        # --expected-sha is deliberately not passed here: this job checks out
+        # the event SHA, so asserting HEAD against that same SHA cannot fail and
+        # proves nothing. The option remains available for a maintainer (or a
+        # future approval-binding gate) to verify a separately claimed revision.
         run: >-
           python tools/validate_governance.py
           --advisory
-          --expected-sha "$EXPECTED_SHA"
           --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Exercise validator tests in advisory mode

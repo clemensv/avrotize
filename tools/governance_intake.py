@@ -49,6 +49,30 @@ def _sha256(data: str) -> str:
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
+#: Maximum rendered length of any reporter-derived fragment in a Markdown summary.
+MAX_SUMMARY_FRAGMENT = 200
+
+_SUMMARY_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _summary_safe(value: Any, limit: int = MAX_SUMMARY_FRAGMENT) -> str:
+    """Render a reporter-derived value as inert single-line Markdown.
+
+    Issue-form text reaches the run summary (commands, unexpected headings,
+    surface errors). Step summaries are rendered as Markdown, so collapse
+    whitespace, neutralize characters that could close a code span, break a
+    table row, or start a heading/quote, and truncate. Presentation hygiene
+    only; this is not an authorization control.
+    """
+    text = _SUMMARY_CONTROL_RE.sub(" ", str(value).replace("\x00", " "))
+    text = " ".join(text.split())
+    text = text.replace("`", "'").replace("|", "/")
+    text = text.replace("<", "&lt;").replace(">", "&gt;")
+    if len(text) > limit:
+        text = text[:limit] + "..."
+    return text
+
+
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -415,16 +439,18 @@ def normalize_issue(event_json: str) -> tuple[dict[str, Any], str]:
         f"- **Body digest**: `{body_digest[:16]}...`",
     ]
     if missing_fields:
-        md_lines.append(f"- **Missing fields**: {', '.join(missing_fields)}")
+        md_lines.append(f"- **Missing fields**: {', '.join(_summary_safe(f) for f in missing_fields)}")
     if unexpected_headings:
-        md_lines.append(f"- **Unexpected headings**: {', '.join(unexpected_headings)}")
+        md_lines.append(
+            f"- **Unexpected headings**: {', '.join(_summary_safe(h) for h in unexpected_headings)}"
+        )
     if missing_headings:
-        md_lines.append(f"- **Missing headings**: {', '.join(missing_headings)}")
+        md_lines.append(f"- **Missing headings**: {', '.join(_summary_safe(h) for h in missing_headings)}")
     if surface_error:
-        md_lines.append(f"- **Surface error**: {surface_error}")
+        md_lines.append(f"- **Surface error**: {_summary_safe(surface_error)}")
     if normalized["command"]:
         known_str = "yes" if normalized["command_known"] else "no/unknown"
-        md_lines.append(f"- **Command**: `{normalized['command']}` (known: {known_str})")
+        md_lines.append(f"- **Command**: `{_summary_safe(normalized['command'])}` (known: {known_str})")
     if normalized["semantic_paths"]:
         md_lines.append(f"- **Semantic paths**: {', '.join(normalized['semantic_paths'])}")
     if form_type == "bug":

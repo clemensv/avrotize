@@ -380,18 +380,17 @@
       "implementation": ".github/workflows/governance-observe.yml",
       "state": "observe",
       "authority_owner": "repository-owner",
-      "purpose": "Report governance surface, command-capability profile, and checkout revision findings without mutation or blocking.",
+      "purpose": "Report governance surface and command-capability profile findings without mutation or blocking.",
       "events": [
-        "pull_request:master",
-        "push:master",
+        "pull_request:master|main",
+        "push:master|main",
         "workflow_dispatch"
       ],
       "inputs": {
         "authoritative": [
           "checked-in governance surfaces",
           "avrotize/commands.json",
-          ".github/governance/avrotize-capabilities.json",
-          "expected event SHA"
+          ".github/governance/avrotize-capabilities.json"
         ],
         "advisory": [],
         "untrusted": [

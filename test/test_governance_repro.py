@@ -148,6 +148,31 @@ class FakeSpawn:
         return FakeProcess(self.plan, cwd, stdout_handle, stderr_handle)
 
 
+class SummarySafeTests(unittest.TestCase):
+    """Reporter-derived fragments must not be able to shape summary Markdown."""
+
+    def test_markdown_control_characters_are_neutralized(self) -> None:
+        rendered = governance_repro.summary_safe("a2j``` | **x** <img src=x>\n\n## Heading\n> quote")
+        self.assertNotIn("`", rendered)
+        self.assertNotIn("|", rendered)
+        self.assertNotIn("<", rendered)
+        self.assertNotIn("\n", rendered)
+
+    def test_control_characters_are_stripped(self) -> None:
+        self.assertEqual(governance_repro.summary_safe("a\x00b\x1bc"), "a b c")
+
+    def test_long_fragment_is_truncated(self) -> None:
+        rendered = governance_repro.summary_safe("x" * 400)
+        self.assertTrue(rendered.endswith("..."))
+        self.assertLessEqual(len(rendered), governance_repro.MAX_SUMMARY_FRAGMENT + 3)
+
+    def test_ordinary_reason_text_is_readable(self) -> None:
+        self.assertEqual(
+            governance_repro.summary_safe("option '--bogus' is not declared for a2j"),
+            "option '--bogus' is not declared for a2j",
+        )
+
+
 class ReproTestCase(unittest.TestCase):
     """Base case wiring a temporary workspace and a fake process spawner."""
 

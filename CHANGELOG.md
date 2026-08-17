@@ -84,6 +84,27 @@ All notable changes to Avrotize are documented in this file.
   Dependabot config and capability profile read failures now fail closed.
 - Governance workflows declare per-job permissions and timeouts.
 
+### Fixed
+
+- Guarded reproduction authorization now evaluates the collaborator API's
+  granular `role_name` field. The legacy `permission` field reports maintainers
+  as `write`, so the previous check could never match `maintain` and was
+  admin-only in practice; `permission` is now trusted only for an exact `admin`
+  match, so a plain write collaborator still cannot request execution.
+- Governance validation no longer raises `TypeError` when
+  `expected_groups` is not an object. It reported the finding and then fell
+  through to iterate the malformed value, which failed the observe job that is
+  required to be non-blocking.
+- Reporter-derived fragments (rejected tokens, unexpected headings, surface
+  errors, produced paths) are collapsed, escaped, and truncated before entering
+  a Markdown step summary, so a reporter cannot forge summary structure.
+- `governance-observe.yml` pins Python with `actions/setup-python` instead of
+  relying on the runner default, and triggers on `main` as well as `master`,
+  matching the other workflows.
+- `governance-observe.yml` no longer passes `--expected-sha`: the job checks out
+  the event SHA, so asserting `HEAD` against that same SHA could not fail. The
+  CLI option remains for verifying a separately claimed revision.
+
 ## [3.9.0] - 2026-07-22
 
 ### Added

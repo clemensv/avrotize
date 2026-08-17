@@ -31,6 +31,10 @@ phase. Both are opt-in and bounded:
 - Label reconciliation is manual dispatch only and reconciles repository label
   definitions with the checked-in catalog. It does not read or modify issue
   state, so it cannot reclassify pre-existing issues.
+- **Ordering:** none of the six governed `repro-*` labels exist in the
+  repository yet, so **Reconcile reproduction label catalog** must be dispatched
+  once before guarded reproduction can be requested. Until then `repro-requested`
+  cannot be applied and the reproduction workflow stays dormant.
 - Neither workflow is required for any merge, and neither can satisfy or block a
   gate. Evidence remains a record that the owner interprets.
 
