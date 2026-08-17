@@ -1,12 +1,9 @@
 # Avrotize Governance
 
-This file is the authoritative governance policy for Avrotize. It adopts the
-governance model staged in
-[`clemensv/project-governance`](https://github.com/clemensv/project-governance)
-at commit `7e843f2d92054ecd73a3476ab9bf0a3adeeb45cd` and defines an
-Avrotize-specific command-capability profile. If this policy, contributor
-templates, and automation disagree, this policy controls and the ambiguity
-fails closed until the repository owner resolves it.
+This file is the authoritative governance policy for Avrotize. It defines the
+repository's command-capability profile. If this policy, contributor templates,
+and automation disagree, this policy controls and the ambiguity fails closed
+until the repository owner resolves it.
 
 ## Mission
 
