@@ -1,0 +1,213 @@
+name: Issue intake
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions: {}
+
+concurrency:
+  group: issue-intake-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      copilot-requests: write
+    env:
+      COPILOT_CLI_VERSION: "1.0.80"
+      COPILOT_LOCKFILE_SHA256: "de84c84867979cd1fa4590030b6f03e81ff5e4d42ba10a9cca6482313245d55a"
+      COPILOT_MODEL: "claude-haiku-4.5"
+      COPILOT_MAX_AI_CREDITS: "30"
+      COPILOT_TIMEOUT_SECONDS: "120"
+      COPILOT_MAX_OUTPUT_BYTES: "32768"
+    steps:
+      - name: Resolve exact trusted processor revision
+        id: processor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          processor_sha=$(gh api "repos/${REPO}/commits/${DEFAULT_BRANCH}" --jq '.sha')
+          printf 'sha=%s\n' "${processor_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact trusted processor revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.processor.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify processor revision
+        env:
+          PROCESSOR_SHA: ${{ steps.processor.outputs.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${PROCESSOR_SHA}"
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Capture event revision
+        env:
+          REAL_EVENT: ${{ toJSON(github.event) }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${REAL_EVENT}" > event.json
+
+      - name: Validate resources and prepare semantic request
+        id: preflight
+        env:
+          PROCESSOR_SHA: ${{ steps.processor.outputs.sha }}
+        run: |
+          set -euo pipefail
+          python tools/governance_intake.py issue-preflight \
+            --event event.json \
+            --processor-sha "${PROCESSOR_SHA}" \
+            --output-json copilot-preflight.json \
+            --output-prompt copilot-prompt.txt
+          eligible=$(python -c 'import json; print(str(json.load(open("copilot-preflight.json", encoding="utf-8"))["eligible"]).lower())')
+          printf 'eligible=%s\n' "${eligible}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        if: steps.preflight.outputs.eligible == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install locked Copilot CLI dependency graph
+        if: steps.preflight.outputs.eligible == 'true'
+        id: copilot-install
+        run: |
+          set -euo pipefail
+          set +e
+          lockfile=".github/governance/copilot-cli/package-lock.json"
+          actual_lockfile_sha=$(sha256sum "${lockfile}" | cut -d ' ' -f 1)
+          if [[ "${actual_lockfile_sha}" == "${COPILOT_LOCKFILE_SHA256}" ]]; then
+            npm ci --prefix .github/governance/copilot-cli \
+              --ignore-scripts --no-audit --no-fund
+            install_exit=$?
+          else
+            install_exit=1
+          fi
+          if [[ ${install_exit} -eq 0 ]]; then
+            installed_version=$(
+              .github/governance/copilot-cli/node_modules/.bin/copilot \
+                --version | head -n 1
+            )
+            version_exit=$?
+          else
+            installed_version=""
+            version_exit=1
+          fi
+          set -e
+          if [[ ${version_exit} -eq 0 && "${installed_version}" == "GitHub Copilot CLI ${COPILOT_CLI_VERSION}." ]]; then
+            printf 'installed=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'installed=false\n' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Request no-tools semantic assistance
+        if: steps.preflight.outputs.eligible == 'true' && steps.copilot-install.outputs.installed == 'true'
+        id: copilot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_HOME: ${{ runner.temp }}/avrotize-copilot-home
+        run: |
+          set -euo pipefail
+          copilot_work="${RUNNER_TEMP}/avrotize-copilot-work"
+          response_path="${RUNNER_TEMP}/avrotize-copilot-response.json"
+          stderr_path="${RUNNER_TEMP}/avrotize-copilot-stderr.txt"
+          mkdir -p "${COPILOT_HOME}" "${copilot_work}"
+          set +e
+          timeout --signal=TERM --kill-after=10s "${COPILOT_TIMEOUT_SECONDS}s" \
+            "${GITHUB_WORKSPACE}/.github/governance/copilot-cli/node_modules/.bin/copilot" \
+              --silent \
+              --model="${COPILOT_MODEL}" \
+              --max-ai-credits="${COPILOT_MAX_AI_CREDITS}" \
+              --no-ask-user \
+              --no-auto-update \
+              --no-custom-instructions \
+              --disable-builtin-mcps \
+              --no-remote \
+              --no-remote-export \
+              --disallow-temp-dir \
+              --available-tools= \
+              --deny-tool='shell,write,read,url,memory' \
+              --secret-env-vars=GITHUB_TOKEN \
+              --log-level=none \
+              --stream=off \
+              -C "${copilot_work}" \
+              < copilot-prompt.txt \
+              > "${response_path}" \
+              2> "${stderr_path}"
+          copilot_exit=$?
+          set -e
+          if [[ -f "${response_path}" ]] && \
+             [[ $(stat --format=%s "${response_path}") -gt ${COPILOT_MAX_OUTPUT_BYTES} ]]; then
+            printf '%s' '__COPILOT_OUTPUT_TOO_LARGE__' > "${response_path}"
+          fi
+          if [[ -f "${stderr_path}" ]] && [[ $(stat --format=%s "${stderr_path}") -gt 8192 ]]; then
+            tail --bytes=8192 "${stderr_path}" > "${stderr_path}.bounded"
+            mv "${stderr_path}.bounded" "${stderr_path}"
+          fi
+          printf 'exit_code=%s\n' "${copilot_exit}" >> "$GITHUB_OUTPUT"
+          printf 'response_path=%s\n' "${response_path}" >> "$GITHUB_OUTPUT"
+          printf 'stderr_path=%s\n' "${stderr_path}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate and normalize issue intake
+        if: always() && steps.preflight.outcome == 'success'
+        id: finalize
+        env:
+          PROCESSOR_SHA: ${{ steps.processor.outputs.sha }}
+          COPILOT_ELIGIBLE: ${{ steps.preflight.outputs.eligible }}
+          COPILOT_EXIT_CODE: ${{ steps.copilot.outputs.exit_code }}
+          COPILOT_RESPONSE_PATH: ${{ steps.copilot.outputs.response_path }}
+          COPILOT_STDERR_PATH: ${{ steps.copilot.outputs.stderr_path }}
+        run: |
+          set -euo pipefail
+          args=(
+            issue
+            --event event.json
+            --processor-sha "${PROCESSOR_SHA}"
+            --semantic-preflight copilot-preflight.json
+            --minimize-content
+            --output-json intake-record.json
+            --output-md intake-summary.md
+          )
+          if [[ "${COPILOT_ELIGIBLE}" == "true" && -n "${COPILOT_EXIT_CODE}" ]]; then
+            args+=(
+              --copilot-exit-code "${COPILOT_EXIT_CODE}"
+              --copilot-output "${COPILOT_RESPONSE_PATH}"
+              --copilot-stderr "${COPILOT_STDERR_PATH}"
+            )
+          fi
+          python tools/governance_intake.py "${args[@]}"
+          cat intake-summary.md >> "$GITHUB_STEP_SUMMARY"
+          rm -f event.json copilot-prompt.txt
+          if [[ -n "${COPILOT_RESPONSE_PATH:-}" ]]; then
+            rm -f "${COPILOT_RESPONSE_PATH}"
+          fi
+          if [[ -n "${COPILOT_STDERR_PATH:-}" ]]; then
+            rm -f "${COPILOT_STDERR_PATH}"
+          fi
+          rm -rf "${RUNNER_TEMP}/avrotize-copilot-home" "${RUNNER_TEMP}/avrotize-copilot-work"
+
+      - name: Upload revision-bound intake
+        if: always() && steps.finalize.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: issue-intake-${{ github.event.issue.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            intake-record.json
+            intake-summary.md
+            copilot-preflight.json
+          retention-days: 30
+          if-no-files-found: error

@@ -1,0 +1,11 @@
+{
+  "action": "opened",
+  "repository": {"full_name": "clemensv/avrotize"},
+  "sender": {"login": "reporter"},
+  "issue": {
+    "number": 500,
+    "title": "[Bug] a2p recursive schema failure",
+    "html_url": "https://github.com/clemensv/avrotize/issues/500",
+    "body": "### What were you trying to do?\n\nConvert an Avro schema with a self-referencing record to Protocol Buffers.\n\n### What happened?\n\nThe command stopped with `RecursionError: maximum recursion depth exceeded` instead of writing a .proto file.\n\n### Small example or steps (optional)\n\n```shell\navrotize a2p input.avsc output.proto --naming camel\n```\n\n```json\n{\"type\":\"record\",\"name\":\"Node\",\"fields\":[{\"name\":\"children\",\"type\":{\"type\":\"array\",\"items\":\"Node\"}}]}\n```\n\n### Where did this happen? (optional)\n\nAvrotize CLI\n\n### Command or Avrotize area (optional)\n\navrotize a2p\n\n### Version and environment (optional)\n\nAvrotize 3.9.0, Ubuntu 22.04, Python 3.12.3, protoc 25.1\n\n### Anything else? (optional)\n\nThis worked with Avrotize 3.8.2."
+  }
+}

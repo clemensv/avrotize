@@ -1,0 +1,13 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 462,
+    "title": "Add cool new feature",
+    "user": { "login": "octocat" },
+    "head": { "sha": "999888777666555", "ref": "feature/cool-stuff" },
+    "base": { "sha": "c3c51c2ccc000333", "ref": "master" },
+    "body": "This is a regular PR, not from Dependabot."
+  },
+  "repository": { "full_name": "clemensv/avrotize" },
+  "sender": { "login": "octocat" }
+}

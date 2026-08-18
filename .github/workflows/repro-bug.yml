@@ -1,0 +1,668 @@
+name: Guarded bug reproduction preparation
+
+on:
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+concurrency:
+  group: repro-preparation-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Authorize content snapshot
+    if: >-
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'repro-requested' &&
+      github.event.sender.login != 'dependabot[bot]' &&
+      github.actor == github.event.sender.login
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      issue_number: ${{ steps.decide.outputs.issue_number }}
+      actor: ${{ steps.decide.outputs.actor }}
+      trusted_sha: ${{ steps.trusted.outputs.trusted_sha }}
+      default_branch: ${{ steps.trusted.outputs.default_branch }}
+      title_digest: ${{ steps.snapshot.outputs.title_digest }}
+      body_digest: ${{ steps.snapshot.outputs.body_digest }}
+      content_digest: ${{ steps.snapshot.outputs.content_digest }}
+      issue_url: ${{ steps.snapshot.outputs.issue_url }}
+      artifact_name: ${{ steps.authorization-artifact.outputs.name }}
+    steps:
+      - name: Query requesting actor permission
+        id: permission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REQUEST_ACTOR: ${{ github.event.sender.login }}
+        run: |
+          set -euo pipefail
+          test -n "${REQUEST_ACTOR}"
+          encoded_actor=$(printf '%s' "${REQUEST_ACTOR}" | jq -sRr @uri)
+          set +e
+          http_status=$(curl --silent --show-error --output permission-body.json \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${REPO}/collaborators/${encoded_actor}/permission")
+          curl_exit=$?
+          set -e
+          if [ "${curl_exit}" -ne 0 ]; then
+            http_status=000
+            printf '{"message":"permission API request failed"}\n' > permission-body.json
+          fi
+          printf 'http_status=%s\n' "${http_status}" >> "$GITHUB_OUTPUT"
+          printf 'curl_exit=%s\n' "${curl_exit}" >> "$GITHUB_OUTPUT"
+
+      - name: Record minimal permission gate
+        id: gate
+        env:
+          PERMISSION_HTTP_STATUS: ${{ steps.permission.outputs.http_status }}
+          EVENT_ACTION: ${{ github.event.action }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          SENDER_LOGIN: ${{ github.event.sender.login }}
+          WORKFLOW_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          status = int(os.environ["PERMISSION_HTTP_STATUS"])
+          try:
+              body = json.loads(Path("permission-body.json").read_text(encoding="utf-8"))
+          except (json.JSONDecodeError, OSError):
+              body = {}
+          role = str(body.get("role_name") or "")
+          if not role and body.get("permission") == "admin":
+              role = "admin"
+          checks = {
+              "http_ok": status == 200,
+              "permission_ok": role in {"maintain", "admin"},
+              "action_ok": os.environ["EVENT_ACTION"] == "labeled",
+              "label_ok": os.environ["LABEL_NAME"] == "repro-requested",
+              "actor_unambiguous": bool(os.environ["SENDER_LOGIN"])
+              and os.environ["WORKFLOW_ACTOR"] == os.environ["SENDER_LOGIN"],
+              "rerun_actor_ok": bool(os.environ["TRIGGERING_ACTOR"])
+              and os.environ["TRIGGERING_ACTOR"] == os.environ["SENDER_LOGIN"],
+          }
+          authorized = all(checks.values())
+          if not checks["http_ok"]:
+              reason = "PERMISSION_API_ERROR"
+          elif not checks["permission_ok"]:
+              reason = "PERMISSION_INSUFFICIENT"
+          elif not checks["action_ok"] or not checks["label_ok"]:
+              reason = "EVENT_NOT_ELIGIBLE"
+          elif not checks["actor_unambiguous"]:
+              reason = "ACTOR_AMBIGUOUS"
+          elif not checks["rerun_actor_ok"]:
+              reason = "RERUN_ACTOR_MISMATCH"
+          else:
+              reason = "AUTHORIZED"
+          record = {
+              "schema_version": 1,
+              "record_kind": "repro-minimal-permission-gate",
+              "decision": "ALLOW" if authorized else "DENY",
+              "reason_code": reason,
+              "issue_number": int(os.environ["ISSUE_NUMBER"]),
+              "actor": os.environ["SENDER_LOGIN"],
+              "run_id": os.environ["RUN_ID"],
+              "run_attempt": int(os.environ["RUN_ATTEMPT"]),
+              "http_status": status,
+              "permission": role,
+              "checks": checks,
+          }
+          Path("permission-gate.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+          Path("permission-gate-summary.md").write_text(
+              f"## Reproduction permission gate\n\n- Decision: **{record['decision']}**\n"
+              f"- Reason: `{reason}`\n- Actor: `{record['actor'] or 'unknown'}`\n",
+              encoding="utf-8",
+          )
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"authorized={'true' if authorized else 'false'}\n")
+          PY
+          cat permission-gate-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resolve trusted default-branch processor
+        if: steps.gate.outputs.authorized == 'true'
+        id: trusted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          default_branch=$(gh api "repos/${REPO}" --jq '.default_branch')
+          trusted_sha=$(gh api "repos/${REPO}/commits/${default_branch}" --jq '.sha')
+          printf 'default_branch=%s\n' "${default_branch}" >> "$GITHUB_OUTPUT"
+          printf 'trusted_sha=%s\n' "${trusted_sha}" >> "$GITHUB_OUTPUT"
+          gh api "repos/${REPO}/contents/tools/governance_authorize.py?ref=${trusted_sha}" \
+            -H "Accept: application/vnd.github.raw" > governance_authorize.py
+          test -s governance_authorize.py
+
+      - name: Resolve authorization artifact identity
+        if: always()
+        id: authorization-artifact
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          printf 'name=repro-authorization-%s-%s\n' "${RUN_ID}" "${RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
+      - name: Evaluate authorization
+        if: steps.gate.outputs.authorized == 'true'
+        id: decide
+        env:
+          REPO: ${{ github.repository }}
+          EVENT_ACTION: ${{ github.event.action }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          SENDER_LOGIN: ${{ github.event.sender.login }}
+          WORKFLOW_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_ID: ${{ github.run_id }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PERMISSION_HTTP_STATUS: ${{ steps.permission.outputs.http_status }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          request = {
+              "repository": os.environ["REPO"],
+              "event_name": "issues",
+              "action": os.environ["EVENT_ACTION"],
+              "label_name": os.environ["LABEL_NAME"],
+              "sender_login": os.environ["SENDER_LOGIN"],
+              "actor": os.environ["WORKFLOW_ACTOR"],
+              "triggering_actor": os.environ["TRIGGERING_ACTOR"],
+              "run_attempt": int(os.environ["RUN_ATTEMPT"]),
+              "run_id": os.environ["RUN_ID"],
+              "issue_number_event": os.environ["ISSUE_NUMBER"],
+              "permission_response": {
+                  "http_status": int(os.environ["PERMISSION_HTTP_STATUS"]),
+                  "body": json.loads(Path("permission-body.json").read_text(encoding="utf-8")),
+              },
+          }
+          Path("authorization-request.json").write_text(json.dumps(request, indent=2), encoding="utf-8")
+          PY
+          python governance_authorize.py evaluate \
+            --request authorization-request.json \
+            --output-json authorization.json \
+            --output-markdown authorization-summary.md
+          printf 'issue_number=%s\n' "$(jq -r '.request.issue_number' authorization.json)" >> "$GITHUB_OUTPUT"
+          printf 'actor=%s\n' "$(jq -r '.request.actor' authorization.json)" >> "$GITHUB_OUTPUT"
+          cat authorization-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture authorized title and body snapshot
+        if: steps.gate.outputs.authorized == 'true'
+        id: snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.decide.outputs.issue_number }}
+          EVENT_PATH: ${{ github.event_path }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPO}/issues/${ISSUE_NUMBER}" > current-issue.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from governance_authorize import build_snapshot
+
+          event = json.loads(Path(os.environ["EVENT_PATH"]).read_text(encoding="utf-8"))
+          current_issue = json.loads(Path("current-issue.json").read_text(encoding="utf-8"))
+          issue_number = int(os.environ["ISSUE_NUMBER"])
+          repository = os.environ["REPO"]
+          event_snapshot = build_snapshot(event.get("issue"), issue_number, repository)
+          current_snapshot = build_snapshot(current_issue, issue_number, repository)
+          comparison = {
+              "event_title_digest": event_snapshot["title_digest"],
+              "event_body_digest": event_snapshot["body_digest"],
+              "event_content_digest": event_snapshot["content_digest"],
+              "current_title_digest": current_snapshot["title_digest"],
+              "current_body_digest": current_snapshot["body_digest"],
+              "current_content_digest": current_snapshot["content_digest"],
+              "matches": event_snapshot["content_digest"] == current_snapshot["content_digest"],
+          }
+          Path("label-event-content-comparison.json").write_text(
+              json.dumps(comparison, indent=2) + "\n", encoding="utf-8"
+          )
+          if not comparison["matches"]:
+              raise SystemExit("issue title or body changed after the label event")
+          Path("authorized-content.json").write_text(
+              json.dumps(event_snapshot, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+          printf 'title_digest=%s\n' "$(jq -r '.title_digest' authorized-content.json)" >> "$GITHUB_OUTPUT"
+          printf 'body_digest=%s\n' "$(jq -r '.body_digest' authorized-content.json)" >> "$GITHUB_OUTPUT"
+          printf 'content_digest=%s\n' "$(jq -r '.content_digest' authorized-content.json)" >> "$GITHUB_OUTPUT"
+          printf 'issue_url=%s\n' "$(jq -r '.issue_url' authorized-content.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload authorization package
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.authorization-artifact.outputs.name }}
+          path: |
+            permission-gate.json
+            permission-gate-summary.md
+            authorization.json
+            authorization-summary.md
+            authorized-content.json
+            label-event-content-comparison.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Enforce permission gate
+        if: always()
+        env:
+          AUTHORIZED: ${{ steps.gate.outputs.authorized }}
+        run: |
+          set -euo pipefail
+          if [ "${AUTHORIZED}" != "true" ]; then
+            echo "::error::reproduction request denied by the pre-content permission gate"
+            exit 1
+          fi
+
+  mark-in-progress:
+    name: Mark preparation in progress
+    needs: authorize
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Apply in-progress state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          for label in repro-requested repro-confirmed repro-not-reproduced repro-blocked repro-needs-review; do
+            gh api --method DELETE "repos/${REPO}/issues/${ISSUE_NUMBER}/labels/${label}" \
+              --silent 2>delete-error.log || {
+                if ! grep -q "HTTP 404" delete-error.log; then cat delete-error.log; exit 1; fi
+              }
+          done
+          gh api --method POST "repos/${REPO}/issues/${ISSUE_NUMBER}/labels" \
+            --input - <<< '{"labels":["repro-in-progress"]}' > /dev/null
+
+  prepare:
+    name: Prepare revision-bound evidence
+    needs: [authorize, mark-in-progress]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      artifact_name: ${{ steps.evidence.outputs.artifact_name }}
+      producer_attempt: ${{ steps.evidence.outputs.producer_attempt }}
+    steps:
+      - name: Checkout trusted processor revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.authorize.outputs.trusted_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact processor revision
+        env:
+          TRUSTED_SHA: ${{ needs.authorize.outputs.trusted_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TRUSTED_SHA}"
+
+      - name: Download authorization package
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.authorize.outputs.artifact_name }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Re-fetch current issue content
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPO}/issues/${ISSUE_NUMBER}" > current-issue.json
+          python tools/governance_authorize.py verify \
+            --issue current-issue.json \
+            --snapshot authorized-content.json \
+            --output-json content-verification.json
+
+      - name: Prepare evidence without command execution
+        id: evidence
+        env:
+          REPO: ${{ github.repository }}
+          TRUSTED_SHA: ${{ needs.authorize.outputs.trusted_sha }}
+          DEFAULT_BRANCH: ${{ needs.authorize.outputs.default_branch }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          artifact="repro-preparation-${ISSUE_NUMBER}-${RUN_ID}-${RUN_ATTEMPT}"
+          printf 'artifact_name=%s\n' "${artifact}" >> "$GITHUB_OUTPUT"
+          printf 'producer_attempt=%s\n' "${RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+          python tools/governance_repro.py \
+            --issue current-issue.json \
+            --authorization authorization.json \
+            --snapshot authorized-content.json \
+            --repository "${REPO}" \
+            --trusted-sha "${TRUSTED_SHA}" \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --processor-sha "${TRUSTED_SHA}" \
+            --run-id "${RUN_ID}" \
+            --run-attempt "${RUN_ATTEMPT}" \
+            --run-url "${RUN_URL}" \
+            --artifact-name "${artifact}" \
+            --retention-days 30 \
+            --output-json repro-evidence.json \
+            --output-markdown repro-summary.md
+          cat repro-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload prepared evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.evidence.outputs.artifact_name }}
+          path: |
+            repro-evidence.json
+            repro-summary.md
+            content-verification.json
+          retention-days: 30
+          if-no-files-found: error
+
+  publish-final:
+    name: Publish terminal preparation state
+    needs: [authorize, mark-in-progress, prepare]
+    if: always() && needs.authorize.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout trusted terminal validator
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.authorize.outputs.trusted_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify trusted terminal validator revision
+        id: terminal-checkout
+        env:
+          TRUSTED_SHA: ${{ needs.authorize.outputs.trusted_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TRUSTED_SHA}"
+          printf 'verified=true\n' >> "$GITHUB_OUTPUT"
+
+      - name: Download prepared evidence
+        if: always()
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.prepare.outputs.artifact_name }}
+          path: evidence-download
+
+      - name: Determine terminal state and auditable fallback
+        if: always()
+        id: terminal
+        env:
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          MARK_RESULT: ${{ needs.mark-in-progress.result }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+          TRUSTED_SHA: ${{ needs.authorize.outputs.trusted_sha }}
+          TITLE_DIGEST: ${{ needs.authorize.outputs.title_digest }}
+          BODY_DIGEST: ${{ needs.authorize.outputs.body_digest }}
+          CONTENT_DIGEST: ${{ needs.authorize.outputs.content_digest }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          PREPARATION_ARTIFACT: ${{ needs.prepare.outputs.artifact_name }}
+          PREPARATION_ATTEMPT: ${{ needs.prepare.outputs.producer_attempt }}
+          TERMINAL_ARTIFACT: repro-terminal-${{ needs.authorize.outputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
+          VALIDATOR_VERIFIED: ${{ steps.terminal-checkout.outputs.verified }}
+        run: |
+          set -euo pipefail
+          terminal_validator_failed=false
+          if [ "${VALIDATOR_VERIFIED}" != "true" ] || \
+              ! python tools/governance_repro.py terminal \
+              --evidence evidence-download/repro-evidence.json \
+              --issue-number "${ISSUE_NUMBER}" \
+              --repository "${REPO}" \
+              --trusted-sha "${TRUSTED_SHA}" \
+              --title-digest "${TITLE_DIGEST}" \
+              --body-digest "${BODY_DIGEST}" \
+              --content-digest "${CONTENT_DIGEST}" \
+              --run-id "${RUN_ID}" \
+              --run-attempt "${RUN_ATTEMPT}" \
+              --run-url "${RUN_URL}" \
+              --preparation-artifact "${PREPARATION_ARTIFACT}" \
+              --preparation-attempt "${PREPARATION_ATTEMPT:-0}" \
+              --terminal-artifact "${TERMINAL_ARTIFACT}" \
+              --prepare-result "${PREPARE_RESULT}" \
+              --mark-result "${MARK_RESULT}" \
+              --output-json repro-evidence.json \
+              --output-comment terminal-comment.md \
+              --output-metadata terminal-metadata.json; then
+            terminal_validator_failed=true
+            jq -n \
+              --argjson issue_number "${ISSUE_NUMBER}" \
+              --arg repository "${REPO}" \
+              --arg run_id "${RUN_ID}" \
+              --argjson run_attempt "${RUN_ATTEMPT}" \
+              --arg run_url "${RUN_URL}" \
+              --arg trusted_sha "${TRUSTED_SHA}" \
+              --arg title_digest "${TITLE_DIGEST}" \
+              --arg body_digest "${BODY_DIGEST}" \
+              --arg content_digest "${CONTENT_DIGEST}" \
+              --arg prepare_result "${PREPARE_RESULT}" \
+              --arg mark_result "${MARK_RESULT}" \
+              --arg preparation_artifact "${PREPARATION_ARTIFACT}" \
+              --arg terminal_artifact "${TERMINAL_ARTIFACT}" \
+              '{
+                schema_version: 1,
+                record_kind: "repro-terminal-fallback",
+                issue_number: $issue_number,
+                request: {
+                  repository: $repository,
+                  run_id: $run_id,
+                  run_attempt: $run_attempt,
+                  run_url: $run_url
+                },
+                processor: {trusted_sha: $trusted_sha},
+                authorized_content: {
+                  title_digest: $title_digest,
+                  body_digest: $body_digest,
+                  content_digest: $content_digest
+                },
+                upstream: {
+                  prepare_result: $prepare_result,
+                  mark_result: $mark_result,
+                  preparation_artifact: $preparation_artifact
+                },
+                execution: {
+                  performed: false,
+                  reason: "the trusted terminal validator failed; no command was executed"
+                },
+                result: {
+                  status: "BLOCKED",
+                  reason_code: "PREPARATION_EVIDENCE_UNAVAILABLE",
+                  reason: "the trusted terminal validator failed; the workflow remains failed",
+                  final_label: "repro-blocked"
+                },
+                artifact: {name: $terminal_artifact, retention_days: 30},
+                authority: {
+                  authorized: false,
+                  statement: "Reproduction evidence does not authorize implementation, scheduling, compatibility acceptance, merge, or release."
+                }
+              }' > repro-evidence.json
+            jq -e '
+              .schema_version == 1
+              and .record_kind == "repro-terminal-fallback"
+              and .issue_number > 0
+              and (.request.repository | length) > 0
+              and (.authorized_content.content_digest | test("^[0-9a-f]{64}$"))
+              and .execution.performed == false
+              and .result.status == "BLOCKED"
+              and .result.final_label == "repro-blocked"
+              and .authority.authorized == false
+            ' repro-evidence.json > /dev/null
+            digest=$(sha256sum repro-evidence.json | cut -d' ' -f1)
+            printf '%s\n' \
+              '## Reproduction preparation update' \
+              '' \
+              '**Preparation needs a maintainer'\''s attention.** The evidence record could not be completed. No action is needed from the reporter unless a maintainer follows up.' \
+              '' \
+              "[View the workflow run and evidence](${RUN_URL}). No Avrotize command, attachment, or reporter example was executed." \
+              '' \
+              '<details>' \
+              '<summary>Technical record</summary>' \
+              '' \
+              '- Record status: `BLOCKED` (`PREPARATION_EVIDENCE_UNAVAILABLE`)' \
+              "- Evidence digest: \`${digest}\`" \
+              "- Trusted processor SHA: \`${TRUSTED_SHA}\`" \
+              "- Authorized content digest: \`${CONTENT_DIGEST}\`" \
+              "- Run attempt: \`${RUN_ATTEMPT}\`" \
+              '' \
+              '</details>' \
+              > terminal-comment.md
+            jq -n --arg digest "${digest}" \
+              '{label: "repro-blocked", status: "BLOCKED", digest: $digest}' \
+              > terminal-metadata.json
+          fi
+          printf 'label=%s\n' "$(jq -r '.label' terminal-metadata.json)" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "$(jq -r '.status' terminal-metadata.json)" >> "$GITHUB_OUTPUT"
+          printf 'digest=%s\n' "$(jq -r '.digest' terminal-metadata.json)" >> "$GITHUB_OUTPUT"
+          cat terminal-comment.md >> "$GITHUB_STEP_SUMMARY"
+          if [ "${terminal_validator_failed}" = "true" ]; then
+            echo "::error::trusted terminal evidence validation failed"
+            exit 1
+          fi
+
+      - name: Upload terminal evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: repro-terminal-${{ needs.authorize.outputs.issue_number }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            repro-evidence.json
+            terminal-comment.md
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Reconcile one terminal governed state
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+          FINAL_LABEL: ${{ steps.terminal.outputs.label }}
+        run: |
+          set -euo pipefail
+          governed=(repro-requested repro-in-progress repro-confirmed repro-not-reproduced repro-blocked repro-needs-review)
+          case "${FINAL_LABEL}" in
+            repro-blocked|repro-needs-review) ;;
+            *) FINAL_LABEL=repro-blocked ;;
+          esac
+          reconciled=false
+          for attempt in 1 2 3; do
+            attempt_failed=false
+            if ! gh api --paginate "repos/${REPO}/issues/${ISSUE_NUMBER}/labels" \
+                --jq '.[].name' > before-labels.txt; then
+              attempt_failed=true
+            fi
+            for label in "${governed[@]}"; do
+              if [ "${attempt_failed}" = "true" ]; then break; fi
+              if [ "${label}" != "${FINAL_LABEL}" ] && grep -Fxq "${label}" before-labels.txt; then
+                encoded=$(printf '%s' "${label}" | jq -sRr @uri)
+                if ! gh api --method DELETE \
+                    "repos/${REPO}/issues/${ISSUE_NUMBER}/labels/${encoded}" \
+                    --silent 2>reconcile-error.log; then
+                  if ! grep -q "HTTP 404" reconcile-error.log; then
+                    attempt_failed=true
+                  fi
+                fi
+              fi
+            done
+            if [ "${attempt_failed}" != "true" ] && \
+                ! grep -Fxq "${FINAL_LABEL}" before-labels.txt; then
+              jq -n --arg label "${FINAL_LABEL}" '{labels: [$label]}' > add-label.json
+              if ! gh api --method POST "repos/${REPO}/issues/${ISSUE_NUMBER}/labels" \
+                  --input add-label.json > /dev/null; then
+                attempt_failed=true
+              fi
+            fi
+            if [ "${attempt_failed}" = "true" ]; then
+              sleep $((attempt * 2))
+              continue
+            fi
+            if ! gh api --paginate "repos/${REPO}/issues/${ISSUE_NUMBER}/labels" \
+                --jq '.[].name' > after-labels.txt; then
+              sleep $((attempt * 2))
+              continue
+            fi
+            governed_count=0
+            final_count=0
+            for label in "${governed[@]}"; do
+              if grep -Fxq "${label}" after-labels.txt; then
+                governed_count=$((governed_count + 1))
+                if [ "${label}" = "${FINAL_LABEL}" ]; then final_count=$((final_count + 1)); fi
+              fi
+            done
+            if [ "${governed_count}" -eq 1 ] && [ "${final_count}" -eq 1 ]; then
+              reconciled=true
+              break
+            fi
+            sleep $((attempt * 2))
+          done
+          if [ "${reconciled}" != "true" ]; then
+            echo "::error::could not restore the single governed-state invariant after three attempts"
+            exit 1
+          fi
+
+      - name: Publish evidence reference
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+          if [ ! -s terminal-comment.md ]; then
+            printf '%s\n' \
+              '## Reproduction preparation update' \
+              '' \
+              '**Preparation needs a maintainer'\''s attention.** The evidence reference was unavailable. No action is needed from the reporter unless a maintainer follows up.' \
+              '' \
+              "[View the workflow run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}). No Avrotize command, attachment, or reporter example was executed." \
+              > terminal-comment.md
+          fi
+          jq -n --rawfile body terminal-comment.md '{body: $body}' > comment.json
+          gh api --method POST "repos/${REPO}/issues/${ISSUE_NUMBER}/comments" \
+            --input comment.json > /dev/null

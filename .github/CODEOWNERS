@@ -1,0 +1,69 @@
+# Review routing for areas of Avrotize. The repository owner still makes final
+# scope, compatibility, merge, and release decisions.
+* @clemensv
+
+# Avrotize Schema, JSON Structure, shared semantics, and validation
+/avrotize/common.py @clemensv
+/avrotize/avrotools.py @clemensv
+/avrotize/avrovalidator.py @clemensv
+/avrotize/validate.py @clemensv
+/avrotize/avrotojstruct.py @clemensv
+/avrotize/jstructtoavro.py @clemensv
+/specs/ @clemensv
+/schemas/ @clemensv
+
+# Schema and IDL transformations
+/avrotize/*toavro.py @clemensv
+/avrotize/*tostructure.py @clemensv
+/avrotize/avroto*.py @clemensv
+/avrotize/structureto*.py @clemensv
+
+# Generated programming-language projects and dependency cohorts
+/avrotize/avrotocpp.py @clemensv
+/avrotize/avrotocsharp.py @clemensv
+/avrotize/avrotogo.py @clemensv
+/avrotize/avrotojava.py @clemensv
+/avrotize/avrotojs.py @clemensv
+/avrotize/avrotopython.py @clemensv
+/avrotize/avrotorust.py @clemensv
+/avrotize/avrotots.py @clemensv
+/avrotize/structuretocpp.py @clemensv
+/avrotize/structuretocsharp.py @clemensv
+/avrotize/structuretogo.py @clemensv
+/avrotize/structuretojava.py @clemensv
+/avrotize/structuretojs.py @clemensv
+/avrotize/structuretopython.py @clemensv
+/avrotize/structuretorust.py @clemensv
+/avrotize/structuretots.py @clemensv
+/avrotize/avrotocpp/ @clemensv
+/avrotize/avrotocsharp/ @clemensv
+/avrotize/avrotogo/ @clemensv
+/avrotize/avrotojava/ @clemensv
+/avrotize/avrotojs/ @clemensv
+/avrotize/avrotopython/ @clemensv
+/avrotize/avrotorust/ @clemensv
+/avrotize/avrotots/ @clemensv
+/avrotize/structuretocpp/ @clemensv
+/avrotize/structuretocsharp/ @clemensv
+/avrotize/structuretogo/ @clemensv
+/avrotize/structuretojava/ @clemensv
+/avrotize/structuretojs/ @clemensv
+/avrotize/structuretopython/ @clemensv
+/avrotize/structuretorust/ @clemensv
+/avrotize/structuretots/ @clemensv
+/avrotize/dependencies/ @clemensv
+
+# Command catalog and access surfaces
+/avrotize/commands.json @clemensv
+/avrotize/avrotize.py @clemensv
+/avrotize/mcp_server.py @clemensv
+/server.json @clemensv
+/mcp-server.json @clemensv
+/vscode/ @clemensv
+
+# Packages, documentation, automation, and release
+/pyproject.toml @clemensv
+/structurize/ @clemensv
+/*.md @clemensv
+/.github/workflows/ @clemensv
+/.github/governance/ @clemensv

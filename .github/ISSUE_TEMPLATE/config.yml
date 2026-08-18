@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Not sure which form to use?
+    url: https://github.com/clemensv/avrotize/issues/new?template=question.yml
+    about: Open the one-question fallback form.
+  - name: Private security report
+    url: https://github.com/clemensv/avrotize/security/advisories/new
+    about: Share a suspected vulnerability privately instead of in a public issue.

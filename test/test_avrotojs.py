@@ -103,13 +103,18 @@ class TestAvroToJavaScript(unittest.TestCase):
         with open(os.path.join(package_root, 'package.json'), encoding='utf-8') as package_file:
             package = json.load(package_file)
         self.assertIn('fast-xml-parser', package['dependencies'])
-        self.assertIn('avro-js', package['dependencies'])
+        self.assertEqual(package['dependencies']['avro-js'], '1.12.1')
 
         install = subprocess.run(
             ['npm', 'install', '--ignore-scripts', '--no-audit', '--no-fund'],
             cwd=package_root, capture_output=True, text=True,
             shell=sys.platform == 'win32', timeout=120)
         self.assertEqual(install.returncode, 0, install.stderr)
+        resolved = subprocess.run(
+            ['npm', 'ls', 'avro-js', 'underscore', '--all'],
+            cwd=package_root, capture_output=True, text=True,
+            shell=sys.platform == 'win32', timeout=30)
+        self.assertEqual(resolved.returncode, 0, resolved.stderr or resolved.stdout)
         script = r"""
 const assert = require('assert');
 const zlib = require('zlib');

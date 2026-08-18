@@ -1,5 +1,128 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Adopted repository-specific capability governance based on Avrotize's actual
+  command families, shared Avrotize Schema and JSON Structure semantics,
+  generated language targets, data-platform schemas, inference/validation,
+  access surfaces, and distribution artifacts. The model uses continuous ranked
+  flow, durable responsibility domains, structured contributor intake,
+  exact-head evidence, platform-reported AIC telemetry, empirical GitHub Actions
+  accounting, and deterministic advisory validation. Enforcement is
+  intentionally deferred until existing repository state can satisfy the new
+  checks reliably.
+- Revision-bound intake automation (`tools/governance_intake.py`) preserving
+  deterministic issue identity and registry hints while adding one bounded,
+  zero-tool Copilot semantic-assistance pass over structured or free-form issue
+  text. Strict JSON Schema validation, authority exclusions, registry
+  cross-checking, a fully integrity-locked CLI dependency graph, visibly
+  untrusted suggestion rendering, and quiet human-review fallbacks keep
+  suggestions read-only and non-authoritative.
+- Issue intake workflow (`.github/workflows/issue-intake.yml`) for future issue
+  events. It resolves and verifies an exact trusted processor SHA, records
+  processor, contract, registry, prompt, policy, and output-schema digests, and
+  uses only `contents: read` plus `copilot-requests: write`. No issue mutation
+  permission is granted.
+- Dependabot intake workflow (`.github/workflows/dependabot-intake.yml`) for
+  future `pull_request_target` events. It verifies author and sender identity,
+  binds REST file metadata to the event head before and after retrieval, and
+  never checks out or runs the PR head.
+- Checked-in issue form contract (`.github/governance/issue-form-contract.json`)
+  mapping form types, headings, field IDs, and required semantic fields.
+- JSON Schema definitions for issue and Dependabot intake records under
+  `.github/governance/schemas/`.
+- Validator checks for issue form contract consistency and intake workflow
+  safety (no write permissions, no merge commands).
+- Comprehensive unit tests for intake normalization covering structured,
+  incomplete, free-form, edited, fenced, and Unicode issues; prompt injection,
+  non-JSON/schema/authority output, timeout, AIC guardrail, low-confidence, and
+  unknown-command fallbacks; Dependabot major/multi-ecosystem/non-Dependabot;
+  config mapping; and the authority=false invariant.
+- Guarded reproduction preparation (`.github/workflows/repro-bug.yml`,
+  `tools/governance_repro.py`): a maintainer-requested, revision-bound evidence
+  path for owner-controlled manual reproduction. Ordered `authorize` →
+  `mark-in-progress` → `prepare` → `publish-final` jobs hold least-privilege
+  permissions. No dependency installation, Avrotize execution, reporter fixture
+  materialization, or generated-code execution occurs.
+- Deterministic authorization helper (`tools/governance_authorize.py`) that
+  decides ALLOW/DENY/ERROR from event, action, exact label, actor identity,
+  re-run actor agreement, and the collaborator permission API response before
+  checkout or issue-content processing. Permission API failures fail closed.
+  The immutable snapshot uses repository, issue number, title, body, and
+  cryptographic digests rather than aggregate `issue.updated_at`.
+- Governed reproduction label catalog
+  (`.github/governance/repro-label-catalog.json`) for owner provisioning. No
+  write-capable manual-dispatch reconciliation workflow is included.
+- Standard-library deep JSON Schema subset validator
+  (`tools/governance_schema.py`) used to structurally validate every governance
+  record before it is written, plus schemas for preparation evidence,
+  authorization decisions, and the label catalog.
+- Lightweight contributor forms using progressive disclosure: Bug reports
+  require only the reporter's goal and what happened; feature requests require
+  only the desired outcome or use case; and a one-question fallback accepts
+  anything else. Commands, examples, versions, environments, compatibility
+  notes, and implementation ideas are optional and can be requested later.
+- Static workflow validation covering action version pinning, per-job
+  permissions and timeouts, trusted refs, `persist-credentials`, artifact
+  retention, revision identity, suppressed-failure detection, issue-content
+  interpolation, preparation-only behavior, and contract/workflow parity.
+- Hard-failing exact-head governance CI
+  (`.github/workflows/governance-ci.yml`) running the strict validator and every
+  governance test module on pull-request heads.
+- Source-neutral external Copilot delivery-supervisor contracts for an
+  owner-launched project session. Strict owner delegation, exact policy and
+  prompt digests, ordered READY selection, per-domain WIP, session/receipt
+  binding, exact-head evidence, crash recovery, budgets, immutable audit
+  records, and owner-only merge/release boundaries are validated
+  deterministically without adding a privileged workflow.
+
+### Changed
+
+- Generated JavaScript and TypeScript projects now pin `avro-js` to `1.12.1`,
+  the latest release whose published package declares its required
+  `underscore` runtime dependency. This avoids the broken `1.12.2` package
+  metadata while preserving fresh-install runtime behavior.
+- Rewrote contribution, support, security, issue chooser, pull request, intake
+  summary, reproduction feedback, and label descriptions as welcoming,
+  plain-language participation surfaces. Support is explicitly best-effort and
+  provides no response, review, acceptance, triage, resolution, fix, release,
+  compatibility, availability, maintenance, continued-support, or outcome
+  assurance.
+
+- Removed the former Dependabot auto-merge workflow. Dependabot PRs are intake
+  requiring explicit owner review and never automatic merge candidates.
+- Issue Form headings are now opportunistic deterministic hints rather than a
+  conformance gate. Free-form, API-created, edited, partial, and supplemental
+  issue text remains first-class input for maintainer review.
+- Dependabot intake classifies each matched ecosystem's files with that
+  ecosystem's own manifest and lockfile rules instead of applying one primary
+  ecosystem to every changed file, and records unmatched files explicitly.
+  Dependabot config and capability profile read failures now fail closed.
+- Governance workflows declare per-job permissions and timeouts.
+
+### Fixed
+
+- Guarded reproduction authorization now evaluates the collaborator API's
+  granular `role_name` field. The legacy `permission` field reports maintainers
+  as `write`, so the previous check could never match `maintain` and was
+  admin-only in practice; `permission` is now trusted only for an exact `admin`
+  match, so a plain write collaborator still cannot request preparation.
+- Governance validation no longer raises `TypeError` when
+  `expected_groups` is not an object. It reported the finding and then fell
+  through to iterate the malformed value, which failed the observe job that is
+  required to be non-blocking.
+- Reporter-derived fragments (rejected tokens, unexpected headings, surface
+  errors, produced paths) are collapsed, escaped, and truncated before entering
+  a Markdown step summary, so a reporter cannot forge summary structure.
+- `governance-observe.yml` pins Python with `actions/setup-python` instead of
+  relying on the runner default, and triggers on `main` as well as `master`,
+  matching the other workflows.
+- `governance-observe.yml` no longer passes `--expected-sha`: the job checks out
+  the event SHA, so asserting `HEAD` against that same SHA could not fail. The
+  CLI option remains for verifying a separately claimed revision.
+
 ## [3.9.0] - 2026-07-22
 
 ### Added

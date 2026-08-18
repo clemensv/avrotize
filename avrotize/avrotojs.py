@@ -330,7 +330,7 @@ class AvroToJavaScript:
         package_name = (self.base_package or 'generated-avro-js').replace('.', '-').replace('_', '-').lower()
         dependencies = {}
         if self.avro_annotation:
-            dependencies['avro-js'] = '^1.12.0'
+            dependencies['avro-js'] = '1.12.1'
         if self.xml_annotation:
             dependencies['fast-xml-parser'] = '^5.2.5'
             runtime = process_template('javascript/xml_runtime.js.jinja')

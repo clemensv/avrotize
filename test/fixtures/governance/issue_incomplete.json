@@ -1,0 +1,10 @@
+{
+  "action": "opened",
+  "repository": {"full_name": "clemensv/avrotize"},
+  "sender": {"login": "reporter"},
+  "issue": {
+    "number": 502,
+    "title": "[Bug] Something did not work",
+    "body": "### What were you trying to do?\n\n_No response_\n\n### What happened?\n\nThe command failed.\n\n### Small example or steps (optional)\n\n_No response_\n\n### Where did this happen? (optional)\n\nI'm not sure\n\n### Command or Avrotize area (optional)\n\n_No response_\n\n### Version and environment (optional)\n\n_No response_\n\n### Anything else? (optional)\n\n_No response_"
+  }
+}

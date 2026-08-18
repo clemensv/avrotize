@@ -1,0 +1,8 @@
+{
+  "action": "opened",
+  "issue": {
+    "number": 503,
+    "title": "Can you add support for YAML?",
+    "body": "I would love to be able to convert YAML files. Is that something you could add?\n\nThanks!"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/clemensv/avrotize/schemas/repro-label-catalog.schema.json",
+  "title": "Reproduction Label Catalog",
+  "description": "Machine-readable catalog of the six governed reproduction state labels reconciled on the repository.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "description",
+    "labels"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "labels": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "color",
+          "description",
+          "kind",
+          "outcome"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^repro-[a-z-]{1,32}$"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{6}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "kind": {
+            "enum": [
+              "request",
+              "progress",
+              "terminal"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "",
+              "CONFIRMED",
+              "NOT_REPRODUCED",
+              "BLOCKED",
+              "NEEDS_REVIEW"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

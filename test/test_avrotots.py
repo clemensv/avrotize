@@ -394,6 +394,10 @@ class TestAvroToTypeScript(unittest.TestCase):
         convert_avro_to_typescript(avro_path, ts_path, "addresstypes", 
                                    typedjson_annotation=False, 
                                    avro_annotation=True)
+
+        with open(os.path.join(ts_path, 'package.json'), encoding='utf-8') as package_file:
+            package = json.load(package_file)
+        self.assertEqual(package['dependencies']['avro-js'], '1.12.1')
         
         # Install dependencies
         # Use shell=True on Windows for npm, shell=False on Linux
@@ -402,6 +406,14 @@ class TestAvroToTypeScript(unittest.TestCase):
                                capture_output=True, text=True, shell=use_shell)
         self.assertEqual(result.returncode, 0, 
             f"npm install failed: {result.stderr}")
+
+        result = subprocess.run(
+            ['npm', 'ls', 'avro-js', 'underscore', '--all'], cwd=ts_path,
+            capture_output=True, text=True, shell=use_shell)
+        self.assertEqual(
+            result.returncode, 0,
+            f"Generated TypeScript runtime dependencies are incomplete: "
+            f"{result.stderr or result.stdout}")
         
         # Build the TypeScript project
         result = subprocess.run(['npm', 'run', 'build'], cwd=ts_path,
