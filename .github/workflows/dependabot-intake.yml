@@ -3,104 +3,83 @@ name: Dependabot intake
 on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review]
-  workflow_dispatch:
-    inputs:
-      fixture:
-        description: "Fixture event file (relative to test/fixtures/governance/)"
-        required: true
-        type: choice
-        options:
-          - dependabot_python_major.json
-          - dependabot_multi_ecosystem.json
-          - dependabot_non_dependabot.json
 
-permissions:
-  contents: read
-  pull-requests: read
+permissions: {}
 
 concurrency:
-  group: dependabot-intake-${{ github.event.pull_request.number || inputs.fixture }}
+  group: dependabot-intake-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   normalize:
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.sender.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.pull_request.user.login == 'dependabot[bot]'
     steps:
-      - name: Checkout base (trusted code only)
+      - name: Checkout exact trusted base revision
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 1
           persist-credentials: false
+
+      - name: Verify processor revision
+        env:
+          PROCESSOR_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${PROCESSOR_SHA}"
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - name: Prepare event payload
-        id: event
+      - name: Retrieve head-bound metadata
         env:
-          REAL_EVENT: ${{ toJSON(github.event) }}
-          FIXTURE: ${{ inputs.fixture }}
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+          REAL_EVENT: ${{ toJSON(github.event) }}
         run: |
-          if [ -n "$FIXTURE" ]; then
-            cp "test/fixtures/governance/$FIXTURE" event.json
-            # Use fixture files list if it exists
-            fixture_files="${FIXTURE%.json}_files.json"
-            if [ -f "test/fixtures/governance/$fixture_files" ]; then
-              cp "test/fixtures/governance/$fixture_files" files.json
-            else
-              echo "[]" > files.json
-            fi
-            echo "source=fixture" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          printf '%s' "${REAL_EVENT}" > raw-event.json
+          head_before=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          if [ "${head_before}" = "${EVENT_HEAD}" ]; then
+            gh api --paginate --slurp "repos/${REPO}/pulls/${PR_NUMBER}/files" > files.json
           else
-            printf '%s' "$REAL_EVENT" > event.json
-            # gh api --paginate --slurp produces [[page1], [page2]...]
-            # Python normalizer handles flattening internally
-            gh api --paginate --slurp \
-              "repos/$REPO/pulls/$PR_NUMBER/files" > files.json
-            echo "source=live" >> "$GITHUB_OUTPUT"
+            printf '[]\n' > files.json
           fi
+          head_after=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          jq --arg before "${head_before}" --arg after "${head_after}" \
+            '. + {intake_observation: {head_before: $before, head_after: $after}}' \
+            raw-event.json > event.json
 
-      - name: Emit event identity
+      - name: Normalize Dependabot intake
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number || '0' }}
-          EVENT_ACTION: ${{ github.event.action || 'workflow_dispatch' }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || 'fixture' }}
+          PROCESSOR_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          echo "### Event Identity" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- PR: #${PR_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Action: ${EVENT_ACTION}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Source: ${{ steps.event.outputs.source }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Head SHA: ${HEAD_SHA:0:12}..." >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Run intake normalizer
-        run: |
+          set -euo pipefail
           python tools/governance_intake.py dependabot \
             --event event.json \
             --files files.json \
+            --processor-sha "${PROCESSOR_SHA}" \
             --output-json intake-record.json \
             --output-md intake-summary.md
+          cat intake-summary.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Write step summary
-        run: cat intake-summary.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload intake artifact
+      - name: Upload head-bound intake
         uses: actions/upload-artifact@v7
         with:
-          name: dependabot-intake-${{ github.event.pull_request.number || inputs.fixture }}
+          name: dependabot-intake-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
           path: |
             intake-record.json
             intake-summary.md
-          retention-days: 14
+          retention-days: 30
+          if-no-files-found: error

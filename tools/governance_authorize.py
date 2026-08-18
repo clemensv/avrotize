@@ -8,7 +8,8 @@ without GitHub, without a checkout, and without reading issue content.
 Subcommands
 -----------
 ``evaluate``   Decide ALLOW / DENY / ERROR from event, actor, and permission API data.
-``metadata``   Derive issue identity facts (digest, revision, URL) after authorization.
+``snapshot``   Capture immutable issue title/body content after authorization.
+``verify``     Recompute and compare the current issue content before preparation.
 
 Exit codes for ``evaluate``: ``0`` ALLOW, ``10`` DENY, ``20`` ERROR. ``ERROR``
 means the decision could not be made (API failure or malformed response) and the
@@ -138,7 +139,8 @@ def evaluate(request: dict[str, Any]) -> dict[str, Any]:
 
     event_name = _clean(request.get("event_name"))
     action = _clean(request.get("action"))
-    label_name = _clean(request.get("label_name"))
+    label_value = request.get("label_name")
+    label_name = label_value if isinstance(label_value, str) else ""
     sender_login = _clean(request.get("sender_login"))
     workflow_actor = _clean(request.get("actor"))
     triggering_actor = _clean(request.get("triggering_actor"))
@@ -164,15 +166,6 @@ def evaluate(request: dict[str, Any]) -> dict[str, Any]:
             reason_code = "ACTOR_MISSING"
         elif workflow_actor and workflow_actor != actor:
             reason_code = "ACTOR_AMBIGUOUS"
-        elif issue_number is None:
-            reason_code = "ISSUE_NUMBER_INVALID"
-        else:
-            reason_code = ""
-    elif event_name == "workflow_dispatch":
-        actor = workflow_actor
-        issue_number = _coerce_issue_number(request.get("issue_number_input"))
-        if not actor:
-            reason_code = "ACTOR_MISSING"
         elif issue_number is None:
             reason_code = "ISSUE_NUMBER_INVALID"
         else:
@@ -252,8 +245,17 @@ def render_summary(record: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build_metadata(issue: dict[str, Any], expected_issue_number: int) -> dict[str, Any]:
-    """Derive issue identity facts. Never parses or classifies issue content."""
+def build_snapshot(
+    issue: dict[str, Any],
+    expected_issue_number: int,
+    repository: str,
+) -> dict[str, Any]:
+    """Capture the immutable content facts authorized for preparation.
+
+    GitHub updates ``issue.updated_at`` for label and comment mutations, so it
+    cannot represent the protected reporter-authored revision. The snapshot is
+    bound only to repository, issue number, title, and body.
+    """
     if not isinstance(issue, dict):
         raise AuthorizationInputError("issue payload must be a JSON object")
     number = _coerce_issue_number(issue.get("number"))
@@ -265,15 +267,61 @@ def build_metadata(issue: dict[str, Any], expected_issue_number: int) -> dict[st
         )
     if "pull_request" in issue:
         raise AuthorizationInputError("requested item is a pull request, not an issue")
+    repository = _clean(repository)
+    if not repository:
+        raise AuthorizationInputError("repository identity is required")
+    title = issue.get("title")
     body = issue.get("body")
+    title_text = title if isinstance(title, str) else ""
     body_text = body if isinstance(body, str) else ""
+    canonical = json.dumps(
+        {
+            "repository": repository,
+            "issue_number": number,
+            "title": title_text,
+            "body": body_text,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
     return {
+        "schema_version": 1,
+        "record_kind": "repro-content-snapshot",
+        "repository": repository,
         "issue_number": number,
         "issue_url": issue.get("html_url") if isinstance(issue.get("html_url"), str) else "",
         "issue_state": issue.get("state") if isinstance(issue.get("state"), str) else "",
-        "issue_updated_at": issue.get("updated_at") if isinstance(issue.get("updated_at"), str) else "",
-        "issue_body_digest": _sha256_text(body_text),
-        "issue_body_bytes": len(body_text.encode("utf-8")),
+        "title": title_text,
+        "body": body_text,
+        "title_digest": _sha256_text(title_text),
+        "body_digest": _sha256_text(body_text),
+        "content_digest": _sha256_text(canonical),
+        "title_bytes": len(title_text.encode("utf-8")),
+        "body_bytes": len(body_text.encode("utf-8")),
+    }
+
+
+def verify_snapshot(issue: dict[str, Any], snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Compare current title/body content to the authorized immutable snapshot."""
+    if not isinstance(snapshot, dict):
+        raise AuthorizationInputError("authorized snapshot must be a JSON object")
+    expected_number = _coerce_issue_number(snapshot.get("issue_number"))
+    if expected_number is None:
+        raise AuthorizationInputError("authorized snapshot has no usable issue number")
+    current = build_snapshot(issue, expected_number, _clean(snapshot.get("repository")))
+    fields = ("repository", "issue_number", "title_digest", "body_digest", "content_digest")
+    matches = all(current.get(field) == snapshot.get(field) for field in fields)
+    return {
+        "matches": matches,
+        "repository": current["repository"],
+        "issue_number": current["issue_number"],
+        "title_digest": current["title_digest"],
+        "body_digest": current["body_digest"],
+        "content_digest": current["content_digest"],
+        "authorized_title_digest": snapshot.get("title_digest", ""),
+        "authorized_body_digest": snapshot.get("body_digest", ""),
+        "authorized_content_digest": snapshot.get("content_digest", ""),
     }
 
 
@@ -311,10 +359,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     evaluate_parser.add_argument("--output-json", type=Path)
     evaluate_parser.add_argument("--output-markdown", type=Path)
 
-    metadata_parser = subparsers.add_parser("metadata", help="Derive authorized issue identity facts.")
-    metadata_parser.add_argument("--issue", required=True, type=Path)
-    metadata_parser.add_argument("--expected-issue-number", type=int, default=0)
-    metadata_parser.add_argument("--output-json", type=Path)
+    snapshot_parser = subparsers.add_parser("snapshot", help="Capture authorized issue content.")
+    snapshot_parser.add_argument("--issue", required=True, type=Path)
+    snapshot_parser.add_argument("--expected-issue-number", type=int, required=True)
+    snapshot_parser.add_argument("--repository", required=True)
+    snapshot_parser.add_argument("--output-json", type=Path)
+
+    verify_parser = subparsers.add_parser("verify", help="Verify current issue content against a snapshot.")
+    verify_parser.add_argument("--issue", required=True, type=Path)
+    verify_parser.add_argument("--snapshot", required=True, type=Path)
+    verify_parser.add_argument("--output-json", type=Path)
 
     args = parser.parse_args(argv)
 
@@ -334,8 +388,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_ERROR
 
     issue = json.loads(args.issue.read_text(encoding="utf-8"))
-    metadata = build_metadata(issue, args.expected_issue_number)
-    payload = json.dumps(metadata, indent=2) + "\n"
+    if args.mode == "snapshot":
+        output = build_snapshot(issue, args.expected_issue_number, args.repository)
+    else:
+        snapshot = json.loads(args.snapshot.read_text(encoding="utf-8"))
+        output = verify_snapshot(issue, snapshot)
+    payload = json.dumps(output, indent=2) + "\n"
     if args.output_json:
         args.output_json.parent.mkdir(parents=True, exist_ok=True)
         args.output_json.write_text(payload, encoding="utf-8")

@@ -10,6 +10,7 @@ Standard library only. Outputs versioned JSON records and Markdown summaries.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import re
@@ -25,6 +26,8 @@ from tools import governance_schema  # noqa: E402  (path bootstrap above enables
 
 ISSUE_FORM_CONTRACT = REPO_ROOT / ".github" / "governance" / "issue-form-contract.json"
 COMMANDS_JSON = REPO_ROOT / "avrotize" / "commands.json"
+MCP_SERVER = REPO_ROOT / "avrotize" / "mcp_server.py"
+VSCODE_PACKAGE = REPO_ROOT / "vscode" / "avrotize" / "package.json"
 DEPENDABOT_CONFIG = REPO_ROOT / ".github" / "dependabot.yml"
 CAPABILITIES_JSON = REPO_ROOT / ".github" / "governance" / "avrotize-capabilities.json"
 SCHEMA_DIR = REPO_ROOT / ".github" / "governance" / "schemas"
@@ -35,10 +38,6 @@ AUTHORITY_STATEMENT = (
     "Intake normalization does not authorize implementation, schedule work, "
     "approve compatibility, or permit merge. Repository owner retains authority."
 )
-
-# Supported surface options from the issue form contract (substring match)
-_SUPPORTED_SURFACE_TOKENS = {"cli", "python", "mcp", "vs code", "vscode"}
-
 
 # ---------------------------------------------------------------------------
 # Utilities
@@ -83,19 +82,123 @@ def _load_json_strict(path: Path) -> Any:
     return json.loads(text)
 
 
-def _load_commands() -> set[str]:
-    """Load known command names from commands.json. Corrupt registry = hard fail."""
+def _load_command_entries() -> list[dict[str, Any]]:
+    """Load complete command entries from commands.json."""
     if not COMMANDS_JSON.is_file():
         raise RuntimeError(f"Commands registry not found: {COMMANDS_JSON}")
     data = _load_json_strict(COMMANDS_JSON)
     if not isinstance(data, list):
         raise RuntimeError(f"Commands registry is not an array: {COMMANDS_JSON}")
-    result: set[str] = set()
     for item in data:
-        if not isinstance(item, dict) or "command" not in item:
+        if (
+            not isinstance(item, dict)
+            or not isinstance(item.get("command"), str)
+            or not isinstance(item.get("function"), dict)
+            or not isinstance(item["function"].get("name"), str)
+        ):
             raise RuntimeError(f"Corrupt entry in commands registry: {item!r}")
-        result.add(item["command"])
-    return result
+    return data
+
+
+def _load_commands() -> set[str]:
+    """Load exact CLI command names from commands.json."""
+    return {item["command"] for item in _load_command_entries()}
+
+
+def _load_surface_registry() -> dict[str, dict[str, str]]:
+    """Build exact surface identifiers from authoritative checked-in registries.
+
+    Each value maps a case-sensitive accepted identifier to its canonical CLI
+    command when one exists, or to an empty string for non-transform MCP tools.
+    """
+    entries = _load_command_entries()
+    cli = {item["command"]: item["command"] for item in entries}
+    python_api: dict[str, str] = {}
+    for item in entries:
+        function_name = item["function"]["name"]
+        python_api[function_name] = item["command"]
+        python_api[function_name.rsplit(".", 1)[-1]] = item["command"]
+
+    if not MCP_SERVER.is_file():
+        raise RuntimeError(f"MCP server registry not found: {MCP_SERVER}")
+    try:
+        tree = ast.parse(MCP_SERVER.read_text(encoding="utf-8"), filename=str(MCP_SERVER))
+    except SyntaxError as exc:
+        raise RuntimeError(f"MCP server registry is not valid Python: {exc}") from exc
+    mcp_tools: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        is_tool = any(
+            isinstance(decorator, ast.Call)
+            and isinstance(decorator.func, ast.Attribute)
+            and decorator.func.attr == "tool"
+            for decorator in node.decorator_list
+        )
+        if is_tool:
+            mcp_tools[node.name] = node.name
+
+    vscode_data = _load_json_strict(VSCODE_PACKAGE)
+    try:
+        menu_items = vscode_data["contributes"]["menus"]["convertSubmenu"]
+    except (KeyError, TypeError) as exc:
+        raise RuntimeError("VS Code package lacks the Convert to command registry") from exc
+    if not isinstance(menu_items, list):
+        raise RuntimeError("VS Code Convert to command registry is not an array")
+    vscode: dict[str, str] = {}
+    for item in menu_items:
+        if not isinstance(item, dict) or not isinstance(item.get("command"), str):
+            raise RuntimeError(f"Corrupt VS Code command entry: {item!r}")
+        command_id = item["command"]
+        canonical = command_id.removeprefix("avrotize.")
+        if canonical not in cli:
+            raise RuntimeError(f"VS Code command is absent from commands.json: {command_id}")
+        vscode[command_id] = canonical
+        title = item.get("title")
+        if isinstance(title, str) and title:
+            vscode[f"Convert to > {title}"] = canonical
+
+    generated = dict(cli)
+    generated.update(python_api)
+    generated.update(vscode)
+    return {
+        "Avrotize CLI": cli,
+        "Structurize CLI": cli,
+        "Python API": python_api,
+        "MCP server": mcp_tools,
+        "VS Code extension": vscode,
+        "Generated project or code": generated,
+        "": generated | mcp_tools,
+    }
+
+
+_CALLABLE_IDENTIFIER_RE = re.compile(
+    r"^([A-Za-z_][A-Za-z0-9_.]*)(?:\s*\([^()\r\n]*\))?$"
+)
+_CLI_IDENTIFIER_RE = re.compile(
+    r"^(?:(?:avrotize|structurize)\s+)?([a-z][a-z0-9-]*)$"
+)
+
+
+def _canonical_command(
+    value: str | None, surface: str | None, registry: dict[str, dict[str, str]]
+) -> str | None:
+    """Resolve an exact surface identifier without substring or fuzzy matching."""
+    if not value:
+        return None
+    identifier = value.strip()
+    surface_registry = registry.get(surface or "", {})
+    if identifier in surface_registry:
+        return surface_registry[identifier]
+
+    cli_match = _CLI_IDENTIFIER_RE.fullmatch(identifier)
+    if cli_match and cli_match.group(1) in surface_registry:
+        return surface_registry[cli_match.group(1)]
+
+    callable_match = _CALLABLE_IDENTIFIER_RE.fullmatch(identifier)
+    if callable_match and callable_match.group(1) in surface_registry:
+        return surface_registry[callable_match.group(1)]
+    return None
 
 
 def _load_issue_form_contract() -> dict[str, Any]:
@@ -172,17 +275,44 @@ def _is_placeholder(value: str) -> bool:
 
 
 def _parse_issue_body(body: str) -> dict[str, str]:
-    """Parse GitHub Issue Form rendered body into heading->content map."""
+    """Parse rendered Issue Form sections without treating fenced content as headings."""
     sections: dict[str, str] = {}
-    headings = list(_HEADING_RE.finditer(body))
-    for i, match in enumerate(headings):
-        heading = match.group(1).strip()
-        start = match.end()
-        end = headings[i + 1].start() if i + 1 < len(headings) else len(body)
-        content = body[start:end].strip()
-        if content == "_No response_":
-            content = ""
-        sections[heading] = content
+    heading = ""
+    content: list[str] = []
+    fence_marker = ""
+
+    def store() -> None:
+        if not heading:
+            return
+        value = "\n".join(content).strip()
+        if value == "_No response_":
+            value = ""
+        if heading in sections:
+            sections[f"__duplicate_heading__:{heading}"] = value
+        else:
+            sections[heading] = value
+
+    for line in body.splitlines():
+        stripped = line.lstrip()
+        if fence_marker:
+            content.append(line)
+            if stripped.startswith(fence_marker):
+                fence_marker = ""
+            continue
+        fence = re.match(r"^(`{3,}|~{3,})", stripped)
+        if fence:
+            fence_marker = fence.group(1)[0] * len(fence.group(1))
+            content.append(line)
+            continue
+        match = re.fullmatch(r"### (.+)", line)
+        if match:
+            store()
+            heading = match.group(1).strip()
+            content = []
+            continue
+        if heading:
+            content.append(line)
+    store()
     return sections
 
 
@@ -205,7 +335,7 @@ def _heading_to_field_id(heading: str, form_spec: dict[str, Any]) -> str | None:
     return None
 
 
-def _resolve_semantic_paths(command: str | None, surface: str | None, known_commands: set[str]) -> list[str]:
+def _resolve_semantic_paths(command: str | None, surface: str | None) -> list[str]:
     """Determine which semantic paths a command/surface touches."""
     if not command:
         return []
@@ -225,14 +355,17 @@ def _resolve_semantic_paths(command: str | None, surface: str | None, known_comm
     return paths
 
 
-def _validate_surface(surface: str | None) -> tuple[bool, str | None]:
-    """Validate surface contains a recognized token."""
+def _validate_surface(surface: str | None, contract: dict[str, Any]) -> tuple[bool, str | None]:
+    """Validate a surface against the exact checked-in Issue Form choices."""
     if not surface:
         return True, None
-    lower = surface.strip().lower()
-    if any(token in lower for token in _SUPPORTED_SURFACE_TOKENS):
+    choices = contract.get("surface_choices")
+    if not isinstance(choices, list) or not choices or not all(isinstance(choice, str) for choice in choices):
+        raise RuntimeError("Issue form contract lacks surface_choices")
+    value = surface.strip()
+    if value in choices:
         return True, None
-    return False, f"unsupported surface: {surface.strip()}"
+    return False, f"unsupported surface: {value}"
 
 
 def _analyze_heading_set(sections: dict[str, str], form_spec: dict[str, Any]) -> tuple[list[str], list[str], list[str]]:
@@ -272,7 +405,7 @@ def _normalize_expected_result(choice: str, contract: dict[str, Any]) -> tuple[s
     return raw, kind
 
 
-def normalize_issue(event_json: str) -> tuple[dict[str, Any], str]:
+def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> tuple[dict[str, Any], str]:
     """Normalize an issue event into a record and markdown summary.
 
     Returns (record_dict, markdown_str).
@@ -280,7 +413,7 @@ def normalize_issue(event_json: str) -> tuple[dict[str, Any], str]:
     """
     event = json.loads(event_json)
     contract = _load_issue_form_contract()
-    known_commands = _load_commands()
+    surface_registry = _load_surface_registry()
 
     issue = event.get("issue", event)
     title = issue.get("title", "")
@@ -292,7 +425,28 @@ def normalize_issue(event_json: str) -> tuple[dict[str, Any], str]:
     sender = event.get("sender", {}).get("login", "")
 
     body_digest = _sha256(body)
-    source_digest = _sha256(event_json)
+    title_digest = _sha256(title)
+    contract_text = ISSUE_FORM_CONTRACT.read_text(encoding="utf-8")
+    commands_text = COMMANDS_JSON.read_text(encoding="utf-8")
+    capabilities_text = CAPABILITIES_JSON.read_text(encoding="utf-8")
+    contract_digest = _sha256(contract_text)
+    command_registry_digest = _sha256(commands_text)
+    capability_digest = _sha256(capabilities_text)
+    surface_registry_digest = _sha256(
+        json.dumps(surface_registry, sort_keys=True, separators=(",", ":"))
+    )
+    source_digest = _sha256(
+        ":".join(
+            (
+                _sha256(event_json),
+                processor_sha,
+                contract_digest,
+                command_registry_digest,
+                capability_digest,
+                surface_registry_digest,
+            )
+        )
+    )
 
     form_type, form_spec = _detect_form_type(title, contract)
 
@@ -345,7 +499,7 @@ def normalize_issue(event_json: str) -> tuple[dict[str, Any], str]:
             # Validate surface option
             surface_val = field_values.get("surface", "")
             if surface_val:
-                valid, err = _validate_surface(surface_val)
+                valid, err = _validate_surface(surface_val, contract)
                 if not valid:
                     surface_error = err
 
@@ -359,25 +513,20 @@ def normalize_issue(event_json: str) -> tuple[dict[str, Any], str]:
                 status = "complete"
 
             # Extract normalized facts
-            cmd_raw = field_values.get("command", "")
-            if cmd_raw and not _is_placeholder(cmd_raw):
-                normalized["command"] = cmd_raw
-                # Extract command token with flag awareness
-                tokens = cmd_raw.strip().split(",")[0].strip().split()
-                cmd_tokens = [t for t in tokens if not t.startswith("-") and t != "avrotize" and t != "python" and t != "-m"]
-                cmd_token = cmd_tokens[0] if cmd_tokens else ""
-                if "." in cmd_token:
-                    parts = cmd_token.split(".")
-                    cmd_token = parts[-1] if len(parts) > 1 else cmd_token
-                normalized["command_known"] = cmd_token in known_commands or any(
-                    cmd_token in c for c in known_commands
-                )
-
             surface_raw = field_values.get("surface") or None
             if surface_raw and not _is_placeholder(surface_raw):
                 normalized["surface"] = surface_raw
+            cmd_raw = field_values.get("command", "")
+            if cmd_raw and not _is_placeholder(cmd_raw):
+                normalized["command"] = cmd_raw
+                canonical_command = _canonical_command(
+                    cmd_raw, normalized["surface"], surface_registry
+                )
+                normalized["command_known"] = canonical_command is not None
+            else:
+                canonical_command = None
             normalized["semantic_paths"] = _resolve_semantic_paths(
-                normalized["command"], normalized["surface"], known_commands
+                canonical_command or normalized["command"], normalized["surface"]
             )
             normalized["source_representation"] = field_values.get("input") or None
             normalized["result_representation"] = field_values.get("output") or None
@@ -409,7 +558,13 @@ def normalize_issue(event_json: str) -> tuple[dict[str, Any], str]:
             "url": url,
             "event_type": action,
             "sender": sender,
+            "processor_sha": processor_sha,
+            "title_digest": title_digest,
             "body_digest": body_digest,
+            "contract_digest": contract_digest,
+            "command_registry_digest": command_registry_digest,
+            "capability_digest": capability_digest,
+            "surface_registry_digest": surface_registry_digest,
             "source_digest": source_digest,
             "update": action in ("edited", "reopened"),
         },
@@ -486,6 +641,8 @@ def _parse_dependabot_config(config_path: Path | None = None) -> list[dict[str, 
             current = {"package-ecosystem": eco, "directory": "/"}
         elif stripped.startswith("directory:") and current is not None:
             current["directory"] = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+        elif stripped.startswith("prefix:") and current is not None:
+            current["prefix"] = stripped.split(":", 1)[1].strip().strip('"').strip("'")
     if current is not None:
         entries.append(current)
     if not entries:
@@ -514,26 +671,28 @@ _ECOSYSTEM_LOCKFILES: dict[str, list[str]] = {
     "cargo": ["Cargo.lock"],
 }
 
-# Directory -> domain mapping
-_DIRECTORY_DOMAIN: dict[str, list[str]] = {
-    "/": ["root-python-package"],
-    "/avrotize/dependencies/python/py312": ["generated-output", "toolchain"],
-    "/avrotize/dependencies/cs/net100": ["generated-output", "toolchain"],
-    "/avrotize/dependencies/java/jdk21": ["generated-output", "toolchain"],
-    "/avrotize/dependencies/typescript/node22": ["generated-output", "toolchain"],
-    "/avrotize/dependencies/go/go121": ["generated-output", "toolchain"],
-    "/avrotize/dependencies/rust/stable": ["generated-output", "toolchain"],
+# Ecosystem/directory -> domain mapping. Multiple ecosystems intentionally share
+# "/" in dependabot.yml, so directory alone is not a stable classifier.
+_ENTRY_DOMAIN: dict[tuple[str, str], list[str]] = {
+    ("pip", "/"): ["root-python-package"],
+    ("github-actions", "/"): ["ci"],
+    ("pip", "/avrotize/dependencies/python/py312"): ["generated-output", "toolchain"],
+    ("nuget", "/avrotize/dependencies/cs/net100"): ["generated-output", "toolchain"],
+    ("maven", "/avrotize/dependencies/java/jdk21"): ["generated-output", "toolchain"],
+    ("npm", "/avrotize/dependencies/typescript/node22"): ["generated-output", "toolchain"],
+    ("gomod", "/avrotize/dependencies/go/go121"): ["generated-output", "toolchain"],
+    ("cargo", "/avrotize/dependencies/rust/stable"): ["generated-output", "toolchain"],
 }
 
-# Directory -> exposure categories
-_DIRECTORY_EXPOSURE: dict[str, list[str]] = {
-    "/": ["runtime", "build", "test"],
-    "/avrotize/dependencies/python/py312": ["generated-output", "toolchain", "compiler-runtime-test"],
-    "/avrotize/dependencies/cs/net100": ["generated-output", "toolchain", "compiler-runtime-test"],
-    "/avrotize/dependencies/java/jdk21": ["generated-output", "toolchain", "compiler-runtime-test"],
-    "/avrotize/dependencies/typescript/node22": ["generated-output", "toolchain", "compiler-runtime-test"],
-    "/avrotize/dependencies/go/go121": ["generated-output", "toolchain", "compiler-runtime-test"],
-    "/avrotize/dependencies/rust/stable": ["generated-output", "toolchain", "compiler-runtime-test"],
+_ENTRY_EXPOSURE: dict[tuple[str, str], list[str]] = {
+    ("pip", "/"): ["runtime", "build", "test"],
+    ("github-actions", "/"): ["ci"],
+    ("pip", "/avrotize/dependencies/python/py312"): ["generated-output", "toolchain", "compiler-runtime-test"],
+    ("nuget", "/avrotize/dependencies/cs/net100"): ["generated-output", "toolchain", "compiler-runtime-test"],
+    ("maven", "/avrotize/dependencies/java/jdk21"): ["generated-output", "toolchain", "compiler-runtime-test"],
+    ("npm", "/avrotize/dependencies/typescript/node22"): ["generated-output", "toolchain", "compiler-runtime-test"],
+    ("gomod", "/avrotize/dependencies/go/go121"): ["generated-output", "toolchain", "compiler-runtime-test"],
+    ("cargo", "/avrotize/dependencies/rust/stable"): ["generated-output", "toolchain", "compiler-runtime-test"],
 }
 
 # Expanded path-based domain resolution
@@ -579,9 +738,20 @@ def _parse_dependabot_body_metadata(body: str) -> list[dict[str, str]]:
     return deps
 
 
-def _parse_dependabot_title(title: str) -> list[dict[str, Any]]:
+def _strip_dependabot_prefix(title: str, configured_prefixes: Sequence[str]) -> tuple[str, str]:
+    for prefix in sorted(configured_prefixes, key=len, reverse=True):
+        marker = f"{prefix}:"
+        if title.lower().startswith(marker.lower()):
+            return title[len(marker):].strip(), prefix
+    return title.strip(), ""
+
+
+def _parse_dependabot_title(
+    title: str, configured_prefixes: Sequence[str] = ()
+) -> list[dict[str, Any]]:
     """Extract dependency name and versions from Dependabot PR title."""
     deps: list[dict[str, Any]] = []
+    title, _ = _strip_dependabot_prefix(title, configured_prefixes)
     # Single dependency bump
     m = re.match(
         r"(?:Bump|Update)\s+(.+?)\s+(?:requirement\s+)?from\s+[~>=<]*\s*(\S+)\s+to\s+[~>=<]*\s*(\S+)",
@@ -778,7 +948,7 @@ def _determine_dependency_type(
 
 
 def _resolve_domains_and_exposure(
-    directory: str, changed_files: list[str]
+    ecosystem: str, directory: str, changed_files: list[str]
 ) -> tuple[list[str], list[str], list[str]]:
     """Resolve domains, exposure, and required validation scope from actual paths.
 
@@ -789,9 +959,10 @@ def _resolve_domains_and_exposure(
     validation: set[str] = set()
 
     # Base from directory
-    dir_domains = _DIRECTORY_DOMAIN.get(directory, ["root-python-package"])
+    entry_key = (ecosystem, directory)
+    dir_domains = _ENTRY_DOMAIN.get(entry_key, ["dependency-management"])
     domains.update(dir_domains)
-    dir_exposure = _DIRECTORY_EXPOSURE.get(directory, ["runtime"])
+    dir_exposure = _ENTRY_EXPOSURE.get(entry_key, ["runtime"])
     exposure.update(dir_exposure)
 
     # Expand from actual file paths
@@ -823,21 +994,32 @@ def _resolve_domains_and_exposure(
     return sorted(domains), sorted(exposure), sorted(validation)
 
 
-def _identity_checks(pr: dict[str, Any]) -> dict[str, Any]:
+def _identity_checks(
+    pr: dict[str, Any],
+    sender: str,
+    configured_prefixes: Sequence[str],
+) -> dict[str, Any]:
     """Compute Dependabot identity metadata checks."""
     author = pr.get("user", {}).get("login", "")
     head_ref = pr.get("head", {}).get("ref", "")
     title = pr.get("title", "")
+    stripped_title, prefix = _strip_dependabot_prefix(title, configured_prefixes)
     return {
         "author_is_dependabot_bot": author == "dependabot[bot]",
+        "sender_is_dependabot_bot": sender == "dependabot[bot]",
         "head_ref_prefix": head_ref.startswith("dependabot/"),
         "title_matches_pattern": bool(re.match(
-            r"^(Bump|Update)\s+", title, re.IGNORECASE
+            r"^(Bump|Update)\s+", stripped_title, re.IGNORECASE
         )),
+        "configured_title_prefix": prefix,
     }
 
 
-def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, Any], str]:
+def normalize_dependabot(
+    event_json: str,
+    files_json: str,
+    processor_sha: str = "local-worktree",
+) -> tuple[dict[str, Any], str]:
     """Normalize a Dependabot PR event into a record and markdown summary.
 
     Identity: requires pull_request.user.login == "dependabot[bot]".
@@ -858,17 +1040,28 @@ def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, An
     repository = event.get("repository", {}).get("full_name", "")
     sender = event.get("sender", {}).get("login", "")
     body = pr.get("body", "") or ""
+    observation = event.get("intake_observation", {})
 
     # Flatten paginated files
     flat_files = _flatten_paginated_files(files_data)
-    changed_filenames = [f.get("filename", "") for f in flat_files if f.get("filename")]
-
-    # Identity: ONLY author login determines Dependabot identity
-    is_dependabot = (author == "dependabot[bot]")
-    identity_checks = _identity_checks(pr)
+    stable_file_metadata = [
+        {
+            "filename": str(info.get("filename") or ""),
+            "previous_filename": info.get("previous_filename"),
+            "status": str(info.get("status") or "unknown"),
+            "sha": str(info.get("sha") or ""),
+            "additions": int(info.get("additions") or 0),
+            "deletions": int(info.get("deletions") or 0),
+            "changes": int(info.get("changes") or 0),
+        }
+        for info in flat_files
+        if info.get("filename")
+    ]
 
     # Compute digests
-    files_digest = _sha256(json.dumps(changed_filenames, sort_keys=True))
+    files_digest = _sha256(
+        json.dumps(stable_file_metadata, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    )
     if not DEPENDABOT_CONFIG.is_file():
         raise RuntimeError(f"Dependabot config not found: {DEPENDABOT_CONFIG}")
     config_text = DEPENDABOT_CONFIG.read_text(encoding="utf-8")
@@ -877,7 +1070,23 @@ def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, An
         raise RuntimeError(f"Capability profile not found: {CAPABILITIES_JSON}")
     capabilities_text = CAPABILITIES_JSON.read_text(encoding="utf-8")
     capability_digest = _sha256(capabilities_text)
-    combined_source = f"{source_digest}:{files_digest}:{config_digest}:{capability_digest}"
+    config_entries = _parse_dependabot_config()
+    configured_prefixes = [
+        entry["prefix"] for entry in config_entries if isinstance(entry.get("prefix"), str)
+    ]
+    identity_checks = _identity_checks(pr, sender, configured_prefixes)
+    is_dependabot = (
+        identity_checks["author_is_dependabot_bot"]
+        and identity_checks["sender_is_dependabot_bot"]
+    )
+    observed_before = str(observation.get("head_before") or head_sha)
+    observed_after = str(observation.get("head_after") or head_sha)
+    head_verified_before = observed_before == head_sha
+    head_verified_after = observed_after == head_sha
+    combined_source = (
+        f"{source_digest}:{files_digest}:{config_digest}:{capability_digest}:"
+        f"{processor_sha}:{observed_before}:{observed_after}"
+    )
     combined_digest = _sha256(combined_source)
 
     if not is_dependabot:
@@ -893,7 +1102,12 @@ def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, An
                 "base_sha": base_sha,
                 "author": author,
                 "sender": sender,
+                "processor_sha": processor_sha,
                 "identity_checks": identity_checks,
+                "observed_head_before": observed_before,
+                "observed_head_after": observed_after,
+                "head_verified_before": head_verified_before,
+                "head_verified_after": head_verified_after,
                 "files_digest": files_digest,
                 "config_digest": config_digest,
                 "capability_digest": capability_digest,
@@ -921,8 +1135,50 @@ def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, An
         )
         return record, markdown
 
-    # Parse config
-    config_entries = _parse_dependabot_config()
+    if not head_verified_before or not head_verified_after:
+        record = {
+            "schema_version": 1,
+            "record_kind": "dependabot-intake",
+            "pr_number": number,
+            "event_identity": {
+                "pr_number": number,
+                "repository": repository,
+                "event_type": action,
+                "head_sha": head_sha,
+                "base_sha": base_sha,
+                "author": author,
+                "sender": sender,
+                "processor_sha": processor_sha,
+                "identity_checks": identity_checks,
+                "observed_head_before": observed_before,
+                "observed_head_after": observed_after,
+                "head_verified_before": head_verified_before,
+                "head_verified_after": head_verified_after,
+                "files_digest": files_digest,
+                "config_digest": config_digest,
+                "capability_digest": capability_digest,
+                "source_digest": combined_digest,
+            },
+            "classification": {
+                "is_dependabot": True,
+                "status": "superseded",
+                "reason": "head-changed-during-retrieval",
+                "missing_info": ["stable-head"],
+            },
+            "normalized_facts": {},
+            "authority": {"authorized": False, "statement": AUTHORITY_STATEMENT},
+        }
+        _validate_or_raise(record, DEPENDABOT_RECORD_SCHEMA, "dependabot intake record")
+        markdown = (
+            "## Dependabot Intake Summary\n\n"
+            f"- **PR**: #{number}\n"
+            "- **Status**: superseded; head changed during metadata retrieval\n"
+            f"- **Event head**: `{head_sha}`\n"
+            f"- **Before files**: `{observed_before}`\n"
+            f"- **After files**: `{observed_after}`\n\n"
+            f"> {AUTHORITY_STATEMENT}\n"
+        )
+        return record, markdown
 
     # Assign every changed file to its own most-specific ecosystem entry
     assignments, unmatched_files = _assign_files_to_entries(flat_files, config_entries)
@@ -938,7 +1194,7 @@ def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, An
     multi_ecosystem = len({entry["package-ecosystem"] for entry in matched_entries}) > 1
 
     # Parse dependencies from title and body
-    deps_from_title = _parse_dependabot_title(title)
+    deps_from_title = _parse_dependabot_title(title, configured_prefixes)
     body_metadata = _parse_dependabot_body_metadata(body)
 
     # Per-ecosystem classification: each matched entry classifies only its own files
@@ -960,7 +1216,7 @@ def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, An
         )
         group_files = group_manifests + group_lockfiles + group_other
         group_domains, group_exposure, group_validation = _resolve_domains_and_exposure(
-            entry_directory, group_files
+            entry_ecosystem, entry_directory, group_files
         )
         ecosystem_groups.append({
             "ecosystem": entry_ecosystem,
@@ -980,14 +1236,7 @@ def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, An
         validation_set.update(group_validation)
 
     other_files.extend(unmatched_files)
-    file_metadata = [
-        {
-            "filename": info.get("filename", ""),
-            "status": info.get("status", "unknown"),
-            "previous_filename": info.get("previous_filename"),
-        }
-        for info in flat_files
-    ]
+    file_metadata = stable_file_metadata
 
     dependency_ecosystem = ecosystem if not multi_ecosystem else "indeterminate"
     dependency_directory = directory if not multi_ecosystem else "multiple"
@@ -1061,7 +1310,9 @@ def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, An
         validation_scope = sorted(validation_set)
     else:
         all_changed = other_files
-        domains, exposure_cats, validation_scope = _resolve_domains_and_exposure("/", all_changed)
+        domains, exposure_cats, validation_scope = _resolve_domains_and_exposure(
+            ecosystem, "/", all_changed
+        )
 
     major_risk = any(d.get("update_type") == "major" for d in dependencies)
     unknown_risk = any(d.get("update_type") == "unknown" for d in dependencies)
@@ -1096,7 +1347,12 @@ def normalize_dependabot(event_json: str, files_json: str) -> tuple[dict[str, An
             "base_sha": base_sha,
             "author": author,
             "sender": sender,
+            "processor_sha": processor_sha,
             "identity_checks": identity_checks,
+            "observed_head_before": observed_before,
+            "observed_head_after": observed_after,
+            "head_verified_before": head_verified_before,
+            "head_verified_after": head_verified_after,
             "files_digest": files_digest,
             "config_digest": config_digest,
             "capability_digest": capability_digest,
@@ -1203,12 +1459,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     issue_parser.add_argument("--event", required=True, type=Path, help="Path to issue event JSON.")
     issue_parser.add_argument("--output-json", type=Path, help="Write record JSON to this path.")
     issue_parser.add_argument("--output-md", type=Path, help="Write summary Markdown to this path.")
+    issue_parser.add_argument("--processor-sha", default="local-worktree")
 
     dep_parser = subparsers.add_parser("dependabot", help="Normalize a Dependabot PR event.")
     dep_parser.add_argument("--event", required=True, type=Path, help="Path to PR event JSON.")
     dep_parser.add_argument("--files", required=True, type=Path, help="Path to changed-files JSON.")
     dep_parser.add_argument("--output-json", type=Path, help="Write record JSON to this path.")
     dep_parser.add_argument("--output-md", type=Path, help="Write summary Markdown to this path.")
+    dep_parser.add_argument("--processor-sha", default="local-worktree")
 
     args = parser.parse_args(argv)
 
@@ -1218,11 +1476,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.mode == "issue":
         event_text = args.event.read_text(encoding="utf-8")
-        record, markdown = normalize_issue(event_text)
+        record, markdown = normalize_issue(event_text, args.processor_sha)
     elif args.mode == "dependabot":
         event_text = args.event.read_text(encoding="utf-8")
         files_text = args.files.read_text(encoding="utf-8")
-        record, markdown = normalize_dependabot(event_text, files_text)
+        record, markdown = normalize_dependabot(event_text, files_text, args.processor_sha)
     else:
         parser.print_help()
         return 1

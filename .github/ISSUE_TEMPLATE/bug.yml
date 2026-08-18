@@ -77,9 +77,9 @@ body:
     attributes:
       label: Expected command result
       description: >-
-        Optional for filing, required before maintainers can request guarded reproduction.
-        Maintainers use this choice to decide the reproduction outcome deterministically;
-        without it a guarded run can only end in "needs review".
+        Optional for filing and useful when maintainers prepare a manual reproduction.
+        Automation records this declaration but does not execute the command or
+        adjudicate whether the problem is reproduced.
       options:
         - Successful completion (exit 0)
         - Command failure (nonzero exit)

@@ -1,675 +1,153 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
+  "projection_policy": {
+    "elapsed_time": "Wall-clock duration from workflow start to completion.",
+    "summed_runner_minutes": "Sum of job durations, including matrix fan-out.",
+    "billable_minute_equivalent": "GitHub-reported billing telemetry when available; otherwise TBD.",
+    "calibration": "Use representative completed runs and report P50/P95 with sample size; until then values are TBD."
+  },
   "contracts": [
     {
       "id": "technical-evidence-and-tag-publication",
       "implementation": ".github/workflows/build_deploy.yml",
-      "state": "current",
-      "authority_owner": "repository-owner",
-      "purpose": "Run conversion and VS Code evidence, then publish only for version tags.",
-      "events": [
-        "pull_request:master",
-        "push:master",
-        "push:tag:v*"
-      ],
-      "inputs": {
-        "authoritative": [
-          "repository content at checked-out revision",
-          "test group matrix",
-          "version tag"
-        ],
-        "advisory": [],
-        "untrusted": [
-          "pull request content"
-        ]
-      },
+      "purpose": "Run the Python and generated-target evidence matrix and preserve existing tag-driven publication.",
+      "authority_owner": "repository owner",
+      "events": ["pull_request", "push"],
+      "inputs": {"trusted_code": "repository revision selected by GitHub event policy"},
       "deterministic": {
-        "outputs": [
-          "pytest results",
-          "VS Code test result",
-          "tag publication result"
-        ],
-        "fail_closed": true
+        "boundaries": ["existing build, test, packaging, and publication behavior is unchanged"],
+        "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"}
       },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only"
-      },
-      "actions": {
-        "runner_classes": [
-          "ubuntu-latest"
-        ],
-        "typical_fan_out": 15,
-        "maximum_fan_out": 16,
-        "observed_runner_minutes_median": 60.82,
-        "runner_minutes_ceiling": 480
-      },
-      "mutations": [
-        "tag-only PyPI publication",
-        "tag-only VS Code Marketplace publication"
-      ],
-      "permissions": [
-        "contents:read"
-      ],
-      "result": {
-        "exact_revision": "checked-out SHA",
-        "blocking_scope": "technical evidence and tag publication",
-        "retention": "GitHub Actions run and publication logs"
-      }
+      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "actions": {"mode": "existing enforcement", "failure": "existing workflow failure semantics"},
+      "permissions": [],
+      "result": {"authority": "Evidence and publication do not transfer repository-owner authority."}
     },
     {
       "id": "supported-python-runtime-signal",
       "implementation": ".github/workflows/python-runtime-versions-test.yml",
-      "state": "current",
-      "authority_owner": "repository-owner",
-      "purpose": "Build distributions and exercise installation and CLI behavior on Python 3.10 through 3.14.",
-      "events": [
-        "pull_request:master|main",
-        "push:master|main",
-        "workflow_dispatch"
-      ],
-      "inputs": {
-        "authoritative": [
-          "built wheel and sdist",
-          "Python runtime matrix"
-        ],
-        "advisory": [
-          "basic pytest smoke command"
-        ],
-        "untrusted": [
-          "pull request content"
-        ]
-      },
+      "purpose": "Exercise the supported Python runtime matrix.",
+      "authority_owner": "repository owner",
+      "events": ["pull_request", "push"],
+      "inputs": {"matrix": "workflow-defined Python versions"},
       "deterministic": {
-        "outputs": [
-          "build artifact",
-          "runtime installation and CLI results",
-          "matrix summary"
-        ],
-        "fail_closed": false,
-        "known_gap": "The existing basic pytest command is warning-shaped on failure and cannot satisfy a future required test gate."
+        "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"},
+        "fan_out": "Summed runner minutes increase with every matrix job while elapsed time follows the critical path."
       },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only"
-      },
-      "actions": {
-        "runner_classes": [
-          "ubuntu-latest"
-        ],
-        "typical_fan_out": 7,
-        "maximum_fan_out": 7,
-        "observed_runner_minutes_median": 4.37,
-        "runner_minutes_ceiling": 120
-      },
-      "mutations": [],
-      "permissions": [
-        "contents:read"
-      ],
-      "result": {
-        "exact_revision": "checked-out SHA",
-        "blocking_scope": "build and runtime jobs; basic pytest remains advisory",
-        "retention": "GitHub Actions run and five-day build artifact"
-      }
+      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "actions": {"mode": "existing enforcement"},
+      "permissions": [],
+      "result": {"authority": "Runtime evidence does not authorize compatibility or release decisions."}
     },
     {
       "id": "mcp-manifest-validation",
       "implementation": ".github/workflows/validate-mcp-server-json.yml",
-      "state": "current",
-      "authority_owner": "repository-owner",
-      "purpose": "Validate server.json against the MCP registry publisher.",
-      "events": [
-        "pull_request:master",
-        "workflow_dispatch"
-      ],
-      "inputs": {
-        "authoritative": [
-          "server.json"
-        ],
-        "advisory": [],
-        "untrusted": [
-          "pull request content"
-        ]
-      },
-      "deterministic": {
-        "outputs": [
-          "mcp-publisher validation result"
-        ],
-        "fail_closed": true
-      },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only"
-      },
-      "actions": {
-        "runner_classes": [
-          "ubuntu-latest"
-        ],
-        "typical_fan_out": 1,
-        "maximum_fan_out": 1,
-        "observed_runner_minutes_median": 0.12,
-        "runner_minutes_ceiling": 15
-      },
-      "mutations": [],
-      "permissions": [
-        "contents:read"
-      ],
-      "result": {
-        "exact_revision": "checked-out SHA",
-        "blocking_scope": "MCP manifest validity",
-        "retention": "GitHub Actions run"
-      }
-    },
-    {
-      "id": "dependabot-policy-guard",
-      "implementation": ".github/workflows/dependabot-auto-merge.yml",
-      "state": "current",
-      "authority_owner": "repository-owner",
-      "purpose": "Read-only policy guard that summarizes Dependabot PR eligibility. Does not merge, approve, or delete branches. Previously an auto-merge workflow; converted to intake-only guard because Dependabot PRs require explicit owner authorization.",
-      "events": [
-        "workflow_run:Upload Python Package and VS Code Extension"
-      ],
-      "inputs": {
-        "authoritative": [
-          "workflow conclusion",
-          "pull request author"
-        ],
-        "advisory": [],
-        "untrusted": [
-          "dependency pull request content"
-        ]
-      },
-      "deterministic": {
-        "outputs": [
-          "policy summary in step summary"
-        ],
-        "fail_closed": false
-      },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only"
-      },
-      "actions": {
-        "runner_classes": [
-          "ubuntu-latest"
-        ],
-        "typical_fan_out": 1,
-        "maximum_fan_out": 1,
-        "runner_minutes_ceiling": 15
-      },
-      "mutations": [],
-      "permissions": [
-        "contents:read",
-        "pull-requests:read"
-      ],
-      "result": {
-        "exact_revision": "workflow_run associated pull request head",
-        "blocking_scope": "read-only policy summary only",
-        "retention": "GitHub Actions run summary"
-      }
+      "purpose": "Validate the MCP server manifest without changing MCP behavior.",
+      "authority_owner": "repository owner",
+      "events": ["pull_request", "workflow_dispatch"],
+      "inputs": {"manifest": "checked-in MCP server manifest"},
+      "deterministic": {"actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"}},
+      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "actions": {"mode": "existing enforcement"},
+      "permissions": [],
+      "result": {"authority": "Manifest validation is technical evidence only."}
     },
     {
       "id": "issue-intake",
       "implementation": ".github/workflows/issue-intake.yml",
-      "state": "current",
-      "authority_owner": "repository-owner",
-      "purpose": "Normalize GitHub Issue Form submissions into deterministic intake records. No mutations, labels, comments, or project writes.",
-      "events": [
-        "issues:[opened,edited,reopened]",
-        "workflow_dispatch:fixture"
-      ],
-      "inputs": {
-        "authoritative": [
-          "checked-in issue form contract",
-          "commands.json",
-          "governance config"
-        ],
-        "advisory": [],
-        "untrusted": [
-          "issue body content"
-        ]
-      },
+      "purpose": "Normalize future Bug report and Feature or transformation request events into revision-bound records.",
+      "authority_owner": "repository owner",
+      "events": ["issues"],
+      "inputs": {"events": ["opened", "edited", "reopened"], "processor": "exact default-branch SHA resolved before checkout"},
       "deterministic": {
-        "outputs": [
-          "versioned JSON intake record",
-          "Markdown summary"
-        ],
-        "fail_closed": true,
-        "corruption_vs_incomplete": "Corrupt config/workflow raises infrastructure failure. Incomplete/unknown/malformed issue bodies produce explicit non-ready records and exit successfully."
+        "outputs": ["versioned JSON intake record", "readable summary", "processor and contract/catalog digests"],
+        "unknown_body": "manual-triage",
+        "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"}
       },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only"
-      },
-      "actions": {
-        "runner_classes": [
-          "ubuntu-latest"
-        ],
-        "typical_fan_out": 1,
-        "maximum_fan_out": 1,
-        "runner_minutes_ceiling": 5
-      },
-      "mutations": [],
-      "permissions": [
-        "contents:read"
-      ],
-      "concurrency": "issue-intake-${issue_number_or_fixture}",
-      "artifact_retention_days": 14,
-      "result": {
-        "exact_revision": "default branch HEAD at workflow execution",
-        "blocking_scope": "intake normalization only; does not authorize or schedule",
-        "retention": "14-day artifact and step summary"
-      }
+      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "actions": {"mode": "observe", "mutations": []},
+      "permissions": ["contents:read"],
+      "result": {"not_ready": "visible incomplete or manual-triage record; workflow fails only for processor/schema corruption", "authority": "Classification does not schedule or authorize work."}
     },
     {
       "id": "dependabot-intake",
       "implementation": ".github/workflows/dependabot-intake.yml",
-      "state": "current",
-      "authority_owner": "repository-owner",
-      "purpose": "Normalize Dependabot PR metadata into deterministic intake records. Inspects changed filenames only from REST; never checks out or runs the PR head.",
-      "events": [
-        "pull_request_target:[opened,reopened,synchronize,ready_for_review]",
-        "workflow_dispatch:fixture"
-      ],
-      "inputs": {
-        "authoritative": [
-          "dependabot.yml config",
-          "capability profile",
-          "changed-file metadata from REST"
-        ],
-        "advisory": [],
-        "untrusted": [
-          "PR head content (never checked out or executed)"
-        ]
-      },
+      "purpose": "Normalize future Dependabot pull requests using event metadata and stable changed-file metadata only.",
+      "authority_owner": "repository owner",
+      "events": ["pull_request_target"],
+      "inputs": {"events": ["opened", "reopened", "synchronize", "ready_for_review"], "identity": "both PR author and event sender must be dependabot[bot]", "processor": "exact event base SHA"},
       "deterministic": {
-        "outputs": [
-          "versioned JSON intake record",
-          "Markdown summary"
-        ],
-        "fail_closed": true,
-        "corruption_vs_incomplete": "Corrupt dependabot.yml or workflow config raises infrastructure failure. Non-Dependabot PRs produce ignored records. Incomplete parsing produces explicit non-ready records."
+        "head_binding": "Verify event head before and after REST file retrieval; emit superseded rather than mixing revisions.",
+        "outputs": ["versioned JSON intake record", "readable summary", "full stable file metadata digest"],
+        "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"}
       },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only"
-      },
-      "actions": {
-        "runner_classes": [
-          "ubuntu-latest"
-        ],
-        "typical_fan_out": 1,
-        "maximum_fan_out": 1,
-        "runner_minutes_ceiling": 5
-      },
-      "mutations": [],
-      "permissions": [
-        "contents:read",
-        "pull-requests:read"
-      ],
-      "concurrency": "dependabot-intake-${pr_number_and_head_sha_or_fixture}",
-      "artifact_retention_days": 14,
-      "result": {
-        "exact_revision": "PR base SHA (trusted code only)",
-        "blocking_scope": "intake normalization only; completeness is not authorization",
-        "retention": "14-day artifact and step summary"
-      }
+      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "actions": {"mode": "observe", "mutations": [], "execution": "metadata and diff inspection only; no changed code runs"},
+      "permissions": ["contents:read", "pull-requests:read"],
+      "result": {"safe_merge_inferred": false, "exploitability_inferred": false, "authority": "Dependabot intake is never pre-authorization or merge approval."}
     },
     {
       "id": "governance-observe",
       "implementation": ".github/workflows/governance-observe.yml",
-      "state": "observe",
-      "authority_owner": "repository-owner",
-      "purpose": "Report governance surface and command-capability profile findings without mutation or blocking.",
-      "events": [
-        "pull_request:master|main",
-        "push:master|main",
-        "workflow_dispatch"
-      ],
-      "inputs": {
-        "authoritative": [
-          "checked-in governance surfaces",
-          "avrotize/commands.json",
-          ".github/governance/avrotize-capabilities.json"
-        ],
-        "advisory": [],
-        "untrusted": [
-          "pull request content"
-        ]
-      },
-      "deterministic": {
-        "outputs": [
-          "GitHub annotations",
-          "step summary"
-        ],
-        "fail_closed": false,
-        "observe_semantics": "Findings are explicit but process exit is zero."
-      },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only"
-      },
-      "actions": {
-        "runner_classes": [
-          "ubuntu-latest"
-        ],
-        "typical_fan_out": 1,
-        "maximum_fan_out": 1,
-        "runner_minutes_typical": 1,
-        "runner_minutes_ceiling": 3
-      },
-      "mutations": [],
-      "permissions": [
-        "contents:read"
-      ],
-      "concurrency": "governance-observe-${pull_request_number_or_ref}",
-      "result": {
-        "exact_revision": "github.event.pull_request.head.sha or github.sha",
-        "blocking_scope": "none until separately authorized enforcement",
-        "retention": "GitHub Actions run summary"
-      }
+      "purpose": "Report deterministic policy findings without blocking while adoption is calibrated.",
+      "authority_owner": "repository owner",
+      "events": ["pull_request", "push"],
+      "inputs": {"revision": "event-selected repository revision"},
+      "deterministic": {"mode": "advisory", "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"}},
+      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "actions": {"mode": "observe", "mutations": []},
+      "permissions": ["contents:read"],
+      "result": {"policy_findings": "non-blocking", "processor_failure": "workflow failure"}
     },
     {
-      "id": "governance-merge-and-release-guards",
-      "implementation": null,
-      "state": "proposed-after-reconciliation",
-      "authority_owner": "repository-owner",
-      "purpose": "Fail closed on unauthorized, incomplete, stale, or unproven merges and releases.",
-      "events": [
-        "pull_request",
-        "merge_group",
-        "release-candidate-tag"
-      ],
-      "inputs": {
-        "authoritative": [
-          "authorization",
-          "diff-derived command and surface impact",
-          "exact-head evidence",
-          "current verdicts",
-          "immutable tag and artifact provenance"
-        ],
-        "advisory": [
-          "bounded structured AI recommendations under a future contract"
-        ],
-        "untrusted": [
-          "pull request content",
-          "generated artifacts before digest verification"
-        ]
-      },
+      "id": "governance-ci",
+      "implementation": ".github/workflows/governance-ci.yml",
+      "purpose": "Hard-fail validator corruption and every governance test failure on the exact pull-request head.",
+      "authority_owner": "repository owner",
+      "events": ["pull_request"],
+      "inputs": {"revision": "github.event.pull_request.head.sha"},
       "deterministic": {
-        "outputs": [
-          "PASS",
-          "BLOCKED",
-          "INDETERMINATE"
-        ],
-        "fail_closed": true
+        "checks": ["strict governance validator", "all test_governance*.py modules"],
+        "failure": "No warning fallback, continue-on-error, or swallowed exit status.",
+        "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"}
       },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only",
-        "activation_prerequisites": [
-          "named model",
-          "structured output",
-          "platform-reported AIC telemetry",
-          "platform-configured per-run and daily AIC guardrails"
-        ]
-      },
-      "actions": {
-        "runner_classes": [
-          "repository policy at activation time"
-        ],
-        "typical_fan_out": 1,
-        "maximum_fan_out": "derived bounded command and generated-target matrix",
-        "runner_minutes_ceiling": "scope-specific Avrotize capability ceiling"
-      },
-      "mutations": [
-        "none in guard",
-        "publication only in separately approved release workflow"
-      ],
-      "permissions": [
-        "contents:read",
-        "pull-requests:read"
-      ],
-      "result": {
-        "exact_revision": "immutable PR head or release tag SHA",
-        "blocking_scope": "authorized metadata, evidence, reviews, merge and release provenance",
-        "retention": "structured decision, evidence hashes, and publication provenance"
-      }
+      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "actions": {"mode": "required quality", "mutations": []},
+      "permissions": ["contents:read"],
+      "result": {"failure": "red check", "authority": "Passing quality checks does not authorize merge."}
     },
     {
-      "id": "guarded-bug-reproduction",
+      "id": "guarded-reproduction-preparation",
       "implementation": ".github/workflows/repro-bug.yml",
-      "state": "current",
-      "authority_owner": "repository-owner",
-      "purpose": "Run a policy-bounded default-branch reproduction of an eligible bug report when a maintainer or admin requests it, then record structured evidence and exactly one governed state label.",
-      "events": [
-        "issues:[labeled=repro-requested]",
-        "workflow_dispatch:issue_number"
-      ],
-      "jobs": [
-        "authorize: decide permission before any checkout, install, or issue content read",
-        "mark-in-progress: replace governed labels with repro-in-progress",
-        "reproduce: execute the allowlisted command at the authorized trusted revision",
-        "publish-final: always publish exactly one terminal governed label and a run comment"
-      ],
-      "inputs": {
-        "authoritative": [
-          "collaborator permission API response",
-          "trusted default-branch revision",
-          "checked-in reproduction command policy",
-          "checked-in issue form contract",
-          "checked-in label catalog",
-          "commands.json"
-        ],
-        "advisory": [],
-        "untrusted": [
-          "issue body content",
-          "reporter invocation text",
-          "reporter minimal input fixture"
-        ]
-      },
+      "purpose": "Authorize an immutable issue-content snapshot and prepare evidence for owner-controlled manual reproduction.",
+      "authority_owner": "repository owner",
+      "events": ["issues"],
+      "inputs": {"event": "exact repro-requested label event", "request_actor": "github.event.sender.login with maintain/admin collaborator permission", "content": "repository, issue number, title, body, and cryptographic digests"},
       "deterministic": {
-        "outputs": [
-          "versioned authorization record",
-          "versioned reproduction evidence record",
-          "Markdown evidence summary"
-        ],
-        "fail_closed": true,
-        "corruption_vs_incomplete": "Corrupt policy, schema, catalog, or authorization is an infrastructure failure and the workflow fails. Readiness, policy, timeout, and resource refusals produce BLOCKED evidence and exit 0.",
-        "outcome_rules": [
-          "readiness, policy, timeout, or resource refusal => BLOCKED",
-          "expected success and nonzero exit => CONFIRMED",
-          "expected success and zero exit without exact output => NEEDS_REVIEW",
-          "declared exact output that matches the single output target => NOT_REPRODUCED",
-          "declared exact output that differs from the single output target => CONFIRMED",
-          "expected failure and nonzero exit => NOT_REPRODUCED",
-          "expected failure and zero exit => CONFIRMED",
-          "human semantic review, undeclared expectation, or ambiguous target => NEEDS_REVIEW"
-        ]
+        "authorization": "Permission is queried before issue content, checkout, or processor execution; a denied request emits a minimal body-free gate record and makes no mutation. The label-event title/body must match an immediate REST re-fetch before the event snapshot is authorized.",
+        "execution": "No dependency installation, Avrotize command execution, reporter fixture materialization, or generated-code execution.",
+        "terminal_states": ["repro-blocked", "repro-needs-review"],
+        "artifacts": "Producer-selected Run-ID/run-attempt names are passed between jobs for failed-job reruns; prepared and fallback evidence is schema-validated and retained for 30 days.",
+        "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"}
       },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only"
-      },
-      "actions": {
-        "runner_classes": [
-          "ubuntu-latest"
-        ],
-        "typical_fan_out": 4,
-        "maximum_fan_out": 4,
-        "runner_minutes_ceiling": 40
-      },
-      "mutations": [
-        "governed reproduction state labels on the requested issue",
-        "one issue comment linking the run, artifact, trusted revision, and authorized issue revision"
-      ],
-      "permissions": [
-        "contents:read",
-        "issues:read",
-        "issues:write"
-      ],
-      "concurrency": "repro-bug-${issue_number}-${requesting_label_or_dispatch}",
-      "artifact_retention_days": 14,
-      "result": {
-        "exact_revision": "trusted default-branch SHA resolved during authorization",
-        "blocking_scope": "guarded reproduction evidence and state labels only",
-        "retention": "14-day authorization and evidence artifacts, step summaries, and one issue comment"
-      }
+      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "actions": {"mode": "future issue mutation after merge", "mutations": ["governed reproduction labels", "evidence-reference issue comment"], "label_reconciliation": "bounded retry; GitHub does not provide atomic multi-label replacement"},
+      "mutations": ["governed reproduction labels", "evidence-reference issue comment"],
+      "permissions": ["contents:read", "issues:read", "issues:write"],
+      "result": {"authority": "Preparation, labels, and evidence never schedule work or authorize implementation, compatibility, merge, or release."}
     },
     {
-      "id": "repro-label-reconciliation",
-      "implementation": ".github/workflows/repro-label-reconciliation.yml",
-      "state": "current",
-      "authority_owner": "repository-owner",
-      "purpose": "Manually reconcile the six governed reproduction labels on the repository with the checked-in catalog. It never reads, classifies, or changes issue state.",
-      "events": [
-        "workflow_dispatch"
-      ],
-      "jobs": [
-        "authorize: require maintain or admin before any checkout",
-        "reconcile: create or update repository labels from the validated catalog"
-      ],
-      "inputs": {
-        "authoritative": [
-          "collaborator permission API response",
-          "checked-in label catalog",
-          "current repository labels"
-        ],
-        "advisory": [],
-        "untrusted": []
-      },
-      "deterministic": {
-        "outputs": [
-          "idempotent repository label reconciliation summary"
-        ],
-        "fail_closed": true,
-        "corruption_vs_incomplete": "A corrupt catalog or any unexpected label API status fails the workflow; no status is ignored."
-      },
-      "copilot": {
-        "enabled": false,
-        "aic_source": "github-copilot-platform",
-        "observed_run_aic": {
-          "sample_size": 0,
-          "p50": "TBD",
-          "p95": "TBD"
-        },
-        "guardrails": {
-          "per_run": "TBD",
-          "daily": "TBD"
-        },
-        "token_telemetry": "operational-only"
-      },
-      "actions": {
-        "runner_classes": [
-          "ubuntu-latest"
-        ],
-        "typical_fan_out": 2,
-        "maximum_fan_out": 2,
-        "runner_minutes_ceiling": 10
-      },
-      "mutations": [
-        "repository label name, color, and description only"
-      ],
-      "permissions": [
-        "contents:read",
-        "issues:write"
-      ],
-      "concurrency": "repro-label-catalog",
-      "result": {
-        "exact_revision": "default branch HEAD at workflow execution",
-        "blocking_scope": "repository label catalog only",
-        "retention": "workflow run log and step summary"
-      }
+      "id": "future-merge-and-release-guards",
+      "implementation": null,
+      "purpose": "Describe later owner-approved enforcement without changing current merge or release behavior.",
+      "authority_owner": "repository owner",
+      "events": ["pull_request", "merge_group", "release"],
+      "inputs": {"future": "exact-head evidence, stale-approval handling, compatibility decision, publication boundary"},
+      "deterministic": {"status": "unimplemented", "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"}},
+      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "actions": {"mode": "future", "mutations": []},
+      "permissions": [],
+      "result": {"authority": "No enforcement exists until separately owner-approved and repository-ready."}
     }
   ]
 }

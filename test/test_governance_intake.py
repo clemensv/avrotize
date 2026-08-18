@@ -361,6 +361,7 @@ class DependabotSpoofBranchNonBotTests(unittest.TestCase):
     def test_branch_spoof_rejected(self) -> None:
         event = json.dumps({
             "action": "opened",
+            "sender": {"login": "evil-user"},
             "pull_request": {
                 "number": 999,
                 "title": "Bump foo from 1.0 to 2.0",
@@ -382,6 +383,7 @@ class DependabotGithubActionsRootTests(unittest.TestCase):
     def test_workflow_file_classifies_as_actions(self) -> None:
         event = json.dumps({
             "action": "opened",
+            "sender": {"login": "dependabot[bot]"},
             "pull_request": {
                 "number": 470,
                 "title": "Bump actions/checkout from 3 to 4",
@@ -408,6 +410,7 @@ class DependabotLockfileTransitiveTests(unittest.TestCase):
     def test_lockfile_only_transitive(self) -> None:
         event = json.dumps({
             "action": "opened",
+            "sender": {"login": "dependabot[bot]"},
             "pull_request": {
                 "number": 471,
                 "title": "Bump indirect-dep from 1.0 to 1.1 in /avrotize/dependencies/typescript/node22",
@@ -432,6 +435,7 @@ class DependabotGroupBodyMetadataTests(unittest.TestCase):
     def test_group_update_body_parsing(self) -> None:
         event = json.dumps({
             "action": "opened",
+            "sender": {"login": "dependabot[bot]"},
             "pull_request": {
                 "number": 472,
                 "title": "Bump the pip group in / with 2 updates",
@@ -502,6 +506,7 @@ class DependabotMajorUnknownRiskTests(unittest.TestCase):
     def test_unknown_version_risk(self) -> None:
         event = json.dumps({
             "action": "opened",
+            "sender": {"login": "dependabot[bot]"},
             "pull_request": {
                 "number": 475,
                 "title": "Bump mystery-dep to something",
@@ -525,6 +530,7 @@ class DependabotConcreteDomainsExposureTests(unittest.TestCase):
     def test_root_python_exposure(self) -> None:
         event = json.dumps({
             "action": "opened",
+            "sender": {"login": "dependabot[bot]"},
             "pull_request": {
                 "number": 476,
                 "title": "Bump foo from 1.0 to 1.1",
@@ -548,6 +554,7 @@ class DependabotConcreteDomainsExposureTests(unittest.TestCase):
     def test_ci_workflow_exposure(self) -> None:
         event = json.dumps({
             "action": "opened",
+            "sender": {"login": "dependabot[bot]"},
             "pull_request": {
                 "number": 477,
                 "title": "Bump actions/checkout from 3 to 4",
@@ -571,6 +578,7 @@ class DependabotFileMetadataTests(unittest.TestCase):
     def test_file_metadata_includes_status(self) -> None:
         event = json.dumps({
             "action": "opened",
+            "sender": {"login": "dependabot[bot]"},
             "pull_request": {
                 "number": 480,
                 "title": "Bump dep from 1.0 to 2.0",
@@ -594,6 +602,7 @@ class DependabotUnknownFilesNotManifests(unittest.TestCase):
     def test_unknown_file_in_other(self) -> None:
         event = json.dumps({
             "action": "opened",
+            "sender": {"login": "dependabot[bot]"},
             "pull_request": {
                 "number": 481,
                 "title": "Bump dep from 1.0 to 2.0",
@@ -827,6 +836,192 @@ class ExpectedResultTests(unittest.TestCase):
             self.assertIn(f"- {choice}", form_text)
 
 
+class IssueFormParityTests(unittest.TestCase):
+    def test_every_checked_in_surface_choice_is_accepted(self) -> None:
+        contract = governance_intake._load_issue_form_contract()
+        for choice in contract["surface_choices"]:
+            with self.subTest(choice=choice):
+                body = _complete_bug_body().replace(
+                    "### Where did you run it?\n\nAvrotize CLI",
+                    f"### Where did you run it?\n\n{choice}",
+                    1,
+                )
+                record, _ = governance_intake.normalize_issue(_bug_event(body))
+                self.assertEqual(record["normalized_facts"]["surface"], choice)
+                self.assertNotIn("surface", record["classification"]["missing_fields"])
+
+    def test_each_surface_uses_its_authoritative_exact_identifier(self) -> None:
+        identifiers = {
+            "Avrotize CLI": "avrotize a2p",
+            "Structurize CLI": "structurize s2graphql",
+            "Python API": "avrotize.avrotopython.convert_avro_to_python",
+            "MCP server": "run_conversion",
+            "VS Code extension": "avrotize.a2p",
+            "Generated project or code": "convert_avro_to_python",
+        }
+        for surface, identifier in identifiers.items():
+            with self.subTest(surface=surface):
+                body = _complete_bug_body().replace(
+                    "### Where did you run it?\n\nAvrotize CLI",
+                    f"### Where did you run it?\n\n{surface}",
+                    1,
+                ).replace(
+                    "### Exact command, Python function, MCP tool, or VS Code action\n\navrotize a2p",
+                    "### Exact command, Python function, MCP tool, or VS Code action"
+                    f"\n\n{identifier}",
+                    1,
+                )
+                record, _ = governance_intake.normalize_issue(_bug_event(body))
+                self.assertTrue(record["normalized_facts"]["command_known"])
+
+    def test_substring_or_wrong_surface_identifier_is_not_known(self) -> None:
+        cases = (
+            ("Avrotize CLI", "a"),
+            ("Python API", "a2p"),
+            ("MCP server", "a2p"),
+            ("VS Code extension", "avrotize.avrotopython.convert_avro_to_python"),
+        )
+        for surface, identifier in cases:
+            with self.subTest(surface=surface, identifier=identifier):
+                body = _complete_bug_body().replace(
+                    "### Where did you run it?\n\nAvrotize CLI",
+                    f"### Where did you run it?\n\n{surface}",
+                    1,
+                ).replace(
+                    "### Exact command, Python function, MCP tool, or VS Code action\n\navrotize a2p",
+                    "### Exact command, Python function, MCP tool, or VS Code action"
+                    f"\n\n{identifier}",
+                    1,
+                )
+                record, _ = governance_intake.normalize_issue(_bug_event(body))
+                self.assertFalse(record["normalized_facts"]["command_known"])
+
+    def test_heading_inside_fenced_reporter_content_is_not_a_field(self) -> None:
+        body = _complete_bug_body().replace(
+            '{"type":"record","name":"Node","fields":[{"name":"children","type":{"type":"array","items":"Node"}}]}',
+            '{"type":"record","name":"Node"}\n### Environment and toolchain\nnot a field',
+            1,
+        )
+        record, _ = governance_intake.normalize_issue(_bug_event(body))
+        self.assertEqual(record["classification"]["status"], "complete")
+        self.assertEqual(record["classification"]["unexpected_headings"], [])
+        self.assertEqual(
+            record["normalized_facts"]["environment"],
+            "Ubuntu 22.04, Python 3.12.3, protoc 25.1",
+        )
+
+    def test_duplicate_real_heading_is_malformed(self) -> None:
+        body = _complete_bug_body() + "\n\n### Environment and toolchain\n\nsecond value\n"
+        record, _ = governance_intake.normalize_issue(_bug_event(body))
+        self.assertEqual(record["classification"]["status"], "malformed")
+        self.assertIn(
+            "__duplicate_heading__:Environment and toolchain",
+            record["classification"]["unexpected_headings"],
+        )
+
+    def test_processor_and_contract_digests_bind_record_source(self) -> None:
+        event = _bug_event(_complete_bug_body())
+        first, _ = governance_intake.normalize_issue(event, "a" * 40)
+        second, _ = governance_intake.normalize_issue(event, "b" * 40)
+        self.assertEqual(first["event_identity"]["processor_sha"], "a" * 40)
+        for key in (
+            "title_digest",
+            "body_digest",
+            "contract_digest",
+            "command_registry_digest",
+            "capability_digest",
+            "surface_registry_digest",
+            "source_digest",
+        ):
+            self.assertRegex(first["event_identity"][key], r"^[0-9a-f]{64}$")
+        self.assertNotEqual(
+            first["event_identity"]["source_digest"],
+            second["event_identity"]["source_digest"],
+        )
+
+
+class DependabotRevisionBindingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.event = json.loads(
+            (FIXTURES / "dependabot_python_major.json").read_text(encoding="utf-8")
+        )
+        self.files = json.loads(
+            (FIXTURES / "dependabot_python_major_files.json").read_text(encoding="utf-8")
+        )
+
+    def test_real_configured_prefixed_title_is_parsed(self) -> None:
+        self.event["pull_request"]["title"] = (
+            "deps(python): Bump requests from 2.31.0 to 3.0.0"
+        )
+        record, _ = governance_intake.normalize_dependabot(
+            json.dumps(self.event), json.dumps(self.files)
+        )
+        dependency = record["normalized_facts"]["dependencies"][0]
+        self.assertEqual(dependency["name"], "requests")
+        self.assertEqual(dependency["update_type"], "major")
+        self.assertEqual(
+            record["event_identity"]["identity_checks"]["configured_title_prefix"],
+            "deps(python)",
+        )
+
+    def test_head_change_before_or_after_retrieval_is_superseded(self) -> None:
+        event_head = self.event["pull_request"]["head"]["sha"]
+        for before, after in (("new-head", "new-head"), (event_head, "new-head")):
+            with self.subTest(before=before, after=after):
+                self.event["intake_observation"] = {
+                    "head_before": before,
+                    "head_after": after,
+                }
+                record, _ = governance_intake.normalize_dependabot(
+                    json.dumps(self.event), json.dumps(self.files)
+                )
+                self.assertEqual(record["classification"]["status"], "superseded")
+                self.assertEqual(record["normalized_facts"], {})
+
+    def test_full_file_metadata_changes_digest(self) -> None:
+        first, _ = governance_intake.normalize_dependabot(
+            json.dumps(self.event), json.dumps(self.files)
+        )
+        changed = json.loads(json.dumps(self.files))
+        changed[0]["sha"] = "f" * 40
+        changed[0]["additions"] = int(changed[0].get("additions", 0)) + 1
+        second, _ = governance_intake.normalize_dependabot(
+            json.dumps(self.event), json.dumps(changed)
+        )
+        self.assertNotEqual(
+            first["event_identity"]["files_digest"],
+            second["event_identity"]["files_digest"],
+        )
+
+    def test_github_actions_root_entry_is_not_classified_as_python(self) -> None:
+        self.event["pull_request"]["title"] = (
+            "deps(actions): Bump actions/checkout from 6 to 7"
+        )
+        self.event["pull_request"]["head"]["ref"] = (
+            "dependabot/github_actions/actions/checkout-7"
+        )
+        files = [
+            {
+                "filename": ".github/workflows/ci.yml",
+                "status": "modified",
+                "sha": "1" * 40,
+                "additions": 1,
+                "deletions": 1,
+                "changes": 2,
+            }
+        ]
+        record, _ = governance_intake.normalize_dependabot(
+            json.dumps(self.event), json.dumps(files)
+        )
+        facts = record["normalized_facts"]
+        self.assertEqual(facts["ecosystems"][0]["ecosystem"], "github-actions")
+        self.assertEqual(facts["domains"], ["ci"])
+        self.assertEqual(facts["exposure"]["categories"], ["ci"])
+        self.assertIn("ci-workflow-validation", facts["required_validation_scope"])
+        self.assertNotIn("python-package-tests", facts["required_validation_scope"])
+        self.assertNotIn("package-build", facts["required_validation_scope"])
+
+
 class DependabotMultiEcosystemSeparationTests(unittest.TestCase):
     """Each matched ecosystem is classified with its own manifest rules."""
 
@@ -897,6 +1092,33 @@ class SchemaEnforcementTests(unittest.TestCase):
         record, _ = governance_intake.normalize_issue(_bug_event(_complete_bug_body()))
         record["classification"]["status"] = "totally-made-up"
         errors = governance_intake._validate_record(record, governance_intake.ISSUE_RECORD_SCHEMA)
+        self.assertTrue(errors)
+
+    def test_complete_issue_cannot_omit_semantic_fact(self) -> None:
+        record, _ = governance_intake.normalize_issue(_bug_event(_complete_bug_body()))
+        record["normalized_facts"]["environment"] = None
+        errors = governance_intake._validate_record(record, governance_intake.ISSUE_RECORD_SCHEMA)
+        self.assertTrue(errors)
+
+    def test_incomplete_dependabot_record_requires_missing_information(self) -> None:
+        event = (FIXTURES / "dependabot_python_major.json").read_text(encoding="utf-8")
+        files = (FIXTURES / "dependabot_python_major_files.json").read_text(encoding="utf-8")
+        record, _ = governance_intake.normalize_dependabot(event, files)
+        record["classification"]["status"] = "incomplete"
+        record["classification"]["missing_info"] = []
+        errors = governance_intake._validate_record(
+            record, governance_intake.DEPENDABOT_RECORD_SCHEMA
+        )
+        self.assertTrue(errors)
+
+    def test_complete_dependabot_record_requires_dependencies(self) -> None:
+        event = (FIXTURES / "dependabot_python_major.json").read_text(encoding="utf-8")
+        files = (FIXTURES / "dependabot_python_major_files.json").read_text(encoding="utf-8")
+        record, _ = governance_intake.normalize_dependabot(event, files)
+        record["normalized_facts"]["dependencies"] = []
+        errors = governance_intake._validate_record(
+            record, governance_intake.DEPENDABOT_RECORD_SCHEMA
+        )
         self.assertTrue(errors)
 
     def test_missing_schema_is_infrastructure_failure(self) -> None:

@@ -38,40 +38,34 @@ migration strategy.
 
 ## Reporting a reproducible bug
 
-The bug form asks two optional questions that decide whether maintainers can run
-guarded reproduction on your report:
+The bug form asks two optional questions that help maintainers prepare a manual
+reproduction:
 
 - **Expected command result** — choose `Successful completion (exit 0)`,
   `Command failure (nonzero exit)`, `Exact output match`, or
-  `Human semantic review`. Automation compares only structured facts, so an
-  undeclared expectation can only end in "needs review".
+  `Human semantic review`. Automation records this declaration but does not
+  adjudicate the result.
 - **Exact expected output** — required only when you choose `Exact output match`.
   Paste the exact expected file content or standard output.
 
-Guarded reproduction additionally needs the Avrotize CLI surface, a command in
-`.github/governance/repro-command-policy.json`, and the minimal input pasted
-inline (ideally in a fenced block). Attachments, links, and file names cannot be
-reproduced automatically. Reporter-supplied input and output paths are discarded
-and replaced with workspace paths, so only your flags and the input content
-matter.
+Preparation additionally needs a concrete Avrotize command/API surface, a
+command from `avrotize/commands.json`, necessary source and result
+representations, flags/options, and minimal input pasted inline. Automation
+parses and records these facts but never executes them.
 
 ## Requesting guarded reproduction (maintainers)
 
-Apply the exact `repro-requested` label, or dispatch **Guarded bug reproduction**
-with the issue number. Maintain or admin permission is required, the decision is
-made before any checkout or issue content read, and a denial changes nothing on
-the issue. The run replaces the governed labels with `repro-in-progress`, then
-publishes exactly one of `repro-confirmed`, `repro-not-reproduced`,
-`repro-blocked`, or `repro-needs-review` with a comment linking the run, the
-evidence artifact, the trusted source revision, and the authorized issue
-revision. Evidence is a record, not an authorization: implementation still needs
-owner authorization under [GOVERNANCE.md](GOVERNANCE.md).
+Apply the exact `repro-requested` label. Maintain or admin permission is required
+for the label-event sender, and authorization occurs before checkout or issue
+content processing. There is no manual dispatch. The workflow snapshots the
+title/body revision and publishes only `repro-blocked` or
+`repro-needs-review`, with a comment recording the run, evidence digest, trusted
+source revision, and authorized content digest. It never executes Avrotize.
+Evidence is not implementation authorization.
 
-Run **Reconcile reproduction label catalog** manually when the six governed
-labels are missing or drift from `.github/governance/repro-label-catalog.json`.
-It reconciles repository labels only and never touches issue state. The labels
-do not exist yet, so this dispatch is a one-time prerequisite before the first
-`repro-requested` can be applied.
+Owners provision the six labels from
+`.github/governance/repro-label-catalog.json` through repository administration.
+No write-capable label-reconciliation workflow is included.
 
 ## Local checks
 

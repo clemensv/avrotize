@@ -21,21 +21,20 @@ priority, authorization, approval, or release authority through inference.
 Existing issues and pull requests are reconciled only under an explicit later
 owner direction.
 
-Guarded bug reproduction and reproduction label reconciliation belong to this
-phase. Both are opt-in and bounded:
+Guarded bug reproduction preparation belongs to this phase and is opt-in:
 
-- Guarded reproduction mutates only the six governed reproduction state labels
+- Preparation mutates only the six governed reproduction state labels
   and adds one evidence comment, and only after a maintainer or admin explicitly
   requests it on one issue. It never relabels, closes, retargets, or comments on
   any other issue, and it never changes priority, authorization, or merge state.
-- Label reconciliation is manual dispatch only and reconciles repository label
-  definitions with the checked-in catalog. It does not read or modify issue
-  state, so it cannot reclassify pre-existing issues.
 - **Ordering:** none of the six governed `repro-*` labels exist in the
-  repository yet, so **Reconcile reproduction label catalog** must be dispatched
-  once before guarded reproduction can be requested. Until then `repro-requested`
-  cannot be applied and the reproduction workflow stays dormant.
-- Neither workflow is required for any merge, and neither can satisfy or block a
+  repository yet. An owner must provision them manually from the checked-in
+  catalog before `repro-requested` can be applied. No write-capable manual
+  dispatch workflow is included.
+- The workflow prepares revision-bound evidence only. It does not install
+  dependencies, execute Avrotize, materialize reporter fixtures, or adjudicate
+  confirmed/not-reproduced outcomes.
+- It is not required for any merge and cannot satisfy or block a
   gate. Evidence remains a record that the owner interprets.
 
 ## Phase 3: enforce

@@ -218,49 +218,49 @@ Later rollout follows observe, reconcile, and enforce phases documented in
 
 ## Guarded bug reproduction
 
-Guarded reproduction is a maintainer-requested, policy-bounded execution of one
-reported Avrotize CLI command against the trusted default branch. It records
-evidence. It does not authorize implementation, approve compatibility, merge,
-release, or change any priority.
+Guarded reproduction automation is a maintainer-requested, revision-bound
+preparation of one Bug report for owner-controlled manual reproduction. It
+records evidence but does not execute Avrotize or reporter input. It does not
+authorize implementation, approve compatibility, merge, release, or change
+priority.
 
-**Authority boundary.** Only a maintainer or admin can request it, by applying
-the exact `repro-requested` label or dispatching the workflow with an issue
-number. Authorization is decided before any checkout, dependency install, or
-issue content read, and a denial changes no label and writes no comment. The
-only repository mutations the workflow performs are the governed reproduction
-state labels and one comment linking the run, artifact, trusted source revision,
-and authorized issue revision.
+**Authority boundary.** Only a maintainer or admin can request preparation by
+applying the exact `repro-requested` label. The label-event sender is the
+requesting actor. Collaborator permission is queried before checkout, processor
+execution, or issue-content processing. API errors, actor ambiguity, and rerun
+actor mismatch fail closed. There is no manual dispatch. A denied request makes
+no mutation and emits a minimal permission-gate artifact without reading or
+recording the issue body.
 
-**Eligibility.** A report is eligible only when it is a complete `[Bug]` form
-with the exact contract heading set, names the Avrotize CLI surface, names a
-command listed in `.github/governance/repro-command-policy.json`, and supplies
-an inline minimal input. Every other command is blocked by default and needs
-manual maintainer reproduction. The first policy version allows only local,
-deterministic, single-input schema transformations that perform no network or
-database discovery and never compile or execute generated output.
+**Content authorization and eligibility.** Authorization binds repository,
+issue number, title, and body in a canonical snapshot with title, body, and
+combined cryptographic digests. The label event snapshot must match an immediate
+REST re-fetch, and it is re-fetched again before preparation. Label and comment
+timestamp changes do not invalidate it; title or body edits do. Only a complete
+Bug report that names a
+known command/API surface, a command from `avrotize/commands.json`, necessary
+source and result representations, flags/options, minimal input, expected and
+actual result, and environment/toolchain reaches manual review. Feature and
+freeform bodies are blocked.
 
-**Execution bounds.** The engine builds the process arguments itself from the
-policy: it never runs a shell, rejects shell metacharacters, `@`, URLs, absolute
-paths, traversal, and `--flag=value` forms, and replaces reporter-supplied input
-and output paths with workspace-controlled paths. The fixture is inert data, so
-only UTF-8 validity, control characters, and a 64 KiB size limit apply to it.
-Execution runs in a temporary workspace outside the repository with a minimal
-sanitized environment, a 60-second timeout, a 1 MiB combined output budget, and
-at most 32 produced files totalling 4 MiB, none of which is ever executed.
+**Execution boundary.** Automated execution is disabled. The repository has no
+adequate locked/hash-pinned reproduction environment, and GitHub-hosted runners
+cannot guarantee denied egress or enforce the required memory, PID, and
+filesystem isolation for hostile parser input. Automation never installs
+dependencies, materializes reporter fixtures, executes commands, or compiles
+generated output. Owners perform later reproduction only in an approved isolated
+environment.
 
-**Outcomes.** Evidence is classified only from structured facts: readiness,
-policy, timeout, and resource refusals produce `BLOCKED`; expected success with a
-nonzero exit produces `CONFIRMED`; expected failure with a nonzero exit produces
-`NOT_REPRODUCED`; a declared exact output that matches the single comparison
-target produces `NOT_REPRODUCED` and a difference produces `CONFIRMED`; and
-anything undeclared, human-review, or ambiguous produces `NEEDS_REVIEW`.
-Natural-language "actual" and "expected" prose is never compared, never appended
-to execution output, and never treated as a result.
+**Outcomes.** Preparation can produce only `BLOCKED` or `NEEDS_REVIEW`. It never
+claims `CONFIRMED` or `NOT_REPRODUCED`. Missing or corrupt preparation evidence
+maps to an auditable fallback `BLOCKED` record. Artifacts include the run attempt
+and are retained for 30 days. Producer artifact identities are passed between jobs
+so failed-job reruns consume the exact earlier successful output rather than a
+recomputed attempt name.
 
 **State labels.** The six governed labels live in
-`.github/governance/repro-label-catalog.json` and are reconciled on the
-repository by a separate manual workflow. Each run ends with exactly one
-terminal label; contradictory labels are removed in the same step. If the
-reproduction job itself fails for infrastructure reasons, the run publishes
-`repro-blocked` with the run link and states that no execution evidence exists
-rather than fabricating an outcome.
+`.github/governance/repro-label-catalog.json` and are provisioned manually by an
+owner. No write-capable label-reconciliation dispatch is included. Final
+publication re-reads labels and retries reconciliation three times; it surfaces
+failure to restore a single governed state and does not claim atomicity GitHub
+does not provide. Exact evidence, not label text, is authoritative.

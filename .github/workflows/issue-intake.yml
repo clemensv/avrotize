@@ -3,25 +3,12 @@ name: Issue intake
 on:
   issues:
     types: [opened, edited, reopened]
-  workflow_dispatch:
-    inputs:
-      fixture:
-        description: "Fixture event file (relative to test/fixtures/governance/)"
-        required: true
-        type: choice
-        options:
-          - issue_bug_complete.json
-          - issue_feature_complete.json
-          - issue_incomplete.json
-          - issue_unknown.json
-          - issue_malformed.json
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
-  group: issue-intake-${{ github.event.issue.number || inputs.fixture }}
-  cancel-in-progress: true
+  group: issue-intake-${{ github.event.issue.number }}
+  cancel-in-progress: false
 
 jobs:
   normalize:
@@ -30,58 +17,61 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout trusted default-branch code
+      - name: Resolve exact trusted processor revision
+        id: processor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          processor_sha=$(gh api "repos/${REPO}/commits/${DEFAULT_BRANCH}" --jq '.sha')
+          printf 'sha=%s\n' "${processor_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact trusted processor revision
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ steps.processor.outputs.sha }}
+          fetch-depth: 1
           persist-credentials: false
+
+      - name: Verify processor revision
+        env:
+          PROCESSOR_SHA: ${{ steps.processor.outputs.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${PROCESSOR_SHA}"
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - name: Prepare event payload
-        id: event
+      - name: Capture event revision
         env:
           REAL_EVENT: ${{ toJSON(github.event) }}
-          FIXTURE: ${{ inputs.fixture }}
         run: |
-          if [ -n "$FIXTURE" ]; then
-            cp "test/fixtures/governance/$FIXTURE" event.json
-            echo "source=fixture" >> "$GITHUB_OUTPUT"
-          else
-            printf '%s' "$REAL_EVENT" > event.json
-            echo "source=live" >> "$GITHUB_OUTPUT"
-          fi
+          set -euo pipefail
+          printf '%s' "${REAL_EVENT}" > event.json
 
-      - name: Emit event identity
+      - name: Normalize issue intake
         env:
-          ISSUE_NUMBER: ${{ github.event.issue.number || '0' }}
-          EVENT_ACTION: ${{ github.event.action || 'workflow_dispatch' }}
+          PROCESSOR_SHA: ${{ steps.processor.outputs.sha }}
         run: |
-          echo "### Event Identity" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Issue: #${ISSUE_NUMBER}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Action: ${EVENT_ACTION}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Source: ${{ steps.event.outputs.source }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Body digest: $(sha256sum event.json | cut -c1-16)..." >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Run intake normalizer
-        run: |
+          set -euo pipefail
           python tools/governance_intake.py issue \
             --event event.json \
+            --processor-sha "${PROCESSOR_SHA}" \
             --output-json intake-record.json \
             --output-md intake-summary.md
+          cat intake-summary.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Write step summary
-        run: cat intake-summary.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload intake artifact
+      - name: Upload revision-bound intake
         uses: actions/upload-artifact@v7
         with:
-          name: issue-intake-${{ github.event.issue.number || inputs.fixture }}
+          name: issue-intake-${{ github.event.issue.number }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             intake-record.json
             intake-summary.md
-          retention-days: 14
+          retention-days: 30
+          if-no-files-found: error

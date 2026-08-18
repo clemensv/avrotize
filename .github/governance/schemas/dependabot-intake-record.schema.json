@@ -38,7 +38,16 @@
         "head_sha",
         "base_sha",
         "author",
+        "sender",
+        "processor_sha",
         "identity_checks",
+        "observed_head_before",
+        "observed_head_after",
+        "head_verified_before",
+        "head_verified_after",
+        "files_digest",
+        "config_digest",
+        "capability_digest",
         "source_digest"
       ],
       "properties": {
@@ -74,11 +83,16 @@
           "additionalProperties": false,
           "required": [
             "author_is_dependabot_bot",
+            "sender_is_dependabot_bot",
             "head_ref_prefix",
-            "title_matches_pattern"
+            "title_matches_pattern",
+            "configured_title_prefix"
           ],
           "properties": {
             "author_is_dependabot_bot": {
+              "type": "boolean"
+            },
+            "sender_is_dependabot_bot": {
               "type": "boolean"
             },
             "head_ref_prefix": {
@@ -86,8 +100,27 @@
             },
             "title_matches_pattern": {
               "type": "boolean"
+            },
+            "configured_title_prefix": {
+              "type": "string"
             }
           }
+        },
+        "processor_sha": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_head_before": {
+          "type": "string"
+        },
+        "observed_head_after": {
+          "type": "string"
+        },
+        "head_verified_before": {
+          "type": "boolean"
+        },
+        "head_verified_after": {
+          "type": "boolean"
         },
         "files_digest": {
           "type": "string",
@@ -132,12 +165,14 @@
           "enum": [
             "complete",
             "incomplete",
-            "ignored"
+            "ignored",
+            "superseded"
           ]
         },
         "reason": {
           "enum": [
-            "unauthorized"
+            "unauthorized",
+            "head-changed-during-retrieval"
           ]
         },
         "missing_info": {
@@ -319,6 +354,24 @@
               },
               "status": {
                 "type": "string"
+              },
+              "previous_filename": {
+                "type": ["string", "null"]
+              },
+              "sha": {
+                "type": "string"
+              },
+              "additions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deletions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "changes": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           }
@@ -385,5 +438,66 @@
         }
       }
     }
-  }
+  },
+  "oneOf": [
+        {
+          "properties": {
+            "classification": {
+              "type": "object",
+              "properties": {
+                "status": { "const": "complete" },
+                "is_dependabot": { "const": true }
+              },
+              "required": ["status", "is_dependabot"]
+            },
+            "normalized_facts": {
+              "type": "object",
+              "properties": {
+                "dependencies": { "type": "array", "minItems": 1 },
+                "config_entries": { "type": "array", "minItems": 1 },
+                "ecosystems": { "type": "array", "minItems": 1 },
+                "required_validation_scope": { "type": "array", "minItems": 1 },
+                "safe_merge_inferred": { "const": false },
+                "exploitability_inferred": { "const": false }
+              },
+              "required": [
+                "dependencies",
+                "config_entries",
+                "ecosystems",
+                "required_validation_scope",
+                "safe_merge_inferred",
+                "exploitability_inferred"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "classification": {
+              "type": "object",
+              "properties": {
+                "status": { "const": "incomplete" },
+                "is_dependabot": { "const": true },
+                "missing_info": { "type": "array", "minItems": 1 }
+              },
+              "required": ["status", "is_dependabot", "missing_info"]
+            }
+          }
+        },
+        {
+          "properties": {
+            "classification": {
+              "type": "object",
+              "properties": {
+                "status": { "enum": ["ignored", "superseded"] }
+              },
+              "required": ["status"]
+            },
+            "normalized_facts": {
+              "type": "object",
+              "additionalProperties": false
+            }
+          }
+        }
+  ]
 }

@@ -18,14 +18,32 @@
     "event_identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["issue_number", "event_type", "body_digest", "source_digest", "update"],
+      "required": [
+        "issue_number",
+        "event_type",
+        "processor_sha",
+        "title_digest",
+        "body_digest",
+        "contract_digest",
+        "command_registry_digest",
+        "capability_digest",
+        "surface_registry_digest",
+        "source_digest",
+        "update"
+      ],
       "properties": {
         "issue_number": { "type": "integer" },
         "repository": { "type": "string" },
         "url": { "type": "string" },
-        "event_type": { "enum": ["opened", "edited", "reopened", "workflow_dispatch"] },
+        "event_type": { "enum": ["opened", "edited", "reopened", "labeled"] },
         "sender": { "type": "string" },
+        "processor_sha": { "type": "string", "minLength": 1 },
+        "title_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "body_digest": { "type": "string", "minLength": 64, "maxLength": 64 },
+        "contract_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "command_registry_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "capability_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "surface_registry_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "source_digest": { "type": "string", "minLength": 64, "maxLength": 64 },
         "update": { "type": "boolean" }
       }
@@ -87,5 +105,96 @@
         "statement": { "type": "string" }
       }
     }
-  }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "classification": {
+          "type": "object",
+          "properties": {
+            "status": { "const": "complete" },
+            "form_type": { "const": "bug" }
+          },
+          "required": ["status", "form_type"]
+        },
+        "normalized_facts": {
+          "type": "object",
+          "properties": {
+            "command": { "type": "string", "minLength": 1 },
+            "command_known": { "type": "boolean" },
+            "surface": { "type": "string", "minLength": 1 },
+            "source_representation": { "type": "string", "minLength": 1 },
+            "result_representation": { "type": "string", "minLength": 1 },
+            "flags_options": { "type": "string", "minLength": 1 },
+            "input_reproducer": { "type": "string", "minLength": 1 },
+            "actual_behavior": { "type": "string", "minLength": 1 },
+            "expected_behavior": { "type": "string", "minLength": 1 },
+            "environment": { "type": "string", "minLength": 1 },
+            "regression": { "type": "string", "minLength": 1 }
+          },
+          "required": [
+            "command",
+            "command_known",
+            "surface",
+            "source_representation",
+            "result_representation",
+            "flags_options",
+            "input_reproducer",
+            "actual_behavior",
+            "expected_behavior",
+            "environment",
+            "regression"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "classification": {
+          "type": "object",
+          "properties": {
+            "status": { "const": "complete" },
+            "form_type": { "const": "feature" }
+          },
+          "required": ["status", "form_type"]
+        },
+        "normalized_facts": {
+          "type": "object",
+          "properties": {
+            "command": { "type": "string", "minLength": 1 },
+            "source_representation": { "type": "string", "minLength": 1 },
+            "result_representation": { "type": "string", "minLength": 1 },
+            "expected_behavior": { "type": "string", "minLength": 1 },
+            "semantics": { "type": "string", "minLength": 1 },
+            "flags_options": { "type": "string", "minLength": 1 },
+            "validation_expectations": { "type": "string", "minLength": 1 },
+            "documentation": { "type": "string", "minLength": 1 }
+          },
+          "required": [
+            "command",
+            "source_representation",
+            "result_representation",
+            "expected_behavior",
+            "semantics",
+            "flags_options",
+            "validation_expectations",
+            "documentation"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "classification": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": ["incomplete", "malformed", "manual-triage"]
+            }
+          },
+          "required": ["status"]
+        }
+      }
+    }
+  ]
 }

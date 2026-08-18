@@ -1,46 +1,46 @@
 {
   "schema_version": 1,
-  "description": "Governed reproduction state labels. Guarded reproduction ends in exactly one terminal label; every other governed label is removed in the same reconciliation.",
+  "description": "Governed reproduction state labels. Automation prepares evidence only; owners may later adjudicate confirmed or not-reproduced states from manual evidence.",
   "labels": [
     {
       "name": "repro-requested",
       "color": "d4c5f9",
-      "description": "Maintainer requested guarded CLI reproduction",
+      "description": "Maintainer requested guarded reproduction preparation",
       "kind": "request",
       "outcome": ""
     },
     {
       "name": "repro-in-progress",
       "color": "0e8a16",
-      "description": "Guarded reproduction is running for this issue",
+      "description": "Revision-bound reproduction evidence is being prepared",
       "kind": "progress",
       "outcome": ""
     },
     {
       "name": "repro-confirmed",
       "color": "b60205",
-      "description": "Guarded execution reproduced the reported defect",
+      "description": "Owner adjudicated manual evidence as reproducing the defect",
       "kind": "terminal",
       "outcome": "CONFIRMED"
     },
     {
       "name": "repro-not-reproduced",
       "color": "0075ca",
-      "description": "Guarded execution matched the reported expectation",
+      "description": "Owner adjudicated manual evidence as not reproducing the defect",
       "kind": "terminal",
       "outcome": "NOT_REPRODUCED"
     },
     {
       "name": "repro-blocked",
       "color": "e4e669",
-      "description": "Guarded reproduction was blocked by readiness, policy, limits, or infrastructure",
+      "description": "Reproduction preparation was blocked by readiness, revision, or infrastructure",
       "kind": "terminal",
       "outcome": "BLOCKED"
     },
     {
       "name": "repro-needs-review",
       "color": "fbca04",
-      "description": "Guarded execution completed but the outcome needs maintainer adjudication",
+      "description": "Prepared evidence awaits owner-controlled manual reproduction and adjudication",
       "kind": "terminal",
       "outcome": "NEEDS_REVIEW"
     }

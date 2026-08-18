@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/clemensv/avrotize/schemas/repro-terminal-fallback.schema.json",
+  "title": "Reproduction Terminal Fallback",
+  "description": "Auditable blocked evidence emitted when prepared reproduction evidence is unavailable or invalid.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_kind",
+    "issue_number",
+    "request",
+    "processor",
+    "authorized_content",
+    "upstream",
+    "execution",
+    "result",
+    "artifact",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "record_kind": { "const": "repro-terminal-fallback" },
+    "issue_number": { "type": "integer", "minimum": 1 },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "run_id", "run_attempt", "run_url"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "run_attempt": { "type": "integer", "minimum": 1 },
+        "run_url": { "type": "string", "minLength": 1 }
+      }
+    },
+    "processor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trusted_sha"],
+      "properties": {
+        "trusted_sha": { "type": "string", "minLength": 1 }
+      }
+    },
+    "authorized_content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title_digest", "body_digest", "content_digest"],
+      "properties": {
+        "title_digest": { "$ref": "#/$defs/digest" },
+        "body_digest": { "$ref": "#/$defs/digest" },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prepare_result", "mark_result", "preparation_artifact"],
+      "properties": {
+        "prepare_result": { "type": "string" },
+        "mark_result": { "type": "string" },
+        "preparation_artifact": { "type": "string" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performed", "reason"],
+      "properties": {
+        "performed": { "const": false },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_code", "reason", "final_label"],
+      "properties": {
+        "status": { "const": "BLOCKED" },
+        "reason_code": { "const": "PREPARATION_EVIDENCE_UNAVAILABLE" },
+        "reason": { "type": "string", "minLength": 1 },
+        "final_label": { "const": "repro-blocked" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "retention_days"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "retention_days": { "type": "integer", "minimum": 30, "maximum": 90 }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorized", "statement"],
+      "properties": {
+        "authorized": { "const": false },
+        "statement": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

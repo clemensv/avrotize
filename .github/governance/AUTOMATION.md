@@ -1,237 +1,195 @@
 # Automation Workflow Contract
 
-This contract maps current Avrotize automation and projects governance
-responsibilities without changing existing build, test, publication, or release
-behavior.
+This contract maps Avrotize automation and governance responsibilities without
+changing existing build, test, publication, or release behavior. The
+machine-readable companion is
+[`workflow-contracts.json`](workflow-contracts.json).
 
 ## Responsibility map
 
-| Workflow | Current responsibility | Authority | Failure semantics |
-| --- | --- | --- | --- |
-| `build_deploy.yml` | Fourteen Python test groups, VS Code extension tests, and tag-only PyPI/extension publication | Technical evidence; release execution on an owner-created tag | Test and extension failures block deployment. Publication failures remain failures. |
-| `python-runtime-versions-test.yml` | Build artifacts and exercise Python 3.10-3.14 installation/CLI smoke coverage | Compatibility signal | Build and matrix job failures propagate, but the current basic pytest command is a non-gating smoke signal. It is not represented as full evidence. |
-| `validate-mcp-server-json.yml` | Validate the MCP registry manifest | MCP publication evidence | Validation failure fails the workflow. |
-| `dependabot-auto-merge.yml` | Read-only policy guard summarizing Dependabot PR eligibility | Read-only summary only; no merge, approve, or branch deletion | Non-Dependabot PRs are ignored in summary. |
-| `issue-intake.yml` | Normalize GitHub Issue Form submissions into deterministic intake records | Intake normalization only; no comments, labels, or project writes | Corrupt config fails closed; incomplete/unknown issues produce explicit non-ready records and exit successfully. |
-| `dependabot-intake.yml` | Normalize Dependabot PR metadata into intake records using REST file metadata only, classifying each matched ecosystem separately | Intake normalization only; never checks out or runs PR head | Corrupt config fails closed; non-Dependabot PRs produce ignored records. |
-| `repro-bug.yml` | Authorize, mark, run, and publish one policy-bounded CLI reproduction of an eligible bug report | Evidence and governed state labels only; never authorizes work, merge, or release | Denied or erroring authorization stops the run and mutates nothing. Readiness, policy, timeout, and resource refusals produce `BLOCKED` evidence. Infrastructure failure publishes `repro-blocked` and states that no evidence exists. |
-| `repro-label-reconciliation.yml` | Manually reconcile the six governed reproduction labels on the repository from the checked-in catalog | Repository label name, color, and description only | Unauthorized actors, corrupt catalogs, and unexpected label API statuses fail the workflow. Issue state is never read or changed. |
-| `governance-observe.yml` | Validate governance surfaces, command-capability profile parity, and workflow static safety | Advisory observation only | Findings are annotations and summaries; observe mode exits successfully and cannot satisfy or block a merge gate. |
+| Workflow | Responsibility | Authority and failure semantics |
+| --- | --- | --- |
+| `build_deploy.yml` | Python test groups, generated-target and VS Code extension evidence, tag-only publication | Existing failures and publication behavior are preserved. |
+| `python-runtime-versions-test.yml` | Python 3.10-3.14 build/install/CLI smoke matrix | Existing runtime signal; not represented as broader compatibility approval. |
+| `validate-mcp-server-json.yml` | MCP registry manifest validation | Validation failure remains a workflow failure. |
+| `issue-intake.yml` | Normalize future Bug report and Feature or transformation request events | Read-only intake. Incomplete and freeform bodies produce visible non-ready records. Processor or schema corruption fails. |
+| `dependabot-intake.yml` | Normalize future Dependabot PR metadata and changed-file metadata | Read-only intake. It never runs the PR head, approves, or merges. A head race produces `superseded`. |
+| `governance-observe.yml` | Report deterministic governance findings | Advisory findings remain non-blocking; validator crashes still fail the workflow. |
+| `governance-ci.yml` | Run the strict validator and every governance test on the exact PR head | Hard-failing quality check; no warning fallback or swallowed test failure. Passing does not authorize merge. |
+| `repro-bug.yml` | Authorize an issue content snapshot and prepare manual reproduction evidence | Future issue-label/comment mutation only. It never installs dependencies or executes Avrotize or reporter fixtures. |
 
 A green workflow proves only its named responsibility.
 
 ## Deterministic and Copilot boundaries
 
-Deterministic automation owns parsing, schema checks, path impact, head-SHA
-comparison, dependency state, test selection, artifact hashes, lifecycle
-projection, stale-verdict detection, budgets, and guard decisions.
+Deterministic automation owns parsing, schema checks, exact revision identity,
+dependency metadata, path impact, artifact digests, stale-head detection, and
+guard decisions. No current governance workflow invokes Copilot.
 
-Copilot may activate only when a checked-in workflow contract defines the
-ambiguity, lowest adequate model, prompt version, structured output,
-platform-configured AIC guardrails, and prohibited actions. It may classify or
-recommend `PASS`, `REVISE`, or `ESCALATE`; it may not authorize work, change
-priority, approve compatibility or risk, merge, publish, delete evidence, or
-exercise owner authority. No current governance workflow invokes Copilot, so
-its baseline and actual AIC are zero.
-AIC is accepted only as the usage quantity reported by the GitHub/Copilot
-execution platform. Workflow code does not derive AIC from tokens or any other
-input.
+Any later Copilot step needs a checked-in contract defining its ambiguity,
+structured output, prohibited actions, and platform controls. It cannot authorize
+work, set priority, approve compatibility or risk, merge, publish, mutate
+reproduction state, or exercise owner authority. AIC is accepted only as
+GitHub/Copilot platform-reported telemetry. Until representative runs exist,
+sample size, P50, and P95 are `TBD`. Token telemetry is operational only and is
+never converted into AIC.
 
-No semantic or AI phase of guarded reproduction exists today. If one is ever
-authorized, it must read the already-recorded evidence record only, must run
-read-only after the terminal label is set, must not re-execute commands or
-change any label or comment, and its AIC must come from platform telemetry with
-sample size, P50, and P95 left `TBD` until representative runs exist.
+## Exact revisions and stale evidence
 
-## Exact-head evidence and stale approvals
+- `governance-ci.yml` checks out and verifies
+  `github.event.pull_request.head.sha`; its only third-party Python test dependency
+  is binary-only and hash-pinned in `requirements-ci.txt`.
+- Issue intake resolves one default-branch processor SHA, checks out that exact
+  SHA, and records the processor SHA plus form-contract, command-registry, and
+  capability-profile and derived surface-registry digests.
+- Dependabot intake checks out the exact event base SHA. It compares the current
+  PR head with the event head before and after REST changed-file retrieval and
+  hashes stable metadata including filename, previous filename, status, blob SHA,
+  additions, deletions, and changes. A mismatch emits a `superseded` record.
+- Reproduction authorization binds repository, issue number, title, and body in
+  an immutable canonical snapshot with separate title, body, and combined
+  digests. GitHub label/comment mutations may change `issue.updated_at` but do not
+  invalidate that content snapshot. A title or body edit does.
 
-Evidence records the PR head SHA, not a mutable branch name. Pull-request
-automation must check out `github.event.pull_request.head.sha`, use
-`persist-credentials: false`, and compare `git rev-parse HEAD` with that value.
-A changed head invalidates head-bound approvals and evidence. Observe mode may
-report stale records but cannot delete or rewrite them.
+Later merge or release enforcement must fail closed on missing, malformed, stale,
+or unreachable facts. It must not turn warnings, exception labels,
+`continue-on-error`, `|| true`, or skipped required scope into passing evidence.
+No such merge or release guard is implemented by this adoption.
 
-Before enforcement, a merge guard will deterministically require:
+## Permissions and untrusted content
 
-- an authorized linked item or a recorded owner exception;
-- complete metadata and affected commands, shared semantics, generated targets, and public surfaces;
-- required evidence produced from the current head;
-- current-head domain, outcome, compatibility, security, and release verdicts;
-- all existing required checks passing;
-- no unresolved hard dependency.
-
-The guard will fail closed on missing, malformed, stale, or unreachable facts.
-It will not turn warnings, `continue-on-error`, `|| true`, skipped required
-scope, or manual labels into passing evidence.
-
-## Release guard
-
-A later release guard will require an owner-approved version and compatibility
-class, full required matrix evidence, package/extension checks from the tagged
-revision, changelog and migration material, immutable tag identity, provenance,
-artifact digests, and rollback. Publishing must promote the verified artifacts
-built from the approved tag rather than rebuild them.
-
-## Permissions, mutations, and concurrency
-
-- Observe mode uses only `contents: read`; it has no secrets and makes no mutation.
-- Future PR readers may add `pull-requests: read` only when review metadata is required.
-- Mutating reconcile workflows require the narrow permission for the declared
-  derived state and serialize on the issue, PR, or release they mutate.
-- Superseded pull-request heads should cancel in-progress analysis.
-- Untrusted pull-request code is never executed in a privileged
-  `pull_request_target` context.
-- Required commands propagate nonzero status. Infrastructure retries are bounded
-  and apply only to classified transient failures.
-
-## GitHub Actions projections
-
-The following calibration uses the five most recent successful pull-request
-runs observed on 2026-08-17. Elapsed minutes are wall-clock time. Runner minutes
-sum active job durations.
-
-| Workflow | Fan-out/jobs | Observed elapsed | Observed runner minutes |
-| --- | ---: | ---: | ---: |
-| Build/deploy PR evidence | 15 | 9.68-24.43; median 19.35 | 58.28-62.02; median 60.82 |
-| Python runtime matrix | 7 (build, 5 runtimes, summary) | 1.75-14.65; median 12.70 | 4.05-4.45; median 4.37 |
-| MCP manifest validation | 1 | 0.18-3.05; median 1.08 | 0.07-0.13; median 0.12 |
-| Governance observe | 1 | projected 1 | projected 1 |
-| Issue intake | 1 | projected 2 | projected 2 |
-| Dependabot intake | 1 | projected 2 | projected 2 |
-| Guarded bug reproduction | 4 (authorize, mark, reproduce, publish) | projected 8 | projected 12 |
-| Reproduction label reconciliation | 2 (authorize, reconcile) | projected 3 | projected 4 |
-
-Intake, reproduction, and label projections are declared projections, not
-observations: these workflows have no recorded runs yet. Replace them with
-platform-reported values after the first representative runs, and treat the
-per-contract `runner_minutes_ceiling` as the enforcement bound in the meantime.
-
-Initial Avrotize capability budgets distinguish elapsed from summed runner time:
-
-| Scope | Elapsed | Typical runner | P95 runner | Ceiling |
-| --- | ---: | ---: | ---: | ---: |
-| Documentation-only PR | 3 | 5 | 10 | 15 |
-| One command implementation | 10 | 20 | 45 | 60 |
-| Shared schema/IDL transformation helper | 15 | 60 | 120 | 180 |
-| Avrotize Schema or JSON Structure semantic change | 25 | 180 | 360 | 480 |
-| Full command and generated-target matrix | 25 | 180 | 300 | 420 |
-| Supported-runtime matrix | 15 | 40 | 80 | 120 |
-| Package and extension release | 35 | 220 | 380 | 480 |
-
-Parallel fan-out can reduce elapsed time but not summed runner time. Projections
-include matrix children, reusable workflows, retries, and descendants. Record
-the runner class with each observation.
-
-Controls are cancellation of superseded heads, content-hash deduplication,
-fail-safe impact filters, explicit cache keys, immutable build artifacts,
-matrix/time limits, classified retries, and separate budgets for required and
-optional diagnostics. If required scope cannot finish, report
-`BLOCKED: ACTIONS-BUDGET-INSUFFICIENT`, unfinished scope, and a revised
-projection; never silently skip it.
-
-Telemetry records exact SHA, event and dedupe IDs, jobs/commands, runner classes,
-queue/setup/active/elapsed time, runner minutes, cache/artifact reuse,
-cancellations/skips/retries/timeouts, projected values, platform run IDs,
-platform-reported AIC, optional token counts, and disposition. AIC projections
-remain `TBD` until representative platform telemetry exists, then use observed
-P50 and P95 distributions. Recalibrate after 20 representative runs, a material
-matrix, runner, cache, or model change, or sustained P95 deviation greater than
-25%.
+- Intake and governance quality use `contents: read`; Dependabot intake adds
+  `pull-requests: read`.
+- `pull_request_target` is used for Dependabot metadata only. It checks out the
+  trusted base SHA and never checks out or executes the Dependabot head.
+- Guarded reproduction queries the label-event sender's collaborator permission
+  before issue-content processing or processor checkout. Only exact `maintain` or
+  `admin` role results proceed. API errors, actor ambiguity, and rerun actor
+  mismatch fail closed.
+- The reproduction preparation job has only `contents: read` and `issues: read`.
+  The two state-publication jobs alone have `issues: write`.
+- Intake and reproduction workflows receive no repository secrets and never
+  execute issue, Dependabot-head, or reporter-provided code. Governance CI is a
+  separate read-only, secret-free quality boundary: it intentionally checks out
+  the exact pull-request head and executes only the governance validator and
+  governance tests from that head.
 
 ## Intake automation
 
-Issue and Dependabot intake workflows normalize incoming work items into
-deterministic, versioned JSON records and Markdown summaries. They:
+### Issue intake
 
-- Never authorize implementation, schedule work, approve compatibility, or
-  permit merge.
-- Never write comments, labels, project cards, or any mutation.
-- Never check out or execute untrusted PR head content.
-- Use `contents: read` (and `pull-requests: read` for Dependabot file metadata)
-  only.
-- Produce explicit non-ready/manual-triage records for incomplete, unknown, or
-  freeform input and exit successfully.
-- Fail closed on corrupt workflow config, dependabot.yml, or issue form contract.
+Future `issues: opened`, `edited`, and `reopened` events produce a versioned JSON
+record and readable summary. The fence-aware parser uses the checked-in
+Issue Form heading contract, so `###` inside fenced examples is content rather
+than a new field. Exact identifiers are resolved per surface from
+`commands.json`, its Python entry points, MCP tool decorators, and the VS Code
+`Convert to` registry; substring matching is not used. Records bind a digest of
+that derived surface registry. All checked-in choices are recognized, including
+`Generated project or code`.
 
-The Dependabot policy guard (formerly auto-merge) is a read-only summary that
-reports eligibility without merging, approving, or deleting branches.
+Bug records normalize the concrete command/API, Avrotize Schema, JSON Structure,
+or direct path, source and result representations, flags/options, minimal input,
+actual and expected result, environment/toolchain, regression, and declared
+expected-result kind. Feature or transformation records normalize the requested
+command/transformation, representations, preserved semantics, options, target
+validation/runtime expectation, and documentation example. Unknown, duplicate,
+malformed, or freeform bodies become explicit manual-triage records.
 
-## Security alert intake (future)
+### Dependabot intake
 
-Dependabot security alerts require distinct event triggers and security access
-not available through standard Actions workflow events. Security alert intake
-is a separately authorized future control requiring:
+Future Dependabot PR `opened`, `reopened`, `synchronize`, and
+`ready_for_review` events are accepted only when both the PR author and event
+sender are `dependabot[bot]`. Parsing supports the eight configured ecosystems,
+directories, and commit prefixes such as `deps(python):`, `deps(nuget):`, and
+`deps(actions):`. It does not require the optional `updated-dependencies` body
+block.
 
-- Explicit repository-owner authorization for security-event API access.
-- A dedicated event source (not the PR or issue event).
-- Separate authority boundary from dependency-update intake.
+Records include dependency/version data when determinable, direct/transitive
+status when determinable, ecosystem/directory, manifests and lockfiles, Avrotize
+capability domains, runtime/dev/test/build/docs/CI/editor-extension exposure,
+generated-output/toolchain implications, major/unknown version risk, and required
+validation scope. No version or severity implies exploitability, safe merge, or
+implementation authorization.
 
-Until separately authorized, security alert intake is not implemented and must
-not be approximated by scheduled broad-access polling or fabricated coverage.
+Dependabot auto-merge is removed. The owner reviews the weekly Monday Dependabot
+queue at least weekly so each configured ecosystem's five-PR limit does not
+silently stall updates. Security-alert intake is not implemented: it needs a
+separately authorized event source and security access rather than broad polling
+or fabricated coverage.
 
-## Guarded bug reproduction
+## Guarded reproduction preparation
 
-`repro-bug.yml` runs four ordered jobs and each one holds only the permission it
-needs.
+`repro-bug.yml` has no manual dispatch. It runs only for the exact
+`repro-requested` label event, whose sender is the requesting actor.
 
-1. **authorize** (`contents: read`, `issues: read`): resolves the trusted default
-   branch revision, fetches `tools/governance_authorize.py` at that revision,
-   calls the collaborator permission endpoint with an explicit HTTP status, and
-   evaluates the request deterministically. Event, action, exact
-   `repro-requested` label, actor identity, re-run actor agreement, and a numeric
-   dispatch issue number are all checked before any permission call. An API
-   failure is `ERROR` and fails the workflow; it is never silently downgraded to
-   a denial. The decision artifact is uploaded even when denied. Issue metadata
-   (revision, URL, body digest) is resolved only after the decision.
-2. **mark-in-progress** (`issues: write`): removes the request and every terminal
-   governed label, then adds `repro-in-progress`. Every label API status other
-   than success or a benign `404` fails the job.
-3. **reproduce** (`contents: read`, `issues: read`): checks out the authorized
-   trusted SHA with `persist-credentials: false`, verifies `git rev-parse HEAD`
-   against it, installs the pinned requirements plus the local package, records
-   the resolved `avrotize` executable and version, re-fetches the issue, and
-   re-verifies `updated_at` and the body digest against the authorized values. A
-   changed revision produces `BLOCKED` evidence without execution.
-4. **publish-final** (`issues: write`, `if: always()`): downloads the evidence
-   artifact when reproduction succeeded, maps the recorded outcome to exactly one
-   catalog label, removes all six governed labels, adds the final label, and
-   comments the run URL, artifact name, trusted SHA, and authorized issue
-   revision. If reproduction did not complete it publishes `repro-blocked` and
-   says explicitly that no execution evidence exists.
+1. **authorize** (`contents: read`, `issues: read`) queries collaborator
+   permission before issue content. It first writes a minimal allow/deny gate record
+   containing no issue body; denied requests fail after that record is uploaded and
+   make no mutation. Allowed requests resolve the trusted default-branch processor
+   SHA, evaluate actor/event/rerun identity, and compare the label event's title/body
+   to an immediate REST re-fetch before authorizing the event snapshot.
+2. **mark-in-progress** (`issues: write`) clears contradictory result labels and
+   the request label, then adds `repro-in-progress`.
+3. **prepare** (`contents: read`, `issues: read`) checks out and verifies the
+   trusted SHA, re-fetches the issue, recomputes the snapshot digests, parses the
+   same Bug report contract as intake, and emits schema-validated evidence.
+4. **publish-final** (`issues: write`, step-level `always()`) creates a bounded
+   schema-validated fallback record if prepared evidence is missing, corrupt, or
+   mismatched to the issue/run/processor/content identity; uploads terminal evidence;
+   then re-reads and reconciles governed labels with three bounded attempts. Producer
+   jobs pass their exact run-attempt artifact names to consumers, including failed-job
+   reruns. If the trusted terminal validator itself fails, a fixed-shape, structurally
+   checked emergency `BLOCKED` record is uploaded and the job remains failed.
+   Transient label API failures and concurrent changes are retried; failure to restore
+   one governed state is surfaced. GitHub does not provide atomic multi-label
+   replacement.
 
-The reproduction engine (`tools/governance_repro.py`) never invokes a shell,
-builds argv from the checked-in policy, discards reporter-supplied paths, runs
-with a minimal sanitized environment in a temporary workspace outside the
-repository, bounds output and produced files, refuses symbolic links, and emits
-schema-validated evidence. Policy refusals are `BLOCKED` evidence with exit 0;
-corrupt policy, schema, catalog, or authorization is an infrastructure failure
-with a nonzero exit.
+Automated command execution was intentionally removed. Avrotize does not provide
+an adequate locked/hash-pinned automation environment, and a GitHub-hosted runner
+cannot guarantee denied egress or enforce the required memory, PID, and filesystem
+isolation for hostile parser input. The workflow therefore never installs
+dependencies, materializes reporter fixtures, executes Avrotize, compiles
+generated code, or decides `CONFIRMED`/`NOT_REPRODUCED`. Complete eligible reports
+end in `repro-needs-review`; incomplete, changed, unknown, or non-bug reports end
+in `repro-blocked`. Owners perform and adjudicate any later reproduction in an
+approved isolated environment.
 
-The bug form renders the invocation field with `render: shell`, so GitHub writes
-that section as a fenced block. The engine unwraps a single leading fence from
-the invocation, command, minimal input, and exact expected output fields before
-parsing or comparing them, so form rendering never changes an outcome.
+Artifact identities include issue number, workflow run ID, and run attempt.
+Authorization, preparation, and terminal artifacts are retained for 30 days. The
+issue comment links the workflow run and records the evidence digest, trusted SHA,
+authorized content digest, and run attempt. Exact evidence—not label text—is
+authoritative.
 
-Hosted runners cannot have their network disabled, so network safety is enforced
-by policy instead: only commands that perform no network or database discovery
-are allowlisted, `j2s` is excluded because it dereferences remote `$ref` targets,
-and URLs are rejected in every argument. Fixture data may legitimately contain
-`/`, `$`, `&`, and URLs because it is written to a file and never executed.
+The six labels are declared in
+[`repro-label-catalog.json`](repro-label-catalog.json). They must be provisioned
+manually by an owner before first use. No write-capable label-reconciliation
+workflow or selected-ref `workflow_dispatch` backdoor is included. Dependabot PRs
+never use issue reproduction labels.
 
-Concurrency serializes on the issue number and the request that started the run
-(`repro-bug-<issue>-<label or workflow_dispatch>`) with cancellation, so a
-repeated `repro-requested` supersedes an older reproduction of the same issue.
-The request is part of the key deliberately: GitHub cannot filter the `labeled`
-trigger, so every unrelated label creates a run whose jobs are all skipped, and
-an issue-only key would let those runs cancel an authorized reproduction that is
-already executing. A cancelled run can leave `repro-in-progress` in place; the
-superseding run's final job replaces it.
+Reproduction preparation, labels, comments, and evidence do not schedule work,
+authorize implementation, accept compatibility, approve merge, or approve
+release. Repository owners retain ultimate authority.
 
-## Reproduction label catalog
+## GitHub Actions projections
 
-`.github/governance/repro-label-catalog.json` is the single source of the six
-governed labels, their colors, descriptions, kind, and outcome mapping.
-`repro-label-reconciliation.yml` is manual-dispatch only: it authorizes the
-actor, checks out the trusted default branch, validates the catalog against its
-schema, then reads, creates, or updates each repository label idempotently. It
-takes no issue number and never touches issue state.
+Elapsed time is wall-clock duration. Summed runner minutes add every job and
+matrix child. Billable-minute equivalent is platform billing telemetry, not
+elapsed time. Matrix fan-out may reduce elapsed time while increasing summed
+runner consumption.
+
+| Workflow | Fan-out/jobs | Elapsed P50/P95 | Summed runner P50/P95 | Billable equivalent |
+| --- | ---: | --- | --- | --- |
+| Build/deploy PR evidence | 15 | observed median 19.35; P95 TBD | observed median 60.82; P95 TBD | TBD |
+| Python runtime matrix | 7 | observed median 12.70; P95 TBD | observed median 4.37; P95 TBD | TBD |
+| MCP manifest validation | 1 | observed median 1.08; P95 TBD | observed median 0.12; P95 TBD | TBD |
+| Governance observe | 1 | TBD | TBD | TBD |
+| Governance CI | 1 | TBD | TBD | TBD |
+| Issue intake | 1 | TBD | TBD | TBD |
+| Dependabot intake | 1 | TBD | TBD | TBD |
+| Reproduction preparation | 4 | TBD | TBD | TBD |
+
+New workflow values remain `TBD` until representative completed runs exist. Record
+sample size, runner class, queue/setup/active/elapsed time, summed runner minutes,
+matrix fan-out, cache/artifact reuse, cancellation, retries, timeouts, exact SHA,
+and platform run ID. Recalibrate after a material matrix, runner, cache, or model
+change.

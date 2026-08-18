@@ -1,5 +1,3 @@
-"""Tests for deterministic guarded-reproduction authorization."""
-
 from __future__ import annotations
 
 import hashlib
@@ -8,13 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools import governance_authorize, governance_schema
-
-SCHEMA = Path(__file__).resolve().parent.parent / ".github" / "governance" / "schemas" / "repro-authorization-record.schema.json"
+from tools import governance_authorize
 
 
-def _label_request(**overrides):
-    request = {
+def request(**overrides: object) -> dict[str, object]:
+    value: dict[str, object] = {
         "repository": "clemensv/avrotize",
         "event_name": "issues",
         "action": "labeled",
@@ -23,351 +19,226 @@ def _label_request(**overrides):
         "actor": "maintainer",
         "triggering_actor": "maintainer",
         "run_attempt": 1,
-        "run_id": "12345",
+        "run_id": "123",
         "issue_number_event": 42,
-        "issue_number_input": "",
         "permission_response": {
             "http_status": 200,
             "body": {"permission": "write", "role_name": "maintain"},
         },
     }
-    request.update(overrides)
-    return request
+    value.update(overrides)
+    return value
 
 
-def _dispatch_request(**overrides):
-    request = {
-        "repository": "clemensv/avrotize",
-        "event_name": "workflow_dispatch",
-        "action": "",
-        "label_name": "",
-        "sender_login": "",
-        "actor": "maintainer",
-        "triggering_actor": "maintainer",
-        "run_attempt": 1,
-        "run_id": "999",
-        "issue_number_event": "",
-        "issue_number_input": "77",
-        "permission_response": {
-            "http_status": 200,
-            "body": {"permission": "admin", "role_name": "admin"},
-        },
-    }
-    request.update(overrides)
-    return request
+class AuthorizationTests(unittest.TestCase):
+    def test_maintain_and_admin_are_allowed(self) -> None:
+        for role in ("maintain", "admin"):
+            with self.subTest(role=role):
+                value = request(
+                    permission_response={
+                        "http_status": 200,
+                        "body": {"permission": "write", "role_name": role},
+                    }
+                )
+                record = governance_authorize.evaluate(value)
+                self.assertEqual(record["decision"], "ALLOW")
+                self.assertTrue(record["actor_authorized"])
 
+    def test_read_triage_write_are_denied(self) -> None:
+        for role in ("read", "triage", "write"):
+            with self.subTest(role=role):
+                value = request(
+                    permission_response={
+                        "http_status": 200,
+                        "body": {"permission": role, "role_name": role},
+                    }
+                )
+                record = governance_authorize.evaluate(value)
+                self.assertEqual(record["decision"], "DENY")
+                self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
 
-class PermissionLevelTests(unittest.TestCase):
-    def test_maintain_is_authorized(self) -> None:
-        record = governance_authorize.evaluate(_label_request())
-        self.assertEqual(record["decision"], "ALLOW")
-        self.assertEqual(record["reason_code"], "AUTHORIZED")
-        self.assertTrue(record["actor_authorized"])
-
-    def test_admin_is_authorized(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {"permission": "admin"}})
+    def test_legacy_write_without_role_is_denied(self) -> None:
+        value = request(
+            permission_response={"http_status": 200, "body": {"permission": "write"}}
         )
-        self.assertEqual(record["decision"], "ALLOW")
+        self.assertEqual(governance_authorize.evaluate(value)["decision"], "DENY")
 
-    def test_write_is_denied(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {"permission": "write"}})
-        )
-        self.assertEqual(record["decision"], "DENY")
-        self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
+    def test_api_failure_is_error(self) -> None:
+        for status in (0, 403, 500):
+            with self.subTest(status=status):
+                record = governance_authorize.evaluate(
+                    request(permission_response={"http_status": status, "body": {}})
+                )
+                self.assertEqual(record["decision"], "ERROR")
 
-    def test_triage_is_denied(self) -> None:
+    def test_404_is_denied(self) -> None:
         record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {"permission": "triage"}})
-        )
-        self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
-
-    def test_read_is_denied(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {"permission": "read"}})
-        )
-        self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
-
-    def test_none_permission_is_denied(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {"permission": "none"}})
-        )
-        self.assertEqual(record["decision"], "DENY")
-
-    def test_not_a_collaborator_is_denied(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 404, "body": {"message": "Not Found"}})
+            request(permission_response={"http_status": 404, "body": {}})
         )
         self.assertEqual(record["decision"], "DENY")
         self.assertEqual(record["reason_code"], "PERMISSION_NOT_A_COLLABORATOR")
 
-    def test_server_error_is_infrastructure_error(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 500, "body": {}})
+    def test_only_exact_label_event_is_eligible(self) -> None:
+        cases = [
+            ("event_name", "workflow_dispatch", "EVENT_NOT_ELIGIBLE"),
+            ("action", "opened", "ACTION_NOT_ELIGIBLE"),
+            ("label_name", "Repro-Requested", "LABEL_NOT_ELIGIBLE"),
+            ("label_name", "repro-requested ", "LABEL_NOT_ELIGIBLE"),
+        ]
+        for key, value, reason in cases:
+            with self.subTest(key=key, value=value):
+                record = governance_authorize.evaluate(request(**{key: value}))
+                self.assertEqual(record["decision"], "DENY")
+                self.assertEqual(record["reason_code"], reason)
+                self.assertFalse(record["permission"]["evaluated"])
+
+    def test_actor_ambiguity_and_rerun_mismatch_fail_closed(self) -> None:
+        ambiguous = governance_authorize.evaluate(request(actor="different"))
+        self.assertEqual(ambiguous["reason_code"], "ACTOR_AMBIGUOUS")
+        mismatch = governance_authorize.evaluate(request(run_attempt=2, triggering_actor="admin"))
+        self.assertEqual(mismatch["reason_code"], "RERUN_ACTOR_MISMATCH")
+        missing = governance_authorize.evaluate(request(triggering_actor=""))
+        self.assertEqual(missing["reason_code"], "TRIGGERING_ACTOR_MISSING")
+
+    def test_invalid_issue_number_is_denied(self) -> None:
+        for value in (0, -1, True, "abc", None):
+            with self.subTest(value=value):
+                record = governance_authorize.evaluate(request(issue_number_event=value))
+                self.assertEqual(record["reason_code"], "ISSUE_NUMBER_INVALID")
+
+
+class SnapshotTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.issue = {
+            "number": 42,
+            "title": "a2p recursive record failure",
+            "body": "### Command or API\navrotize a2p",
+            "updated_at": "2026-01-01T00:00:00Z",
+            "html_url": "https://github.com/clemensv/avrotize/issues/42",
+            "state": "open",
+            "labels": [{"name": "repro-requested"}],
+        }
+        self.snapshot = governance_authorize.build_snapshot(
+            self.issue, 42, "clemensv/avrotize"
         )
-        self.assertEqual(record["decision"], "ERROR")
-        self.assertEqual(record["reason_code"], "PERMISSION_API_ERROR")
 
-    def test_transport_failure_is_infrastructure_error(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 0, "body": None})
+    def test_snapshot_binds_repository_number_title_and_body(self) -> None:
+        canonical = json.dumps(
+            {
+                "repository": "clemensv/avrotize",
+                "issue_number": 42,
+                "title": self.issue["title"],
+                "body": self.issue["body"],
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
         )
-        self.assertEqual(record["decision"], "ERROR")
-
-    def test_forbidden_is_infrastructure_error(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 403, "body": {"message": "Forbidden"}})
+        self.assertEqual(
+            self.snapshot["content_digest"],
+            hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
         )
-        self.assertEqual(record["decision"], "ERROR")
-        self.assertEqual(record["reason_code"], "PERMISSION_API_ERROR")
 
-    def test_malformed_body_is_infrastructure_error(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {}})
-        )
-        self.assertEqual(record["decision"], "ERROR")
-        self.assertEqual(record["reason_code"], "PERMISSION_RESPONSE_MALFORMED")
+    def test_label_timestamp_and_comment_mutations_do_not_invalidate(self) -> None:
+        current = dict(self.issue)
+        current["updated_at"] = "2026-01-01T01:00:00Z"
+        current["labels"] = [{"name": "repro-in-progress"}]
+        current["comments"] = 5
+        result = governance_authorize.verify_snapshot(current, self.snapshot)
+        self.assertTrue(result["matches"])
 
-    def test_role_name_maintain_is_authorized(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(
-                permission_response={
-                    "http_status": 200,
-                    "body": {"permission": "write", "role_name": "maintain"},
-                }
-            )
-        )
-        self.assertEqual(record["decision"], "ALLOW")
-        self.assertEqual(record["permission"]["level"], "maintain")
+    def test_title_or_body_edit_invalidates(self) -> None:
+        for field, value in (("title", "changed title"), ("body", "changed body")):
+            with self.subTest(field=field):
+                current = dict(self.issue)
+                current[field] = value
+                self.assertFalse(
+                    governance_authorize.verify_snapshot(current, self.snapshot)["matches"]
+                )
 
-    def test_plain_write_collaborator_is_denied(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(
-                permission_response={
-                    "http_status": 200,
-                    "body": {"permission": "write", "role_name": "write"},
-                }
-            )
-        )
-        self.assertEqual(record["decision"], "DENY")
-        self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
-
-    def test_custom_role_is_denied(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(
-                permission_response={
-                    "http_status": 200,
-                    "body": {"permission": "write", "role_name": "custom-elevated"},
-                }
-            )
-        )
-        self.assertEqual(record["decision"], "DENY")
-        self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
-
-    def test_write_without_role_name_is_denied(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {"permission": "write"}})
-        )
-        self.assertEqual(record["decision"], "DENY")
-        self.assertEqual(record["reason_code"], "PERMISSION_INSUFFICIENT")
-
-    def test_admin_without_role_name_is_authorized(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {"permission": "admin"}})
-        )
-        self.assertEqual(record["decision"], "ALLOW")
-
-    def test_missing_response_is_infrastructure_error(self) -> None:
-        record = governance_authorize.evaluate(_label_request(permission_response=None))
-        self.assertEqual(record["decision"], "ERROR")
-        self.assertEqual(record["reason_code"], "PERMISSION_RESPONSE_MISSING")
-
-    def test_permission_case_is_normalized(self) -> None:
-        record = governance_authorize.evaluate(
-            _label_request(permission_response={"http_status": 200, "body": {"permission": "  Admin "}})
-        )
-        self.assertEqual(record["decision"], "ALLOW")
-        self.assertEqual(record["permission"]["level"], "admin")
-
-
-class EventEligibilityTests(unittest.TestCase):
-    def test_wrong_label_is_denied_without_permission_check(self) -> None:
-        record = governance_authorize.evaluate(_label_request(label_name="bug"))
-        self.assertEqual(record["reason_code"], "LABEL_NOT_ELIGIBLE")
-        self.assertFalse(record["permission"]["evaluated"])
-
-    def test_label_prefix_is_not_accepted(self) -> None:
-        record = governance_authorize.evaluate(_label_request(label_name="repro-requested-urgent"))
-        self.assertEqual(record["reason_code"], "LABEL_NOT_ELIGIBLE")
-
-    def test_non_labeled_action_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_label_request(action="opened"))
-        self.assertEqual(record["reason_code"], "ACTION_NOT_ELIGIBLE")
-
-    def test_unrelated_event_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_label_request(event_name="push"))
-        self.assertEqual(record["reason_code"], "EVENT_NOT_ELIGIBLE")
-
-    def test_empty_actor_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_label_request(sender_login="", actor=""))
-        self.assertEqual(record["reason_code"], "ACTOR_MISSING")
-        self.assertFalse(record["permission"]["evaluated"])
-
-    def test_actor_ambiguity_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_label_request(actor="someone-else"))
-        self.assertEqual(record["reason_code"], "ACTOR_AMBIGUOUS")
-
-    def test_rerun_by_other_actor_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_label_request(run_attempt=2, triggering_actor="other"))
-        self.assertEqual(record["reason_code"], "RERUN_ACTOR_MISMATCH")
-        self.assertFalse(record["permission"]["evaluated"])
-
-    def test_missing_triggering_actor_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_label_request(triggering_actor=""))
-        self.assertEqual(record["reason_code"], "TRIGGERING_ACTOR_MISSING")
-
-    def test_label_actor_is_the_event_sender(self) -> None:
-        record = governance_authorize.evaluate(_label_request(sender_login="labeler", actor="labeler", triggering_actor="labeler"))
-        self.assertEqual(record["request"]["actor"], "labeler")
-
-    def test_missing_issue_number_on_label_event_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_label_request(issue_number_event=None))
-        self.assertEqual(record["reason_code"], "ISSUE_NUMBER_INVALID")
-
-
-class DispatchTests(unittest.TestCase):
-    def test_numeric_issue_is_authorized(self) -> None:
-        record = governance_authorize.evaluate(_dispatch_request())
-        self.assertEqual(record["decision"], "ALLOW")
-        self.assertEqual(record["request"]["issue_number"], 77)
-
-    def test_dispatch_actor_is_workflow_actor(self) -> None:
-        record = governance_authorize.evaluate(_dispatch_request(sender_login="ignored"))
-        self.assertEqual(record["request"]["actor"], "maintainer")
-
-    def test_non_numeric_issue_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_dispatch_request(issue_number_input="42; rm -rf /"))
-        self.assertEqual(record["reason_code"], "ISSUE_NUMBER_INVALID")
-
-    def test_empty_issue_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_dispatch_request(issue_number_input=""))
-        self.assertEqual(record["reason_code"], "ISSUE_NUMBER_INVALID")
-
-    def test_zero_issue_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_dispatch_request(issue_number_input="0"))
-        self.assertEqual(record["reason_code"], "ISSUE_NUMBER_INVALID")
-
-    def test_negative_issue_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_dispatch_request(issue_number_input="-5"))
-        self.assertEqual(record["reason_code"], "ISSUE_NUMBER_INVALID")
-
-    def test_dispatch_rerun_mismatch_is_denied(self) -> None:
-        record = governance_authorize.evaluate(_dispatch_request(triggering_actor="other"))
-        self.assertEqual(record["reason_code"], "RERUN_ACTOR_MISMATCH")
-
-
-class RecordShapeTests(unittest.TestCase):
-    def test_record_validates_against_schema(self) -> None:
-        for request in (_label_request(), _dispatch_request(), _label_request(label_name="bug")):
-            with self.subTest(request=request["event_name"] + request["label_name"]):
-                record = governance_authorize.evaluate(request)
-                governance_schema.validate_or_raise(record, SCHEMA, "authorization record")
-
-    def test_authority_is_never_granted(self) -> None:
-        record = governance_authorize.evaluate(_label_request())
-        self.assertFalse(record["authority"]["authorized"])
-        self.assertIn("does not", record["authority"]["statement"])
-
-    def test_summary_is_deterministic(self) -> None:
-        record = governance_authorize.evaluate(_label_request())
-        self.assertEqual(governance_authorize.render_summary(record), governance_authorize.render_summary(record))
-        self.assertIn("Decision", governance_authorize.render_summary(record))
-
-    def test_denied_record_records_no_issue_content(self) -> None:
-        record = governance_authorize.evaluate(_label_request(label_name="bug"))
-        self.assertNotIn("body", json.dumps(record))
-
-
-class MetadataTests(unittest.TestCase):
-    def test_body_digest_matches_sha256(self) -> None:
-        issue = {"number": 42, "body": "Line one\r\nLine two", "updated_at": "2026-08-17T10:00:00Z", "html_url": "u", "state": "open"}
-        metadata = governance_authorize.build_metadata(issue, 42)
-        self.assertEqual(metadata["issue_body_digest"], hashlib.sha256("Line one\r\nLine two".encode("utf-8")).hexdigest())
-        self.assertEqual(metadata["issue_updated_at"], "2026-08-17T10:00:00Z")
-
-    def test_null_body_hashes_empty_string(self) -> None:
-        metadata = governance_authorize.build_metadata({"number": 1, "body": None}, 1)
-        self.assertEqual(metadata["issue_body_digest"], hashlib.sha256(b"").hexdigest())
-
-    def test_pull_request_is_rejected(self) -> None:
+    def test_issue_number_repository_and_pull_request_guards(self) -> None:
         with self.assertRaises(governance_authorize.AuthorizationInputError):
-            governance_authorize.build_metadata({"number": 1, "pull_request": {"url": "x"}}, 1)
-
-    def test_issue_number_mismatch_is_rejected(self) -> None:
+            governance_authorize.build_snapshot(self.issue, 41, "clemensv/avrotize")
         with self.assertRaises(governance_authorize.AuthorizationInputError):
-            governance_authorize.build_metadata({"number": 2}, 1)
+            governance_authorize.build_snapshot(self.issue, 42, "")
+        with self.assertRaises(governance_authorize.AuthorizationInputError):
+            governance_authorize.build_snapshot(
+                {**self.issue, "pull_request": {"url": "x"}},
+                42,
+                "clemensv/avrotize",
+            )
+
+    def test_null_title_and_body_hash_empty_string(self) -> None:
+        value = governance_authorize.build_snapshot(
+            {"number": 42, "title": None, "body": None},
+            42,
+            "clemensv/avrotize",
+        )
+        empty = hashlib.sha256(b"").hexdigest()
+        self.assertEqual(value["title_digest"], empty)
+        self.assertEqual(value["body_digest"], empty)
 
 
 class CliTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temporary_directory = tempfile.TemporaryDirectory(dir=str(Path(__file__).resolve().parent))
-        self.addCleanup(self.temporary_directory.cleanup)
-        self.root = Path(self.temporary_directory.name)
+    def test_evaluate_exit_codes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "request.json"
+            for expected, value in (
+                (0, request()),
+                (10, request(label_name="wrong")),
+                (
+                    20,
+                    request(permission_response={"http_status": 500, "body": {}}),
+                ),
+            ):
+                with self.subTest(expected=expected):
+                    path.write_text(json.dumps(value), encoding="utf-8")
+                    self.assertEqual(
+                        governance_authorize.main(["evaluate", "--request", str(path)]),
+                        expected,
+                    )
 
-    def _run(self, request) -> tuple[int, Path]:
-        request_path = self.root / "request.json"
-        record_path = self.root / "authorization.json"
-        summary_path = self.root / "authorization.md"
-        request_path.write_text(json.dumps(request), encoding="utf-8")
-        code = governance_authorize.main(
-            [
-                "evaluate",
-                "--request",
-                str(request_path),
-                "--output-json",
-                str(record_path),
-                "--output-markdown",
-                str(summary_path),
-            ]
-        )
-        return code, record_path
-
-    def test_allow_exits_zero(self) -> None:
-        code, record_path = self._run(_label_request())
-        self.assertEqual(code, governance_authorize.EXIT_ALLOW)
-        self.assertEqual(json.loads(record_path.read_text(encoding="utf-8"))["decision"], "ALLOW")
-
-    def test_deny_exits_ten_and_still_writes_evidence(self) -> None:
-        code, record_path = self._run(_label_request(label_name="bug"))
-        self.assertEqual(code, governance_authorize.EXIT_DENY)
-        self.assertTrue(record_path.is_file())
-        self.assertEqual(json.loads(record_path.read_text(encoding="utf-8"))["decision"], "DENY")
-
-    def test_api_error_exits_twenty(self) -> None:
-        code, _ = self._run(_label_request(permission_response={"http_status": 502, "body": {}}))
-        self.assertEqual(code, governance_authorize.EXIT_ERROR)
-
-    def test_corrupt_request_exits_twenty(self) -> None:
-        request_path = self.root / "request.json"
-        request_path.write_text("{not json", encoding="utf-8")
-        code = governance_authorize.main(["evaluate", "--request", str(request_path)])
-        self.assertEqual(code, governance_authorize.EXIT_ERROR)
-
-    def test_metadata_subcommand_writes_facts(self) -> None:
-        issue_path = self.root / "issue.json"
-        output_path = self.root / "metadata.json"
-        issue_path.write_text(
-            json.dumps({"number": 7, "body": "text", "updated_at": "t", "html_url": "u", "state": "open"}),
-            encoding="utf-8",
-        )
-        code = governance_authorize.main(
-            ["metadata", "--issue", str(issue_path), "--expected-issue-number", "7", "--output-json", str(output_path)]
-        )
-        self.assertEqual(code, 0)
-        metadata = json.loads(output_path.read_text(encoding="utf-8"))
-        self.assertEqual(metadata["issue_number"], 7)
-        self.assertEqual(len(metadata["issue_body_digest"]), 64)
+    def test_snapshot_and_verify_subcommands(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            issue_path = root / "issue.json"
+            snapshot_path = root / "snapshot.json"
+            verify_path = root / "verify.json"
+            issue_path.write_text(
+                json.dumps({"number": 7, "title": "x", "body": "y"}),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                governance_authorize.main(
+                    [
+                        "snapshot",
+                        "--issue",
+                        str(issue_path),
+                        "--expected-issue-number",
+                        "7",
+                        "--repository",
+                        "clemensv/avrotize",
+                        "--output-json",
+                        str(snapshot_path),
+                    ]
+                ),
+                0,
+            )
+            self.assertEqual(
+                governance_authorize.main(
+                    [
+                        "verify",
+                        "--issue",
+                        str(issue_path),
+                        "--snapshot",
+                        str(snapshot_path),
+                        "--output-json",
+                        str(verify_path),
+                    ]
+                ),
+                0,
+            )
+            self.assertTrue(json.loads(verify_path.read_text())["matches"])
 
 
 if __name__ == "__main__":

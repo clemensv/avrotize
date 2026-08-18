@@ -7,5 +7,7 @@
     "head": { "sha": "def456abc789012", "ref": "dependabot/npm_and_yarn/avrotize/dependencies/typescript/node22/multi-abc123" },
     "base": { "sha": "c3c51c2bbb000222", "ref": "master" },
     "body": "Bumps the npm group in /avrotize/dependencies/typescript/node22 with 2 updates: typescript and eslint."
-  }
+  },
+  "repository": { "full_name": "clemensv/avrotize" },
+  "sender": { "login": "dependabot[bot]" }
 }

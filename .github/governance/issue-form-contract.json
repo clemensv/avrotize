@@ -7,6 +7,14 @@
     "Exact output match": "exact_output",
     "Human semantic review": "human_review"
   },
+  "surface_choices": [
+    "Avrotize CLI",
+    "Structurize CLI",
+    "Python API",
+    "MCP server",
+    "VS Code extension",
+    "Generated project or code"
+  ],
   "forms": [
     {
       "type": "bug",

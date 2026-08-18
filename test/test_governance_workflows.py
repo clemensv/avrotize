@@ -1,8 +1,4 @@
-"""Structural tests for governance workflow YAML.
-
-These parse the workflows and assert the safety contract that the stdlib
-validator enforces textually, so both layers must agree.
-"""
+"""Structural safety tests for governance workflows."""
 
 from __future__ import annotations
 
@@ -11,264 +7,353 @@ import unittest
 from pathlib import Path
 
 import yaml
+from yaml.constructor import ConstructorError
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-WORKFLOWS = REPO_ROOT / ".github" / "workflows"
-GOVERNANCE = REPO_ROOT / ".github" / "governance"
 
-GOVERNANCE_WORKFLOW_NAMES = (
+ROOT = Path(__file__).resolve().parent.parent
+WORKFLOWS = ROOT / ".github" / "workflows"
+GOVERNANCE = ROOT / ".github" / "governance"
+GOVERNANCE_WORKFLOWS = (
+    "governance-ci.yml",
+    "governance-observe.yml",
     "issue-intake.yml",
     "dependabot-intake.yml",
-    "dependabot-auto-merge.yml",
-    "governance-observe.yml",
     "repro-bug.yml",
-    "repro-label-reconciliation.yml",
+)
+
+
+class UniqueKeyLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate mapping keys."""
+
+
+def _construct_unique_mapping(
+    loader: UniqueKeyLoader, node: yaml.nodes.MappingNode, deep: bool = False
+) -> dict:
+    loader.flatten_mapping(node)
+    mapping: dict = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"found duplicate key {key!r}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_unique_mapping
 )
 
 
 def load(name: str) -> dict:
-    return yaml.safe_load((WORKFLOWS / name).read_text(encoding="utf-8"))
+    return yaml.load(
+        (WORKFLOWS / name).read_text(encoding="utf-8"), Loader=UniqueKeyLoader
+    )
 
 
 def triggers(document: dict) -> dict:
-    # PyYAML parses the bare key `on` as boolean True.
     return document.get("on", document.get(True))
 
 
-def steps(job: dict) -> list[dict]:
-    return job.get("steps", [])
+def job_text(job: dict) -> str:
+    return "\n".join(str(step.get("run", "")) for step in job.get("steps", []))
 
 
-class WorkflowParsingTests(unittest.TestCase):
+class WorkflowBaselineTests(unittest.TestCase):
+    def test_yaml_loader_rejects_duplicate_keys(self) -> None:
+        with self.assertRaises(ConstructorError):
+            yaml.load("jobs: {}\njobs: {}\n", Loader=UniqueKeyLoader)
+
     def test_every_workflow_parses(self) -> None:
         for path in sorted(WORKFLOWS.glob("*.yml")):
-            with self.subTest(workflow=path.name):
-                document = yaml.safe_load(path.read_text(encoding="utf-8"))
+            with self.subTest(path=path.name):
+                document = yaml.load(
+                    path.read_text(encoding="utf-8"), Loader=UniqueKeyLoader
+                )
                 self.assertIsInstance(document, dict)
-                self.assertIn("jobs", document)
+                self.assertIsInstance(document.get("jobs"), dict)
 
-    def test_governance_workflows_declare_job_permissions_and_timeouts(self) -> None:
-        for name in GOVERNANCE_WORKFLOW_NAMES:
-            document = load(name)
-            for job_name, job in document["jobs"].items():
+    def test_governance_jobs_have_permissions_and_timeouts(self) -> None:
+        for name in GOVERNANCE_WORKFLOWS:
+            for job_name, job in load(name)["jobs"].items():
                 with self.subTest(workflow=name, job=job_name):
                     self.assertIsInstance(job.get("permissions"), dict)
                     self.assertIsInstance(job.get("timeout-minutes"), int)
 
-    def test_governance_workflows_never_suppress_failure(self) -> None:
-        for name in GOVERNANCE_WORKFLOW_NAMES:
-            text = (WORKFLOWS / name).read_text(encoding="utf-8")
-            with self.subTest(workflow=name):
-                self.assertNotIn("|| true", text)
-                self.assertNotIn("continue-on-error", text)
+    def test_governance_quality_never_swallows_failure(self) -> None:
+        text = (WORKFLOWS / "governance-ci.yml").read_text(encoding="utf-8")
+        self.assertNotIn("continue-on-error", text)
+        self.assertNotIn("|| true", text)
+        self.assertNotIn("--advisory", text)
+
+    def test_removed_privileged_or_misleading_workflows_stay_removed(self) -> None:
+        self.assertFalse((WORKFLOWS / "repro-label-reconciliation.yml").exists())
+        self.assertFalse((WORKFLOWS / "dependabot-auto-merge.yml").exists())
 
 
-class ReproWorkflowTests(unittest.TestCase):
+class ExactHeadGovernanceCiTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.document = load("repro-bug.yml")
-        self.jobs = self.document["jobs"]
+        self.workflow = load("governance-ci.yml")
+        self.job = self.workflow["jobs"]["governance-quality"]
 
-    def test_triggers_are_exact(self) -> None:
-        on = triggers(self.document)
-        self.assertEqual(set(on), {"issues", "workflow_dispatch"})
-        self.assertEqual(on["issues"], {"types": ["labeled"]})
-        self.assertEqual(set(on["workflow_dispatch"]["inputs"]), {"issue_number"})
-        self.assertEqual(on["workflow_dispatch"]["inputs"]["issue_number"]["type"], "string")
+    def test_runs_on_governance_pull_request_changes(self) -> None:
+        on = triggers(self.workflow)
+        self.assertEqual(set(on), {"pull_request"})
+        self.assertIn(".github/**", on["pull_request"]["paths"])
+        self.assertIn("test/test_governance*.py", on["pull_request"]["paths"])
 
-    def test_workflow_permissions_are_empty(self) -> None:
-        self.assertEqual(self.document["permissions"], {})
+    def test_exact_head_checkout_and_verification(self) -> None:
+        checkout = self.job["steps"][0]
+        self.assertEqual(checkout["with"]["ref"], "${{ github.event.pull_request.head.sha }}")
+        self.assertFalse(checkout["with"]["persist-credentials"])
+        self.assertIn('test "$(git rev-parse HEAD)" = "${EXPECTED_HEAD}"', job_text(self.job))
 
-    def test_job_order_and_dependencies(self) -> None:
-        self.assertEqual(list(self.jobs), ["authorize", "mark-in-progress", "reproduce", "publish-final"])
-        self.assertEqual(self.jobs["mark-in-progress"]["needs"], "authorize")
-        self.assertEqual(self.jobs["reproduce"]["needs"], ["authorize", "mark-in-progress"])
-        self.assertEqual(self.jobs["publish-final"]["needs"], ["authorize", "mark-in-progress", "reproduce"])
-
-    def test_job_permissions_are_least_privilege(self) -> None:
-        self.assertEqual(self.jobs["authorize"]["permissions"], {"contents": "read", "issues": "read"})
-        self.assertEqual(self.jobs["mark-in-progress"]["permissions"], {"issues": "write"})
-        self.assertEqual(self.jobs["reproduce"]["permissions"], {"contents": "read", "issues": "read"})
-        self.assertEqual(self.jobs["publish-final"]["permissions"], {"issues": "write"})
-
-    def test_concurrency_cancels_previous_runs_for_the_same_request(self) -> None:
-        concurrency = self.document["concurrency"]
-        self.assertTrue(concurrency["cancel-in-progress"])
-        self.assertEqual(
-            concurrency["group"],
-            "repro-bug-${{ github.event.issue.number || inputs.issue_number }}"
-            "-${{ github.event.label.name || 'workflow_dispatch' }}",
+    def test_strict_validator_and_every_governance_module_hard_fail(self) -> None:
+        body = job_text(self.job)
+        self.assertIn("--require-hashes", body)
+        self.assertIn("--only-binary=:all:", body)
+        requirements = (GOVERNANCE / "requirements-ci.txt").read_text(encoding="utf-8")
+        self.assertIn("PyYAML==", requirements)
+        self.assertIn("--hash=sha256:", requirements)
+        self.assertIn("python tools/validate_governance.py --strict", body)
+        self.assertIn(
+            'python -m unittest discover -s test -p "test_governance*.py" -v',
+            body,
         )
-        for volatile in ("run_id", "run_attempt", "updated_at"):
-            self.assertNotIn(volatile, concurrency["group"])
 
-    def test_authorization_gate_is_exact(self) -> None:
+
+class ReproductionWorkflowTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.workflow = load("repro-bug.yml")
+        self.jobs = self.workflow["jobs"]
+
+    def test_only_exact_label_trigger_exists(self) -> None:
+        on = triggers(self.workflow)
+        self.assertEqual(on, {"issues": {"types": ["labeled"]}})
+        self.assertNotIn("workflow_dispatch", (WORKFLOWS / "repro-bug.yml").read_text())
         condition = self.jobs["authorize"]["if"]
         self.assertIn("github.event.label.name == 'repro-requested'", condition)
-        self.assertIn("github.actor != 'dependabot[bot]'", condition)
-        self.assertIn("github.event.sender.login != 'dependabot[bot]'", condition)
+        self.assertIn("github.actor == github.event.sender.login", condition)
 
-    def test_authorize_job_does_not_check_out_or_install(self) -> None:
-        for step in steps(self.jobs["authorize"]):
-            self.assertNotIn("actions/checkout", step.get("uses", ""))
-            self.assertNotIn("pip install", step.get("run", ""))
+    def test_job_graph_and_permissions(self) -> None:
+        self.assertEqual(
+            list(self.jobs), ["authorize", "mark-in-progress", "prepare", "publish-final"]
+        )
+        self.assertEqual(self.workflow["permissions"], {})
+        self.assertEqual(
+            self.jobs["authorize"]["permissions"], {"contents": "read", "issues": "read"}
+        )
+        self.assertEqual(
+            self.jobs["mark-in-progress"]["permissions"], {"issues": "write"}
+        )
+        self.assertEqual(
+            self.jobs["prepare"]["permissions"], {"contents": "read", "issues": "read"}
+        )
+        self.assertEqual(
+            self.jobs["publish-final"]["permissions"],
+            {"contents": "read", "issues": "write"},
+        )
 
-    def test_authorize_uploads_decision_even_when_denied(self) -> None:
-        upload = [step for step in steps(self.jobs["authorize"]) if "upload-artifact" in step.get("uses", "")]
-        self.assertEqual(len(upload), 1)
-        self.assertEqual(upload[0]["if"], "always()")
-        self.assertEqual(upload[0]["with"]["retention-days"], 14)
+    def test_permission_is_queried_before_processor_or_issue_content(self) -> None:
+        steps = self.jobs["authorize"]["steps"]
+        self.assertEqual(steps[0]["name"], "Query requesting actor permission")
+        first = steps[0]["run"]
+        self.assertIn("/collaborators/${encoded_actor}/permission", first)
+        self.assertNotIn("/issues/", first)
+        self.assertNotIn("checkout", first)
+        self.assertEqual(steps[1]["name"], "Record minimal permission gate")
+        self.assertIn("repro-minimal-permission-gate", steps[1]["run"])
+        self.assertIn("RERUN_ACTOR_MISMATCH", steps[1]["run"])
+        self.assertEqual(steps[2]["name"], "Resolve trusted default-branch processor")
+        self.assertEqual(
+            steps[2]["if"], "steps.gate.outputs.authorized == 'true'"
+        )
+        self.assertEqual(steps[5]["name"], "Capture authorized title and body snapshot")
+        self.assertEqual(steps[-1]["name"], "Enforce permission gate")
+        self.assertEqual(steps[-1]["if"], "always()")
 
-    def test_authorize_enforces_before_reading_issue_metadata(self) -> None:
-        names = [step.get("name", "") for step in steps(self.jobs["authorize"])]
-        self.assertLess(names.index("Enforce authorization decision"), names.index("Resolve authorized issue metadata"))
+    def test_authorization_binds_title_and_body_not_updated_at(self) -> None:
+        text = (WORKFLOWS / "repro-bug.yml").read_text(encoding="utf-8")
+        for digest in ("title_digest", "body_digest", "content_digest"):
+            self.assertIn(digest, text)
+        self.assertNotIn("updated_at", text)
+        self.assertIn('event.get("issue")', text)
+        self.assertIn("current_snapshot", text)
+        self.assertIn("issue title or body changed after the label event", text)
 
-    def test_reproduce_checks_out_the_trusted_revision(self) -> None:
-        checkout = [step for step in steps(self.jobs["reproduce"]) if "actions/checkout" in step.get("uses", "")]
-        self.assertEqual(len(checkout), 1)
-        self.assertEqual(checkout[0]["with"]["ref"], "${{ needs.authorize.outputs.trusted_sha }}")
-        self.assertFalse(checkout[0]["with"]["persist-credentials"])
+    def test_prepare_uses_only_trusted_sha_and_never_executes_avrotize(self) -> None:
+        prepare = self.jobs["prepare"]
+        checkout = prepare["steps"][0]
+        self.assertEqual(checkout["with"]["ref"], "${{ needs.authorize.outputs.trusted_sha }}")
+        self.assertFalse(checkout["with"]["persist-credentials"])
+        body = job_text(prepare)
+        self.assertIn("governance_authorize.py verify", body)
+        self.assertIn("governance_repro.py", body)
+        for forbidden in (
+            "pip install",
+            "requirements.txt",
+            "python -m avrotize",
+            "avrotize ",
+            "docker run",
+        ):
+            self.assertNotIn(forbidden, body)
 
-    def test_reproduce_verifies_the_authorized_revision(self) -> None:
-        run_bodies = "\n".join(step.get("run", "") for step in steps(self.jobs["reproduce"]))
-        self.assertIn("--expected-updated-at", run_bodies)
-        self.assertIn("--expected-body-digest", run_bodies)
-        self.assertIn("git rev-parse HEAD", run_bodies)
-
-    def test_reproduce_uploads_evidence_with_retention(self) -> None:
-        upload = [step for step in steps(self.jobs["reproduce"]) if "upload-artifact" in step.get("uses", "")]
-        self.assertEqual(len(upload), 1)
-        self.assertEqual(upload[0]["with"]["retention-days"], 14)
-        self.assertEqual(upload[0]["with"]["if-no-files-found"], "error")
-
-    def test_publish_final_always_runs_after_authorization(self) -> None:
-        condition = self.jobs["publish-final"]["if"]
-        self.assertTrue(condition.startswith("always()"))
-        self.assertIn("needs.authorize.result == 'success'", condition)
-
-    def test_publish_final_downloads_evidence_only_on_success(self) -> None:
-        download = [step for step in steps(self.jobs["publish-final"]) if "download-artifact" in step.get("uses", "")]
-        self.assertEqual(len(download), 1)
-        self.assertEqual(download[0]["if"], "needs.reproduce.result == 'success'")
-
-    def test_publish_final_reconciles_every_governed_label(self) -> None:
-        catalog = json.loads((GOVERNANCE / "repro-label-catalog.json").read_text(encoding="utf-8"))
-        body = "\n".join(step.get("run", "") for step in steps(self.jobs["publish-final"]))
-        for label in catalog["labels"]:
-            self.assertIn(label["name"], body)
-
-    def test_publish_final_maps_status_to_catalog_label(self) -> None:
-        catalog = json.loads((GOVERNANCE / "repro-label-catalog.json").read_text(encoding="utf-8"))
-        mapping = {label["outcome"]: label["name"] for label in catalog["labels"] if label["outcome"]}
-        body = "\n".join(step.get("run", "") for step in steps(self.jobs["publish-final"]))
-        for outcome, label in mapping.items():
-            self.assertIn(f'"{outcome}": "{label}"', body)
-
-    def test_publish_final_publishes_codes_not_reporter_text(self) -> None:
-        body = "\n".join(step.get("run", "") for step in steps(self.jobs["publish-final"]))
-        self.assertIn('evidence["result"]["reason_code"]', body)
-        self.assertNotIn('evidence["result"]["reason"]', body)
-        self.assertIn('re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", reason_code)', body)
-
-    def test_no_step_interpolates_issue_content(self) -> None:
-        for job_name, job in self.jobs.items():
-            for step in steps(job):
-                with self.subTest(job=job_name, step=step.get("name")):
-                    self.assertNotIn("github.event.issue.body", step.get("run", ""))
-                    self.assertNotIn("github.event.issue.title", step.get("run", ""))
-
-    def test_mark_in_progress_clears_contradictory_labels(self) -> None:
-        body = "\n".join(step.get("run", "") for step in steps(self.jobs["mark-in-progress"]))
-        for label in ("repro-requested", "repro-confirmed", "repro-not-reproduced", "repro-blocked", "repro-needs-review"):
-            self.assertIn(label, body)
-        self.assertIn('{"labels":["repro-in-progress"]}', body)
-
-
-class LabelReconciliationWorkflowTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.document = load("repro-label-reconciliation.yml")
-        self.jobs = self.document["jobs"]
-
-    def test_manual_dispatch_only(self) -> None:
-        on = triggers(self.document)
-        self.assertEqual(set(on), {"workflow_dispatch"})
-        self.assertIsNone(on["workflow_dispatch"])
-
-    def test_permissions_are_least_privilege(self) -> None:
-        self.assertEqual(self.document["permissions"], {})
-        self.assertEqual(self.jobs["authorize"]["permissions"], {})
-        self.assertEqual(self.jobs["reconcile"]["permissions"], {"contents": "read", "issues": "write"})
-
-    def test_reconcile_requires_authorization_first(self) -> None:
-        self.assertEqual(self.jobs["reconcile"]["needs"], "authorize")
-        for step in steps(self.jobs["authorize"]):
-            self.assertNotIn("actions/checkout", step.get("uses", ""))
-
-    def test_reconciles_repository_labels_not_issue_state(self) -> None:
-        text = (WORKFLOWS / "repro-label-reconciliation.yml").read_text(encoding="utf-8")
-        self.assertNotIn("/issues/", text)
-        self.assertIn("repro-label-catalog.json", text)
-        self.assertIn("/labels", text)
-
-    def test_creates_and_updates_labels_idempotently(self) -> None:
-        body = "\n".join(step.get("run", "") for step in steps(self.jobs["reconcile"]))
-        self.assertIn("api GET", body)
-        self.assertIn("api PATCH", body)
-        self.assertIn("api POST", body)
-
-
-class IntakeWorkflowTests(unittest.TestCase):
-    def test_intake_workflows_are_read_only(self) -> None:
-        for name in ("issue-intake.yml", "dependabot-intake.yml", "dependabot-auto-merge.yml", "governance-observe.yml"):
-            document = load(name)
-            for job_name, job in document["jobs"].items():
-                with self.subTest(workflow=name, job=job_name):
-                    self.assertNotIn("write", set(job["permissions"].values()))
-
-    def test_dependabot_intake_never_checks_out_pr_head(self) -> None:
-        document = load("dependabot-intake.yml")
-        checkout = [
+    def test_artifacts_include_run_attempt_and_use_30_day_retention(self) -> None:
+        text = (WORKFLOWS / "repro-bug.yml").read_text(encoding="utf-8")
+        self.assertIn("${{ github.run_attempt }}", text)
+        uploads = [
             step
-            for step in steps(document["jobs"]["normalize"])
-            if "actions/checkout" in step.get("uses", "")
+            for job in self.jobs.values()
+            for step in job["steps"]
+            if "upload-artifact" in str(step.get("uses", ""))
         ]
-        self.assertEqual(len(checkout), 1)
-        self.assertIn("base.sha", checkout[0]["with"]["ref"])
-        self.assertFalse(checkout[0]["with"]["persist-credentials"])
+        self.assertGreaterEqual(len(uploads), 3)
+        self.assertTrue(all(step["with"]["retention-days"] == 30 for step in uploads))
+        self.assertEqual(
+            self.jobs["prepare"]["steps"][2]["with"]["name"],
+            "${{ needs.authorize.outputs.artifact_name }}",
+        )
+        publish_download = next(
+            step
+            for step in self.jobs["publish-final"]["steps"]
+            if step["name"] == "Download prepared evidence"
+        )
+        self.assertEqual(
+            publish_download["with"]["name"],
+            "${{ needs.prepare.outputs.artifact_name }}",
+        )
+
+    def test_terminal_evidence_and_reconciliation_always_run(self) -> None:
+        steps = self.jobs["publish-final"]["steps"]
+        for name in (
+            "Download prepared evidence",
+            "Determine terminal state and auditable fallback",
+            "Upload terminal evidence",
+            "Reconcile one terminal governed state",
+            "Publish evidence reference",
+        ):
+            step = next(value for value in steps if value["name"] == name)
+            self.assertEqual(step["if"], "always()")
+        body = job_text(self.jobs["publish-final"])
+        self.assertIn("governance_repro.py terminal", body)
+        self.assertIn('test "$(git rev-parse HEAD)" = "${TRUSTED_SHA}"', body)
+        self.assertIn("VALIDATOR_VERIFIED", body)
+        self.assertIn('--issue-number "${ISSUE_NUMBER}"', body)
+        self.assertIn('--preparation-artifact "${PREPARATION_ARTIFACT}"', body)
+        self.assertIn('--preparation-attempt "${PREPARATION_ATTEMPT:-0}"', body)
+        self.assertIn("terminal_validator_failed=true", body)
+        self.assertIn("trusted terminal evidence validation failed", body)
+        self.assertIn("for attempt in 1 2 3", body)
+        self.assertIn("attempt_failed=true", body)
+        self.assertIn("continue", body)
+        self.assertIn("*) FINAL_LABEL=repro-blocked", body)
+        self.assertIn("after-labels.txt", body)
+        self.assertIn("single governed-state invariant", body)
+        self.assertNotIn("atomic", body.lower())
+
+    def test_terminal_automation_cannot_claim_confirmed(self) -> None:
+        workflow_body = job_text(self.jobs["publish-final"])
+        helper = (ROOT / "tools" / "governance_repro.py").read_text(encoding="utf-8")
+        self.assertIn("governance_repro.py terminal", workflow_body)
+        self.assertIn('("BLOCKED", "repro-blocked")', helper)
+        self.assertIn('("NEEDS_REVIEW", "repro-needs-review")', helper)
+        self.assertNotIn('"CONFIRMED"', helper)
+        self.assertNotIn('"NOT_REPRODUCED"', helper)
 
 
-class ContractParityTests(unittest.TestCase):
+class IssueIntakeWorkflowTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.contracts = json.loads((GOVERNANCE / "workflow-contracts.json").read_text(encoding="utf-8"))["contracts"]
+        self.workflow = load("issue-intake.yml")
+        self.job = self.workflow["jobs"]["normalize"]
 
-    def _contract(self, contract_id: str) -> dict:
-        for contract in self.contracts:
-            if contract["id"] == contract_id:
-                return contract
-        raise AssertionError(f"contract {contract_id} is missing")
+    def test_future_issue_events_only_and_no_mutations(self) -> None:
+        self.assertEqual(
+            triggers(self.workflow),
+            {"issues": {"types": ["opened", "edited", "reopened"]}},
+        )
+        self.assertEqual(self.workflow["permissions"], {})
+        self.assertEqual(self.job["permissions"], {"contents": "read"})
 
-    def test_repro_contract_matches_workflow(self) -> None:
-        contract = self._contract("guarded-bug-reproduction")
-        document = load("repro-bug.yml")
-        declared = set()
-        for job in document["jobs"].values():
-            declared.update(f"{key}:{value}" for key, value in job["permissions"].items())
-        self.assertEqual(set(contract["permissions"]), declared)
-        self.assertEqual(contract["concurrency"], "repro-bug-${issue_number}-${requesting_label_or_dispatch}")
-        self.assertEqual(contract["artifact_retention_days"], 14)
-        self.assertTrue(contract["mutations"])
-        self.assertFalse(contract["copilot"]["enabled"])
+    def test_exact_trusted_processor_and_revision_identity(self) -> None:
+        body = job_text(self.job)
+        self.assertIn("repos/${REPO}/commits/${DEFAULT_BRANCH}", body)
+        checkout = self.job["steps"][1]
+        self.assertEqual(checkout["with"]["ref"], "${{ steps.processor.outputs.sha }}")
+        self.assertIn("--processor-sha", body)
+        self.assertIn("${{ github.run_attempt }}", json.dumps(self.workflow))
+        self.assertFalse(self.workflow["concurrency"]["cancel-in-progress"])
 
-    def test_reconciliation_contract_matches_workflow(self) -> None:
-        contract = self._contract("repro-label-reconciliation")
-        self.assertEqual(contract["events"], ["workflow_dispatch"])
-        self.assertEqual(set(contract["permissions"]), {"contents:read", "issues:write"})
-        self.assertFalse(contract["copilot"]["enabled"])
 
-    def test_no_contract_enables_copilot(self) -> None:
-        for contract in self.contracts:
-            with self.subTest(contract=contract["id"]):
-                self.assertFalse(contract.get("copilot", {}).get("enabled", False))
-                self.assertEqual(contract["copilot"]["aic_source"], "github-copilot-platform")
+class DependabotIntakeWorkflowTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.workflow = load("dependabot-intake.yml")
+        self.job = self.workflow["jobs"]["normalize"]
+
+    def test_actor_and_sender_identity_are_required(self) -> None:
+        condition = self.job["if"]
+        self.assertIn("pull_request.user.login == 'dependabot[bot]'", condition)
+        self.assertIn("event.sender.login == 'dependabot[bot]'", condition)
+        self.assertEqual(
+            triggers(self.workflow)["pull_request_target"]["types"],
+            ["opened", "reopened", "synchronize", "ready_for_review"],
+        )
+
+    def test_metadata_only_exact_head_binding(self) -> None:
+        checkout = self.job["steps"][0]
+        self.assertEqual(checkout["with"]["ref"], "${{ github.event.pull_request.base.sha }}")
+        self.assertFalse(checkout["with"]["persist-credentials"])
+        body = job_text(self.job)
+        self.assertIn("head_before=", body)
+        self.assertIn("head_after=", body)
+        self.assertIn("/pulls/${PR_NUMBER}/files", body)
+        self.assertIn("intake_observation", body)
+        self.assertIn("--processor-sha", body)
+        for forbidden in ("pip install", "npm install", "dotnet", "mvn ", "go test", "cargo"):
+            self.assertNotIn(forbidden, body)
+
+    def test_permissions_and_artifact_identity(self) -> None:
+        self.assertEqual(
+            self.job["permissions"], {"contents": "read", "pull-requests": "read"}
+        )
+        upload = self.job["steps"][-1]
+        name = upload["with"]["name"]
+        self.assertIn("pull_request.head.sha", name)
+        self.assertIn("github.run_attempt", name)
+        self.assertEqual(upload["with"]["retention-days"], 30)
+
+
+class LabelCatalogTests(unittest.TestCase):
+    def test_required_states_are_unique_and_noncontradictory(self) -> None:
+        catalog = json.loads(
+            (GOVERNANCE / "repro-label-catalog.json").read_text(encoding="utf-8")
+        )
+        labels = {item["name"]: item for item in catalog["labels"]}
+        self.assertTrue(
+            {
+                "repro-requested",
+                "repro-in-progress",
+                "repro-confirmed",
+                "repro-not-reproduced",
+                "repro-blocked",
+                "repro-needs-review",
+            }.issubset(labels)
+        )
+        self.assertEqual(len(labels), len(catalog["labels"]))
+        self.assertEqual(
+            set(labels),
+            {
+                "repro-requested",
+                "repro-in-progress",
+                "repro-confirmed",
+                "repro-not-reproduced",
+                "repro-blocked",
+                "repro-needs-review",
+            },
+        )
 
 
 if __name__ == "__main__":
