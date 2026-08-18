@@ -71,6 +71,12 @@ All notable changes to Avrotize are documented in this file.
 - Hard-failing exact-head governance CI
   (`.github/workflows/governance-ci.yml`) running the strict validator and every
   governance test module on pull-request heads.
+- Source-neutral external Copilot delivery-supervisor contracts for an
+  owner-launched project session. Strict owner delegation, exact policy and
+  prompt digests, ordered READY selection, per-domain WIP, session/receipt
+  binding, exact-head evidence, crash recovery, budgets, immutable audit
+  records, and owner-only merge/release boundaries are validated
+  deterministically without adding a privileged workflow.
 
 ### Changed
 

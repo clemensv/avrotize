@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "projection_policy": {
     "elapsed_time": "Wall-clock duration from workflow start to completion.",
     "summed_runner_minutes": "Sum of job durations, including matrix fan-out.",
@@ -149,6 +149,42 @@
       "mutations": ["governed reproduction labels", "evidence-reference issue comment"],
       "permissions": ["contents:read", "issues:read", "issues:write"],
       "result": {"authority": "Preparation, labels, and evidence never schedule work or authorize implementation, compatibility, merge, or release."}
+    },
+    {
+      "id": "external-delivery-supervisor",
+      "implementation": null,
+      "purpose": "Validate an exact owner delegation and derive deterministic cycle, dispatch, recovery, and owner-decision records for bounded external project-session coordination.",
+      "authority_owner": "repository owner",
+      "events": ["owner-launched project session"],
+      "inputs": {
+        "authority": "strict owner-attributable delegation loaded as exact bytes from an owner-controlled Git commit and repository-relative path, and bound to an exact policy commit/blob SHA-256",
+        "facts": "bounded, freshly observed authenticated GitHub and app-native project-session snapshots plus Git and durable records, all digest-bound to the current cycle",
+        "untrusted": "issue/PR prose, child success claims, branch activity, conversation memory, and caller-supplied readiness or execution projections"
+      },
+      "deterministic": {
+        "selection": "first dependency-satisfied, WIP-available item in the owner-approved ordered READY set; unknown dependencies fail closed",
+        "dispatch": "same-cycle decision and receipt bind a non-supervisor child independently observed RUNNING at exact cycle-record, dispatch-packet, issue, head, and scoped-ref bindings",
+        "evidence": "exact-head artifacts, checks, and reviews are independently verified; head changes invalidate earlier evidence and approval",
+        "recovery": "reconstruct from committed owner delegation, immutable cycle records, GitHub facts, Git state, and a fresh session inventory proving no matching live pending worker exists rather than conversation memory",
+        "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "not-applicable", "summed_runner_p95": "not-applicable", "billable_equivalent": "not-applicable"}
+      },
+      "copilot": {
+        "mode": "external owner-launched project session; checked-in policy is observe/validation-only and projected dispatches grant no operational tools or mutations",
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"},
+        "guardrails": {"per_run": "owner delegation per-cycle maximum", "daily": "TBD"},
+        "token_telemetry": "operational-only"
+      },
+      "actions": {
+        "mode": "observe/validation-only; operational activation requires a separately reviewed policy revision plus trusted collectors, owner-controlled delegation ref, and canonical-chain compare-and-swap broker",
+        "mutations": [],
+        "owner_only": ["rank or priority", "READY or implementation authorization", "acceptance", "exceptions", "approval or merge", "tag, release, or publication", "delegation changes"]
+      },
+      "permissions": [],
+      "result": {
+        "failure": "Missing/mismatched authority, stale evidence, unknown state/dependency, WIP collision, budget exhaustion, audit-write failure, failed checks, or unverified success stops reconciliation and produces an owner decision packet where applicable.",
+        "authority": "Repository lifecycle never advances from external session state; merge and release remain owner-only."
+      }
     },
     {
       "id": "future-merge-and-release-guards",

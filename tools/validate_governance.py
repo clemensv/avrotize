@@ -33,17 +33,22 @@ REQUIRED_FILES = (
     ".github/governance/AUTOMATION.md",
     ".github/governance/AI-USAGE-ACCOUNTING.md",
     ".github/governance/ADOPTION.md",
+    ".github/governance/EXTERNAL-SUPERVISOR.md",
     ".github/governance/requirements-ci.txt",
     ".github/governance/avrotize-capabilities.json",
     ".github/governance/workflow-contracts.json",
     ".github/governance/issue-form-contract.json",
     ".github/governance/copilot-intake-policy.json",
+    ".github/governance/external-supervisor-policy.json",
     ".github/governance/copilot-cli/package.json",
     ".github/governance/copilot-cli/package-lock.json",
+    ".github/governance/prompts/external-supervisor-kickoff-v1.txt",
     ".github/governance/prompts/issue-semantic-assistance-v1.txt",
     ".github/governance/repro-label-catalog.json",
     ".github/governance/schemas/issue-intake-record.schema.json",
     ".github/governance/schemas/issue-semantic-assistance.schema.json",
+    ".github/governance/schemas/external-supervisor-delegation.schema.json",
+    ".github/governance/schemas/external-supervisor-cycle.schema.json",
     ".github/governance/schemas/dependabot-intake-record.schema.json",
     ".github/governance/schemas/repro-evidence-record.schema.json",
     ".github/governance/schemas/repro-terminal-fallback.schema.json",
@@ -54,9 +59,11 @@ REQUIRED_FILES = (
     ".github/workflows/dependabot-intake.yml",
     ".github/workflows/repro-bug.yml",
     "tools/governance_intake.py",
+    "tools/governance_supervisor.py",
     "tools/governance_repro.py",
     "tools/governance_authorize.py",
     "tools/governance_schema.py",
+    "test/fixtures/governance/supervisor/valid-delegation.json",
 )
 
 #: Governance workflows whose structure this validator polices in full.
@@ -570,6 +577,7 @@ def _validate_copilot_issue_intake(root: Path, findings: list[Finding]) -> None:
         if fragment in workflow:
             findings.append(Finding(workflow_relative, f"forbidden Copilot intake capability {fragment!r}"))
 
+
     if cli.get("package") != "@github/copilot" or cli.get("install_scripts") is not False:
         findings.append(Finding(policy_relative, "Copilot CLI package must be official and install scripts disabled"))
     if not isinstance(cli.get("version"), str) or not cli.get("version"):
@@ -637,6 +645,151 @@ def _validate_copilot_issue_intake(root: Path, findings: list[Finding]) -> None:
         findings.append(Finding(policy_relative, "Copilot intake must disable built-in MCP"))
     if any(artifact.get(key) is not False for key in ("raw_title", "raw_body", "raw_model_response")):
         findings.append(Finding(policy_relative, "Copilot intake artifacts must omit raw issue and model content"))
+
+
+def _validate_external_supervisor(root: Path, findings: list[Finding]) -> None:
+    """Validate the external supervisor's exact authority and zero-workflow boundary."""
+    base = ".github/governance"
+    policy_relative = f"{base}/external-supervisor-policy.json"
+    prompt_relative = f"{base}/prompts/external-supervisor-kickoff-v1.txt"
+    delegation_schema_relative = f"{base}/schemas/external-supervisor-delegation.schema.json"
+    cycle_schema_relative = f"{base}/schemas/external-supervisor-cycle.schema.json"
+    fixture_relative = "test/fixtures/governance/supervisor/valid-delegation.json"
+    engine_relative = "tools/governance_supervisor.py"
+
+    policy = _load_json(root / policy_relative, findings)
+    delegation_schema = _load_json(root / delegation_schema_relative, findings)
+    cycle_schema = _load_json(root / cycle_schema_relative, findings)
+    fixture = _load_json(root / fixture_relative, findings)
+    profile = _load_json(root / f"{base}/avrotize-capabilities.json", findings)
+    contracts = _load_json(root / f"{base}/workflow-contracts.json", findings)
+    prompt_path = root / prompt_relative
+    engine_path = root / engine_relative
+    if not all(
+        isinstance(value, dict)
+        for value in (policy, delegation_schema, cycle_schema, fixture, profile, contracts)
+    ) or not prompt_path.is_file() or not engine_path.is_file():
+        return
+
+    expected_policy_keys = {
+        "schema_version",
+        "policy_id",
+        "repository",
+        "mode",
+        "policy_path",
+        "delegation_schema",
+        "record_schema",
+        "kickoff_prompt",
+        "responsibility_domains",
+        "repository_lifecycle_states",
+        "external_session_states",
+        "advisory_actions",
+        "delegable_operational_actions",
+        "owner_only_actions",
+        "required_child_evidence",
+        "fail_states",
+        "invariants",
+    }
+    if set(policy) != expected_policy_keys:
+        findings.append(Finding(policy_relative, "external supervisor policy has missing or unknown top-level fields"))
+
+    try:
+        advisory = set(policy["advisory_actions"])
+        delegated = set(policy["delegable_operational_actions"])
+        owner_only = set(policy["owner_only_actions"])
+        domains = set(policy["responsibility_domains"])
+        profile_domains = set(profile["responsibility_domains"])
+        prompt_digest = policy["kickoff_prompt"]["sha256"]
+    except (KeyError, TypeError) as exc:
+        findings.append(Finding(policy_relative, f"incomplete external supervisor policy: {exc}"))
+        return
+    if advisory & delegated or advisory & owner_only or delegated & owner_only:
+        findings.append(Finding(policy_relative, "external supervisor authority action sets must be disjoint"))
+    if domains != profile_domains:
+        findings.append(Finding(policy_relative, "external supervisor responsibility domains must match the capability profile"))
+
+    prompt_bytes = prompt_path.read_text(encoding="utf-8").encode("utf-8")
+    if hashlib.sha256(prompt_bytes).hexdigest() != prompt_digest:
+        findings.append(Finding(prompt_relative, "external supervisor kickoff prompt digest does not match policy"))
+
+    def strict_objects(value: object, path: str) -> None:
+        if isinstance(value, dict):
+            if value.get("type") == "object" and value.get("additionalProperties") is not False:
+                findings.append(Finding(path, "every external supervisor schema object must reject unknown fields"))
+            for child in value.values():
+                strict_objects(child, path)
+        elif isinstance(value, list):
+            for child in value:
+                strict_objects(child, path)
+
+    for schema, relative in (
+        (delegation_schema, delegation_schema_relative),
+        (cycle_schema, cycle_schema_relative),
+    ):
+        try:
+            governance_schema.assert_supported_schema(schema, relative)
+        except governance_schema.SchemaError as exc:
+            findings.append(Finding(relative, str(exc)))
+        strict_objects(schema, relative)
+
+    schema_errors = governance_schema.validate(fixture, delegation_schema)
+    for error in schema_errors:
+        findings.append(Finding(fixture_relative, f"invalid external supervisor fixture: {error}"))
+    try:
+        allowed = set(fixture["allowed_actions"])
+        denied = set(fixture["denied_owner_only_actions"])
+        binding = fixture["policy_binding"]
+    except (KeyError, TypeError) as exc:
+        findings.append(Finding(fixture_relative, f"incomplete external supervisor fixture: {exc}"))
+    else:
+        if not allowed <= delegated or allowed & owner_only:
+            findings.append(Finding(fixture_relative, "delegation allows an action outside delegated operational authority"))
+        if denied != owner_only:
+            findings.append(Finding(fixture_relative, "delegation must deny the exact immutable owner-only action set"))
+        policy_digest = hashlib.sha256(
+            (root / policy_relative).read_text(encoding="utf-8").encode("utf-8")
+        ).hexdigest()
+        if (
+            binding.get("policy_path") != policy_relative
+            or binding.get("blob_sha256") != policy_digest
+        ):
+            findings.append(Finding(fixture_relative, "delegation policy path/blob digest does not match checked-in policy"))
+
+    contract = next(
+        (
+            value
+            for value in contracts.get("contracts", [])
+            if isinstance(value, dict) and value.get("id") == "external-delivery-supervisor"
+        ),
+        None,
+    )
+    if contract is None:
+        findings.append(Finding(f"{base}/workflow-contracts.json", "missing external delivery supervisor contract"))
+    elif contract.get("implementation") is not None or contract.get("permissions") != []:
+        findings.append(Finding(f"{base}/workflow-contracts.json", "external supervisor must have no Actions implementation or permissions"))
+
+    supervisor_workflows = list((root / ".github" / "workflows").glob("*supervisor*.yml"))
+    if supervisor_workflows:
+        findings.append(Finding(".github/workflows", "external supervisor must not have a privileged Actions workflow"))
+
+    engine = engine_path.read_text(encoding="utf-8")
+    forbidden_engine_fragments = (
+        "import requests",
+        "import urllib",
+        "from urllib",
+        "import http",
+        "from http",
+        " gh ",
+        "curl ",
+        "GITHUB_TOKEN",
+    )
+    for fragment in forbidden_engine_fragments:
+        if fragment in engine:
+            findings.append(Finding(engine_relative, f"deterministic supervisor engine contains forbidden capability {fragment!r}"))
+    if '["git", "show"' not in engine:
+        findings.append(Finding(engine_relative, "deterministic supervisor engine must independently verify policy Git blobs"))
+    if engine.count("subprocess.run(") != 2 or '["git", "cat-file", "-t"' not in engine:
+        findings.append(Finding(engine_relative, "deterministic supervisor engine may invoke subprocess only for Git commit/blob verification"))
 
 
 def _indent(line: str) -> int:
@@ -1030,6 +1183,7 @@ def validate_repo(root: Path, expected_sha: str | None = None) -> list[Finding]:
     _validate_issue_form_contract(root, findings)
     _validate_intake_workflow_safety(root, findings)
     _validate_copilot_issue_intake(root, findings)
+    _validate_external_supervisor(root, findings)
     _validate_action_versions(root, findings)
     _validate_governance_workflow_safety(root, findings)
     _validate_repro_workflow(root, findings)

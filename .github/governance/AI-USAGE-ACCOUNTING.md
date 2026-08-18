@@ -41,6 +41,7 @@ distributions:
 | Scheduled command/documentation drift | 0 | TBD | TBD | TBD | TBD |
 | Release-candidate compatibility | 0 | TBD | TBD | TBD | TBD |
 | Guarded reproduction evidence review | 0 | TBD | TBD | TBD | TBD |
+| Owner-launched external delivery supervision | 0 | TBD | TBD | Per delegation | TBD |
 
 Dependabot intake, guarded bug reproduction, and reproduction label
 reconciliation remain fully deterministic and invoke no model, so their AIC is
@@ -60,6 +61,14 @@ Passing commands and tests do not invoke AI. When issue intake reaches its
 configured limit or the required structured result cannot complete, it records
 semantic assistance as unavailable and preserves the issue for a human read.
 Partial model output is not accepted as structured assistance.
+
+The external delivery supervisor is a separate owner-launched project session,
+not an Actions workflow or the issue-intake adviser. Its strict delegation may
+configure a per-cycle maximum for platform-reported AIC. The reconciler compares
+only the current-cycle platform-reported total and stops delegated work
+at the configured limit; it never estimates AIC from tokens, model pricing,
+elapsed time, or task scores. A configured maximum is a guardrail, not an
+observation.
 
 Calculate observed P50 and P95 only from comparable platform-reported runs.
 Recalibrate after the first 20 representative activations and after material

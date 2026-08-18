@@ -1,1 +1,3 @@
 .github/governance/copilot-cli/package-lock.json text eol=lf
+.github/governance/external-supervisor-policy.json text eol=lf
+.github/governance/prompts/external-supervisor-kickoff-v1.txt text eol=lf

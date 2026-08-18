@@ -1,0 +1,66 @@
+{
+  "repository": "clemensv/avrotize",
+  "observed_at": "2026-02-01T12:00:00Z",
+  "audit_writable": true,
+  "elapsed_seconds": 30,
+  "platform_reported_aic": {
+    "reported": false,
+    "value": null,
+    "measurement_scope": "current-cycle-total"
+  },
+  "items": [
+    {
+      "issue_number": 100,
+      "pull_request": null,
+      "domain": "programming-language-model-generation",
+      "lifecycle": "MERGED",
+      "dependencies": [],
+      "acceptance_manifest_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "base_sha": "1111111111111111111111111111111111111111",
+      "head_sha": "2222222222222222222222222222222222222222",
+      "worktree_clean": true,
+      "checks_passed": true,
+      "evidence_verified": true,
+      "evidence_head_sha": "2222222222222222222222222222222222222222",
+      "reviews_current": true,
+      "approval_head_sha": "2222222222222222222222222222222222222222",
+      "active": false
+    },
+    {
+      "issue_number": 101,
+      "pull_request": 451,
+      "domain": "programming-language-model-generation",
+      "lifecycle": "READY",
+      "dependencies": [
+        100
+      ],
+      "acceptance_manifest_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "base_sha": "3333333333333333333333333333333333333333",
+      "head_sha": null,
+      "worktree_clean": true,
+      "checks_passed": false,
+      "evidence_verified": false,
+      "evidence_head_sha": null,
+      "reviews_current": false,
+      "approval_head_sha": null,
+      "active": false
+    },
+    {
+      "issue_number": 102,
+      "pull_request": 452,
+      "domain": "command-access-and-distribution",
+      "lifecycle": "READY",
+      "dependencies": [],
+      "acceptance_manifest_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "base_sha": "4444444444444444444444444444444444444444",
+      "head_sha": null,
+      "worktree_clean": true,
+      "checks_passed": false,
+      "evidence_verified": false,
+      "evidence_head_sha": null,
+      "reviews_current": false,
+      "approval_head_sha": null,
+      "active": false
+    }
+  ]
+}

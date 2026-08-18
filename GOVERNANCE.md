@@ -29,6 +29,7 @@ approved.
 | Release and compatibility classification | Repository owner | Approved version, changelog, immutable tag, and artifact evidence |
 | Human approval | The reviewer named for the applicable domain or risk | Verdict bound to the exact PR head |
 | Emergency action | Repository owner | Scope, evidence, risk, rollback, and ranked permanent follow-up |
+| External delivery supervision | Repository owner delegation for operational coordination only | Exact policy commit/blob, strict delegation, durable cycle/dispatch evidence, and owner-retained decisions |
 
 The same person may hold more than one role, but authorization, review, merge,
 and release remain distinct recorded decisions. Automation and agents may not
@@ -203,6 +204,16 @@ reports; its strict JSON suggestions remain read-only and non-authoritative.
 Copilot may advise only within an explicit workflow contract; it cannot set
 priority or labels, authorize work, approve risk, merge, release, or exercise
 owner exceptions.
+
+An owner may separately launch an external Copilot project session under
+[the external supervisor contract](.github/governance/EXTERNAL-SUPERVISOR.md).
+This policy revision is observe/validation-only and no delegation can activate
+operational authority. A future separately reviewed policy may coordinate
+isolated issue-scoped sessions and scoped evidence/PR work only after the trust
+prerequisites in that contract are implemented, but rank, READY authorization, acceptance,
+exceptions, approval, merge, release, publication, and delegation remain
+owner-only. Repository lifecycle and external session execution state remain
+separate.
 
 Governance automation begins in advisory observe mode. It becomes blocking only
 after existing repository state can satisfy the deterministic rule reliably and

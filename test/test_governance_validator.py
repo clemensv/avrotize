@@ -14,11 +14,15 @@ from tools import validate_governance
 SOURCE = Path(__file__).resolve().parent.parent
 COPIED = (
     ".github/governance/copilot-intake-policy.json",
+    ".github/governance/external-supervisor-policy.json",
     ".github/governance/copilot-cli/package.json",
     ".github/governance/copilot-cli/package-lock.json",
+    ".github/governance/prompts/external-supervisor-kickoff-v1.txt",
     ".github/governance/prompts/issue-semantic-assistance-v1.txt",
     ".github/governance/repro-label-catalog.json",
     ".github/governance/schemas/issue-semantic-assistance.schema.json",
+    ".github/governance/schemas/external-supervisor-delegation.schema.json",
+    ".github/governance/schemas/external-supervisor-cycle.schema.json",
     ".github/governance/schemas/repro-evidence-record.schema.json",
     ".github/governance/schemas/repro-terminal-fallback.schema.json",
     ".github/governance/schemas/repro-authorization-record.schema.json",
@@ -29,6 +33,8 @@ COPIED = (
     ".github/workflows/dependabot-intake.yml",
     ".github/workflows/repro-bug.yml",
     "tools/governance_repro.py",
+    "tools/governance_supervisor.py",
+    "test/fixtures/governance/supervisor/valid-delegation.json",
 )
 
 
@@ -67,16 +73,29 @@ def repository(root: Path) -> Path:
     ]
     write(root / "avrotize" / "commands.json", json.dumps(commands))
     write(root / "pyproject.toml")
+    supervisor_policy = json.loads(
+        (
+            SOURCE
+            / ".github"
+            / "governance"
+            / "external-supervisor-policy.json"
+        ).read_text(encoding="utf-8")
+    )
     profile = {
         "command_registry": "avrotize/commands.json",
         "expected_command_count": 3,
         "expected_groups": {"schemas": 1, "7_Utility": 2},
-        "command_group_areas": {"schema-transformations": ["schemas"]},
+        "command_group_areas": {
+            supervisor_policy["responsibility_domains"][0]: ["schemas"]
+        },
         "utility_command_areas": {
             "mcp": "command-access",
-            "pcf": "schema-transformations",
+            "pcf": supervisor_policy["responsibility_domains"][0],
         },
-        "responsibility_domains": {"schema-transformations": ["avrotize/**"]},
+        "responsibility_domains": {
+            domain: ["avrotize/**"]
+            for domain in supervisor_policy["responsibility_domains"]
+        },
         "surfaces": {
             "cli": "avrotize/commands.json",
             "package": "pyproject.toml",
@@ -144,7 +163,32 @@ def repository(root: Path) -> Path:
                             "guardrails": {"per_run": "TBD", "daily": "TBD"},
                             "token_telemetry": "operational-only",
                         },
-                    }
+                    },
+                    {
+                        "id": "external-delivery-supervisor",
+                        "implementation": None,
+                        "purpose": "validate owner delegation",
+                        "authority_owner": "owner",
+                        "events": ["owner-launched project session"],
+                        "inputs": {},
+                        "deterministic": {},
+                        "actions": {},
+                        "permissions": [],
+                        "result": {},
+                        "copilot": {
+                            "aic_source": "github-copilot-platform",
+                            "observed_run_aic": {
+                                "sample_size": 0,
+                                "p50": "TBD",
+                                "p95": "TBD",
+                            },
+                            "guardrails": {
+                                "per_run": "owner delegation",
+                                "daily": "TBD",
+                            },
+                            "token_telemetry": "operational-only",
+                        },
+                    },
                 ]
             }
         ),
@@ -210,6 +254,37 @@ class ValidatorTests(unittest.TestCase):
         )
         self.assertTrue(
             any("COPILOT_CLI_VERSION" in value for value in self.messages())
+        )
+
+    def test_external_supervisor_authority_sets_must_remain_disjoint(self) -> None:
+        path = self.root / ".github" / "governance" / "external-supervisor-policy.json"
+        policy = json.loads(path.read_text(encoding="utf-8"))
+        policy["delegable_operational_actions"].append(policy["owner_only_actions"][0])
+        path.write_text(json.dumps(policy), encoding="utf-8")
+        self.assertTrue(
+            any("authority action sets must be disjoint" in value for value in self.messages())
+        )
+
+    def test_external_supervisor_prompt_digest_is_enforced(self) -> None:
+        path = (
+            self.root
+            / ".github"
+            / "governance"
+            / "prompts"
+            / "external-supervisor-kickoff-v1.txt"
+        )
+        path.write_text(path.read_text(encoding="utf-8") + "\ndrift\n", encoding="utf-8")
+        self.assertTrue(
+            any("kickoff prompt digest" in value for value in self.messages())
+        )
+
+    def test_external_supervisor_cannot_gain_a_privileged_workflow(self) -> None:
+        write(
+            self.root / ".github" / "workflows" / "external-supervisor.yml",
+            "name: forbidden\n",
+        )
+        self.assertTrue(
+            any("must not have a privileged Actions workflow" in value for value in self.messages())
         )
 
     def test_registry_and_surface_drift_are_reported(self) -> None:
