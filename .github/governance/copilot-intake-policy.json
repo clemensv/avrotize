@@ -5,7 +5,7 @@
     "version": "1.0.80",
     "integrity": "sha512-6tf93ZF56KOiTTAjK/UhLZkl1W543IzaTQly288kockJZFswpRTnQEI00Yvacpb39DTvTYu3/ha9SeKpo/pgZQ==",
     "lockfile": ".github/governance/copilot-cli/package-lock.json",
-    "lockfile_sha256": "11a779f7c4992395e57d1a7e11f9ae0d798c426fd595e3bce46378be7b9525cc",
+    "lockfile_sha256": "de84c84867979cd1fa4590030b6f03e81ff5e4d42ba10a9cca6482313245d55a",
     "install_scripts": false
   },
   "request": {

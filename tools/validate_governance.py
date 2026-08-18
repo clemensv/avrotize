@@ -584,7 +584,9 @@ def _validate_copilot_issue_intake(root: Path, findings: list[Finding]) -> None:
     if not lock_path.is_file() or not package_path.is_file():
         findings.append(Finding(policy_relative, "Copilot CLI package and lockfile must exist"))
     else:
-        lock_digest = hashlib.sha256(lock_path.read_bytes()).hexdigest()
+        lock_digest = hashlib.sha256(
+            lock_path.read_text(encoding="utf-8").encode("utf-8")
+        ).hexdigest()
         if cli.get("lockfile_sha256") != lock_digest:
             findings.append(Finding(policy_relative, "Copilot CLI lockfile digest does not match policy"))
         package = _load_json(package_path, findings)

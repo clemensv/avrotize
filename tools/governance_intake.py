@@ -301,7 +301,7 @@ def _load_copilot_intake_policy() -> dict[str, Any]:
         raise RuntimeError("Copilot intake CLI integrity must be SHA-512")
     if cli.get("lockfile") != ".github/governance/copilot-cli/package-lock.json":
         raise RuntimeError("Copilot intake lockfile path changed")
-    lockfile_digest = _sha256_bytes(COPILOT_CLI_LOCKFILE.read_bytes())
+    lockfile_digest = _sha256(COPILOT_CLI_LOCKFILE.read_text(encoding="utf-8"))
     if cli.get("lockfile_sha256") != lockfile_digest:
         raise RuntimeError("Copilot intake lockfile digest does not match policy")
     if request.get("max_ai_credits") != 30:
@@ -862,7 +862,7 @@ def normalize_issue(
     command_registry_digest = _sha256(commands_text)
     capability_digest = _sha256(capabilities_text)
     semantic_policy_digest = _sha256(policy_text)
-    copilot_lockfile_digest = _sha256_bytes(COPILOT_CLI_LOCKFILE.read_bytes())
+    copilot_lockfile_digest = _sha256(COPILOT_CLI_LOCKFILE.read_text(encoding="utf-8"))
     semantic_output_schema_digest = _sha256(semantic_schema_text)
     semantic_prompt_digest = _sha256(prompt_template)
     surface_registry_digest = _sha256(
