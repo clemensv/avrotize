@@ -74,6 +74,10 @@ All notable changes to Avrotize are documented in this file.
 
 ### Changed
 
+- Generated JavaScript and TypeScript projects now pin `avro-js` to `1.12.1`,
+  the latest release whose published package declares its required
+  `underscore` runtime dependency. This avoids the broken `1.12.2` package
+  metadata while preserving fresh-install runtime behavior.
 - Rewrote contribution, support, security, issue chooser, pull request, intake
   summary, reproduction feedback, and label descriptions as welcoming,
   plain-language participation surfaces. Support is explicitly best-effort and
