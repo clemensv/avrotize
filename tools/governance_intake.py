@@ -1,10 +1,12 @@
-"""Deterministic governance intake normalizer for Avrotize.
+"""Revision-bound governance intake and read-only semantic assistance for Avrotize.
 
-Two CLI modes:
+CLI modes:
+  python tools/governance_intake.py issue-preflight --event EVENT_JSON
   python tools/governance_intake.py issue   --event EVENT_JSON
   python tools/governance_intake.py dependabot --event EVENT_JSON --files FILES_JSON
 
-Standard library only. Outputs versioned JSON records and Markdown summaries.
+Standard library only. Copilot execution remains outside this trusted processor;
+the processor prepares inert stdin and validates all returned JSON before use.
 """
 
 from __future__ import annotations
@@ -25,6 +27,8 @@ if str(REPO_ROOT) not in sys.path:
 from tools import governance_schema  # noqa: E402  (path bootstrap above enables direct execution)
 
 ISSUE_FORM_CONTRACT = REPO_ROOT / ".github" / "governance" / "issue-form-contract.json"
+COPILOT_INTAKE_POLICY = REPO_ROOT / ".github" / "governance" / "copilot-intake-policy.json"
+COPILOT_CLI_LOCKFILE = REPO_ROOT / ".github" / "governance" / "copilot-cli" / "package-lock.json"
 COMMANDS_JSON = REPO_ROOT / "avrotize" / "commands.json"
 MCP_SERVER = REPO_ROOT / "avrotize" / "mcp_server.py"
 VSCODE_PACKAGE = REPO_ROOT / "vscode" / "avrotize" / "package.json"
@@ -32,11 +36,12 @@ DEPENDABOT_CONFIG = REPO_ROOT / ".github" / "dependabot.yml"
 CAPABILITIES_JSON = REPO_ROOT / ".github" / "governance" / "avrotize-capabilities.json"
 SCHEMA_DIR = REPO_ROOT / ".github" / "governance" / "schemas"
 ISSUE_RECORD_SCHEMA = SCHEMA_DIR / "issue-intake-record.schema.json"
+ISSUE_SEMANTIC_SCHEMA = SCHEMA_DIR / "issue-semantic-assistance.schema.json"
 DEPENDABOT_RECORD_SCHEMA = SCHEMA_DIR / "dependabot-intake-record.schema.json"
 
 AUTHORITY_STATEMENT = (
-    "Intake normalization does not authorize implementation, schedule work, "
-    "approve compatibility, or permit merge. Repository owner retains authority."
+    "Intake assistance does not authorize implementation, schedule work, approve "
+    "compatibility, or permit merge or release. Repository owner retains authority."
 )
 
 # ---------------------------------------------------------------------------
@@ -65,7 +70,9 @@ def _summary_safe(value: Any, limit: int = MAX_SUMMARY_FRAGMENT) -> str:
     """
     text = _SUMMARY_CONTROL_RE.sub(" ", str(value).replace("\x00", " "))
     text = " ".join(text.split())
-    text = text.replace("`", "'").replace("|", "/")
+    text = text.replace("\\", "\\\\")
+    for character in ("`", "|", "[", "]", "(", ")", "*", "_", "~", "#", "!"):
+        text = text.replace(character, "\\" + character)
     text = text.replace("<", "&lt;").replace(">", "&gt;")
     if len(text) > limit:
         text = text[:limit] + "..."
@@ -79,7 +86,27 @@ def _sha256_bytes(data: bytes) -> str:
 def _load_json_strict(path: Path) -> Any:
     """Load JSON, raising on any error (corrupt config = infrastructure failure)."""
     text = path.read_text(encoding="utf-8")
-    return json.loads(text)
+    return _loads_json_strict(text)
+
+
+def _loads_json_strict(text: str) -> Any:
+    """Parse RFC JSON while rejecting duplicate keys and non-finite numbers."""
+    def object_no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError(f"duplicate JSON property: {key}")
+            value[key] = item
+        return value
+
+    def reject_constant(value: str) -> None:
+        raise ValueError(f"non-finite JSON number: {value}")
+
+    return json.loads(
+        text,
+        object_pairs_hook=object_no_duplicates,
+        parse_constant=reject_constant,
+    )
 
 
 def _load_command_entries() -> list[dict[str, Any]]:
@@ -227,6 +254,382 @@ def _validate_or_raise(record: dict[str, Any], schema_path: Path, label: str) ->
     errors = _validate_record(record, schema_path)
     if errors:
         raise RuntimeError(f"{label} failed schema validation: " + "; ".join(errors))
+
+
+_PROMPT_INJECTION_PATTERNS = (
+    re.compile(r"\bignore\s+(?:all\s+|any\s+|the\s+)?(?:previous|prior|above)\s+instructions?\b", re.IGNORECASE),
+    re.compile(r"\b(?:reveal|print|leak|expose)\b.{0,48}\b(?:token|secret|github_token|system prompt)\b", re.IGNORECASE | re.DOTALL),
+    re.compile(
+        r"(?:\b(?:copilot|assistant|you)\b.{0,32}\b(?:call|invoke|use|run)\b"
+        r"|(?:\bcall\b|\binvoke\b|\buse\b)\s+(?:the\s+|a\s+)?).*?"
+        r"\b(?:tool|shell|terminal)\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(r"\b(?:emit|set|apply|assign|decide)\b.{0,32}\b(?:label|priority|severity|rank|assignee|schedule)\b", re.IGNORECASE | re.DOTALL),
+    re.compile(r"\b(?:return|respond|answer)\b.{0,24}\bmarkdown\b.{0,24}\b(?:instead|not json)\b", re.IGNORECASE | re.DOTALL),
+    re.compile(r"\b(?:fabricate|invent|make up)\b.{0,32}\bcommand\b", re.IGNORECASE | re.DOTALL),
+)
+
+_UNSUPPORTED_OUTPUT_PATTERNS = (
+    re.compile(r"\bpriority\s*[:=]\s*\w+", re.IGNORECASE),
+    re.compile(r"\bseverity\s*[:=]\s*\w+", re.IGNORECASE),
+    re.compile(r"\b(?:apply|set|add|remove)\s+(?:the\s+)?label\b", re.IGNORECASE),
+    re.compile(r"\b(?:assign|schedule|accept|reject|approve|merge|release)\s+(?:this|the)\b", re.IGNORECASE),
+    re.compile(r"\b(?:valid|invalid|compliant|noncompliant)\s+(?:issue|report|reporter|contributor)\b", re.IGNORECASE),
+)
+
+
+def _load_copilot_intake_policy() -> dict[str, Any]:
+    """Load and validate the trusted Copilot issue-intake policy."""
+    policy = _load_json_strict(COPILOT_INTAKE_POLICY)
+    try:
+        cli = policy["cli"]
+        request = policy["request"]
+        boundary = policy["tool_boundary"]
+        artifact = policy["artifact"]
+    except (KeyError, TypeError) as exc:
+        raise RuntimeError("Copilot intake policy is incomplete") from exc
+    expected = {
+        "package": "@github/copilot",
+        "install_scripts": False,
+    }
+    if any(cli.get(key) != value for key, value in expected.items()):
+        raise RuntimeError("Copilot intake CLI policy is not locked down")
+    if not isinstance(cli.get("version"), str) or not re.fullmatch(r"\d+\.\d+\.\d+(?:-\d+)?", cli["version"]):
+        raise RuntimeError("Copilot intake CLI version must be exact")
+    if not isinstance(cli.get("integrity"), str) or not cli["integrity"].startswith("sha512-"):
+        raise RuntimeError("Copilot intake CLI integrity must be SHA-512")
+    if cli.get("lockfile") != ".github/governance/copilot-cli/package-lock.json":
+        raise RuntimeError("Copilot intake lockfile path changed")
+    lockfile_digest = _sha256_bytes(COPILOT_CLI_LOCKFILE.read_bytes())
+    if cli.get("lockfile_sha256") != lockfile_digest:
+        raise RuntimeError("Copilot intake lockfile digest does not match policy")
+    if request.get("max_ai_credits") != 30:
+        raise RuntimeError("Copilot intake max_ai_credits must remain the conservative minimum of 30")
+    if not isinstance(request.get("timeout_seconds"), int) or request["timeout_seconds"] <= 0:
+        raise RuntimeError("Copilot intake timeout must be a positive integer")
+    if request.get("max_output_bytes") != 32768:
+        raise RuntimeError("Copilot intake max_output_bytes must remain 32768")
+    confidence = request.get("minimum_confidence")
+    if not isinstance(confidence, (int, float)) or isinstance(confidence, bool) or not 0 <= confidence <= 1:
+        raise RuntimeError("Copilot intake minimum_confidence must be between 0 and 1")
+    if boundary.get("available_tools") != [] or boundary.get("builtin_mcp") is not False:
+        raise RuntimeError("Copilot intake must expose no tools or built-in MCP server")
+    if boundary.get("custom_instructions") is not False or boundary.get("remote_export") is not False:
+        raise RuntimeError("Copilot intake must disable custom instructions and remote export")
+    if set(boundary.get("denied_tools", [])) != {"shell", "write", "read", "url", "memory"}:
+        raise RuntimeError("Copilot intake denied tool set changed")
+    if any(artifact.get(key) is not False for key in ("raw_title", "raw_body", "raw_model_response")):
+        raise RuntimeError("Copilot intake artifact policy must exclude raw content")
+    return policy
+
+
+def _copilot_resources() -> tuple[dict[str, Any], str, str, str, dict[str, Any]]:
+    """Return trusted semantic policy/template/schema resources and their digests."""
+    policy = _load_copilot_intake_policy()
+    request = policy["request"]
+    prompt_path = REPO_ROOT / request["prompt_template"]
+    output_schema_path = REPO_ROOT / request["output_schema"]
+    if prompt_path != REPO_ROOT / ".github" / "governance" / "prompts" / "issue-semantic-assistance-v1.txt":
+        raise RuntimeError("Copilot intake prompt path is not the reviewed version")
+    if output_schema_path != ISSUE_SEMANTIC_SCHEMA:
+        raise RuntimeError("Copilot intake output schema path is not the reviewed schema")
+    prompt_text = prompt_path.read_text(encoding="utf-8")
+    schema_text = output_schema_path.read_text(encoding="utf-8")
+    output_schema = governance_schema.load_schema(output_schema_path)
+    policy_text = COPILOT_INTAKE_POLICY.read_text(encoding="utf-8")
+    return policy, prompt_text, schema_text, policy_text, output_schema
+
+
+def _capability_areas() -> set[str]:
+    """Return exact checked-in Avrotize capability-area identifiers."""
+    profile = _load_json_strict(CAPABILITIES_JSON)
+    areas: set[str] = set()
+    for key in ("command_group_areas", "responsibility_domains"):
+        values = profile.get(key)
+        if isinstance(values, dict):
+            areas.update(str(name) for name in values)
+    utilities = profile.get("utility_command_areas")
+    if isinstance(utilities, dict):
+        areas.update(str(value) for value in utilities.values())
+    return areas
+
+
+def _prompt_injection_indicator(title: str, body: str) -> bool:
+    """Conservatively detect issue text that tries to redirect the model."""
+    combined = f"{title}\n{body}"
+    return any(pattern.search(combined) for pattern in _PROMPT_INJECTION_PATTERNS)
+
+
+def prepare_issue_assistance(event_json: str) -> tuple[dict[str, Any], str]:
+    """Build a no-tools Copilot prompt and a content-free deterministic preflight record."""
+    event = json.loads(event_json)
+    issue = event.get("issue", event)
+    title = str(issue.get("title") or "")
+    body = str(issue.get("body") or "")
+    policy, prompt_template, schema_text, policy_text, _ = _copilot_resources()
+    request = policy["request"]
+    contract = _load_issue_form_contract()
+    surfaces = list(contract.get("surface_choices", []))
+    commands = sorted(_load_commands())
+    areas = sorted(_capability_areas())
+    input_characters = len(title) + len(body)
+    if input_characters > int(request["max_input_characters"]):
+        eligible = False
+        reason = "input-too-large"
+    elif _prompt_injection_indicator(title, body):
+        eligible = False
+        reason = "prompt-injection-indicator"
+    else:
+        eligible = True
+        reason = "eligible"
+
+    registry = {
+        "surfaces": surfaces,
+        "areas": areas,
+        "commands": commands,
+    }
+    untrusted_issue = {
+        "title": title,
+        "body": body,
+    }
+    prompt = "\n\n".join(
+        (
+            prompt_template.rstrip(),
+            "OUTPUT_SCHEMA_JSON\n"
+            + json.dumps(_loads_json_strict(schema_text), sort_keys=True, separators=(",", ":")),
+            "REGISTRY_JSON\n" + json.dumps(registry, sort_keys=True, ensure_ascii=False, separators=(",", ":")),
+            "UNTRUSTED_ISSUE_JSON\n"
+            + json.dumps(untrusted_issue, sort_keys=True, ensure_ascii=False, separators=(",", ":")),
+        )
+    ) + "\n"
+    preflight = {
+        "schema_version": 1,
+        "eligible": eligible,
+        "reason": reason,
+        "title_digest": _sha256(title),
+        "body_digest": _sha256(body),
+        "policy_digest": _sha256(policy_text),
+        "lockfile_digest": _sha256_bytes(COPILOT_CLI_LOCKFILE.read_bytes()),
+        "output_schema_digest": _sha256(schema_text),
+        "prompt_template_digest": _sha256(prompt_template),
+        "prompt_version": request["prompt_version"],
+        "model": request["model"],
+        "max_ai_credits": request["max_ai_credits"],
+        "timeout_seconds": request["timeout_seconds"],
+        "input_characters": input_characters,
+    }
+    return preflight, prompt
+
+
+def _sanitize_semantic_text(value: Any, limit: int) -> str:
+    """Bound model text and remove controls without interpreting it as Markdown."""
+    text = _SUMMARY_CONTROL_RE.sub(" ", str(value).replace("\x00", " "))
+    text = " ".join(text.split())
+    return text[:limit]
+
+
+def _contains_unsupported_authority_output(value: Any) -> bool:
+    """Reject model text that crosses the maintainer-assistance authority boundary."""
+    if isinstance(value, dict):
+        return any(_contains_unsupported_authority_output(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_unsupported_authority_output(item) for item in value)
+    if not isinstance(value, str):
+        return False
+    return any(pattern.search(value) for pattern in _UNSUPPORTED_OUTPUT_PATTERNS)
+
+
+def _semantic_fallback(
+    policy: dict[str, Any],
+    reason: str,
+    attempted: bool,
+    exit_code: int | None,
+) -> dict[str, Any]:
+    request = policy["request"]
+    return {
+        "status": "unavailable",
+        "reason": reason,
+        "prompt_version": request["prompt_version"],
+        "model": request["model"],
+        "execution": {
+            "attempted": attempted,
+            "exit_code": exit_code,
+            "timeout_seconds": request["timeout_seconds"],
+            "max_ai_credits": request["max_ai_credits"],
+            "platform_reported_aic": {
+                "reported": False,
+                "value": None,
+                "source": "not-exposed-by-cli-output",
+            },
+        },
+        "result": None,
+        "result_digest": None,
+    }
+
+
+def _normalize_semantic_assistance(
+    preflight: dict[str, Any] | None,
+    raw_output: str | None,
+    exit_code: int | None,
+    stderr: str | None,
+    surface_registry: dict[str, dict[str, str]],
+) -> dict[str, Any]:
+    """Validate and cross-check Copilot output before it enters an intake record."""
+    policy, prompt_template, schema_text, policy_text, output_schema = _copilot_resources()
+    if preflight is None:
+        return _semantic_fallback(policy, "not-requested", False, None)
+
+    expected_digests = {
+        "policy_digest": _sha256(policy_text),
+        "lockfile_digest": _sha256_bytes(COPILOT_CLI_LOCKFILE.read_bytes()),
+        "output_schema_digest": _sha256(schema_text),
+        "prompt_template_digest": _sha256(prompt_template),
+    }
+    for key, expected in expected_digests.items():
+        if preflight.get(key) != expected:
+            raise RuntimeError(f"Copilot intake preflight {key} does not match trusted resources")
+
+    eligible = preflight.get("eligible") is True
+    if not eligible:
+        reason = str(preflight.get("reason") or "copilot-unavailable")
+        if reason not in {"prompt-injection-indicator", "input-too-large"}:
+            reason = "copilot-unavailable"
+        return _semantic_fallback(policy, reason, False, None)
+
+    attempted = exit_code is not None
+    if exit_code == 124:
+        return _semantic_fallback(policy, "timeout", True, exit_code)
+    if exit_code not in (0, None):
+        details = (stderr or "").lower()
+        reason = (
+            "aic-guardrail-exhausted"
+            if "ai credit" in details and ("limit" in details or "exhaust" in details)
+            else "copilot-unavailable"
+        )
+        return _semantic_fallback(policy, reason, True, exit_code)
+    if raw_output is None:
+        return _semantic_fallback(policy, "copilot-unavailable", attempted, exit_code)
+
+    if raw_output == "__COPILOT_OUTPUT_TOO_LARGE__":
+        return _semantic_fallback(policy, "unsupported-output", True, exit_code)
+    try:
+        candidate = _loads_json_strict(raw_output)
+    except (json.JSONDecodeError, ValueError):
+        return _semantic_fallback(policy, "invalid-json", True, exit_code)
+    errors = governance_schema.validate(candidate, output_schema)
+    if errors:
+        return _semantic_fallback(policy, "schema-violation", True, exit_code)
+    if _contains_unsupported_authority_output(candidate):
+        return _semantic_fallback(policy, "unsupported-output", True, exit_code)
+
+    known_surfaces = set(_load_issue_form_contract().get("surface_choices", []))
+    known_areas = _capability_areas()
+    enriched_candidates: list[dict[str, Any]] = []
+    unknown_registry_suggestion = False
+    low_confidence = float(candidate["report_kind"]["confidence"]) < float(
+        policy["request"]["minimum_confidence"]
+    )
+    for item in candidate["candidates"]:
+        surface = item.get("surface")
+        area = item.get("area")
+        command = item.get("command")
+        surface_known = None if surface is None else surface in known_surfaces
+        area_known = None if area is None else area in known_areas
+        canonical = _canonical_command(
+            command,
+            surface if surface_known else None,
+            surface_registry,
+        )
+        command_known = None if command is None else canonical is not None
+        if surface_known is False or area_known is False or command_known is False:
+            unknown_registry_suggestion = True
+        confidence = float(item["confidence"])
+        low_confidence = low_confidence or confidence < float(
+            policy["request"]["minimum_confidence"]
+        )
+        enriched_candidates.append(
+            {
+                "suggested_surface": (
+                    _sanitize_semantic_text(surface, 80) if surface is not None else None
+                ),
+                "suggested_area": (
+                    _sanitize_semantic_text(area, 100) if area is not None else None
+                ),
+                "suggested_command": (
+                    _sanitize_semantic_text(command, 120) if command is not None else None
+                ),
+                "confidence": confidence,
+                "evidence": _sanitize_semantic_text(item["evidence"], 180),
+                "surface_known": surface_known,
+                "area_known": area_known,
+                "command_known": command_known,
+                "canonical_command": canonical,
+            }
+        )
+
+    accepted = {
+        "summary": _sanitize_semantic_text(candidate["summary"], 500),
+        "report_kind": {
+            "value": candidate["report_kind"]["value"],
+            "confidence": float(candidate["report_kind"]["confidence"]),
+            "evidence": [
+                _sanitize_semantic_text(value, 180)
+                for value in candidate["report_kind"]["evidence"]
+            ],
+        },
+        "candidates": enriched_candidates,
+        "missing_details": [
+            _sanitize_semantic_text(value, 180) for value in candidate["missing_details"]
+        ],
+        "duplicate_search_terms": [
+            _sanitize_semantic_text(value, 80)
+            for value in candidate["duplicate_search_terms"]
+        ],
+        "needs_human_review": bool(candidate["needs_human_review"]),
+    }
+    if not accepted["summary"] or any(
+        not item
+        for item in (
+            accepted["report_kind"]["evidence"]
+            + accepted["missing_details"]
+            + accepted["duplicate_search_terms"]
+            + [entry["evidence"] for entry in accepted["candidates"]]
+        )
+    ):
+        return _semantic_fallback(policy, "unsupported-output", True, exit_code)
+
+    if unknown_registry_suggestion:
+        status, reason = "needs-human-review", "unknown-registry-suggestion"
+    elif low_confidence:
+        status, reason = "needs-human-review", "low-confidence"
+    elif accepted["needs_human_review"]:
+        status, reason = "needs-human-review", "model-requested-review"
+    else:
+        status, reason = "needs-human-review", "suggestions-ready"
+    request = policy["request"]
+    result_digest = _sha256(
+        json.dumps(accepted, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    )
+    return {
+        "status": status,
+        "reason": reason,
+        "prompt_version": request["prompt_version"],
+        "model": request["model"],
+        "execution": {
+            "attempted": True,
+            "exit_code": exit_code,
+            "timeout_seconds": request["timeout_seconds"],
+            "max_ai_credits": request["max_ai_credits"],
+            "platform_reported_aic": {
+                "reported": False,
+                "value": None,
+                "source": "not-exposed-by-cli-output",
+            },
+        },
+        "result": accepted,
+        "result_digest": result_digest,
+    }
 
 
 def _flatten_paginated_files(data: Any) -> list[dict[str, Any]]:
@@ -421,7 +824,16 @@ def _normalize_expected_result(choice: str, contract: dict[str, Any]) -> tuple[s
     return raw, kind
 
 
-def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> tuple[dict[str, Any], str]:
+def normalize_issue(
+    event_json: str,
+    processor_sha: str = "local-worktree",
+    *,
+    semantic_preflight: dict[str, Any] | None = None,
+    semantic_output: str | None = None,
+    semantic_exit_code: int | None = None,
+    semantic_stderr: str | None = None,
+    minimize_content: bool = False,
+) -> tuple[dict[str, Any], str]:
     """Normalize an issue event into a record and markdown summary.
 
     Returns (record_dict, markdown_str).
@@ -430,6 +842,7 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
     event = json.loads(event_json)
     contract = _load_issue_form_contract()
     surface_registry = _load_surface_registry()
+    policy, prompt_template, semantic_schema_text, policy_text, _ = _copilot_resources()
 
     issue = event.get("issue", event)
     title = issue.get("title", "")
@@ -448,6 +861,10 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
     contract_digest = _sha256(contract_text)
     command_registry_digest = _sha256(commands_text)
     capability_digest = _sha256(capabilities_text)
+    semantic_policy_digest = _sha256(policy_text)
+    copilot_lockfile_digest = _sha256_bytes(COPILOT_CLI_LOCKFILE.read_bytes())
+    semantic_output_schema_digest = _sha256(semantic_schema_text)
+    semantic_prompt_digest = _sha256(prompt_template)
     surface_registry_digest = _sha256(
         json.dumps(surface_registry, sort_keys=True, separators=(",", ":"))
     )
@@ -460,9 +877,18 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
                 command_registry_digest,
                 capability_digest,
                 surface_registry_digest,
+                semantic_policy_digest,
+                copilot_lockfile_digest,
+                semantic_output_schema_digest,
+                semantic_prompt_digest,
             )
         )
     )
+    if semantic_preflight is not None:
+        if semantic_preflight.get("title_digest") != title_digest:
+            raise RuntimeError("Copilot intake preflight title digest does not match the event")
+        if semantic_preflight.get("body_digest") != body_digest:
+            raise RuntimeError("Copilot intake preflight body digest does not match the event")
 
     form_type, form_spec = _detect_form_type(title, contract)
 
@@ -472,9 +898,11 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
     # Determine completeness
     status = "manual-triage"
     missing_fields: list[str] = []
-    unexpected_headings: list[str] = []
+    supplemental_headings: list[str] = []
+    repeated_headings: list[str] = []
     missing_headings: list[str] = []
     surface_error: str | None = None
+    canonical_command: str | None = None
     normalized: dict[str, Any] = {
         "command": None, "command_known": None, "surface": None,
         "semantic_paths": [], "source_representation": None,
@@ -500,11 +928,21 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
         unexpected_headings, missing_required_headings, missing_optional_headings = _analyze_heading_set(
             sections, form_spec
         )
+        repeated_headings = sorted(
+            heading.removeprefix("__duplicate_heading__:")
+            for heading in unexpected_headings
+            if heading.startswith("__duplicate_heading__:")
+        )
+        supplemental_headings = sorted(
+            heading
+            for heading in unexpected_headings
+            if not heading.startswith("__duplicate_heading__:")
+        )
         missing_headings = missing_required_headings + missing_optional_headings
 
-        # Check for malformed: known title prefix but no meaningful body content
+        # Empty, duplicate, or non-contract content remains available for a human read.
         if not body.strip() or not sections:
-            status = "malformed"
+            status = "manual-triage"
         else:
             # Check required fields - reject placeholders
             for req in form_spec.get("required_semantic_fields", []):
@@ -519,17 +957,12 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
                 if not valid:
                     surface_error = err
 
-            duplicate_headings = [
-                heading
-                for heading in unexpected_headings
-                if heading.startswith("__duplicate_heading__:")
-            ]
-            if duplicate_headings:
-                status = "malformed"
+            if repeated_headings:
+                status = "manual-triage"
             elif missing_fields:
                 status = "incomplete"
             elif surface_error:
-                status = "malformed"
+                status = "manual-triage"
             else:
                 status = "complete"
 
@@ -583,8 +1016,39 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
                 field_values.get("documentation") or field_values.get("example") or None
             )
 
+    if minimize_content:
+        if normalized["command_known"] is True:
+            normalized["command"] = canonical_command
+        else:
+            normalized["command"] = None
+            normalized["command_known"] = None
+        for key in (
+            "source_representation",
+            "result_representation",
+            "flags_options",
+            "input_reproducer",
+            "actual_behavior",
+            "expected_behavior",
+            "expected_result_choice",
+            "expected_output",
+            "environment",
+            "regression",
+            "semantics",
+            "validation_expectations",
+            "documentation",
+        ):
+            normalized[key] = None
+        normalized["expected_result_kind"] = "undeclared"
+
+    semantic_assistance = _normalize_semantic_assistance(
+        semantic_preflight,
+        semantic_output,
+        semantic_exit_code,
+        semantic_stderr,
+        surface_registry,
+    )
     record: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "record_kind": "issue-intake",
         "event_identity": {
             "issue_number": number,
@@ -599,6 +1063,10 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
             "command_registry_digest": command_registry_digest,
             "capability_digest": capability_digest,
             "surface_registry_digest": surface_registry_digest,
+            "semantic_policy_digest": semantic_policy_digest,
+            "copilot_lockfile_digest": copilot_lockfile_digest,
+            "semantic_output_schema_digest": semantic_output_schema_digest,
+            "semantic_prompt_digest": semantic_prompt_digest,
             "source_digest": source_digest,
             "update": action in ("edited", "reopened"),
         },
@@ -606,10 +1074,26 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
             "form_type": form_type,
             "status": status,
             "missing_fields": missing_fields,
-            "unexpected_headings": unexpected_headings,
+            "supplemental_headings": [
+                _sanitize_semantic_text(value, 120) for value in supplemental_headings
+            ],
+            "repeated_headings": [
+                _sanitize_semantic_text(value, 120) for value in repeated_headings
+            ],
             "missing_headings": missing_headings,
         },
         "normalized_facts": normalized,
+        "semantic_assistance": semantic_assistance,
+        "privacy": {
+            "raw_title_stored": False,
+            "raw_body_stored": False,
+            "raw_model_response_stored": False,
+            "artifact_content": (
+                "digests-and-bounded-derived-output"
+                if minimize_content
+                else "includes-normalized-form-values"
+            ),
+        },
         "authority": {
             "authorized": False,
             "statement": AUTHORITY_STATEMENT,
@@ -620,7 +1104,6 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
     status_text = {
         "complete": "Ready for a maintainer to read",
         "incomplete": "More information may help",
-        "malformed": "We could not read this form automatically; it remains available for maintainer review",
         "manual-triage": "Needs a maintainer look",
     }.get(status, "Needs a maintainer look")
     md_lines = [
@@ -639,25 +1122,14 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
         md_lines.append(
             f"- **A maintainer may ask for**: {', '.join(_summary_safe(label) for label in missing_labels)}"
         )
-    if unexpected_headings:
-        duplicate_labels = [
-            heading.removeprefix("__duplicate_heading__:")
-            for heading in unexpected_headings
-            if heading.startswith("__duplicate_heading__:")
-        ]
-        supplemental_labels = [
-            heading
-            for heading in unexpected_headings
-            if not heading.startswith("__duplicate_heading__:")
-        ]
-        if supplemental_labels:
-            md_lines.append(
-                f"- **Additional sections kept for review**: {', '.join(_summary_safe(h) for h in supplemental_labels)}"
-            )
-        if duplicate_labels:
-            md_lines.append(
-                f"- **Repeated sections need a maintainer look**: {', '.join(_summary_safe(h) for h in duplicate_labels)}"
-            )
+    if supplemental_headings:
+        md_lines.append(
+            f"- **Additional sections kept for review**: {', '.join(_summary_safe(h) for h in supplemental_headings)}"
+        )
+    if repeated_headings:
+        md_lines.append(
+            f"- **Repeated sections need a maintainer look**: {', '.join(_summary_safe(h) for h in repeated_headings)}"
+        )
     if missing_headings:
         md_lines.append(
             f"- **Sections not present**: {', '.join(_summary_safe(h) for h in missing_headings)}"
@@ -669,6 +1141,49 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
         md_lines.append(f"- **Command**: `{_summary_safe(normalized['command'])}` (known: {known_str})")
     if normalized["semantic_paths"]:
         md_lines.append(f"- **Related Avrotize paths**: {', '.join(normalized['semantic_paths'])}")
+    assistance_status = {
+        "needs-human-review": "Untrusted semantic suggestions are available for maintainer review; they are not decisions",
+        "unavailable": "Semantic suggestions were unavailable; the issue remains ready for a human read",
+    }[semantic_assistance["status"]]
+    md_lines.append(f"- **Copilot assistance**: {assistance_status}")
+    semantic_result = semantic_assistance["result"]
+    if isinstance(semantic_result, dict):
+        md_lines.append(
+            "> **Untrusted Copilot suggestion (not a decision):** "
+            + _summary_safe(semantic_result["summary"], 500)
+        )
+        report_kind = semantic_result["report_kind"]
+        md_lines.append(
+            f"- **Model-suggested report kind**: {_summary_safe(report_kind['value'])} "
+            f"(confidence {float(report_kind['confidence']):.2f})"
+        )
+        known_candidates = [
+            item
+            for item in semantic_result["candidates"]
+            if item["surface_known"] is True
+            or item["area_known"] is True
+            or item["command_known"] is True
+        ]
+        if known_candidates:
+            rendered = []
+            for item in known_candidates:
+                values = [
+                    item["suggested_surface"] if item["surface_known"] is True else None,
+                    item["suggested_area"] if item["area_known"] is True else None,
+                    item["canonical_command"] if item["command_known"] is True else None,
+                ]
+                rendered.append(
+                    " / ".join(_summary_safe(value) for value in values if value)
+                    + f" ({float(item['confidence']):.2f})"
+                )
+            md_lines.append(f"- **Model-suggested Avrotize areas**: {', '.join(rendered)}")
+        if semantic_result["missing_details"]:
+            md_lines.append(
+                "- **Model-suggested details that might help later**: "
+                + "; ".join(
+                    _summary_safe(value) for value in semantic_result["missing_details"]
+                )
+            )
     md_lines.extend([
         "",
         f"> {AUTHORITY_STATEMENT}",
@@ -1519,6 +2034,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     issue_parser.add_argument("--output-json", type=Path, help="Write record JSON to this path.")
     issue_parser.add_argument("--output-md", type=Path, help="Write summary Markdown to this path.")
     issue_parser.add_argument("--processor-sha", default="local-worktree")
+    issue_parser.add_argument("--semantic-preflight", type=Path)
+    issue_parser.add_argument("--copilot-output", type=Path)
+    issue_parser.add_argument("--copilot-stderr", type=Path)
+    issue_parser.add_argument("--copilot-exit-code", type=int)
+    issue_parser.add_argument("--minimize-content", action="store_true")
+
+    preflight_parser = subparsers.add_parser(
+        "issue-preflight",
+        help="Validate trusted resources and prepare a no-tools Copilot prompt.",
+    )
+    preflight_parser.add_argument("--event", required=True, type=Path)
+    preflight_parser.add_argument("--output-json", required=True, type=Path)
+    preflight_parser.add_argument("--output-prompt", required=True, type=Path)
+    preflight_parser.add_argument("--processor-sha", default="local-worktree")
 
     dep_parser = subparsers.add_parser("dependabot", help="Normalize a Dependabot PR event.")
     dep_parser.add_argument("--event", required=True, type=Path, help="Path to PR event JSON.")
@@ -1533,9 +2062,54 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.print_help()
         return 1
 
+    if args.mode == "issue-preflight":
+        event_text = args.event.read_text(encoding="utf-8")
+        preflight, prompt = prepare_issue_assistance(event_text)
+        # Validate the complete fallback record before any Copilot request consumes AIC.
+        normalize_issue(
+            event_text,
+            args.processor_sha,
+            semantic_preflight=preflight,
+            minimize_content=True,
+        )
+        args.output_json.parent.mkdir(parents=True, exist_ok=True)
+        args.output_json.write_text(
+            json.dumps(preflight, indent=2, sort_keys=False) + "\n",
+            encoding="utf-8",
+        )
+        args.output_prompt.parent.mkdir(parents=True, exist_ok=True)
+        args.output_prompt.write_text(
+            prompt if preflight["eligible"] else "",
+            encoding="utf-8",
+        )
+        return 0
+
     if args.mode == "issue":
         event_text = args.event.read_text(encoding="utf-8")
-        record, markdown = normalize_issue(event_text, args.processor_sha)
+        semantic_preflight = (
+            _load_json_strict(args.semantic_preflight)
+            if args.semantic_preflight
+            else None
+        )
+        semantic_output = (
+            args.copilot_output.read_text(encoding="utf-8")
+            if args.copilot_output and args.copilot_output.is_file()
+            else None
+        )
+        semantic_stderr = (
+            args.copilot_stderr.read_text(encoding="utf-8", errors="replace")
+            if args.copilot_stderr and args.copilot_stderr.is_file()
+            else None
+        )
+        record, markdown = normalize_issue(
+            event_text,
+            args.processor_sha,
+            semantic_preflight=semantic_preflight,
+            semantic_output=semantic_output,
+            semantic_exit_code=args.copilot_exit_code,
+            semantic_stderr=semantic_stderr,
+            minimize_content=args.minimize_content,
+        )
     elif args.mode == "dependabot":
         event_text = args.event.read_text(encoding="utf-8")
         files_text = args.files.read_text(encoding="utf-8")

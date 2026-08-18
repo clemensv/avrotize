@@ -17,7 +17,7 @@ class IssueIntakeBugCompleteTests(unittest.TestCase):
         self.record, self.markdown = governance_intake.normalize_issue(self.event)
 
     def test_schema_version(self) -> None:
-        self.assertEqual(self.record["schema_version"], 1)
+        self.assertEqual(self.record["schema_version"], 2)
 
     def test_record_kind(self) -> None:
         self.assertEqual(self.record["record_kind"], "issue-intake")
@@ -143,15 +143,15 @@ class IssueIntakeUnknownTests(unittest.TestCase):
         self.assertFalse(self.record["authority"]["authorized"])
 
 
-class IssueIntakeMalformedTests(unittest.TestCase):
-    """Known title prefix but empty/malformed body."""
+class IssueIntakeEmptyBodyTests(unittest.TestCase):
+    """Known title prefix with an empty body remains available for a human read."""
 
     def setUp(self) -> None:
-        self.event = (FIXTURES / "issue_malformed.json").read_text(encoding="utf-8")
+        self.event = (FIXTURES / "issue_empty_body.json").read_text(encoding="utf-8")
         self.record, self.markdown = governance_intake.normalize_issue(self.event)
 
-    def test_status_malformed(self) -> None:
-        self.assertEqual(self.record["classification"]["status"], "malformed")
+    def test_status_routes_to_human_review(self) -> None:
+        self.assertEqual(self.record["classification"]["status"], "manual-triage")
 
     def test_exits_successfully(self) -> None:
         self.assertIsNotNone(self.record)
@@ -718,7 +718,15 @@ class SchemaShapeTests(unittest.TestCase):
 
     def test_issue_schema_required_fields(self) -> None:
         required = self.issue_schema["required"]
-        for field in ["schema_version", "record_kind", "event_identity", "classification", "authority"]:
+        for field in [
+            "schema_version",
+            "record_kind",
+            "event_identity",
+            "classification",
+            "semantic_assistance",
+            "privacy",
+            "authority",
+        ]:
             self.assertIn(field, required)
 
     def test_dep_schema_required_fields(self) -> None:
@@ -762,7 +770,7 @@ class HeadingSetTests(unittest.TestCase):
 
     def test_complete_form_has_no_heading_findings(self) -> None:
         record, _ = governance_intake.normalize_issue(_bug_event(_complete_bug_body()))
-        self.assertEqual(record["classification"]["unexpected_headings"], [])
+        self.assertEqual(record["classification"]["supplemental_headings"], [])
         self.assertEqual(record["classification"]["missing_headings"], [])
         self.assertEqual(record["classification"]["status"], "complete")
 
@@ -770,14 +778,14 @@ class HeadingSetTests(unittest.TestCase):
         body = _complete_bug_body() + "\n\n### Injected heading\n\nvalue"
         record, markdown = governance_intake.normalize_issue(_bug_event(body))
         self.assertEqual(record["classification"]["status"], "complete")
-        self.assertEqual(record["classification"]["unexpected_headings"], ["Injected heading"])
+        self.assertEqual(record["classification"]["supplemental_headings"], ["Injected heading"])
         self.assertIn("Additional sections kept for review", markdown)
 
     def test_missing_required_heading_remains_available_for_follow_up(self) -> None:
         body = _complete_bug_body().replace("### What happened?", "### Result")
         record, _ = governance_intake.normalize_issue(_bug_event(body))
         self.assertEqual(record["classification"]["status"], "incomplete")
-        self.assertIn("Result", record["classification"]["unexpected_headings"])
+        self.assertIn("Result", record["classification"]["supplemental_headings"])
         self.assertIn("What happened?", record["classification"]["missing_headings"])
 
     def test_missing_optional_heading_is_tolerated(self) -> None:
@@ -883,19 +891,19 @@ class IssueFormParityTests(unittest.TestCase):
         )
         record, _ = governance_intake.normalize_issue(_bug_event(body))
         self.assertEqual(record["classification"]["status"], "complete")
-        self.assertEqual(record["classification"]["unexpected_headings"], [])
+        self.assertEqual(record["classification"]["supplemental_headings"], [])
         self.assertEqual(
             record["normalized_facts"]["environment"],
             "Avrotize 3.9.0, Ubuntu 22.04, Python 3.12.3, protoc 25.1",
         )
 
-    def test_duplicate_real_heading_is_malformed(self) -> None:
+    def test_duplicate_real_heading_routes_to_human_review(self) -> None:
         body = _complete_bug_body() + "\n\n### Version and environment (optional)\n\nsecond value\n"
         record, _ = governance_intake.normalize_issue(_bug_event(body))
-        self.assertEqual(record["classification"]["status"], "malformed")
+        self.assertEqual(record["classification"]["status"], "manual-triage")
         self.assertIn(
-            "__duplicate_heading__:Version and environment (optional)",
-            record["classification"]["unexpected_headings"],
+            "Version and environment (optional)",
+            record["classification"]["repeated_headings"],
         )
 
     def test_processor_and_contract_digests_bind_record_source(self) -> None:
@@ -910,6 +918,10 @@ class IssueFormParityTests(unittest.TestCase):
             "command_registry_digest",
             "capability_digest",
             "surface_registry_digest",
+            "semantic_policy_digest",
+            "copilot_lockfile_digest",
+            "semantic_output_schema_digest",
+            "semantic_prompt_digest",
             "source_digest",
         ):
             self.assertRegex(first["event_identity"][key], r"^[0-9a-f]{64}$")

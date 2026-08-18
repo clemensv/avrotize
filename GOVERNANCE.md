@@ -197,9 +197,12 @@ defines workflow responsibilities, exact-head evidence, stale approvals,
 permissions, failure semantics, Actions projections, and later guards.
 [`.github/governance/AI-USAGE-ACCOUNTING.md`](.github/governance/AI-USAGE-ACCOUNTING.md)
 defines AIC usage accounting from GitHub/Copilot platform telemetry.
-Deterministic workflows are preferred and use zero AIC. Copilot may advise only
-within an explicit workflow contract; it cannot authorize work, approve risk,
-merge, release, or exercise owner exceptions.
+Deterministic workflows are preferred. Issue intake may use one bounded,
+zero-tool Copilot request to help maintainers understand structured or free-form
+reports; its strict JSON suggestions remain read-only and non-authoritative.
+Copilot may advise only within an explicit workflow contract; it cannot set
+priority or labels, authorize work, approve risk, merge, release, or exercise
+owner exceptions.
 
 Governance automation begins in advisory observe mode. It becomes blocking only
 after existing repository state can satisfy the deterministic rule reliably and

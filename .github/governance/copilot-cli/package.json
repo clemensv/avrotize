@@ -1,0 +1,10 @@
+{
+  "name": "avrotize-governance-copilot-cli",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Locked GitHub Copilot CLI runtime for read-only issue semantic assistance.",
+  "license": "MIT",
+  "dependencies": {
+    "@github/copilot": "1.0.80"
+  }
+}

@@ -276,7 +276,10 @@ class IssueIntakeWorkflowTests(unittest.TestCase):
             {"issues": {"types": ["opened", "edited", "reopened"]}},
         )
         self.assertEqual(self.workflow["permissions"], {})
-        self.assertEqual(self.job["permissions"], {"contents": "read"})
+        self.assertEqual(
+            self.job["permissions"],
+            {"contents": "read", "copilot-requests": "write"},
+        )
 
     def test_exact_trusted_processor_and_revision_identity(self) -> None:
         body = job_text(self.job)
@@ -286,6 +289,49 @@ class IssueIntakeWorkflowTests(unittest.TestCase):
         self.assertIn("--processor-sha", body)
         self.assertIn("${{ github.run_attempt }}", json.dumps(self.workflow))
         self.assertFalse(self.workflow["concurrency"]["cancel-in-progress"])
+
+    def test_copilot_is_noninteractive_zero_tool_and_read_only(self) -> None:
+        body = job_text(self.job)
+        for required in (
+            "--silent",
+            "--no-ask-user",
+            "--available-tools=",
+            "--deny-tool='shell,write,read,url,memory'",
+            "--disable-builtin-mcps",
+            "--no-custom-instructions",
+            "--no-remote-export",
+            "--max-ai-credits=",
+            "< copilot-prompt.txt",
+            "--minimize-content",
+        ):
+            self.assertIn(required, body)
+        for forbidden in (
+            "--allow-all",
+            "--allow-tool",
+            "--allow-url",
+            "--yolo",
+            "issues: write",
+            "contents: write",
+            "secrets.",
+        ):
+            self.assertNotIn(forbidden, body)
+
+    def test_copilot_package_and_artifacts_are_pinned_and_private(self) -> None:
+        body = job_text(self.job)
+        self.assertIn("npm ci --prefix .github/governance/copilot-cli", body)
+        self.assertIn("COPILOT_LOCKFILE_SHA256", body)
+        self.assertIn(
+            ".github/governance/copilot-cli/node_modules/.bin/copilot",
+            body,
+        )
+        self.assertIn("--ignore-scripts", body)
+        upload = self.job["steps"][-1]
+        paths = upload["with"]["path"]
+        self.assertIn("intake-record.json", paths)
+        self.assertIn("copilot-preflight.json", paths)
+        self.assertNotIn("event.json", paths)
+        self.assertNotIn("copilot-prompt.txt", paths)
+        self.assertNotIn("copilot-response", paths)
 
 
 class DependabotIntakeWorkflowTests(unittest.TestCase):

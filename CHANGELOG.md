@@ -13,14 +13,18 @@ All notable changes to Avrotize are documented in this file.
   accounting, and deterministic advisory validation. Enforcement is
   intentionally deferred until existing repository state can satisfy the new
   checks reliably.
-- Deterministic intake automation (`tools/governance_intake.py`) normalizing
-  GitHub Issue Form submissions and Dependabot PRs into versioned JSON records
-  and Markdown summaries. Standard library only; no mutations, labels, comments,
-  or merge behavior. Missing, unknown, or unmatched inputs produce explicit
-  human-review records and exit successfully.
+- Revision-bound intake automation (`tools/governance_intake.py`) preserving
+  deterministic issue identity and registry hints while adding one bounded,
+  zero-tool Copilot semantic-assistance pass over structured or free-form issue
+  text. Strict JSON Schema validation, authority exclusions, registry
+  cross-checking, a fully integrity-locked CLI dependency graph, visibly
+  untrusted suggestion rendering, and quiet human-review fallbacks keep
+  suggestions read-only and non-authoritative.
 - Issue intake workflow (`.github/workflows/issue-intake.yml`) for future issue
   events. It resolves and verifies an exact trusted processor SHA, records
-  processor and contract/catalog digests, and uses `contents: read` only.
+  processor, contract, registry, prompt, policy, and output-schema digests, and
+  uses only `contents: read` plus `copilot-requests: write`. No issue mutation
+  permission is granted.
 - Dependabot intake workflow (`.github/workflows/dependabot-intake.yml`) for
   future `pull_request_target` events. It verifies author and sender identity,
   binds REST file metadata to the event head before and after retrieval, and
@@ -31,9 +35,11 @@ All notable changes to Avrotize are documented in this file.
   `.github/governance/schemas/`.
 - Validator checks for issue form contract consistency and intake workflow
   safety (no write permissions, no merge commands).
-- Comprehensive unit tests for intake normalizer covering complete, incomplete,
-  unknown, malformed issues; Dependabot major/multi-ecosystem/non-Dependabot;
-  config mapping; and authority=false invariant.
+- Comprehensive unit tests for intake normalization covering structured,
+  incomplete, free-form, edited, fenced, and Unicode issues; prompt injection,
+  non-JSON/schema/authority output, timeout, AIC guardrail, low-confidence, and
+  unknown-command fallbacks; Dependabot major/multi-ecosystem/non-Dependabot;
+  config mapping; and the authority=false invariant.
 - Guarded reproduction preparation (`.github/workflows/repro-bug.yml`,
   `tools/governance_repro.py`): a maintainer-requested, revision-bound evidence
   path for owner-controlled manual reproduction. Ordered `authorize` →
@@ -77,8 +83,9 @@ All notable changes to Avrotize are documented in this file.
 
 - Removed the former Dependabot auto-merge workflow. Dependabot PRs are intake
   requiring explicit owner review and never automatic merge candidates.
-- Issue intake now enforces the exact contract heading set, reporting unexpected
-  and missing headings, and records the structured expected-result choice.
+- Issue Form headings are now opportunistic deterministic hints rather than a
+  conformance gate. Free-form, API-created, edited, partial, and supplemental
+  issue text remains first-class input for maintainer review.
 - Dependabot intake classifies each matched ecosystem's files with that
   ecosystem's own manifest and lockfile rules instead of applying one primary
   ecosystem to every changed file, and records unmatched files explicitly.

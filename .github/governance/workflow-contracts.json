@@ -55,19 +55,33 @@
     {
       "id": "issue-intake",
       "implementation": ".github/workflows/issue-intake.yml",
-      "purpose": "Normalize future lightweight Bug report and Feature or transformation request events into revision-bound records without making optional technical detail a submission gate.",
+      "purpose": "Preserve deterministic revision identity and add read-only Copilot semantic suggestions for future structured or free-form issue events without making model output a submission gate.",
       "authority_owner": "repository owner",
       "events": ["issues"],
       "inputs": {"events": ["opened", "edited", "reopened"], "processor": "exact default-branch SHA resolved before checkout"},
       "deterministic": {
-        "outputs": ["versioned JSON intake record", "readable summary", "processor and contract/catalog digests"],
-        "unknown_body": "manual-triage",
+        "outputs": ["versioned JSON intake record", "escaped readable summary", "processor, contract, registry, prompt, policy, and output-schema digests"],
+        "unknown_body": "first-class human-review input; structured fields are opportunistic hints",
+        "semantic_validation": "Strict checked-in JSON Schema, authority-output rejection, confidence handling, and exact command/surface/capability registry cross-checking.",
+        "privacy": "Artifacts omit raw title, body, and raw model response; GitHub event content remains the source record.",
         "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "TBD", "summed_runner_p95": "TBD", "billable_equivalent": "TBD"}
       },
-      "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
+      "copilot": {
+        "mode": "read-only semantic assistance",
+        "cli": "@github/copilot@1.0.80 installed by npm ci from a policy-digested lockfile with exact versions and SHA-512 integrity for the complete dependency graph",
+        "model": "claude-haiku-4.5",
+        "prompt_version": "issue-semantic-assistance-v1",
+        "tools": [],
+        "prohibited_authority": ["priority", "severity", "rank", "labels", "assignment", "scheduling", "acceptance", "validity", "reproducibility", "compatibility approval", "implementation authorization", "merge", "release", "contributor quality", "compliance"],
+        "failure": "Unavailable, timeout, guardrail exhaustion, injection indicator, non-JSON or unsupported output, schema failure, and low confidence become a non-authoritative human-review record.",
+        "aic_source": "github-copilot-platform",
+        "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"},
+        "guardrails": {"per_run": 30, "daily": "TBD", "timeout_seconds": 120},
+        "token_telemetry": "operational-only"
+      },
       "actions": {"mode": "observe", "mutations": []},
-      "permissions": ["contents:read"],
-      "result": {"not_ready": "friendly human-review summary; workflow fails only for processor/schema corruption", "authority": "Classification does not schedule or authorize work."}
+      "permissions": ["contents:read", "copilot-requests:write"],
+      "result": {"not_ready": "friendly human-review summary; workflow fails only for trusted processor/schema corruption", "authority": "Semantic suggestions do not classify contributors, schedule or authorize work, approve compatibility, or permit merge or release."}
     },
     {
       "id": "dependabot-intake",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -36,8 +37,13 @@ REQUIRED_FILES = (
     ".github/governance/avrotize-capabilities.json",
     ".github/governance/workflow-contracts.json",
     ".github/governance/issue-form-contract.json",
+    ".github/governance/copilot-intake-policy.json",
+    ".github/governance/copilot-cli/package.json",
+    ".github/governance/copilot-cli/package-lock.json",
+    ".github/governance/prompts/issue-semantic-assistance-v1.txt",
     ".github/governance/repro-label-catalog.json",
     ".github/governance/schemas/issue-intake-record.schema.json",
+    ".github/governance/schemas/issue-semantic-assistance.schema.json",
     ".github/governance/schemas/dependabot-intake-record.schema.json",
     ".github/governance/schemas/repro-evidence-record.schema.json",
     ".github/governance/schemas/repro-terminal-fallback.schema.json",
@@ -447,6 +453,7 @@ def _validate_intake_workflow_safety(root: Path, findings: list[Finding]) -> Non
     schema_dir = root / ".github" / "governance" / "schemas"
     required_schemas = [
         "issue-intake-record.schema.json",
+        "issue-semantic-assistance.schema.json",
         "dependabot-intake-record.schema.json",
     ]
     for schema_name in required_schemas:
@@ -474,6 +481,160 @@ def _validate_intake_workflow_safety(root: Path, findings: list[Finding]) -> Non
                 if value == "read" and key == "pull-requests" and "pull-requests: read" not in wf_text:
                     if "pulls/" in wf_text or "pull_request" in wf_text:
                         findings.append(Finding(impl_path, f"uses PR API but missing pull-requests:read permission"))
+
+
+def _validate_copilot_issue_intake(root: Path, findings: list[Finding]) -> None:
+    """Keep Copilot issue assistance read-only, zero-tool, pinned, and schema-bound."""
+    workflow_relative = ".github/workflows/issue-intake.yml"
+    workflow_path = root / workflow_relative
+    policy_relative = ".github/governance/copilot-intake-policy.json"
+    policy_path = root / policy_relative
+    semantic_schema_relative = ".github/governance/schemas/issue-semantic-assistance.schema.json"
+    semantic_schema_path = root / semantic_schema_relative
+    if not workflow_path.is_file() or not policy_path.is_file() or not semantic_schema_path.is_file():
+        return
+
+    workflow = workflow_path.read_text(encoding="utf-8")
+    policy = _load_json(policy_path, findings)
+    semantic_schema = _load_json(semantic_schema_path, findings)
+    if not isinstance(policy, dict) or not isinstance(semantic_schema, dict):
+        return
+    try:
+        governance_schema.assert_supported_schema(semantic_schema, semantic_schema_relative)
+    except governance_schema.SchemaError as exc:
+        findings.append(Finding(semantic_schema_relative, str(exc)))
+
+    try:
+        cli = policy["cli"]
+        request = policy["request"]
+        boundary = policy["tool_boundary"]
+        artifact = policy["artifact"]
+    except (KeyError, TypeError) as exc:
+        findings.append(Finding(policy_relative, f"incomplete Copilot intake policy: {exc}"))
+        return
+
+    required_fragments = (
+        "copilot-requests: write",
+        "contents: read",
+        "actions/setup-node@v7",
+        f'COPILOT_CLI_VERSION: "{cli.get("version")}"',
+        f'COPILOT_LOCKFILE_SHA256: "{cli.get("lockfile_sha256")}"',
+        f'COPILOT_MODEL: "{request.get("model")}"',
+        f'COPILOT_MAX_AI_CREDITS: "{request.get("max_ai_credits")}"',
+        f'COPILOT_TIMEOUT_SECONDS: "{request.get("timeout_seconds")}"',
+        f'COPILOT_MAX_OUTPUT_BYTES: "{request.get("max_output_bytes")}"',
+        "npm ci --prefix .github/governance/copilot-cli",
+        ".github/governance/copilot-cli/node_modules/.bin/copilot",
+        "--ignore-scripts",
+        "--silent",
+        "--max-ai-credits=",
+        "--no-ask-user",
+        "--no-auto-update",
+        "--no-custom-instructions",
+        "--disable-builtin-mcps",
+        "--no-remote",
+        "--no-remote-export",
+        "--disallow-temp-dir",
+        "--available-tools=",
+        "--deny-tool='shell,write,read,url,memory'",
+        "--secret-env-vars=GITHUB_TOKEN",
+        "--log-level=none",
+        "--stream=off",
+        "< copilot-prompt.txt",
+        "GITHUB_TOKEN: ${{ github.token }}",
+        "--semantic-preflight copilot-preflight.json",
+        "--minimize-content",
+        "if: always() && steps.preflight.outcome == 'success'",
+        "if: always() && steps.finalize.outcome == 'success'",
+    )
+    for fragment in required_fragments:
+        if fragment not in workflow:
+            findings.append(Finding(workflow_relative, f"missing Copilot intake control {fragment!r}"))
+
+    forbidden_fragments = (
+        "--allow-all",
+        "--allow-tool",
+        "--allow-url",
+        "--yolo",
+        "issues: write",
+        "contents: write",
+        "pull-requests: write",
+        "actions: write",
+        "secrets.",
+        "github.event.issue.body }}",
+        "github.event.issue.title }}",
+        "copilot-session-",
+        "--share",
+    )
+    for fragment in forbidden_fragments:
+        if fragment in workflow:
+            findings.append(Finding(workflow_relative, f"forbidden Copilot intake capability {fragment!r}"))
+
+    if cli.get("package") != "@github/copilot" or cli.get("install_scripts") is not False:
+        findings.append(Finding(policy_relative, "Copilot CLI package must be official and install scripts disabled"))
+    if not isinstance(cli.get("version"), str) or not cli.get("version"):
+        findings.append(Finding(policy_relative, "Copilot CLI version must be exact"))
+    if not isinstance(cli.get("integrity"), str) or not cli["integrity"].startswith("sha512-"):
+        findings.append(Finding(policy_relative, "Copilot CLI integrity must be SHA-512"))
+    lock_relative = cli.get("lockfile")
+    lock_path = root / str(lock_relative)
+    package_path = lock_path.with_name("package.json")
+    if lock_relative != ".github/governance/copilot-cli/package-lock.json":
+        findings.append(Finding(policy_relative, "Copilot CLI lockfile path changed"))
+    if not lock_path.is_file() or not package_path.is_file():
+        findings.append(Finding(policy_relative, "Copilot CLI package and lockfile must exist"))
+    else:
+        lock_digest = hashlib.sha256(lock_path.read_bytes()).hexdigest()
+        if cli.get("lockfile_sha256") != lock_digest:
+            findings.append(Finding(policy_relative, "Copilot CLI lockfile digest does not match policy"))
+        package = _load_json(package_path, findings)
+        lock = _load_json(lock_path, findings)
+        if isinstance(package, dict):
+            dependency = package.get("dependencies", {}).get("@github/copilot")
+            if dependency != cli.get("version"):
+                findings.append(Finding(package_path.relative_to(root).as_posix(), "Copilot dependency must use the exact policy version"))
+        if isinstance(lock, dict):
+            if lock.get("lockfileVersion") != 3:
+                findings.append(Finding(lock_path.relative_to(root).as_posix(), "Copilot lockfile must use lockfileVersion 3"))
+            packages = lock.get("packages")
+            if not isinstance(packages, dict):
+                findings.append(Finding(lock_path.relative_to(root).as_posix(), "Copilot lockfile packages map is missing"))
+            else:
+                copilot_entry = packages.get("node_modules/@github/copilot")
+                if not isinstance(copilot_entry, dict) or copilot_entry.get("version") != cli.get("version"):
+                    findings.append(Finding(lock_path.relative_to(root).as_posix(), "locked Copilot package version does not match policy"))
+                elif copilot_entry.get("integrity") != cli.get("integrity"):
+                    findings.append(Finding(lock_path.relative_to(root).as_posix(), "locked Copilot package integrity does not match policy"))
+                for package_name, entry in packages.items():
+                    if package_name == "" or not isinstance(entry, dict):
+                        continue
+                    if entry.get("link") is True:
+                        findings.append(Finding(lock_path.relative_to(root).as_posix(), f"lockfile package {package_name!r} must not be a mutable link"))
+                        continue
+                    if not isinstance(entry.get("version"), str):
+                        findings.append(Finding(lock_path.relative_to(root).as_posix(), f"lockfile package {package_name!r} lacks an exact version"))
+                    resolved = entry.get("resolved")
+                    if not isinstance(resolved, str) or not resolved.startswith("https://registry.npmjs.org/"):
+                        findings.append(Finding(lock_path.relative_to(root).as_posix(), f"lockfile package {package_name!r} has an unapproved source"))
+                    integrity = entry.get("integrity")
+                    if not isinstance(integrity, str) or not integrity.startswith("sha512-"):
+                        findings.append(Finding(lock_path.relative_to(root).as_posix(), f"lockfile package {package_name!r} lacks SHA-512 integrity"))
+                    if entry.get("hasInstallScript") is True:
+                        findings.append(Finding(lock_path.relative_to(root).as_posix(), f"lockfile package {package_name!r} declares an install script"))
+    if request.get("max_ai_credits") != 30:
+        findings.append(Finding(policy_relative, "Copilot intake must use the minimum 30-AIC session guardrail"))
+    if request.get("timeout_seconds") != 120:
+        findings.append(Finding(policy_relative, "Copilot intake timeout must remain 120 seconds"))
+    if request.get("max_output_bytes") != 32768:
+        findings.append(Finding(policy_relative, "Copilot intake output cap must remain 32768 bytes"))
+    if boundary.get("available_tools") != []:
+        findings.append(Finding(policy_relative, "Copilot intake must expose no tools"))
+    if set(boundary.get("denied_tools", [])) != {"shell", "write", "read", "url", "memory"}:
+        findings.append(Finding(policy_relative, "Copilot intake denied tool set changed"))
+    if boundary.get("builtin_mcp") is not False:
+        findings.append(Finding(policy_relative, "Copilot intake must disable built-in MCP"))
+    if any(artifact.get(key) is not False for key in ("raw_title", "raw_body", "raw_model_response")):
+        findings.append(Finding(policy_relative, "Copilot intake artifacts must omit raw issue and model content"))
 
 
 def _indent(line: str) -> int:
@@ -866,6 +1027,7 @@ def validate_repo(root: Path, expected_sha: str | None = None) -> list[Finding]:
     _validate_workflow_contracts(root, findings)
     _validate_issue_form_contract(root, findings)
     _validate_intake_workflow_safety(root, findings)
+    _validate_copilot_issue_intake(root, findings)
     _validate_action_versions(root, findings)
     _validate_governance_workflow_safety(root, findings)
     _validate_repro_workflow(root, findings)

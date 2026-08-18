@@ -12,7 +12,7 @@ machine-readable companion is
 | `build_deploy.yml` | Python test groups, generated-target and VS Code extension evidence, tag-only publication | Existing failures and publication behavior are preserved. |
 | `python-runtime-versions-test.yml` | Python 3.10-3.14 build/install/CLI smoke matrix | Existing runtime signal; not represented as broader compatibility approval. |
 | `validate-mcp-server-json.yml` | MCP registry manifest validation | Validation failure remains a workflow failure. |
-| `issue-intake.yml` | Normalize future Bug report and Feature or transformation request events | Read-only intake. Missing or unmatched details are routed to human review. Processor or schema corruption fails. |
+| `issue-intake.yml` | Preserve exact issue-event identity and add read-only Copilot semantic suggestions for future issues | No issue mutation. Copilot and output failures fall back to human review; trusted processor or schema corruption fails. |
 | `dependabot-intake.yml` | Normalize future Dependabot PR metadata and changed-file metadata | Read-only intake. It never runs the PR head, approves, or merges. A head race produces `superseded`. |
 | `governance-observe.yml` | Report deterministic governance findings | Advisory findings remain non-blocking; validator crashes still fail the workflow. |
 | `governance-ci.yml` | Run the strict validator and every governance test on the exact PR head | Hard-failing quality check; no warning fallback or swallowed test failure. Passing does not authorize merge. |
@@ -22,14 +22,20 @@ A green workflow proves only its named responsibility.
 
 ## Deterministic and Copilot boundaries
 
-Deterministic automation owns parsing, schema checks, exact revision identity,
-dependency metadata, path impact, artifact digests, stale-head detection, and
-guard decisions. No current governance workflow invokes Copilot.
+Deterministic automation owns schema checks, exact revision identity, registry
+cross-checking, dependency metadata, path impact, artifact digests, stale-head
+detection, and guard decisions. Issue intake adds one bounded Copilot request
+over the raw title and body as untrusted data. The model has no tools, MCP
+servers, URL access, filesystem access, custom instructions, remote export, or
+GitHub mutation permission. Its response is accepted only as strict JSON after
+checked-in schema validation and deterministic authority and registry checks.
 
-Any later Copilot step needs a checked-in contract defining its ambiguity,
-structured output, prohibited actions, and platform controls. It cannot authorize
-work, set priority, approve compatibility or risk, merge, publish, mutate
-reproduction state, or exercise owner authority. AIC is accepted only as
+Copilot output may summarize, suggest a likely report kind, point to possible
+Avrotize surfaces/areas/commands with confidence and evidence, identify at most
+two details that might help, and suggest duplicate-search terms. It cannot
+authorize work, set priority or severity, label or assign, judge validity or
+contributor behavior, decide reproducibility or compatibility, merge, publish,
+mutate reproduction state, or exercise owner authority. AIC is accepted only as
 GitHub/Copilot platform-reported telemetry. Until representative runs exist,
 sample size, P50, and P95 are `TBD`. Token telemetry is operational only and is
 never converted into AIC.
@@ -40,8 +46,9 @@ never converted into AIC.
   `github.event.pull_request.head.sha`; its only third-party Python test dependency
   is binary-only and hash-pinned in `requirements-ci.txt`.
 - Issue intake resolves one default-branch processor SHA, checks out that exact
-  SHA, and records the processor SHA plus form-contract, command-registry, and
-  capability-profile and derived surface-registry digests.
+  SHA, and records the processor SHA plus form-contract, command-registry,
+  capability-profile, derived surface-registry, Copilot policy, prompt-template,
+  and semantic-output-schema digests.
 - Dependabot intake checks out the exact event base SHA. It compares the current
   PR head with the event head before and after REST changed-file retrieval and
   hashes stable metadata including filename, previous filename, status, blob SHA,
@@ -58,8 +65,9 @@ No such merge or release guard is implemented by this adoption.
 
 ## Permissions and untrusted content
 
-- Intake and governance quality use `contents: read`; Dependabot intake adds
-  `pull-requests: read`.
+- Issue intake uses `contents: read` and `copilot-requests: write`; it has no
+  repository mutation permission. Other governance quality uses `contents:
+  read`; Dependabot intake adds `pull-requests: read`.
 - `pull_request_target` is used for Dependabot metadata only. It checks out the
   trusted base SHA and never checks out or executes the Dependabot head.
 - Guarded reproduction queries the label-event sender's collaborator permission
@@ -79,21 +87,43 @@ No such merge or release guard is implemented by this adoption.
 ### Issue intake
 
 Future `issues: opened`, `edited`, and `reopened` events produce a versioned JSON
-record and readable summary. The fence-aware parser uses the checked-in
-Issue Form heading contract, so `###` inside fenced examples is content rather
-than a new field. Exact identifiers are resolved per surface from
-`commands.json`, its Python entry points, MCP tool decorators, and the VS Code
-`Convert to` registry; substring matching is not used. Records bind a digest of
-that derived surface registry. All checked-in choices are recognized, including
-`Generated project or code`.
+record and escaped readable summary. The outer processor remains deterministic:
+it binds the event title/body digests and exact trusted default-branch processor
+SHA, validates every checked-in schema before a model request, and records all
+contract, registry, prompt, policy, and schema digests. The fence-aware parser
+still extracts lightweight Issue Form fields when present, but headings are only
+opportunistic hints. Free-form, edited, API-created, partial, Unicode, and
+additional-section bodies are first-class human input.
 
-Bug forms require only the reporter's goal and what happened. Command/API area,
-surface, a small example, and version/environment are optional and normalized
-when supplied. Feature or transformation forms require only the desired outcome
-or use case; examples and technical details are optional. Missing optional
-details never block submission. Additional reporter headings are retained as
-supplemental context. Duplicate, unreadable, or freeform bodies are routed to
-human review rather than presented as a contributor failure.
+The workflow installs `@github/copilot@1.0.80` and its complete transitive
+runtime graph with `npm ci` from a reviewed lockfile. Every package has an exact
+version and SHA-512 integrity, the lockfile SHA-256 is policy-bound, and install
+scripts are disabled. Copilot CLI runs non-interactively from an empty working
+directory with `claude-haiku-4.5`,
+`--max-ai-credits=30`, a 120-second process timeout, no available tools, explicit
+denials for shell/write/read/URL/memory, built-in MCP disabled, no custom
+instructions, and no remote export. The raw title/body cross the process
+boundary only through stdin as a JSON data block; they never become shell
+arguments. Model output is capped at 32 KiB before trusted parsing. The built-in
+`GITHUB_TOKEN` is the only credential and is scoped by `copilot-requests:
+write`.
+
+Copilot must return one JSON object matching
+`issue-semantic-assistance.schema.json`. The trusted processor then checks all
+surface, capability-area, and command suggestions against the checked-in
+Avrotize registries. Unknown values remain visibly uncertain suggestions and
+cannot become facts. Low confidence, model-requested review, prompt-injection
+indicators, timeout, AIC guardrail exhaustion, CLI unavailability, non-JSON,
+schema violations, and prohibited authority output all produce a quiet
+`unavailable` or `needs-human-review` result. Even a valid response is rendered
+only as a prominently marked untrusted Copilot suggestion, never as a trusted
+workflow conclusion. These outcomes do not fail issue submission or create
+contributor-facing feedback.
+
+Artifacts retain digests, bounded derived suggestions, preflight metadata, and
+the escaped summary for 30 days. They do not retain the raw title, raw body, raw
+model response, CLI home, or prompt file. No issue comment or label is created.
+Exact GitHub event content remains the source record.
 
 ### Dependabot intake
 

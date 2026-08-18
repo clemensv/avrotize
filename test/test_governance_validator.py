@@ -13,7 +13,12 @@ from tools import validate_governance
 
 SOURCE = Path(__file__).resolve().parent.parent
 COPIED = (
+    ".github/governance/copilot-intake-policy.json",
+    ".github/governance/copilot-cli/package.json",
+    ".github/governance/copilot-cli/package-lock.json",
+    ".github/governance/prompts/issue-semantic-assistance-v1.txt",
     ".github/governance/repro-label-catalog.json",
+    ".github/governance/schemas/issue-semantic-assistance.schema.json",
     ".github/governance/schemas/repro-evidence-record.schema.json",
     ".github/governance/schemas/repro-terminal-fallback.schema.json",
     ".github/governance/schemas/repro-authorization-record.schema.json",
@@ -176,6 +181,35 @@ class ValidatorTests(unittest.TestCase):
         path.write_text(json.dumps(contract), encoding="utf-8")
         self.assertTrue(
             any("required_semantic_fields" in value for value in self.messages())
+        )
+
+    def test_copilot_issue_intake_requires_zero_tool_boundary(self) -> None:
+        path = self.root / ".github" / "workflows" / "issue-intake.yml"
+        text = path.read_text(encoding="utf-8")
+        text = text.replace("--available-tools=", "--allow-all", 1)
+        path.write_text(text, encoding="utf-8")
+        messages = self.messages()
+        self.assertTrue(any("missing Copilot intake control" in value for value in messages))
+        self.assertTrue(any("forbidden Copilot intake capability" in value for value in messages))
+
+    def test_copilot_issue_intake_requires_permission(self) -> None:
+        self.mutate(
+            ".github/workflows/issue-intake.yml",
+            "copilot-requests: write",
+            "copilot-requests: read",
+        )
+        self.assertTrue(
+            any("copilot-requests: write" in value for value in self.messages())
+        )
+
+    def test_copilot_policy_and_workflow_version_must_match(self) -> None:
+        self.mutate(
+            ".github/workflows/issue-intake.yml",
+            'COPILOT_CLI_VERSION: "1.0.80"',
+            'COPILOT_CLI_VERSION: "1.0.79"',
+        )
+        self.assertTrue(
+            any("COPILOT_CLI_VERSION" in value for value in self.messages())
         )
 
     def test_registry_and_surface_drift_are_reported(self) -> None:
