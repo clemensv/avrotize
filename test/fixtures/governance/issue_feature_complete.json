@@ -1,8 +1,11 @@
 {
   "action": "opened",
+  "repository": {"full_name": "clemensv/avrotize"},
+  "sender": {"login": "reporter"},
   "issue": {
     "number": 501,
-    "title": "[Feature] Add s2graphql command for JSON Structure to GraphQL SDL",
-    "body": "### What should Avrotize let you do?\n\nConvert a JSON Structure definition into a GraphQL SDL schema with proper type mappings, nullable fields, and enum support.\n\n### Requested command, API, MCP, or VS Code capability\n\ns2graphql\n\n### Starting definition or data\n\nJSON Structure (.struct.json) with records, enums, references, and unions:\n```json\n{\"type\":\"record\",\"name\":\"User\",\"fields\":[{\"name\":\"id\",\"type\":\"string\"},{\"name\":\"role\",\"type\":{\"type\":\"enum\",\"symbols\":[\"ADMIN\",\"USER\"]}}]}\n```\n\n### Requested output or result\n\nGraphQL SDL (.graphql) with type definitions, enum types, and nullable/non-nullable annotations.\n\n### Semantics that must be preserved\n\nRecord names map to GraphQL types, enum symbols to enum values, references to type references, optional fields to nullable, and namespace to schema directive.\n\n### Flags, options, and defaults\n\n--naming: camel (default), pascal, snake\n--nullable-by-default: false (default)\n--federation: false (default), adds @key directives\n\n### Validation and runtime expectations\n\nThe output should pass `graphql-js` schema validation. Round-trip is not expected since GraphQL has fewer type features.\n\n### Documentation example\n\n```shell\navrotize s2graphql user.struct.json user.graphql --naming camel\n```\nProduces:\n```graphql\ntype User {\n  id: String!\n  role: Role!\n}\nenum Role {\n  ADMIN\n  USER\n}\n```\n\n### Confirmation\n\n- [X] I described the outcome and semantics, not only an implementation."
+    "title": "[Feature] JSON Structure to GraphQL",
+    "html_url": "https://github.com/clemensv/avrotize/issues/501",
+    "body": "### What would you like Avrotize to do?\n\nConvert a JSON Structure definition into GraphQL SDL so I can use the same model with GraphQL tooling.\n\n### Example or use case (optional)\n\nA small record with an enum should become a GraphQL type and enum.\n\n### Existing command or Avrotize area (optional)\n\ns2graphql\n\n### Other details (optional)\n\nIt would be helpful if the result passed graphql-js schema validation."
   }
 }

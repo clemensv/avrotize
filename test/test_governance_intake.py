@@ -93,20 +93,17 @@ class IssueIntakeFeatureCompleteTests(unittest.TestCase):
     def test_status_complete(self) -> None:
         self.assertEqual(self.record["classification"]["status"], "complete")
 
-    def test_command_s2graphql(self) -> None:
+    def test_optional_command_s2graphql(self) -> None:
         self.assertEqual(self.record["normalized_facts"]["command"], "s2graphql")
 
     def test_command_known_false_for_proposed(self) -> None:
         self.assertIsNotNone(self.record["normalized_facts"]["command_known"])
 
-    def test_semantic_paths_json_structure(self) -> None:
+    def test_optional_command_resolves_json_structure_path(self) -> None:
         self.assertIn("JSON Structure", self.record["normalized_facts"]["semantic_paths"])
 
-    def test_semantics_extracted(self) -> None:
-        self.assertIsNotNone(self.record["normalized_facts"]["semantics"])
-
-    def test_validation_extracted(self) -> None:
-        self.assertIsNotNone(self.record["normalized_facts"]["validation_expectations"])
+    def test_optional_example_extracted(self) -> None:
+        self.assertIsNotNone(self.record["normalized_facts"]["documentation"])
 
 
 class IssueIntakeIncompleteTests(unittest.TestCase):
@@ -120,6 +117,10 @@ class IssueIntakeIncompleteTests(unittest.TestCase):
     def test_missing_fields_listed(self) -> None:
         missing = self.record["classification"]["missing_fields"]
         self.assertTrue(len(missing) > 0)
+
+    def test_summary_uses_reporter_facing_field_label(self) -> None:
+        self.assertIn("What were you trying to do?", self.markdown)
+        self.assertNotIn("**A maintainer may ask for**: problem", self.markdown)
 
     def test_authority_false(self) -> None:
         self.assertFalse(self.record["authority"]["authorized"])
@@ -765,75 +766,52 @@ class HeadingSetTests(unittest.TestCase):
         self.assertEqual(record["classification"]["missing_headings"], [])
         self.assertEqual(record["classification"]["status"], "complete")
 
-    def test_unexpected_heading_is_malformed(self) -> None:
+    def test_additional_heading_is_kept_without_rejecting_report(self) -> None:
         body = _complete_bug_body() + "\n\n### Injected heading\n\nvalue"
         record, markdown = governance_intake.normalize_issue(_bug_event(body))
-        self.assertEqual(record["classification"]["status"], "malformed")
+        self.assertEqual(record["classification"]["status"], "complete")
         self.assertEqual(record["classification"]["unexpected_headings"], ["Injected heading"])
-        self.assertIn("Unexpected headings", markdown)
+        self.assertIn("Additional sections kept for review", markdown)
 
-    def test_missing_required_heading_is_incomplete(self) -> None:
-        body = _complete_bug_body().replace("### Environment and toolchain", "### Environment")
+    def test_missing_required_heading_remains_available_for_follow_up(self) -> None:
+        body = _complete_bug_body().replace("### What happened?", "### Result")
         record, _ = governance_intake.normalize_issue(_bug_event(body))
-        self.assertEqual(record["classification"]["status"], "malformed")
-        self.assertIn("Environment", record["classification"]["unexpected_headings"])
-        self.assertIn("Environment and toolchain", record["classification"]["missing_headings"])
+        self.assertEqual(record["classification"]["status"], "incomplete")
+        self.assertIn("Result", record["classification"]["unexpected_headings"])
+        self.assertIn("What happened?", record["classification"]["missing_headings"])
 
     def test_missing_optional_heading_is_tolerated(self) -> None:
         body = _complete_bug_body()
-        body = body.replace("\n\n### Expected command result\n\nSuccessful completion (exit 0)", "")
-        body = body.replace("\n\n### Exact expected output\n\n_No response_", "")
+        body = body.replace(
+            "\n\n### Anything else? (optional)\n\nThis worked with Avrotize 3.8.2.",
+            "",
+        )
         record, _ = governance_intake.normalize_issue(_bug_event(body))
         self.assertEqual(record["classification"]["status"], "complete")
-        self.assertEqual(record["classification"]["missing_headings"], ["Expected command result", "Exact expected output"])
+        self.assertEqual(record["classification"]["missing_headings"], ["Anything else? (optional)"])
         self.assertEqual(record["normalized_facts"]["expected_result_kind"], "undeclared")
 
 
-class ExpectedResultTests(unittest.TestCase):
-    """The structured expectation drives deterministic reproduction outcomes."""
+class ProgressiveDisclosureTests(unittest.TestCase):
+    def test_bug_requires_only_goal_and_observed_result(self) -> None:
+        contract = governance_intake._load_issue_form_contract()
+        bug = next(form for form in contract["forms"] if form["type"] == "bug")
+        self.assertEqual(bug["required_semantic_fields"], ["problem", "actual"])
 
-    def _kind(self, choice: str) -> str:
-        body = _complete_bug_body().replace("Successful completion (exit 0)", choice)
-        record, _ = governance_intake.normalize_issue(_bug_event(body))
-        return record["normalized_facts"]["expected_result_kind"]
+    def test_feature_requires_only_desired_outcome(self) -> None:
+        contract = governance_intake._load_issue_form_contract()
+        feature = next(form for form in contract["forms"] if form["type"] == "feature")
+        self.assertEqual(feature["required_semantic_fields"], ["outcome"])
 
-    def test_success_choice(self) -> None:
-        self.assertEqual(self._kind("Successful completion (exit 0)"), "success")
-
-    def test_failure_choice(self) -> None:
-        self.assertEqual(self._kind("Command failure (nonzero exit)"), "failure")
-
-    def test_exact_output_choice(self) -> None:
-        self.assertEqual(self._kind("Exact output match"), "exact_output")
-
-    def test_human_review_choice(self) -> None:
-        self.assertEqual(self._kind("Human semantic review"), "human_review")
-
-    def test_unknown_choice_is_undeclared(self) -> None:
-        self.assertEqual(self._kind("Something else entirely"), "undeclared")
-
-    def test_no_response_is_undeclared(self) -> None:
-        self.assertEqual(self._kind("_No response_"), "undeclared")
-
-    def test_exact_expected_output_is_captured(self) -> None:
-        body = _complete_bug_body().replace(
-            "### Exact expected output\n\n_No response_",
-            '### Exact expected output\n\nmessage Node {\n  repeated Node children = 1;\n}',
+    def test_optional_bug_details_can_be_omitted(self) -> None:
+        body = (
+            "### What were you trying to do?\n\nConvert a schema.\n\n"
+            "### What happened?\n\nThe result was empty."
         )
-        record, _ = governance_intake.normalize_issue(_bug_event(body))
-        self.assertIn("repeated Node children", record["normalized_facts"]["expected_output"])
-
-    def test_contract_choices_match_form_options(self) -> None:
-        contract = json.loads(
-            (Path(__file__).resolve().parent.parent / ".github" / "governance" / "issue-form-contract.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        form_text = (
-            Path(__file__).resolve().parent.parent / ".github" / "ISSUE_TEMPLATE" / "bug.yml"
-        ).read_text(encoding="utf-8")
-        for choice in contract["expected_result_choices"]:
-            self.assertIn(f"- {choice}", form_text)
+        record, markdown = governance_intake.normalize_issue(_bug_event(body))
+        self.assertEqual(record["classification"]["status"], "complete")
+        self.assertIsNone(record["normalized_facts"]["command"])
+        self.assertIn("Ready for a maintainer to read", markdown)
 
 
 class IssueFormParityTests(unittest.TestCase):
@@ -842,8 +820,8 @@ class IssueFormParityTests(unittest.TestCase):
         for choice in contract["surface_choices"]:
             with self.subTest(choice=choice):
                 body = _complete_bug_body().replace(
-                    "### Where did you run it?\n\nAvrotize CLI",
-                    f"### Where did you run it?\n\n{choice}",
+                    "### Where did this happen? (optional)\n\nAvrotize CLI",
+                    f"### Where did this happen? (optional)\n\n{choice}",
                     1,
                 )
                 record, _ = governance_intake.normalize_issue(_bug_event(body))
@@ -852,6 +830,7 @@ class IssueFormParityTests(unittest.TestCase):
 
     def test_each_surface_uses_its_authoritative_exact_identifier(self) -> None:
         identifiers = {
+            "I'm not sure": "avrotize a2p",
             "Avrotize CLI": "avrotize a2p",
             "Structurize CLI": "structurize s2graphql",
             "Python API": "avrotize.avrotopython.convert_avro_to_python",
@@ -862,12 +841,12 @@ class IssueFormParityTests(unittest.TestCase):
         for surface, identifier in identifiers.items():
             with self.subTest(surface=surface):
                 body = _complete_bug_body().replace(
-                    "### Where did you run it?\n\nAvrotize CLI",
-                    f"### Where did you run it?\n\n{surface}",
+                    "### Where did this happen? (optional)\n\nAvrotize CLI",
+                    f"### Where did this happen? (optional)\n\n{surface}",
                     1,
                 ).replace(
-                    "### Exact command, Python function, MCP tool, or VS Code action\n\navrotize a2p",
-                    "### Exact command, Python function, MCP tool, or VS Code action"
+                    "### Command or Avrotize area (optional)\n\navrotize a2p",
+                    "### Command or Avrotize area (optional)"
                     f"\n\n{identifier}",
                     1,
                 )
@@ -884,12 +863,12 @@ class IssueFormParityTests(unittest.TestCase):
         for surface, identifier in cases:
             with self.subTest(surface=surface, identifier=identifier):
                 body = _complete_bug_body().replace(
-                    "### Where did you run it?\n\nAvrotize CLI",
-                    f"### Where did you run it?\n\n{surface}",
+                    "### Where did this happen? (optional)\n\nAvrotize CLI",
+                    f"### Where did this happen? (optional)\n\n{surface}",
                     1,
                 ).replace(
-                    "### Exact command, Python function, MCP tool, or VS Code action\n\navrotize a2p",
-                    "### Exact command, Python function, MCP tool, or VS Code action"
+                    "### Command or Avrotize area (optional)\n\navrotize a2p",
+                    "### Command or Avrotize area (optional)"
                     f"\n\n{identifier}",
                     1,
                 )
@@ -899,7 +878,7 @@ class IssueFormParityTests(unittest.TestCase):
     def test_heading_inside_fenced_reporter_content_is_not_a_field(self) -> None:
         body = _complete_bug_body().replace(
             '{"type":"record","name":"Node","fields":[{"name":"children","type":{"type":"array","items":"Node"}}]}',
-            '{"type":"record","name":"Node"}\n### Environment and toolchain\nnot a field',
+            '{"type":"record","name":"Node"}\n### Version and environment (optional)\nnot a field',
             1,
         )
         record, _ = governance_intake.normalize_issue(_bug_event(body))
@@ -907,15 +886,15 @@ class IssueFormParityTests(unittest.TestCase):
         self.assertEqual(record["classification"]["unexpected_headings"], [])
         self.assertEqual(
             record["normalized_facts"]["environment"],
-            "Ubuntu 22.04, Python 3.12.3, protoc 25.1",
+            "Avrotize 3.9.0, Ubuntu 22.04, Python 3.12.3, protoc 25.1",
         )
 
     def test_duplicate_real_heading_is_malformed(self) -> None:
-        body = _complete_bug_body() + "\n\n### Environment and toolchain\n\nsecond value\n"
+        body = _complete_bug_body() + "\n\n### Version and environment (optional)\n\nsecond value\n"
         record, _ = governance_intake.normalize_issue(_bug_event(body))
         self.assertEqual(record["classification"]["status"], "malformed")
         self.assertIn(
-            "__duplicate_heading__:Environment and toolchain",
+            "__duplicate_heading__:Version and environment (optional)",
             record["classification"]["unexpected_headings"],
         )
 
@@ -1094,9 +1073,9 @@ class SchemaEnforcementTests(unittest.TestCase):
         errors = governance_intake._validate_record(record, governance_intake.ISSUE_RECORD_SCHEMA)
         self.assertTrue(errors)
 
-    def test_complete_issue_cannot_omit_semantic_fact(self) -> None:
+    def test_complete_issue_cannot_omit_required_observed_result(self) -> None:
         record, _ = governance_intake.normalize_issue(_bug_event(_complete_bug_body()))
-        record["normalized_facts"]["environment"] = None
+        record["normalized_facts"]["actual_behavior"] = None
         errors = governance_intake._validate_record(record, governance_intake.ISSUE_RECORD_SCHEMA)
         self.assertTrue(errors)
 

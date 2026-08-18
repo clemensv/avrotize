@@ -95,16 +95,15 @@ def repository(root: Path) -> Path:
                 "title_prefix": f"[{form_type.title()}]",
                 "headings": [f"Field {field_id}" for field_id in ids],
                 "field_ids": ids,
+                "required_semantic_fields": [ids[0]],
             }
         )
     write(
         root / ".github" / "governance" / "issue-form-contract.json",
         json.dumps(
             {
-                "schema_version": 1,
-                "expected_result_choices": {
-                    "Successful completion (exit 0)": "success"
-                },
+                "schema_version": 2,
+                "surface_choices": ["I'm not sure", "Avrotize CLI"],
                 "forms": forms,
             }
         ),
@@ -169,6 +168,15 @@ class ValidatorTests(unittest.TestCase):
 
     def test_valid_repository_has_no_findings(self) -> None:
         self.assertEqual(validate_governance.validate_repo(self.root), [])
+
+    def test_issue_form_contract_requires_semantic_field_declarations(self) -> None:
+        path = self.root / ".github" / "governance" / "issue-form-contract.json"
+        contract = json.loads(path.read_text(encoding="utf-8"))
+        del contract["forms"][0]["required_semantic_fields"]
+        path.write_text(json.dumps(contract), encoding="utf-8")
+        self.assertTrue(
+            any("required_semantic_fields" in value for value in self.messages())
+        )
 
     def test_registry_and_surface_drift_are_reported(self) -> None:
         path = self.root / ".github" / "governance" / "avrotize-capabilities.json"

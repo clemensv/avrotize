@@ -1,8 +1,11 @@
 {
   "action": "opened",
+  "repository": {"full_name": "clemensv/avrotize"},
+  "sender": {"login": "reporter"},
   "issue": {
     "number": 500,
-    "title": "[Bug] a2proto crashes on recursive references",
-    "body": "### Avrotize or Structurize version\n\n3.9.0\n\n### Where did you run it?\n\nAvrotize CLI\n\n### Exact command, Python function, MCP tool, or VS Code action\n\navrotize a2p\n\n### Invocation and flags\n\n```shell\navrotize a2p input.avsc output.proto --naming camel\n```\n\n### Input kind, dialect, and minimal input\n\nApache Avro Schema (.avsc) with a self-referencing record type:\n```json\n{\"type\":\"record\",\"name\":\"Node\",\"fields\":[{\"name\":\"children\",\"type\":{\"type\":\"array\",\"items\":\"Node\"}}]}\n```\n\n### Output kind, language, and runtime\n\nProtocol Buffers 3 (.proto), compiled with protoc 25.x\n\n### Actual output or error\n\n```\nRecursionError: maximum recursion depth exceeded\n```\n\n### Expected output or behavior\n\nA valid .proto file with a message Node containing repeated Node children.\n\n### Expected command result\n\nSuccessful completion (exit 0)\n\n### Exact expected output\n\n_No response_\n\n### Environment and toolchain\n\nUbuntu 22.04, Python 3.12.3, protoc 25.1\n\n### Compatibility regression\n\nWorked in 3.8.2. Broke after #395 merged.\n\n### Confirmation\n\n- [X] I supplied a minimal non-sensitive reproducer.\n- [X] I searched for an existing report of this behavior."
+    "title": "[Bug] a2p recursive schema failure",
+    "html_url": "https://github.com/clemensv/avrotize/issues/500",
+    "body": "### What were you trying to do?\n\nConvert an Avro schema with a self-referencing record to Protocol Buffers.\n\n### What happened?\n\nThe command stopped with `RecursionError: maximum recursion depth exceeded` instead of writing a .proto file.\n\n### Small example or steps (optional)\n\n```shell\navrotize a2p input.avsc output.proto --naming camel\n```\n\n```json\n{\"type\":\"record\",\"name\":\"Node\",\"fields\":[{\"name\":\"children\",\"type\":{\"type\":\"array\",\"items\":\"Node\"}}]}\n```\n\n### Where did this happen? (optional)\n\nAvrotize CLI\n\n### Command or Avrotize area (optional)\n\navrotize a2p\n\n### Version and environment (optional)\n\nAvrotize 3.9.0, Ubuntu 22.04, Python 3.12.3, protoc 25.1\n\n### Anything else? (optional)\n\nThis worked with Avrotize 3.8.2."
   }
 }

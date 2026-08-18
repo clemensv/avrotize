@@ -5,6 +5,10 @@ repository's command-capability profile. If this policy, contributor templates,
 and automation disagree, this policy controls and the ambiguity fails closed
 until the repository owner resolves it.
 
+You do not need to learn this vocabulary before reporting a problem, sharing an
+idea, or opening a pull request. Start with [CONTRIBUTING.md](CONTRIBUTING.md);
+maintainers translate submissions into the internal records described here.
+
 ## Mission
 
 Avrotize provides reliable, testable transformation of data structure
@@ -116,7 +120,11 @@ Changes to shared Avrotize Schema or JSON Structure semantics normally require
 a campaign across representative commands and generated targets unless the
 owner records why the impact is demonstrably local.
 
-## Readiness
+## Maintainer readiness record
+
+Maintainers own this record. Contributors may provide any subset of the
+information below; it is not required for an initial issue or draft pull
+request.
 
 Before implementation, an authorized item records:
 
@@ -232,16 +240,18 @@ actor mismatch fail closed. There is no manual dispatch. A denied request makes
 no mutation and emits a minimal permission-gate artifact without reading or
 recording the issue body.
 
-**Content authorization and eligibility.** Authorization binds repository,
+**Content authorization and eligibility.** Opening a Bug report requires only a
+short description of the goal and what happened. Technical reproduction details
+are optional at intake and can be requested later when they are actually needed.
+Before a maintainer applies `repro-requested`, preparation additionally needs a
+known command/API area, a small non-sensitive example or steps, and the relevant
+version/environment. Authorization then binds repository,
 issue number, title, and body in a canonical snapshot with title, body, and
 combined cryptographic digests. The label event snapshot must match an immediate
 REST re-fetch, and it is re-fetched again before preparation. Label and comment
-timestamp changes do not invalidate it; title or body edits do. Only a complete
-Bug report that names a
-known command/API surface, a command from `avrotize/commands.json`, necessary
-source and result representations, flags/options, minimal input, expected and
-actual result, and environment/toolchain reaches manual review. Feature and
-freeform bodies are blocked.
+timestamp changes do not invalidate it; title or body edits do. Feature and
+freeform reports are not eligible for this automated preparation path; they
+remain available for normal maintainer review.
 
 **Execution boundary.** Automated execution is disabled. The repository has no
 adequate locked/hash-pinned reproduction environment, and GitHub-hosted runners
@@ -251,7 +261,10 @@ dependencies, materializes reporter fixtures, executes commands, or compiles
 generated output. Owners perform later reproduction only in an approved isolated
 environment.
 
-**Outcomes.** Preparation can produce only `BLOCKED` or `NEEDS_REVIEW`. It never
+**Outcomes.** Preparation records can produce only `BLOCKED` or `NEEDS_REVIEW`.
+Contributor-facing feedback describes these as needing maintainer attention or
+being ready for maintainer review, and tells reporters that no action is needed
+unless a maintainer follows up. Automation never
 claims `CONFIRMED` or `NOT_REPRODUCED`. Missing or corrupt preparation evidence
 maps to an auditable fallback `BLOCKED` record. Artifacts include the run attempt
 and are retained for 30 days. Producer artifact identities are passed between jobs

@@ -1,46 +1,13 @@
-## Summary
+Draft and incomplete pull requests are welcome.
 
-- Related issue, work item, or owner-authorized exception:
-- What changed:
-- Why:
+## What changed and why?
 
-## Avrotize impact
+<!-- A short explanation is enough. Link an issue if one exists. -->
 
-- Command, Python API, MCP tool, or VS Code action:
-- Input and output, if applicable:
+## How did you check it?
 
-Affected surfaces:
+<!-- List the checks you ran. "Not run" or "Unsure what applies" is okay with a short explanation. -->
 
-- [ ] Schema, IDL, data, or database transformation
-- [ ] Generated code or project
-- [ ] Python API or CLI
-- [ ] MCP server
-- [ ] VS Code extension
-- [ ] Package, documentation, or release
+## Anything else? (optional)
 
-## Validation
-
-- Commands run and results:
-- Fixtures or examples added:
-- Generated target, runtime, database, or validator checked:
-
-## Compatibility
-
-- [ ] No user-visible compatibility effect
-- [ ] Additive or opt-in change
-- [ ] Existing behavior, defaults, or generated output changed
-- [ ] Unsure; maintainer review is needed
-
-Migration or release notes, if needed:
-
-## Contributor checklist
-
-- [ ] Tests cover the changed behavior and failures remain visible.
-- [ ] Documentation and changelog updates are included when user-visible behavior changes.
-- [ ] Existing build, test, publication, and release protections are not weakened.
-
-## Maintainer review
-
-Maintainers record authorization, change and compatibility class, exact-head
-evidence, required reviews, migration or release approval, rollback, and any
-ranked follow-up here or in linked review evidence.
+<!-- Add screenshots, compatibility notes, or review context only when useful. -->

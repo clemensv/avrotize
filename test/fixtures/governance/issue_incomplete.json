@@ -1,8 +1,10 @@
 {
   "action": "opened",
+  "repository": {"full_name": "clemensv/avrotize"},
+  "sender": {"login": "reporter"},
   "issue": {
     "number": 502,
-    "title": "[Bug] Something is broken",
-    "body": "### Avrotize or Structurize version\n\n3.9.0\n\n### Where did you run it?\n\nAvrotize CLI\n\n### Exact command, Python function, MCP tool, or VS Code action\n\navrotize a2proto\n\n### Invocation and flags\n\n_No response_\n\n### Input kind, dialect, and minimal input\n\n_No response_\n\n### Output kind, language, and runtime\n\nProto\n\n### Actual output or error\n\n_No response_\n\n### Expected output or behavior\n\nIt should work.\n\n### Environment and toolchain\n\n_No response_\n\n### Compatibility regression\n\n_No response_\n\n### Confirmation\n\n- [X] I supplied a minimal non-sensitive reproducer.\n- [X] I searched for an existing report of this behavior."
+    "title": "[Bug] Something did not work",
+    "body": "### What were you trying to do?\n\n_No response_\n\n### What happened?\n\nThe command failed.\n\n### Small example or steps (optional)\n\n_No response_\n\n### Where did this happen? (optional)\n\nI'm not sure\n\n### Command or Avrotize area (optional)\n\n_No response_\n\n### Version and environment (optional)\n\n_No response_\n\n### Anything else? (optional)\n\n_No response_"
   }
 }

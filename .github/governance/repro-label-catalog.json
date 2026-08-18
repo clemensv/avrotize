@@ -1,46 +1,46 @@
 {
   "schema_version": 1,
-  "description": "Governed reproduction state labels. Automation prepares evidence only; owners may later adjudicate confirmed or not-reproduced states from manual evidence.",
+  "description": "Reproduction preparation labels. Automation prepares evidence only; owners decide the result after manual review.",
   "labels": [
     {
       "name": "repro-requested",
       "color": "d4c5f9",
-      "description": "Maintainer requested guarded reproduction preparation",
+      "description": "A maintainer requested safe reproduction preparation",
       "kind": "request",
       "outcome": ""
     },
     {
       "name": "repro-in-progress",
       "color": "0e8a16",
-      "description": "Revision-bound reproduction evidence is being prepared",
+      "description": "A metadata check is running; investigation or fix work has not started",
       "kind": "progress",
       "outcome": ""
     },
     {
       "name": "repro-confirmed",
       "color": "b60205",
-      "description": "Owner adjudicated manual evidence as reproducing the defect",
+      "description": "A maintainer reproduced the reported behavior manually",
       "kind": "terminal",
       "outcome": "CONFIRMED"
     },
     {
       "name": "repro-not-reproduced",
       "color": "0075ca",
-      "description": "Owner adjudicated manual evidence as not reproducing the defect",
+      "description": "A maintainer did not observe the behavior; the report remains available for follow-up",
       "kind": "terminal",
       "outcome": "NOT_REPRODUCED"
     },
     {
       "name": "repro-blocked",
       "color": "e4e669",
-      "description": "Reproduction preparation was blocked by readiness, revision, or infrastructure",
+      "description": "More information or a stable report revision is needed before manual reproduction",
       "kind": "terminal",
       "outcome": "BLOCKED"
     },
     {
       "name": "repro-needs-review",
       "color": "fbca04",
-      "description": "Prepared evidence awaits owner-controlled manual reproduction and adjudication",
+      "description": "Ready for a maintainer to attempt manual reproduction; no reporter action is needed",
       "kind": "terminal",
       "outcome": "NEEDS_REVIEW"
     }

@@ -55,7 +55,7 @@
     {
       "id": "issue-intake",
       "implementation": ".github/workflows/issue-intake.yml",
-      "purpose": "Normalize future Bug report and Feature or transformation request events into revision-bound records.",
+      "purpose": "Normalize future lightweight Bug report and Feature or transformation request events into revision-bound records without making optional technical detail a submission gate.",
       "authority_owner": "repository owner",
       "events": ["issues"],
       "inputs": {"events": ["opened", "edited", "reopened"], "processor": "exact default-branch SHA resolved before checkout"},
@@ -67,7 +67,7 @@
       "copilot": {"aic_source": "github-copilot-platform", "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"}, "guardrails": {"per_run": "TBD", "daily": "TBD"}, "token_telemetry": "operational-only"},
       "actions": {"mode": "observe", "mutations": []},
       "permissions": ["contents:read"],
-      "result": {"not_ready": "visible incomplete or manual-triage record; workflow fails only for processor/schema corruption", "authority": "Classification does not schedule or authorize work."}
+      "result": {"not_ready": "friendly human-review summary; workflow fails only for processor/schema corruption", "authority": "Classification does not schedule or authorize work."}
     },
     {
       "id": "dependabot-intake",

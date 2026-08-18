@@ -118,29 +118,58 @@ def prepare(
         command_known = facts.get("command_known")
         surface = str(facts.get("surface") or "")
         command = str(facts.get("command") or "")
+        reproduction_details = {
+            "exact command or API area": facts.get("command")
+            if command_known is True
+            else None,
+            "small example or steps": (
+                None
+                if governance_intake._is_placeholder(
+                    str(facts.get("input_reproducer") or "")
+                )
+                else facts.get("input_reproducer")
+            ),
+            "version and environment": (
+                None
+                if governance_intake._is_placeholder(
+                    str(facts.get("environment") or "")
+                )
+                else facts.get("environment")
+            ),
+        }
+        reproduction_missing = [
+            label for label, value in reproduction_details.items() if not value
+        ]
         if form_type != "bug":
             status, reason_code, reason = (
                 "BLOCKED",
                 "NOT_A_BUG_REPORT",
-                "only the checked-in Bug report form can enter reproduction preparation",
+                "This preparation path is only for Bug reports.",
             )
         elif intake_status != "complete":
             status, reason_code, reason = (
                 "BLOCKED",
                 "REPORT_NOT_COMPLETE",
-                "the Bug report is not decision-ready under the checked-in form contract",
+                "A maintainer needs one more basic problem detail before preparing reproduction evidence.",
             )
         elif command_known is not True:
             status, reason_code, reason = (
                 "BLOCKED",
                 "COMMAND_NOT_RECOGNIZED",
-                "the report does not identify a command from the checked-in Avrotize command registry",
+                "A maintainer needs the exact Avrotize command or API area before preparing reproduction evidence.",
+            )
+        elif reproduction_missing:
+            missing_fields.extend(reproduction_missing)
+            status, reason_code, reason = (
+                "BLOCKED",
+                "REPRODUCTION_DETAILS_NEEDED",
+                "A maintainer needs a small example and relevant environment details before manual reproduction.",
             )
         else:
             status, reason_code, reason = (
                 "NEEDS_REVIEW",
                 "MANUAL_REPRODUCTION_REQUIRED",
-                "the report is prepared for owner-approved manual reproduction; no command was executed",
+                "The evidence record is ready for a maintainer to review manually; no command was executed.",
             )
 
     final_label = "repro-blocked" if status == "BLOCKED" else "repro-needs-review"
@@ -215,16 +244,21 @@ def prepare(
 def render_summary(record: dict[str, Any]) -> str:
     result = record["result"]
     verification = record["authorized_content"]["verification"]
+    outcome = (
+        "Ready for maintainer review"
+        if result["status"] == "NEEDS_REVIEW"
+        else "More information or a working preparation run is needed"
+    )
     return "\n".join(
         [
-            "## Guarded reproduction preparation",
+            "## Reproduction preparation",
             "",
             f"- **Issue**: #{record['issue_number']}",
-            f"- **Outcome**: {result['status']} (`{result['reason_code']}`)",
-            f"- **Final label**: `{result['final_label']}`",
+            f"- **Result**: {outcome}",
+            f"- **Reason**: {result['reason']}",
             f"- **Content snapshot matched**: {'yes' if verification['matches'] else 'no'}",
             f"- **Trusted processor SHA**: `{record['processor']['trusted_sha']}`",
-            "- **Automated command execution**: disabled",
+            "- **Reporter input and Avrotize commands**: not executed",
             "",
             f"> {AUTHORITY_STATEMENT}",
             "",
@@ -354,19 +388,46 @@ def finalize_terminal(
     encoded = json.dumps(record, indent=2) + "\n"
     digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
     result = record["result"]
+    ready = result["status"] == "NEEDS_REVIEW"
+    outcome = (
+        "Evidence is ready for maintainer review"
+        if ready
+        else "Preparation needs a maintainer's attention"
+    )
+    next_step = (
+        "The evidence is available for maintainer review. "
+        "No action is needed from the reporter unless a maintainer follows up."
+        if ready
+        else "A maintainer can review the run and ask for one specific detail if needed. "
+        "No action is needed from the reporter unless a maintainer follows up."
+    )
+    missing = record.get("readiness", {}).get("missing_fields", [])
+    follow_up = (
+        " If a maintainer follows up, the useful details are: "
+        + ", ".join(str(value) for value in missing)
+        + "."
+        if not ready and missing
+        else ""
+    )
     comment = "\n".join(
         [
-            "## Guarded reproduction preparation",
+            "## Reproduction preparation update",
             "",
-            f"- Outcome: **{result['status']}** (`{result['reason_code']}`)",
-            f"- Final label: `{result['final_label']}`",
+            f"**{outcome}.** {result['reason']} {next_step}{follow_up}",
+            "",
+            f"[View the workflow run and evidence]({expected['run_url']}). "
+            "No Avrotize command, attachment, or reporter example was executed.",
+            "",
+            "<details>",
+            "<summary>Technical record</summary>",
+            "",
+            f"- Record status: `{result['status']}` (`{result['reason_code']}`)",
             f"- Evidence digest: `{digest}`",
-            f"- Workflow run: {expected['run_url']}",
             f"- Trusted processor SHA: `{expected['trusted_sha']}`",
             f"- Authorized content digest: `{expected['content_digest']}`",
             f"- Run attempt: `{expected['run_attempt']}`",
             "",
-            "No Avrotize command or reporter fixture was executed. Manual reproduction remains owner-controlled.",
+            "</details>",
         ]
     )
     metadata = {

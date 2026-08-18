@@ -1,75 +1,48 @@
 # Contributing to Avrotize
 
-Read [GOVERNANCE.md](GOVERNANCE.md) before proposing or implementing work.
-New work normally starts with the bug or feature form and becomes implementable
-only when the repository owner marks it ready and ranks it.
+Thanks for helping improve Avrotize. Bug reports, ideas, documentation fixes,
+tests, and code changes are welcome. They do not need to be perfect before you
+share them; maintainers can help refine the problem, scope, or validation.
 
-## Contribution flow
+## The short path
 
-1. File one structured work item. Name the exact command, Python API, MCP tool,
-   VS Code action, or generated target; describe the input, output, flags,
-   expected semantics, runtime/toolchain, and observable outcome.
-2. Wait for owner authorization. Intake is not implementation authorization.
-3. Use one item, branch, and pull request. Add newly discovered scope to the
-   authorized item or file it separately.
-4. Complete the PR template, including the exact head SHA and all affected
-   commands, Python API, CLI, MCP, VS Code, package, specification, and generated
-   surfaces.
-5. Run the smallest evidence set covering the changed commands, shared schema
-   semantics, and generated targets. Do not suppress a required command failure.
+1. **Found a problem?** Open the [Bug report](https://github.com/clemensv/avrotize/issues/new?template=bug.yml)
+   and describe what you were trying to do and what happened. Share a small
+   example if you have one, but do not delay the report if you do not.
+2. **Have an idea?** Open a
+   [Feature or transformation request](https://github.com/clemensv/avrotize/issues/new?template=feature.yml)
+   and describe the outcome or use case you want.
+3. **Not sure where it fits?** Use
+   [Question or something else](https://github.com/clemensv/avrotize/issues/new?template=question.yml).
+4. **Ready with a change?** Open a pull request that says what changed and why,
+   and how you checked it. Draft and incomplete pull requests are welcome.
 
-## Command and generated-output evidence
+Please remove secrets and sensitive or proprietary data from public examples.
+Suspected vulnerabilities belong in the private process in
+[SECURITY.md](SECURITY.md).
 
-For changed transformations, include positive, invalid, and boundary fixtures;
-expected schema/model semantics or output; meaningful round trips; and
-supported flag defaults. Generation changes also compile or run the affected
-generated target and exercise serialization where applicable. Interface changes
-contract-test the Python API, CLI, MCP, or VS Code surface and update help and
-documentation.
+For a small documentation or test fix, a pull request can be the first step.
+For a larger behavior change, an issue first can help avoid wasted effort and
+give maintainers a chance to clarify scope. Repository owners make final
+decisions about scope, compatibility, merge, and release.
 
-Golden-file changes require semantic review. Do not approve snapshots merely
-because a tool regenerated them. Identify the source generator, command,
-version/toolchain, and fixture so generated-file provenance is reproducible.
+## Helpful detail, when you have it
 
-Changes to shared Avrotize Schema or JSON Structure behavior are normally
-campaigns and require representative schema transformations, generated
-language targets, data-platform outputs, and an explicit compatibility and
-migration strategy.
+You can add command names, flags, versions, input and output formats, generated
+language or runtime, error text, and a small non-sensitive example. These details
+can help, but you can open an issue without them.
 
-## Reporting a reproducible bug
+If a maintainer later asks for reproduction preparation, they may request the
+exact Avrotize command or API surface, the smallest input that shows the
+problem, expected and actual behavior, and the relevant environment. The
+automation records that information for manual review; it never runs reporter
+input or Avrotize commands.
 
-The bug form asks two optional questions that help maintainers prepare a manual
-reproduction:
+## Checking a change
 
-- **Expected command result** — choose `Successful completion (exit 0)`,
-  `Command failure (nonzero exit)`, `Exact output match`, or
-  `Human semantic review`. Automation records this declaration but does not
-  adjudicate the result.
-- **Exact expected output** — required only when you choose `Exact output match`.
-  Paste the exact expected file content or standard output.
-
-Preparation additionally needs a concrete Avrotize command/API surface, a
-command from `avrotize/commands.json`, necessary source and result
-representations, flags/options, and minimal input pasted inline. Automation
-parses and records these facts but never executes them.
-
-## Requesting guarded reproduction (maintainers)
-
-Apply the exact `repro-requested` label. Maintain or admin permission is required
-for the label-event sender, and authorization occurs before checkout or issue
-content processing. There is no manual dispatch. The workflow snapshots the
-title/body revision and publishes only `repro-blocked` or
-`repro-needs-review`, with a comment recording the run, evidence digest, trusted
-source revision, and authorized content digest. It never executes Avrotize.
-Evidence is not implementation authorization.
-
-Owners provision the six labels from
-`.github/governance/repro-label-catalog.json` through repository administration.
-No write-capable label-reconciliation workflow is included.
-
-## Local checks
-
-Use the existing checks that match the change:
+Run the smallest existing test that covers your change. If you are unsure which
+test applies, say what you tried in the pull request and ask for guidance. Common
+starting points are:
 
 ```powershell
 # Targeted Python test
@@ -83,36 +56,12 @@ Push-Location vscode\avrotize
 npm ci
 npm test
 Pop-Location
-
-# Governance validator and governance suites
-python tools\validate_governance.py
-python -m pytest test\test_governance_validator.py test\test_governance_schema.py `
-  test\test_governance_intake.py test\test_governance_authorize.py `
-  test\test_governance_repro.py test\test_governance_workflows.py
 ```
 
-The GitHub Actions matrix remains authoritative for its named responsibility.
-A warning-shaped success or ignored exit code is not evidence for a required
-gate.
+Changes to generated output are easier to review with a small source fixture
+and the generated result. Changes to a public command, API, schema behavior, or
+runtime requirement may also need documentation, tests, a changelog note, or a
+migration note; maintainers can help identify the relevant evidence.
 
-### Adding or removing a command
-
-`.github/governance/avrotize-capabilities.json` pins the command registry: it
-records `expected_command_count` and a per-group count in `expected_groups`.
-Any change to `avrotize/commands.json` therefore makes
-`python tools\validate_governance.py` report drift until the profile is updated
-in the same pull request. That is the intended detection, not a bug. A new
-command group also needs an entry in `command_group_areas`, and a new
-`7_Utility` command needs one in `utility_command_areas`, mapped to a domain
-declared in `responsibility_domains`.
-
-## Compatibility and release notes
-
-Classify the change as patch, minor, or major under
-[GOVERNANCE.md](GOVERNANCE.md). Describe affected users, accepted inputs,
-defaults, generated APIs, outputs, runtime floors, and migration. Update
-[CHANGELOG.md](CHANGELOG.md) for notable user-visible, compatibility, security,
-dependency, publication, or governance changes.
-
-Security reports follow [SECURITY.md](SECURITY.md); support requests follow
-[SUPPORT.md](SUPPORT.md).
+The detailed maintainer decision process is in
+[GOVERNANCE.md](GOVERNANCE.md). Support routes are in [SUPPORT.md](SUPPORT.md).

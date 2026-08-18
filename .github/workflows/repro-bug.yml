@@ -535,16 +535,22 @@ jobs:
             ' repro-evidence.json > /dev/null
             digest=$(sha256sum repro-evidence.json | cut -d' ' -f1)
             printf '%s\n' \
-              '## Guarded reproduction preparation' \
+              '## Reproduction preparation update' \
               '' \
-              '- Outcome: **BLOCKED** (`PREPARATION_EVIDENCE_UNAVAILABLE`)' \
+              '**Preparation needs a maintainer'\''s attention.** The evidence record could not be completed. No action is needed from the reporter unless a maintainer follows up.' \
+              '' \
+              "[View the workflow run and evidence](${RUN_URL}). No Avrotize command, attachment, or reporter example was executed." \
+              '' \
+              '<details>' \
+              '<summary>Technical record</summary>' \
+              '' \
+              '- Record status: `BLOCKED` (`PREPARATION_EVIDENCE_UNAVAILABLE`)' \
               "- Evidence digest: \`${digest}\`" \
-              "- Workflow run: ${RUN_URL}" \
               "- Trusted processor SHA: \`${TRUSTED_SHA}\`" \
               "- Authorized content digest: \`${CONTENT_DIGEST}\`" \
               "- Run attempt: \`${RUN_ATTEMPT}\`" \
               '' \
-              'The trusted terminal validator failed. No Avrotize command or reporter fixture was executed.' \
+              '</details>' \
               > terminal-comment.md
             jq -n --arg digest "${digest}" \
               '{label: "repro-blocked", status: "BLOCKED", digest: $digest}' \
@@ -650,12 +656,11 @@ jobs:
           set -euo pipefail
           if [ ! -s terminal-comment.md ]; then
             printf '%s\n' \
-              '## Guarded reproduction preparation' \
+              '## Reproduction preparation update' \
               '' \
-              '- Outcome: **BLOCKED** (`TERMINAL_RECORD_UNAVAILABLE`)' \
-              "- Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+              '**Preparation needs a maintainer'\''s attention.** The evidence reference was unavailable. No action is needed from the reporter unless a maintainer follows up.' \
               '' \
-              'Preparation evidence was unavailable. No Avrotize command was executed.' \
+              "[View the workflow run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}). No Avrotize command, attachment, or reporter example was executed." \
               > terminal-comment.md
           fi
           jq -n --rawfile body terminal-comment.md '{body: $body}' > comment.json

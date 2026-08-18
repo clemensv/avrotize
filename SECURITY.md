@@ -1,30 +1,18 @@
 # Security Policy
 
-## Supported versions
-
-Security fixes are applied to the current default branch and released in the
-next owner-approved patch, minor, or major version appropriate to compatibility
-risk. Older releases are supported only when the repository owner explicitly
-announces a maintained line.
-
 ## Reporting a vulnerability
 
-Do not open a public issue for a suspected vulnerability. Use
+Please do not open a public issue for a suspected vulnerability. Use
 [GitHub private vulnerability reporting](https://github.com/clemensv/avrotize/security/advisories/new)
-and include:
+and share what you know. Helpful details can include the affected version or
+surface, a non-sensitive example, observed impact, and a possible mitigation,
+but a complete analysis or proposed fix is not required.
 
-- affected Avrotize, Structurize, MCP, or VS Code version and environment;
-- affected command, schema/model behavior, or generated runtime;
-- minimal reproducer and impact;
-- whether the report involves untrusted schema/data, generated code, secrets,
-  package publication, or dependency compromise;
-- suggested mitigation, if known.
+Security work generally focuses on the current default branch and latest
+release. No older release, current release, response, triage, fix, disclosure
+date, or future maintenance is guaranteed.
 
-The repository owner coordinates acknowledgement, triage, embargo, fix,
-disclosure, and release. A private report is security intake, not automatic
-authorization to implement or disclose a fix.
-
-Security changes require exact-head evidence, security/risk review, and
-compatibility classification. Emergency authority is limited to the minimum
-safe restoration and requires recorded risk, rollback, and ranked permanent
-follow-up as defined in [GOVERNANCE.md](GOVERNANCE.md).
+The repository owner decides how a private report is assessed, disclosed, and
+released. Private intake does not authorize public disclosure or implementation.
+Security changes still use the applicable review, compatibility, and release
+checks in [GOVERNANCE.md](GOVERNANCE.md).

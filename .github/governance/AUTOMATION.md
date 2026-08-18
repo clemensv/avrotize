@@ -12,7 +12,7 @@ machine-readable companion is
 | `build_deploy.yml` | Python test groups, generated-target and VS Code extension evidence, tag-only publication | Existing failures and publication behavior are preserved. |
 | `python-runtime-versions-test.yml` | Python 3.10-3.14 build/install/CLI smoke matrix | Existing runtime signal; not represented as broader compatibility approval. |
 | `validate-mcp-server-json.yml` | MCP registry manifest validation | Validation failure remains a workflow failure. |
-| `issue-intake.yml` | Normalize future Bug report and Feature or transformation request events | Read-only intake. Incomplete and freeform bodies produce visible non-ready records. Processor or schema corruption fails. |
+| `issue-intake.yml` | Normalize future Bug report and Feature or transformation request events | Read-only intake. Missing or unmatched details are routed to human review. Processor or schema corruption fails. |
 | `dependabot-intake.yml` | Normalize future Dependabot PR metadata and changed-file metadata | Read-only intake. It never runs the PR head, approves, or merges. A head race produces `superseded`. |
 | `governance-observe.yml` | Report deterministic governance findings | Advisory findings remain non-blocking; validator crashes still fail the workflow. |
 | `governance-ci.yml` | Run the strict validator and every governance test on the exact PR head | Hard-failing quality check; no warning fallback or swallowed test failure. Passing does not authorize merge. |
@@ -87,13 +87,13 @@ than a new field. Exact identifiers are resolved per surface from
 that derived surface registry. All checked-in choices are recognized, including
 `Generated project or code`.
 
-Bug records normalize the concrete command/API, Avrotize Schema, JSON Structure,
-or direct path, source and result representations, flags/options, minimal input,
-actual and expected result, environment/toolchain, regression, and declared
-expected-result kind. Feature or transformation records normalize the requested
-command/transformation, representations, preserved semantics, options, target
-validation/runtime expectation, and documentation example. Unknown, duplicate,
-malformed, or freeform bodies become explicit manual-triage records.
+Bug forms require only the reporter's goal and what happened. Command/API area,
+surface, a small example, and version/environment are optional and normalized
+when supplied. Feature or transformation forms require only the desired outcome
+or use case; examples and technical details are optional. Missing optional
+details never block submission. Additional reporter headings are retained as
+supplemental context. Duplicate, unreadable, or freeform bodies are routed to
+human review rather than presented as a contributor failure.
 
 ### Dependabot intake
 
@@ -149,16 +149,21 @@ an adequate locked/hash-pinned automation environment, and a GitHub-hosted runne
 cannot guarantee denied egress or enforce the required memory, PID, and filesystem
 isolation for hostile parser input. The workflow therefore never installs
 dependencies, materializes reporter fixtures, executes Avrotize, compiles
-generated code, or decides `CONFIRMED`/`NOT_REPRODUCED`. Complete eligible reports
-end in `repro-needs-review`; incomplete, changed, unknown, or non-bug reports end
-in `repro-blocked`. Owners perform and adjudicate any later reproduction in an
-approved isolated environment.
+generated code, or decides `CONFIRMED`/`NOT_REPRODUCED`. A maintainer applies the
+request label only after the optional command, small example, and environment
+details needed for manual reproduction have been gathered. Eligible reports end
+in `repro-needs-review`; changed, unknown, non-bug, or still-underspecified
+reports end in `repro-blocked`. Contributor-facing feedback explains the next
+human step without asking the reporter to interpret these internal states.
+Owners perform and adjudicate any later reproduction in an approved isolated
+environment.
 
 Artifact identities include issue number, workflow run ID, and run attempt.
 Authorization, preparation, and terminal artifacts are retained for 30 days. The
-issue comment links the workflow run and records the evidence digest, trusted SHA,
-authorized content digest, and run attempt. Exact evidence—not label text—is
-authoritative.
+issue comment links the workflow run. When terminal evidence is available, the
+comment also records its digest, trusted SHA, authorized-content digest, and run
+attempt. If no terminal record can be created, the fallback comment links only
+the workflow run. Exact evidence—not label text—is authoritative.
 
 The six labels are declared in
 [`repro-label-catalog.json`](repro-label-catalog.json). They must be provisioned

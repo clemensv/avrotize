@@ -28,6 +28,7 @@ REQUIRED_FILES = (
     ".github/ISSUE_TEMPLATE/config.yml",
     ".github/ISSUE_TEMPLATE/bug.yml",
     ".github/ISSUE_TEMPLATE/feature.yml",
+    ".github/ISSUE_TEMPLATE/question.yml",
     ".github/governance/AUTOMATION.md",
     ".github/governance/AI-USAGE-ACCOUNTING.md",
     ".github/governance/ADOPTION.md",
@@ -80,29 +81,21 @@ GOVERNED_REPRO_LABELS = (
 
 ISSUE_FORM_REQUIREMENTS = {
     "bug.yml": (
-        "id: version",
+        "id: problem",
+        "id: actual",
+        "id: reproducer",
         "id: surface",
         "id: command",
-        "id: invocation",
-        "id: input",
-        "id: output",
-        "id: actual",
-        "id: expected",
-        "id: expected_result",
-        "id: expected_output",
         "id: environment",
-        "id: regression",
+        "id: additional",
     ),
     "feature.yml": (
         "id: outcome",
+        "id: example",
         "id: command",
-        "id: input",
-        "id: output",
-        "id: semantics",
-        "id: options",
-        "id: validation",
-        "id: documentation",
+        "id: details",
     ),
+    "question.yml": ("id: message",),
 }
 
 UNRESOLVED_MARKERS = ("{{TODO", "<TODO>", "[TODO]", "REPLACE_ME")
@@ -382,8 +375,23 @@ def _validate_issue_form_contract(root: Path, findings: list[Finding]) -> None:
         text = form_path.read_text(encoding="utf-8")
         declared_headings = list(form.get("headings", []))
         field_ids = list(form.get("field_ids", []))
+        required_semantic_fields = form.get("required_semantic_fields")
         if len(declared_headings) != len(field_ids):
             findings.append(Finding(form_file, "contract headings and field_ids must be index aligned"))
+        if not isinstance(required_semantic_fields, list) or not required_semantic_fields:
+            findings.append(
+                Finding(
+                    form_file,
+                    "contract required_semantic_fields must be a non-empty array",
+                )
+            )
+        elif any(field_id not in field_ids for field_id in required_semantic_fields):
+            findings.append(
+                Finding(
+                    form_file,
+                    "contract required_semantic_fields must reference declared field_ids",
+                )
+            )
         for fid in field_ids:
             if f"id: {fid}" not in text:
                 findings.append(Finding(form_file, f"contract declares field id '{fid}' not found in YAML"))

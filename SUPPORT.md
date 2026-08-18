@@ -1,18 +1,14 @@
-# Avrotize Support
+# Avrotize support
 
-Avrotize support covers documented releases of the Python package and CLI,
-Structurize package, local MCP server/manifests, VS Code extension, specifications,
-and generated artifacts for their documented runtimes and toolchains.
+Questions, bug reports, and ideas are welcome. Choose the closest
+[issue form](https://github.com/clemensv/avrotize/issues/new/choose) and share
+what you know. An imperfect report is still useful, and a maintainer can ask for
+a specific detail later if it is needed.
 
-Use a structured issue form for reproducible defects or proposed capabilities.
-Include the version, exact command/API/tool surface, input kind and dialect,
-output schema/language/artifact, flags, runtime/toolchain, minimal non-sensitive
-input, expected and actual behavior, logs, and the smallest reproducing command.
+Please do not include credentials, proprietary schemas, personal data, or other
+sensitive content in a public issue. Suspected vulnerabilities should use the
+private route described in [SECURITY.md](SECURITY.md).
 
-General usage questions may use a GitHub issue when they reveal a documentation
-or product defect. Support intake does not authorize implementation or establish
-priority. Do not include credentials, proprietary schemas, personal data, or
-other sensitive material.
-
-Suspected vulnerabilities must use the private route in
-[SECURITY.md](SECURITY.md), not a public support issue.
+Participation is best-effort. There is no guarantee of response, review,
+acceptance, triage, resolution, fix, release, compatibility, availability,
+maintenance, continued support, or any particular outcome.

@@ -16,8 +16,8 @@ All notable changes to Avrotize are documented in this file.
 - Deterministic intake automation (`tools/governance_intake.py`) normalizing
   GitHub Issue Form submissions and Dependabot PRs into versioned JSON records
   and Markdown summaries. Standard library only; no mutations, labels, comments,
-  or merge behavior. Incomplete/unknown/malformed inputs produce explicit
-  non-ready records and exit successfully.
+  or merge behavior. Missing, unknown, or unmatched inputs produce explicit
+  human-review records and exit successfully.
 - Issue intake workflow (`.github/workflows/issue-intake.yml`) for future issue
   events. It resolves and verifies an exact trusted processor SHA, records
   processor and contract/catalog digests, and uses `contents: read` only.
@@ -53,9 +53,11 @@ All notable changes to Avrotize are documented in this file.
   (`tools/governance_schema.py`) used to structurally validate every governance
   record before it is written, plus schemas for preparation evidence,
   authorization decisions, and the label catalog.
-- Structured `Expected command result` and `Exact expected output` fields on the
-  bug form for manual reproduction preparation; automation records but does not
-  adjudicate them.
+- Lightweight contributor forms using progressive disclosure: Bug reports
+  require only the reporter's goal and what happened; feature requests require
+  only the desired outcome or use case; and a one-question fallback accepts
+  anything else. Commands, examples, versions, environments, compatibility
+  notes, and implementation ideas are optional and can be requested later.
 - Static workflow validation covering action version pinning, per-job
   permissions and timeouts, trusted refs, `persist-credentials`, artifact
   retention, revision identity, suppressed-failure detection, issue-content
@@ -65,6 +67,13 @@ All notable changes to Avrotize are documented in this file.
   governance test module on pull-request heads.
 
 ### Changed
+
+- Rewrote contribution, support, security, issue chooser, pull request, intake
+  summary, reproduction feedback, and label descriptions as welcoming,
+  plain-language participation surfaces. Support is explicitly best-effort and
+  provides no response, review, acceptance, triage, resolution, fix, release,
+  compatibility, availability, maintenance, continued-support, or outcome
+  assurance.
 
 - Removed the former Dependabot auto-merge workflow. Dependabot PRs are intake
   requiring explicit owner review and never automatic merge candidates.

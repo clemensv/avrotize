@@ -187,7 +187,8 @@ def _canonical_command(
     if not value:
         return None
     identifier = value.strip()
-    surface_registry = registry.get(surface or "", {})
+    surface_key = "" if surface in (None, "", "I'm not sure") else surface
+    surface_registry = registry.get(surface_key, {})
     if identifier in surface_registry:
         return surface_registry[identifier]
 
@@ -335,6 +336,19 @@ def _heading_to_field_id(heading: str, form_spec: dict[str, Any]) -> str | None:
     return None
 
 
+def _field_id_to_heading(field_id: str, form_spec: dict[str, Any] | None) -> str:
+    """Return the contributor-facing label for a stable form field ID."""
+    if form_spec is None:
+        return field_id.replace("_", " ")
+    field_ids = list(form_spec.get("field_ids", []))
+    headings = list(form_spec.get("headings", []))
+    try:
+        index = field_ids.index(field_id)
+    except ValueError:
+        return field_id.replace("_", " ")
+    return headings[index] if index < len(headings) else field_id.replace("_", " ")
+
+
 def _resolve_semantic_paths(command: str | None, surface: str | None) -> list[str]:
     """Determine which semantic paths a command/surface touches."""
     if not command:
@@ -393,12 +407,14 @@ def _analyze_heading_set(sections: dict[str, str], form_spec: dict[str, Any]) ->
 
 def _normalize_expected_result(choice: str, contract: dict[str, Any]) -> tuple[str, str]:
     """Map the structured expected-result dropdown to a deterministic expectation kind."""
-    mapping = contract.get("expected_result_choices")
-    if not isinstance(mapping, dict) or not mapping:
-        raise RuntimeError("Issue form contract lacks expected_result_choices mapping")
     raw = (choice or "").strip()
     if not raw or _is_placeholder(raw):
         return "", "undeclared"
+    mapping = contract.get("expected_result_choices")
+    if mapping is None:
+        return raw, "undeclared"
+    if not isinstance(mapping, dict):
+        raise RuntimeError("Issue form contract expected_result_choices must be an object")
     kind = mapping.get(raw)
     if not isinstance(kind, str):
         return raw, "undeclared"
@@ -503,7 +519,12 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
                 if not valid:
                     surface_error = err
 
-            if unexpected_headings:
+            duplicate_headings = [
+                heading
+                for heading in unexpected_headings
+                if heading.startswith("__duplicate_heading__:")
+            ]
+            if duplicate_headings:
                 status = "malformed"
             elif missing_fields:
                 status = "incomplete"
@@ -528,12 +549,23 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
             normalized["semantic_paths"] = _resolve_semantic_paths(
                 canonical_command or normalized["command"], normalized["surface"]
             )
-            normalized["source_representation"] = field_values.get("input") or None
+            reproducer = field_values.get("reproducer") or field_values.get("input") or None
+            normalized["source_representation"] = field_values.get("input") or reproducer
             normalized["result_representation"] = field_values.get("output") or None
-            normalized["flags_options"] = field_values.get("invocation") or field_values.get("options") or None
-            normalized["input_reproducer"] = field_values.get("input") or None
+            normalized["flags_options"] = (
+                field_values.get("invocation")
+                or field_values.get("options")
+                or reproducer
+                or None
+            )
+            normalized["input_reproducer"] = reproducer
             normalized["actual_behavior"] = field_values.get("actual") or None
-            normalized["expected_behavior"] = field_values.get("expected") or field_values.get("outcome") or None
+            normalized["expected_behavior"] = (
+                field_values.get("expected")
+                or field_values.get("problem")
+                or field_values.get("outcome")
+                or None
+            )
             expected_choice, expected_kind = _normalize_expected_result(
                 field_values.get("expected_result", ""), contract
             )
@@ -545,9 +577,11 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
             )
             normalized["environment"] = field_values.get("environment") or None
             normalized["regression"] = field_values.get("regression") or None
-            normalized["semantics"] = field_values.get("semantics") or None
+            normalized["semantics"] = field_values.get("semantics") or field_values.get("details") or None
             normalized["validation_expectations"] = field_values.get("validation") or None
-            normalized["documentation"] = field_values.get("documentation") or None
+            normalized["documentation"] = (
+                field_values.get("documentation") or field_values.get("example") or None
+            )
 
     record: dict[str, Any] = {
         "schema_version": 1,
@@ -583,33 +617,58 @@ def normalize_issue(event_json: str, processor_sha: str = "local-worktree") -> t
     }
     _validate_or_raise(record, ISSUE_RECORD_SCHEMA, "issue intake record")
 
-    # Markdown summary
+    status_text = {
+        "complete": "Ready for a maintainer to read",
+        "incomplete": "More information may help",
+        "malformed": "We could not read this form automatically; it remains available for maintainer review",
+        "manual-triage": "Needs a maintainer look",
+    }.get(status, "Needs a maintainer look")
     md_lines = [
-        "## Issue Intake Summary",
+        "## Issue details check",
         "",
         f"- **Issue**: #{number}",
         f"- **Event**: {action}",
-        f"- **Form type**: {form_type}",
-        f"- **Status**: {status}",
+        f"- **Form**: {form_type}",
+        f"- **Result**: {status_text}",
         f"- **Body digest**: `{body_digest[:16]}...`",
     ]
     if missing_fields:
-        md_lines.append(f"- **Missing fields**: {', '.join(_summary_safe(f) for f in missing_fields)}")
-    if unexpected_headings:
+        missing_labels = [
+            _field_id_to_heading(field_id, form_spec) for field_id in missing_fields
+        ]
         md_lines.append(
-            f"- **Unexpected headings**: {', '.join(_summary_safe(h) for h in unexpected_headings)}"
+            f"- **A maintainer may ask for**: {', '.join(_summary_safe(label) for label in missing_labels)}"
         )
+    if unexpected_headings:
+        duplicate_labels = [
+            heading.removeprefix("__duplicate_heading__:")
+            for heading in unexpected_headings
+            if heading.startswith("__duplicate_heading__:")
+        ]
+        supplemental_labels = [
+            heading
+            for heading in unexpected_headings
+            if not heading.startswith("__duplicate_heading__:")
+        ]
+        if supplemental_labels:
+            md_lines.append(
+                f"- **Additional sections kept for review**: {', '.join(_summary_safe(h) for h in supplemental_labels)}"
+            )
+        if duplicate_labels:
+            md_lines.append(
+                f"- **Repeated sections need a maintainer look**: {', '.join(_summary_safe(h) for h in duplicate_labels)}"
+            )
     if missing_headings:
-        md_lines.append(f"- **Missing headings**: {', '.join(_summary_safe(h) for h in missing_headings)}")
+        md_lines.append(
+            f"- **Sections not present**: {', '.join(_summary_safe(h) for h in missing_headings)}"
+        )
     if surface_error:
-        md_lines.append(f"- **Surface error**: {_summary_safe(surface_error)}")
+        md_lines.append(f"- **Area needs a quick human check**: {_summary_safe(surface_error)}")
     if normalized["command"]:
         known_str = "yes" if normalized["command_known"] else "no/unknown"
         md_lines.append(f"- **Command**: `{_summary_safe(normalized['command'])}` (known: {known_str})")
     if normalized["semantic_paths"]:
-        md_lines.append(f"- **Semantic paths**: {', '.join(normalized['semantic_paths'])}")
-    if form_type == "bug":
-        md_lines.append(f"- **Declared expectation**: {normalized['expected_result_kind']}")
+        md_lines.append(f"- **Related Avrotize paths**: {', '.join(normalized['semantic_paths'])}")
     md_lines.extend([
         "",
         f"> {AUTHORITY_STATEMENT}",

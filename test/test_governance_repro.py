@@ -76,7 +76,7 @@ class PreparationTests(unittest.TestCase):
         self.assertFalse(record["execution"]["performed"])
         self.assertEqual(record["readiness"]["form_type"], "bug")
         self.assertTrue(record["readiness"]["command_known"])
-        self.assertIn("disabled", summary)
+        self.assertIn("not executed", summary)
 
     def test_label_timestamp_change_keeps_snapshot_valid(self) -> None:
         issue = dict(self.issue)
@@ -96,6 +96,46 @@ class PreparationTests(unittest.TestCase):
                 )
                 self.assertEqual(record["result"]["status"], "BLOCKED")
                 self.assertEqual(record["result"]["reason_code"], "ISSUE_CONTENT_CHANGED")
+
+    def test_known_command_does_not_require_surface_choice(self) -> None:
+        issue = dict(self.issue)
+        issue["body"] = str(issue["body"]).replace(
+            "### Where did this happen? (optional)\n\nAvrotize CLI\n\n",
+            "",
+        )
+        snapshot = governance_authorize.build_snapshot(
+            issue, 500, "clemensv/avrotize"
+        )
+        record, _ = governance_repro.prepare(issue, self.auth, snapshot, options())
+        self.assertEqual(record["result"]["status"], "NEEDS_REVIEW")
+
+    def test_placeholder_reproduction_details_do_not_count_as_ready(self) -> None:
+        issue = dict(self.issue)
+        body = str(issue["body"])
+        body = body.replace(
+            "```shell\navrotize a2p input.avsc output.proto --naming camel\n```\n\n"
+            "```json\n"
+            '{"type":"record","name":"Node","fields":[{"name":"children","type":{"type":"array","items":"Node"}}]}'
+            "\n```",
+            "N/A",
+        )
+        body = body.replace(
+            "Avrotize 3.9.0, Ubuntu 22.04, Python 3.12.3, protoc 25.1",
+            "TBD",
+        )
+        issue["body"] = body
+        snapshot = governance_authorize.build_snapshot(
+            issue, 500, "clemensv/avrotize"
+        )
+        record, _ = governance_repro.prepare(issue, self.auth, snapshot, options())
+        self.assertEqual(record["result"]["status"], "BLOCKED")
+        self.assertEqual(
+            record["result"]["reason_code"], "REPRODUCTION_DETAILS_NEEDED"
+        )
+        self.assertIn("small example or steps", record["readiness"]["missing_fields"])
+        self.assertIn(
+            "version and environment", record["readiness"]["missing_fields"]
+        )
 
     def test_incomplete_unknown_and_feature_forms_block(self) -> None:
         for fixture, reason in (
@@ -329,7 +369,7 @@ class CliTests(unittest.TestCase):
             )
             self.assertEqual(result, 0)
             self.assertTrue(paths["record"].is_file())
-            self.assertIn("Automated command execution", paths["summary"].read_text())
+            self.assertIn("Reporter input and Avrotize commands", paths["summary"].read_text())
 
     def test_terminal_cli_emits_blocked_evidence_when_download_is_missing(self) -> None:
         issue = complete_issue()

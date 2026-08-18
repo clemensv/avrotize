@@ -120,30 +120,12 @@
         "normalized_facts": {
           "type": "object",
           "properties": {
-            "command": { "type": "string", "minLength": 1 },
-            "command_known": { "type": "boolean" },
-            "surface": { "type": "string", "minLength": 1 },
-            "source_representation": { "type": "string", "minLength": 1 },
-            "result_representation": { "type": "string", "minLength": 1 },
-            "flags_options": { "type": "string", "minLength": 1 },
-            "input_reproducer": { "type": "string", "minLength": 1 },
             "actual_behavior": { "type": "string", "minLength": 1 },
-            "expected_behavior": { "type": "string", "minLength": 1 },
-            "environment": { "type": "string", "minLength": 1 },
-            "regression": { "type": "string", "minLength": 1 }
+            "expected_behavior": { "type": "string", "minLength": 1 }
           },
           "required": [
-            "command",
-            "command_known",
-            "surface",
-            "source_representation",
-            "result_representation",
-            "flags_options",
-            "input_reproducer",
             "actual_behavior",
-            "expected_behavior",
-            "environment",
-            "regression"
+            "expected_behavior"
           ]
         }
       }
@@ -161,24 +143,10 @@
         "normalized_facts": {
           "type": "object",
           "properties": {
-            "command": { "type": "string", "minLength": 1 },
-            "source_representation": { "type": "string", "minLength": 1 },
-            "result_representation": { "type": "string", "minLength": 1 },
-            "expected_behavior": { "type": "string", "minLength": 1 },
-            "semantics": { "type": "string", "minLength": 1 },
-            "flags_options": { "type": "string", "minLength": 1 },
-            "validation_expectations": { "type": "string", "minLength": 1 },
-            "documentation": { "type": "string", "minLength": 1 }
+            "expected_behavior": { "type": "string", "minLength": 1 }
           },
           "required": [
-            "command",
-            "source_representation",
-            "result_representation",
-            "expected_behavior",
-            "semantics",
-            "flags_options",
-            "validation_expectations",
-            "documentation"
+            "expected_behavior"
           ]
         }
       }

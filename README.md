@@ -2259,9 +2259,9 @@ In addition to the command reference above, the repository includes in-depth com
 
 **Project governance and contribution**
 
-- [Governance](GOVERNANCE.md) — authority, continuous ranked flow, command-capability impact, compatibility, review, release, and bootstrap policy.
-- [Contributing](CONTRIBUTING.md) — authorization, evidence, fixtures, generated-output review, and local checks.
-- [Security](SECURITY.md) — supported versions and private vulnerability reporting.
-- [Support](SUPPORT.md) — supported surfaces and diagnostic expectations.
+- [Contributing](CONTRIBUTING.md) — the short path for reports, ideas, and pull requests.
+- [Support](SUPPORT.md) — where to ask and what to expect from best-effort participation.
+- [Security](SECURITY.md) — private vulnerability reporting.
+- [Governance](GOVERNANCE.md) — detailed maintainer authority, compatibility, review, and release policy.
 
 This document provides an overview of the usage and functionality of Avrotize. For more detailed information, please refer to the [Avrotize Schema documentation](specs/avrotize-schema.md) and the individual command help messages.
