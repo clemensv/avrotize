@@ -252,6 +252,10 @@ class TerminalEvidenceTests(unittest.TestCase):
         )
         self.assertEqual(record["record_kind"], "repro-preparation-evidence")
         self.assertEqual(metadata["label"], "repro-needs-review")
+        self.assertIn(
+            "<!-- avrotize-repro:clemensv/avrotize:issue-500:run-9001:attempt-3 -->",
+            comment,
+        )
         self.assertIn("Run attempt: `3`", comment)
 
     def test_missing_or_malformed_evidence_becomes_validated_fallback(self) -> None:

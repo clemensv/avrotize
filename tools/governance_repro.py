@@ -409,8 +409,14 @@ def finalize_terminal(
         if not ready and missing
         else ""
     )
+    operation_marker = (
+        f"<!-- avrotize-repro:{expected['repository']}:"
+        f"issue-{expected['issue_number']}:run-{expected['run_id']}:"
+        f"attempt-{expected['run_attempt']} -->"
+    )
     comment = "\n".join(
         [
+            operation_marker,
             "## Reproduction preparation update",
             "",
             f"**{outcome}.** {result['reason']} {next_step}{follow_up}",

@@ -20,6 +20,7 @@ except ImportError:  # pragma: no cover - direct script execution
 
 
 REQUIRED_FILES = (
+    ".gitattributes",
     "GOVERNANCE.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
@@ -42,13 +43,11 @@ REQUIRED_FILES = (
     ".github/governance/external-supervisor-policy.json",
     ".github/governance/copilot-cli/package.json",
     ".github/governance/copilot-cli/package-lock.json",
-    ".github/governance/prompts/external-supervisor-kickoff-v1.txt",
+    ".github/governance/prompts/external-supervisor-kickoff-v2.txt",
     ".github/governance/prompts/issue-semantic-assistance-v1.txt",
     ".github/governance/repro-label-catalog.json",
     ".github/governance/schemas/issue-intake-record.schema.json",
     ".github/governance/schemas/issue-semantic-assistance.schema.json",
-    ".github/governance/schemas/external-supervisor-delegation.schema.json",
-    ".github/governance/schemas/external-supervisor-cycle.schema.json",
     ".github/governance/schemas/dependabot-intake-record.schema.json",
     ".github/governance/schemas/repro-evidence-record.schema.json",
     ".github/governance/schemas/repro-terminal-fallback.schema.json",
@@ -59,11 +58,9 @@ REQUIRED_FILES = (
     ".github/workflows/dependabot-intake.yml",
     ".github/workflows/repro-bug.yml",
     "tools/governance_intake.py",
-    "tools/governance_supervisor.py",
     "tools/governance_repro.py",
     "tools/governance_authorize.py",
     "tools/governance_schema.py",
-    "test/fixtures/governance/supervisor/valid-delegation.json",
 )
 
 #: Governance workflows whose structure this validator polices in full.
@@ -113,6 +110,52 @@ ISSUE_FORM_REQUIREMENTS = {
 
 UNRESOLVED_MARKERS = ("{{TODO", "<TODO>", "[TODO]", "REPLACE_ME")
 
+OBSOLETE_AUTHORITY_RUNTIME_PATHS = (
+    "tools/governance_supervisor.py",
+    "test/test_governance_supervisor.py",
+    ".github/governance/schemas/external-supervisor-delegation.schema.json",
+    ".github/governance/schemas/external-supervisor-cycle.schema.json",
+    "test/fixtures/governance/supervisor/valid-delegation.json",
+    "test/fixtures/governance/supervisor/repository-snapshot.json",
+    "test/fixtures/governance/supervisor/session-inventory.json",
+)
+
+EXTERNAL_SUPERVISOR_ROUTINE_ACTIONS = frozenset(
+    {
+        "issue-labels",
+        "issue-comments",
+        "issue-assignments",
+        "deterministic-lifecycle-reconciliation",
+        "bounded-coordination-and-dispatch",
+    }
+)
+
+EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS = frozenset(
+    {
+        "set-backlog-rank",
+        "set-priority",
+        "authorize-ready",
+        "change-acceptance-manifest",
+        "grant-wip-exception",
+        "classify-compatibility",
+        "approve-compatibility-exception",
+        "approve-risk-exception",
+        "approve-emergency-exception",
+        "merge",
+        "tag-release",
+        "publish-release",
+        "amend-governance-policy",
+        "change-authority-or-delegation",
+    }
+)
+
+EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS = frozenset(
+    {
+        *EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS,
+        "approve-pull-request",
+    }
+)
+
 
 @dataclass(frozen=True)
 class Finding:
@@ -126,6 +169,24 @@ def _load_json(path: Path, findings: list[Finding]) -> object | None:
     except (OSError, json.JSONDecodeError) as exc:
         findings.append(Finding(path.as_posix(), f"cannot load JSON: {exc}"))
         return None
+
+
+def _is_exact_action_list(value: object, expected: frozenset[str]) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) == len(expected)
+        and all(isinstance(action, str) for action in value)
+        and set(value) == expected
+    )
+
+
+def _action_lists_overlap(left: object, right: object) -> bool:
+    return (
+        isinstance(left, list)
+        and isinstance(right, list)
+        and all(isinstance(action, str) for action in (*left, *right))
+        and not set(left).isdisjoint(right)
+    )
 
 
 def _validate_required_files(root: Path, findings: list[Finding]) -> None:
@@ -648,27 +709,28 @@ def _validate_copilot_issue_intake(root: Path, findings: list[Finding]) -> None:
 
 
 def _validate_external_supervisor(root: Path, findings: list[Finding]) -> None:
-    """Validate the external supervisor's exact authority and zero-workflow boundary."""
+    """Structurally validate the trusted-host contract without asserting authority."""
     base = ".github/governance"
     policy_relative = f"{base}/external-supervisor-policy.json"
-    prompt_relative = f"{base}/prompts/external-supervisor-kickoff-v1.txt"
-    delegation_schema_relative = f"{base}/schemas/external-supervisor-delegation.schema.json"
-    cycle_schema_relative = f"{base}/schemas/external-supervisor-cycle.schema.json"
-    fixture_relative = "test/fixtures/governance/supervisor/valid-delegation.json"
-    engine_relative = "tools/governance_supervisor.py"
+    prompt_relative = f"{base}/prompts/external-supervisor-kickoff-v2.txt"
+
+    for relative in OBSOLETE_AUTHORITY_RUNTIME_PATHS:
+        if (root / relative).exists():
+            findings.append(
+                Finding(
+                    relative,
+                    "obsolete local authority runtime artifact must remain removed",
+                )
+            )
 
     policy = _load_json(root / policy_relative, findings)
-    delegation_schema = _load_json(root / delegation_schema_relative, findings)
-    cycle_schema = _load_json(root / cycle_schema_relative, findings)
-    fixture = _load_json(root / fixture_relative, findings)
-    profile = _load_json(root / f"{base}/avrotize-capabilities.json", findings)
     contracts = _load_json(root / f"{base}/workflow-contracts.json", findings)
     prompt_path = root / prompt_relative
-    engine_path = root / engine_relative
-    if not all(
-        isinstance(value, dict)
-        for value in (policy, delegation_schema, cycle_schema, fixture, profile, contracts)
-    ) or not prompt_path.is_file() or not engine_path.is_file():
+    if (
+        not isinstance(policy, dict)
+        or not isinstance(contracts, dict)
+        or not prompt_path.is_file()
+    ):
         return
 
     expected_policy_keys = {
@@ -677,83 +739,151 @@ def _validate_external_supervisor(root: Path, findings: list[Finding]) -> None:
         "repository",
         "mode",
         "policy_path",
-        "delegation_schema",
-        "record_schema",
         "kickoff_prompt",
-        "responsibility_domains",
-        "repository_lifecycle_states",
-        "external_session_states",
-        "advisory_actions",
-        "delegable_operational_actions",
-        "owner_only_actions",
-        "required_child_evidence",
-        "fail_states",
-        "invariants",
+        "host_operational_authority",
     }
     if set(policy) != expected_policy_keys:
         findings.append(Finding(policy_relative, "external supervisor policy has missing or unknown top-level fields"))
 
     try:
-        advisory = set(policy["advisory_actions"])
-        delegated = set(policy["delegable_operational_actions"])
-        owner_only = set(policy["owner_only_actions"])
-        domains = set(policy["responsibility_domains"])
-        profile_domains = set(profile["responsibility_domains"])
         prompt_digest = policy["kickoff_prompt"]["sha256"]
+        host_authority = policy["host_operational_authority"]
     except (KeyError, TypeError) as exc:
         findings.append(Finding(policy_relative, f"incomplete external supervisor policy: {exc}"))
         return
-    if advisory & delegated or advisory & owner_only or delegated & owner_only:
-        findings.append(Finding(policy_relative, "external supervisor authority action sets must be disjoint"))
-    if domains != profile_domains:
-        findings.append(Finding(policy_relative, "external supervisor responsibility domains must match the capability profile"))
+    if policy.get("schema_version") != 2 or policy.get("mode") != "external-host-admin-operations":
+        findings.append(Finding(policy_relative, "external supervisor policy must enable version 2 trusted-host admin operations"))
+    expected_prompt = {
+        "path": prompt_relative,
+        "sha256": prompt_digest,
+    }
+    if (
+        policy.get("policy_id") != "avrotize-external-delivery-supervisor-v2"
+        or policy.get("repository") != "clemensv/avrotize"
+        or policy.get("policy_path") != policy_relative
+        or policy.get("kickoff_prompt") != expected_prompt
+        or not isinstance(prompt_digest, str)
+        or len(prompt_digest) != 64
+        or any(character not in "0123456789abcdef" for character in prompt_digest)
+    ):
+        findings.append(
+            Finding(
+                policy_relative,
+                "external supervisor policy identity or prompt binding is invalid",
+            )
+        )
 
-    prompt_bytes = prompt_path.read_text(encoding="utf-8").encode("utf-8")
+    expected_host_keys = {
+        "enabled",
+        "trust_boundaries",
+        "repository",
+        "required_repository_permission",
+        "fresh_identity_verification",
+        "routine_actions",
+        "owner_only_actions",
+        "supervisor_prohibited_actions",
+        "mutation_rules",
+        "credential_rules",
+        "host_responsibilities",
+    }
+    if not isinstance(host_authority, dict) or set(host_authority) != expected_host_keys:
+        findings.append(Finding(policy_relative, "external supervisor host authority has missing or unknown fields"))
+    else:
+        mutation_rules = host_authority.get("mutation_rules")
+        credential_rules = host_authority.get("credential_rules")
+        if (
+            host_authority.get("enabled") is not True
+            or host_authority.get("trust_boundaries")
+            != ["trusted-copilot-session-host", "github"]
+            or host_authority.get("repository") != "clemensv/avrotize"
+            or host_authority.get("required_repository_permission") != "admin"
+            or host_authority.get("fresh_identity_verification") is not True
+            or not _is_exact_action_list(
+                host_authority.get("routine_actions"),
+                EXTERNAL_SUPERVISOR_ROUTINE_ACTIONS,
+            )
+            or host_authority.get("host_responsibilities")
+            != ["app-native-session-inventory", "owner-instruction-provenance"]
+        ):
+            findings.append(Finding(policy_relative, "external supervisor host authority does not match the trusted-host admin contract"))
+        if not isinstance(mutation_rules, dict) or set(mutation_rules) != {
+            "fresh_github_read_before_mutation",
+            "idempotent_operations",
+            "use_native_compare_and_swap_when_available",
+            "reread_and_reconcile_when_compare_and_swap_is_unavailable",
+            "only_retry_safe_operations",
+            "comments_require_stable_operation_marker",
+            "manual_confirmation_cannot_replace_comment_marker",
+            "github_live_state_and_audit_history_are_authoritative",
+        } or any(value is not True for value in mutation_rules.values()):
+            findings.append(Finding(policy_relative, "external supervisor mutation rules are incomplete"))
+        if not isinstance(credential_rules, dict) or set(credential_rules) != {
+            "use_authenticated_host_tooling_directly",
+            "never_pass_credentials_to_children",
+            "never_pass_credentials_to_repository_scripts",
+        } or any(value is not True for value in credential_rules.values()):
+            findings.append(Finding(policy_relative, "external supervisor credential rules are incomplete"))
+
+    if isinstance(host_authority, dict):
+        host_routine = host_authority.get("routine_actions")
+        host_owner_only = host_authority.get("owner_only_actions")
+        host_prohibited = host_authority.get("supervisor_prohibited_actions")
+        if not _is_exact_action_list(
+            host_owner_only,
+            EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS,
+        ):
+            findings.append(
+                Finding(
+                    policy_relative,
+                    "external supervisor policy owner-only actions must match the complete exact required set",
+                )
+            )
+        if not _is_exact_action_list(
+            host_prohibited,
+            EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS,
+        ):
+            findings.append(
+                Finding(
+                    policy_relative,
+                    "external supervisor policy supervisor-prohibited actions must match the complete exact required set",
+                )
+            )
+        if _action_lists_overlap(host_routine, host_owner_only):
+            findings.append(
+                Finding(
+                    policy_relative,
+                    "external supervisor routine actions overlap owner-only actions",
+                )
+            )
+        if _action_lists_overlap(host_routine, host_prohibited):
+            findings.append(
+                Finding(
+                    policy_relative,
+                    "external supervisor routine actions overlap supervisor-prohibited actions",
+                )
+            )
+
+    prompt_bytes = prompt_path.read_bytes()
     if hashlib.sha256(prompt_bytes).hexdigest() != prompt_digest:
         findings.append(Finding(prompt_relative, "external supervisor kickoff prompt digest does not match policy"))
-
-    def strict_objects(value: object, path: str) -> None:
-        if isinstance(value, dict):
-            if value.get("type") == "object" and value.get("additionalProperties") is not False:
-                findings.append(Finding(path, "every external supervisor schema object must reject unknown fields"))
-            for child in value.values():
-                strict_objects(child, path)
-        elif isinstance(value, list):
-            for child in value:
-                strict_objects(child, path)
-
-    for schema, relative in (
-        (delegation_schema, delegation_schema_relative),
-        (cycle_schema, cycle_schema_relative),
-    ):
-        try:
-            governance_schema.assert_supported_schema(schema, relative)
-        except governance_schema.SchemaError as exc:
-            findings.append(Finding(relative, str(exc)))
-        strict_objects(schema, relative)
-
-    schema_errors = governance_schema.validate(fixture, delegation_schema)
-    for error in schema_errors:
-        findings.append(Finding(fixture_relative, f"invalid external supervisor fixture: {error}"))
-    try:
-        allowed = set(fixture["allowed_actions"])
-        denied = set(fixture["denied_owner_only_actions"])
-        binding = fixture["policy_binding"]
-    except (KeyError, TypeError) as exc:
-        findings.append(Finding(fixture_relative, f"incomplete external supervisor fixture: {exc}"))
-    else:
-        if not allowed <= delegated or allowed & owner_only:
-            findings.append(Finding(fixture_relative, "delegation allows an action outside delegated operational authority"))
-        if denied != owner_only:
-            findings.append(Finding(fixture_relative, "delegation must deny the exact immutable owner-only action set"))
-        policy_digest = hashlib.sha256(
-            (root / policy_relative).read_text(encoding="utf-8").encode("utf-8")
-        ).hexdigest()
-        if (
-            binding.get("policy_path") != policy_relative
-            or binding.get("blob_sha256") != policy_digest
-        ):
-            findings.append(Finding(fixture_relative, "delegation policy path/blob digest does not match checked-in policy"))
+    attributes_path = root / ".gitattributes"
+    if attributes_path.is_file():
+        attributes = attributes_path.read_text(encoding="utf-8").splitlines()
+        expected_attribute = f"{prompt_relative} text eol=lf"
+        if expected_attribute not in attributes:
+            findings.append(
+                Finding(
+                    ".gitattributes",
+                    "external supervisor v2 kickoff prompt must be governed as LF text",
+                )
+            )
+        if any("external-supervisor-kickoff-v1.txt" in line for line in attributes):
+            findings.append(
+                Finding(
+                    ".gitattributes",
+                    "deleted external supervisor v1 kickoff prompt remains governed",
+                )
+            )
 
     contract = next(
         (
@@ -767,29 +897,118 @@ def _validate_external_supervisor(root: Path, findings: list[Finding]) -> None:
         findings.append(Finding(f"{base}/workflow-contracts.json", "missing external delivery supervisor contract"))
     elif contract.get("implementation") is not None or contract.get("permissions") != []:
         findings.append(Finding(f"{base}/workflow-contracts.json", "external supervisor must have no Actions implementation or permissions"))
+    else:
+        contract_actions = contract.get("actions", {})
+        if not isinstance(contract_actions, dict):
+            findings.append(
+                Finding(
+                    f"{base}/workflow-contracts.json",
+                    "external supervisor workflow contract actions must be an object",
+                )
+            )
+        else:
+            contract_routine = contract_actions.get("mutations")
+            contract_owner_only = contract_actions.get("owner_only")
+            contract_prohibited = contract_actions.get("supervisor_prohibited")
+            if not _is_exact_action_list(
+                contract_routine,
+                EXTERNAL_SUPERVISOR_ROUTINE_ACTIONS,
+            ):
+                findings.append(
+                    Finding(
+                        f"{base}/workflow-contracts.json",
+                        "external supervisor workflow contract has incorrect routine mutations",
+                    )
+                )
+            if not _is_exact_action_list(
+                contract_owner_only,
+                EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS,
+            ):
+                findings.append(
+                    Finding(
+                        f"{base}/workflow-contracts.json",
+                        "external supervisor workflow contract owner-only actions must match the complete exact required set",
+                    )
+                )
+            if not _is_exact_action_list(
+                contract_prohibited,
+                EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS,
+            ):
+                findings.append(
+                    Finding(
+                        f"{base}/workflow-contracts.json",
+                        "external supervisor workflow contract supervisor-prohibited actions must match the complete exact required set",
+                    )
+                )
+            if _action_lists_overlap(contract_routine, contract_owner_only):
+                findings.append(
+                    Finding(
+                        f"{base}/workflow-contracts.json",
+                        "external supervisor workflow routine actions overlap owner-only actions",
+                    )
+                )
+            if _action_lists_overlap(contract_routine, contract_prohibited):
+                findings.append(
+                    Finding(
+                        f"{base}/workflow-contracts.json",
+                        "external supervisor workflow routine actions overlap supervisor-prohibited actions",
+                    )
+                )
+
+    required_document_text = {
+        f"{base}/EXTERNAL-SUPERVISOR.md": (
+            "freshly verifies that its active GitHub identity has",
+            "GitHub live state and GitHub's audit/history are authoritative",
+            "stable operation marker",
+            "owner-only and non-delegable",
+            "applicable named human domain or risk reviewer",
+            "not thereby reserved exclusively",
+            "non-authoritative structural validation",
+            "No repository authority runtime",
+        ),
+        "GOVERNANCE.md": (
+            "Freshly verified GitHub repository admin for routine operations only",
+            "issue-intake Copilot pass",
+            "separate authenticated external-supervisor admin exception",
+            "Every automated",
+            "policy changes, and",
+            "applicable named human domain or risk reviewer",
+            "does not reserve approval exclusively",
+        ),
+        f"{base}/AUTOMATION.md": (
+            "freshly verifying that its active GitHub identity has",
+            "without claiming atomic compare-and-swap",
+            "non-authoritative structural validation",
+            "necessarily owner-only",
+        ),
+        f"{base}/ADOPTION.md": (
+            "freshly verified as repository `admin`",
+            "Every automated issue comment requires a stable operation marker",
+            "owner-instruction provenance",
+            "not necessarily owner-only",
+        ),
+        prompt_relative: (
+            "immediately before each mutation",
+            "stable operation marker",
+            "cannot replace that marker",
+            "applicable named human",
+            "not necessarily reserved",
+            "Repository Python is non-authoritative structural validation only",
+        ),
+    }
+    for relative, fragments in required_document_text.items():
+        document_path = root / relative
+        if not document_path.is_file():
+            continue
+        text = document_path.read_text(encoding="utf-8")
+        for fragment in fragments:
+            if fragment not in text:
+                findings.append(Finding(relative, f"external supervisor contract is missing {fragment!r}"))
 
     supervisor_workflows = list((root / ".github" / "workflows").glob("*supervisor*.yml"))
     if supervisor_workflows:
         findings.append(Finding(".github/workflows", "external supervisor must not have a privileged Actions workflow"))
 
-    engine = engine_path.read_text(encoding="utf-8")
-    forbidden_engine_fragments = (
-        "import requests",
-        "import urllib",
-        "from urllib",
-        "import http",
-        "from http",
-        " gh ",
-        "curl ",
-        "GITHUB_TOKEN",
-    )
-    for fragment in forbidden_engine_fragments:
-        if fragment in engine:
-            findings.append(Finding(engine_relative, f"deterministic supervisor engine contains forbidden capability {fragment!r}"))
-    if '["git", "show"' not in engine:
-        findings.append(Finding(engine_relative, "deterministic supervisor engine must independently verify policy Git blobs"))
-    if engine.count("subprocess.run(") != 2 or '["git", "cat-file", "-t"' not in engine:
-        findings.append(Finding(engine_relative, "deterministic supervisor engine may invoke subprocess only for Git commit/blob verification"))
 
 
 def _indent(line: str) -> int:
@@ -1037,11 +1256,25 @@ def _validate_repro_workflow(root: Path, findings: list[Finding]) -> None:
     for required in ("run_attempt", "for attempt in 1 2 3"):
         if required not in publish:
             findings.append(Finding(relative, f"publish-final must include {required!r}"))
+    for required in (
+        'marker="<!-- avrotize-repro:',
+        'grep -Fqx -- "${marker}" terminal-comment.md',
+        'issues/${ISSUE_NUMBER}/comments',
+        'grep -Fqx -- "${marker}" existing-comments.txt',
+    ):
+        if required not in publish:
+            findings.append(
+                Finding(
+                    relative,
+                    f"publish-final must deduplicate its marked issue comment via {required!r}",
+                )
+            )
     repro_tool = (root / "tools/governance_repro.py").read_text(encoding="utf-8")
     for required in (
         "validate_prepared_evidence",
         "repro-terminal-fallback.schema.json",
         "PREPARATION_EVIDENCE_UNAVAILABLE",
+        "<!-- avrotize-repro:",
     ):
         if required not in repro_tool:
             findings.append(

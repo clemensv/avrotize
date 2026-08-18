@@ -14,12 +14,26 @@ issues or pull requests and without making a new governance check blocking.
 
 ## Phase 2: reconcile
 
-After findings are understood, separately authorize idempotent mutations of
-derived state only, such as future lifecycle fields or stale-state cleanup.
-Serialize on the smallest resource, preserve an audit record, and never alter
-priority, authorization, approval, or release authority through inference.
-Existing issues and pull requests are reconciled only under an explicit later
-owner direction.
+After findings are understood, an external supervisor on the trusted
+Copilot/session host may perform routine operations when its active GitHub
+identity is freshly verified as repository `admin` for `clemensv/avrotize`.
+Routine operations are issue labels, comments, assignments, deterministic
+lifecycle reconciliation, and bounded app-native coordination or dispatch.
+GitHub is authoritative: re-read immediately before mutation, use idempotent
+retry-safe operations, and reconcile after writes where no native conditional
+update exists. Every automated issue comment requires a stable operation marker
+and a fresh deduplication read. Manual confirmation may resolve ambiguous state,
+but cannot replace that marker or its key.
+
+Merge, tag, release/publication, compatibility classification,
+compatibility/risk/emergency exceptions, WIP exceptions, rank, priority, READY
+authorization, acceptance changes, policy changes, and authority/delegation
+changes remain owner-only. PR approval is separately prohibited to the
+supervisor and belongs to the applicable named human domain or risk reviewer
+under `GOVERNANCE.md`; it is not necessarily owner-only. Routine operational
+allowlists may overlap neither set. Credentials, app-native session inventory,
+and owner-instruction provenance remain within the trusted host and are never
+caller inputs to repository code.
 
 Guarded bug reproduction preparation belongs to this phase and is opt-in:
 

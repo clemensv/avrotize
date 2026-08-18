@@ -1,118 +1,80 @@
 {
-  "schema_version": 1,
-  "policy_id": "avrotize-external-delivery-supervisor-v1",
+  "schema_version": 2,
+  "policy_id": "avrotize-external-delivery-supervisor-v2",
   "repository": "clemensv/avrotize",
-  "mode": "observe-validation-only",
+  "mode": "external-host-admin-operations",
   "policy_path": ".github/governance/external-supervisor-policy.json",
-  "delegation_schema": ".github/governance/schemas/external-supervisor-delegation.schema.json",
-  "record_schema": ".github/governance/schemas/external-supervisor-cycle.schema.json",
   "kickoff_prompt": {
-    "path": ".github/governance/prompts/external-supervisor-kickoff-v1.txt",
-    "sha256": "70a79b7c5d8afeb0d363f00e095e8b3ae64150de400e0c0995ee083f581e93e2"
+    "path": ".github/governance/prompts/external-supervisor-kickoff-v2.txt",
+    "sha256": "1f1ebc0647146998757aa4631c8830bac508c3955c099fe6f3f9471ac5ab2df8"
   },
-  "responsibility_domains": [
-    "avrotize-schema-and-json-structure-semantics",
-    "schema-and-idl-transformations",
-    "programming-language-model-generation",
-    "database-and-analytical-schemas",
-    "data-inference-and-validation",
-    "command-access-and-distribution"
-  ],
-  "repository_lifecycle_states": [
-    "INTAKE",
-    "READY",
-    "ACTIVE",
-    "REVIEW",
-    "APPROVED",
-    "MERGED",
-    "RELEASED",
-    "BLOCKED",
-    "PARKED",
-    "INDETERMINATE"
-  ],
-  "external_session_states": [
-    "PLANNED",
-    "DISPATCH_REQUIRED",
-    "DISPATCHED",
-    "RUNNING",
-    "IDLE",
-    "EVIDENCE_READY",
-    "REVIEW_WAIT",
-    "REDIRECT_REQUIRED",
-    "BLOCKED",
-    "FAILED",
-    "CLOSED",
-    "UNKNOWN",
-    "INDETERMINATE",
-    "REVOKED"
-  ],
-  "advisory_actions": [
-    "analyze-intake-and-dependencies",
-    "propose-rank",
-    "propose-responsibility-domain",
-    "propose-acceptance-manifest",
-    "propose-reviewers",
-    "report-wip-conflict",
-    "report-stale-evidence",
-    "recommend-action"
-  ],
-  "delegable_operational_actions": [
-    "select-owner-approved-ready-item",
-    "create-isolated-child-session",
-    "resume-isolated-child-session",
-    "send-bounded-child-instructions",
-    "redirect-child-session",
-    "replace-child-session",
-    "open-scoped-pull-request",
-    "update-scoped-pull-request",
-    "publish-scoped-evidence",
-    "request-review",
-    "record-cycle-and-recovery-evidence"
-  ],
-  "owner_only_actions": [
-    "set-backlog-rank",
-    "set-priority",
-    "authorize-ready",
-    "change-acceptance-manifest",
-    "grant-wip-exception",
-    "approve-compatibility-exception",
-    "approve-risk-exception",
-    "approve-emergency-exception",
-    "approve-pull-request",
-    "merge",
-    "tag-release",
-    "publish-release",
-    "grant-delegation",
-    "amend-delegation",
-    "revoke-delegation"
-  ],
-  "required_child_evidence": [
-    "positive",
-    "invalid",
-    "boundary",
-    "compatibility",
-    "generated-runtime"
-  ],
-  "fail_states": [
-    "BLOCKED",
-    "STALE_HEAD",
-    "OUT_OF_SCOPE",
-    "INDETERMINATE"
-  ],
-  "invariants": {
-    "default_max_active_per_domain": 1,
-    "session_state_never_advances_repository_lifecycle": true,
-    "success_claim_is_not_evidence": true,
-    "dirty_worktree_is_not_exact_head_evidence": true,
-    "head_change_invalidates_evidence_and_review": true,
-    "supervisor_session_is_not_a_worker": true,
-    "delegation_source_is_committed": true,
-    "raw_git_push_is_forbidden": true,
-    "session_creation_high_water_is_monotonic": true,
-    "recovery_requires_fresh_session_inventory": true,
-    "operational_dispatch_mode": "observe-only",
-    "audit_records_are_immutable": true,
-    "aic_source": "github-copilot-platform",
-    "actions_workflow": null
+  "host_operational_authority": {
+    "enabled": true,
+    "trust_boundaries": [
+      "trusted-copilot-session-host",
+      "github"
+    ],
+    "repository": "clemensv/avrotize",
+    "required_repository_permission": "admin",
+    "fresh_identity_verification": true,
+    "routine_actions": [
+      "issue-labels",
+      "issue-comments",
+      "issue-assignments",
+      "deterministic-lifecycle-reconciliation",
+      "bounded-coordination-and-dispatch"
+    ],
+    "owner_only_actions": [
+      "set-backlog-rank",
+      "set-priority",
+      "authorize-ready",
+      "change-acceptance-manifest",
+      "grant-wip-exception",
+      "classify-compatibility",
+      "approve-compatibility-exception",
+      "approve-risk-exception",
+      "approve-emergency-exception",
+      "merge",
+      "tag-release",
+      "publish-release",
+      "amend-governance-policy",
+      "change-authority-or-delegation"
+    ],
+    "supervisor_prohibited_actions": [
+      "set-backlog-rank",
+      "set-priority",
+      "authorize-ready",
+      "change-acceptance-manifest",
+      "grant-wip-exception",
+      "classify-compatibility",
+      "approve-compatibility-exception",
+      "approve-risk-exception",
+      "approve-emergency-exception",
+      "approve-pull-request",
+      "merge",
+      "tag-release",
+      "publish-release",
+      "amend-governance-policy",
+      "change-authority-or-delegation"
+    ],
+    "mutation_rules": {
+      "fresh_github_read_before_mutation": true,
+      "idempotent_operations": true,
+      "use_native_compare_and_swap_when_available": true,
+      "reread_and_reconcile_when_compare_and_swap_is_unavailable": true,
+      "only_retry_safe_operations": true,
+      "comments_require_stable_operation_marker": true,
+      "manual_confirmation_cannot_replace_comment_marker": true,
+      "github_live_state_and_audit_history_are_authoritative": true
+    },
+    "credential_rules": {
+      "use_authenticated_host_tooling_directly": true,
+      "never_pass_credentials_to_children": true,
+      "never_pass_credentials_to_repository_scripts": true
+    },
+    "host_responsibilities": [
+      "app-native-session-inventory",
+      "owner-instruction-provenance"
+    ]
   }
 }

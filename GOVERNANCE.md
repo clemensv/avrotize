@@ -24,12 +24,12 @@ approved.
 | --- | --- | --- |
 | Backlog priority and rank | Repository owner | Ranked issue or explicit owner direction |
 | Work authorization | Repository owner | Ready issue, or a recorded bootstrap/emergency exception |
-| Normal merge | Repository owner or a future explicitly delegated maintainer | Current-head evidence and required reviews |
+| Normal merge | Repository owner only | Current-head evidence and required reviews |
 | Repository-owner merge exception | Repository owner only | Actor, head SHA, reason, unresolved gates, accepted risk, and follow-up |
 | Release and compatibility classification | Repository owner | Approved version, changelog, immutable tag, and artifact evidence |
 | Human approval | The reviewer named for the applicable domain or risk | Verdict bound to the exact PR head |
 | Emergency action | Repository owner | Scope, evidence, risk, rollback, and ranked permanent follow-up |
-| External delivery supervision | Repository owner delegation for operational coordination only | Exact policy commit/blob, strict delegation, durable cycle/dispatch evidence, and owner-retained decisions |
+| External delivery supervision | Freshly verified GitHub repository admin for routine operations only | Trusted-host identity/permission check, fresh GitHub state, idempotent mutation, and owner-retained decisions |
 
 The same person may hold more than one role, but authorization, review, merge,
 and release remain distinct recorded decisions. Automation and agents may not
@@ -201,19 +201,36 @@ defines AIC usage accounting from GitHub/Copilot platform telemetry.
 Deterministic workflows are preferred. Issue intake may use one bounded,
 zero-tool Copilot request to help maintainers understand structured or free-form
 reports; its strict JSON suggestions remain read-only and non-authoritative.
-Copilot may advise only within an explicit workflow contract; it cannot set
-priority or labels, authorize work, approve risk, merge, release, or exercise
-owner exceptions.
+That issue-intake Copilot pass may advise only within its explicit read-only
+workflow contract; it cannot set priority or labels, authorize work, approve
+risk, merge, release, or exercise owner exceptions. This prohibition does not
+remove the separate authenticated external-supervisor admin exception below.
 
-An owner may separately launch an external Copilot project session under
+An external Copilot project session may operate under
 [the external supervisor contract](.github/governance/EXTERNAL-SUPERVISOR.md).
-This policy revision is observe/validation-only and no delegation can activate
-operational authority. A future separately reviewed policy may coordinate
-isolated issue-scoped sessions and scoped evidence/PR work only after the trust
-prerequisites in that contract are implemented, but rank, READY authorization, acceptance,
-exceptions, approval, merge, release, publication, and delegation remain
-owner-only. Repository lifecycle and external session execution state remain
-separate.
+The trusted Copilot/session host may perform bounded routine operations after it
+freshly verifies that its active GitHub identity has `admin` permission on
+`clemensv/avrotize`. Those operations are issue labels, comments, assignments,
+deterministic lifecycle reconciliation, and bounded app-native coordination or
+dispatch. GitHub live state and audit history are authoritative; every mutation
+requires a fresh read and must be idempotent and safe to retry. Every automated
+issue comment must carry a stable operation marker and undergo a fresh
+deduplication read. Manual confirmation may resolve ambiguous state, but cannot
+replace the marker or its key. Credentials remain in authenticated host tooling
+and are never given to children or repository scripts.
+
+Merge, tag, release/publication, compatibility classification, compatibility,
+risk, emergency, or WIP exceptions, rank, priority, READY authorization,
+acceptance changes, policy changes, and authority/delegation changes remain
+owner-only. The external supervisor also may not approve a pull request. PR
+approval is performed by the applicable named human domain or risk reviewer
+identified under this policy and is bound to the exact PR head; this
+supervisor prohibition does not reserve approval exclusively to the repository
+owner. No routine operational allowlist may overlap either the owner-only set
+or the complete supervisor-prohibited set. Repository Python validates the
+document contract but does not implement authentication, attestation, brokers,
+session collectors, ledgers, or GitHub mutation. Repository lifecycle and
+external session execution state remain separate.
 
 Governance automation begins in advisory observe mode. It becomes blocking only
 after existing repository state can satisfy the deterministic rule reliably and

@@ -13,16 +13,19 @@ from tools import validate_governance
 
 SOURCE = Path(__file__).resolve().parent.parent
 COPIED = (
+    ".gitattributes",
+    "GOVERNANCE.md",
+    ".github/governance/ADOPTION.md",
+    ".github/governance/AUTOMATION.md",
+    ".github/governance/EXTERNAL-SUPERVISOR.md",
     ".github/governance/copilot-intake-policy.json",
     ".github/governance/external-supervisor-policy.json",
     ".github/governance/copilot-cli/package.json",
     ".github/governance/copilot-cli/package-lock.json",
-    ".github/governance/prompts/external-supervisor-kickoff-v1.txt",
+    ".github/governance/prompts/external-supervisor-kickoff-v2.txt",
     ".github/governance/prompts/issue-semantic-assistance-v1.txt",
     ".github/governance/repro-label-catalog.json",
     ".github/governance/schemas/issue-semantic-assistance.schema.json",
-    ".github/governance/schemas/external-supervisor-delegation.schema.json",
-    ".github/governance/schemas/external-supervisor-cycle.schema.json",
     ".github/governance/schemas/repro-evidence-record.schema.json",
     ".github/governance/schemas/repro-terminal-fallback.schema.json",
     ".github/governance/schemas/repro-authorization-record.schema.json",
@@ -33,8 +36,31 @@ COPIED = (
     ".github/workflows/dependabot-intake.yml",
     ".github/workflows/repro-bug.yml",
     "tools/governance_repro.py",
-    "tools/governance_supervisor.py",
-    "test/fixtures/governance/supervisor/valid-delegation.json",
+)
+
+EXPECTED_EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS = frozenset(
+    {
+        "set-backlog-rank",
+        "set-priority",
+        "authorize-ready",
+        "change-acceptance-manifest",
+        "grant-wip-exception",
+        "classify-compatibility",
+        "approve-compatibility-exception",
+        "approve-risk-exception",
+        "approve-emergency-exception",
+        "merge",
+        "tag-release",
+        "publish-release",
+        "amend-governance-policy",
+        "change-authority-or-delegation",
+    }
+)
+EXPECTED_EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS = frozenset(
+    {
+        *EXPECTED_EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS,
+        "approve-pull-request",
+    }
 )
 
 
@@ -73,28 +99,29 @@ def repository(root: Path) -> Path:
     ]
     write(root / "avrotize" / "commands.json", json.dumps(commands))
     write(root / "pyproject.toml")
-    supervisor_policy = json.loads(
+    capability_profile = json.loads(
         (
             SOURCE
             / ".github"
             / "governance"
-            / "external-supervisor-policy.json"
+            / "avrotize-capabilities.json"
         ).read_text(encoding="utf-8")
     )
+    domains = list(capability_profile["responsibility_domains"])
     profile = {
         "command_registry": "avrotize/commands.json",
         "expected_command_count": 3,
         "expected_groups": {"schemas": 1, "7_Utility": 2},
         "command_group_areas": {
-            supervisor_policy["responsibility_domains"][0]: ["schemas"]
+            domains[0]: ["schemas"]
         },
         "utility_command_areas": {
             "mcp": "command-access",
-            "pcf": supervisor_policy["responsibility_domains"][0],
+            "pcf": domains[0],
         },
         "responsibility_domains": {
             domain: ["avrotize/**"]
-            for domain in supervisor_policy["responsibility_domains"]
+            for domain in domains
         },
         "surfaces": {
             "cli": "avrotize/commands.json",
@@ -172,7 +199,17 @@ def repository(root: Path) -> Path:
                         "events": ["owner-launched project session"],
                         "inputs": {},
                         "deterministic": {},
-                        "actions": {},
+                        "actions": {
+                            "mutations": sorted(
+                                validate_governance.EXTERNAL_SUPERVISOR_ROUTINE_ACTIONS
+                            ),
+                            "owner_only": sorted(
+                                validate_governance.EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS
+                            ),
+                            "supervisor_prohibited": sorted(
+                                validate_governance.EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS
+                            ),
+                        },
                         "permissions": [],
                         "result": {},
                         "copilot": {
@@ -256,26 +293,268 @@ class ValidatorTests(unittest.TestCase):
             any("COPILOT_CLI_VERSION" in value for value in self.messages())
         )
 
-    def test_external_supervisor_authority_sets_must_remain_disjoint(self) -> None:
-        path = self.root / ".github" / "governance" / "external-supervisor-policy.json"
-        policy = json.loads(path.read_text(encoding="utf-8"))
-        policy["delegable_operational_actions"].append(policy["owner_only_actions"][0])
-        path.write_text(json.dumps(policy), encoding="utf-8")
-        self.assertTrue(
-            any("authority action sets must be disjoint" in value for value in self.messages())
-        )
-
     def test_external_supervisor_prompt_digest_is_enforced(self) -> None:
         path = (
             self.root
             / ".github"
             / "governance"
             / "prompts"
-            / "external-supervisor-kickoff-v1.txt"
+            / "external-supervisor-kickoff-v2.txt"
         )
         path.write_text(path.read_text(encoding="utf-8") + "\ndrift\n", encoding="utf-8")
         self.assertTrue(
             any("kickoff prompt digest" in value for value in self.messages())
+        )
+
+    def test_external_supervisor_prompt_digest_uses_raw_bytes(self) -> None:
+        path = (
+            self.root
+            / ".github"
+            / "governance"
+            / "prompts"
+            / "external-supervisor-kickoff-v2.txt"
+        )
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+        self.assertTrue(
+            any("kickoff prompt digest" in value for value in self.messages())
+        )
+
+    def test_external_supervisor_prompt_requires_lf_attribute(self) -> None:
+        self.mutate(
+            ".gitattributes",
+            ".github/governance/prompts/external-supervisor-kickoff-v2.txt text eol=lf",
+            ".github/governance/prompts/external-supervisor-kickoff-v1.txt text eol=lf",
+        )
+        messages = self.messages()
+        self.assertTrue(any("governed as LF text" in value for value in messages))
+        self.assertTrue(any("v1 kickoff prompt remains governed" in value for value in messages))
+
+    def test_external_supervisor_requires_fresh_admin_host_authority(self) -> None:
+        path = self.root / ".github" / "governance" / "external-supervisor-policy.json"
+        policy = json.loads(path.read_text(encoding="utf-8"))
+        policy["host_operational_authority"]["required_repository_permission"] = "write"
+        path.write_text(json.dumps(policy), encoding="utf-8")
+        self.assertTrue(
+            any("trusted-host admin contract" in value for value in self.messages())
+        )
+
+    def test_external_supervisor_requires_every_owner_only_action(self) -> None:
+        path = self.root / ".github" / "governance" / "external-supervisor-policy.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        actions = original["host_operational_authority"]["owner_only_actions"]
+        self.assertEqual(
+            set(actions),
+            EXPECTED_EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS,
+        )
+        self.assertEqual(
+            validate_governance.EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS,
+            EXPECTED_EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS,
+        )
+        for removed in EXPECTED_EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS:
+            with self.subTest(removed=removed):
+                policy = json.loads(json.dumps(original))
+                policy["host_operational_authority"]["owner_only_actions"].remove(
+                    removed
+                )
+                path.write_text(json.dumps(policy), encoding="utf-8")
+                self.assertTrue(
+                    any(
+                        "owner-only actions must match the complete exact required set"
+                        in value
+                        for value in self.messages()
+                    )
+                )
+        path.write_text(json.dumps(original), encoding="utf-8")
+
+    def test_external_supervisor_requires_every_prohibited_action(self) -> None:
+        path = self.root / ".github" / "governance" / "external-supervisor-policy.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        actions = original["host_operational_authority"][
+            "supervisor_prohibited_actions"
+        ]
+        self.assertIn("approve-pull-request", actions)
+        self.assertEqual(
+            set(actions),
+            EXPECTED_EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS,
+        )
+        self.assertEqual(
+            validate_governance.EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS,
+            EXPECTED_EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS,
+        )
+        for removed in EXPECTED_EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS:
+            with self.subTest(removed=removed):
+                policy = json.loads(json.dumps(original))
+                policy["host_operational_authority"][
+                    "supervisor_prohibited_actions"
+                ].remove(removed)
+                path.write_text(json.dumps(policy), encoding="utf-8")
+                self.assertTrue(
+                    any(
+                        "supervisor-prohibited actions must match the complete exact required set"
+                        in value
+                        for value in self.messages()
+                    )
+                )
+        path.write_text(json.dumps(original), encoding="utf-8")
+
+    def test_external_supervisor_rejects_added_or_misclassified_actions(self) -> None:
+        path = self.root / ".github" / "governance" / "external-supervisor-policy.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        cases = (
+            ("owner_only_actions", "approve-pull-request", "owner-only actions"),
+            (
+                "supervisor_prohibited_actions",
+                "unrecognized-reserved-action",
+                "supervisor-prohibited actions",
+            ),
+        )
+        for field, addition, expected in cases:
+            with self.subTest(field=field, addition=addition):
+                policy = json.loads(json.dumps(original))
+                policy["host_operational_authority"][field].append(addition)
+                path.write_text(json.dumps(policy), encoding="utf-8")
+                self.assertTrue(
+                    any(
+                        f"{expected} must match the complete exact required set"
+                        in value
+                        for value in self.messages()
+                    )
+                )
+        path.write_text(json.dumps(original), encoding="utf-8")
+
+    def test_external_supervisor_routine_actions_cannot_overlap_reserved_sets(
+        self,
+    ) -> None:
+        path = self.root / ".github" / "governance" / "external-supervisor-policy.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        cases = (
+            ("merge", "overlap owner-only actions"),
+            ("approve-pull-request", "overlap supervisor-prohibited actions"),
+        )
+        for addition, expected in cases:
+            with self.subTest(addition=addition):
+                policy = json.loads(json.dumps(original))
+                policy["host_operational_authority"]["routine_actions"].append(
+                    addition
+                )
+                path.write_text(json.dumps(policy), encoding="utf-8")
+                self.assertTrue(any(expected in value for value in self.messages()))
+        path.write_text(json.dumps(original), encoding="utf-8")
+
+    def test_external_supervisor_workflow_requires_complete_action_sets(self) -> None:
+        path = self.root / ".github" / "governance" / "workflow-contracts.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        contract = next(
+            value
+            for value in original["contracts"]
+            if value["id"] == "external-delivery-supervisor"
+        )
+        cases = (
+            (
+                "owner_only",
+                EXPECTED_EXTERNAL_SUPERVISOR_OWNER_ONLY_ACTIONS,
+                "owner-only actions must match the complete exact required set",
+            ),
+            (
+                "supervisor_prohibited",
+                EXPECTED_EXTERNAL_SUPERVISOR_PROHIBITED_ACTIONS,
+                "supervisor-prohibited actions must match the complete exact required set",
+            ),
+        )
+        for field, required, expected in cases:
+            self.assertEqual(set(contract["actions"][field]), required)
+            for removed in contract["actions"][field]:
+                with self.subTest(field=field, removed=removed):
+                    document = json.loads(json.dumps(original))
+                    candidate = next(
+                        value
+                        for value in document["contracts"]
+                        if value["id"] == "external-delivery-supervisor"
+                    )
+                    candidate["actions"][field].remove(removed)
+                    path.write_text(json.dumps(document), encoding="utf-8")
+                    self.assertTrue(
+                        any(expected in value for value in self.messages())
+                    )
+        path.write_text(json.dumps(original), encoding="utf-8")
+
+    def test_external_supervisor_workflow_routine_actions_cannot_overlap_reserved_sets(
+        self,
+    ) -> None:
+        path = self.root / ".github" / "governance" / "workflow-contracts.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        cases = (
+            ("merge", "workflow routine actions overlap owner-only actions"),
+            (
+                "approve-pull-request",
+                "workflow routine actions overlap supervisor-prohibited actions",
+            ),
+        )
+        for addition, expected in cases:
+            with self.subTest(addition=addition):
+                document = json.loads(json.dumps(original))
+                contract = next(
+                    value
+                    for value in document["contracts"]
+                    if value["id"] == "external-delivery-supervisor"
+                )
+                contract["actions"]["mutations"].append(addition)
+                path.write_text(json.dumps(document), encoding="utf-8")
+                self.assertTrue(any(expected in value for value in self.messages()))
+        path.write_text(json.dumps(original), encoding="utf-8")
+
+    def test_external_supervisor_requires_retry_safe_mutations(self) -> None:
+        path = self.root / ".github" / "governance" / "external-supervisor-policy.json"
+        policy = json.loads(path.read_text(encoding="utf-8"))
+        policy["host_operational_authority"]["mutation_rules"][
+            "only_retry_safe_operations"
+        ] = False
+        path.write_text(json.dumps(policy), encoding="utf-8")
+        self.assertTrue(
+            any("mutation rules are incomplete" in value for value in self.messages())
+        )
+
+    def test_external_supervisor_requires_comment_marker_without_exception(self) -> None:
+        path = self.root / ".github" / "governance" / "external-supervisor-policy.json"
+        policy = json.loads(path.read_text(encoding="utf-8"))
+        policy["host_operational_authority"]["mutation_rules"][
+            "manual_confirmation_cannot_replace_comment_marker"
+        ] = False
+        path.write_text(json.dumps(policy), encoding="utf-8")
+        self.assertTrue(
+            any("mutation rules are incomplete" in value for value in self.messages())
+        )
+
+    def test_external_supervisor_document_contract_is_enforced(self) -> None:
+        self.mutate(
+            ".github/governance/EXTERNAL-SUPERVISOR.md",
+            "stable operation marker",
+            "operation marker",
+        )
+        self.assertTrue(
+            any("stable operation marker" in value for value in self.messages())
+        )
+
+    def test_obsolete_authority_runtime_artifacts_are_rejected(self) -> None:
+        write(self.root / "tools" / "governance_supervisor.py")
+        self.assertTrue(
+            any(
+                "obsolete local authority runtime artifact" in value
+                for value in self.messages()
+            )
+        )
+
+    def test_reproduction_comment_requires_marker_deduplication(self) -> None:
+        self.mutate(
+            ".github/workflows/repro-bug.yml",
+            'grep -Fqx -- "${marker}" terminal-comment.md',
+            'grep -Fqx -- "${comment}" terminal-comment.md',
+        )
+        self.assertTrue(
+            any(
+                "deduplicate its marked issue comment" in value
+                for value in self.messages()
+            )
         )
 
     def test_external_supervisor_cannot_gain_a_privileged_workflow(self) -> None:

@@ -654,14 +654,26 @@ jobs:
           ISSUE_NUMBER: ${{ needs.authorize.outputs.issue_number }}
         run: |
           set -euo pipefail
+          marker="<!-- avrotize-repro:${REPO}:issue-${ISSUE_NUMBER}:run-${GITHUB_RUN_ID}:attempt-${GITHUB_RUN_ATTEMPT} -->"
           if [ ! -s terminal-comment.md ]; then
             printf '%s\n' \
+              "${marker}" \
               '## Reproduction preparation update' \
               '' \
               '**Preparation needs a maintainer'\''s attention.** The evidence reference was unavailable. No action is needed from the reporter unless a maintainer follows up.' \
               '' \
               "[View the workflow run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}). No Avrotize command, attachment, or reporter example was executed." \
               > terminal-comment.md
+          fi
+          if ! grep -Fqx -- "${marker}" terminal-comment.md; then
+            echo "::error::automated issue comment lacks its stable operation marker"
+            exit 1
+          fi
+          gh api --paginate "repos/${REPO}/issues/${ISSUE_NUMBER}/comments" \
+            --jq '.[].body' > existing-comments.txt
+          if grep -Fqx -- "${marker}" existing-comments.txt; then
+            echo "Comment operation already published; skipping duplicate."
+            exit 0
           fi
           jq -n --rawfile body terminal-comment.md '{body: $body}' > comment.json
           gh api --method POST "repos/${REPO}/issues/${ISSUE_NUMBER}/comments" \

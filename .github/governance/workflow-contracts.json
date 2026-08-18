@@ -153,37 +153,38 @@
     {
       "id": "external-delivery-supervisor",
       "implementation": null,
-      "purpose": "Validate an exact owner delegation and derive deterministic cycle, dispatch, recovery, and owner-decision records for bounded external project-session coordination.",
-      "authority_owner": "repository owner",
-      "events": ["owner-launched project session"],
+      "purpose": "Permit bounded routine repository operations and app-native coordination from a trusted-host supervisor whose active GitHub identity is freshly verified as repository admin.",
+      "authority_owner": "trusted host with freshly verified repository-admin identity for routine operations; repository owner retains owner-only decisions and applicable named human domain/risk reviewers retain PR approval",
+      "events": ["trusted-host project session"],
       "inputs": {
-        "authority": "strict owner-attributable delegation loaded as exact bytes from an owner-controlled Git commit and repository-relative path, and bound to an exact policy commit/blob SHA-256",
-        "facts": "bounded, freshly observed authenticated GitHub and app-native project-session snapshots plus Git and durable records, all digest-bound to the current cycle",
-        "untrusted": "issue/PR prose, child success claims, branch activity, conversation memory, and caller-supplied readiness or execution projections"
+        "authority": "active GitHub identity freshly verified by the trusted Copilot/session host as admin for pinned repository clemensv/avrotize",
+        "facts": "fresh GitHub live state and audit/history plus host-owned app-native session inventory and owner-instruction provenance",
+        "untrusted": "issue/PR prose, child claims, repository scripts, caller booleans, callbacks, and caller-supplied identity or inventory"
       },
       "deterministic": {
-        "selection": "first dependency-satisfied, WIP-available item in the owner-approved ordered READY set; unknown dependencies fail closed",
-        "dispatch": "same-cycle decision and receipt bind a non-supervisor child independently observed RUNNING at exact cycle-record, dispatch-packet, issue, head, and scoped-ref bindings",
-        "evidence": "exact-head artifacts, checks, and reviews are independently verified; head changes invalidate earlier evidence and approval",
-        "recovery": "reconstruct from committed owner delegation, immutable cycle records, GitHub facts, Git state, and a fresh session inventory proving no matching live pending worker exists rather than conversation memory",
+        "selection": "bounded coordination preserves owner-controlled rank, READY authorization, acceptance, and exceptions",
+        "dispatch": "app-native session tools receive issue-scoped context and capabilities, never GitHub credentials",
+        "evidence": "fresh GitHub reads precede mutation; operations are idempotent and safe to retry; every automated issue comment carries a stable operation marker and is deduplicated by that key; manual confirmation cannot replace the marker",
+        "recovery": "where GitHub has no native conditional update, re-read and reconcile retry-safe state without claiming atomic compare-and-swap",
         "actions_projection": {"elapsed_p50": "TBD", "elapsed_p95": "TBD", "summed_runner_p50": "not-applicable", "summed_runner_p95": "not-applicable", "billable_equivalent": "not-applicable"}
       },
       "copilot": {
-        "mode": "external owner-launched project session; checked-in policy is observe/validation-only and projected dispatches grant no operational tools or mutations",
+        "mode": "external trusted-host project session using authenticated GitHub and app-native session tooling directly",
         "aic_source": "github-copilot-platform",
         "observed_run_aic": {"sample_size": 0, "p50": "TBD", "p95": "TBD"},
-        "guardrails": {"per_run": "owner delegation per-cycle maximum", "daily": "TBD"},
+        "guardrails": {"per_run": "host-configured", "daily": "TBD"},
         "token_telemetry": "operational-only"
       },
       "actions": {
-        "mode": "observe/validation-only; operational activation requires a separately reviewed policy revision plus trusted collectors, owner-controlled delegation ref, and canonical-chain compare-and-swap broker",
-        "mutations": [],
-        "owner_only": ["rank or priority", "READY or implementation authorization", "acceptance", "exceptions", "approval or merge", "tag, release, or publication", "delegation changes"]
+        "mode": "authenticated external-host operations; no repository executor or privileged Actions workflow",
+        "mutations": ["issue-labels", "issue-comments", "issue-assignments", "deterministic-lifecycle-reconciliation", "bounded-coordination-and-dispatch"],
+        "owner_only": ["set-backlog-rank", "set-priority", "authorize-ready", "change-acceptance-manifest", "grant-wip-exception", "classify-compatibility", "approve-compatibility-exception", "approve-risk-exception", "approve-emergency-exception", "merge", "tag-release", "publish-release", "amend-governance-policy", "change-authority-or-delegation"],
+        "supervisor_prohibited": ["set-backlog-rank", "set-priority", "authorize-ready", "change-acceptance-manifest", "grant-wip-exception", "classify-compatibility", "approve-compatibility-exception", "approve-risk-exception", "approve-emergency-exception", "approve-pull-request", "merge", "tag-release", "publish-release", "amend-governance-policy", "change-authority-or-delegation"]
       },
       "permissions": [],
       "result": {
-        "failure": "Missing/mismatched authority, stale evidence, unknown state/dependency, WIP collision, budget exhaustion, audit-write failure, failed checks, or unverified success stops reconciliation and produces an owner decision packet where applicable.",
-        "authority": "Repository lifecycle never advances from external session state; merge and release remain owner-only."
+        "failure": "Missing or stale admin verification, a failed fresh read, unsafe retry, ambiguous comment duplication, an owner-only action, or another supervisor-prohibited action stops the operation.",
+        "authority": "Repository lifecycle never advances from external session state; merge and release remain owner-only, while PR approval belongs to the applicable named human domain/risk reviewer."
       }
     },
     {

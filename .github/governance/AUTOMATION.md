@@ -17,7 +17,7 @@ machine-readable companion is
 | `governance-observe.yml` | Report deterministic governance findings | Advisory findings remain non-blocking; validator crashes still fail the workflow. |
 | `governance-ci.yml` | Run the strict validator and every governance test on the exact PR head | Hard-failing quality check; no warning fallback or swallowed test failure. Passing does not authorize merge. |
 | `repro-bug.yml` | Authorize an issue content snapshot and prepare manual reproduction evidence | Future issue-label/comment mutation only. It never installs dependencies or executes Avrotize or reporter fixtures. |
-| No workflow: external supervisor contract | Validate owner delegation and derive immutable cycle/dispatch/recovery records for an owner-launched project session | This policy revision is permanently observe/validation-only. No delegation can activate operations; owner-only decisions remain non-delegable. |
+| No workflow: external supervisor contract | Permit a trusted-host supervisor, freshly verified as repository admin, to perform bounded routine operations through authenticated GitHub and app-native session tooling | Labels, comments, assignments, deterministic lifecycle reconciliation, and bounded coordination/dispatch are operational; owner-only decisions remain non-delegable. |
 
 A green workflow proves only its named responsibility.
 
@@ -42,24 +42,31 @@ sample size, P50, and P95 are `TBD`. Token telemetry is operational only and is
 never converted into AIC.
 
 The external delivery supervisor is a separate boundary. Its checked-in prompt
-is independently runnable by an owner-launched project session, but the prompt
-does not grant authority. `governance_supervisor.py` verifies the exact policy
-commit/blob, strict owner delegation, scope, READY order, dependencies, WIP,
-budgets, Git/repository facts, and external session inventory before emitting a
-plan. The tool itself has no network or GitHub mutation path and never calls
-Copilot. Under this revision, projected app-native project-session operations
-are non-executable regardless of delegation. Operational execution requires a
-separately reviewed future policy plus the trusted collectors and brokers named
-in the external-supervisor contract.
+does not grant authority. Authority comes from the trusted Copilot/session host
+freshly verifying that its active GitHub identity has `admin` permission on
+`clemensv/avrotize`. The host uses authenticated GitHub tooling directly and
+keeps credentials, app-native session inventory, and owner-instruction
+provenance outside repository code and child agents.
 
-Repository lifecycle is never inferred from session state. Same-cycle dispatch
-receipts require a non-supervisor child independently observed as `RUNNING`.
-Child success prose, branch activity, or a commit is not evidence. Exact-head
-checks, artifacts, and reviews are re-verified; head changes make them stale.
-Crash recovery uses strict delegation/cycle records, GitHub facts, Git state,
-and session inventory rather than conversation memory. Owner approval, merge,
-release, rank, READY, acceptance, exceptions, and delegation remain outside the
-executable action set.
+GitHub live state and audit history are authoritative. The supervisor re-reads
+before every mutation and uses idempotent, retry-safe operations. It uses native
+conditional updates only where GitHub provides them; otherwise it re-reads and
+reconciles without claiming atomic compare-and-swap. Every automated issue
+comment requires a stable operation marker and a fresh deduplication read.
+Manual confirmation may resolve ambiguous state, but cannot replace that marker
+or its key. Repository Python performs non-authoritative structural validation
+only; there is no authority verifier, credential client, broker, collector,
+ledger, session-inventory consumer, or mutation executor.
+
+Repository lifecycle is never inferred from session state. Child success prose,
+branch activity, or a commit is not evidence. Exact-head checks, artifacts, and
+reviews are re-verified; head changes make them stale. Merge, tag,
+release/publication, compatibility classification, compatibility/risk/emergency
+exceptions, WIP exceptions, policy changes, authority/delegation changes, rank,
+priority, READY authorization, and acceptance changes remain owner-only. PR
+approval is separately prohibited to the supervisor and belongs to the
+applicable named human domain or risk reviewer under `GOVERNANCE.md`; it is not
+necessarily owner-only. Routine operational allowlists may overlap neither set.
 
 ## Exact revisions and stale evidence
 
@@ -210,11 +217,13 @@ Owners perform and adjudicate any later reproduction in an approved isolated
 environment.
 
 Artifact identities include issue number, workflow run ID, and run attempt.
-Authorization, preparation, and terminal artifacts are retained for 30 days. The
-issue comment links the workflow run. When terminal evidence is available, the
-comment also records its digest, trusted SHA, authorized-content digest, and run
-attempt. If no terminal record can be created, the fallback comment links only
-the workflow run. Exact evidence—not label text—is authoritative.
+Authorization, preparation, and terminal artifacts are retained for 30 days.
+The issue comment includes a run/attempt-bound operation marker and links the
+workflow run. The workflow reads existing comments and does not repost the same
+marked operation. When terminal evidence is available, the comment also records
+its digest, trusted SHA, authorized-content digest, and run attempt. If no
+terminal record can be created, the fallback comment links only the workflow
+run. Exact evidence—not label text—is authoritative.
 
 The six labels are declared in
 [`repro-label-catalog.json`](repro-label-catalog.json). They must be provisioned
