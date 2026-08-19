@@ -165,6 +165,25 @@ class TestAvroToRust(unittest.TestCase):
             },
         )
 
+    def test_convert_anyvalue_reference_to_rust_default(self):
+        """Keep AnyValue mapped to serde_json::Value even when it is indexed."""
+        rust_path = self.run_convert_to_rust(
+            "rust-anyvalue-reference",
+            False,
+            False,
+        )
+        holder_path = os.path.join(
+            rust_path,
+            "src",
+            "issue406",
+            "anyvalue",
+            "anyvalueholder.rs",
+        )
+        with open(holder_path, "r", encoding="utf-8") as generated_file:
+            source = generated_file.read()
+        self.assertIn("pub payload: serde_json::Value", source)
+        self.assertNotIn("crate::avrotize::anyvalue::AnyValue", source)
+
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
         cwd = getcwd()        

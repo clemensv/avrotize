@@ -176,6 +176,22 @@ fn normalize_xml_text(value: serde_json::Value) -> serde_json::Value {
 
 impl {{ union_enum_name }} {
     {%- if avro_annotation %}
+    pub(crate) fn from_avro_branch(
+        index: u32,
+        value: &apache_avro::types::Value,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        match index {
+            {%- for union_field in union_fields %}
+            {{ union_field.avro_index }} => Ok(
+                {{ union_enum_name }}::{{ union_field.name }}(
+                    apache_avro::from_value(value)?
+                )
+            ),
+            {%- endfor %}
+            _ => Err(format!("unsupported Avro union branch: {}", index).into()),
+        }
+    }
+
     /// Serializes the union to Avro binary data.
     pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let media_type = content_type.split(';').next().unwrap_or("");
@@ -238,15 +254,8 @@ impl {{ union_enum_name }} {
         };
         let value = apache_avro::from_avro_datum(&SCHEMA, &mut &data[..], None)?;
         match value {
-            apache_avro::types::Value::Union(index, value) => match index {
-                {%- for union_field in union_fields %}
-                {{ union_field.avro_index }} => Ok(
-                    {{ union_enum_name }}::{{ union_field.name }}(
-                        apache_avro::from_value(&value)?
-                    )
-                ),
-                {%- endfor %}
-                _ => Err(format!("unsupported Avro union branch: {}", index).into()),
+            apache_avro::types::Value::Union(index, value) => {
+                Self::from_avro_branch(index, &value)
             },
             _ => Err("expected an Avro union value".into()),
         }

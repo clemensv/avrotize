@@ -24,6 +24,7 @@ class AvroToRust:
         self.output_dir = os.getcwd()
         self.generated_types_avro_namespace: Dict[str, str] = {}
         self.generated_types_rust_package: Dict[str, str] = {}
+        self.generated_union_fields: Dict[str, List[Dict]] = {}
         self.avro_named_types: Dict[str, Dict] = {}
         self.avro_annotation = False
         self.serde_annotation = False
@@ -96,23 +97,26 @@ class AvroToRust:
         ns = namespace.replace('.', '::').lower()
         type_name = ''
         if isinstance(avro_type, str):
-            qualified_avro_name = (
-                f"{namespace}.{avro_type}"
-                if namespace and '.' not in avro_type else avro_type
-            )
-            named_type = (
-                self.avro_named_types.get(qualified_avro_name)
-                or self.avro_named_types.get(avro_type)
-            )
-            if named_type and named_type.get('type') in ('record', 'enum', 'fixed'):
-                named_namespace = named_type.get('namespace', namespace)
-                rust_namespace = named_namespace.replace('.', '::').lower()
-                rust_name = self.safe_identifier(pascal(named_type['name']))
-                type_name = self.safe_package(
-                    self.concat_package(rust_namespace, rust_name)
-                )
-            else:
+            if is_any_value_type(avro_type):
                 type_name = self.map_primitive_to_rust(avro_type, nullable)
+            else:
+                qualified_avro_name = (
+                    f"{namespace}.{avro_type}"
+                    if namespace and '.' not in avro_type else avro_type
+                )
+                named_type = (
+                    self.avro_named_types.get(qualified_avro_name)
+                    or self.avro_named_types.get(avro_type)
+                )
+                if named_type and named_type.get('type') in ('record', 'enum', 'fixed'):
+                    named_namespace = named_type.get('namespace', namespace)
+                    rust_namespace = named_namespace.replace('.', '::').lower()
+                    rust_name = self.safe_identifier(pascal(named_type['name']))
+                    type_name = self.safe_package(
+                        self.concat_package(rust_namespace, rust_name)
+                    )
+                else:
+                    type_name = self.map_primitive_to_rust(avro_type, nullable)
         elif isinstance(avro_type, list):
             if is_generic_avro_type(avro_type):
                 return 'serde_json::Value' if self.serde_annotation or self.xml_annotation else 'std::collections::HashMap<String, String>'
@@ -386,6 +390,21 @@ class AvroToRust:
             serde_rename = field_name != serde_name
             # Check if this is a generated type (enum, union, or record) where random values may match default
             is_generated_type = field_type in self.generated_types_rust_package or '::' in field_type
+            base_field_type = (
+                field_type[7:-1]
+                if field_type.startswith('Option<') else field_type
+            )
+            avro_union_fields = (
+                self.generated_union_fields.get(base_field_type, [])
+                if self.avro_annotation else []
+            )
+            source_null_index = (
+                field['type'].index('null')
+                if avro_union_fields
+                and isinstance(field['type'], list)
+                and 'null' in field['type']
+                else -1
+            )
             fields.append({
                 'original_name': original_field_name,
                 'json_name': original_field_name,
@@ -398,7 +417,11 @@ class AvroToRust:
                 'serde_rename': serde_rename,
                 'is_optional': field_type.startswith('Option<'),
                 'random_value': self.generate_random_value(field_type),
-                'is_generated_type': is_generated_type
+                'is_generated_type': is_generated_type,
+                'is_avro_union': bool(avro_union_fields),
+                'avro_union_type': base_field_type,
+                'avro_union_fields': avro_union_fields,
+                'avro_null_index': source_null_index,
             })
         
         struct_name = self.safe_identifier(pascal(avro_schema['name']))
@@ -548,7 +571,14 @@ class AvroToRust:
         """Generates a union enum for Rust"""
         ns = namespace.replace('.', '::').lower()
         union_enum_name = pascal(field_name) + 'Union'
-        union_avro_types = [t for t in avro_type if t != 'null']
+        union_avro_branches = [
+            (source_index, avro_branch)
+            for source_index, avro_branch in enumerate(avro_type)
+            if avro_branch != 'null'
+        ]
+        union_avro_types = [
+            avro_branch for _, avro_branch in union_avro_branches
+        ]
         union_types = [
             self.convert_avro_type_to_rust(
                 field_name + "Option" + str(i),
@@ -589,6 +619,7 @@ class AvroToRust:
                 'name': variant_name, 
                 'type': t, 
                 'avro_index': i,
+                'source_avro_index': union_avro_branches[i][0],
                 'random_value': self.generate_random_value(t),
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,
@@ -640,6 +671,7 @@ class AvroToRust:
         render_template('avrotorust/dataclass_union.rs.jinja', target_file, **context)
         self.generated_types_avro_namespace[qualified_union_enum_name] = "union"
         self.generated_types_rust_package[qualified_union_enum_name] = "union"
+        self.generated_union_fields[qualified_union_enum_name] = union_fields
         self.write_mod_rs(namespace)
 
         return qualified_union_enum_name
