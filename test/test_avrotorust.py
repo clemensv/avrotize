@@ -90,6 +90,11 @@ class TestAvroToRust(unittest.TestCase):
             rust_path,
             {"issue406/enum_only/status.rs"},
         )
+        avro_only_path = self.run_convert_to_rust("rust-enum-annotation", True, False)
+        self.assert_module_scoped_schemas(
+            avro_only_path,
+            {"issue406/enum_only/status.rs"},
+        )
 
     def test_convert_union_avro_annotations_to_rust(self):
         """Compile a union-bearing crate with Avro binary round-trip coverage."""
@@ -98,6 +103,7 @@ class TestAvroToRust(unittest.TestCase):
             rust_path,
             {
                 "issue406/union_only/numericunion.rs",
+                "issue406/union_only/nullableunion.rs",
                 "issue406/union_only/unionholder.rs",
                 "issue406/union_only/valueunion.rs",
             },

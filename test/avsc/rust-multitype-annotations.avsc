@@ -67,13 +67,13 @@
             {
                 "name": "choice",
                 "type": [
-                    "issue406.multitype.Simple",
+                    "Simple",
                     "issue406.multitype.Wrapper"
                 ]
             },
             {
                 "name": "primary",
-                "type": "issue406.multitype.Simple"
+                "type": "Simple"
             },
             {
                 "name": "secondary",

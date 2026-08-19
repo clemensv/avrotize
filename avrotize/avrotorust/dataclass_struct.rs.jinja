@@ -333,6 +333,17 @@ mod tests {
         let avro_gzip_bytes = instance.to_byte_array("avro/binary+gzip").unwrap();
         let deserialized_avro_gzip_instance: {{ struct_name }} = {{ struct_name }}::from_data(&avro_gzip_bytes, "avro/binary+gzip").unwrap();
         assert_eq!(instance, deserialized_avro_gzip_instance);
+        {%- if fields | selectattr("is_optional") | list | length > 0 %}
+        let mut nullable_instance = {{ struct_name }}::generate_random_instance();
+        {%- for field in fields %}
+        {%- if field.is_optional %}
+        nullable_instance.{{ field.name }} = None;
+        {%- endif %}
+        {%- endfor %}
+        let nullable_avro_bytes = nullable_instance.to_byte_array("avro/binary").unwrap();
+        let deserialized_nullable_instance = {{ struct_name }}::from_data(&nullable_avro_bytes, "avro/binary").unwrap();
+        assert_eq!(nullable_instance, deserialized_nullable_instance);
+        {%- endif %}
         {%- endif %}
         {%- if xml_annotation %}
         // Test XML serialization and deserialization

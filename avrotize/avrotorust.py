@@ -96,7 +96,23 @@ class AvroToRust:
         ns = namespace.replace('.', '::').lower()
         type_name = ''
         if isinstance(avro_type, str):
-            type_name = self.map_primitive_to_rust(avro_type, nullable)
+            qualified_avro_name = (
+                f"{namespace}.{avro_type}"
+                if namespace and '.' not in avro_type else avro_type
+            )
+            named_type = (
+                self.avro_named_types.get(qualified_avro_name)
+                or self.avro_named_types.get(avro_type)
+            )
+            if named_type and named_type.get('type') in ('record', 'enum', 'fixed'):
+                named_namespace = named_type.get('namespace', namespace)
+                rust_namespace = named_namespace.replace('.', '::').lower()
+                rust_name = self.safe_identifier(pascal(named_type['name']))
+                type_name = self.safe_package(
+                    self.concat_package(rust_namespace, rust_name)
+                )
+            else:
+                type_name = self.map_primitive_to_rust(avro_type, nullable)
         elif isinstance(avro_type, list):
             if is_generic_avro_type(avro_type):
                 return 'serde_json::Value' if self.serde_annotation or self.xml_annotation else 'std::collections::HashMap<String, String>'
@@ -113,6 +129,8 @@ class AvroToRust:
                     type_name = self.convert_avro_type_to_rust(field_name, non_null_types[0], namespace)
             else:
                 type_name = self.generate_union_enum(field_name, avro_type, namespace)
+                if 'null' in avro_type:
+                    type_name = f'Option<{type_name}>'
         elif isinstance(avro_type, dict):
             if avro_type['type'] in ['record', 'enum']:
                 type_name = self.generate_class_or_enum(avro_type, namespace)
@@ -530,9 +548,17 @@ class AvroToRust:
         """Generates a union enum for Rust"""
         ns = namespace.replace('.', '::').lower()
         union_enum_name = pascal(field_name) + 'Union'
-        union_types = [self.convert_avro_type_to_rust(field_name + "Option" + str(i), t, namespace) for i, t in enumerate(avro_type) if t != 'null']
+        union_avro_types = [t for t in avro_type if t != 'null']
+        union_types = [
+            self.convert_avro_type_to_rust(
+                field_name + "Option" + str(i),
+                avro_branch,
+                namespace,
+            )
+            for i, avro_branch in enumerate(union_avro_types)
+        ]
         avro_schema_str = json.dumps(
-            self.inline_avro_references(avro_type, namespace)
+            self.inline_avro_references(union_avro_types, namespace)
         )
         avro_schema_str = avro_schema_str.replace('"', '§')
         avro_schema_str = f"\",\n{INDENT*2}\"".join(
@@ -545,7 +571,6 @@ class AvroToRust:
         # Track seen variant names to deduplicate
         seen_names: dict = {}
         union_fields = []
-        avro_indexes = [i for i, t in enumerate(avro_type) if t != 'null']
         for i, t in enumerate(union_types):
             predicate = self.get_is_json_match_clause(field_name, t, for_union=True)
             # Mark if this is the first variant with this predicate structure
@@ -563,7 +588,7 @@ class AvroToRust:
             union_fields.append({
                 'name': variant_name, 
                 'type': t, 
-                'avro_index': avro_indexes[i],
+                'avro_index': i,
                 'random_value': self.generate_random_value(t),
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,

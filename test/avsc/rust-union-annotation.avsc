@@ -16,6 +16,14 @@
                 "long",
                 "int"
             ]
+        },
+        {
+            "name": "nullable",
+            "type": [
+                "null",
+                "string",
+                "long"
+            ]
         }
     ]
 }
