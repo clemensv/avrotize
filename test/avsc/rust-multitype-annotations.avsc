@@ -232,5 +232,55 @@
                 ]
             }
         ]
+    },
+    {
+        "type": "record",
+        "name": "SoloUnion",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "AliasCarrier",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "solo",
+                "type": [
+                    "long",
+                    "int"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Nested",
+        "namespace": "issue406.multitype.FooUnion",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "AliasNamespaceCarrier",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "foo",
+                "type": [
+                    "long",
+                    "int"
+                ]
+            }
+        ]
     }
 ]

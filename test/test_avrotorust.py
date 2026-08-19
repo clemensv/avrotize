@@ -87,6 +87,90 @@ class TestAvroToRust(unittest.TestCase):
             str(signature_a),
         )
         self.assertEqual(signature_a, signature_b)
+
+    def test_named_type_resolution_requires_current_namespace(self):
+        """Do not resolve unqualified names from unrelated namespaces."""
+        converter = AvroToRust()
+        left = {
+            "type": "record",
+            "name": "Item",
+            "namespace": "Left",
+            "fields": [],
+        }
+        converter.index_avro_named_types(left)
+        self.assertIsNone(
+            converter.resolve_avro_named_type("Item", "Right")
+        )
+        self.assertIs(
+            left,
+            converter.resolve_avro_named_type("Left.Item", "Right"),
+        )
+
+    def test_logical_fixed_mapping_is_preserved(self):
+        """Keep the existing decimal fixed mapping while fixing plain fixed."""
+        converter = AvroToRust()
+        self.assertEqual(
+            "f64",
+            converter.convert_avro_type_to_rust(
+                "amount",
+                {
+                    "type": "fixed",
+                    "name": "Amount",
+                    "size": 8,
+                    "logicalType": "decimal",
+                    "precision": 12,
+                    "scale": 2,
+                },
+                "issue406.fixed",
+            ),
+        )
+
+    def test_rust_module_output_is_hash_seed_deterministic(self):
+        """Sort generated module declarations independently of hash seed."""
+        outputs = []
+        fixture = os.path.join(
+            os.getcwd(),
+            "test",
+            "avsc",
+            "rust-multitype-annotations.avsc",
+        )
+        for seed in ("1", "8675309"):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                f"rust-determinism-{seed}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            env = os.environ.copy()
+            env["PYTHONHASHSEED"] = seed
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "from avrotize.avrotorust import convert_avro_to_rust; "
+                        f"convert_avro_to_rust(r'{fixture}', r'{rust_path}', "
+                        "package_name='rust-determinism', "
+                        "avro_annotation=True, serde_annotation=True)"
+                    ),
+                ],
+                env=env,
+            )
+            module_files = {}
+            for root, _, files in os.walk(os.path.join(rust_path, "src")):
+                for file_name in files:
+                    if file_name not in ("mod.rs", "lib.rs"):
+                        continue
+                    file_path = os.path.join(root, file_name)
+                    relative = os.path.relpath(
+                        file_path,
+                        os.path.join(rust_path, "src"),
+                    )
+                    with open(file_path, "rb") as module_file:
+                        module_files[relative] = module_file.read()
+            outputs.append(module_files)
+        self.assertEqual(outputs[0], outputs[1])
     
     def run_convert_to_rust(
         self,
@@ -198,7 +282,7 @@ class TestAvroToRust(unittest.TestCase):
         rust_path = self.run_convert_to_rust("rust-union-annotation", True, True)
         self.assert_module_scoped_schemas(
             rust_path,
-            expected_count=9,
+            expected_count=10,
             required_modules={
                 "issue406/union_only/nestedholder.rs",
                 "issue406/union_only/unionholder.rs",
@@ -215,9 +299,45 @@ class TestAvroToRust(unittest.TestCase):
             avro_source = generated_file.read()
         self.assertRegex(
             avro_source,
-            r"pub nullable: Option<crate::issue406::union_only::"
-            r"union[a-z0-9]+::Union[A-Za-z0-9]+>",
+            r"pub nullable: crate::issue406::union_only::"
+            r"union[a-z0-9]+::Union[A-Za-z0-9]+,",
         )
+        legacy_alias_path = os.path.join(
+            rust_path,
+            "src",
+            "issue406",
+            "union_only",
+            "nullableunion.rs",
+        )
+        self.assertTrue(os.path.exists(legacy_alias_path))
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "legacy_union_api.rs"),
+            "w",
+            encoding="utf-8",
+        ) as legacy_test:
+            legacy_test.write(
+                "use rust_union_annotation::issue406::union_only::{\n"
+                "    nullableunion::NullableUnion,\n"
+                "    unionholder::UnionHolder,\n"
+                "};\n\n"
+                "#[test]\n"
+                "fn legacy_avro_union_api_compiles() {\n"
+                "    let holder = UnionHolder {\n"
+                "        nullable: NullableUnion::Null(()),\n"
+                "        ..Default::default()\n"
+                "    };\n"
+                "    assert!(matches!(holder.nullable, NullableUnion::Null(())));\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
 
         legacy_field = (
             "pub nullable: "
@@ -250,16 +370,20 @@ class TestAvroToRust(unittest.TestCase):
         rust_path = self.run_convert_to_rust("rust-multitype-annotations", True, True)
         schema_modules = self.assert_module_scoped_schemas(
             rust_path,
-            expected_count=28,
+            expected_count=34,
             required_modules={
                 "issue406/multitype/alternate.rs",
+                "issue406/multitype/aliascarrier.rs",
+                "issue406/multitype/aliasnamespacecarrier.rs",
                 "issue406/multitype/collisionone.rs",
                 "issue406/multitype/collisiontwo.rs",
                 "issue406/multitype/composite.rs",
                 "issue406/multitype/foo.rs",
+                "issue406/multitype/foounion/nested.rs",
                 "issue406/multitype/foobar.rs",
                 "issue406/multitype/inlinekind.rs",
                 "issue406/multitype/simple.rs",
+                "issue406/multitype/solounion.rs",
                 "issue406/multitype/standalone.rs",
                 "issue406/multitype/syntheticpaths.rs",
                 "issue406/multitype/twina.rs",
@@ -272,7 +396,27 @@ class TestAvroToRust(unittest.TestCase):
             module for module in schema_modules
             if os.path.basename(module).startswith("union")
         }
-        self.assertEqual(14, len(union_modules))
+        self.assertEqual(16, len(union_modules))
+        solo_union_path = os.path.join(
+            rust_path,
+            "src",
+            "issue406",
+            "multitype",
+            "solounion.rs",
+        )
+        with open(solo_union_path, "r", encoding="utf-8") as generated_file:
+            self.assertIn("pub struct SoloUnion", generated_file.read())
+        self.assertFalse(
+            os.path.isfile(
+                os.path.join(
+                    rust_path,
+                    "src",
+                    "issue406",
+                    "multitype",
+                    "foounion.rs",
+                )
+            )
+        )
 
     def test_convert_named_reference_resolution_to_rust(self):
         """Resolve dotted names and duplicate short names by namespace."""

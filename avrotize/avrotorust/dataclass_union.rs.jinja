@@ -19,7 +19,7 @@ pub enum {{ union_enum_name }} {
 
 impl Default for {{ union_enum_name }} {
     fn default() -> Self {
-        return {{ union_enum_name }}::{{ union_fields[0].name }}({{ union_fields[0].default_value }})
+        return {{ union_enum_name }}::{{ default_union_field.name }}({{ default_union_field.default_value }})
     }
 }
 
@@ -102,6 +102,8 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             {%- elif union_field.type.startswith("std::collections::HashMap<") %}
             {%- set field_type = 'std::collections::HashMap::<'+union_field.type[26:] %}
             let result = {{ field_type }}::deserialize(node).map_err(serde::de::Error::custom)?;
+            {%- elif union_field.type == "()" %}
+            let result = <()>::deserialize(node).map_err(serde::de::Error::custom)?;
             {%-else %}
             let result = {{ union_field.type }}::deserialize(node).map_err(serde::de::Error::custom)?;
             {%-endif %}

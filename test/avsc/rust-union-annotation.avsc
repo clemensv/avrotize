@@ -37,6 +37,14 @@
                             "long",
                             "int"
                         ]
+                    },
+                    {
+                        "name": "nestedFixed",
+                        "type": {
+                            "type": "fixed",
+                            "name": "NestedFixedTen",
+                            "size": 10
+                        }
                     }
                 ]
             }
@@ -94,6 +102,40 @@
             "type": [
                 "string",
                 "null"
+            ]
+        },
+        {
+            "name": "directFixed",
+            "type": {
+                "type": "fixed",
+                "name": "DirectFixedTen",
+                "size": 10
+            }
+        },
+        {
+            "name": "fixedRef",
+            "type": "issue406.union_only.DirectFixedTen"
+        },
+        {
+            "name": "fixedChoice",
+            "type": [
+                {
+                    "type": "fixed",
+                    "name": "UnionFixedTen",
+                    "size": 10
+                },
+                "string"
+            ]
+        },
+        {
+            "name": "optionalFixed",
+            "type": [
+                "null",
+                {
+                    "type": "fixed",
+                    "name": "OptionalFixedSixteen",
+                    "size": 16
+                }
             ]
         }
     ]

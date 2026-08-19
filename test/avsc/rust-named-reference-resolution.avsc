@@ -1,7 +1,7 @@
 [
     {
         "type": "record",
-        "name": "left.Item",
+        "name": "Left.Item",
         "fields": [
             {
                 "name": "leftValue",
@@ -11,7 +11,7 @@
     },
     {
         "type": "record",
-        "name": "right.Item",
+        "name": "Right.Item",
         "fields": [
             {
                 "name": "rightValue",
@@ -21,7 +21,7 @@
     },
     {
         "type": "record",
-        "name": "right.Holder",
+        "name": "Right.Holder",
         "fields": [
             {
                 "name": "local",
@@ -29,7 +29,7 @@
             },
             {
                 "name": "foreign",
-                "type": "left.Item"
+                "type": "Left.Item"
             }
         ]
     }
