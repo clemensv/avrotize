@@ -1790,17 +1790,29 @@ class AvroToRust:
         alias_candidates = {}
         visited_named = set()
 
-        def add(path, description):
+        def add(path, kind, identity, description):
             path = tuple(part.lower() for part in path)
             existing = planned.get(path)
-            if existing is not None and existing != description:
+            artifact = {
+                'kind': kind,
+                'identity': identity,
+                'description': description,
+            }
+            if existing is not None and (
+                existing['kind'] != kind
+                or existing['identity'] != identity
+                or kind not in ('union', 'infrastructure')
+            ):
                 path_text = '::'.join(path)
-                first, second = sorted((existing, description))
+                first, second = sorted((
+                    existing['description'],
+                    description,
+                ))
                 raise ValueError(
                     'Rust generation plan has an exact path collision at '
                     f"'{path_text}': '{first}' and '{second}'"
                 )
-            planned[path] = description
+            planned[path] = artifact
 
         def visit(node, namespace='', path=None, field_name=''):
             if isinstance(node, str):
@@ -1828,15 +1840,27 @@ class AvroToRust:
                     union_output_path = (
                         namespace_parts + (union_name.lower(),)
                     )
-                    if (
-                        self.avro_annotation
-                        or union_output_path not in planned
-                    ):
-                        add(
-                            union_output_path,
-                            f"generated union {union_name} at "
-                            f"{path or [('field', field_name)]}",
+                    union_identity = (
+                        union_name
+                        if self.avro_annotation
+                        else (
+                            union_name,
+                            json.dumps(
+                                self.inline_avro_references(
+                                    [item for _, item in non_null],
+                                    namespace,
+                                ),
+                                sort_keys=True,
+                            ),
                         )
+                    )
+                    add(
+                        union_output_path,
+                        'union',
+                        union_identity,
+                        f"generated union {union_name} at "
+                        f"{path or [('field', field_name)]}",
+                    )
                     if self.avro_annotation:
                         legacy_name = pascal(field_name) + 'Union'
                         alias_candidates.setdefault(
@@ -1883,6 +1907,8 @@ class AvroToRust:
                                 pascal(short_name)
                             ).lower(),
                         ),
+                        'named',
+                        fullname,
                         f"named type {fullname}",
                     )
                 if fullname in visited_named:
@@ -1927,13 +1953,15 @@ class AvroToRust:
                 if len(targets) == 1:
                     union_name = next(iter(targets))
                     alias_name = legacy_name.lower()
-                    add(
-                        namespace_parts + (alias_name,),
-                        f"legacy union alias {legacy_name}",
-                    )
                     namespace = '::'.join(namespace_parts)
                     qualified_target = self.safe_package(
                         self.concat_package(namespace, union_name)
+                    )
+                    add(
+                        namespace_parts + (alias_name,),
+                        'alias',
+                        qualified_target,
+                        f"legacy union alias {legacy_name}",
                     )
                     alias_content = self.union_alias_content(
                         legacy_name,
@@ -1974,11 +2002,18 @@ class AvroToRust:
                     self.planned_alias_contents[alias_path] = alias_content
 
         source_paths = list(planned)
-        add(('lib',), 'generated infrastructure lib.rs')
+        add(
+            ('lib',),
+            'infrastructure',
+            'lib.rs',
+            'generated infrastructure lib.rs',
+        )
         for source_path in source_paths:
             for length in range(1, len(source_path)):
                 add(
                     source_path[:length] + ('mod',),
+                    'infrastructure',
+                    '::'.join(source_path[:length]) + '::mod.rs',
                     'generated infrastructure mod.rs for '
                     + '::'.join(source_path[:length]),
                 )
@@ -1993,7 +2028,10 @@ class AvroToRust:
             ):
                 path_text = '::'.join(file_path)
                 first, second = sorted(
-                    (planned[file_path], planned[other_path])
+                    (
+                        planned[file_path]['description'],
+                        planned[other_path]['description'],
+                    )
                 )
                 raise ValueError(
                     'Rust generation plan requires the same path '

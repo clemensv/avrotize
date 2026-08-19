@@ -420,6 +420,39 @@ class TestAvroToRust(unittest.TestCase):
         )
         self.assertTrue(os.path.exists(collision_path))
 
+        symbol_collision_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-plan-symbol-collision",
+        )
+        if os.path.exists(symbol_collision_path):
+            shutil.rmtree(symbol_collision_path, ignore_errors=True)
+        with self.assertRaisesRegex(
+            ValueError,
+            r"exact path collision.*FooBarUnion.*FoobarUnion",
+        ):
+            convert_avro_schema_to_rust(
+                {
+                    "type": "record",
+                    "name": "Carrier",
+                    "namespace": "n",
+                    "fields": [
+                        {
+                            "name": "foo_bar",
+                            "type": ["long", "int"],
+                        },
+                        {
+                            "name": "foobar",
+                            "type": ["long", "int"],
+                        },
+                    ],
+                },
+                symbol_collision_path,
+                package_name="rust-plan-symbol-collision",
+                avro_annotation=False,
+            )
+        self.assertFalse(os.path.exists(symbol_collision_path))
+
     def test_generated_alias_is_replaced_on_regeneration(self):
         """Atomically replace stale generated aliases after a moved field."""
         rust_path = os.path.join(
