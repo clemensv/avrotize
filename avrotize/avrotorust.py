@@ -129,7 +129,7 @@ class AvroToRust:
                     type_name = self.convert_avro_type_to_rust(field_name, non_null_types[0], namespace)
             else:
                 type_name = self.generate_union_enum(field_name, avro_type, namespace)
-                if 'null' in avro_type:
+                if self.avro_annotation and 'null' in avro_type:
                     type_name = f'Option<{type_name}>'
         elif isinstance(avro_type, dict):
             if avro_type['type'] in ['record', 'enum']:

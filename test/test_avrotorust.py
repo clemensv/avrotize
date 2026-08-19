@@ -108,6 +108,45 @@ class TestAvroToRust(unittest.TestCase):
                 "issue406/union_only/valueunion.rs",
             },
         )
+        union_holder_path = os.path.join(
+            rust_path,
+            "src",
+            "issue406",
+            "union_only",
+            "unionholder.rs",
+        )
+        with open(union_holder_path, "r", encoding="utf-8") as generated_file:
+            avro_source = generated_file.read()
+        self.assertIn(
+            "pub nullable: Option<crate::issue406::union_only::nullableunion::NullableUnion>",
+            avro_source,
+        )
+
+        legacy_field = (
+            "pub nullable: "
+            "crate::issue406::union_only::nullableunion::NullableUnion"
+        )
+        for serde_annotation in (False, True):
+            compatible_path = self.run_convert_to_rust(
+                "rust-union-annotation",
+                False,
+                serde_annotation,
+            )
+            compatible_holder_path = os.path.join(
+                compatible_path,
+                "src",
+                "issue406",
+                "union_only",
+                "unionholder.rs",
+            )
+            with open(
+                compatible_holder_path,
+                "r",
+                encoding="utf-8",
+            ) as generated_file:
+                compatible_source = generated_file.read()
+            self.assertIn(legacy_field, compatible_source)
+            self.assertNotIn("pub nullable: Option<", compatible_source)
 
     def test_convert_multitype_avro_annotations_to_rust(self):
         """Compile records, enums, and unions that each define SCHEMA in one crate."""
