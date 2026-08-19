@@ -1265,7 +1265,7 @@ class AvroToRust:
         ]
         union_types = [
             self.convert_avro_type_to_rust(
-                field_name + "Option" + str(i),
+                field_name + "Option" + str(source_index),
                 avro_branch,
                 namespace,
                 path=(path or []) + [('branch', str(source_index))],
@@ -1722,7 +1722,7 @@ class AvroToRust:
         if not isinstance(schema, list):
             schema = [schema]
         self.index_avro_named_types(schema)
-        self.validate_rust_type_paths()
+        self.validate_rust_generation_plan(schema)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
@@ -1734,52 +1734,162 @@ class AvroToRust:
         self.write_xml_support_rs()
         self.write_lib_rs()
 
-    def validate_rust_type_paths(self):
-        """Rejects canonical Avro names that normalize to one Rust path."""
-        rust_paths = {}
-        for fullname in sorted(self.avro_named_types):
-            node = self.avro_named_types[fullname]
-            if node.get('type') not in ('record', 'enum'):
-                continue
-            namespace, _, short_name = fullname.rpartition('.')
-            rust_name = self.safe_identifier(pascal(short_name))
-            namespace_parts = (
-                tuple(part.lower() for part in namespace.split('.'))
-                if namespace else ()
-            )
-            if 'mod' in namespace_parts:
+    def validate_rust_generation_plan(self, schema: JsonNode):
+        """Validates every planned Rust source path before creating output."""
+        planned = {}
+        alias_candidates = {}
+        visited_named = set()
+
+        def add(path, description):
+            path = tuple(part.lower() for part in path)
+            existing = planned.get(path)
+            if existing is not None and existing != description:
+                path_text = '::'.join(path)
                 raise ValueError(
-                    'Avro named type namespace collides with generated Rust '
-                    f"mod.rs path: '{fullname}'"
+                    'Rust generation plan has an exact path collision at '
+                    f"'{path_text}': '{existing}' and '{description}'"
                 )
-            if namespace_parts and namespace_parts[0] == 'lib':
-                raise ValueError(
-                    'Avro named type namespace collides with generated Rust '
-                    f"lib.rs path: '{fullname}'"
+            planned[path] = description
+
+        def visit(node, namespace='', path=None, field_name=''):
+            if isinstance(node, str):
+                return
+            if isinstance(node, list):
+                if is_generic_avro_type(node):
+                    return
+                non_null = [
+                    (index, item)
+                    for index, item in enumerate(node)
+                    if item != 'null'
+                ]
+                if len(non_null) > 1:
+                    union_name = (
+                        self.union_name_from_path(
+                            path or [('field', field_name)]
+                        )
+                        if self.avro_annotation
+                        else pascal(field_name) + 'Union'
+                    )
+                    namespace_parts = (
+                        tuple(namespace.lower().split('.'))
+                        if namespace else ()
+                    )
+                    union_output_path = (
+                        namespace_parts + (union_name.lower(),)
+                    )
+                    if (
+                        self.avro_annotation
+                        or union_output_path not in planned
+                    ):
+                        add(
+                            union_output_path,
+                            f"generated union {union_name} at "
+                            f"{path or [('field', field_name)]}",
+                        )
+                    if self.avro_annotation:
+                        legacy_name = pascal(field_name) + 'Union'
+                        alias_candidates.setdefault(
+                            (namespace_parts, legacy_name.lower()),
+                            set(),
+                        ).add(union_name)
+                    for source_index, branch in non_null:
+                        visit(
+                            branch,
+                            namespace,
+                            (path or []) + [
+                                ('branch', str(source_index))
+                            ],
+                            field_name + 'Option' + str(source_index),
+                        )
+                elif len(non_null) == 1:
+                    visit(
+                        non_null[0][1],
+                        namespace,
+                        path,
+                        field_name,
+                    )
+                return
+            if not isinstance(node, dict):
+                return
+
+            node_type = node.get('type')
+            if node_type in ('record', 'enum', 'fixed') and node.get('name'):
+                fullname, node_namespace, short_name = (
+                    self.canonical_avro_name(
+                        node['name'],
+                        node.get('namespace', namespace),
+                    )
                 )
-            normalized_path = (
-                namespace_parts + (rust_name.lower(),)
-            )
-            if normalized_path[-1] == 'mod':
-                path_text = '::'.join(normalized_path)
-                raise ValueError(
-                    'Avro named type collides with generated Rust mod.rs '
-                    f"path '{path_text}': '{fullname}'"
+                namespace = node_namespace
+                if node_type in ('record', 'enum'):
+                    namespace_parts = (
+                        tuple(namespace.lower().split('.'))
+                        if namespace else ()
+                    )
+                    add(
+                        namespace_parts + (
+                            self.safe_identifier(
+                                pascal(short_name)
+                            ).lower(),
+                        ),
+                        f"named type {fullname}",
+                    )
+                if fullname in visited_named:
+                    return
+                visited_named.add(fullname)
+                if node_type == 'record':
+                    record_path = path or [('record', fullname)]
+                    for field in node.get('fields', []):
+                        visit(
+                            field.get('type'),
+                            namespace,
+                            record_path + [
+                                ('field', field['name'])
+                            ],
+                            self.safe_identifier(snake(field['name'])),
+                        )
+                return
+            if node_type == 'array':
+                visit(
+                    node.get('items'),
+                    namespace,
+                    (path or []) + [('array', 'items')],
+                    field_name,
                 )
-            if normalized_path == ('lib',):
-                raise ValueError(
-                    'Avro named type collides with generated Rust lib.rs '
-                    f"path 'lib': '{fullname}'"
+            elif node_type == 'map':
+                visit(
+                    node.get('values'),
+                    namespace,
+                    (path or []) + [('map', 'values')],
+                    field_name,
                 )
-            existing = rust_paths.get(normalized_path)
-            if existing is not None and existing != fullname:
-                path_text = '::'.join(str(part) for part in normalized_path)
-                raise ValueError(
-                    'Avro named types normalize to the same Rust path '
-                    f"'{path_text}': '{existing}' and '{fullname}'"
+            elif isinstance(node_type, (dict, list)):
+                visit(node_type, namespace, path, field_name)
+
+        for top_level in schema:
+            visit(top_level)
+
+        if self.avro_annotation:
+            for (namespace_parts, alias_name), targets in sorted(
+                alias_candidates.items()
+            ):
+                if len(targets) == 1:
+                    add(
+                        namespace_parts + (alias_name,),
+                        f"legacy union alias {alias_name}",
+                    )
+
+        source_paths = list(planned)
+        add(('lib',), 'generated infrastructure lib.rs')
+        for source_path in source_paths:
+            for length in range(1, len(source_path)):
+                add(
+                    source_path[:length] + ('mod',),
+                    'generated infrastructure mod.rs for '
+                    + '::'.join(source_path[:length]),
                 )
-            rust_paths[normalized_path] = fullname
-        normalized_paths = sorted(rust_paths)
+
+        normalized_paths = sorted(planned)
         for file_path, other_path in zip(
             normalized_paths,
             normalized_paths[1:],
@@ -1787,13 +1897,12 @@ class AvroToRust:
             if len(file_path) < len(other_path) and (
                 other_path[:len(file_path)] == file_path
             ):
-                file_name = rust_paths[file_path]
-                directory_name = rust_paths[other_path]
                 path_text = '::'.join(file_path)
                 raise ValueError(
-                    'Avro named types require the same normalized Rust '
-                    f"path '{path_text}' as both a file and directory: "
-                    f"'{file_name}' and '{directory_name}'"
+                    'Rust generation plan requires the same path '
+                    f"'{path_text}' as both a file and directory: "
+                    f"'{planned[file_path]}' and "
+                    f"'{planned[other_path]}'"
                 )
 
     def convert(self, avro_schema_path: str, output_dir: str):

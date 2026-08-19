@@ -131,6 +131,48 @@
             ]
         },
         {
+            "name": "nullFirst",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": [
+                        "long",
+                        "int"
+                    ]
+                },
+                "string"
+            ]
+        },
+        {
+            "name": "nullMiddle",
+            "type": [
+                {
+                    "type": "array",
+                    "items": [
+                        "long",
+                        "int"
+                    ]
+                },
+                "null",
+                "string"
+            ]
+        },
+        {
+            "name": "nullLast",
+            "type": [
+                {
+                    "type": "array",
+                    "items": [
+                        "long",
+                        "int"
+                    ]
+                },
+                "string",
+                "null"
+            ]
+        },
+        {
             "name": "fixedChoice",
             "type": [
                 {

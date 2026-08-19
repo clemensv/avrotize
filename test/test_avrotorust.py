@@ -150,7 +150,7 @@ class TestAvroToRust(unittest.TestCase):
         ]
         with self.assertRaisesRegex(
             ValueError,
-            r"same Rust path.*Foo\.Item.*foo\.Item",
+            r"exact path collision.*Foo\.Item.*foo\.Item",
         ):
             convert_avro_schema_to_rust(
                 schema,
@@ -169,7 +169,7 @@ class TestAvroToRust(unittest.TestCase):
             shutil.rmtree(type_case_path, ignore_errors=True)
         with self.assertRaisesRegex(
             ValueError,
-            r"same Rust path.*foo\.ITEM.*foo\.Item",
+            r"exact path collision.*foo\.Item.*foo\.ITEM",
         ):
             convert_avro_schema_to_rust(
                 [
@@ -257,7 +257,10 @@ class TestAvroToRust(unittest.TestCase):
         ]
         cases = [[schema] for schema in schemas]
         cases.extend((schemas, list(reversed(schemas))))
-        for index, schema in enumerate(cases):
+        ordered_cases = []
+        for schema in cases:
+            ordered_cases.extend((schema, list(reversed(schema))))
+        for index, schema in enumerate(ordered_cases):
             rust_path = os.path.join(
                 tempfile.gettempdir(),
                 "avrotize",
@@ -267,7 +270,9 @@ class TestAvroToRust(unittest.TestCase):
                 shutil.rmtree(rust_path, ignore_errors=True)
             with self.assertRaisesRegex(
                 ValueError,
-                r"generated Rust (mod|lib)\.rs",
+                r"(generation plan has an exact path collision|"
+                r"generation plan requires the same path|"
+                r"generated Rust (mod|lib)\.rs)",
             ):
                 convert_avro_schema_to_rust(
                     schema,
@@ -276,6 +281,143 @@ class TestAvroToRust(unittest.TestCase):
                     avro_annotation=True,
                 )
             self.assertFalse(os.path.exists(rust_path))
+
+    def test_generated_union_and_alias_paths_fail_before_output(self):
+        """Preflight generated union and legacy alias path collisions."""
+        converter = AvroToRust()
+        union_name = converter.union_name_from_path([
+            ('record', 'n.Carrier'),
+            ('field', 'choice'),
+        ])
+        cases = [
+            [
+                {
+                    "type": "record",
+                    "name": union_name,
+                    "namespace": "n",
+                    "fields": [],
+                },
+                {
+                    "type": "record",
+                    "name": "Carrier",
+                    "namespace": "n",
+                    "fields": [
+                        {
+                            "name": "choice",
+                            "type": ["long", "int"],
+                        }
+                    ],
+                },
+            ],
+            [
+                {
+                    "type": "record",
+                    "name": "FooUnion",
+                    "namespace": "n",
+                    "fields": [],
+                },
+                {
+                    "type": "record",
+                    "name": "Carrier",
+                    "namespace": "n",
+                    "fields": [
+                        {
+                            "name": "foo",
+                            "type": ["long", "int"],
+                        }
+                    ],
+                },
+            ],
+        ]
+        for index, schema in enumerate(cases):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                f"rust-planned-path-collision-{index}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            with self.assertRaisesRegex(
+                ValueError,
+                r"generation plan has an exact path collision",
+            ):
+                convert_avro_schema_to_rust(
+                    schema,
+                    rust_path,
+                    package_name="rust-planned-path-collision",
+                    avro_annotation=True,
+                )
+            self.assertFalse(os.path.exists(rust_path))
+
+    def test_generation_plan_matches_annotation_mode(self):
+        """Plan hash unions only for Avro and legacy names otherwise."""
+        converter = AvroToRust()
+        hash_name = converter.union_name_from_path([
+            ('record', 'n.Carrier'),
+            ('field', 'choice'),
+        ])
+        hash_schema = [
+            {
+                "type": "record",
+                "name": hash_name,
+                "namespace": "n",
+                "fields": [],
+            },
+            {
+                "type": "record",
+                "name": "Carrier",
+                "namespace": "n",
+                "fields": [
+                    {
+                        "name": "choice",
+                        "type": ["long", "int"],
+                    }
+                ],
+            },
+        ]
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-plan-non-avro-hash",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            hash_schema,
+            rust_path,
+            package_name="rust-plan-non-avro-hash",
+            avro_annotation=False,
+        )
+        self.assertTrue(os.path.exists(rust_path))
+
+        collision_schema = [
+            {
+                "type": "record",
+                "name": record_name,
+                "namespace": "n",
+                "fields": [
+                    {
+                        "name": "choice",
+                        "type": ["long", "int"],
+                    }
+                ],
+            }
+            for record_name in ("One", "Two")
+        ]
+        collision_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-plan-non-avro-collision",
+        )
+        if os.path.exists(collision_path):
+            shutil.rmtree(collision_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            collision_schema,
+            collision_path,
+            package_name="rust-plan-non-avro-collision",
+            avro_annotation=False,
+        )
+        self.assertTrue(os.path.exists(collision_path))
 
         root_schemas = [
             {
@@ -302,7 +444,7 @@ class TestAvroToRust(unittest.TestCase):
                 shutil.rmtree(rust_path, ignore_errors=True)
             with self.assertRaisesRegex(
                 ValueError,
-                r"both a file and directory.*'B'.*'b\.C'",
+                r"both a file and directory.*named type B.*named type b\.C",
             ):
                 convert_avro_schema_to_rust(
                     schema,
@@ -547,7 +689,7 @@ class TestAvroToRust(unittest.TestCase):
         rust_path = self.run_convert_to_rust("rust-union-annotation", True, True)
         self.assert_module_scoped_schemas(
             rust_path,
-            expected_count=10,
+            expected_count=16,
             required_modules={
                 "issue406/union_only/nestedholder.rs",
                 "issue406/union_only/unionholder.rs",
@@ -584,6 +726,9 @@ class TestAvroToRust(unittest.TestCase):
         ) as legacy_test:
             legacy_test.write(
                 "use rust_union_annotation::issue406::union_only::{\n"
+                "    nullfirstoption1union::NullFirstoption1Union,\n"
+                "    nulllastoption0union::NullLastoption0Union,\n"
+                "    nullmiddleoption0union::NullMiddleoption0Union,\n"
                 "    nullableunion::NullableUnion,\n"
                 "    unionholder::UnionHolder,\n"
                 "};\n\n"
@@ -594,6 +739,9 @@ class TestAvroToRust(unittest.TestCase):
                 "        ..Default::default()\n"
                 "    };\n"
                 "    assert!(matches!(holder.nullable, NullableUnion::String(_)));\n"
+                "    let _ = NullFirstoption1Union::default();\n"
+                "    let _ = NullMiddleoption0Union::default();\n"
+                "    let _ = NullLastoption0Union::default();\n"
                 "}\n"
             )
         assert subprocess.check_call(
@@ -635,20 +783,16 @@ class TestAvroToRust(unittest.TestCase):
         rust_path = self.run_convert_to_rust("rust-multitype-annotations", True, True)
         schema_modules = self.assert_module_scoped_schemas(
             rust_path,
-            expected_count=34,
+            expected_count=28,
             required_modules={
                 "issue406/multitype/alternate.rs",
-                "issue406/multitype/aliascarrier.rs",
-                "issue406/multitype/aliasnamespacecarrier.rs",
                 "issue406/multitype/collisionone.rs",
                 "issue406/multitype/collisiontwo.rs",
                 "issue406/multitype/composite.rs",
                 "issue406/multitype/foo.rs",
-                "issue406/multitype/foounion/nested.rs",
                 "issue406/multitype/foobar.rs",
                 "issue406/multitype/inlinekind.rs",
                 "issue406/multitype/simple.rs",
-                "issue406/multitype/solounion.rs",
                 "issue406/multitype/standalone.rs",
                 "issue406/multitype/syntheticpaths.rs",
                 "issue406/multitype/twina.rs",
@@ -661,27 +805,7 @@ class TestAvroToRust(unittest.TestCase):
             module for module in schema_modules
             if os.path.basename(module).startswith("union")
         }
-        self.assertEqual(16, len(union_modules))
-        solo_union_path = os.path.join(
-            rust_path,
-            "src",
-            "issue406",
-            "multitype",
-            "solounion.rs",
-        )
-        with open(solo_union_path, "r", encoding="utf-8") as generated_file:
-            self.assertIn("pub struct SoloUnion", generated_file.read())
-        self.assertFalse(
-            os.path.isfile(
-                os.path.join(
-                    rust_path,
-                    "src",
-                    "issue406",
-                    "multitype",
-                    "foounion.rs",
-                )
-            )
-        )
+        self.assertEqual(14, len(union_modules))
 
     def test_convert_named_reference_resolution_to_rust(self):
         """Resolve dotted names and duplicate short names by namespace."""
