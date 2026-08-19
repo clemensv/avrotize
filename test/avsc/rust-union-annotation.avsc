@@ -1,0 +1,21 @@
+{
+    "type": "record",
+    "name": "UnionHolder",
+    "namespace": "issue406.union_only",
+    "fields": [
+        {
+            "name": "value",
+            "type": [
+                "string",
+                "long"
+            ]
+        },
+        {
+            "name": "numeric",
+            "type": [
+                "long",
+                "int"
+            ]
+        }
+    ]
+}

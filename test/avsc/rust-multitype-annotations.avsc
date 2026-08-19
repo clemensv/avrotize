@@ -1,0 +1,84 @@
+[
+    {
+        "type": "enum",
+        "name": "Standalone",
+        "namespace": "issue406.multitype",
+        "symbols": [
+            "FIRST",
+            "SECOND"
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Simple",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Alternate",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "count",
+                "type": "long"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Wrapper",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "simple",
+                "type": "issue406.multitype.Simple"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Composite",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "kind",
+                "type": {
+                    "type": "enum",
+                    "name": "InlineKind",
+                    "symbols": [
+                        "TEXT",
+                        "NUMBER"
+                    ]
+                }
+            },
+            {
+                "name": "value",
+                "type": [
+                    "string",
+                    "long"
+                ]
+            },
+            {
+                "name": "choice",
+                "type": [
+                    "issue406.multitype.Simple",
+                    "issue406.multitype.Wrapper"
+                ]
+            },
+            {
+                "name": "primary",
+                "type": "issue406.multitype.Simple"
+            },
+            {
+                "name": "secondary",
+                "type": "issue406.multitype.Simple"
+            }
+        ]
+    }
+]

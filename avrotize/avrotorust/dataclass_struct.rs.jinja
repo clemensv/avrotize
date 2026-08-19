@@ -135,8 +135,8 @@ impl {{ struct_name }} {
         {%- if avro_annotation %}
         if media_type.starts_with("avro/binary") || 
            media_type.starts_with("application/vnd.apache.avro+avro") {
-            let value = apache_avro::to_value(self).unwrap();
-            result = apache_avro::to_avro_datum(&SCHEMA, value).unwrap();
+            let value = apache_avro::to_value(self)?.resolve(&SCHEMA)?;
+            result = apache_avro::to_avro_datum(&SCHEMA, value)?;
         }
         else {% endif -%}
         {
@@ -243,8 +243,8 @@ impl {{ struct_name }} {
         {%- if avro_annotation %}
         if media_type.starts_with("avro/binary") || 
            media_type.starts_with("application/vnd.apache.avro+avro") {
-            let value = apache_avro::from_avro_datum(&SCHEMA, &mut &data[..], None).unwrap();
-            return Ok(apache_avro::from_value(&value).unwrap());
+            let value = apache_avro::from_avro_datum(&SCHEMA, &mut &data[..], None)?;
+            return Ok(apache_avro::from_value(&value)?);
         }
         {%- endif %}
         Err(format!("unsupported media type: {}", media_type).into())

@@ -175,6 +175,102 @@ class AvroToRust:
         elif isinstance(node_type, (dict, list)):
             self.index_avro_named_types(node_type, namespace)
 
+    def inline_avro_references(
+        self,
+        node,
+        namespace='',
+        resolving=None,
+        defined_names=None,
+    ):
+        """Inline named types so each generated module owns a self-contained schema."""
+        resolving = set() if resolving is None else resolving
+        defined_names = set() if defined_names is None else defined_names
+        if isinstance(node, str):
+            qualified_name = f"{namespace}.{node}" if namespace and '.' not in node else node
+            resolved = self.avro_named_types.get(qualified_name) or self.avro_named_types.get(node)
+            if not resolved:
+                return node
+            resolved_namespace = resolved.get('namespace', namespace)
+            full_name = (
+                f"{resolved_namespace}.{resolved['name']}"
+                if resolved_namespace else resolved['name']
+            )
+            if full_name in resolving:
+                return full_name
+            if full_name in defined_names:
+                return full_name
+            defined_names.add(full_name)
+            return self.inline_avro_references(
+                resolved,
+                resolved_namespace,
+                resolving | {full_name},
+                defined_names,
+            )
+        if isinstance(node, list):
+            return [
+                self.inline_avro_references(
+                    item,
+                    namespace,
+                    resolving,
+                    defined_names,
+                )
+                for item in node
+            ]
+        if not isinstance(node, dict):
+            return node
+
+        result = dict(node)
+        node_type = node.get('type')
+        current_namespace = node.get('namespace', namespace)
+        current_resolving = resolving
+        if node_type in ('record', 'enum', 'fixed') and node.get('name'):
+            if current_namespace and 'namespace' not in result:
+                result['namespace'] = current_namespace
+            full_name = (
+                f"{current_namespace}.{node['name']}"
+                if current_namespace else node['name']
+            )
+            if full_name in defined_names and full_name not in resolving:
+                return full_name
+            defined_names.add(full_name)
+            current_resolving = resolving | {full_name}
+
+        if node_type == 'record':
+            result['fields'] = [
+                {
+                    **field,
+                    'type': self.inline_avro_references(
+                        field.get('type'),
+                        current_namespace,
+                        current_resolving,
+                        defined_names,
+                    ),
+                }
+                for field in node.get('fields', [])
+            ]
+        elif node_type == 'array':
+            result['items'] = self.inline_avro_references(
+                node.get('items'),
+                current_namespace,
+                current_resolving,
+                defined_names,
+            )
+        elif node_type == 'map':
+            result['values'] = self.inline_avro_references(
+                node.get('values'),
+                current_namespace,
+                current_resolving,
+                defined_names,
+            )
+        elif isinstance(node_type, (dict, list)):
+            result['type'] = self.inline_avro_references(
+                node_type,
+                current_namespace,
+                current_resolving,
+                defined_names,
+            )
+        return result
+
     def collect_xml_field_metadata(
         self, avro_type
     ) -> tuple[
@@ -292,7 +388,9 @@ class AvroToRust:
         qualified_struct_name = self.safe_package(self.concat_package(ns, struct_name))
         if not 'namespace' in avro_schema:
             avro_schema['namespace'] = parent_namespace
-        avro_schema_str = json.dumps(avro_schema)        
+        avro_schema_str = json.dumps(
+            self.inline_avro_references(avro_schema, parent_namespace)
+        )
         avro_schema_str = avro_schema_str.replace('"', '§')
         avro_schema_str = f"\",\n{INDENT*2}\"".join(
             [avro_schema_str[i:i+80] for i in range(0, len(avro_schema_str), 80)])
@@ -399,7 +497,9 @@ class AvroToRust:
         
         if not 'namespace' in avro_schema:
             avro_schema['namespace'] = parent_namespace
-        avro_schema_str = json.dumps(avro_schema)
+        avro_schema_str = json.dumps(
+            self.inline_avro_references(avro_schema, parent_namespace)
+        )
         avro_schema_str = avro_schema_str.replace('"', '§')
         avro_schema_str = f"\",\n{INDENT*2}\"".join(
             [avro_schema_str[i:i+80] for i in range(0, len(avro_schema_str), 80)])
@@ -431,12 +531,21 @@ class AvroToRust:
         ns = namespace.replace('.', '::').lower()
         union_enum_name = pascal(field_name) + 'Union'
         union_types = [self.convert_avro_type_to_rust(field_name + "Option" + str(i), t, namespace) for i, t in enumerate(avro_type) if t != 'null']
+        avro_schema_str = json.dumps(
+            self.inline_avro_references(avro_type, namespace)
+        )
+        avro_schema_str = avro_schema_str.replace('"', '§')
+        avro_schema_str = f"\",\n{INDENT*2}\"".join(
+            [avro_schema_str[i:i+80] for i in range(0, len(avro_schema_str), 80)])
+        avro_schema_str = avro_schema_str.replace('§', '\\"')
+        avro_schema_str = f"concat!(\"{avro_schema_str}\")"
         
         # Track seen predicates to identify structurally identical variants
         seen_predicates: set = set()
         # Track seen variant names to deduplicate
         seen_names: dict = {}
         union_fields = []
+        avro_indexes = [i for i, t in enumerate(avro_type) if t != 'null']
         for i, t in enumerate(union_types):
             predicate = self.get_is_json_match_clause(field_name, t, for_union=True)
             # Mark if this is the first variant with this predicate structure
@@ -454,6 +563,7 @@ class AvroToRust:
             union_fields.append({
                 'name': variant_name, 
                 'type': t, 
+                'avro_index': avro_indexes[i],
                 'random_value': self.generate_random_value(t),
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,
@@ -496,6 +606,7 @@ class AvroToRust:
             'union_enum_name': union_enum_name,
             'union_fields': union_fields,
             'xml_string_guards': xml_string_guards,
+            'avro_schema': avro_schema_str,
             'json_match_predicates': [self.get_is_json_match_clause(f['name'], f['type'], for_union=True) for f in union_fields]
         }
 

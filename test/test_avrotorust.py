@@ -34,6 +34,25 @@ class TestAvroToRust(unittest.TestCase):
         convert_avro_to_rust(avro_path, rust_path, package_name=name, avro_annotation=avro_annotation, serde_annotation=serde_annotation)
         assert subprocess.check_call(
             ['cargo', 'test'], cwd=rust_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.CARGO_TIMEOUT) == 0
+        return rust_path
+
+    def assert_module_scoped_schemas(self, rust_path: str, expected_modules: set[str]):
+        """Assert each expected generated module owns one module-scoped SCHEMA."""
+        schema_modules = set()
+        for root, _, files in os.walk(os.path.join(rust_path, "src")):
+            for file_name in files:
+                if not file_name.endswith(".rs"):
+                    continue
+                file_path = os.path.join(root, file_name)
+                with open(file_path, "r", encoding="utf-8") as generated_file:
+                    source = generated_file.read()
+                if "pub static ref SCHEMA" not in source:
+                    continue
+                relative_path = os.path.relpath(file_path, os.path.join(rust_path, "src"))
+                schema_modules.add(relative_path.replace(os.sep, "/"))
+                self.assertEqual(1, source.count("pub static ref SCHEMA"))
+                self.assertIn("\nlazy_static! {\n", source)
+        self.assertEqual(expected_modules, schema_modules)
         
     def test_convert_address_avsc_to_rust(self):
         """ Test converting an address.avsc file to Rust """
@@ -63,6 +82,43 @@ class TestAvroToRust(unittest.TestCase):
         self.run_convert_to_rust("telemetry", True, False)
         self.run_convert_to_rust("telemetry", False, True)
         self.run_convert_to_rust("telemetry", False, False)
+
+    def test_convert_enum_avro_annotations_to_rust(self):
+        """Compile an enum-only crate with module-scoped Avro schema support."""
+        rust_path = self.run_convert_to_rust("rust-enum-annotation", True, True)
+        self.assert_module_scoped_schemas(
+            rust_path,
+            {"issue406/enum_only/status.rs"},
+        )
+
+    def test_convert_union_avro_annotations_to_rust(self):
+        """Compile a union-bearing crate with Avro binary round-trip coverage."""
+        rust_path = self.run_convert_to_rust("rust-union-annotation", True, True)
+        self.assert_module_scoped_schemas(
+            rust_path,
+            {
+                "issue406/union_only/numericunion.rs",
+                "issue406/union_only/unionholder.rs",
+                "issue406/union_only/valueunion.rs",
+            },
+        )
+
+    def test_convert_multitype_avro_annotations_to_rust(self):
+        """Compile records, enums, and unions that each define SCHEMA in one crate."""
+        rust_path = self.run_convert_to_rust("rust-multitype-annotations", True, True)
+        self.assert_module_scoped_schemas(
+            rust_path,
+            {
+                "issue406/multitype/alternate.rs",
+                "issue406/multitype/composite.rs",
+                "issue406/multitype/choiceunion.rs",
+                "issue406/multitype/inlinekind.rs",
+                "issue406/multitype/simple.rs",
+                "issue406/multitype/standalone.rs",
+                "issue406/multitype/valueunion.rs",
+                "issue406/multitype/wrapper.rs",
+            },
+        )
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust(self):
         """ Test converting a jfrog-pipelines.json file to Rust """
