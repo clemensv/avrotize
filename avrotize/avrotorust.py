@@ -137,7 +137,17 @@ class AvroToRust:
             non_null_types = [t for t in avro_type if t != 'null']
             if len(non_null_types) == 1:
                 if isinstance(non_null_types[0], str):
-                    type_name = self.map_primitive_to_rust(non_null_types[0], True)
+                    inner_type = self.convert_avro_type_to_rust(
+                        field_name,
+                        non_null_types[0],
+                        namespace,
+                        path=path,
+                    )
+                    type_name = (
+                        inner_type
+                        if inner_type.startswith('Option<')
+                        else f'Option<{inner_type}>'
+                    )
                 else:
                     type_name = self.convert_avro_type_to_rust(
                         field_name,
@@ -1714,10 +1724,11 @@ class AvroToRust:
         """Converts Avro schema to Rust"""
         if not isinstance(schema, list):
             schema = [schema]
+        self.index_avro_named_types(schema)
+        self.validate_rust_type_paths()
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
-        self.index_avro_named_types(schema)
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema)
 
@@ -1725,6 +1736,28 @@ class AvroToRust:
         self.write_cargo_toml()
         self.write_xml_support_rs()
         self.write_lib_rs()
+
+    def validate_rust_type_paths(self):
+        """Rejects canonical Avro names that normalize to one Rust path."""
+        rust_paths = {}
+        for fullname in sorted(self.avro_named_types):
+            node = self.avro_named_types[fullname]
+            if node.get('type') not in ('record', 'enum'):
+                continue
+            namespace, _, short_name = fullname.rpartition('.')
+            rust_name = self.safe_identifier(pascal(short_name))
+            normalized_path = (
+                tuple(part.lower() for part in namespace.split('.'))
+                + (rust_name.lower(),)
+            )
+            existing = rust_paths.get(normalized_path)
+            if existing is not None and existing != fullname:
+                path_text = '::'.join(str(part) for part in normalized_path)
+                raise ValueError(
+                    'Avro named types normalize to the same Rust path '
+                    f"'{path_text}': '{existing}' and '{fullname}'"
+                )
+            rust_paths[normalized_path] = fullname
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Rust"""

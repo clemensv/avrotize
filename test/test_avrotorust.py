@@ -125,6 +125,73 @@ class TestAvroToRust(unittest.TestCase):
             ),
         )
 
+    def test_case_distinct_avro_names_fail_before_output(self):
+        """Reject Avro names that normalize to one Rust module path."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-case-collision",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        schema = [
+            {
+                "type": "record",
+                "name": "Item",
+                "namespace": "Foo",
+                "fields": [],
+            },
+            {
+                "type": "record",
+                "name": "Item",
+                "namespace": "foo",
+                "fields": [],
+            },
+        ]
+        with self.assertRaisesRegex(
+            ValueError,
+            r"same Rust path.*Foo\.Item.*foo\.Item",
+        ):
+            convert_avro_schema_to_rust(
+                schema,
+                rust_path,
+                package_name="rust-case-collision",
+                avro_annotation=True,
+            )
+        self.assertFalse(os.path.exists(rust_path))
+
+        type_case_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-type-case-collision",
+        )
+        if os.path.exists(type_case_path):
+            shutil.rmtree(type_case_path, ignore_errors=True)
+        with self.assertRaisesRegex(
+            ValueError,
+            r"same Rust path.*foo\.ITEM.*foo\.Item",
+        ):
+            convert_avro_schema_to_rust(
+                [
+                    {
+                        "type": "record",
+                        "name": "Item",
+                        "namespace": "foo",
+                        "fields": [],
+                    },
+                    {
+                        "type": "record",
+                        "name": "ITEM",
+                        "namespace": "foo",
+                        "fields": [],
+                    },
+                ],
+                type_case_path,
+                package_name="rust-type-case-collision",
+                avro_annotation=True,
+            )
+        self.assertFalse(os.path.exists(type_case_path))
+
     def test_rust_module_output_is_hash_seed_deterministic(self):
         """Sort generated module declarations independently of hash seed."""
         outputs = []

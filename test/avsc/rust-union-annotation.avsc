@@ -117,6 +117,20 @@
             "type": "issue406.union_only.DirectFixedTen"
         },
         {
+            "name": "optionalFixedRef",
+            "type": [
+                "null",
+                "DirectFixedTen"
+            ]
+        },
+        {
+            "name": "optionalQualifiedFixedRef",
+            "type": [
+                "null",
+                "issue406.union_only.DirectFixedTen"
+            ]
+        },
+        {
             "name": "fixedChoice",
             "type": [
                 {
