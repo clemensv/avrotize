@@ -142,6 +142,9 @@ impl {{ struct_name }} {
     pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let result: Vec<u8>;
         let media_type = content_type.split(';').next().unwrap_or("");
+        let (base_media_type, gzip) = media_type
+            .strip_suffix("+gzip")
+            .map_or((media_type, false), |base| (base, true));
         {%- if serde_annotation %}
         if media_type.starts_with("application/json") {
             result = serde_json::to_vec(self)?;
@@ -158,8 +161,8 @@ impl {{ struct_name }} {
         }
         else {% endif -%}
         {%- if avro_annotation %}
-        if media_type.starts_with("avro/binary") || 
-           media_type.starts_with("application/vnd.apache.avro+avro") {
+        if base_media_type == "avro/binary" ||
+           base_media_type == "application/vnd.apache.avro+avro" {
             let value = apache_avro::to_value(self)?.resolve(&SCHEMA)?;
             result = apache_avro::to_avro_datum(&SCHEMA, value)?;
         }
@@ -167,7 +170,7 @@ impl {{ struct_name }} {
         {
             return Err(format!("unsupported media type: {}", media_type).into())
         }
-        if media_type.ends_with("+gzip") {
+        if gzip {
             let mut encoder = GzEncoder::new(Vec::new(), flate2::Compression::default());
             encoder.write_all(&result)?;
             let gzipresult = encoder.finish()?;
@@ -182,16 +185,19 @@ impl {{ struct_name }} {
     /// Deserializes the struct from a byte array based on the provided content type
     pub fn from_data(data: impl AsRef<[u8]>, content_type: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let media_type = content_type.split(';').next().unwrap_or("");
+        let (base_media_type, gzip) = media_type
+            .strip_suffix("+gzip")
+            .map_or((media_type, false), |base| (base, true));
         {%- if xml_annotation %}
         let is_xml = media_type.starts_with("application/xml") ||
                      media_type.starts_with("text/xml");
         let data = crate::xml_support::decode_data(
             data.as_ref(),
-            media_type.ends_with("+gzip"),
+            gzip,
             is_xml,
         )?;
         {%- else %}
-        let data = if media_type.ends_with("+gzip") {
+        let data = if gzip {
             let mut decoder = GzDecoder::new(data.as_ref());
             let mut decompressed_data = Vec::new();
             std::io::copy(&mut decoder, &mut decompressed_data)?;
@@ -266,8 +272,8 @@ impl {{ struct_name }} {
         }
         {%- endif %}
         {%- if avro_annotation %}
-        if media_type.starts_with("avro/binary") || 
-           media_type.starts_with("application/vnd.apache.avro+avro") {
+        if base_media_type == "avro/binary" ||
+           base_media_type == "application/vnd.apache.avro+avro" {
             let value = apache_avro::from_avro_datum(&SCHEMA, &mut &data[..], None)?;
             return Self::from_avro_value(&value);
         }
@@ -359,6 +365,10 @@ mod tests {
         let avro_gzip_bytes = instance.to_byte_array("avro/binary+gzip").unwrap();
         let deserialized_avro_gzip_instance: {{ struct_name }} = {{ struct_name }}::from_data(&avro_gzip_bytes, "avro/binary+gzip").unwrap();
         assert_eq!(instance, deserialized_avro_gzip_instance);
+        assert!(instance.to_byte_array("avro/binary-invalid").is_err());
+        assert!(instance.to_byte_array("application/vnd.apache.avro+avroevil").is_err());
+        assert!({{ struct_name }}::from_data([], "avro/binary-invalid").is_err());
+        assert!({{ struct_name }}::from_data([], "application/vnd.apache.avro+avroevil").is_err());
         {%- if fields | selectattr("is_optional") | list | length > 0 %}
         let mut nullable_instance = {{ struct_name }}::generate_random_instance();
         {%- for field in fields %}

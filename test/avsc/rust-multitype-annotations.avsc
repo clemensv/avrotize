@@ -80,5 +80,61 @@
                 "type": "issue406.multitype.Simple"
             }
         ]
+    },
+    {
+        "type": "record",
+        "name": "CollisionOne",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "choice",
+                "type": [
+                    "long",
+                    "int"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "CollisionTwo",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "choice",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Foo",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "barBaz",
+                "type": [
+                    "long",
+                    "int"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "FooBar",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "baz",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            }
+        ]
     }
 ]

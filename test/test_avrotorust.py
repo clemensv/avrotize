@@ -106,13 +106,14 @@ class TestAvroToRust(unittest.TestCase):
         self.assert_module_scoped_schemas(
             rust_path,
             {
-                "issue406/union_only/numericunion.rs",
-                "issue406/union_only/arrayvaluesunion.rs",
-                "issue406/union_only/mapvaluesunion.rs",
+                "issue406/union_only/record11unionholdernumericunion.rs",
+                "issue406/union_only/record11unionholderarrayvaluesunion.rs",
+                "issue406/union_only/record11unionholdermapvaluesunion.rs",
                 "issue406/union_only/nestedholder.rs",
-                "issue406/union_only/nullableunion.rs",
+                "issue406/union_only/record12nestedholdernumericunion.rs",
+                "issue406/union_only/record11unionholdernullableunion.rs",
                 "issue406/union_only/unionholder.rs",
-                "issue406/union_only/valueunion.rs",
+                "issue406/union_only/record11unionholdervalueunion.rs",
             },
         )
         union_holder_path = os.path.join(
@@ -125,7 +126,7 @@ class TestAvroToRust(unittest.TestCase):
         with open(union_holder_path, "r", encoding="utf-8") as generated_file:
             avro_source = generated_file.read()
         self.assertIn(
-            "pub nullable: Option<crate::issue406::union_only::nullableunion::NullableUnion>",
+            "pub nullable: Option<crate::issue406::union_only::record11unionholdernullableunion::Record11UnionHolderNullableUnion>",
             avro_source,
         )
 
@@ -162,12 +163,20 @@ class TestAvroToRust(unittest.TestCase):
             rust_path,
             {
                 "issue406/multitype/alternate.rs",
+                "issue406/multitype/collisionone.rs",
+                "issue406/multitype/record12collisiononechoiceunion.rs",
+                "issue406/multitype/collisiontwo.rs",
+                "issue406/multitype/record12collisiontwochoiceunion.rs",
                 "issue406/multitype/composite.rs",
-                "issue406/multitype/choiceunion.rs",
+                "issue406/multitype/record9compositechoiceunion.rs",
+                "issue406/multitype/foo.rs",
+                "issue406/multitype/record3foobarbazunion.rs",
+                "issue406/multitype/foobar.rs",
+                "issue406/multitype/record6foobarbazunion.rs",
                 "issue406/multitype/inlinekind.rs",
                 "issue406/multitype/simple.rs",
                 "issue406/multitype/standalone.rs",
-                "issue406/multitype/valueunion.rs",
+                "issue406/multitype/record9compositevalueunion.rs",
                 "issue406/multitype/wrapper.rs",
             },
         )

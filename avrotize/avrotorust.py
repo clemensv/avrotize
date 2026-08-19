@@ -27,6 +27,7 @@ class AvroToRust:
         self.generated_union_fields: Dict[str, List[Dict]] = {}
         self.generated_struct_avro_test_values: Dict[str, List[str]] = {}
         self.avro_named_types: Dict[str, Dict] = {}
+        self.current_record_name = ''
         self.avro_annotation = False
         self.serde_annotation = False
         self.xml_annotation = False
@@ -384,6 +385,9 @@ class AvroToRust:
 
     def generate_struct(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a Rust struct from an Avro record schema"""
+        struct_name = self.safe_identifier(pascal(avro_schema['name']))
+        previous_record_name = self.current_record_name
+        self.current_record_name = struct_name
         fields = []
         for field in avro_schema.get('fields', []):
             original_field_name = field['name']
@@ -442,7 +446,6 @@ class AvroToRust:
                 'avro_decode': avro_decode,
             })
         
-        struct_name = self.safe_identifier(pascal(avro_schema['name']))
         ns = parent_namespace.replace('.', '::').lower()
         qualified_struct_name = self.safe_package(self.concat_package(ns, struct_name))
         avro_test_instances = []
@@ -515,6 +518,7 @@ class AvroToRust:
 
         self.generated_types_avro_namespace[qualified_struct_name] = "struct"
         self.generated_types_rust_package[qualified_struct_name] = "struct"
+        self.current_record_name = previous_record_name
 
         return qualified_struct_name
 
@@ -845,7 +849,11 @@ class AvroToRust:
     def generate_union_enum(self, field_name: str, avro_type: List, namespace: str) -> str:
         """Generates a union enum for Rust"""
         ns = namespace.replace('.', '::').lower()
-        union_enum_name = pascal(field_name) + 'Union'
+        union_owner = (
+            f'Record{len(self.current_record_name)}{self.current_record_name}'
+            if self.avro_annotation else ''
+        )
+        union_enum_name = union_owner + pascal(field_name) + 'Union'
         union_avro_branches = [
             (source_index, avro_branch)
             for source_index, avro_branch in enumerate(avro_type)
