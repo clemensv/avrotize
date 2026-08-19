@@ -1,5 +1,6 @@
 import json
 import os
+import hashlib
 from typing import Dict, List, Union
 from avrotize.common import (
     is_generic_avro_type,
@@ -27,7 +28,9 @@ class AvroToRust:
         self.generated_union_fields: Dict[str, List[Dict]] = {}
         self.generated_struct_avro_test_values: Dict[str, List[str]] = {}
         self.avro_named_types: Dict[str, Dict] = {}
-        self.current_record_name = ''
+        self.avro_short_names: Dict[str, List[str]] = {}
+        self.avro_type_fullnames: Dict[int, str] = {}
+        self.union_path_identities: Dict[str, str] = {}
         self.avro_annotation = False
         self.serde_annotation = False
         self.xml_annotation = False
@@ -94,7 +97,14 @@ class AvroToRust:
         """Concatenates package and name using a double colon separator"""
         return f"crate::{package.lower()}::{name.lower()}::{name}" if package else name
 
-    def convert_avro_type_to_rust(self, field_name: str, avro_type: Union[str, Dict, List], namespace: str, nullable: bool = False) -> str:
+    def convert_avro_type_to_rust(
+        self,
+        field_name: str,
+        avro_type: Union[str, Dict, List],
+        namespace: str,
+        nullable: bool = False,
+        path=None,
+    ) -> str:
         """Converts Avro type to Rust type"""
         ns = namespace.replace('.', '::').lower()
         type_name = ''
@@ -102,18 +112,14 @@ class AvroToRust:
             if is_any_value_type(avro_type):
                 type_name = self.map_primitive_to_rust(avro_type, nullable)
             else:
-                qualified_avro_name = (
-                    f"{namespace}.{avro_type}"
-                    if namespace and '.' not in avro_type else avro_type
-                )
-                named_type = (
-                    self.avro_named_types.get(qualified_avro_name)
-                    or self.avro_named_types.get(avro_type)
-                )
+                named_type = self.resolve_avro_named_type(avro_type, namespace)
                 if named_type and named_type.get('type') in ('record', 'enum', 'fixed'):
-                    named_namespace = named_type.get('namespace', namespace)
+                    named_fullname = self.avro_type_fullnames[id(named_type)]
+                    named_namespace = named_fullname.rpartition('.')[0]
                     rust_namespace = named_namespace.replace('.', '::').lower()
-                    rust_name = self.safe_identifier(pascal(named_type['name']))
+                    rust_name = self.safe_identifier(
+                        pascal(named_fullname.rsplit('.', 1)[-1])
+                    )
                     type_name = self.safe_package(
                         self.concat_package(rust_namespace, rust_name)
                     )
@@ -124,15 +130,15 @@ class AvroToRust:
                 return 'serde_json::Value' if self.serde_annotation or self.xml_annotation else 'std::collections::HashMap<String, String>'
             non_null_types = [t for t in avro_type if t != 'null']
             if len(non_null_types) == 1:
-                # Rust apache-avro has a bug in the union type handling, so we need to swap the types
-                # if the first type is not null
-                if avro_type[0] != 'null':
-                    avro_type[1] = avro_type[0]
-                    avro_type[0] = 'null'
                 if isinstance(non_null_types[0], str):
                     type_name = self.map_primitive_to_rust(non_null_types[0], True)
                 else:
-                    type_name = self.convert_avro_type_to_rust(field_name, non_null_types[0], namespace)
+                    type_name = self.convert_avro_type_to_rust(
+                        field_name,
+                        non_null_types[0],
+                        namespace,
+                        path=path,
+                    )
                 if (
                     self.avro_annotation
                     and 'null' in avro_type
@@ -140,20 +146,39 @@ class AvroToRust:
                 ):
                     type_name = f'Option<{type_name}>'
             else:
-                type_name = self.generate_union_enum(field_name, avro_type, namespace)
+                type_name = self.generate_union_enum(
+                    field_name,
+                    avro_type,
+                    namespace,
+                    path=path,
+                )
                 if self.avro_annotation and 'null' in avro_type:
                     type_name = f'Option<{type_name}>'
         elif isinstance(avro_type, dict):
             if avro_type['type'] in ['record', 'enum']:
-                type_name = self.generate_class_or_enum(avro_type, namespace)
+                type_name = self.generate_class_or_enum(
+                    avro_type,
+                    namespace,
+                    path=path,
+                )
             elif avro_type['type'] == 'fixed' or avro_type['type'] == 'bytes' and 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'decimal':
                     return 'f64'
             elif avro_type['type'] == 'array':
-                item_type = self.convert_avro_type_to_rust(field_name, avro_type['items'], namespace)
+                item_type = self.convert_avro_type_to_rust(
+                    field_name,
+                    avro_type['items'],
+                    namespace,
+                    path=(path or []) + [('array', 'items')],
+                )
                 return f"Vec<{item_type}>"
             elif avro_type['type'] == 'map':
-                values_type = self.convert_avro_type_to_rust(field_name, avro_type['values'], namespace)
+                values_type = self.convert_avro_type_to_rust(
+                    field_name,
+                    avro_type['values'],
+                    namespace,
+                    path=(path or []) + [('map', 'values')],
+                )
                 return f"std::collections::HashMap<String, {values_type}>"
             elif 'logicalType' in avro_type:
                 if avro_type['logicalType'] == 'date':
@@ -165,22 +190,82 @@ class AvroToRust:
                 elif avro_type['logicalType'] == 'uuid':
                     return 'uuid::Uuid'
             else:
-                type_name = self.convert_avro_type_to_rust(field_name, avro_type['type'], namespace)
+                type_name = self.convert_avro_type_to_rust(
+                    field_name,
+                    avro_type['type'],
+                    namespace,
+                    path=path,
+                )
         if type_name:
             return type_name
         return 'serde_json::Value' if self.serde_annotation or self.xml_annotation else 'std::collections::HashMap<String, String>'
 
-    def generate_class_or_enum(self, avro_schema: Dict, parent_namespace: str = '') -> str:
+    def generate_class_or_enum(
+        self,
+        avro_schema: Dict,
+        parent_namespace: str = '',
+        path=None,
+    ) -> str:
         """Generates a Rust struct or enum from an Avro schema"""
-        namespace = avro_schema.get('namespace', parent_namespace).lower()
+        fullname, namespace, _ = self.canonical_avro_name(
+            avro_schema['name'],
+            avro_schema.get('namespace', parent_namespace),
+        )
+        namespace = namespace.lower()
+        type_path = path or [('record', fullname)]
         if avro_schema['type'] == 'record':
-            return self.generate_struct(avro_schema, namespace)
+            return self.generate_struct(avro_schema, namespace, type_path)
         elif avro_schema['type'] == 'enum':
             return self.generate_enum(avro_schema, namespace)
         return 'serde_json::Value'
 
+    @staticmethod
+    def canonical_avro_name(name: str, namespace: str = ''):
+        """Returns Avro fullname, namespace, and short name."""
+        if '.' in name:
+            fullname = name
+            resolved_namespace, _, short_name = name.rpartition('.')
+            return fullname, resolved_namespace, short_name
+        fullname = f'{namespace}.{name}' if namespace else name
+        return fullname, namespace, name
+
+    def resolve_avro_named_type(self, name: str, namespace: str = ''):
+        """Resolves a named reference using Avro namespace rules."""
+        if '.' in name:
+            return self.avro_named_types.get(name)
+        contextual_name = f'{namespace}.{name}' if namespace else name
+        if contextual_name in self.avro_named_types:
+            return self.avro_named_types[contextual_name]
+        candidates = self.avro_short_names.get(name, [])
+        if len(candidates) == 1:
+            return self.avro_named_types[candidates[0]]
+        return None
+
+    def union_name_from_path(self, path) -> str:
+        """Builds a collision-proof Rust union name from typed path segments."""
+        segment_codes = {
+            'record': 'R',
+            'field': 'F',
+            'branch': 'B',
+            'array': 'A',
+            'map': 'M',
+        }
+        framed = []
+        for segment_type, value in path:
+            encoded = str(value).encode('utf-8').hex()
+            framed.append(
+                f'{segment_codes[segment_type]}{len(encoded)}X{encoded}'
+            )
+        identity = ''.join(framed)
+        digest = hashlib.sha256(identity.encode('ascii')).hexdigest()
+        existing = self.union_path_identities.get(digest)
+        if existing is not None and existing != identity:
+            raise RuntimeError('SHA-256 collision in generated Rust union identity')
+        self.union_path_identities[digest] = identity
+        return 'UnionPath' + digest
+
     def index_avro_named_types(self, node, parent_namespace=''):
-        """Indexes named Avro types so XML validation metadata can follow references."""
+        """Indexes named Avro types by canonical fullname."""
         if isinstance(node, list):
             for item in node:
                 self.index_avro_named_types(item, parent_namespace)
@@ -189,12 +274,17 @@ class AvroToRust:
             return
 
         node_type = node.get('type')
-        namespace = node.get('namespace', parent_namespace)
+        namespace = parent_namespace
         if node_type in ('record', 'enum', 'fixed') and node.get('name'):
-            name = node['name']
-            self.avro_named_types[name] = node
-            if namespace:
-                self.avro_named_types[f"{namespace}.{name}"] = node
+            fullname, namespace, short_name = self.canonical_avro_name(
+                node['name'],
+                node.get('namespace', parent_namespace),
+            )
+            self.avro_named_types[fullname] = node
+            self.avro_type_fullnames[id(node)] = fullname
+            candidates = self.avro_short_names.setdefault(short_name, [])
+            if fullname not in candidates:
+                candidates.append(fullname)
         if node_type == 'record':
             for field in node.get('fields', []):
                 self.index_avro_named_types(field.get('type'), namespace)
@@ -216,15 +306,11 @@ class AvroToRust:
         resolving = set() if resolving is None else resolving
         defined_names = set() if defined_names is None else defined_names
         if isinstance(node, str):
-            qualified_name = f"{namespace}.{node}" if namespace and '.' not in node else node
-            resolved = self.avro_named_types.get(qualified_name) or self.avro_named_types.get(node)
+            resolved = self.resolve_avro_named_type(node, namespace)
             if not resolved:
                 return node
-            resolved_namespace = resolved.get('namespace', namespace)
-            full_name = (
-                f"{resolved_namespace}.{resolved['name']}"
-                if resolved_namespace else resolved['name']
-            )
+            full_name = self.avro_type_fullnames[id(resolved)]
+            resolved_namespace = full_name.rpartition('.')[0]
             if full_name in resolving:
                 return full_name
             if full_name in defined_names:
@@ -251,15 +337,16 @@ class AvroToRust:
 
         result = dict(node)
         node_type = node.get('type')
-        current_namespace = node.get('namespace', namespace)
+        current_namespace = namespace
         current_resolving = resolving
         if node_type in ('record', 'enum', 'fixed') and node.get('name'):
-            if current_namespace and 'namespace' not in result:
-                result['namespace'] = current_namespace
-            full_name = (
-                f"{current_namespace}.{node['name']}"
-                if current_namespace else node['name']
+            full_name, current_namespace, short_name = self.canonical_avro_name(
+                node['name'],
+                node.get('namespace', namespace),
             )
+            result['name'] = short_name
+            if current_namespace:
+                result['namespace'] = current_namespace
             if full_name in defined_names and full_name not in resolving:
                 return full_name
             defined_names.add(full_name)
@@ -320,32 +407,57 @@ class AvroToRust:
         attribute_owners: set[tuple[str, str]] = set()
         visited: set[tuple[int, str]] = set()
 
-        def nested_records(node):
+        def nested_records(node, inherited_namespace=''):
             if isinstance(node, str):
-                resolved = self.avro_named_types.get(node)
+                resolved = self.resolve_avro_named_type(
+                    node,
+                    inherited_namespace,
+                )
                 return [resolved] if resolved and resolved.get('type') == 'record' else []
             if isinstance(node, list):
-                return [record for item in node for record in nested_records(item)]
+                return [
+                    record
+                    for item in node
+                    for record in nested_records(item, inherited_namespace)
+                ]
             if not isinstance(node, dict):
                 return []
             node_type = node.get('type')
             if node_type == 'record':
                 return [node]
             if node_type == 'array':
-                return nested_records(node.get('items'))
+                return nested_records(node.get('items'), inherited_namespace)
             if isinstance(node_type, (dict, list)):
-                return nested_records(node_type)
+                return nested_records(node_type, inherited_namespace)
             return []
 
-        def visit(node, parent_element=None, inherited_namespace=''):
+        def visit(
+            node,
+            parent_element=None,
+            inherited_xml_namespace='',
+            inherited_avro_namespace='',
+        ):
             if isinstance(node, str):
-                resolved = self.avro_named_types.get(node)
+                resolved = self.resolve_avro_named_type(
+                    node,
+                    inherited_avro_namespace,
+                )
                 if resolved:
-                    visit(resolved, parent_element, inherited_namespace)
+                    visit(
+                        resolved,
+                        parent_element,
+                        inherited_xml_namespace,
+                        inherited_avro_namespace,
+                    )
                 return
             if isinstance(node, list):
                 for item in node:
-                    visit(item, parent_element, inherited_namespace)
+                    visit(
+                        item,
+                        parent_element,
+                        inherited_xml_namespace,
+                        inherited_avro_namespace,
+                    )
             elif isinstance(node, dict):
                 node_type = node.get('type')
                 if node_type == 'record':
@@ -353,7 +465,14 @@ class AvroToRust:
                     if visit_key in visited:
                         return
                     visited.add(visit_key)
-                    record_namespace = node.get('xmlns', inherited_namespace)
+                    _, record_avro_namespace, _ = self.canonical_avro_name(
+                        node['name'],
+                        node.get('namespace', inherited_avro_namespace),
+                    )
+                    record_xml_namespace = node.get(
+                        'xmlns',
+                        inherited_xml_namespace,
+                    )
                     for nested_field in node.get('fields', []):
                         name = xml_wire_name(nested_field['name'], nested_field)
                         if nested_field.get('xmlkind', 'element') == 'attribute':
@@ -367,32 +486,79 @@ class AvroToRust:
                             nested_type = nested_field.get('type')
                             if isinstance(nested_type, dict) and nested_type.get('type') == 'map':
                                 maps.add(name)
-                            records = nested_records(nested_type)
+                            records = nested_records(
+                                nested_type,
+                                record_avro_namespace,
+                            )
                             field_namespaces = {
-                                record.get('xmlns', record_namespace) for record in records
-                            } or {record_namespace}
+                                record.get(
+                                    'xmlns',
+                                    record_xml_namespace,
+                                )
+                                for record in records
+                            } or {record_xml_namespace}
                             namespaces.update((parent, name, namespace) for namespace in field_namespaces)
-                        visit(nested_field.get('type'), name, record_namespace)
+                        visit(
+                            nested_field.get('type'),
+                            name,
+                            record_xml_namespace,
+                            record_avro_namespace,
+                        )
                 elif node_type == 'array':
-                    visit(node.get('items'), parent_element, inherited_namespace)
+                    visit(
+                        node.get('items'),
+                        parent_element,
+                        inherited_xml_namespace,
+                        inherited_avro_namespace,
+                    )
                 elif node_type == 'map':
-                    visit(node.get('values'), parent_element, inherited_namespace)
+                    visit(
+                        node.get('values'),
+                        parent_element,
+                        inherited_xml_namespace,
+                        inherited_avro_namespace,
+                    )
                 elif isinstance(node_type, (dict, list)):
-                    visit(node_type, parent_element, inherited_namespace)
+                    visit(
+                        node_type,
+                        parent_element,
+                        inherited_xml_namespace,
+                        inherited_avro_namespace,
+                    )
 
-        visit(avro_type)
+        initial_avro_namespace = ''
+        if isinstance(avro_type, dict) and avro_type.get('name'):
+            _, initial_avro_namespace, _ = self.canonical_avro_name(
+                avro_type['name'],
+                avro_type.get('namespace', ''),
+            )
+        visit(avro_type, inherited_avro_namespace=initial_avro_namespace)
         return elements, attributes, maps, relationships, namespaces, attribute_owners
 
-    def generate_struct(self, avro_schema: Dict, parent_namespace: str) -> str:
+    def generate_struct(
+        self,
+        avro_schema: Dict,
+        parent_namespace: str,
+        path=None,
+    ) -> str:
         """Generates a Rust struct from an Avro record schema"""
-        struct_name = self.safe_identifier(pascal(avro_schema['name']))
-        previous_record_name = self.current_record_name
-        self.current_record_name = struct_name
+        fullname, parent_namespace, short_name = self.canonical_avro_name(
+            avro_schema['name'],
+            avro_schema.get('namespace', parent_namespace),
+        )
+        struct_name = self.safe_identifier(pascal(short_name))
+        record_path = path or [('record', fullname)]
         fields = []
         for field in avro_schema.get('fields', []):
             original_field_name = field['name']
             field_name = self.safe_identifier(snake(original_field_name))
-            field_type = self.convert_avro_type_to_rust(field_name, field['type'], parent_namespace)
+            field_path = record_path + [('field', original_field_name)]
+            field_type = self.convert_avro_type_to_rust(
+                field_name,
+                field['type'],
+                parent_namespace,
+                path=field_path,
+            )
             xml_name = xml_wire_name(original_field_name, field)
             xml_kind = field.get('xmlkind', 'element')
             serde_name = f"@{xml_name}" if self.xml_annotation and xml_kind == 'attribute' else (
@@ -426,6 +592,16 @@ class AvroToRust:
                 )
                 if self.avro_annotation else ''
             )
+            avro_encode = (
+                self.render_avro_encode_value(
+                    field['type'],
+                    field_type,
+                    parent_namespace,
+                    f'&self.{field_name}',
+                    [0],
+                )
+                if self.avro_annotation else ''
+            )
             fields.append({
                 'original_name': original_field_name,
                 'json_name': original_field_name,
@@ -444,6 +620,7 @@ class AvroToRust:
                 'avro_union_fields': avro_union_fields,
                 'avro_null_index': source_null_index,
                 'avro_decode': avro_decode,
+                'avro_encode': avro_encode,
             })
         
         ns = parent_namespace.replace('.', '::').lower()
@@ -518,7 +695,6 @@ class AvroToRust:
 
         self.generated_types_avro_namespace[qualified_struct_name] = "struct"
         self.generated_types_rust_package[qualified_struct_name] = "struct"
-        self.current_record_name = previous_record_name
 
         return qualified_struct_name
 
@@ -531,7 +707,17 @@ class AvroToRust:
         """Generates deterministic values for every nested Avro union branch."""
         if isinstance(avro_type, list):
             if is_generic_avro_type(avro_type):
-                return []
+                if rust_type != 'serde_json::Value':
+                    return [
+                        'std::iter::once(('
+                        '"key".to_string(), '
+                        '"value".to_string())).collect()'
+                    ]
+                return [
+                    'serde_json::json!("value")',
+                    'serde_json::json!(true)',
+                    'serde_json::json!({"key": "value"})',
+                ]
             non_null_types = [item for item in avro_type if item != 'null']
             if len(non_null_types) > 1:
                 union_type = (
@@ -574,13 +760,8 @@ class AvroToRust:
         if isinstance(avro_type, str):
             if is_any_value_type(avro_type):
                 return []
-            qualified_name = (
-                f'{namespace}.{avro_type}'
-                if namespace and '.' not in avro_type else avro_type
-            )
             resolved_type = (
-                self.avro_named_types.get(qualified_name)
-                or self.avro_named_types.get(avro_type)
+                self.resolve_avro_named_type(avro_type, namespace)
                 or avro_type
             )
 
@@ -614,6 +795,170 @@ class AvroToRust:
                 ]
         return []
 
+    def render_avro_encode_value(
+        self,
+        avro_type,
+        rust_type: str,
+        namespace: str,
+        value_expression: str,
+        counter: List[int],
+    ) -> str:
+        """Renders recursive Rust encoding with explicit Avro union indexes."""
+        counter[0] += 1
+        suffix = counter[0]
+
+        if isinstance(avro_type, list):
+            if is_generic_avro_type(avro_type):
+                standalone_schema = self.inline_avro_references(
+                    avro_type,
+                    namespace,
+                )
+                schema_literal = json.dumps(json.dumps(standalone_schema))
+                return (
+                    f'apache_avro::to_value({value_expression})?.resolve('
+                    '&apache_avro::Schema::parse_str('
+                    f'{schema_literal})?)?'
+                )
+            non_null_types = [item for item in avro_type if item != 'null']
+            if len(non_null_types) > 1:
+                union_type = (
+                    rust_type[7:-1]
+                    if rust_type.startswith('Option<') else rust_type
+                )
+                union_fields = self.generated_union_fields.get(union_type, [])
+                branch_types = [item for item in avro_type if item != 'null']
+                arms = []
+                for union_field, branch_type in zip(
+                    union_fields,
+                    branch_types,
+                ):
+                    inner_encode = self.render_avro_encode_value(
+                        branch_type,
+                        union_field['type'],
+                        namespace,
+                        'value',
+                        counter,
+                    )
+                    arms.append(
+                        f'''{union_type}::{union_field["name"]}(value) =>
+                            apache_avro::types::Value::Union(
+                                {union_field["source_avro_index"]},
+                                Box::new({inner_encode}),
+                            )'''
+                    )
+                arms_text = ',\n'.join(arms)
+                if rust_type.startswith('Option<'):
+                    null_index = avro_type.index('null')
+                    return f'''match {value_expression} {{
+                        None => apache_avro::types::Value::Union(
+                            {null_index},
+                            Box::new(apache_avro::types::Value::Null),
+                        ),
+                        Some(value) => match value {{
+                            {arms_text},
+                        }},
+                    }}'''
+                return f'''match {value_expression} {{
+                    {arms_text},
+                }}'''
+
+            if len(non_null_types) == 1:
+                inner_type = (
+                    rust_type[7:-1]
+                    if rust_type.startswith('Option<') else rust_type
+                )
+                inner_encode = self.render_avro_encode_value(
+                    non_null_types[0],
+                    inner_type,
+                    namespace,
+                    'value',
+                    counter,
+                )
+                null_index = avro_type.index('null')
+                value_index = next(
+                    index for index, item in enumerate(avro_type)
+                    if item != 'null'
+                )
+                return f'''match {value_expression} {{
+                    None => apache_avro::types::Value::Union(
+                        {null_index},
+                        Box::new(apache_avro::types::Value::Null),
+                    ),
+                    Some(value) => apache_avro::types::Value::Union(
+                        {value_index},
+                        Box::new({inner_encode}),
+                    ),
+                }}'''
+
+        resolved_type = avro_type
+        if isinstance(avro_type, str):
+            if is_any_value_type(avro_type):
+                return f'apache_avro::to_value({value_expression})?'
+            if avro_type == 'bytes':
+                return (
+                    'apache_avro::types::Value::Bytes('
+                    f'({value_expression}).clone())'
+                )
+            resolved_type = (
+                self.resolve_avro_named_type(avro_type, namespace)
+                or avro_type
+            )
+
+        if isinstance(resolved_type, dict):
+            node_type = resolved_type.get('type')
+            if node_type == 'bytes' and 'logicalType' not in resolved_type:
+                return (
+                    'apache_avro::types::Value::Bytes('
+                    f'({value_expression}).clone())'
+                )
+            if node_type == 'fixed':
+                return (
+                    'apache_avro::types::Value::Fixed('
+                    f'{resolved_type["size"]}, ({value_expression}).clone())'
+                )
+            if node_type == 'record':
+                return f'({value_expression}).to_avro_value()?'
+            if node_type == 'array':
+                inner_type = rust_type[4:-1]
+                item_name = f'item_{suffix}'
+                values_name = f'values_{suffix}'
+                inner_encode = self.render_avro_encode_value(
+                    resolved_type['items'],
+                    inner_type,
+                    namespace,
+                    item_name,
+                    counter,
+                )
+                return f'''{{
+                    let mut {values_name} = Vec::with_capacity(
+                        ({value_expression}).len()
+                    );
+                    for {item_name} in ({value_expression}).iter() {{
+                        {values_name}.push({inner_encode});
+                    }}
+                    apache_avro::types::Value::Array({values_name})
+                }}'''
+            if node_type == 'map':
+                inner_type = rust_type.split(', ', 1)[1][:-1]
+                item_name = f'item_{suffix}'
+                values_name = f'values_{suffix}'
+                inner_encode = self.render_avro_encode_value(
+                    resolved_type['values'],
+                    inner_type,
+                    namespace,
+                    item_name,
+                    counter,
+                )
+                return f'''{{
+                    let mut {values_name} = std::collections::HashMap::new();
+                    for (key, {item_name}) in ({value_expression}).iter() {{
+                        {values_name}.insert(key.clone(), {inner_encode});
+                    }}
+                    apache_avro::types::Value::Map({values_name})
+                }}'''
+
+        return f'apache_avro::to_value({value_expression})?'
+
     def render_avro_decode_value(
         self,
         avro_type,
@@ -628,6 +973,34 @@ class AvroToRust:
 
         if isinstance(avro_type, list):
             if is_generic_avro_type(avro_type):
+                if rust_type != 'serde_json::Value':
+                    return f'''match {value_expression} {{
+                        apache_avro::types::Value::Union(_, value) => {{
+                            match value.as_ref() {{
+                                apache_avro::types::Value::Map(items) => {{
+                                    let mut result = std::collections::HashMap::new();
+                                    for (key, item) in items {{
+                                        let item = match item {{
+                                            apache_avro::types::Value::Union(_, inner) =>
+                                                inner.as_ref(),
+                                            other => other,
+                                        }};
+                                        result.insert(
+                                            key.clone(),
+                                            apache_avro::from_value(item)?,
+                                        );
+                                    }}
+                                    result
+                                }},
+                                _ => return Err(
+                                    "expected an Avro map for generic value".into()
+                                ),
+                            }}
+                        }},
+                        _ => return Err(
+                            "expected an Avro union for generic value".into()
+                        ),
+                    }}'''
                 return f'apache_avro::from_value({value_expression})?'
             non_null_types = [item for item in avro_type if item != 'null']
             if len(non_null_types) > 1:
@@ -695,18 +1068,28 @@ class AvroToRust:
         if isinstance(avro_type, str):
             if is_any_value_type(avro_type):
                 return f'apache_avro::from_value({value_expression})?'
-            qualified_name = (
-                f'{namespace}.{avro_type}'
-                if namespace and '.' not in avro_type else avro_type
-            )
+            if avro_type == 'bytes':
+                return f'''match {value_expression} {{
+                    apache_avro::types::Value::Bytes(bytes) => bytes.clone(),
+                    _ => return Err("expected an Avro bytes value".into()),
+                }}'''
             resolved_type = (
-                self.avro_named_types.get(qualified_name)
-                or self.avro_named_types.get(avro_type)
+                self.resolve_avro_named_type(avro_type, namespace)
                 or avro_type
             )
 
         if isinstance(resolved_type, dict):
             node_type = resolved_type.get('type')
+            if node_type == 'bytes' and 'logicalType' not in resolved_type:
+                return f'''match {value_expression} {{
+                    apache_avro::types::Value::Bytes(bytes) => bytes.clone(),
+                    _ => return Err("expected an Avro bytes value".into()),
+                }}'''
+            if node_type == 'fixed':
+                return f'''match {value_expression} {{
+                    apache_avro::types::Value::Fixed(_, bytes) => bytes.clone(),
+                    _ => return Err("expected an Avro fixed value".into()),
+                }}'''
             if node_type == 'record':
                 return f'{rust_type}::from_avro_value({value_expression})?'
             if node_type == 'array':
@@ -811,7 +1194,11 @@ class AvroToRust:
             'value': xml_enum_wire_value(symbol, avro_schema) if self.xml_annotation else symbol,
             'json_value': symbol,
         } for symbol in avro_schema.get('symbols', [])]
-        enum_name = self.safe_identifier(pascal(avro_schema['name']))
+        _, parent_namespace, short_name = self.canonical_avro_name(
+            avro_schema['name'],
+            avro_schema.get('namespace', parent_namespace),
+        )
+        enum_name = self.safe_identifier(pascal(short_name))
         ns = parent_namespace.replace('.', '::').lower()
         qualified_enum_name = self.safe_package(self.concat_package(ns, enum_name))
         
@@ -846,14 +1233,19 @@ class AvroToRust:
 
         return qualified_enum_name
 
-    def generate_union_enum(self, field_name: str, avro_type: List, namespace: str) -> str:
+    def generate_union_enum(
+        self,
+        field_name: str,
+        avro_type: List,
+        namespace: str,
+        path=None,
+    ) -> str:
         """Generates a union enum for Rust"""
         ns = namespace.replace('.', '::').lower()
-        union_owner = (
-            f'Record{len(self.current_record_name)}{self.current_record_name}'
-            if self.avro_annotation else ''
+        union_enum_name = (
+            self.union_name_from_path(path or [('field', field_name)])
+            if self.avro_annotation else pascal(field_name) + 'Union'
         )
-        union_enum_name = union_owner + pascal(field_name) + 'Union'
         union_avro_branches = [
             (source_index, avro_branch)
             for source_index, avro_branch in enumerate(avro_type)
@@ -867,8 +1259,9 @@ class AvroToRust:
                 field_name + "Option" + str(i),
                 avro_branch,
                 namespace,
+                path=(path or []) + [('branch', str(source_index))],
             )
-            for i, avro_branch in enumerate(union_avro_types)
+            for i, (source_index, avro_branch) in enumerate(union_avro_branches)
         ]
         avro_schema_str = json.dumps(
             self.inline_avro_references(union_avro_types, namespace)
@@ -886,9 +1279,13 @@ class AvroToRust:
         union_fields = []
         for i, t in enumerate(union_types):
             predicate = self.get_is_json_match_clause(field_name, t, for_union=True)
+            predicate_key = self.get_json_shape_signature(
+                union_avro_types[i],
+                namespace,
+            )
             # Mark if this is the first variant with this predicate structure
-            is_first_with_predicate = predicate not in seen_predicates
-            seen_predicates.add(predicate)
+            is_first_with_predicate = predicate_key not in seen_predicates
+            seen_predicates.add(predicate_key)
             
             # Deduplicate variant names
             variant_name = pascal(t.rsplit('::',1)[-1])
@@ -904,6 +1301,13 @@ class AvroToRust:
                 'avro_index': i,
                 'source_avro_index': union_avro_branches[i][0],
                 'avro_decode': self.render_avro_decode_value(
+                    union_avro_types[i],
+                    t,
+                    namespace,
+                    'value',
+                    [0],
+                ),
+                'avro_encode': self.render_avro_encode_value(
                     union_avro_types[i],
                     t,
                     namespace,
@@ -965,6 +1369,93 @@ class AvroToRust:
         self.write_mod_rs(namespace)
 
         return qualified_union_enum_name
+
+    def get_json_shape_signature(
+        self,
+        avro_type,
+        namespace: str,
+        resolving=None,
+    ):
+        """Returns a stable structural signature for untagged JSON matching."""
+        resolving = () if resolving is None else resolving
+        if isinstance(avro_type, str):
+            resolved = self.resolve_avro_named_type(avro_type, namespace)
+            if resolved:
+                fullname = self.avro_type_fullnames[id(resolved)]
+                if fullname in resolving:
+                    return ('ref', resolving.index(fullname))
+                return self.get_json_shape_signature(
+                    resolved,
+                    fullname.rpartition('.')[0],
+                    resolving,
+                )
+            if avro_type in ('int', 'long'):
+                return 'integer'
+            if avro_type in ('float', 'double'):
+                return 'number'
+            return avro_type
+        if isinstance(avro_type, list):
+            return (
+                'union',
+                tuple(
+                    self.get_json_shape_signature(
+                        item,
+                        namespace,
+                        resolving,
+                    )
+                    for item in avro_type
+                ),
+            )
+        if not isinstance(avro_type, dict):
+            return str(avro_type)
+        node_type = avro_type.get('type')
+        if node_type == 'record':
+            fullname, record_namespace, _ = self.canonical_avro_name(
+                avro_type['name'],
+                avro_type.get('namespace', namespace),
+            )
+            if fullname in resolving:
+                return ('ref', resolving.index(fullname))
+            nested_resolving = resolving + (fullname,)
+            return (
+                'record',
+                tuple(
+                    (
+                        field['name'],
+                        self.get_json_shape_signature(
+                            field['type'],
+                            record_namespace,
+                            nested_resolving,
+                        ),
+                    )
+                    for field in avro_type.get('fields', [])
+                ),
+            )
+        if node_type == 'enum':
+            return 'string'
+        if node_type == 'array':
+            return (
+                'array',
+                self.get_json_shape_signature(
+                    avro_type['items'],
+                    namespace,
+                    resolving,
+                ),
+            )
+        if node_type == 'map':
+            return (
+                'map',
+                self.get_json_shape_signature(
+                    avro_type['values'],
+                    namespace,
+                    resolving,
+                ),
+            )
+        return self.get_json_shape_signature(
+            node_type,
+            namespace,
+            resolving,
+        )
 
     def to_file_name(self, qualified_name):
         """Converts a qualified union enum name to a file name"""

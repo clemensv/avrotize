@@ -136,5 +136,101 @@
                 ]
             }
         ]
+    },
+    {
+        "type": "record",
+        "name": "SyntheticPaths",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "items",
+                "type": {
+                    "type": "array",
+                    "items": [
+                        "long",
+                        "int"
+                    ]
+                }
+            },
+            {
+                "name": "itemsArrayItems",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            },
+            {
+                "name": "entries",
+                "type": {
+                    "type": "map",
+                    "values": [
+                        "long",
+                        "int"
+                    ]
+                }
+            },
+            {
+                "name": "entriesMapValues",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            },
+            {
+                "name": "branch",
+                "type": [
+                    {
+                        "type": "array",
+                        "items": [
+                            "long",
+                            "int"
+                        ]
+                    },
+                    {
+                        "type": "map",
+                        "values": [
+                            "string",
+                            "boolean"
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "TwinA",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "TwinB",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "TwinHolder",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "choice",
+                "type": [
+                    "TwinA",
+                    "TwinB"
+                ]
+            }
+        ]
     }
 ]

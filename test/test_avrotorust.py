@@ -14,6 +14,7 @@ sys.path.append(project_root)
 
 
 from avrotize.avrotorust import (
+    AvroToRust,
     convert_avro_schema_to_rust,
     convert_avro_to_rust,
 )
@@ -26,21 +27,107 @@ class TestAvroToRust(unittest.TestCase):
     
     # Timeout in seconds for cargo commands
     CARGO_TIMEOUT = 300
+
+    def test_avro_union_path_identity_is_typed_and_bounded(self):
+        """Keep structural union identities distinct and filesystem-safe."""
+        converter = AvroToRust()
+        array_path = [
+            ('record', 'n.' + ('R' * 80)),
+            ('field', 'items'),
+            ('array', 'items'),
+        ]
+        real_field_path = [
+            ('record', 'n.' + ('R' * 80)),
+            ('field', 'itemsArrayItems'),
+        ]
+        branch_map_path = array_path + [
+            ('branch', '1'),
+            ('map', 'values'),
+        ]
+        identities = {
+            converter.union_name_from_path(array_path),
+            converter.union_name_from_path(real_field_path),
+            converter.union_name_from_path(branch_map_path),
+        }
+        self.assertEqual(3, len(identities))
+        self.assertTrue(all(len(identity) < 100 for identity in identities))
+
+    def test_recursive_named_type_shape_signature(self):
+        """Bound structural JSON matching for recursive named records."""
+        converter = AvroToRust()
+        def recursive_node(name):
+            return {
+                "type": "record",
+                "name": name,
+                "namespace": "issue406.recursive",
+                "fields": [
+                    {
+                        "name": "children",
+                        "type": {
+                            "type": "array",
+                            "items": name,
+                        },
+                    }
+                ],
+            }
+
+        node_a = recursive_node("NodeA")
+        node_b = recursive_node("NodeB")
+        converter.index_avro_named_types([node_a, node_b])
+        signature_a = converter.get_json_shape_signature(
+            node_a,
+            "issue406.recursive",
+        )
+        signature_b = converter.get_json_shape_signature(
+            node_b,
+            "issue406.recursive",
+        )
+        self.assertIn(
+            "('ref', 0)",
+            str(signature_a),
+        )
+        self.assertEqual(signature_a, signature_b)
     
-    def run_convert_to_rust(self, name:str, avro_annotation:bool=False, serde_annotation:bool=False):
+    def run_convert_to_rust(
+        self,
+        name: str,
+        avro_annotation: bool = False,
+        serde_annotation: bool = False,
+        xml_annotation: bool = False,
+    ):
         """ Test converting an avsc file to Rust and compiling/testing it """
         cwd = os.getcwd()        
         avro_path = os.path.join(cwd, "test", "avsc", f"{name}.avsc")
-        rust_path = os.path.join(tempfile.gettempdir(), "avrotize", f"{name}-rs{'' if not avro_annotation else '-avro'}{'' if not serde_annotation else '-serde'}")
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            f"{name}-rs"
+            f"{'' if not avro_annotation else '-avro'}"
+            f"{'' if not serde_annotation else '-serde'}"
+            f"{'' if not xml_annotation else '-xml'}",
+        )
         if os.path.exists(rust_path):
             shutil.rmtree(rust_path, ignore_errors=True)
         os.makedirs(rust_path, exist_ok=True)        
-        convert_avro_to_rust(avro_path, rust_path, package_name=name, avro_annotation=avro_annotation, serde_annotation=serde_annotation)
+        convert_avro_to_rust(
+            avro_path,
+            rust_path,
+            package_name=name,
+            avro_annotation=avro_annotation,
+            serde_annotation=serde_annotation,
+            xml_annotation=xml_annotation,
+        )
         assert subprocess.check_call(
             ['cargo', 'test'], cwd=rust_path, stdout=sys.stdout, stderr=sys.stderr, timeout=self.CARGO_TIMEOUT) == 0
         return rust_path
 
-    def assert_module_scoped_schemas(self, rust_path: str, expected_modules: set[str]):
+    def assert_module_scoped_schemas(
+        self,
+        rust_path: str,
+        expected_modules: set[str] | None = None,
+        expected_count: int | None = None,
+        required_modules: set[str] | None = None,
+    ):
         """Assert each expected generated module owns one module-scoped SCHEMA."""
         schema_modules = set()
         for root, _, files in os.walk(os.path.join(rust_path, "src")):
@@ -56,7 +143,13 @@ class TestAvroToRust(unittest.TestCase):
                 schema_modules.add(relative_path.replace(os.sep, "/"))
                 self.assertEqual(1, source.count("pub static ref SCHEMA"))
                 self.assertIn("\nlazy_static! {\n", source)
-        self.assertEqual(expected_modules, schema_modules)
+        if expected_modules is not None:
+            self.assertEqual(expected_modules, schema_modules)
+        if expected_count is not None:
+            self.assertEqual(expected_count, len(schema_modules))
+        if required_modules is not None:
+            self.assertTrue(required_modules <= schema_modules)
+        return schema_modules
         
     def test_convert_address_avsc_to_rust(self):
         """ Test converting an address.avsc file to Rust """
@@ -105,15 +198,10 @@ class TestAvroToRust(unittest.TestCase):
         rust_path = self.run_convert_to_rust("rust-union-annotation", True, True)
         self.assert_module_scoped_schemas(
             rust_path,
-            {
-                "issue406/union_only/record11unionholdernumericunion.rs",
-                "issue406/union_only/record11unionholderarrayvaluesunion.rs",
-                "issue406/union_only/record11unionholdermapvaluesunion.rs",
+            expected_count=9,
+            required_modules={
                 "issue406/union_only/nestedholder.rs",
-                "issue406/union_only/record12nestedholdernumericunion.rs",
-                "issue406/union_only/record11unionholdernullableunion.rs",
                 "issue406/union_only/unionholder.rs",
-                "issue406/union_only/record11unionholdervalueunion.rs",
             },
         )
         union_holder_path = os.path.join(
@@ -125,9 +213,10 @@ class TestAvroToRust(unittest.TestCase):
         )
         with open(union_holder_path, "r", encoding="utf-8") as generated_file:
             avro_source = generated_file.read()
-        self.assertIn(
-            "pub nullable: Option<crate::issue406::union_only::record11unionholdernullableunion::Record11UnionHolderNullableUnion>",
+        self.assertRegex(
             avro_source,
+            r"pub nullable: Option<crate::issue406::union_only::"
+            r"union[a-z0-9]+::Union[A-Za-z0-9]+>",
         )
 
         legacy_field = (
@@ -159,26 +248,54 @@ class TestAvroToRust(unittest.TestCase):
     def test_convert_multitype_avro_annotations_to_rust(self):
         """Compile records, enums, and unions that each define SCHEMA in one crate."""
         rust_path = self.run_convert_to_rust("rust-multitype-annotations", True, True)
-        self.assert_module_scoped_schemas(
+        schema_modules = self.assert_module_scoped_schemas(
             rust_path,
-            {
+            expected_count=28,
+            required_modules={
                 "issue406/multitype/alternate.rs",
                 "issue406/multitype/collisionone.rs",
-                "issue406/multitype/record12collisiononechoiceunion.rs",
                 "issue406/multitype/collisiontwo.rs",
-                "issue406/multitype/record12collisiontwochoiceunion.rs",
                 "issue406/multitype/composite.rs",
-                "issue406/multitype/record9compositechoiceunion.rs",
                 "issue406/multitype/foo.rs",
-                "issue406/multitype/record3foobarbazunion.rs",
                 "issue406/multitype/foobar.rs",
-                "issue406/multitype/record6foobarbazunion.rs",
                 "issue406/multitype/inlinekind.rs",
                 "issue406/multitype/simple.rs",
                 "issue406/multitype/standalone.rs",
-                "issue406/multitype/record9compositevalueunion.rs",
+                "issue406/multitype/syntheticpaths.rs",
+                "issue406/multitype/twina.rs",
+                "issue406/multitype/twinb.rs",
+                "issue406/multitype/twinholder.rs",
                 "issue406/multitype/wrapper.rs",
             },
+        )
+        union_modules = {
+            module for module in schema_modules
+            if os.path.basename(module).startswith("union")
+        }
+        self.assertEqual(14, len(union_modules))
+
+    def test_convert_named_reference_resolution_to_rust(self):
+        """Resolve dotted names and duplicate short names by namespace."""
+        rust_path = self.run_convert_to_rust(
+            "rust-named-reference-resolution",
+            True,
+            True,
+        )
+        holder_path = os.path.join(
+            rust_path,
+            "src",
+            "right",
+            "holder.rs",
+        )
+        with open(holder_path, "r", encoding="utf-8") as generated_file:
+            source = generated_file.read()
+        self.assertIn("pub local: crate::right::item::Item", source)
+        self.assertIn("pub foreign: crate::left::item::Item", source)
+        self.run_convert_to_rust(
+            "rust-named-reference-resolution",
+            True,
+            True,
+            True,
         )
 
     def test_convert_anyvalue_reference_to_rust_default(self):
@@ -202,38 +319,40 @@ class TestAvroToRust(unittest.TestCase):
 
     def test_convert_generic_anyvalue_union_to_rust(self):
         """Compile Avro decoding for the generic AnyValue union."""
-        rust_path = os.path.join(
-            tempfile.gettempdir(),
-            "avrotize",
-            "rust-generic-anyvalue-rs-avro-serde",
-        )
-        if os.path.exists(rust_path):
-            shutil.rmtree(rust_path, ignore_errors=True)
-        schema = {
-            "type": "record",
-            "name": "GenericHolder",
-            "namespace": "issue406.generic",
-            "fields": [
-                {
-                    "name": "payload",
-                    "type": generic_type(),
-                }
-            ],
-        }
-        convert_avro_schema_to_rust(
-            schema,
-            rust_path,
-            package_name="rust-generic-anyvalue",
-            avro_annotation=True,
-            serde_annotation=True,
-        )
-        assert subprocess.check_call(
-            ['cargo', 'test'],
-            cwd=rust_path,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-            timeout=self.CARGO_TIMEOUT,
-        ) == 0
+        for serde_annotation in (True, False):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                "rust-generic-anyvalue-rs-avro"
+                f"{'-serde' if serde_annotation else ''}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            schema = {
+                "type": "record",
+                "name": "GenericHolder",
+                "namespace": "issue406.generic",
+                "fields": [
+                    {
+                        "name": "payload",
+                        "type": generic_type(),
+                    }
+                ],
+            }
+            convert_avro_schema_to_rust(
+                schema,
+                rust_path,
+                package_name="rust-generic-anyvalue",
+                avro_annotation=True,
+                serde_annotation=serde_annotation,
+            )
+            assert subprocess.check_call(
+                ['cargo', 'test'],
+                cwd=rust_path,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                timeout=self.CARGO_TIMEOUT,
+            ) == 0
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust(self):
         """ Test converting a jfrog-pipelines.json file to Rust """

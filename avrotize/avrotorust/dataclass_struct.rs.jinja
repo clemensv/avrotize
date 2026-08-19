@@ -113,6 +113,19 @@ lazy_static! {
 
 impl {{ struct_name }} {
 {%- if avro_annotation %}
+    pub(crate) fn to_avro_value(
+        &self,
+    ) -> Result<apache_avro::types::Value, Box<dyn std::error::Error>> {
+        Ok(apache_avro::types::Value::Record(vec![
+            {%- for field in fields %}
+            (
+                "{{ field.original_name }}".to_string(),
+                {{ field.avro_encode }},
+            ),
+            {%- endfor %}
+        ]))
+    }
+
     pub(crate) fn from_avro_value(
         value: &apache_avro::types::Value,
     ) -> Result<Self, Box<dyn std::error::Error>> {
@@ -163,7 +176,7 @@ impl {{ struct_name }} {
         {%- if avro_annotation %}
         if base_media_type == "avro/binary" ||
            base_media_type == "application/vnd.apache.avro+avro" {
-            let value = apache_avro::to_value(self)?.resolve(&SCHEMA)?;
+            let value = self.to_avro_value()?;
             result = apache_avro::to_avro_datum(&SCHEMA, value)?;
         }
         else {% endif -%}

@@ -77,6 +77,24 @@
                     "items": "string"
                 }
             ]
+        },
+        {
+            "name": "payload",
+            "type": "bytes"
+        },
+        {
+            "name": "binaryChoice",
+            "type": [
+                "bytes",
+                "string"
+            ]
+        },
+        {
+            "name": "reverseOptional",
+            "type": [
+                "string",
+                "null"
+            ]
         }
     ]
 }
