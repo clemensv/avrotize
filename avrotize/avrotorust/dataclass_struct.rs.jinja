@@ -405,7 +405,7 @@ mod tests {
         assert_eq!(union_instance, deserialized_union_instance);
         {%- endfor %}
         {%- for field in fields %}
-        {%- if field.is_avro_union and field.avro_null_index >= 0 %}
+        {%- if field.avro_null_index >= 0 %}
         let mut null_value = instance.to_avro_value().unwrap();
         if let apache_avro::types::Value::Record(fields) = &mut null_value {
             let (_, value) = fields
@@ -423,9 +423,7 @@ mod tests {
             "avro/binary",
         ).unwrap_err();
         assert!(
-            null_error.to_string().contains(
-                "nullable Avro union null is unsupported"
-            )
+            null_error.to_string().contains("nullable Avro")
         );
         {%- endif %}
         {%- endfor %}

@@ -1,3 +1,4 @@
+import glob
 import os
 import shutil
 import subprocess
@@ -169,7 +170,7 @@ class TestAvroToRust(unittest.TestCase):
             shutil.rmtree(type_case_path, ignore_errors=True)
         with self.assertRaisesRegex(
             ValueError,
-            r"exact path collision.*foo\.Item.*foo\.ITEM",
+            r"exact path collision.*foo\.ITEM.*foo\.Item",
         ):
             convert_avro_schema_to_rust(
                 [
@@ -418,6 +419,103 @@ class TestAvroToRust(unittest.TestCase):
             avro_annotation=False,
         )
         self.assertTrue(os.path.exists(collision_path))
+
+    def test_generated_alias_is_replaced_on_regeneration(self):
+        """Atomically replace stale generated aliases after a moved field."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-alias-regeneration",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+
+        def schema(record_name):
+            return {
+                "type": "record",
+                "name": record_name,
+                "namespace": "n",
+                "fields": [
+                    {
+                        "name": "choice",
+                        "type": ["long", "int"],
+                    }
+                ],
+            }
+
+        convert_avro_schema_to_rust(
+            schema("First"),
+            rust_path,
+            package_name="rust-alias-regeneration",
+            avro_annotation=True,
+        )
+        alias_path = os.path.join(
+            rust_path,
+            "src",
+            "n",
+            "choiceunion.rs",
+        )
+        with open(alias_path, "r", encoding="utf-8") as alias_file:
+            first_content = alias_file.read()
+        convert_avro_schema_to_rust(
+            schema("Second"),
+            rust_path,
+            package_name="rust-alias-regeneration",
+            avro_annotation=True,
+        )
+        with open(alias_path, "r", encoding="utf-8") as alias_file:
+            second_content = alias_file.read()
+        self.assertNotEqual(first_content, second_content)
+        self.assertNotIn(".tmp", os.listdir(os.path.dirname(alias_path)))
+
+        with open(alias_path, "w", encoding="utf-8") as alias_file:
+            alias_file.write(
+                first_content + "\n// user-owned customization\n"
+            )
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Existing file conflicts with planned legacy union alias",
+        ):
+            convert_avro_schema_to_rust(
+                schema("Third"),
+                rust_path,
+                package_name="rust-alias-regeneration",
+                avro_annotation=True,
+            )
+
+    def test_output_parent_path_case_is_preserved(self):
+        """Never lowercase caller-provided output directory components."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "AvrotizeCaseSensitiveParent",
+            "GeneratedRust",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(
+                os.path.dirname(rust_path),
+                ignore_errors=True,
+            )
+        convert_avro_schema_to_rust(
+            {
+                "type": "record",
+                "name": "Carrier",
+                "namespace": "n",
+                "fields": [
+                    {
+                        "name": "choice",
+                        "type": ["long", "int"],
+                    }
+                ],
+            },
+            rust_path,
+            package_name="rust-case-sensitive-parent",
+            avro_annotation=True,
+        )
+        self.assertTrue(os.path.isfile(os.path.join(rust_path, "Cargo.toml")))
+        union_files = glob.glob(
+            os.path.join(rust_path, "src", "n", "unionpath*.rs")
+        )
+        self.assertEqual(1, len(union_files))
 
         root_schemas = [
             {
@@ -689,7 +787,7 @@ class TestAvroToRust(unittest.TestCase):
         rust_path = self.run_convert_to_rust("rust-union-annotation", True, True)
         self.assert_module_scoped_schemas(
             rust_path,
-            expected_count=16,
+            expected_count=17,
             required_modules={
                 "issue406/union_only/nestedholder.rs",
                 "issue406/union_only/unionholder.rs",
@@ -708,6 +806,23 @@ class TestAvroToRust(unittest.TestCase):
             avro_source,
             r"pub nullable: crate::issue406::union_only::"
             r"union[a-z0-9]+::Union[A-Za-z0-9]+,",
+        )
+        self.assertIn(
+            "pub optional_array: Vec<String>",
+            avro_source,
+        )
+        self.assertIn(
+            "pub optional_map: std::collections::HashMap<String, String>",
+            avro_source,
+        )
+        self.assertRegex(
+            avro_source,
+            r"pub optional_inline_record: crate::issue406::union_only::"
+            r"optionalinlinerecord::OptionalInlineRecord",
+        )
+        self.assertIn(
+            "pub optional_fixed: Vec<u8>",
+            avro_source,
         )
         legacy_alias_path = os.path.join(
             rust_path,

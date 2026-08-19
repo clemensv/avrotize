@@ -1,6 +1,7 @@
 import json
 import os
 import hashlib
+import re
 from typing import Dict, List, Union
 from avrotize.common import (
     is_generic_avro_type,
@@ -32,6 +33,7 @@ class AvroToRust:
         self.avro_type_fullnames: Dict[int, str] = {}
         self.union_path_identities: Dict[str, str] = {}
         self.union_alias_candidates: Dict[tuple[str, str], List[str]] = {}
+        self.planned_alias_contents: Dict[str, str] = {}
         self.avro_annotation = False
         self.serde_annotation = False
         self.xml_annotation = False
@@ -159,12 +161,6 @@ class AvroToRust:
                         namespace,
                         path=path,
                     )
-                if (
-                    self.avro_annotation
-                    and 'null' in avro_type
-                    and not type_name.startswith('Option<')
-                ):
-                    type_name = f'Option<{type_name}>'
             else:
                 type_name = self.generate_union_enum(
                     field_name,
@@ -596,9 +592,11 @@ class AvroToRust:
             )
             source_null_index = (
                 field['type'].index('null')
-                if avro_union_fields
-                and isinstance(field['type'], list)
+                if isinstance(field['type'], list)
                 and 'null' in field['type']
+                and any(item != 'null' for item in field['type'])
+                and not is_generic_avro_type(field['type'])
+                and not field_type.startswith('Option<')
                 else -1
             )
             avro_decode = (
@@ -862,7 +860,11 @@ class AvroToRust:
                     non_null_types[0],
                     inner_type,
                     namespace,
-                    'value',
+                    (
+                        'value'
+                        if rust_type.startswith('Option<')
+                        else value_expression
+                    ),
                     counter,
                 )
                 null_index = avro_type.index('null')
@@ -870,16 +872,21 @@ class AvroToRust:
                     index for index, item in enumerate(avro_type)
                     if item != 'null'
                 )
-                return f'''match {value_expression} {{
-                    None => apache_avro::types::Value::Union(
-                        {null_index},
-                        Box::new(apache_avro::types::Value::Null),
-                    ),
-                    Some(value) => apache_avro::types::Value::Union(
-                        {value_index},
-                        Box::new({inner_encode}),
-                    ),
-                }}'''
+                if rust_type.startswith('Option<'):
+                    return f'''match {value_expression} {{
+                        None => apache_avro::types::Value::Union(
+                            {null_index},
+                            Box::new(apache_avro::types::Value::Null),
+                        ),
+                        Some(value) => apache_avro::types::Value::Union(
+                            {value_index},
+                            Box::new({inner_encode}),
+                        ),
+                    }}'''
+                return f'''apache_avro::types::Value::Union(
+                    {value_index},
+                    Box::new({inner_encode}),
+                )'''
 
         resolved_type = avro_type
         if isinstance(avro_type, str):
@@ -1056,10 +1063,24 @@ class AvroToRust:
                     index for index, item in enumerate(avro_type)
                     if item != 'null'
                 )
+                if rust_type.startswith('Option<'):
+                    return f'''match {value_expression} {{
+                        apache_avro::types::Value::Union(index, value) => match index {{
+                            {null_index} => None,
+                            {value_index} => Some({inner_decode}),
+                            _ => return Err(format!(
+                                "unsupported Avro optional branch {{}}",
+                                index,
+                            ).into()),
+                        }},
+                        _ => return Err("expected an Avro optional value".into()),
+                    }}'''
                 return f'''match {value_expression} {{
                     apache_avro::types::Value::Union(index, value) => match index {{
-                        {null_index} => None,
-                        {value_index} => Some({inner_decode}),
+                        {null_index} => return Err(
+                            "nullable Avro complex null is unsupported by the generated Rust API".into()
+                        ),
+                        {value_index} => {inner_decode},
                         _ => return Err(format!(
                             "unsupported Avro optional branch {{}}",
                             index,
@@ -1388,7 +1409,7 @@ class AvroToRust:
         }
 
         file_name = self.to_file_name(qualified_union_enum_name)
-        target_file = os.path.join(self.output_dir, "src", file_name + ".rs").lower()
+        target_file = os.path.join(self.output_dir, "src", file_name + ".rs")
         render_template('avrotorust/dataclass_union.rs.jinja', target_file, **context)
         self.generated_types_avro_namespace[qualified_union_enum_name] = "union"
         self.generated_types_rust_package[qualified_union_enum_name] = "union"
@@ -1415,33 +1436,60 @@ class AvroToRust:
                 self.output_dir,
                 'src',
                 self.to_file_name(qualified_alias) + '.rs',
-            ).lower()
+            )
             module_directory = os.path.splitext(target_file)[0]
-            alias_content = (
-                f'pub type {legacy_name} = {unique_targets[0]};\n\n'
-                '#[cfg(test)]\n'
-                'mod tests {\n'
-                '    use super::*;\n\n'
-                '    #[test]\n'
-                '    fn legacy_alias_compiles() {\n'
-                f'        let _ = {legacy_name}::default();\n'
-                '    }\n'
-                '}\n'
+            alias_content = self.union_alias_content(
+                legacy_name,
+                unique_targets[0],
             )
             if os.path.isdir(module_directory):
                 continue
             if os.path.exists(target_file):
                 with open(target_file, 'r', encoding='utf-8') as alias_file:
-                    if alias_file.read() != alias_content:
-                        continue
-                self.generated_types_rust_package[qualified_alias] = 'alias'
-                self.write_mod_rs(namespace)
-                continue
+                    existing_content = alias_file.read()
+                if existing_content == alias_content:
+                    self.generated_types_rust_package[qualified_alias] = 'alias'
+                    self.write_mod_rs(namespace)
+                    continue
             os.makedirs(os.path.dirname(target_file), exist_ok=True)
-            with open(target_file, 'w', encoding='utf-8') as alias_file:
+            temporary_file = target_file + '.tmp'
+            with open(temporary_file, 'w', encoding='utf-8') as alias_file:
                 alias_file.write(alias_content)
+            os.replace(temporary_file, target_file)
             self.generated_types_rust_package[qualified_alias] = 'alias'
             self.write_mod_rs(namespace)
+
+    @staticmethod
+    def union_alias_content(legacy_name: str, target: str) -> str:
+        """Returns the complete generated legacy alias source."""
+        return (
+            f'pub type {legacy_name} = {target};\n\n'
+            '#[cfg(test)]\n'
+            'mod tests {\n'
+            '    use super::*;\n\n'
+            '    #[test]\n'
+            '    fn legacy_alias_compiles() {\n'
+            f'        let _ = {legacy_name}::default();\n'
+            '    }\n'
+            '}\n'
+        )
+
+    @staticmethod
+    def is_generated_union_alias(content: str, legacy_name: str) -> bool:
+        """Checks whether source is a previously generated alias file."""
+        pattern = (
+            rf'^pub type {re.escape(legacy_name)} = '
+            r'crate::[A-Za-z0-9_#:]+;\n\n'
+            r'#\[cfg\(test\)\]\n'
+            r'mod tests \{\n'
+            r'    use super::\*;\n\n'
+            r'    #\[test\]\n'
+            r'    fn legacy_alias_compiles\(\) \{\n'
+            rf'        let _ = {re.escape(legacy_name)}::default\(\);\n'
+            r'    \}\n'
+            r'\}\n$'
+        )
+        return re.fullmatch(pattern, content) is not None
 
     def get_json_shape_signature(
         self,
@@ -1633,6 +1681,8 @@ class AvroToRust:
 
     def write_mod_rs(self, namespace: str):
         """Writes the mod.rs file for a Rust module"""
+        if not namespace:
+            return
         directories = [part.lower() for part in namespace.split('.')]
         for i in range(len(directories)):
             sub_package = '::'.join(directories[:i + 1])
@@ -1722,10 +1772,10 @@ class AvroToRust:
         if not isinstance(schema, list):
             schema = [schema]
         self.index_avro_named_types(schema)
+        self.output_dir = output_dir
         self.validate_rust_generation_plan(schema)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
-        self.output_dir = output_dir
         for avro_schema in (x for x in schema if isinstance(x, dict)):
             self.generate_class_or_enum(avro_schema)
 
@@ -1745,9 +1795,10 @@ class AvroToRust:
             existing = planned.get(path)
             if existing is not None and existing != description:
                 path_text = '::'.join(path)
+                first, second = sorted((existing, description))
                 raise ValueError(
                     'Rust generation plan has an exact path collision at '
-                    f"'{path_text}': '{existing}' and '{description}'"
+                    f"'{path_text}': '{first}' and '{second}'"
                 )
             planned[path] = description
 
@@ -1789,7 +1840,7 @@ class AvroToRust:
                     if self.avro_annotation:
                         legacy_name = pascal(field_name) + 'Union'
                         alias_candidates.setdefault(
-                            (namespace_parts, legacy_name.lower()),
+                            (namespace_parts, legacy_name),
                             set(),
                         ).add(union_name)
                     for source_index, branch in non_null:
@@ -1870,14 +1921,57 @@ class AvroToRust:
             visit(top_level)
 
         if self.avro_annotation:
-            for (namespace_parts, alias_name), targets in sorted(
+            for (namespace_parts, legacy_name), targets in sorted(
                 alias_candidates.items()
             ):
                 if len(targets) == 1:
+                    union_name = next(iter(targets))
+                    alias_name = legacy_name.lower()
                     add(
                         namespace_parts + (alias_name,),
-                        f"legacy union alias {alias_name}",
+                        f"legacy union alias {legacy_name}",
                     )
+                    namespace = '::'.join(namespace_parts)
+                    qualified_target = self.safe_package(
+                        self.concat_package(namespace, union_name)
+                    )
+                    alias_content = self.union_alias_content(
+                        legacy_name,
+                        qualified_target,
+                    )
+                    relative_parts = list(namespace_parts) + [
+                        alias_name + '.rs'
+                    ]
+                    alias_path = os.path.join(
+                        self.output_dir,
+                        'src',
+                        *relative_parts,
+                    )
+                    alias_directory = os.path.splitext(alias_path)[0]
+                    if os.path.isdir(alias_directory):
+                        raise ValueError(
+                            'Existing directory conflicts with planned '
+                            f"legacy union alias: '{alias_path}'"
+                        )
+                    if os.path.exists(alias_path):
+                        with open(
+                            alias_path,
+                            'r',
+                            encoding='utf-8',
+                        ) as alias_file:
+                            existing_content = alias_file.read()
+                        if (
+                            existing_content != alias_content
+                            and not self.is_generated_union_alias(
+                                existing_content,
+                                legacy_name,
+                            )
+                        ):
+                            raise ValueError(
+                                'Existing file conflicts with planned '
+                                f"legacy union alias: '{alias_path}'"
+                            )
+                    self.planned_alias_contents[alias_path] = alias_content
 
         source_paths = list(planned)
         add(('lib',), 'generated infrastructure lib.rs')
@@ -1898,11 +1992,13 @@ class AvroToRust:
                 other_path[:len(file_path)] == file_path
             ):
                 path_text = '::'.join(file_path)
+                first, second = sorted(
+                    (planned[file_path], planned[other_path])
+                )
                 raise ValueError(
                     'Rust generation plan requires the same path '
                     f"'{path_text}' as both a file and directory: "
-                    f"'{planned[file_path]}' and "
-                    f"'{planned[other_path]}'"
+                    f"'{first}' and '{second}'"
                 )
 
     def convert(self, avro_schema_path: str, output_dir: str):

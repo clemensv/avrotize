@@ -87,6 +87,32 @@
             ]
         },
         {
+            "name": "optionalMap",
+            "type": [
+                "null",
+                {
+                    "type": "map",
+                    "values": "string"
+                }
+            ]
+        },
+        {
+            "name": "optionalInlineRecord",
+            "type": [
+                "null",
+                {
+                    "type": "record",
+                    "name": "OptionalInlineRecord",
+                    "fields": [
+                        {
+                            "name": "value",
+                            "type": "string"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
             "name": "payload",
             "type": "bytes"
         },
