@@ -1746,9 +1746,12 @@ class AvroToRust:
                 continue
             namespace, _, short_name = fullname.rpartition('.')
             rust_name = self.safe_identifier(pascal(short_name))
-            normalized_path = (
+            namespace_parts = (
                 tuple(part.lower() for part in namespace.split('.'))
-                + (rust_name.lower(),)
+                if namespace else ()
+            )
+            normalized_path = (
+                namespace_parts + (rust_name.lower(),)
             )
             existing = rust_paths.get(normalized_path)
             if existing is not None and existing != fullname:
@@ -1758,6 +1761,22 @@ class AvroToRust:
                     f"'{path_text}': '{existing}' and '{fullname}'"
                 )
             rust_paths[normalized_path] = fullname
+        normalized_paths = sorted(rust_paths)
+        for file_path, other_path in zip(
+            normalized_paths,
+            normalized_paths[1:],
+        ):
+            if len(file_path) < len(other_path) and (
+                other_path[:len(file_path)] == file_path
+            ):
+                file_name = rust_paths[file_path]
+                directory_name = rust_paths[other_path]
+                path_text = '::'.join(file_path)
+                raise ValueError(
+                    'Avro named types require the same normalized Rust '
+                    f"path '{path_text}' as both a file and directory: "
+                    f"'{file_name}' and '{directory_name}'"
+                )
 
     def convert(self, avro_schema_path: str, output_dir: str):
         """Converts Avro schema to Rust"""

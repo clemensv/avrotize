@@ -192,6 +192,77 @@ class TestAvroToRust(unittest.TestCase):
             )
         self.assertFalse(os.path.exists(type_case_path))
 
+    def test_rust_type_file_directory_conflict_fails_before_output(self):
+        """Reject a Rust module path required as both file and directory."""
+        schemas = [
+            {
+                "type": "record",
+                "name": "B",
+                "namespace": "a",
+                "fields": [],
+            },
+            {
+                "type": "record",
+                "name": "C",
+                "namespace": "a.b",
+                "fields": [],
+            },
+        ]
+        for index, schema in enumerate((schemas, list(reversed(schemas)))):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                f"rust-prefix-collision-{index}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            with self.assertRaisesRegex(
+                ValueError,
+                r"both a file and directory.*a\.B.*a\.b\.C",
+            ):
+                convert_avro_schema_to_rust(
+                    schema,
+                    rust_path,
+                    package_name="rust-prefix-collision",
+                    avro_annotation=True,
+                )
+            self.assertFalse(os.path.exists(rust_path))
+
+        root_schemas = [
+            {
+                "type": "record",
+                "name": "B",
+                "fields": [],
+            },
+            {
+                "type": "record",
+                "name": "C",
+                "namespace": "b",
+                "fields": [],
+            },
+        ]
+        for index, schema in enumerate(
+            (root_schemas, list(reversed(root_schemas)))
+        ):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                f"rust-root-prefix-collision-{index}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            with self.assertRaisesRegex(
+                ValueError,
+                r"both a file and directory.*'B'.*'b\.C'",
+            ):
+                convert_avro_schema_to_rust(
+                    schema,
+                    rust_path,
+                    package_name="rust-root-prefix-collision",
+                    avro_annotation=True,
+                )
+            self.assertFalse(os.path.exists(rust_path))
+
     def test_rust_module_output_is_hash_seed_deterministic(self):
         """Sort generated module declarations independently of hash seed."""
         outputs = []
