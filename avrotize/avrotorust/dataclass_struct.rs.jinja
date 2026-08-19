@@ -348,6 +348,8 @@ mod tests {
         {%- elif field.type in ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "isize", "usize"] %}
         // Skip default comparison for numeric types as random values can legitimately be 0
         let _ = instance.{{ field.name }};
+        {%- elif field.type == "()" %}
+        let _ = instance.{{ field.name }};
         {%- elif field.type != "bool" %}
         assert!(instance.{{ field.name }} != {{ field.type }}::default()); // Check that {{ field.name }} is not default
         {%- endif %}
@@ -401,6 +403,31 @@ mod tests {
             "avro/binary",
         ).unwrap();
         assert_eq!(union_instance, deserialized_union_instance);
+        {%- endfor %}
+        {%- for field in fields %}
+        {%- if field.is_avro_union and field.avro_null_index >= 0 %}
+        let mut null_value = instance.to_avro_value().unwrap();
+        if let apache_avro::types::Value::Record(fields) = &mut null_value {
+            let (_, value) = fields
+                .iter_mut()
+                .find(|(name, _)| name == "{{ field.original_name }}")
+                .unwrap();
+            *value = apache_avro::types::Value::Union(
+                {{ field.avro_null_index }},
+                Box::new(apache_avro::types::Value::Null),
+            );
+        }
+        let null_bytes = apache_avro::to_avro_datum(&SCHEMA, null_value).unwrap();
+        let null_error = {{ struct_name }}::from_data(
+            &null_bytes,
+            "avro/binary",
+        ).unwrap_err();
+        assert!(
+            null_error.to_string().contains(
+                "nullable Avro union null is unsupported"
+            )
+        );
+        {%- endif %}
         {%- endfor %}
         {%- endif %}
         {%- if xml_annotation %}

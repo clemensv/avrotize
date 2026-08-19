@@ -19,7 +19,7 @@ pub enum {{ union_enum_name }} {
 
 impl Default for {{ union_enum_name }} {
     fn default() -> Self {
-        return {{ union_enum_name }}::{{ default_union_field.name }}({{ default_union_field.default_value }})
+        return {{ union_enum_name }}::{{ union_fields[0].name }}({{ union_fields[0].default_value }})
     }
 }
 

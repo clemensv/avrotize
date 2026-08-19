@@ -228,6 +228,55 @@ class TestAvroToRust(unittest.TestCase):
                 )
             self.assertFalse(os.path.exists(rust_path))
 
+    def test_reserved_rust_module_paths_fail_before_output(self):
+        """Reject named types that collide with generated mod.rs/lib.rs."""
+        schemas = [
+            {
+                "type": "record",
+                "name": "Mod",
+                "namespace": "n",
+                "fields": [],
+            },
+            {
+                "type": "record",
+                "name": "Lib",
+                "fields": [],
+            },
+            {
+                "type": "record",
+                "name": "NestedMod",
+                "namespace": "n.mod",
+                "fields": [],
+            },
+            {
+                "type": "record",
+                "name": "NestedLib",
+                "namespace": "lib.n",
+                "fields": [],
+            },
+        ]
+        cases = [[schema] for schema in schemas]
+        cases.extend((schemas, list(reversed(schemas))))
+        for index, schema in enumerate(cases):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                f"rust-reserved-path-{index}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            with self.assertRaisesRegex(
+                ValueError,
+                r"generated Rust (mod|lib)\.rs",
+            ):
+                convert_avro_schema_to_rust(
+                    schema,
+                    rust_path,
+                    package_name="rust-reserved-path",
+                    avro_annotation=True,
+                )
+            self.assertFalse(os.path.exists(rust_path))
+
         root_schemas = [
             {
                 "type": "record",
@@ -379,6 +428,84 @@ class TestAvroToRust(unittest.TestCase):
         self.run_convert_to_rust("address", True, False)
         self.run_convert_to_rust("address", False, True)
         self.run_convert_to_rust("address", False, False)
+
+    def test_convert_root_types_to_rust(self):
+        """Compile root records and enums in every annotation mode."""
+        for avro_annotation, serde_annotation in (
+            (False, False),
+            (False, True),
+            (True, False),
+            (True, True),
+        ):
+            rust_path = self.run_convert_to_rust(
+                "rust-root-types",
+                avro_annotation,
+                serde_annotation,
+            )
+            with open(
+                os.path.join(rust_path, "src", "lib.rs"),
+                "r",
+                encoding="utf-8",
+            ) as lib_file:
+                source = lib_file.read()
+            self.assertIn("pub mod rootrecord;", source)
+            self.assertIn("pub mod rootenum;", source)
+            if avro_annotation:
+                self.assertIn("pub mod choiceunion;", source)
+                integration_dir = os.path.join(rust_path, "tests")
+                os.makedirs(integration_dir, exist_ok=True)
+                with open(
+                    os.path.join(
+                        integration_dir,
+                        "legacy_root_union_api.rs",
+                    ),
+                    "w",
+                    encoding="utf-8",
+                ) as legacy_test:
+                    legacy_test.write(
+                        "use rust_root_types::{\n"
+                        "    choiceunion::ChoiceUnion,\n"
+                        "    rootrecord::RootRecord,\n"
+                        "};\n\n"
+                        "#[test]\n"
+                        "fn legacy_root_union_api_compiles() {\n"
+                        "    let record = RootRecord {\n"
+                        "        choice: ChoiceUnion::String("
+                        "\"value\".into()),\n"
+                        "        ..Default::default()\n"
+                        "    };\n"
+                        "    assert!(matches!("
+                        "record.choice, ChoiceUnion::String(_)));\n"
+                        "}\n"
+                    )
+                assert subprocess.check_call(
+                    ['cargo', 'test'],
+                    cwd=rust_path,
+                    stdout=sys.stdout,
+                    stderr=sys.stderr,
+                    timeout=self.CARGO_TIMEOUT,
+                ) == 0
+                convert_avro_to_rust(
+                    os.path.join(
+                        os.getcwd(),
+                        "test",
+                        "avsc",
+                        "rust-root-types.avsc",
+                    ),
+                    rust_path,
+                    package_name="rust-root-types",
+                    avro_annotation=True,
+                    serde_annotation=serde_annotation,
+                )
+                with open(
+                    os.path.join(rust_path, "src", "lib.rs"),
+                    "r",
+                    encoding="utf-8",
+                ) as regenerated_lib:
+                    self.assertIn(
+                        "pub mod choiceunion;",
+                        regenerated_lib.read(),
+                    )
         
     def test_convert_twotypeunion_avsc_to_rust(self):
         """ Test converting an twotypeunion.avsc file to Rust """
@@ -463,10 +590,10 @@ class TestAvroToRust(unittest.TestCase):
                 "#[test]\n"
                 "fn legacy_avro_union_api_compiles() {\n"
                 "    let holder = UnionHolder {\n"
-                "        nullable: NullableUnion::Null(()),\n"
+                "        nullable: NullableUnion::String(\"value\".into()),\n"
                 "        ..Default::default()\n"
                 "    };\n"
-                "    assert!(matches!(holder.nullable, NullableUnion::Null(())));\n"
+                "    assert!(matches!(holder.nullable, NullableUnion::String(_)));\n"
                 "}\n"
             )
         assert subprocess.check_call(

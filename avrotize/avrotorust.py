@@ -96,7 +96,9 @@ class AvroToRust:
 
     def concat_package(self, package: str, name: str) -> str:
         """Concatenates package and name using a double colon separator"""
-        return f"crate::{package.lower()}::{name.lower()}::{name}" if package else name
+        if package:
+            return f"crate::{package.lower()}::{name.lower()}::{name}"
+        return f"crate::{name.lower()}::{name}"
 
     def convert_avro_type_to_rust(
         self,
@@ -135,7 +137,9 @@ class AvroToRust:
             if is_generic_avro_type(avro_type):
                 return 'serde_json::Value' if self.serde_annotation or self.xml_annotation else 'std::collections::HashMap<String, String>'
             non_null_types = [t for t in avro_type if t != 'null']
-            if len(non_null_types) == 1:
+            if len(non_null_types) == 0:
+                type_name = '()'
+            elif len(non_null_types) == 1:
                 if isinstance(non_null_types[0], str):
                     inner_type = self.convert_avro_type_to_rust(
                         field_name,
@@ -1004,8 +1008,15 @@ class AvroToRust:
                 union_fields = self.generated_union_fields.get(union_type, [])
                 null_index = avro_type.index('null') if 'null' in avro_type else -1
                 arms = []
-                if null_index >= 0 and rust_type.startswith('Option<'):
-                    arms.append(f'{null_index} => None')
+                if null_index >= 0:
+                    if rust_type.startswith('Option<'):
+                        arms.append(f'{null_index} => None')
+                    else:
+                        arms.append(
+                            f'''{null_index} => return Err(
+                                "nullable Avro union null is unsupported by the generated Rust union API".into()
+                            )'''
+                        )
                 for union_field in union_fields:
                     decoded = (
                         f'{union_type}::from_avro_branch('
@@ -1160,6 +1171,8 @@ class AvroToRust:
             return f"({ref}.is_f64(){null_check})"
         elif base_type == 'Vec<u8>':
             return f"({ref}.is_array(){null_check})"
+        elif base_type == '()':
+            return f"({ref}.is_null(){null_check})"
         elif base_type == 'std::collections::HashMap<String, String>':
             return f"({ref}.is_object(){null_check})"
         elif base_type.startswith('std::collections::HashMap<String, '):
@@ -1245,21 +1258,17 @@ class AvroToRust:
         union_avro_branches = [
             (source_index, avro_branch)
             for source_index, avro_branch in enumerate(avro_type)
-            if self.avro_annotation or avro_branch != 'null'
+            if avro_branch != 'null'
         ]
         union_avro_types = [
             avro_branch for _, avro_branch in union_avro_branches
         ]
         union_types = [
-            (
-                '()'
-                if avro_branch == 'null'
-                else self.convert_avro_type_to_rust(
-                    field_name + "Option" + str(i),
-                    avro_branch,
-                    namespace,
-                    path=(path or []) + [('branch', str(source_index))],
-                )
+            self.convert_avro_type_to_rust(
+                field_name + "Option" + str(i),
+                avro_branch,
+                namespace,
+                path=(path or []) + [('branch', str(source_index))],
             )
             for i, (source_index, avro_branch) in enumerate(union_avro_branches)
         ]
@@ -1278,15 +1287,10 @@ class AvroToRust:
         seen_names: dict = {}
         union_fields = []
         for i, t in enumerate(union_types):
-            is_null = union_avro_types[i] == 'null'
-            predicate = (
-                'node.is_null()'
-                if is_null
-                else self.get_is_json_match_clause(
-                    field_name,
-                    t,
-                    for_union=True,
-                )
+            predicate = self.get_is_json_match_clause(
+                field_name,
+                t,
+                for_union=True,
             )
             predicate_key = self.get_json_shape_signature(
                 union_avro_types[i],
@@ -1297,7 +1301,7 @@ class AvroToRust:
             seen_predicates.add(predicate_key)
             
             # Deduplicate variant names
-            variant_name = 'Null' if is_null else pascal(t.rsplit('::',1)[-1])
+            variant_name = pascal(t.rsplit('::',1)[-1])
             if variant_name in seen_names:
                 seen_names[variant_name] += 1
                 variant_name = f"{variant_name}{seen_names[variant_name]}"
@@ -1308,39 +1312,26 @@ class AvroToRust:
                 'name': variant_name, 
                 'type': t, 
                 'avro_type': union_avro_types[i],
-                'is_null': is_null,
                 'avro_index': i,
                 'source_avro_index': union_avro_branches[i][0],
-                'avro_decode': (
-                    '()'
-                    if is_null
-                    else self.render_avro_decode_value(
-                        union_avro_types[i],
-                        t,
-                        namespace,
-                        'value',
-                        [0],
-                    )
+                'avro_decode': self.render_avro_decode_value(
+                    union_avro_types[i],
+                    t,
+                    namespace,
+                    'value',
+                    [0],
                 ),
-                'avro_encode': (
-                    'apache_avro::types::Value::Null'
-                    if is_null
-                    else self.render_avro_encode_value(
-                        union_avro_types[i],
-                        t,
-                        namespace,
-                        'value',
-                        [0],
-                    )
+                'avro_encode': self.render_avro_encode_value(
+                    union_avro_types[i],
+                    t,
+                    namespace,
+                    'value',
+                    [0],
                 ),
-                'random_value': (
-                    '()'
-                    if is_null
-                    else self.generate_random_value_for_avro(
-                        t,
-                        union_avro_types[i],
-                        namespace,
-                    )
+                'random_value': self.generate_random_value_for_avro(
+                    t,
+                    union_avro_types[i],
+                    namespace,
                 ),
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,
@@ -1388,13 +1379,6 @@ class AvroToRust:
             'xml_annotation': self.xml_annotation,
             'union_enum_name': union_enum_name,
             'union_fields': union_fields,
-            'default_union_field': next(
-                (
-                    field for field in union_fields
-                    if field['is_null']
-                ),
-                union_fields[0],
-            ),
             'xml_string_guards': xml_string_guards,
             'avro_schema': avro_schema_str,
             'json_match_predicates': [
@@ -1433,21 +1417,30 @@ class AvroToRust:
                 self.to_file_name(qualified_alias) + '.rs',
             ).lower()
             module_directory = os.path.splitext(target_file)[0]
-            if os.path.exists(target_file) or os.path.isdir(module_directory):
+            alias_content = (
+                f'pub type {legacy_name} = {unique_targets[0]};\n\n'
+                '#[cfg(test)]\n'
+                'mod tests {\n'
+                '    use super::*;\n\n'
+                '    #[test]\n'
+                '    fn legacy_alias_compiles() {\n'
+                f'        let _ = {legacy_name}::default();\n'
+                '    }\n'
+                '}\n'
+            )
+            if os.path.isdir(module_directory):
+                continue
+            if os.path.exists(target_file):
+                with open(target_file, 'r', encoding='utf-8') as alias_file:
+                    if alias_file.read() != alias_content:
+                        continue
+                self.generated_types_rust_package[qualified_alias] = 'alias'
+                self.write_mod_rs(namespace)
                 continue
             os.makedirs(os.path.dirname(target_file), exist_ok=True)
             with open(target_file, 'w', encoding='utf-8') as alias_file:
-                alias_file.write(
-                    f'pub type {legacy_name} = {unique_targets[0]};\n\n'
-                    '#[cfg(test)]\n'
-                    'mod tests {\n'
-                    '    use super::*;\n\n'
-                    '    #[test]\n'
-                    '    fn legacy_alias_compiles() {\n'
-                    f'        let _ = {legacy_name}::default();\n'
-                    '    }\n'
-                    '}\n'
-                )
+                alias_file.write(alias_content)
+            self.generated_types_rust_package[qualified_alias] = 'alias'
             self.write_mod_rs(namespace)
 
     def get_json_shape_signature(
@@ -1694,9 +1687,13 @@ class AvroToRust:
 
     def write_lib_rs(self):
         """Writes the lib.rs file for the Rust project"""
-        modules = {name[(len('crate::')):].split('::')[0] for name in self.generated_types_rust_package}
+        modules = {
+            self.to_file_name(name).split(os.sep)[0]
+            for name in self.generated_types_rust_package
+        }
         mod_statements = '\n'.join(
-            f'pub mod {module};' for module in sorted(modules)
+            f'pub mod {self.escaped_identifier(module)};'
+            for module in sorted(modules)
         )
         if self.xml_annotation:
             mod_statements = 'pub(crate) mod xml_support;\n' + mod_statements
@@ -1750,9 +1747,30 @@ class AvroToRust:
                 tuple(part.lower() for part in namespace.split('.'))
                 if namespace else ()
             )
+            if 'mod' in namespace_parts:
+                raise ValueError(
+                    'Avro named type namespace collides with generated Rust '
+                    f"mod.rs path: '{fullname}'"
+                )
+            if namespace_parts and namespace_parts[0] == 'lib':
+                raise ValueError(
+                    'Avro named type namespace collides with generated Rust '
+                    f"lib.rs path: '{fullname}'"
+                )
             normalized_path = (
                 namespace_parts + (rust_name.lower(),)
             )
+            if normalized_path[-1] == 'mod':
+                path_text = '::'.join(normalized_path)
+                raise ValueError(
+                    'Avro named type collides with generated Rust mod.rs '
+                    f"path '{path_text}': '{fullname}'"
+                )
+            if normalized_path == ('lib',):
+                raise ValueError(
+                    'Avro named type collides with generated Rust lib.rs '
+                    f"path 'lib': '{fullname}'"
+                )
             existing = rust_paths.get(normalized_path)
             if existing is not None and existing != fullname:
                 path_text = '::'.join(str(part) for part in normalized_path)
