@@ -24,6 +24,59 @@
                 "string",
                 "long"
             ]
+        },
+        {
+            "name": "nested",
+            "type": {
+                "type": "record",
+                "name": "NestedHolder",
+                "fields": [
+                    {
+                        "name": "numeric",
+                        "type": [
+                            "long",
+                            "int"
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "name": "optionalNested",
+            "type": [
+                "null",
+                "issue406.union_only.NestedHolder"
+            ]
+        },
+        {
+            "name": "arrayValues",
+            "type": {
+                "type": "array",
+                "items": [
+                    "long",
+                    "int"
+                ]
+            }
+        },
+        {
+            "name": "mapValues",
+            "type": {
+                "type": "map",
+                "values": [
+                    "long",
+                    "int"
+                ]
+            }
+        },
+        {
+            "name": "optionalArray",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": "string"
+                }
+            ]
         }
     ]
 }

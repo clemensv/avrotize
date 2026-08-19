@@ -13,7 +13,11 @@ project_root = os.path.dirname(os.path.dirname(current_script_path))
 sys.path.append(project_root)
 
 
-from avrotize.avrotorust import convert_avro_to_rust
+from avrotize.avrotorust import (
+    convert_avro_schema_to_rust,
+    convert_avro_to_rust,
+)
+from avrotize.common import generic_type
 from avrotize.jsonstoavro import convert_jsons_to_avro
 import pytest
 
@@ -103,6 +107,9 @@ class TestAvroToRust(unittest.TestCase):
             rust_path,
             {
                 "issue406/union_only/numericunion.rs",
+                "issue406/union_only/arrayvaluesunion.rs",
+                "issue406/union_only/mapvaluesunion.rs",
+                "issue406/union_only/nestedholder.rs",
                 "issue406/union_only/nullableunion.rs",
                 "issue406/union_only/unionholder.rs",
                 "issue406/union_only/valueunion.rs",
@@ -183,6 +190,41 @@ class TestAvroToRust(unittest.TestCase):
             source = generated_file.read()
         self.assertIn("pub payload: serde_json::Value", source)
         self.assertNotIn("crate::avrotize::anyvalue::AnyValue", source)
+
+    def test_convert_generic_anyvalue_union_to_rust(self):
+        """Compile Avro decoding for the generic AnyValue union."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-generic-anyvalue-rs-avro-serde",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        schema = {
+            "type": "record",
+            "name": "GenericHolder",
+            "namespace": "issue406.generic",
+            "fields": [
+                {
+                    "name": "payload",
+                    "type": generic_type(),
+                }
+            ],
+        }
+        convert_avro_schema_to_rust(
+            schema,
+            rust_path,
+            package_name="rust-generic-anyvalue",
+            avro_annotation=True,
+            serde_annotation=True,
+        )
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
 
     def test_convert_jfrog_pipelines_jsons_to_avro_to_rust(self):
         """ Test converting a jfrog-pipelines.json file to Rust """

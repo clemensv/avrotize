@@ -112,6 +112,31 @@ lazy_static! {
 {%- endif %}
 
 impl {{ struct_name }} {
+{%- if avro_annotation %}
+    pub(crate) fn from_avro_value(
+        value: &apache_avro::types::Value,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let apache_avro::types::Value::Record(record_fields) = value else {
+            return Err("expected an Avro record value".into());
+        };
+        let record_fields: std::collections::HashMap<_, _> = record_fields
+            .iter()
+            .map(|(name, value)| (name.as_str(), value))
+            .collect();
+        Ok(Self {
+            {%- for field in fields %}
+            {{ field.name }}: {
+                let field_value = record_fields
+                    .get("{{ field.original_name }}")
+                    .copied()
+                    .ok_or("missing Avro field: {{ field.original_name }}")?;
+                {{ field.avro_decode }}
+            },
+            {%- endfor %}
+        })
+    }
+{%- endif %}
+
 {%- if serde_annotation or avro_annotation or xml_annotation %}
    /// Serializes the struct to a byte array based on the provided content type
     pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
@@ -244,54 +269,7 @@ impl {{ struct_name }} {
         if media_type.starts_with("avro/binary") || 
            media_type.starts_with("application/vnd.apache.avro+avro") {
             let value = apache_avro::from_avro_datum(&SCHEMA, &mut &data[..], None)?;
-            {%- if fields | selectattr("is_avro_union") | list | length > 0 %}
-            let apache_avro::types::Value::Record(record_fields) = value else {
-                return Err("expected an Avro record value".into());
-            };
-            let mut record_fields: std::collections::HashMap<_, _> =
-                record_fields.into_iter().collect();
-            return Ok(Self {
-                {%- for field in fields %}
-                {{ field.name }}: {
-                    let field_value = record_fields
-                        .remove("{{ field.original_name }}")
-                        .ok_or("missing Avro field: {{ field.original_name }}")?;
-                    {%- if field.is_avro_union %}
-                    match field_value {
-                        apache_avro::types::Value::Union(index, value) => match index {
-                            {%- if field.avro_null_index >= 0 %}
-                            {{ field.avro_null_index }} => None,
-                            {%- endif %}
-                            {%- for union_field in field.avro_union_fields %}
-                            {{ union_field.source_avro_index }} => {
-                                {%- if field.is_optional %}Some({%- endif %}
-                                {{ field.avro_union_type }}::from_avro_branch(
-                                    {{ union_field.avro_index }},
-                                    &value,
-                                )?
-                                {%- if field.is_optional %}){%- endif %}
-                            },
-                            {%- endfor %}
-                            _ => return Err(
-                                format!(
-                                    "unsupported Avro union branch {} for field {{ field.original_name }}",
-                                    index,
-                                ).into()
-                            ),
-                        },
-                        _ => return Err(
-                            "expected an Avro union for field {{ field.original_name }}".into()
-                        ),
-                    }
-                    {%- else %}
-                    apache_avro::from_value(&field_value)?
-                    {%- endif %}
-                },
-                {%- endfor %}
-            });
-            {%- else %}
-            return Ok(apache_avro::from_value(&value)?);
-            {%- endif %}
+            return Self::from_avro_value(&value);
         }
         {%- endif %}
         Err(format!("unsupported media type: {}", media_type).into())
@@ -392,24 +370,14 @@ mod tests {
         let deserialized_nullable_instance = {{ struct_name }}::from_data(&nullable_avro_bytes, "avro/binary").unwrap();
         assert_eq!(nullable_instance, deserialized_nullable_instance);
         {%- endif %}
-        {%- for field in fields %}
-        {%- if field.is_avro_union %}
-        {%- for union_field in field.avro_union_fields %}
-        let mut union_instance = {{ struct_name }}::generate_random_instance();
-        union_instance.{{ field.name }} =
-            {%- if field.is_optional %} Some({%- endif %}
-            {{ field.avro_union_type }}::{{ union_field.name }}(
-                {{ union_field.random_value }}
-            )
-            {%- if field.is_optional %}){%- endif %};
+        {%- for avro_test_instance in avro_test_instances %}
+        let union_instance = {{ avro_test_instance }};
         let union_avro_bytes = union_instance.to_byte_array("avro/binary").unwrap();
         let deserialized_union_instance = {{ struct_name }}::from_data(
             &union_avro_bytes,
             "avro/binary",
         ).unwrap();
         assert_eq!(union_instance, deserialized_union_instance);
-        {%- endfor %}
-        {%- endif %}
         {%- endfor %}
         {%- endif %}
         {%- if xml_annotation %}

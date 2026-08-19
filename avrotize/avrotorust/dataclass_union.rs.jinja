@@ -183,9 +183,7 @@ impl {{ union_enum_name }} {
         match index {
             {%- for union_field in union_fields %}
             {{ union_field.avro_index }} => Ok(
-                {{ union_enum_name }}::{{ union_field.name }}(
-                    apache_avro::from_value(value)?
-                )
+                {{ union_enum_name }}::{{ union_field.name }}({{ union_field.avro_decode }})
             ),
             {%- endfor %}
             _ => Err(format!("unsupported Avro union branch: {}", index).into()),

@@ -25,6 +25,7 @@ class AvroToRust:
         self.generated_types_avro_namespace: Dict[str, str] = {}
         self.generated_types_rust_package: Dict[str, str] = {}
         self.generated_union_fields: Dict[str, List[Dict]] = {}
+        self.generated_struct_avro_test_values: Dict[str, List[str]] = {}
         self.avro_named_types: Dict[str, Dict] = {}
         self.avro_annotation = False
         self.serde_annotation = False
@@ -131,6 +132,12 @@ class AvroToRust:
                     type_name = self.map_primitive_to_rust(non_null_types[0], True)
                 else:
                     type_name = self.convert_avro_type_to_rust(field_name, non_null_types[0], namespace)
+                if (
+                    self.avro_annotation
+                    and 'null' in avro_type
+                    and not type_name.startswith('Option<')
+                ):
+                    type_name = f'Option<{type_name}>'
             else:
                 type_name = self.generate_union_enum(field_name, avro_type, namespace)
                 if self.avro_annotation and 'null' in avro_type:
@@ -405,6 +412,16 @@ class AvroToRust:
                 and 'null' in field['type']
                 else -1
             )
+            avro_decode = (
+                self.render_avro_decode_value(
+                    field['type'],
+                    field_type,
+                    parent_namespace,
+                    'field_value',
+                    [0],
+                )
+                if self.avro_annotation else ''
+            )
             fields.append({
                 'original_name': original_field_name,
                 'json_name': original_field_name,
@@ -422,11 +439,36 @@ class AvroToRust:
                 'avro_union_type': base_field_type,
                 'avro_union_fields': avro_union_fields,
                 'avro_null_index': source_null_index,
+                'avro_decode': avro_decode,
             })
         
         struct_name = self.safe_identifier(pascal(avro_schema['name']))
         ns = parent_namespace.replace('.', '::').lower()
         qualified_struct_name = self.safe_package(self.concat_package(ns, struct_name))
+        avro_test_instances = []
+        if self.avro_annotation:
+            for field, field_schema in zip(fields, avro_schema.get('fields', [])):
+                for test_value in self.generate_avro_test_values(
+                    field_schema['type'],
+                    field['type'],
+                    parent_namespace,
+                ):
+                    avro_test_instances.append(
+                        f'''{{
+            let mut instance = {struct_name}::generate_random_instance();
+            instance.{field["name"]} = {test_value};
+            instance
+        }}'''
+                    )
+        self.generated_struct_avro_test_values[
+            qualified_struct_name
+        ] = [
+            instance.replace(
+                f'{struct_name}::generate_random_instance()',
+                f'{qualified_struct_name}::generate_random_instance()',
+            )
+            for instance in avro_test_instances
+        ]
         if not 'namespace' in avro_schema:
             avro_schema['namespace'] = parent_namespace
         avro_schema_str = json.dumps(
@@ -462,6 +504,7 @@ class AvroToRust:
             'xml_attribute_owners': sorted(attribute_owners),
             'fields': fields,
             'avro_schema': avro_schema_str,
+            'avro_test_instances': avro_test_instances,
             'json_match_predicates': [self.get_is_json_match_clause(f['original_name'], f['type']) for f in fields]
         }
 
@@ -474,6 +517,238 @@ class AvroToRust:
         self.generated_types_rust_package[qualified_struct_name] = "struct"
 
         return qualified_struct_name
+
+    def generate_avro_test_values(
+        self,
+        avro_type,
+        rust_type: str,
+        namespace: str,
+    ) -> List[str]:
+        """Generates deterministic values for every nested Avro union branch."""
+        if isinstance(avro_type, list):
+            if is_generic_avro_type(avro_type):
+                return []
+            non_null_types = [item for item in avro_type if item != 'null']
+            if len(non_null_types) > 1:
+                union_type = (
+                    rust_type[7:-1]
+                    if rust_type.startswith('Option<') else rust_type
+                )
+                values = []
+                union_fields = self.generated_union_fields.get(union_type, [])
+                union_avro_types = [
+                    item for item in avro_type if item != 'null'
+                ]
+                for field, branch_type in zip(
+                    union_fields,
+                    union_avro_types,
+                ):
+                    branch_values = self.generate_avro_test_values(
+                        branch_type,
+                        field['type'],
+                        namespace,
+                    ) or [field['random_value']]
+                    values.extend(
+                        f'{union_type}::{field["name"]}({value})'
+                        for value in branch_values
+                    )
+                if rust_type.startswith('Option<'):
+                    values = [f'Some({value})' for value in values]
+                    if 'null' in avro_type:
+                        values.insert(0, 'None')
+                return values
+            if len(non_null_types) == 1 and rust_type.startswith('Option<'):
+                inner_type = rust_type[7:-1]
+                inner_values = self.generate_avro_test_values(
+                    non_null_types[0],
+                    inner_type,
+                    namespace,
+                )
+                return ['None'] + [f'Some({value})' for value in inner_values]
+
+        resolved_type = avro_type
+        if isinstance(avro_type, str):
+            if is_any_value_type(avro_type):
+                return []
+            qualified_name = (
+                f'{namespace}.{avro_type}'
+                if namespace and '.' not in avro_type else avro_type
+            )
+            resolved_type = (
+                self.avro_named_types.get(qualified_name)
+                or self.avro_named_types.get(avro_type)
+                or avro_type
+            )
+
+        if isinstance(resolved_type, dict):
+            node_type = resolved_type.get('type')
+            if node_type == 'record':
+                return self.generated_struct_avro_test_values.get(rust_type, [])
+            if node_type == 'array':
+                inner_type = rust_type[4:-1]
+                return [
+                    f'vec![{value}]'
+                    for value in self.generate_avro_test_values(
+                        resolved_type['items'],
+                        inner_type,
+                        namespace,
+                    )
+                ]
+            if node_type == 'map':
+                inner_type = rust_type.split(', ', 1)[1][:-1]
+                return [
+                    (
+                        'std::iter::once(('
+                        '"branch".to_string(), '
+                        f'{value})).collect()'
+                    )
+                    for value in self.generate_avro_test_values(
+                        resolved_type['values'],
+                        inner_type,
+                        namespace,
+                    )
+                ]
+        return []
+
+    def render_avro_decode_value(
+        self,
+        avro_type,
+        rust_type: str,
+        namespace: str,
+        value_expression: str,
+        counter: List[int],
+    ) -> str:
+        """Renders index-aware Rust decoding for a generated field value."""
+        counter[0] += 1
+        suffix = counter[0]
+
+        if isinstance(avro_type, list):
+            if is_generic_avro_type(avro_type):
+                return f'apache_avro::from_value({value_expression})?'
+            non_null_types = [item for item in avro_type if item != 'null']
+            if len(non_null_types) > 1:
+                union_type = (
+                    rust_type[7:-1]
+                    if rust_type.startswith('Option<') else rust_type
+                )
+                union_fields = self.generated_union_fields.get(union_type, [])
+                null_index = avro_type.index('null') if 'null' in avro_type else -1
+                arms = []
+                if null_index >= 0 and rust_type.startswith('Option<'):
+                    arms.append(f'{null_index} => None')
+                for union_field in union_fields:
+                    decoded = (
+                        f'{union_type}::from_avro_branch('
+                        f'{union_field["avro_index"]}, value)?'
+                    )
+                    if rust_type.startswith('Option<'):
+                        decoded = f'Some({decoded})'
+                    arms.append(
+                        f'{union_field["source_avro_index"]} => {decoded}'
+                    )
+                arms_text = ',\n'.join(arms)
+                return f'''match {value_expression} {{
+                    apache_avro::types::Value::Union(index, value) => match index {{
+                        {arms_text},
+                        _ => return Err(format!(
+                            "unsupported Avro union branch {{}}",
+                            index,
+                        ).into()),
+                    }},
+                    _ => return Err("expected an Avro union value".into()),
+                }}'''
+
+            if len(non_null_types) == 1:
+                inner_rust_type = (
+                    rust_type[7:-1]
+                    if rust_type.startswith('Option<') else rust_type
+                )
+                inner_decode = self.render_avro_decode_value(
+                    non_null_types[0],
+                    inner_rust_type,
+                    namespace,
+                    'value.as_ref()',
+                    counter,
+                )
+                null_index = avro_type.index('null')
+                value_index = next(
+                    index for index, item in enumerate(avro_type)
+                    if item != 'null'
+                )
+                return f'''match {value_expression} {{
+                    apache_avro::types::Value::Union(index, value) => match index {{
+                        {null_index} => None,
+                        {value_index} => Some({inner_decode}),
+                        _ => return Err(format!(
+                            "unsupported Avro optional branch {{}}",
+                            index,
+                        ).into()),
+                    }},
+                    _ => return Err("expected an Avro optional value".into()),
+                }}'''
+
+        resolved_type = avro_type
+        if isinstance(avro_type, str):
+            if is_any_value_type(avro_type):
+                return f'apache_avro::from_value({value_expression})?'
+            qualified_name = (
+                f'{namespace}.{avro_type}'
+                if namespace and '.' not in avro_type else avro_type
+            )
+            resolved_type = (
+                self.avro_named_types.get(qualified_name)
+                or self.avro_named_types.get(avro_type)
+                or avro_type
+            )
+
+        if isinstance(resolved_type, dict):
+            node_type = resolved_type.get('type')
+            if node_type == 'record':
+                return f'{rust_type}::from_avro_value({value_expression})?'
+            if node_type == 'array':
+                inner_rust_type = rust_type[4:-1]
+                item_name = f'item_{suffix}'
+                values_name = f'values_{suffix}'
+                inner_decode = self.render_avro_decode_value(
+                    resolved_type['items'],
+                    inner_rust_type,
+                    namespace,
+                    item_name,
+                    counter,
+                )
+                return f'''match {value_expression} {{
+                    apache_avro::types::Value::Array(items) => {{
+                        let mut {values_name} = Vec::with_capacity(items.len());
+                        for {item_name} in items {{
+                            {values_name}.push({inner_decode});
+                        }}
+                        {values_name}
+                    }},
+                    _ => return Err("expected an Avro array value".into()),
+                }}'''
+            if node_type == 'map':
+                inner_rust_type = rust_type.split(', ', 1)[1][:-1]
+                item_name = f'item_{suffix}'
+                values_name = f'values_{suffix}'
+                inner_decode = self.render_avro_decode_value(
+                    resolved_type['values'],
+                    inner_rust_type,
+                    namespace,
+                    item_name,
+                    counter,
+                )
+                return f'''match {value_expression} {{
+                    apache_avro::types::Value::Map(items) => {{
+                        let mut {values_name} = std::collections::HashMap::new();
+                        for (key, {item_name}) in items {{
+                            {values_name}.insert(key.clone(), {inner_decode});
+                        }}
+                        {values_name}
+                    }},
+                    _ => return Err("expected an Avro map value".into()),
+                }}'''
+
+        return f'apache_avro::from_value({value_expression})?'
     
     def get_is_json_match_clause(self, field_name: str, field_type: str, for_union=False) -> str:
         """Generates the is_json_match clause for a field"""
@@ -620,6 +895,13 @@ class AvroToRust:
                 'type': t, 
                 'avro_index': i,
                 'source_avro_index': union_avro_branches[i][0],
+                'avro_decode': self.render_avro_decode_value(
+                    union_avro_types[i],
+                    t,
+                    namespace,
+                    'value',
+                    [0],
+                ),
                 'random_value': self.generate_random_value(t),
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,
