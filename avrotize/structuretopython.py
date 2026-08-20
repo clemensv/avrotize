@@ -443,7 +443,7 @@ class StructureToPython:
             class_name=class_name,
             docstring=doc,
             fields=field_docstrings,
-            import_types=import_types,
+            import_types=sorted(import_types),
             base_package=self.base_package,
             dataclasses_json_annotation=self.dataclasses_json_annotation,
             avro_annotation=self.avro_annotation,
@@ -765,7 +765,7 @@ class StructureToPython:
             class_name=class_name,
             docstring=doc,
             values_type=values_type,
-            import_types=import_types,
+            import_types=sorted(import_types),
             base_package=self.base_package
         )
         
@@ -864,7 +864,7 @@ class StructureToPython:
             class_name=class_name,
             test_class_name=test_class_name,
             fields=fields,
-            import_types=import_types,
+            import_types=sorted(import_types),
             avro_annotation=self.avro_annotation,
             dataclasses_json_annotation=self.dataclasses_json_annotation
         )

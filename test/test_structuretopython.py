@@ -987,6 +987,236 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         assert "'6-'" in source, "Enum value for 6- must be the original string"
         assert "'6+'" in source, "Enum value for 6+ must be the original string"
 
+    # ------------------------------------------------------------------
+    # Issue #405: s2py emits temporal fields without dataclasses_json
+    # encoder/decoder/mm_field metadata, so date/time values raise
+    # "TypeError: Object of type date is not JSON serializable" on to_json().
+    # ------------------------------------------------------------------
+
+    def _generate_issue_405_module(self, schema, package_name, dir_suffix):
+        """Generates a dataclasses-json annotated module and returns (src_dir, source_text)."""
+        from avrotize.structuretopython import convert_structure_schema_to_python
+
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", dir_suffix)
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir, ignore_errors=True)
+        os.makedirs(output_dir, exist_ok=True)
+
+        convert_structure_schema_to_python(
+            schema, output_dir, package_name=package_name,
+            dataclasses_json_annotation=True)
+
+        src_dir = os.path.join(output_dir, "src")
+        class_file = None
+        expected = schema["name"].lower() + ".py"
+        for root, _dirs, files in os.walk(src_dir):
+            for f in sorted(files):
+                if f.lower() == expected:
+                    class_file = os.path.join(root, f)
+                    break
+        assert class_file is not None, f"Expected {expected} under {src_dir}"
+
+        with open(class_file, "r", encoding="utf-8") as fh:
+            source = fh.read()
+
+        import ast
+        ast.parse(source)
+        return src_dir, source
+
+    def test_issue_405_date_field_has_dataclasses_json_metadata(self):
+        """Positive fixture: date fields carry encoder/decoder/mm_field metadata.
+
+        Regression test for issue #405. Both a required `date` and a nullable
+        `["null", "date"]` property must emit the same encoder/decoder/
+        mm_field=fields.Date triple that the a2py generator already emits, and
+        the existing `datetime` behaviour must be unchanged.
+        """
+        schema = {
+            "type": "object",
+            "name": "DateProbe",
+            "namespace": "test.issue405",
+            "properties": {
+                "d": {"type": ["null", "date"]},
+                "born": {"type": "date"},
+                "ts": {"type": ["null", "datetime"]},
+            },
+            "required": ["born"],
+        }
+        _src, source = self._generate_issue_405_module(
+            schema, "test_issue405_date", "issue-405-date-metadata")
+
+        assert "mm_field=fields.Date(format='iso')" in source, \
+            f"date fields must declare a marshmallow Date field:\n{source}"
+        assert source.count("mm_field=fields.Date(format='iso')") == 2, \
+            f"both the nullable and the required date field must be annotated:\n{source}"
+        assert "datetime.date.fromisoformat(d)" in source, \
+            f"date fields must declare an ISO date decoder:\n{source}"
+        assert "isinstance(d, datetime.date)" in source, \
+            f"date encoder must handle datetime.date values:\n{source}"
+
+        # No regression for the datetime sibling.
+        assert "mm_field=fields.DateTime(format='iso')" in source, \
+            f"datetime fields must keep their marshmallow DateTime field:\n{source}"
+        assert "datetime.datetime.fromisoformat(d)" in source, \
+            f"datetime fields must keep their ISO datetime decoder:\n{source}"
+
+    def test_issue_405_time_field_has_dataclasses_json_metadata(self):
+        """Positive fixture: `time`, the sibling temporal type, has the same defect."""
+        schema = {
+            "type": "object",
+            "name": "TimeProbe",
+            "namespace": "test.issue405",
+            "properties": {
+                "at": {"type": "time"},
+                "maybe_at": {"type": ["null", "time"]},
+            },
+            "required": ["at"],
+        }
+        _src, source = self._generate_issue_405_module(
+            schema, "test_issue405_time", "issue-405-time-metadata")
+
+        assert source.count("mm_field=fields.Time(format='iso')") == 2, \
+            f"time fields must declare a marshmallow Time field:\n{source}"
+        assert "datetime.time.fromisoformat(d)" in source, \
+            f"time fields must declare an ISO time decoder:\n{source}"
+
+    def test_issue_405_date_only_schema_imports_marshmallow_fields(self):
+        """Boundary fixture: the marshmallow import guard must fire for date-only schemas.
+
+        Before the fix the guard only matched `datetime.datetime`, so a schema
+        with a date (or time) field but no datetime field produced code
+        referencing `fields.Date` without importing `fields`.
+        """
+        for name, prop_type, suffix in (
+            ("DateOnly", "date", "issue-405-date-only-import"),
+            ("TimeOnly", "time", "issue-405-time-only-import"),
+        ):
+            with self.subTest(prop_type=prop_type):
+                schema = {
+                    "type": "object",
+                    "name": name,
+                    "namespace": "test.issue405",
+                    "properties": {
+                        "value": {"type": prop_type},
+                        "label": {"type": "string"},
+                    },
+                    "required": ["value", "label"],
+                }
+                src_dir, source = self._generate_issue_405_module(
+                    schema, "test_issue405_" + prop_type + "only", suffix)
+
+                assert "from marshmallow import fields" in source, \
+                    f"marshmallow fields import missing for {prop_type}-only schema:\n{source}"
+
+                # The module must actually import (NameError guard).
+                import importlib
+                sys.path.insert(0, src_dir)
+                try:
+                    module = importlib.import_module(
+                        f"test_issue405_{prop_type}only.test.issue405.{name.lower()}")
+                    assert hasattr(module, name)
+                finally:
+                    sys.path.remove(src_dir)
+
+    def test_issue_405_date_round_trips_through_json(self):
+        """Round-trip fixture: the exact failure mode reported in issue #405."""
+        import datetime as dt
+        import importlib
+
+        schema = {
+            "type": "object",
+            "name": "RoundTrip",
+            "namespace": "test.issue405",
+            "properties": {
+                "d": {"type": "date"},
+                "t": {"type": "time"},
+                "ts": {"type": "datetime"},
+                "count": {"type": "int64"},
+            },
+            "required": ["d", "t", "ts", "count"],
+        }
+        src_dir, _source = self._generate_issue_405_module(
+            schema, "test_issue405_roundtrip", "issue-405-roundtrip")
+
+        sys.path.insert(0, src_dir)
+        try:
+            module = importlib.import_module(
+                "test_issue405_roundtrip.test.issue405.roundtrip")
+            RoundTrip = module.RoundTrip
+            record = RoundTrip(
+                d=dt.date(1998, 11, 20),
+                t=dt.time(13, 45, 30),
+                ts=dt.datetime(1998, 11, 20, 13, 45, 30, tzinfo=dt.timezone.utc),
+                count=9007199254740993,
+            )
+
+            # pylint: disable=no-member
+            json_text = record.to_json()
+            assert '"1998-11-20"' in json_text, \
+                f"date must serialize as an ISO date string, got: {json_text}"
+            assert '"13:45:30"' in json_text, \
+                f"time must serialize as an ISO time string, got: {json_text}"
+
+            payload = record.to_byte_array("application/json")
+            assert isinstance(payload, bytes)
+
+            restored = RoundTrip.from_data(payload, "application/json")
+            assert restored == record, f"expected {record}, got {restored}"
+            assert isinstance(restored.d, dt.date) and not isinstance(restored.d, dt.datetime)
+            assert isinstance(restored.t, dt.time)
+            assert isinstance(restored.ts, dt.datetime)
+
+            # dataclasses_json's own decoder path must round-trip too.
+            assert RoundTrip.from_json(json_text) == record
+        finally:
+            sys.path.remove(src_dir)
+
+    def test_issue_405_invalid_date_string_is_rejected(self):
+        """Invalid-input fixture: malformed temporal strings must not corrupt silently."""
+        import importlib
+
+        schema = {
+            "type": "object",
+            "name": "StrictDate",
+            "namespace": "test.issue405",
+            "properties": {"d": {"type": "date"}},
+            "required": ["d"],
+        }
+        src_dir, _source = self._generate_issue_405_module(
+            schema, "test_issue405_strict", "issue-405-invalid-input")
+
+        sys.path.insert(0, src_dir)
+        try:
+            module = importlib.import_module(
+                "test_issue405_strict.test.issue405.strictdate")
+            StrictDate = module.StrictDate
+            with self.assertRaises(ValueError):
+                StrictDate.from_data(b'{"d": "20 November 1998"}', "application/json")
+        finally:
+            sys.path.remove(src_dir)
+    def test_issue_405_generation_is_deterministic(self):
+        """Repeated generation of the same schema must produce identical sources."""
+        schema = {
+            "type": "object",
+            "name": "Determinism",
+            "namespace": "test.issue405",
+            "properties": {
+                "d": {"type": "date"},
+                "t": {"type": "time"},
+                "ts": {"type": "datetime"},
+                "nested": {"type": "object", "name": "NestedOne",
+                           "properties": {"x": {"type": "string"}}, "required": ["x"]},
+                "other": {"type": "object", "name": "NestedTwo",
+                          "properties": {"y": {"type": "string"}}, "required": ["y"]},
+            },
+            "required": ["d", "t", "ts", "nested", "other"],
+        }
+        first = self._generate_issue_405_module(
+            schema, "test_issue405_det", "issue-405-determinism-a")[1]
+        second = self._generate_issue_405_module(
+            schema, "test_issue405_det", "issue-405-determinism-b")[1]
+        assert first == second, "s2py output must be deterministic across runs"
+
 
 if __name__ == '__main__':
     unittest.main()
