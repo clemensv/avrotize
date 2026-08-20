@@ -54,46 +54,52 @@ from {{ xml_runtime_module }} import parse_xml, serialize_xml
 {% endif %}
 {% if dataclasses_json_annotation and iso_parsers %}
 
+def _normalize_iso_string(value: str) -> str:
+    """ Normalizes an RFC 3339 string into a form datetime.fromisoformat accepts.
+
+    A trailing 'Z' is rewritten to '+00:00' and fractional seconds are padded or
+    truncated to exactly microsecond precision, because fromisoformat only
+    accepts the 'Z' designator and arbitrary fraction lengths from Python 3.11
+    onwards, and this package supports Python 3.10.
+    """
+    text = value[:-1] + '+00:00' if value.endswith(('Z', 'z')) else value
+    dot = text.find('.')
+    if dot != -1:
+        end = dot + 1
+        while end < len(text) and text[end].isdigit():
+            end += 1
+        digits = text[dot + 1:end]
+        if digits and len(digits) != 6:
+            text = text[:dot + 1] + digits[:6].ljust(6, '0') + text[end:]
+    return text
+
 {% for parser in iso_parsers %}
 {%- if parser == '_parse_iso_date' %}
-def _parse_iso_date(value: typing.Any) -> typing.Any:
-    """ Parses an ISO 8601 date string. Values that are not parseable dates are returned unchanged. """
-    if not isinstance(value, str):
-        return value
+def _parse_iso_date(value: str, field_name: str) -> datetime.date:
+    """ Parses an ISO 8601 date string, raising ValueError if it is malformed. """
     try:
-        return datetime.date.fromisoformat(value)
-    except ValueError:
-        return value
+        return datetime.date.fromisoformat(_normalize_iso_string(value))
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid ISO 8601 date for field '{field_name}': {value!r}") from error
 
 {% elif parser == '_parse_iso_datetime' %}
-def _parse_iso_datetime(value: typing.Any) -> typing.Any:
-    """ Parses an ISO 8601 / RFC 3339 datetime string. Values that are not parseable datetimes are returned unchanged.
-
-    A trailing 'Z' is normalized to '+00:00' because datetime.fromisoformat only
-    accepts the 'Z' designator from Python 3.11 onwards.
-    """
-    if not isinstance(value, str):
-        return value
-    text = value[:-1] + '+00:00' if value.endswith(('Z', 'z')) else value
+def _parse_iso_datetime(value: str, field_name: str) -> datetime.datetime:
+    """ Parses an ISO 8601 / RFC 3339 datetime string, raising ValueError if it is malformed. """
     try:
-        return datetime.datetime.fromisoformat(text)
-    except ValueError:
-        return value
+        return datetime.datetime.fromisoformat(_normalize_iso_string(value))
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid ISO 8601 datetime for field '{field_name}': {value!r}") from error
 
 {% elif parser == '_parse_iso_time' %}
-def _parse_iso_time(value: typing.Any) -> typing.Any:
-    """ Parses an ISO 8601 time string. Values that are not parseable times are returned unchanged.
-
-    A trailing 'Z' is normalized to '+00:00' because time.fromisoformat only
-    accepts the 'Z' designator from Python 3.11 onwards.
-    """
-    if not isinstance(value, str):
-        return value
-    text = value[:-1] + '+00:00' if value.endswith(('Z', 'z')) else value
+def _parse_iso_time(value: str, field_name: str) -> datetime.time:
+    """ Parses an ISO 8601 time string, raising ValueError if it is malformed. """
     try:
-        return datetime.time.fromisoformat(text)
-    except ValueError:
-        return value
+        return datetime.time.fromisoformat(_normalize_iso_string(value))
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid ISO 8601 time for field '{field_name}': {value!r}") from error
 
 {% endif %}
 {%- endfor %}

@@ -1069,7 +1069,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             f"date fields must declare a marshmallow Date field:\n{source}"
         assert source.count("mm_field=fields.Date(format='iso')") == 2, \
             f"both the nullable and the required date field must be annotated:\n{source}"
-        assert "_parse_iso_date(v)" in source, \
+        assert "_parse_iso_date(v, 'd')" in source, \
             f"date fields must declare an ISO date decoder:\n{source}"
         assert "isinstance(v, datetime.date)" in source, \
             f"date encoder must handle datetime.date values:\n{source}"
@@ -1077,7 +1077,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         # No regression for the datetime sibling.
         assert "mm_field=fields.DateTime(format='iso')" in source, \
             f"datetime fields must keep their marshmallow DateTime field:\n{source}"
-        assert "_parse_iso_datetime(v)" in source, \
+        assert "_parse_iso_datetime(v, 'ts')" in source, \
             f"datetime fields must keep their ISO datetime decoder:\n{source}"
 
     def test_issue_405_time_field_has_dataclasses_json_metadata(self):
@@ -1097,7 +1097,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
 
         assert source.count("mm_field=fields.Time(format='iso')") == 2, \
             f"time fields must declare a marshmallow Time field:\n{source}"
-        assert "_parse_iso_time(v)" in source, \
+        assert "_parse_iso_time(v, 'at')" in source, \
             f"time fields must declare an ISO time decoder:\n{source}"
 
     def test_issue_405_date_only_schema_imports_marshmallow_fields(self):
@@ -1267,53 +1267,248 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             assert list(restored.stamps) == [dt.datetime(2024, 4, 4, 5, 6, 7)], restored
             assert list(restored.maybe_times) == [dt.time(1, 2, 3)], restored
 
-    def test_issue_405_rfc3339_zulu_and_empty_strings_are_tolerated(self):
-        """Invalid-input and boundary fixture for the deserializer coercion.
+    _TEMPORAL_TRIPLE_SCHEMA = {
+        "type": "object",
+        "name": "Strict",
+        "namespace": "test.issue405",
+        "properties": {
+            "d": {"type": "date"},
+            "t": {"type": "time"},
+            "ts": {"type": "datetime"},
+        },
+        "required": ["d", "t", "ts"],
+    }
 
-        ``datetime.fromisoformat`` only learned RFC 3339 ``Z`` on Python 3.11,
-        and it raises on an empty string on every version. The generated
-        decoders must normalise ``Z`` and must leave anything unparseable
-        untouched rather than raising, on every supported interpreter
-        (``requires-python = ">=3.10"``).
+    def test_issue_405_rfc3339_zulu_and_fractional_seconds_normalise(self):
+        """Boundary fixture: RFC 3339 offsets and fractional seconds.
+
+        ``datetime.fromisoformat`` only learned RFC 3339 ``Z`` and >6-digit
+        fractional seconds on Python 3.11, but ``requires-python`` is
+        ``">=3.10"`` and 3.10 leads the CI matrix. The generated decoders
+        normalise both so the same payload yields the same value, of the same
+        type, on every supported interpreter.
+        """
+        import datetime as dt
+
+        src_dir, _source = self._generate_issue_405_module(
+            self._TEMPORAL_TRIPLE_SCHEMA, "test_issue405_zulu")
+
+        module = self._import_generated(
+            src_dir, "test_issue405_zulu.test.issue405.strict")
+        Strict = module.Strict
+        utc = dt.timezone.utc
+
+        # A trailing "Z" (and its lowercase form) is the most common JSON
+        # timestamp encoding; it must parse identically on 3.10 and 3.11+.
+        for suffix in ("Z", "z"):
+            payload = ('{"d": "2024-01-01", "t": "13:45:30%s",'
+                       ' "ts": "2024-01-01T00:00:00%s"}' % (suffix, suffix))
+            for restored in (Strict.from_data(payload.encode("utf-8"),
+                                              "application/json"),
+                             Strict.from_json(payload)):
+                assert restored.ts == dt.datetime(2024, 1, 1, tzinfo=utc), restored
+                assert restored.t == dt.time(13, 45, 30, tzinfo=utc), restored
+                assert restored.d == dt.date(2024, 1, 1), restored
+
+        # Nanosecond precision is the default Go/protobuf timestamp emission.
+        # It must truncate to microseconds rather than yielding a str on 3.10
+        # and a datetime on 3.11.
+        nanos = ('{"d": "2024-01-01", "t": "13:45:30.123456789Z",'
+                 ' "ts": "2024-01-01T00:00:00.123456789Z"}')
+        restored = Strict.from_json(nanos)
+        assert restored.ts == dt.datetime(2024, 1, 1, 0, 0, 0, 123456,
+                                          tzinfo=utc), restored
+        assert restored.t == dt.time(13, 45, 30, 123456, tzinfo=utc), restored
+
+        # An explicit numeric offset keeps working.
+        offset = ('{"d": "2024-01-01", "t": "13:45:30+05:30",'
+                  ' "ts": "2024-01-01T00:00:00+05:30"}')
+        restored = Strict.from_json(offset)
+        assert restored.ts.utcoffset() == dt.timedelta(hours=5, minutes=30), restored
+
+    def test_issue_405_invalid_date_string_is_rejected(self):
+        """Invalid-input fixture: a malformed date must raise, never corrupt.
+
+        Acceptance item 5 on issue #405 requires a malformed date string to be
+        rejected with ``ValueError``. Returning the raw string instead would
+        leave a field declared ``datetime.date`` holding a ``str``, so the
+        failure would surface as an ``AttributeError`` far from the
+        deserialization site and ``to_json`` would launder the bad value back
+        onto the wire.
+        """
+        src_dir, _source = self._generate_issue_405_module(
+            self._TEMPORAL_TRIPLE_SCHEMA, "test_issue405_invalid")
+
+        module = self._import_generated(
+            src_dir, "test_issue405_invalid.test.issue405.strict")
+        Strict = module.Strict
+
+        for bad in ("20 November 1998", "", "2024-13-45", "not-a-date"):
+            payload = json.dumps({"d": bad, "t": "01:02:03",
+                                  "ts": "2024-01-01T00:00:00"})
+            with self.assertRaises(ValueError) as caught:
+                Strict.from_json(payload)
+            # The message must name the offending field, otherwise the error is
+            # untraceable in a record with several temporal fields.
+            assert "'d'" in str(caught.exception), caught.exception
+
+    def test_issue_405_all_entry_points_reject_malformed_temporal_strings(self):
+        """Invalid-input fixture: every public deserializer must agree.
+
+        A generated class exposes five deserialization entry points. If some
+        tolerate a malformed value and others reject it, the same payload
+        produces an instance or an exception depending only on which entry
+        point the caller happened to use.
+        """
+        src_dir, _source = self._generate_issue_405_module(
+            self._TEMPORAL_TRIPLE_SCHEMA, "test_issue405_entrypoints")
+
+        module = self._import_generated(
+            src_dir, "test_issue405_entrypoints.test.issue405.strict")
+        Strict = module.Strict
+
+        bad = {"d": "20 November 1998", "t": "x", "ts": "y"}
+        text = json.dumps(bad)
+        entry_points = {
+            "from_data(bytes)":
+                lambda: Strict.from_data(text.encode("utf-8"), "application/json"),
+            "from_data(dict)":
+                lambda: Strict.from_data(dict(bad), "application/json"),
+            "from_json": lambda: Strict.from_json(text),
+            "from_serializer_dict": lambda: Strict.from_serializer_dict(dict(bad)),
+            # marshmallow owns this path and raises its own ValidationError.
+            "schema().loads": lambda: Strict.schema().loads(text),
+        }
+        for label, call in entry_points.items():
+            with self.subTest(entry_point=label):
+                with self.assertRaises(Exception) as caught:
+                    call()
+                assert not isinstance(caught.exception, AttributeError), \
+                    f"{label} must reject at the deserialization site"
+
+    def test_issue_405_ambiguous_temporal_union_emits_no_codec(self):
+        """Invalid-input fixture: an undecidable union must not guess.
+
+        ``["date", "datetime"]`` has no discriminated wire encoding, so a
+        codec would have to pick one arm. Picking the date arm truncates the
+        time component; picking by declaration order makes the two spellings
+        of the same logical union behave differently. Emitting no codec keeps
+        the pre-existing loud behaviour instead of losing data silently.
+        """
+        import datetime as dt
+
+        orders = {
+            "date_first": ["date", "datetime"],
+            "datetime_first": ["datetime", "date"],
+        }
+        encodings = {}
+        for label, arms in orders.items():
+            schema = {
+                "type": "object",
+                "name": "AmbiguousUnion",
+                "namespace": "test.issue405",
+                "properties": {"v": {"type": arms}},
+                "required": ["v"],
+            }
+            src_dir, source = self._generate_issue_405_module(
+                schema, "test_issue405_union_" + label)
+            assert "encoder=" not in source, \
+                f"{label}: an undecidable union must not get an encoder\n{source}"
+            assert "mm_field=" not in source, \
+                f"{label}: an undecidable union must not get an mm_field\n{source}"
+
+            module = self._import_generated(
+                src_dir,
+                f"test_issue405_union_{label}.test.issue405.ambiguousunion")
+            moment = dt.datetime(2024, 1, 1, 10, 30, 45)
+            encodings[label] = json.loads(module.AmbiguousUnion(v=moment).to_json())["v"]
+            assert encodings[label] != "2024-01-01", \
+                f"{label}: the time component must not be silently truncated"
+
+        assert encodings["date_first"] == encodings["datetime_first"], \
+            f"union arm order must not change the wire format: {encodings}"
+
+    def test_issue_405_union_of_date_and_string_does_not_coerce_the_string_arm(self):
+        """Invalid-input fixture: a str value must survive a ``[date, string]`` union.
+
+        A decoder that parses every ``str`` in such a union turns a value that
+        legitimately belongs to the string arm into a ``date``, so the record
+        no longer round-trips.
+        """
+        schema = {
+            "type": "object",
+            "name": "DateOrString",
+            "namespace": "test.issue405",
+            "properties": {"v": {"type": ["date", "string"]}},
+            "required": ["v"],
+        }
+        src_dir, source = self._generate_issue_405_module(
+            schema, "test_issue405_union_str")
+        assert "decoder=" not in source, \
+            f"a date/string union must not get a decoder\n{source}"
+
+        module = self._import_generated(
+            src_dir, "test_issue405_union_str.test.issue405.dateorstring")
+        record = module.DateOrString(v="2024-01-01")
+        restored = module.DateOrString.from_json(record.to_json())
+        assert restored.v == "2024-01-01", restored
+        assert isinstance(restored.v, str), \
+            f"the string arm must not be coerced to a date, got {type(restored.v)}"
+
+    def test_issue_405_temporal_set_decodes_to_a_set(self):
+        """Positive fixture: a temporal set must decode like any other set.
+
+        ``dataclasses_json`` reconstructs the declared container for fields
+        without a custom decoder, so a temporal set decoding to a ``list``
+        would both violate its own ``typing.Set`` annotation and behave
+        differently from a non-temporal set on the same class.
         """
         import datetime as dt
 
         schema = {
             "type": "object",
-            "name": "Tolerant",
+            "name": "SetProbe",
             "namespace": "test.issue405",
             "properties": {
-                "d": {"type": "date"},
-                "t": {"type": "time"},
-                "ts": {"type": "datetime"},
+                "labels": {"type": "set", "items": {"type": "string"}},
+                "days": {"type": "set", "items": {"type": "date"}},
             },
-            "required": ["d", "t", "ts"],
+            "required": ["labels", "days"],
         }
         src_dir, _source = self._generate_issue_405_module(
-            schema, "test_issue405_tolerant")
+            schema, "test_issue405_set")
 
         module = self._import_generated(
-            src_dir, "test_issue405_tolerant.test.issue405.tolerant")
-        Tolerant = module.Tolerant
-        utc = dt.timezone.utc
+            src_dir, "test_issue405_set.test.issue405.setprobe")
+        SetProbe = module.SetProbe
+        record = SetProbe(labels={"a", "b"},
+                          days={dt.date(2024, 1, 1), dt.date(2024, 2, 2)})
 
-        # RFC 3339 "Z" must parse identically on 3.10 and 3.11+.
-        zulu = b'{"d": "2024-01-01", "t": "13:45:30Z", "ts": "2024-01-01T00:00:00Z"}'
-        for restored in (Tolerant.from_data(zulu, "application/json"),
-                         Tolerant.from_json(zulu.decode("utf-8"))):
-            assert restored.ts == dt.datetime(2024, 1, 1, tzinfo=utc), restored
-            assert restored.t == dt.time(13, 45, 30, tzinfo=utc), restored
+        restored = SetProbe.from_json(record.to_json())
+        assert isinstance(restored.labels, set), type(restored.labels)
+        assert isinstance(restored.days, set), \
+            f"a temporal set must decode to a set, got {type(restored.days)}"
+        assert restored.days == record.days, restored.days
+        assert restored == record, "a temporal set must round-trip by equality"
 
-        # Unparseable strings must pass through unchanged, not raise. The
-        # previous behaviour of these paths was to return the raw string, and
-        # callers relying on that must keep working.
-        for payload in (b'{"d": "", "t": "", "ts": ""}',
-                        b'{"d": "20 November 1998", "t": "x", "ts": "y"}'):
-            restored = Tolerant.from_data(payload, "application/json")
-            decoded = json.loads(payload.decode("utf-8"))
-            assert restored.d == decoded["d"], restored
-            assert restored.t == decoded["t"], restored
-            assert restored.ts == decoded["ts"], restored
+    def test_issue_405_only_the_needed_iso_parsers_are_emitted(self):
+        """A module must not carry parser helpers it never calls."""
+        src_dir, source = self._generate_issue_405_module(
+            {
+                "type": "object",
+                "name": "DatetimeOnly",
+                "namespace": "test.issue405",
+                "properties": {"ts": {"type": "datetime"}},
+                "required": ["ts"],
+            },
+            "test_issue405_parsers")
+        del src_dir
+
+        assert "def _parse_iso_datetime(" in source, source
+        assert "def _parse_iso_date(" not in source, \
+            "a datetime-only module must not emit the unused date parser"
+        assert "def _parse_iso_time(" not in source, \
+            "a datetime-only module must not emit the unused time parser"
 
     def test_issue_405_from_serializer_dict_does_not_mutate_input(self):
         """Invalid-input fixture: deserialization must not rewrite the caller's dict."""

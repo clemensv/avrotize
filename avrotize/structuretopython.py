@@ -37,6 +37,9 @@ _ISO_PARSERS = {
     'datetime.time': '_parse_iso_time',
 }
 
+# Emitted in this order so a module's helper block is stable.
+ISO_PARSER_ORDER = ('_parse_iso_date', '_parse_iso_datetime', '_parse_iso_time')
+
 _GENERIC_RE = re.compile(r'^typing\.(Optional|List|Set|Dict|Union|Tuple|FrozenSet)\[(.+)\]$')
 
 
@@ -79,28 +82,79 @@ def type_contains_temporal(type_name: str) -> bool:
     return any(type_contains_temporal(arg) for arg in generic[1])
 
 
-def _codec_branches(type_name: str, var: str, depth: int, encode: bool) -> List[Tuple[int, str, str]]:
+NONE_TYPES = ('None', 'NoneType', 'type(None)')
+
+# Branch priorities. Lower is tested first, so datetime must precede date: a
+# datetime.datetime satisfies isinstance(v, datetime.date) as well.
+_PRIORITY_DATETIME = 0
+_PRIORITY_DATE_NARROWING = 1
+_PRIORITY_DATE = 2
+_PRIORITY_TIME = 3
+_PRIORITY_CONTAINER = 4
+
+
+def temporal_scalars_in(type_name: str) -> Set[str]:
+    """ Collects the distinct temporal scalars a Python type annotation contains at any depth. """
+    if type_name in TEMPORAL_SCALARS:
+        return {type_name}
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return set()
+    found: Set[str] = set()
+    for arg in generic[1]:
+        found |= temporal_scalars_in(arg)
+    return found
+
+
+def union_is_ambiguous(args: List[str]) -> bool:
+    """ Reports whether a union mixes temporal arms in a way no undiscriminated codec can encode.
+
+    A union of two temporal scalars (``Union[date, datetime]``) cannot be encoded
+    without losing the distinction, and a temporal scalar beside a non-temporal
+    arm (``Union[date, str]``) cannot be decoded without coercing values that
+    legitimately belong to the other arm. In both cases no codec is emitted, so
+    the pre-existing loud failure is preserved rather than replaced by silent
+    data loss.
+    """
+    arms = [arg for arg in args if arg not in NONE_TYPES]
+    scalars: Set[str] = set()
+    for arm in arms:
+        scalars |= temporal_scalars_in(arm)
+    if len(scalars) > 1:
+        return True
+    return any(not type_contains_temporal(arm) for arm in arms)
+
+
+def _codec_branches(type_name: str, var: str, depth: int, encode: bool,
+                    parsers: Set[str]) -> List[Tuple[int, str, str]]:
     """ Builds the (priority, condition, value) branches of a temporal codec expression.
 
-    The branches are folded into a conditional chain that leaves any value it does
-    not recognize untouched, so malformed or unexpected payloads pass through
-    unchanged instead of raising.
+    Every ISO parser referenced by the emitted branches is recorded in ``parsers``
+    so the caller knows exactly which helper definitions the generated module
+    needs. Values whose type the branches do not recognize are left untouched;
+    strings that should be temporal but cannot be parsed raise from the parser.
     """
     if type_name == 'datetime.datetime':
         if encode:
-            return [(0, f'isinstance({var}, datetime.datetime)', f'{var}.isoformat()')]
-        return [(0, f'isinstance({var}, str)', f'_parse_iso_datetime({var})')]
+            return [(_PRIORITY_DATETIME, f'isinstance({var}, datetime.datetime)', f'{var}.isoformat()')]
+        parsers.add('_parse_iso_datetime')
+        return [(_PRIORITY_DATETIME, f'isinstance({var}, str)', f'_parse_iso_datetime({var}, {{field_name}})')]
     if type_name == 'datetime.date':
         if encode:
             # datetime.datetime is a subclass of datetime.date: narrow it to the
             # date component so the emitted string is parseable by the decoder.
-            return [(0, f'isinstance({var}, datetime.datetime)', f'{var}.date().isoformat()'),
-                    (1, f'isinstance({var}, datetime.date)', f'{var}.isoformat()')]
-        return [(1, f'isinstance({var}, str)', f'_parse_iso_date({var})')]
+            # This branch is deliberately ranked below the datetime branch above
+            # so it can never displace it when both appear in one expression.
+            return [(_PRIORITY_DATE_NARROWING, f'isinstance({var}, datetime.datetime)',
+                     f'{var}.date().isoformat()'),
+                    (_PRIORITY_DATE, f'isinstance({var}, datetime.date)', f'{var}.isoformat()')]
+        parsers.add('_parse_iso_date')
+        return [(_PRIORITY_DATE, f'isinstance({var}, str)', f'_parse_iso_date({var}, {{field_name}})')]
     if type_name == 'datetime.time':
         if encode:
-            return [(2, f'isinstance({var}, datetime.time)', f'{var}.isoformat()')]
-        return [(2, f'isinstance({var}, str)', f'_parse_iso_time({var})')]
+            return [(_PRIORITY_TIME, f'isinstance({var}, datetime.time)', f'{var}.isoformat()')]
+        parsers.add('_parse_iso_time')
+        return [(_PRIORITY_TIME, f'isinstance({var}, str)', f'_parse_iso_time({var}, {{field_name}})')]
 
     generic = parse_generic_type(type_name)
     if not generic:
@@ -108,9 +162,11 @@ def _codec_branches(type_name: str, var: str, depth: int, encode: bool) -> List[
     origin, args = generic
 
     if origin in ('Optional', 'Union'):
+        if union_is_ambiguous(args):
+            return []
         branches: List[Tuple[int, str, str]] = []
         for arg in args:
-            branches.extend(_codec_branches(arg, var, depth, encode))
+            branches.extend(_codec_branches(arg, var, depth, encode, parsers))
         branches.sort(key=lambda branch: branch[0])
         seen: Set[str] = set()
         unique: List[Tuple[int, str, str]] = []
@@ -122,29 +178,35 @@ def _codec_branches(type_name: str, var: str, depth: int, encode: bool) -> List[
         return unique
 
     item = f'_item{depth}'
-    if origin in ('List', 'Set', 'FrozenSet', 'Tuple'):
+    # Only homogeneous containers are handled. typing.Tuple is deliberately
+    # excluded because its arguments are positional, so a single element codec
+    # cannot describe it.
+    if origin in ('List', 'Set', 'FrozenSet'):
         inner = args[0]
         if not type_contains_temporal(inner):
             return []
-        inner_expr = build_codec_expression(inner, item, depth + 1, encode)
+        inner_expr = build_codec_expression(inner, item, depth + 1, encode, parsers)
         comprehension = f'[{inner_expr} for {item} in {var}]'
-        # JSON has no set or tuple, and the rest of this generator represents
-        # both as lists (see generate_test_value), so decoding yields a list too.
-        return [(3, f'isinstance({var}, (list, tuple, set, frozenset))', comprehension)]
+        if not encode and origin == 'Set':
+            comprehension = f'set({comprehension})'
+        elif not encode and origin == 'FrozenSet':
+            comprehension = f'frozenset({comprehension})'
+        return [(_PRIORITY_CONTAINER, f'isinstance({var}, (list, tuple, set, frozenset))', comprehension)]
     if origin == 'Dict':
         value_type = args[-1]
         if not type_contains_temporal(value_type):
             return []
         key = f'_key{depth}'
-        inner_expr = build_codec_expression(value_type, item, depth + 1, encode)
-        return [(3, f'isinstance({var}, dict)',
+        inner_expr = build_codec_expression(value_type, item, depth + 1, encode, parsers)
+        return [(_PRIORITY_CONTAINER, f'isinstance({var}, dict)',
                  f'{{{key}: {inner_expr} for {key}, {item} in {var}.items()}}')]
     return []
 
 
-def build_codec_expression(type_name: str, var: str, depth: int, encode: bool) -> str:
+def build_codec_expression(type_name: str, var: str, depth: int, encode: bool,
+                           parsers: Set[str]) -> str:
     """ Builds a temporal encode/decode expression over ``var``, or ``var`` itself when nothing applies. """
-    branches = _codec_branches(type_name, var, depth, encode)
+    branches = _codec_branches(type_name, var, depth, encode, parsers)
     expression = var
     for _priority, condition, value in reversed(branches):
         expression = f'{value} if {condition} else {expression}'
@@ -172,19 +234,26 @@ def build_mm_field(type_name: str) -> Optional[str]:
     return None
 
 
-def build_temporal_codec(type_name: str) -> Optional[Dict[str, Optional[str]]]:
+def build_temporal_codec(type_name: str, field_name: str) -> Optional[Dict[str, Optional[str]]]:
     """ Builds the dataclasses-json encoder/decoder/mm_field triple for a temporal field type.
 
-    Returns None when the type contains no temporal scalar. The encoder and
-    decoder walk nested ``Optional``/``Union``/``List``/``Set``/``Dict``
-    annotations, so collections of dates are serialized just like scalar dates.
+    Returns None when the type contains no temporal scalar, or when it is a union
+    whose arms cannot be told apart on the wire. The encoder and decoder walk
+    nested ``Optional``/``Union``/``List``/``Set``/``Dict`` annotations, so
+    collections of dates are serialized just like scalar dates.
     """
     if not type_contains_temporal(type_name):
         return None
-    encoder = build_codec_expression(type_name, 'v', 0, encode=True)
-    decoder = build_codec_expression(type_name, 'v', 0, encode=False)
+    encode_parsers: Set[str] = set()
+    decode_parsers: Set[str] = set()
+    encoder = build_codec_expression(type_name, 'v', 0, True, encode_parsers)
+    decoder = build_codec_expression(type_name, 'v', 0, False, decode_parsers)
     if encoder == 'v' and decoder == 'v':
         return None
+
+    # The parsers name the field that rejected a value, so a malformed payload
+    # reports where it came from instead of surfacing a bare isoformat error.
+    decoder = decoder.replace('{field_name}', repr(field_name))
 
     inner = type_name
     generic = parse_generic_type(inner)
@@ -196,8 +265,7 @@ def build_temporal_codec(type_name: str) -> Optional[Dict[str, Optional[str]]]:
         'encoder': f'lambda v: {encoder}',
         'decoder': f'lambda v: {decoder}',
         'mm_field': mm_field,
-        'parsers': sorted({_ISO_PARSERS[scalar] for scalar in TEMPORAL_SCALARS
-                           if _ISO_PARSERS[scalar] in decoder}),
+        'parsers': sorted(decode_parsers),
     }
 
 
@@ -595,7 +663,8 @@ class StructureToPython:
         # Generate field docstrings
         field_docstrings = []
         for field in fields:
-            codec = build_temporal_codec(field['type'])
+            codec = build_temporal_codec(
+                field['type'], field.get('json_name') or field['name'])
             field_docstrings.append({
                 'name': self.safe_name(field['name']),
                 'original_name': field.get('json_name') or field['name'],
@@ -621,8 +690,7 @@ class StructureToPython:
             })
 
         # ISO parsing helpers required by the emitted decoders, in a stable order.
-        iso_parsers = [parser for parser in
-                       ('_parse_iso_date', '_parse_iso_datetime', '_parse_iso_time')
+        iso_parsers = [parser for parser in ISO_PARSER_ORDER
                        if any(parser in field['iso_parsers'] for field in field_docstrings)]
 
         # If avro_annotation is enabled, convert JSON Structure schema to Avro schema
@@ -1026,9 +1094,13 @@ class StructureToPython:
                 field_type = resolve(field_type)
 
             if field_type.startswith('typing.List[') or field_type.startswith('typing.Set['):
+                is_set = field_type.startswith('typing.Set[')
                 field_type = resolve(field_type)
                 array_range = random.randint(1, 5)
-                return f"[{', '.join([generate_value(field_type) for _ in range(array_range)])}]"
+                items = f"[{', '.join([generate_value(field_type) for _ in range(array_range)])}]"
+                # A typing.Set field must be constructed as a set, or the value
+                # would not match the container the deserializers rebuild.
+                return f"set({items})" if is_set else items
             elif field_type.startswith('typing.Dict['):
                 field_type = resolve(field_type)
                 dict_range = random.randint(1, 5)
