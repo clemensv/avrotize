@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use apache_avro::Schema;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use std::io::Write;
+use std::io::{Read, Write};
 {%- endif %}
 {%- if serde_annotation or avro_annotation or xml_annotation %}
 use serde::{self, Serialize, Deserialize};
@@ -24,9 +24,37 @@ impl Default for {{ union_enum_name }} {
 }
 
 {%- if avro_annotation %}
+const MAX_AVRO_DATA_SIZE: usize = 16 * 1024 * 1024;
+
+fn decode_avro_data(
+    data: &[u8],
+    gzip: bool,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    if data.len() > MAX_AVRO_DATA_SIZE {
+        return Err("input exceeds the generated data size limit".into());
+    }
+    if !gzip {
+        return Ok(data.to_vec());
+    }
+    let decoder = GzDecoder::new(data);
+    let mut result = Vec::new();
+    decoder
+        .take((MAX_AVRO_DATA_SIZE + 1) as u64)
+        .read_to_end(&mut result)?;
+    if result.len() > MAX_AVRO_DATA_SIZE {
+        return Err("decompressed input exceeds the generated data size limit".into());
+    }
+    Ok(result)
+}
+
 lazy_static! {
     /// The static Avro schema as a parsed object
     pub static ref SCHEMA: Schema = Schema::parse_str({{ avro_schema }}).unwrap();
+    {%- if source_null_index >= 0 %}
+    pub static ref SOURCE_SCHEMA: Schema = Schema::parse_str(
+        {{ source_avro_schema }}
+    ).unwrap();
+    {%- endif %}
 }
 {%- endif %}
 
@@ -94,6 +122,15 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             }
         }
         {%- endif %}
+        let match_count = 0usize
+            {%- for union_field in union_fields %}
+            + usize::from({{ union_field.json_match_predicate }})
+            {%- endfor %};
+        if match_count > 1 {
+            return Err(serde::de::Error::custom(
+                "ambiguous JSON union value"
+            ));
+        }
         {%- for union_field in union_fields %}
         if {{ union_field.json_match_predicate }} {
             {%- if union_field.type.startswith("Vec<") %}
@@ -116,14 +153,16 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
 
 {%- if xml_annotation %}
 fn xml_scalar_match_count(value: &serde_json::Value) -> usize {
-    let serde_json::Value::Object(object) = value else {
-        return 0;
+    let object = match value {
+        serde_json::Value::Object(object) => object,
+        _ => return 0,
     };
     if object.len() != 1 {
         return 0;
     }
-    let Some(serde_json::Value::String(text)) = object.get("$text") else {
-        return 0;
+    let text = match object.get("$text") {
+        Some(serde_json::Value::String(text)) => text,
+        _ => return 0,
     };
     0usize
         {%- for union_field in union_fields %}
@@ -155,8 +194,9 @@ fn normalize_xml_value(value: serde_json::Value) -> serde_json::Value {
 }
 
 fn normalize_xml_text(value: serde_json::Value) -> serde_json::Value {
-    let serde_json::Value::String(text) = value else {
-        return normalize_xml_value(value);
+    let text = match value {
+        serde_json::Value::String(text) => text,
+        other => return normalize_xml_value(other),
     };
     if let Ok(value) = text.parse::<bool>() {
         return serde_json::Value::Bool(value);
@@ -181,7 +221,11 @@ impl {{ union_enum_name }} {
     pub(crate) fn from_avro_branch(
         index: u32,
         value: &apache_avro::types::Value,
+        depth: usize,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        if depth > 128 {
+            return Err("Avro nesting depth exceeds the generated limit".into());
+        }
         match index {
             {%- for union_field in union_fields %}
             {{ union_field.avro_index }} => Ok(
@@ -224,6 +268,7 @@ impl {{ union_enum_name }} {
 
     pub(crate) fn from_avro_source_value(
         value: &apache_avro::types::Value,
+        depth: usize,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         match value {
             apache_avro::types::Value::Union(index, value) => match index {
@@ -231,6 +276,7 @@ impl {{ union_enum_name }} {
                 {{ union_field.source_avro_index }} => Self::from_avro_branch(
                     {{ union_field.avro_index }},
                     value,
+                    depth,
                 ),
                 {%- endfor %}
                 _ => Err(
@@ -240,6 +286,71 @@ impl {{ union_enum_name }} {
             _ => Err("expected an Avro union value".into()),
         }
     }
+
+        {%- if source_null_index >= 0 %}
+        /// Encodes against the original nullable source schema. Pair this
+        /// method with `from_nullable_data`, not the legacy non-null methods.
+        pub fn to_nullable_byte_array(
+            value: Option<&Self>,
+            content_type: &str,
+        ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+            let media_type = content_type.split(';').next().unwrap_or("");
+            let (base_media_type, gzip) = media_type
+                .strip_suffix("+gzip")
+                .map_or((media_type, false), |base| (base, true));
+            if base_media_type != "avro/binary" &&
+               base_media_type != "application/vnd.apache.avro+avro" {
+                return Err(format!("unsupported media type: {}", media_type).into());
+            }
+            let avro_value = match value {
+                Some(value) => value.to_avro_source_value()?,
+                None => apache_avro::types::Value::Union(
+                    {{ source_null_index }},
+                    Box::new(apache_avro::types::Value::Null),
+                ),
+            };
+            let result = apache_avro::to_avro_datum(
+                &SOURCE_SCHEMA,
+                avro_value,
+            )?;
+            if gzip {
+                let mut encoder = GzEncoder::new(
+                    Vec::new(),
+                    flate2::Compression::default(),
+                );
+                encoder.write_all(&result)?;
+                return Ok(encoder.finish()?);
+            }
+            Ok(result)
+        }
+
+        /// Decodes data written against the original nullable source schema.
+        pub fn from_nullable_data(
+            data: impl AsRef<[u8]>,
+            content_type: &str,
+        ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+            let media_type = content_type.split(';').next().unwrap_or("");
+            let (base_media_type, gzip) = media_type
+                .strip_suffix("+gzip")
+                .map_or((media_type, false), |base| (base, true));
+            if base_media_type != "avro/binary" &&
+               base_media_type != "application/vnd.apache.avro+avro" {
+                return Err(format!("unsupported media type: {}", media_type).into());
+            }
+            let data = decode_avro_data(data.as_ref(), gzip)?;
+            let value = apache_avro::from_avro_datum(
+                &SOURCE_SCHEMA,
+                &mut &data[..],
+                None,
+            )?;
+            match value {
+                apache_avro::types::Value::Union(index, value)
+                    if index == {{ source_null_index }} =>
+                    Ok(None),
+                other => Ok(Some(Self::from_avro_source_value(&other, 0)?)),
+            }
+        }
+        {%- endif %}
 
     /// Serializes the union to Avro binary data.
     pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
@@ -273,18 +384,11 @@ impl {{ union_enum_name }} {
             return Err(format!("unsupported media type: {}", media_type).into());
         }
 
-        let data = if gzip {
-            let mut decoder = GzDecoder::new(data.as_ref());
-            let mut decompressed_data = Vec::new();
-            std::io::copy(&mut decoder, &mut decompressed_data)?;
-            decompressed_data
-        } else {
-            data.as_ref().to_vec()
-        };
+        let data = decode_avro_data(data.as_ref(), gzip)?;
         let value = apache_avro::from_avro_datum(&SCHEMA, &mut &data[..], None)?;
         match value {
             apache_avro::types::Value::Union(index, value) => {
-                Self::from_avro_branch(index, &value)
+                Self::from_avro_branch(index, &value, 0)
             },
             _ => Err("expected an Avro union value".into()),
         }
@@ -306,7 +410,7 @@ impl {{ union_enum_name }} {
 
 #[cfg(test)]
 impl {{ union_enum_name }} {
-{%- set unique_fields = union_fields | selectattr('is_first_with_predicate') | list %}
+{%- set json_safe_fields = union_fields | selectattr('json_round_trip_safe') | list %}
 {%- set xml_safe_fields = union_fields | selectattr('xml_safe_for_random') | list %}
     pub fn generate_random_instance() -> {{ union_enum_name }} {
         let mut rng = rand::thread_rng();
@@ -318,10 +422,10 @@ impl {{ union_enum_name }} {
             {%- endfor %}
             _ => panic!("Invalid random index generated"),
         }
-        {%- elif serde_annotation and unique_fields | length < union_fields | length %}
+        {%- elif serde_annotation and json_safe_fields | length > 0 and json_safe_fields | length < union_fields | length %}
         // Only pick from variants with unique JSON structures to ensure round-trip works
-        match rand::Rng::gen_range(&mut rng, 0..{{ unique_fields | length }}) {
-            {%- for union_field in unique_fields %}
+        match rand::Rng::gen_range(&mut rng, 0..{{ json_safe_fields | length }}) {
+            {%- for union_field in json_safe_fields %}
             {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }}),
             {%- endfor %}
             _ => panic!("Invalid random index generated"),
@@ -341,13 +445,42 @@ impl {{ union_enum_name }} {
 mod tests {
     use super::*;
 
+    {%- if avro_annotation and source_null_index >= 0 %}
+    #[test]
+    fn test_nullable_avro_{{ union_enum_name.lower() }}() {
+        let null_bytes = {{ union_enum_name }}::to_nullable_byte_array(
+            None,
+            "avro/binary",
+        ).unwrap();
+        assert_eq!(
+            {{ union_enum_name }}::from_nullable_data(
+                &null_bytes,
+                "avro/binary",
+            ).unwrap(),
+            None,
+        );
+        let instance = {{ union_enum_name }}::default();
+        let value_bytes = {{ union_enum_name }}::to_nullable_byte_array(
+            Some(&instance),
+            "avro/binary+gzip",
+        ).unwrap();
+        assert_eq!(
+            {{ union_enum_name }}::from_nullable_data(
+                &value_bytes,
+                "avro/binary+gzip",
+            ).unwrap(),
+            Some(instance),
+        );
+    }
+    {%- endif %}
+
     {%- if serde_annotation or avro_annotation %}
     #[test]
     fn test_serialize_deserialize_{{ union_enum_name.lower() }}() {
         let mut rng = rand::thread_rng();
         {%- for union_field in union_fields %}
         let instance = {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }});
-        {%- if serde_annotation and union_field.is_first_with_predicate %}
+        {%- if serde_annotation and union_field.json_round_trip_safe %}
         let json_bytes = serde_json::to_vec(&instance).unwrap();
         let deserialized_instance: {{ union_enum_name }} = serde_json::from_slice(&json_bytes).unwrap();
         assert_eq!(instance, deserialized_instance);
@@ -377,6 +510,24 @@ mod tests {
         assert!({{ union_enum_name }}::from_data([], "avro/binary-invalid").is_err());
         assert!({{ union_enum_name }}::from_data([], "application/vnd.apache.avro+avroevil").is_err());
         assert!({{ union_enum_name }}::from_data([0, 1], "avro/binary+gzip").is_err());
+    }
+    {%- endif %}
+
+    {%- if serde_annotation and ambiguous_json_field %}
+    #[test]
+    fn test_rejects_ambiguous_json_{{ union_enum_name.lower() }}() {
+        let mut rng = rand::thread_rng();
+        let instance = {{ union_enum_name }}::{{ ambiguous_json_field.name }}(
+            {{ ambiguous_json_field.random_value }}
+        );
+        let json_bytes = serde_json::to_vec(&instance).unwrap();
+        let result = serde_json::from_slice::<{{ union_enum_name }}>(
+            &json_bytes
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains(
+            "ambiguous JSON union value"
+        ));
     }
     {%- endif %}
 

@@ -727,11 +727,15 @@ class AvroToRust:
             'fields': fields,
             'avro_schema': avro_schema_str,
             'avro_test_instances': avro_test_instances,
+            'json_round_trip_safe': self.is_json_round_trip_safe(
+                avro_schema,
+                parent_namespace,
+            ),
             'json_match_predicates': [self.get_is_json_match_clause(f['original_name'], f['type']) for f in fields]
         }
 
         file_name = self.to_file_name(qualified_struct_name)
-        target_file = os.path.join(self.output_dir, "src", file_name + ".rs")
+        target_file = self.output_path("src", file_name + ".rs")
         render_template('avrotorust/dataclass_struct.rs.jinja', target_file, **context)
         self.write_mod_rs(parent_namespace)
 
@@ -1024,7 +1028,7 @@ class AvroToRust:
                 )
                 return (
                     f'{union_type}::from_avro_source_value('
-                    f'{value_expression})?'
+                    f'{value_expression}, depth + 1)?'
                 )
 
             if len(non_null_types) == 1:
@@ -1100,7 +1104,10 @@ class AvroToRust:
                     _ => return Err("expected an Avro fixed value".into()),
                 }}'''
             if node_type == 'record':
-                return f'{rust_type}::from_avro_value({value_expression})?'
+                return (
+                    f'{rust_type}::from_avro_value_at('
+                    f'{value_expression}, depth + 1)?'
+                )
             if node_type == 'array':
                 inner_rust_type = rust_type[4:-1]
                 item_name = f'item_{suffix}'
@@ -1235,7 +1242,7 @@ class AvroToRust:
         }
 
         file_name = self.to_file_name(qualified_enum_name)
-        target_file = os.path.join(self.output_dir, "src", file_name + ".rs")
+        target_file = self.output_path("src", file_name + ".rs")
         render_template('avrotorust/dataclass_enum.rs.jinja', target_file, **context)
         self.write_mod_rs(parent_namespace)
 
@@ -1271,10 +1278,15 @@ class AvroToRust:
         source_indexes = tuple(
             source_index for source_index, _ in union_avro_branches
         )
+        source_null_index = (
+            avro_type.index('null')
+            if self.avro_annotation and 'null' in avro_type else -1
+        )
         target_key = (
             namespace.lower(),
             structural_identity,
             source_indexes,
+            source_null_index,
         )
         existing_target = self.union_schema_targets.get(target_key)
         if existing_target is None:
@@ -1316,6 +1328,18 @@ class AvroToRust:
             [avro_schema_str[i:i+80] for i in range(0, len(avro_schema_str), 80)])
         avro_schema_str = avro_schema_str.replace('§', '\\"')
         avro_schema_str = f"concat!(\"{avro_schema_str}\")"
+        source_avro_schema_str = json.dumps(
+            self.inline_avro_references(avro_type, namespace)
+        )
+        source_avro_schema_str = source_avro_schema_str.replace('"', '§')
+        source_avro_schema_str = f"\",\n{INDENT*2}\"".join(
+            [
+                source_avro_schema_str[i:i+80]
+                for i in range(0, len(source_avro_schema_str), 80)
+            ]
+        )
+        source_avro_schema_str = source_avro_schema_str.replace('§', '\\"')
+        source_avro_schema_str = f"concat!(\"{source_avro_schema_str}\")"
         
         # Track seen predicates to identify structurally identical variants
         seen_predicates: set = set()
@@ -1328,7 +1352,11 @@ class AvroToRust:
                 t,
                 for_union=True,
             )
-            predicate_key = self.get_json_shape_signature(
+            predicate_key = self.get_json_match_signature(
+                union_avro_types[i],
+                namespace,
+            )
+            shape_signature = self.get_json_shape_signature(
                 union_avro_types[i],
                 namespace,
             )
@@ -1371,6 +1399,8 @@ class AvroToRust:
                 ),
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,
+                'json_match_signature': predicate_key,
+                'json_shape_signature': shape_signature,
                 'is_first_with_predicate': is_first_with_predicate,
             })
         scalar_kinds = {
@@ -1382,20 +1412,31 @@ class AvroToRust:
             'f32': 'float', 'f64': 'float',
         }
         present_scalar_kinds = {scalar_kinds[field['type']] for field in union_fields if field['type'] in scalar_kinds}
-        predicate_counts = {
-            predicate: sum(1 for field in union_fields if field['json_match_predicate'] == predicate)
-            for predicate in {field['json_match_predicate'] for field in union_fields}
-        }
         for field in union_fields:
+            json_ambiguous = sum(
+                1 for candidate in union_fields
+                if self.json_match_accepts_shape(
+                    candidate['json_match_signature'],
+                    field['json_shape_signature'],
+                )
+            ) > 1
             scalar_kind = scalar_kinds.get(field['type'])
             field['xml_scalar_kind'] = scalar_kind or ''
             field['xml_guard_string'] = scalar_kind == 'string' and len(present_scalar_kinds) > 1
             field['xml_reject_value'] = (
                 (scalar_kind is not None and scalar_kind != 'string' and 'string' in present_scalar_kinds)
                 or (scalar_kind == 'integer' and 'float' in present_scalar_kinds)
-                or predicate_counts[field['json_match_predicate']] > 1
+                or json_ambiguous
             )
             field['xml_safe_for_random'] = not field['xml_reject_value']
+            field['json_ambiguous'] = json_ambiguous
+            field['json_round_trip_safe'] = (
+                not field['json_ambiguous']
+                and self.is_json_round_trip_safe(
+                    field['avro_type'],
+                    namespace,
+                )
+            )
         xml_string_guards = {
             'bool': 'bool' in present_scalar_kinds,
             'integer': 'integer' in present_scalar_kinds,
@@ -1416,6 +1457,17 @@ class AvroToRust:
             'union_fields': union_fields,
             'xml_string_guards': xml_string_guards,
             'avro_schema': avro_schema_str,
+            'source_avro_schema': source_avro_schema_str,
+            'source_null_index': (
+                avro_type.index('null') if 'null' in avro_type else -1
+            ),
+            'ambiguous_json_field': next(
+                (
+                    field for field in union_fields
+                    if field['json_ambiguous']
+                ),
+                None,
+            ),
             'json_match_predicates': [
                 field['json_match_predicate']
                 for field in union_fields
@@ -1423,7 +1475,7 @@ class AvroToRust:
         }
 
         file_name = self.to_file_name(qualified_union_enum_name)
-        target_file = os.path.join(self.output_dir, "src", file_name + ".rs")
+        target_file = self.output_path("src", file_name + ".rs")
         render_template('avrotorust/dataclass_union.rs.jinja', target_file, **context)
         self.generated_types_avro_namespace[qualified_union_enum_name] = "union"
         self.generated_types_rust_package[qualified_union_enum_name] = "union"
@@ -1457,8 +1509,7 @@ class AvroToRust:
             )
             if qualified_alias in self.generated_types_rust_package:
                 continue
-            target_file = os.path.join(
-                self.output_dir,
+            target_file = self.output_path(
                 'src',
                 self.to_file_name(qualified_alias) + '.rs',
             )
@@ -1615,12 +1666,249 @@ class AvroToRust:
             resolving,
         )
 
+    def is_json_round_trip_safe(
+        self,
+        avro_type,
+        namespace: str,
+        resolving=None,
+    ) -> bool:
+        """Checks whether generated untagged JSON has a deterministic branch."""
+        resolving = () if resolving is None else resolving
+        if isinstance(avro_type, str):
+            resolved = self.resolve_avro_named_type(avro_type, namespace)
+            if not resolved:
+                return True
+            fullname = self.avro_type_fullnames[id(resolved)]
+            if fullname in resolving:
+                return True
+            return self.is_json_round_trip_safe(
+                resolved,
+                fullname.rpartition('.')[0],
+                resolving + (fullname,),
+            )
+        if isinstance(avro_type, list):
+            branches = [item for item in avro_type if item != 'null']
+            if len(branches) <= 1:
+                return (
+                    not branches
+                    or self.is_json_round_trip_safe(
+                        branches[0],
+                        namespace,
+                        resolving,
+                    )
+                )
+            match_signatures = [
+                self.get_json_match_signature(
+                    branch,
+                    namespace,
+                    resolving,
+                )
+                for branch in branches
+            ]
+            shape_signatures = [
+                self.get_json_shape_signature(
+                    branch,
+                    namespace,
+                    resolving,
+                )
+                for branch in branches
+            ]
+            return any(
+                sum(
+                    1 for match_signature in match_signatures
+                    if self.json_match_accepts_shape(
+                        match_signature,
+                        shape_signature,
+                    )
+                ) == 1
+                and self.is_json_round_trip_safe(
+                    branch,
+                    namespace,
+                    resolving,
+                )
+                for branch, shape_signature
+                in zip(branches, shape_signatures)
+            )
+        if not isinstance(avro_type, dict):
+            return True
+
+        node_type = avro_type.get('type')
+        if node_type == 'record':
+            fullname, record_namespace, _ = self.canonical_avro_name(
+                avro_type['name'],
+                avro_type.get('namespace', namespace),
+            )
+            if fullname in resolving:
+                return True
+            nested_resolving = resolving + (fullname,)
+            return all(
+                self.is_json_round_trip_safe(
+                    field['type'],
+                    record_namespace,
+                    nested_resolving,
+                )
+                for field in avro_type.get('fields', [])
+            )
+        if node_type == 'array':
+            return self.is_json_round_trip_safe(
+                avro_type['items'],
+                namespace,
+                resolving,
+            )
+        if node_type == 'map':
+            return self.is_json_round_trip_safe(
+                avro_type['values'],
+                namespace,
+                resolving,
+            )
+        if isinstance(node_type, (dict, list)):
+            return self.is_json_round_trip_safe(
+                node_type,
+                namespace,
+                resolving,
+            )
+        return True
+
+    def get_json_match_signature(
+        self,
+        avro_type,
+        namespace: str,
+        resolving=None,
+    ):
+        """Returns the JSON shape accepted by a generated union matcher."""
+        resolving = () if resolving is None else resolving
+        if isinstance(avro_type, str):
+            resolved = self.resolve_avro_named_type(avro_type, namespace)
+            if resolved:
+                fullname = self.avro_type_fullnames[id(resolved)]
+                if fullname in resolving:
+                    return ('ref', resolving.index(fullname))
+                return self.get_json_match_signature(
+                    resolved,
+                    fullname.rpartition('.')[0],
+                    resolving,
+                )
+            if avro_type in ('int', 'long'):
+                return 'integer'
+            if avro_type in ('float', 'double'):
+                return 'number'
+            if avro_type == 'bytes':
+                return 'array'
+            return avro_type
+        if isinstance(avro_type, list):
+            return (
+                'union',
+                tuple(
+                    self.get_json_match_signature(
+                        item,
+                        namespace,
+                        resolving,
+                    )
+                    for item in avro_type
+                ),
+            )
+        if not isinstance(avro_type, dict):
+            return str(avro_type)
+        node_type = avro_type.get('type')
+        if node_type == 'record':
+            fullname, record_namespace, _ = self.canonical_avro_name(
+                avro_type['name'],
+                avro_type.get('namespace', namespace),
+            )
+            if fullname in resolving:
+                return ('ref', resolving.index(fullname))
+            nested_resolving = resolving + (fullname,)
+            return (
+                'record_match',
+                tuple(
+                    (
+                        field['name'],
+                        self.get_json_match_signature(
+                            field['type'],
+                            record_namespace,
+                            nested_resolving,
+                        ),
+                    )
+                    for field in avro_type.get('fields', [])
+                ),
+            )
+        if node_type == 'enum':
+            return 'string'
+        if node_type in ('array', 'fixed', 'bytes'):
+            return 'array'
+        if node_type == 'map':
+            return 'object'
+        return self.get_json_match_signature(
+            node_type,
+            namespace,
+            resolving,
+        )
+
+    @staticmethod
+    def json_match_accepts_shape(match_signature, shape_signature) -> bool:
+        """Checks whether a generated matcher accepts a serialized shape."""
+        shape_kind = (
+            shape_signature[0]
+            if isinstance(shape_signature, tuple) and shape_signature
+            else shape_signature
+        )
+        match_kind = (
+            match_signature[0]
+            if isinstance(match_signature, tuple) and match_signature
+            else match_signature
+        )
+        if match_kind == 'record_match':
+            if shape_kind != 'record':
+                return False
+            expected_fields = dict(match_signature[1])
+            value_fields = dict(shape_signature[1])
+            return all(
+                field_name in value_fields
+                and AvroToRust.json_match_accepts_shape(
+                    field_match,
+                    value_fields[field_name],
+                )
+                for field_name, field_match in expected_fields.items()
+            )
+        if match_signature == 'object':
+            return shape_kind in ('map', 'record')
+        if match_signature == 'array':
+            return shape_kind in ('array', 'bytes', 'fixed')
+        return match_signature == shape_signature
+
     def to_file_name(self, qualified_name):
         """Converts a qualified union enum name to a file name"""
         if qualified_name.startswith('crate::'):
             qualified_name = qualified_name[(len('crate::')):]
         qualified_name = qualified_name.replace('r#', '')
         return qualified_name.rsplit('::',1)[0].replace('::', os.sep).lower()
+
+    def output_path(self, *relative_parts: str) -> str:
+        """Returns a contained output path for generated artifacts."""
+        output_root = os.path.abspath(self.output_dir)
+        candidate = os.path.abspath(
+            os.path.join(output_root, *relative_parts)
+        )
+        if os.path.commonpath((output_root, candidate)) != output_root:
+            raise ValueError(
+                f"generated Rust path escapes output directory: {candidate}"
+            )
+        return candidate
+
+    @staticmethod
+    def validate_rust_path_components(parts, owner: str):
+        """Rejects generated relative path components that can escape."""
+        for part in parts:
+            if (
+                part in ('', '.', '..')
+                or '/' in part
+                or '\\' in part
+                or os.path.isabs(part)
+            ):
+                raise ValueError(
+                    f"invalid generated Rust path component '{part}' "
+                    f"for '{owner}'"
+                )
 
     def generate_random_value_for_avro(
         self,
@@ -1723,11 +2011,17 @@ class AvroToRust:
         directories = [part.lower() for part in namespace.split('.')]
         for i in range(len(directories)):
             sub_package = '::'.join(directories[:i + 1])
-            directory_path = os.path.join(
-                self.output_dir, "src", sub_package.replace('.', os.sep).replace('::', os.sep))
+            directory_path = self.output_path(
+                "src",
+                sub_package.replace('.', os.sep).replace('::', os.sep),
+            )
             if not os.path.exists(directory_path):
                 os.makedirs(directory_path, exist_ok=True)
-            mod_rs_path = os.path.join(directory_path, "mod.rs")
+            mod_rs_path = self.output_path(
+                "src",
+                sub_package.replace('.', os.sep).replace('::', os.sep),
+                "mod.rs",
+            )
             
             types = sorted(
                 file.replace('.rs', '')
@@ -1768,7 +2062,7 @@ class AvroToRust:
         cargo_toml_content += f"edition = \"2021\"\n\n"
         cargo_toml_content += f"[dependencies]\n"
         cargo_toml_content += "\n".join(f"{dependency}" for dependency in dependencies)
-        cargo_toml_path = os.path.join(self.output_dir, "Cargo.toml")
+        cargo_toml_path = self.output_path("Cargo.toml")
         with open(cargo_toml_path, 'w', encoding='utf-8') as file:
             file.write(cargo_toml_content)
 
@@ -1790,7 +2084,7 @@ class AvroToRust:
 
 {mod_statements}
 """
-        lib_rs_path = os.path.join(self.output_dir, "src", "lib.rs")
+        lib_rs_path = self.output_path("src", "lib.rs")
         if not os.path.exists(os.path.dirname(lib_rs_path)):
             os.makedirs(os.path.dirname(lib_rs_path), exist_ok=True)
         with open(lib_rs_path, 'w', encoding='utf-8') as file:
@@ -1801,7 +2095,7 @@ class AvroToRust:
         if self.xml_annotation:
             render_template(
                 'rust/xml_support.rs.jinja',
-                os.path.join(self.output_dir, "src", "xml_support.rs"),
+                self.output_path("src", "xml_support.rs"),
             )
 
     def convert_schema(self, schema: JsonNode, output_dir: str):
@@ -1872,6 +2166,10 @@ class AvroToRust:
                         tuple(namespace.lower().split('.'))
                         if namespace else ()
                     )
+                    self.validate_rust_path_components(
+                        namespace_parts + (union_name.lower(),),
+                        union_name,
+                    )
                     structural_identity = json.dumps(
                         self.inline_avro_references(
                             [item for _, item in non_null],
@@ -1883,6 +2181,10 @@ class AvroToRust:
                         namespace.lower(),
                         structural_identity,
                         tuple(index for index, _ in non_null),
+                        (
+                            node.index('null')
+                            if self.avro_annotation and 'null' in node else -1
+                        ),
                     )
                     canonical_union_name = union_identity_targets.setdefault(
                         identity_key,
@@ -1895,6 +2197,10 @@ class AvroToRust:
                     union_identity = (
                         structural_identity,
                         tuple(index for index, _ in non_null),
+                        (
+                            node.index('null')
+                            if self.avro_annotation and 'null' in node else -1
+                        ),
                     )
                     add(
                         union_output_path,
@@ -1941,6 +2247,14 @@ class AvroToRust:
                     namespace_parts = (
                         tuple(namespace.lower().split('.'))
                         if namespace else ()
+                    )
+                    self.validate_rust_path_components(
+                        namespace_parts + (
+                            self.safe_identifier(
+                                pascal(short_name)
+                            ).lower(),
+                        ),
+                        fullname,
                     )
                     add(
                         namespace_parts + (
@@ -1994,8 +2308,7 @@ class AvroToRust:
             relative_parts = list(namespace_parts) + [
                 alias_name + '.rs'
             ]
-            alias_path = os.path.join(
-                self.output_dir,
+            alias_path = self.output_path(
                 'src',
                 *relative_parts,
             )

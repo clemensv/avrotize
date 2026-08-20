@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use apache_avro::Schema;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use std::io::Write;
+use std::io::{Read, Write};
 {%- endif %}
 {%- if serde_annotation or avro_annotation or xml_annotation %}
 use serde::{self,Serialize, Deserialize};
@@ -53,6 +53,29 @@ impl Serialize for {{ enum_name }} {
 {%- endif %}
 
 {%- if avro_annotation %}
+const MAX_AVRO_DATA_SIZE: usize = 16 * 1024 * 1024;
+
+fn decode_avro_data(
+    data: &[u8],
+    gzip: bool,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    if data.len() > MAX_AVRO_DATA_SIZE {
+        return Err("input exceeds the generated data size limit".into());
+    }
+    if !gzip {
+        return Ok(data.to_vec());
+    }
+    let decoder = GzDecoder::new(data);
+    let mut result = Vec::new();
+    decoder
+        .take((MAX_AVRO_DATA_SIZE + 1) as u64)
+        .read_to_end(&mut result)?;
+    if result.len() > MAX_AVRO_DATA_SIZE {
+        return Err("decompressed input exceeds the generated data size limit".into());
+    }
+    Ok(result)
+}
+
 lazy_static! {
     /// The static Avro schema as a parsed object
     pub static ref SCHEMA: Schema = Schema::parse_str({{ avro_schema }}).unwrap();
@@ -94,14 +117,7 @@ impl {{ enum_name }} {
             return Err(format!("unsupported media type: {}", media_type).into());
         }
 
-        let data = if gzip {
-            let mut decoder = GzDecoder::new(data.as_ref());
-            let mut decompressed_data = Vec::new();
-            std::io::copy(&mut decoder, &mut decompressed_data)?;
-            decompressed_data
-        } else {
-            data.as_ref().to_vec()
-        };
+        let data = decode_avro_data(data.as_ref(), gzip)?;
         let value = apache_avro::from_avro_datum(&SCHEMA, &mut &data[..], None)?;
         Ok(apache_avro::from_value(&value)?)
     }

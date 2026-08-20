@@ -89,6 +89,54 @@ class TestAvroToRust(unittest.TestCase):
         )
         self.assertEqual(signature_a, signature_b)
 
+    def test_json_union_subset_records_reject_ambiguity(self):
+        """Reject a record branch also accepted by a subset-field matcher."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-json-subset-record-union",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        schema = [
+            {
+                "type": "record",
+                "name": "Base",
+                "namespace": "n",
+                "fields": [{"name": "value", "type": "string"}],
+            },
+            {
+                "type": "record",
+                "name": "Extended",
+                "namespace": "n",
+                "fields": [
+                    {"name": "value", "type": "string"},
+                    {"name": "detail", "type": "string"},
+                ],
+            },
+            {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "n",
+                "fields": [
+                    {"name": "choice", "type": ["Base", "Extended"]}
+                ],
+            },
+        ]
+        convert_avro_schema_to_rust(
+            schema,
+            rust_path,
+            package_name="rust-json-subset-record-union",
+            serde_annotation=True,
+        )
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_named_type_resolution_requires_current_namespace(self):
         """Do not resolve unqualified names from unrelated namespaces."""
         converter = AvroToRust()
@@ -834,6 +882,55 @@ class TestAvroToRust(unittest.TestCase):
             )
         )
 
+    def test_nullable_union_identity_preserves_trailing_null_schema(self):
+        """Do not reuse a non-null union target for a nullable source schema."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-nullable-union-identity",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        schema = {
+            "type": "record",
+            "name": "Carrier",
+            "namespace": "n",
+            "fields": [
+                {"name": "plain", "type": ["string", "long"]},
+                {
+                    "name": "nullable",
+                    "type": ["string", "long", "null"],
+                },
+            ],
+        }
+        convert_avro_schema_to_rust(
+            schema,
+            rust_path,
+            package_name="rust-nullable-union-identity",
+            avro_annotation=True,
+        )
+        union_files = glob.glob(
+            os.path.join(rust_path, "src", "n", "unionpath*.rs")
+        )
+        self.assertEqual(2, len(union_files))
+        generated_sources = []
+        for union_file in union_files:
+            with open(union_file, "r", encoding="utf-8") as generated_file:
+                generated_sources.append(generated_file.read())
+        nullable_sources = [
+            source for source in generated_sources
+            if "pub static ref SOURCE_SCHEMA" in source
+        ]
+        self.assertEqual(1, len(nullable_sources))
+        self.assertIn(
+            "pub fn to_nullable_byte_array(",
+            nullable_sources[0],
+        )
+        self.assertIn(
+            "pub fn from_nullable_data(",
+            nullable_sources[0],
+        )
+
     def test_recursive_shared_union_metadata_is_complete(self):
         """Round-trip recursive shared unions after metadata completion."""
         schema = {
@@ -900,6 +997,50 @@ class TestAvroToRust(unittest.TestCase):
                 r"from_avro_branch[\s\S]+0 => Ok\([\s\S]+1 => Ok\(",
             )
             self.assertNotIn("match self {\n        })", source)
+            holder_path = os.path.join(
+                rust_path,
+                "src",
+                "issue406",
+                "recursive_shared",
+                "recursiveholder.rs",
+            )
+            with open(
+                holder_path,
+                "a",
+                encoding="utf-8",
+            ) as holder_file:
+                holder_file.write(
+                    "\n#[cfg(test)]\n"
+                    "mod recursive_depth_test {\n"
+                    "    use super::*;\n"
+                    "    use apache_avro::types::Value;\n\n"
+                    "    #[test]\n"
+                    "    fn recursive_union_depth_is_bounded() {\n"
+                    "        let mut branch = Value::Record(vec![\n"
+                    "            (\"value\".into(), Value::String("
+                    "\"leaf\".into())),\n"
+                    "            (\"children\".into(), Value::Array(vec![])),\n"
+                    "        ]);\n"
+                    "        for _ in 0..130 {\n"
+                    "            branch = Value::Record(vec![\n"
+                    "                (\"value\".into(), Value::String("
+                    "\"node\".into())),\n"
+                    "                (\"children\".into(), Value::Array(vec![\n"
+                    "                    Value::Union(0, Box::new(branch)),\n"
+                    "                ])),\n"
+                    "            ]);\n"
+                    "        }\n"
+                    "        let value = Value::Record(vec![\n"
+                    "            (\"root\".into(), "
+                    "Value::Union(0, Box::new(branch))),\n"
+                    "        ]);\n"
+                    "        let error = RecursiveHolder::from_avro_value("
+                    "&value).unwrap_err();\n"
+                    "        assert!(error.to_string().contains("
+                    "\"nesting depth\"));\n"
+                    "    }\n"
+                    "}\n"
+                )
 
             integration_dir = os.path.join(rust_path, "tests")
             os.makedirs(integration_dir, exist_ok=True)
@@ -933,7 +1074,7 @@ class TestAvroToRust(unittest.TestCase):
                     "}\n"
                 )
             assert subprocess.check_call(
-                ['cargo', 'test', '--test', 'recursive_union'],
+                ['cargo', 'test'],
                 cwd=rust_path,
                 stdout=sys.stdout,
                 stderr=sys.stderr,
@@ -1017,6 +1158,32 @@ class TestAvroToRust(unittest.TestCase):
             os.path.join(rust_path, "src", "n", "unionpath*.rs")
         )
         self.assertEqual(1, len(union_files))
+
+    def test_generated_paths_cannot_escape_output(self):
+        """Reject traversal components before creating output."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-path-escape",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        with self.assertRaisesRegex(
+            ValueError,
+            r"invalid generated Rust path component",
+        ):
+            convert_avro_schema_to_rust(
+                {
+                    "type": "record",
+                    "name": "Carrier",
+                    "namespace": "../escape",
+                    "fields": [],
+                },
+                rust_path,
+                package_name="rust-path-escape",
+                avro_annotation=True,
+            )
+        self.assertFalse(os.path.exists(rust_path))
 
         root_schemas = [
             {
@@ -1282,6 +1449,37 @@ class TestAvroToRust(unittest.TestCase):
             avro_only_path,
             {"issue406/enum_only/status.rs"},
         )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "gzip_limit.rs"),
+            "w",
+            encoding="utf-8",
+        ) as gzip_test:
+            gzip_test.write(
+                "use rust_enum_annotation::issue406::enum_only::"
+                "status::Status;\n"
+                "use flate2::write::GzEncoder;\n"
+                "use std::io::Write;\n"
+                "#[test]\n"
+                "fn gzip_limit_is_enforced() {\n"
+                "    let mut encoder = GzEncoder::new("
+                "Vec::new(), flate2::Compression::default());\n"
+                "    encoder.write_all(&vec![0u8; 16 * 1024 * 1024 + 1])"
+                ".unwrap();\n"
+                "    let bomb = encoder.finish().unwrap();\n"
+                "    let error = Status::from_data("
+                "&bomb, \"avro/binary+gzip\").unwrap_err();\n"
+                "    assert!(error.to_string().contains(\"size limit\"));\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test', '--test', 'gzip_limit'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
 
     def test_convert_union_avro_annotations_to_rust(self):
         """Compile a union-bearing crate with Avro binary round-trip coverage."""
@@ -1370,6 +1568,8 @@ class TestAvroToRust(unittest.TestCase):
                 "    nullableunion::NullableUnion,\n"
                 "    unionholder::UnionHolder,\n"
                 "};\n\n"
+                "use flate2::write::GzEncoder;\n"
+                "use std::io::Write;\n\n"
                 "#[test]\n"
                 "fn legacy_avro_union_api_compiles() {\n"
                 "    let holder = UnionHolder {\n"
@@ -1380,6 +1580,20 @@ class TestAvroToRust(unittest.TestCase):
                 "    let _ = NullFirstoption1Union::default();\n"
                 "    let _ = NullMiddleoption0Union::default();\n"
                 "    let _ = NullLastoption0Union::default();\n"
+                "}\n"
+                "\n#[test]\n"
+                "fn gzip_limit_is_enforced() {\n"
+                "    let mut encoder = GzEncoder::new(\n"
+                "        Vec::new(), flate2::Compression::default());\n"
+                "    encoder.write_all(&vec![0u8; 16 * 1024 * 1024 + 1])"
+                ".unwrap();\n"
+                "    let bomb = encoder.finish().unwrap();\n"
+                "    let error = UnionHolder::from_data(\n"
+                "        &bomb, \"avro/binary+gzip\").unwrap_err();\n"
+                "    assert!(error.to_string().contains(\"size limit\"));\n"
+                "    let error = NullableUnion::from_nullable_data(\n"
+                "        &bomb, \"avro/binary+gzip\").unwrap_err();\n"
+                "    assert!(error.to_string().contains(\"size limit\"));\n"
                 "}\n"
             )
         assert subprocess.check_call(
@@ -1455,6 +1669,21 @@ class TestAvroToRust(unittest.TestCase):
             if os.path.basename(module).startswith("union")
         }
         self.assertEqual(6, len(union_modules))
+        self.run_convert_to_rust(
+            "rust-multitype-annotations",
+            True,
+            False,
+        )
+        self.run_convert_to_rust(
+            "rust-multitype-annotations",
+            False,
+            True,
+        )
+        self.run_convert_to_rust(
+            "rust-multitype-annotations",
+            False,
+            False,
+        )
 
     def test_convert_named_reference_resolution_to_rust(self):
         """Resolve dotted names and duplicate short names by namespace."""
