@@ -795,6 +795,112 @@ class TestAvroToRust(unittest.TestCase):
             )
         )
 
+    def test_recursive_shared_union_metadata_is_complete(self):
+        """Round-trip recursive shared unions after metadata completion."""
+        schema = {
+            "type": "record",
+            "name": "RecursiveHolder",
+            "namespace": "issue406.recursive_shared",
+            "fields": [
+                {
+                    "name": "root",
+                    "type": [
+                        {
+                            "type": "record",
+                            "name": "Branch",
+                            "fields": [
+                                {"name": "value", "type": "string"},
+                                {
+                                    "name": "children",
+                                    "type": {
+                                        "type": "array",
+                                        "items": ["Branch", "string"],
+                                    },
+                                },
+                            ],
+                        },
+                        "string",
+                    ],
+                }
+            ],
+        }
+        for serde_annotation in (False, True):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                "rust-recursive-shared"
+                f"{'-serde' if serde_annotation else ''}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            convert_avro_schema_to_rust(
+                schema,
+                rust_path,
+                package_name="recursive-shared",
+                avro_annotation=True,
+                serde_annotation=serde_annotation,
+            )
+            union_files = glob.glob(
+                os.path.join(
+                    rust_path,
+                    "src",
+                    "issue406",
+                    "recursive_shared",
+                    "unionpath*.rs",
+                )
+            )
+            self.assertEqual(1, len(union_files))
+            with open(
+                union_files[0],
+                "r",
+                encoding="utf-8",
+            ) as union_file:
+                source = union_file.read()
+            self.assertRegex(
+                source,
+                r"from_avro_branch[\s\S]+0 => Ok\([\s\S]+1 => Ok\(",
+            )
+            self.assertNotIn("match self {\n        })", source)
+
+            integration_dir = os.path.join(rust_path, "tests")
+            os.makedirs(integration_dir, exist_ok=True)
+            with open(
+                os.path.join(integration_dir, "recursive_union.rs"),
+                "w",
+                encoding="utf-8",
+            ) as integration_test:
+                integration_test.write(
+                    "use recursive_shared::issue406::recursive_shared::{\n"
+                    "    branch::Branch,\n"
+                    "    childrenunion::ChildrenUnion,\n"
+                    "    recursiveholder::RecursiveHolder,\n"
+                    "    rootunion::RootUnion,\n"
+                    "};\n\n"
+                    "#[test]\n"
+                    "fn recursive_union_round_trip() {\n"
+                    "    let branch = Branch {\n"
+                    "        value: \"root\".into(),\n"
+                    "        children: vec!["
+                    "ChildrenUnion::String(\"leaf\".into())],\n"
+                    "    };\n"
+                    "    let instance = RecursiveHolder {\n"
+                    "        root: RootUnion::Branch(branch),\n"
+                    "    };\n"
+                    "    let bytes = instance.to_byte_array("
+                    "\"avro/binary\").unwrap();\n"
+                    "    let decoded = RecursiveHolder::from_data("
+                    "&bytes, \"avro/binary\").unwrap();\n"
+                    "    assert_eq!(instance, decoded);\n"
+                    "}\n"
+                )
+            assert subprocess.check_call(
+                ['cargo', 'test', '--test', 'recursive_union'],
+                cwd=rust_path,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                timeout=self.CARGO_TIMEOUT,
+            ) == 0
+
     def test_output_parent_path_case_is_preserved(self):
         """Never lowercase caller-provided output directory components."""
         rust_path = os.path.join(

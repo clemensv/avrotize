@@ -207,6 +207,40 @@ impl {{ union_enum_name }} {
         })
     }
 
+    pub(crate) fn to_avro_source_value(
+        &self,
+    ) -> Result<apache_avro::types::Value, Box<dyn std::error::Error>> {
+        Ok(match self {
+            {%- for union_field in union_fields %}
+            {{ union_enum_name }}::{{ union_field.name }}(value) => {
+                apache_avro::types::Value::Union(
+                    {{ union_field.source_avro_index }},
+                    Box::new({{ union_field.avro_encode }}),
+                )
+            },
+            {%- endfor %}
+        })
+    }
+
+    pub(crate) fn from_avro_source_value(
+        value: &apache_avro::types::Value,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        match value {
+            apache_avro::types::Value::Union(index, value) => match index {
+                {%- for union_field in union_fields %}
+                {{ union_field.source_avro_index }} => Self::from_avro_branch(
+                    {{ union_field.avro_index }},
+                    value,
+                ),
+                {%- endfor %}
+                _ => Err(
+                    "nullable Avro union null is unsupported by the generated Rust union API".into()
+                ),
+            },
+            _ => Err("expected an Avro union value".into()),
+        }
+    }
+
     /// Serializes the union to Avro binary data.
     pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let media_type = content_type.split(';').next().unwrap_or("");

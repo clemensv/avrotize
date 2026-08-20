@@ -853,20 +853,9 @@ class AvroToRust:
                     rust_type[7:-1]
                     if rust_type.startswith('Option<') else rust_type
                 )
-                union_fields = self.generated_union_fields.get(union_type, [])
-                arms = []
-                for union_field in union_fields:
-                    arms.append(
-                        f'''{union_type}::{union_field["name"]}(value) =>
-                            apache_avro::types::Value::Union(
-                                {union_field["source_avro_index"]},
-                                Box::new({union_field["avro_encode"]}),
-                            )'''
-                    )
-                arms_text = ',\n'.join(arms)
-                return f'''match {value_expression} {{
-                    {arms_text},
-                }}'''
+                return (
+                    f'({value_expression}).to_avro_source_value()?'
+                )
 
             if len(non_null_types) == 1:
                 inner_type = (
@@ -1029,39 +1018,10 @@ class AvroToRust:
                     rust_type[7:-1]
                     if rust_type.startswith('Option<') else rust_type
                 )
-                union_fields = self.generated_union_fields.get(union_type, [])
-                null_index = avro_type.index('null') if 'null' in avro_type else -1
-                arms = []
-                if null_index >= 0:
-                    if rust_type.startswith('Option<'):
-                        arms.append(f'{null_index} => None')
-                    else:
-                        arms.append(
-                            f'''{null_index} => return Err(
-                                "nullable Avro union null is unsupported by the generated Rust union API".into()
-                            )'''
-                        )
-                for union_field in union_fields:
-                    decoded = (
-                        f'{union_type}::from_avro_branch('
-                        f'{union_field["avro_index"]}, value)?'
-                    )
-                    if rust_type.startswith('Option<'):
-                        decoded = f'Some({decoded})'
-                    arms.append(
-                        f'{union_field["source_avro_index"]} => {decoded}'
-                    )
-                arms_text = ',\n'.join(arms)
-                return f'''match {value_expression} {{
-                    apache_avro::types::Value::Union(index, value) => match index {{
-                        {arms_text},
-                        _ => return Err(format!(
-                            "unsupported Avro union branch {{}}",
-                            index,
-                        ).into()),
-                    }},
-                    _ => return Err("expected an Avro union value".into()),
-                }}'''
+                return (
+                    f'{union_type}::from_avro_source_value('
+                    f'{value_expression})?'
+                )
 
             if len(non_null_types) == 1:
                 inner_rust_type = (
