@@ -283,6 +283,45 @@ class TestAvroToRust(unittest.TestCase):
                 )
             self.assertFalse(os.path.exists(rust_path))
 
+    def test_xml_support_path_conflicts_fail_before_output(self):
+        """Reserve the generated XML helper module before writes."""
+        conflict = {
+            "type": "record",
+            "name": "Carrier",
+            "namespace": "xml_support",
+            "fields": [],
+        }
+        safe = {
+            "type": "record",
+            "name": "Other",
+            "namespace": "n",
+            "fields": [],
+        }
+        cases = (
+            [conflict],
+            [safe, conflict],
+            [conflict, safe],
+        )
+        for index, schema in enumerate(cases):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                f"rust-xml-support-conflict-{index}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            with self.assertRaisesRegex(
+                ValueError,
+                r"(xml_support|xmlsupport)",
+            ):
+                convert_avro_schema_to_rust(
+                    schema,
+                    rust_path,
+                    package_name="rust-xml-support-conflict",
+                    xml_annotation=True,
+                )
+            self.assertFalse(os.path.exists(rust_path))
+
     def test_generated_union_and_alias_paths_fail_before_output(self):
         """Preflight generated union and legacy alias path collisions."""
         converter = AvroToRust()
@@ -895,6 +934,50 @@ class TestAvroToRust(unittest.TestCase):
                 )
             assert subprocess.check_call(
                 ['cargo', 'test', '--test', 'recursive_union'],
+                cwd=rust_path,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                timeout=self.CARGO_TIMEOUT,
+            ) == 0
+
+    def test_same_converter_generates_complete_independent_outputs(self):
+        """Reset run-scoped caches between outputs on one converter."""
+        schema = {
+            "type": "record",
+            "name": "Carrier",
+            "namespace": "issue406.reuse",
+            "fields": [
+                {
+                    "name": "choice",
+                    "type": ["long", "int"],
+                }
+            ],
+        }
+        converter = AvroToRust()
+        converter.base_package = "rust-reuse"
+        converter.avro_annotation = True
+        converter.serde_annotation = True
+        for index in range(2):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                f"rust-reuse-{index}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            converter.convert_schema(schema, rust_path)
+            union_files = glob.glob(
+                os.path.join(
+                    rust_path,
+                    "src",
+                    "issue406",
+                    "reuse",
+                    "unionpath*.rs",
+                )
+            )
+            self.assertEqual(1, len(union_files))
+            assert subprocess.check_call(
+                ['cargo', 'test'],
                 cwd=rust_path,
                 stdout=sys.stdout,
                 stderr=sys.stderr,

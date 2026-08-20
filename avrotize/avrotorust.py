@@ -24,6 +24,13 @@ class AvroToRust:
     def __init__(self, base_package: str = '') -> None:
         self.base_package = base_package.replace('.', '/').lower()
         self.output_dir = os.getcwd()
+        self.avro_annotation = False
+        self.serde_annotation = False
+        self.xml_annotation = False
+        self.reset_run_state()
+
+    def reset_run_state(self):
+        """Resets state that belongs to one conversion output."""
         self.generated_types_avro_namespace: Dict[str, str] = {}
         self.generated_types_rust_package: Dict[str, str] = {}
         self.generated_union_fields: Dict[str, List[Dict]] = {}
@@ -40,9 +47,6 @@ class AvroToRust:
         self.planned_source_paths: set[tuple[str, ...]] = set()
         self.union_schema_targets: Dict[tuple, str] = {}
         self.union_targets_in_progress: set[tuple] = set()
-        self.avro_annotation = False
-        self.serde_annotation = False
-        self.xml_annotation = False
         
     reserved_words = [
             'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern', 'false', 'fn', 'for', 'if', 'impl',
@@ -1802,6 +1806,7 @@ class AvroToRust:
 
     def convert_schema(self, schema: JsonNode, output_dir: str):
         """Converts Avro schema to Rust"""
+        self.reset_run_state()
         if not isinstance(schema, list):
             schema = [schema]
         self.index_avro_named_types(schema)
@@ -2077,6 +2082,13 @@ class AvroToRust:
             'lib.rs',
             'generated infrastructure lib.rs',
         )
+        if self.xml_annotation:
+            add(
+                ('xml_support',),
+                'infrastructure',
+                'xml_support.rs',
+                'generated infrastructure xml_support.rs',
+            )
         for source_path in source_paths:
             for length in range(1, len(source_path)):
                 add(
