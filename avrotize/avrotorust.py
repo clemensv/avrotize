@@ -34,7 +34,12 @@ class AvroToRust:
         self.union_path_identities: Dict[str, str] = {}
         self.union_alias_candidates: Dict[tuple[str, str], List[str]] = {}
         self.planned_alias_contents: Dict[str, str] = {}
-        self.generated_aliases_to_remove: List[tuple[str, str]] = []
+        self.generated_aliases_to_remove: List[
+            tuple[str, str, tuple[str, ...]]
+        ] = []
+        self.planned_source_paths: set[tuple[str, ...]] = set()
+        self.union_schema_targets: Dict[tuple, str] = {}
+        self.union_targets_in_progress: set[tuple] = set()
         self.avro_annotation = False
         self.serde_annotation = False
         self.xml_annotation = False
@@ -150,11 +155,22 @@ class AvroToRust:
                         namespace,
                         path=path,
                     )
-                    type_name = (
-                        inner_type
-                        if inner_type.startswith('Option<')
-                        else f'Option<{inner_type}>'
+                    named_type = self.resolve_avro_named_type(
+                        non_null_types[0],
+                        namespace,
                     )
+                    if named_type and named_type.get('type') in (
+                        'record',
+                        'enum',
+                        'fixed',
+                    ):
+                        type_name = inner_type
+                    else:
+                        type_name = (
+                            inner_type
+                            if inner_type.startswith('Option<')
+                            else f'Option<{inner_type}>'
+                        )
                 else:
                     type_name = self.convert_avro_type_to_rust(
                         field_name,
@@ -1284,6 +1300,36 @@ class AvroToRust:
         union_avro_types = [
             avro_branch for _, avro_branch in union_avro_branches
         ]
+        structural_identity = json.dumps(
+            self.inline_avro_references(union_avro_types, namespace),
+            sort_keys=True,
+        )
+        source_indexes = tuple(
+            source_index for source_index, _ in union_avro_branches
+        )
+        target_key = (
+            namespace.lower(),
+            structural_identity,
+            source_indexes,
+        )
+        existing_target = self.union_schema_targets.get(target_key)
+        if existing_target is None:
+            existing_target = self.safe_package(
+                self.concat_package(ns, union_enum_name)
+            )
+            self.union_schema_targets[target_key] = existing_target
+            is_new_target = True
+        else:
+            is_new_target = False
+            legacy_name = pascal(field_name) + 'Union'
+            self.union_alias_candidates.setdefault(
+                (namespace.lower(), legacy_name),
+                [],
+            ).append(existing_target)
+            if target_key in self.union_targets_in_progress:
+                return existing_target
+
+        self.union_targets_in_progress.add(target_key)
         union_types = [
             self.convert_avro_type_to_rust(
                 field_name + "Option" + str(source_index),
@@ -1291,8 +1337,13 @@ class AvroToRust:
                 namespace,
                 path=(path or []) + [('branch', str(source_index))],
             )
-            for i, (source_index, avro_branch) in enumerate(union_avro_branches)
+            for _, (source_index, avro_branch) in enumerate(
+                union_avro_branches
+            )
         ]
+        self.union_targets_in_progress.remove(target_key)
+        if not is_new_target:
+            return existing_target
         avro_schema_str = json.dumps(
             self.inline_avro_references(union_avro_types, namespace)
         )
@@ -1390,7 +1441,7 @@ class AvroToRust:
         qualified_union_enum_name = self.safe_package(self.concat_package(ns, union_enum_name))
         legacy_name = pascal(field_name) + 'Union'
         self.union_alias_candidates.setdefault(
-            (namespace, legacy_name),
+            (namespace.lower(), legacy_name),
             [],
         ).append(qualified_union_enum_name)
         context = {
@@ -1419,8 +1470,15 @@ class AvroToRust:
 
     def write_union_aliases(self):
         """Emits legacy Avro union names when they are unambiguous."""
-        for alias_path, namespace in self.generated_aliases_to_remove:
-            if os.path.exists(alias_path):
+        for (
+            alias_path,
+            namespace,
+            normalized_path,
+        ) in self.generated_aliases_to_remove:
+            if (
+                normalized_path not in self.planned_source_paths
+                and os.path.exists(alias_path)
+            ):
                 os.remove(alias_path)
                 self.write_mod_rs(namespace)
         for (namespace, legacy_name), targets in sorted(
@@ -1804,6 +1862,7 @@ class AvroToRust:
         planned = {}
         alias_candidates = {}
         visited_named = set()
+        union_identity_targets = {}
 
         def add(path, kind, identity, description):
             path = tuple(part.lower() for part in path)
@@ -1848,22 +1907,42 @@ class AvroToRust:
                         tuple(namespace.lower().split('.'))
                         if namespace else ()
                     )
-                    union_output_path = (
-                        namespace_parts + (union_name.lower(),)
+                    structural_identity = json.dumps(
+                        self.inline_avro_references(
+                            [item for _, item in non_null],
+                            namespace,
+                        ),
+                        sort_keys=True,
                     )
-                    union_identity = union_name
+                    identity_key = (
+                        namespace.lower(),
+                        structural_identity,
+                        tuple(index for index, _ in non_null),
+                    )
+                    canonical_union_name = union_identity_targets.setdefault(
+                        identity_key,
+                        union_name,
+                    )
+                    union_output_path = (
+                        namespace_parts
+                        + (canonical_union_name.lower(),)
+                    )
+                    union_identity = (
+                        structural_identity,
+                        tuple(index for index, _ in non_null),
+                    )
                     add(
                         union_output_path,
                         'union',
                         union_identity,
-                        f"generated union {union_name} at "
+                        f"generated union {canonical_union_name} at "
                         f"{path or [('field', field_name)]}",
                     )
                     legacy_name = pascal(field_name) + 'Union'
                     alias_candidates.setdefault(
                         (namespace_parts, legacy_name),
                         set(),
-                    ).add(union_name)
+                    ).add(canonical_union_name)
                     for source_index, branch in non_null:
                         visit(
                             branch,
@@ -1984,7 +2063,11 @@ class AvroToRust:
                         )
                     ):
                         self.generated_aliases_to_remove.append(
-                            (alias_path, namespace)
+                            (
+                                alias_path,
+                                namespace,
+                                namespace_parts + (alias_name,),
+                            )
                         )
                     else:
                         raise ValueError(
@@ -2027,6 +2110,7 @@ class AvroToRust:
                 self.planned_alias_contents[alias_path] = alias_content
 
         source_paths = list(planned)
+        self.planned_source_paths = set(source_paths)
         add(
             ('lib',),
             'infrastructure',

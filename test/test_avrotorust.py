@@ -650,6 +650,151 @@ class TestAvroToRust(unittest.TestCase):
         )
         self.assertFalse(os.path.exists(alias_path))
 
+    def test_stale_alias_does_not_delete_new_named_type(self):
+        """Keep a current named type that occupies a stale alias path."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-alias-to-named",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        first_schema = {
+            "type": "record",
+            "name": "Carrier",
+            "namespace": "n",
+            "fields": [
+                {"name": "choice", "type": ["long", "int"]}
+            ],
+        }
+        convert_avro_schema_to_rust(
+            first_schema,
+            rust_path,
+            package_name="rust-alias-to-named",
+            serde_annotation=True,
+        )
+        alias_path = os.path.join(
+            rust_path,
+            "src",
+            "n",
+            "choiceunion.rs",
+        )
+        self.assertTrue(os.path.isfile(alias_path))
+
+        second_schema = {
+            "type": "record",
+            "name": "ChoiceUnion",
+            "namespace": "n",
+            "fields": [
+                {"name": "value", "type": "string"}
+            ],
+        }
+        convert_avro_schema_to_rust(
+            second_schema,
+            rust_path,
+            package_name="rust-alias-to-named",
+            serde_annotation=True,
+        )
+        with open(alias_path, "r", encoding="utf-8") as named_file:
+            self.assertIn(
+                "pub struct ChoiceUnion",
+                named_file.read(),
+            )
+
+    def test_shared_outer_union_registers_descendant_aliases(self):
+        """Register nested legacy aliases for every shared outer owner."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-shared-outer-union",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        nested_union = [
+            {
+                "type": "array",
+                "items": ["long", "int"],
+            },
+            "string",
+        ]
+        schema = {
+            "type": "record",
+            "name": "Carrier",
+            "namespace": "n",
+            "fields": [
+                {"name": "foo", "type": nested_union},
+                {"name": "bar", "type": nested_union},
+            ],
+        }
+        convert_avro_schema_to_rust(
+            schema,
+            rust_path,
+            package_name="rust-shared-outer-union",
+            serde_annotation=True,
+        )
+        for alias_name in (
+            "foooption0union.rs",
+            "baroption0union.rs",
+        ):
+            self.assertTrue(
+                os.path.isfile(
+                    os.path.join(
+                        rust_path,
+                        "src",
+                        "n",
+                        alias_name,
+                    )
+                )
+            )
+
+    def test_union_sharing_normalizes_rust_namespace(self):
+        """Match planning and generation namespace normalization."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-union-namespace-normalization",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        schema = [
+            {
+                "type": "record",
+                "name": "One",
+                "namespace": "N",
+                "fields": [
+                    {"name": "choice", "type": ["long", "int"]}
+                ],
+            },
+            {
+                "type": "record",
+                "name": "Two",
+                "namespace": "n",
+                "fields": [
+                    {"name": "choice", "type": ["long", "int"]}
+                ],
+            },
+        ]
+        convert_avro_schema_to_rust(
+            schema,
+            rust_path,
+            package_name="rust-union-namespace-normalization",
+            serde_annotation=True,
+        )
+        union_files = glob.glob(
+            os.path.join(rust_path, "src", "n", "unionpath*.rs")
+        )
+        self.assertEqual(1, len(union_files))
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(
+                    rust_path,
+                    "src",
+                    "n",
+                    "choiceunion.rs",
+                )
+            )
+        )
+
     def test_output_parent_path_case_is_preserved(self):
         """Never lowercase caller-provided output directory components."""
         rust_path = os.path.join(
@@ -954,7 +1099,7 @@ class TestAvroToRust(unittest.TestCase):
         rust_path = self.run_convert_to_rust("rust-union-annotation", True, True)
         self.assert_module_scoped_schemas(
             rust_path,
-            expected_count=17,
+            expected_count=12,
             required_modules={
                 "issue406/union_only/nestedholder.rs",
                 "issue406/union_only/unionholder.rs",
@@ -986,6 +1131,28 @@ class TestAvroToRust(unittest.TestCase):
             avro_source,
             r"pub optional_inline_record: crate::issue406::union_only::"
             r"optionalinlinerecord::OptionalInlineRecord",
+        )
+        self.assertRegex(
+            avro_source,
+            r"pub optional_named_record: crate::issue406::union_only::"
+            r"optionalinlinerecord::OptionalInlineRecord",
+        )
+        self.assertRegex(
+            avro_source,
+            r"pub optional_qualified_named_record: "
+            r"crate::issue406::union_only::"
+            r"optionalinlinerecord::OptionalInlineRecord",
+        )
+        self.assertRegex(
+            avro_source,
+            r"pub optional_named_enum: crate::issue406::union_only::"
+            r"optionalnamedenum::OptionalNamedEnum",
+        )
+        self.assertRegex(
+            avro_source,
+            r"pub optional_named_enum_ref: "
+            r"crate::issue406::union_only::"
+            r"optionalnamedenum::OptionalNamedEnum",
         )
         self.assertIn(
             "pub optional_fixed: Vec<u8>",
@@ -1076,7 +1243,7 @@ class TestAvroToRust(unittest.TestCase):
         rust_path = self.run_convert_to_rust("rust-multitype-annotations", True, True)
         schema_modules = self.assert_module_scoped_schemas(
             rust_path,
-            expected_count=28,
+            expected_count=20,
             required_modules={
                 "issue406/multitype/alternate.rs",
                 "issue406/multitype/collisionone.rs",
@@ -1098,7 +1265,7 @@ class TestAvroToRust(unittest.TestCase):
             module for module in schema_modules
             if os.path.basename(module).startswith("union")
         }
-        self.assertEqual(14, len(union_modules))
+        self.assertEqual(6, len(union_modules))
 
     def test_convert_named_reference_resolution_to_rust(self):
         """Resolve dotted names and duplicate short names by namespace."""

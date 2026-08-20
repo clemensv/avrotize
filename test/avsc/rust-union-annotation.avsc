@@ -113,6 +113,41 @@
             ]
         },
         {
+            "name": "optionalNamedRecord",
+            "type": [
+                "null",
+                "OptionalInlineRecord"
+            ]
+        },
+        {
+            "name": "optionalQualifiedNamedRecord",
+            "type": [
+                "null",
+                "issue406.union_only.OptionalInlineRecord"
+            ]
+        },
+        {
+            "name": "optionalNamedEnum",
+            "type": [
+                "null",
+                {
+                    "type": "enum",
+                    "name": "OptionalNamedEnum",
+                    "symbols": [
+                        "FIRST",
+                        "SECOND"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "optionalNamedEnumRef",
+            "type": [
+                "null",
+                "OptionalNamedEnum"
+            ]
+        },
+        {
             "name": "payload",
             "type": "bytes"
         },
