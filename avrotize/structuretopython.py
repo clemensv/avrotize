@@ -25,10 +25,16 @@ TEMPORAL_SCALARS = ('datetime.datetime', 'datetime.date', 'datetime.time')
 # Optional[scalar] fields, where the marshmallow representation is exact; nested
 # containers get an encoder/decoder pair but no mm_field, because marshmallow has
 # no faithful equivalent for e.g. typing.Set.
+#
+# These name generated subclasses rather than marshmallow's own fields, because
+# dataclasses_json.mm.schema() uses a supplied mm_field verbatim: it neither
+# assigns data_key nor applies the field's decoder. A plain fields.Date would
+# therefore lose the JSON field name and parse with marshmallow's own parser,
+# so schema() would disagree with the other four entry points.
 _MM_FIELDS = {
-    'datetime.datetime': "fields.DateTime(format='iso')",
-    'datetime.date': "fields.Date(format='iso')",
-    'datetime.time': "fields.Time(format='iso')",
+    'datetime.datetime': '_IsoDateTimeField',
+    'datetime.date': '_IsoDateField',
+    'datetime.time': '_IsoTimeField',
 }
 
 _ISO_PARSERS = {
@@ -37,8 +43,17 @@ _ISO_PARSERS = {
     'datetime.time': '_parse_iso_time',
 }
 
+# Each generated marshmallow field delegates to one of the ISO parsers, so
+# emitting the field also requires emitting its parser.
+_MM_FIELD_PARSERS = {
+    '_IsoDateField': '_parse_iso_date',
+    '_IsoDateTimeField': '_parse_iso_datetime',
+    '_IsoTimeField': '_parse_iso_time',
+}
+
 # Emitted in this order so a module's helper block is stable.
 ISO_PARSER_ORDER = ('_parse_iso_date', '_parse_iso_datetime', '_parse_iso_time')
+MM_FIELD_ORDER = ('_IsoDateField', '_IsoDateTimeField', '_IsoTimeField')
 
 _GENERIC_RE = re.compile(r'^typing\.(Optional|List|Set|Dict|Union|Tuple|FrozenSet)\[(.+)\]$')
 
@@ -213,24 +228,73 @@ def build_codec_expression(type_name: str, var: str, depth: int, encode: bool,
     return expression
 
 
-def build_mm_field(type_name: str) -> Optional[str]:
+def build_mm_field(type_name: str, mm_classes: Set[str],
+                   options: str = '') -> Optional[str]:
     """ Builds the marshmallow field expression for a temporal type, or None when
     marshmallow has no faithful equivalent (e.g. typing.Set, or a union of
-    several temporal types). """
+    several temporal types).
+
+    ``options`` carries the keyword arguments for the outermost field only, so
+    ``data_key`` is not repeated on the element field of a list or map.
+    """
     if type_name in _MM_FIELDS:
-        return _MM_FIELDS[type_name]
+        mm_class = _MM_FIELDS[type_name]
+        mm_classes.add(mm_class)
+        return f'{mm_class}({options})'
     generic = parse_generic_type(type_name)
     if not generic:
         return None
     origin, args = generic
     if origin == 'Optional':
-        return build_mm_field(args[0])
+        return build_mm_field(args[0], mm_classes, options)
     if origin == 'List':
-        inner = build_mm_field(args[0])
-        return f'fields.List({inner})' if inner else None
+        inner = build_mm_field(args[0], mm_classes)
+        return f'fields.List({inner}{", " + options if options else ""})' if inner else None
     if origin == 'Dict' and len(args) == 2 and args[0] == 'str':
-        inner = build_mm_field(args[1])
-        return f'fields.Dict(keys=fields.Str(), values={inner})' if inner else None
+        inner = build_mm_field(args[1], mm_classes)
+        if not inner:
+            return None
+        return (f'fields.Dict(keys=fields.Str(), values={inner}'
+                f'{", " + options if options else ""})')
+    return None
+
+
+def build_mm_options(type_name: str, json_name: str) -> str:
+    """ Builds the marshmallow keyword arguments that dataclasses_json would have
+    supplied itself.
+
+    ``dataclasses_json.mm.schema()`` only assigns ``data_key``, ``required`` and
+    ``allow_none`` on the branch it takes when no ``mm_field`` is configured, so
+    a field that supplies one has to carry them. ``data_key`` is the same value
+    passed to ``dataclasses_json.config(field_name=...)``, which is what
+    dataclasses_json would have computed from the configured letter case.
+    """
+    # Generated fields are kw_only and carry no default, so dataclasses_json
+    # would mark every one of them required.
+    options = [f'data_key={json_name!r}', 'required=True']
+    generic = parse_generic_type(type_name)
+    if generic and generic[0] == 'Optional':
+        options.append('allow_none=True')
+    return ', '.join(options)
+
+
+def build_container_rebuild(type_name: str) -> Optional[str]:
+    """ Builds an expression rebuilding a declared set container from a JSON list.
+
+    JSON has no set type, so a ``typing.Set`` field arrives as a list. The
+    dataclasses-json ``from_json`` path reconstructs the declared container, and
+    the generated ``from_serializer_dict`` has to do the same or the two paths
+    hand back different container types for the same payload.
+    """
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return None
+    origin, args = generic
+    if origin == 'Optional':
+        inner = build_container_rebuild(args[0])
+        return f'None if v is None else {inner}' if inner else None
+    if origin in ('Set', 'FrozenSet'):
+        return f'{"set" if origin == "Set" else "frozenset"}(v)'
     return None
 
 
@@ -255,17 +319,24 @@ def build_temporal_codec(type_name: str, field_name: str) -> Optional[Dict[str, 
     # reports where it came from instead of surfacing a bare isoformat error.
     decoder = decoder.replace('{field_name}', repr(field_name))
 
-    inner = type_name
-    generic = parse_generic_type(inner)
-    if generic and generic[0] == 'Optional':
-        inner = generic[1][0]
-    mm_field = build_mm_field(inner)
+    mm_classes: Set[str] = set()
+    mm_field = build_mm_field(type_name, mm_classes,
+                              build_mm_options(type_name, field_name))
+    if not mm_field:
+        mm_classes.clear()
+
+    # A generated marshmallow field parses with the module's own ISO helper, so
+    # its parser has to be emitted even when no decoder lambda referenced it.
+    parsers = set(decode_parsers)
+    for mm_class in mm_classes:
+        parsers.add(_MM_FIELD_PARSERS[mm_class])
 
     return {
         'encoder': f'lambda v: {encoder}',
         'decoder': f'lambda v: {decoder}',
         'mm_field': mm_field,
-        'parsers': sorted(decode_parsers),
+        'mm_classes': sorted(mm_classes),
+        'parsers': sorted(parsers),
     }
 
 
@@ -677,7 +748,13 @@ class StructureToPython:
                 'json_encoder': codec['encoder'] if codec else None,
                 'json_decoder': codec['decoder'] if codec else None,
                 'mm_field': codec['mm_field'] if codec else None,
+                'mm_classes': codec['mm_classes'] if codec else [],
                 'iso_parsers': codec['parsers'] if codec else [],
+                # A set arrives from JSON as a list. Temporal sets are rebuilt by
+                # their own decoder; every other set needs an explicit rebuild so
+                # from_serializer_dict agrees with the dataclasses-json path.
+                'container_rebuild': (None if codec
+                                      else build_container_rebuild(field['type'])),
                 'xml_name': field['xml_name'],
                 'xml_kind': field['xml_kind'],
                 'xml_namespace': field['xml_namespace'],
@@ -692,6 +769,9 @@ class StructureToPython:
         # ISO parsing helpers required by the emitted decoders, in a stable order.
         iso_parsers = [parser for parser in ISO_PARSER_ORDER
                        if any(parser in field['iso_parsers'] for field in field_docstrings)]
+        # Marshmallow field subclasses required by the emitted mm_fields.
+        mm_classes = [mm_class for mm_class in MM_FIELD_ORDER
+                      if any(mm_class in field['mm_classes'] for field in field_docstrings)]
 
         # If avro_annotation is enabled, convert JSON Structure schema to Avro schema
         # This is embedded in the generated class for runtime Avro serialization
@@ -710,6 +790,7 @@ class StructureToPython:
             docstring=doc,
             fields=field_docstrings,
             iso_parsers=iso_parsers,
+            mm_classes=mm_classes,
             import_types=sorted(import_types),
             base_package=self.base_package,
             dataclasses_json_annotation=self.dataclasses_json_annotation,

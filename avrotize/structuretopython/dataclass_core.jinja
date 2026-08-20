@@ -19,7 +19,7 @@ import dataclasses_json
 from dataclasses_json import Undefined, dataclass_json
 {%- for field in fields if field.mm_field %}
 {%- if loop.first %}
-from marshmallow import fields
+from marshmallow import fields, ValidationError
 {%- endif %}
 {%- endfor %}
 {%- endif %}
@@ -103,6 +103,80 @@ def _parse_iso_time(value: str, field_name: str) -> datetime.time:
 
 {% endif %}
 {%- endfor %}
+{% if mm_classes %}
+{% for mm_class in mm_classes %}
+{%- if mm_class == '_IsoDateField' %}
+class _IsoDateField(fields.Date):
+    """ A marshmallow date field that shares the module's ISO date parser.
+
+    dataclasses_json uses a configured mm_field verbatim, so without this the
+    schema() path would parse with marshmallow's own parser and disagree with
+    to_json/from_json about which strings are valid and what they mean.
+    """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, datetime.datetime):
+            return value.date().isoformat()
+        if isinstance(value, datetime.date):
+            return value.isoformat()
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_iso_date(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_IsoDateTimeField' %}
+class _IsoDateTimeField(fields.DateTime):
+    """ A marshmallow datetime field that shares the module's ISO datetime parser. """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, datetime.datetime):
+            return value.isoformat()
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_iso_datetime(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_IsoTimeField' %}
+class _IsoTimeField(fields.Time):
+    """ A marshmallow time field that shares the module's ISO time parser.
+
+    marshmallow's own time parser silently discards a UTC offset, so delegating
+    here is what keeps schema().loads from losing the offset that from_json
+    preserves.
+    """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, datetime.time):
+            return value.isoformat()
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_iso_time(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% endif %}
+{%- endfor %}
+{% endif %}
 {% endif %}
 
 {% if dataclasses_json_annotation %}
@@ -162,6 +236,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         {%- elif dataclasses_json_annotation and field.json_decoder %}
         if '{{ field.name }}' in data:
             data['{{ field.name }}'] = ({{ field.json_decoder }})(data['{{ field.name }}'])
+        {%- elif field.container_rebuild %}
+        if '{{ field.name }}' in data:
+            data['{{ field.name }}'] = (lambda v: {{ field.container_rebuild }})(data['{{ field.name }}'])
         {%- endif %}
         {%- endfor %}
         return cls(**data)

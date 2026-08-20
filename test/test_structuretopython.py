@@ -1,6 +1,7 @@
 """Tests for JSON Structure to Python conversion."""
 
 import unittest
+import datetime
 import os
 import shutil
 import subprocess
@@ -1048,8 +1049,10 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
 
         Regression test for issue #405. Both a required `date` and a nullable
         `["null", "date"]` property must emit the same encoder/decoder/
-        mm_field=fields.Date triple that the a2py generator already emits, and
-        the existing `datetime` behaviour must be unchanged.
+        mm_field triple that the a2py generator already emits, and
+        the existing `datetime` behaviour must be unchanged. The mm_field is a
+        generated `fields.Date` subclass so that it can carry `data_key` and
+        delegate parsing to the module's ISO helper.
         """
         schema = {
             "type": "object",
@@ -1065,17 +1068,24 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         _src, source = self._generate_issue_405_module(
             schema, "test_issue405_date")
 
-        assert "mm_field=fields.Date(format='iso')" in source, \
+        assert "mm_field=_IsoDateField(" in source, \
             f"date fields must declare a marshmallow Date field:\n{source}"
-        assert source.count("mm_field=fields.Date(format='iso')") == 2, \
+        assert source.count("mm_field=_IsoDateField(") == 2, \
             f"both the nullable and the required date field must be annotated:\n{source}"
+        # dataclasses_json only assigns data_key on the branch it takes when no
+        # mm_field is configured, so a supplied field has to carry it or
+        # schema() loses the JSON field name.
+        assert "mm_field=_IsoDateField(data_key='d', required=True, allow_none=True)" in source, \
+            f"a nullable date mm_field must carry data_key and allow_none:\n{source}"
+        assert "mm_field=_IsoDateField(data_key='born', required=True)" in source, \
+            f"a required date mm_field must carry data_key:\n{source}"
         assert "_parse_iso_date(v, 'd')" in source, \
             f"date fields must declare an ISO date decoder:\n{source}"
         assert "isinstance(v, datetime.date)" in source, \
             f"date encoder must handle datetime.date values:\n{source}"
 
         # No regression for the datetime sibling.
-        assert "mm_field=fields.DateTime(format='iso')" in source, \
+        assert "mm_field=_IsoDateTimeField(" in source, \
             f"datetime fields must keep their marshmallow DateTime field:\n{source}"
         assert "_parse_iso_datetime(v, 'ts')" in source, \
             f"datetime fields must keep their ISO datetime decoder:\n{source}"
@@ -1095,7 +1105,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         _src, source = self._generate_issue_405_module(
             schema, "test_issue405_time")
 
-        assert source.count("mm_field=fields.Time(format='iso')") == 2, \
+        assert source.count("mm_field=_IsoTimeField(") == 2, \
             f"time fields must declare a marshmallow Time field:\n{source}"
         assert "_parse_iso_time(v, 'at')" in source, \
             f"time fields must declare an ISO time decoder:\n{source}"
@@ -1285,8 +1295,12 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         ``datetime.fromisoformat`` only learned RFC 3339 ``Z`` and >6-digit
         fractional seconds on Python 3.11, but ``requires-python`` is
         ``">=3.10"`` and 3.10 leads the CI matrix. The generated decoders
-        normalise both so the same payload yields the same value, of the same
-        type, on every supported interpreter.
+        normalise both, so an *RFC 3339* payload -- ``Z``, lowercase ``z``,
+        numeric offsets and fractional seconds -- yields the same value, of the
+        same type, on every supported interpreter. Non-RFC-3339 ISO 8601 forms
+        that only ``fromisoformat`` on 3.11 accepts (basic format such as
+        ``20240101``, ordinal and week dates) are deliberately not normalised
+        and remain version dependent: they parse on 3.11 and raise on 3.10.
         """
         import datetime as dt
 
@@ -1610,6 +1624,179 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         for name in sorted(renderings[0]):
             assert renderings[0][name] == renderings[1][name], \
                 f"s2py output for {name} differs between hash seeds"
+
+    # -- round 4: marshmallow schema() consistency -------------------------
+
+    _RENAMED_SCHEMA = {
+        "type": "object",
+        "name": "Names",
+        "namespace": "test.issue405",
+        "properties": {
+            "birth-date": {"type": "date"},
+            "class": {"type": "string"},
+            "seen-at": {"type": "datetime"},
+            "wake-time": {"type": "time"},
+        },
+        "required": ["birth-date", "class", "seen-at", "wake-time"],
+    }
+
+    def test_issue_405_schema_preserves_renamed_json_field_names(self):
+        """Positive fixture: attaching an mm_field must not drop ``data_key``.
+
+        ``dataclasses_json.mm.schema()`` uses a configured ``mm_field``
+        verbatim and only assigns ``data_key`` on the branch it takes when no
+        ``mm_field`` is present.  A temporal field whose JSON name differs from
+        its Python name therefore lost its wire name, so ``schema().dumps``
+        emitted a second, different wire format and ``schema().loads`` raised
+        ``KeyError``.
+        """
+        src_dir, source = self._generate_issue_405_module(
+            self._RENAMED_SCHEMA, "test_issue405_renamed")
+        module = self._import_generated(
+            src_dir, "test_issue405_renamed.test.issue405.names")
+
+        record = module.Names(
+            birth_date=datetime.date(2024, 1, 1),
+            class_="C",
+            seen_at=datetime.datetime(2024, 1, 1, 10, 0),
+            wake_time=datetime.time(7, 0))
+
+        expected_keys = ["birth-date", "class", "seen-at", "wake-time"]
+        assert sorted(json.loads(record.to_json())) == expected_keys, \
+            f"to_json must use the JSON field names:\n{source}"
+
+        dumped = module.Names.schema().dumps(record)
+        assert sorted(json.loads(dumped)) == expected_keys, \
+            f"schema().dumps must use the JSON field names, got {dumped}"
+        # One wire format, not two.
+        assert json.loads(dumped) == json.loads(record.to_json()), \
+            f"schema().dumps and to_json disagree: {dumped} vs {record.to_json()}"
+
+        # All five documented entry points must accept that payload.
+        payload = record.to_json()
+        assert module.Names.schema().loads(payload) == record
+        assert module.Names.from_json(payload) == record
+        assert module.Names.from_data(payload.encode("utf-8"),
+                                      "application/json") == record
+        assert module.Names.from_data(json.loads(payload),
+                                      "application/json") == record
+        assert module.Names.from_serializer_dict(json.loads(payload)) == record
+
+    def test_issue_405_schema_load_uses_the_generated_iso_parser(self):
+        """Positive fixture: ``schema().loads`` must share one parser.
+
+        A configured ``mm_field`` also suppresses the ``_deserialize`` override
+        dataclasses_json installs for a custom decoder, so ``schema().loads``
+        fell back to marshmallow's parser.  ``marshmallow.utils.from_iso_time``
+        does not support UTC offsets and silently discards them, and marshmallow
+        rejects a lowercase ``z`` that the other four entry points accept.
+        """
+        from marshmallow import ValidationError
+
+        src_dir, source = self._generate_issue_405_module(
+            self._TEMPORAL_TRIPLE_SCHEMA, "test_issue405_mmparser")
+        module = self._import_generated(
+            src_dir, "test_issue405_mmparser.test.issue405.strict")
+
+        offset = {"d": "2024-01-01", "t": "13:45:30+05:30",
+                  "ts": "2024-01-01T13:45:30+05:30"}
+        loaded = module.Strict.schema().loads(json.dumps(offset))
+        assert loaded.t.utcoffset() == datetime.timedelta(hours=5, minutes=30), \
+            f"schema().loads dropped the UTC offset on a time: {loaded.t!r}"
+        assert loaded == module.Strict.from_json(json.dumps(offset)), \
+            "schema().loads and from_json disagree on an offset-bearing payload"
+
+        lower_z = {"d": "2024-01-01", "t": "13:45:30z",
+                   "ts": "2024-01-01T13:45:30z"}
+        assert (module.Strict.schema().loads(json.dumps(lower_z))
+                == module.Strict.from_json(json.dumps(lower_z))), \
+            f"schema().loads must accept a lowercase z like from_json:\n{source}"
+
+        # Malformed input still has to be rejected, and marshmallow must keep
+        # owning the exception type on the path it controls.
+        with self.assertRaises(ValidationError) as caught:
+            module.Strict.schema().loads(json.dumps(
+                {"d": "20 November 1998", "t": "13:45:30",
+                 "ts": "2024-01-01T13:45:30"}))
+        assert "'d'" in str(caught.exception), \
+            f"the validation error must name the field: {caught.exception}"
+
+    def test_issue_405_set_containers_agree_across_entry_points(self):
+        """Boundary fixture: every entry point rebuilds declared containers.
+
+        ``from_json`` reconstructed a ``Set`` while ``from_serializer_dict``
+        (and therefore ``from_data``) handed back a list for non-temporal
+        element types, so ``from_data(to_byte_array(x)) != x``.
+        """
+        schema = {
+            "type": "object",
+            "name": "Sets",
+            "namespace": "test.issue405",
+            "properties": {
+                "labels": {"type": "set", "items": {"type": "string"}},
+                "days": {"type": "set", "items": {"type": "date"}},
+            },
+            "required": ["labels", "days"],
+        }
+        src_dir, source = self._generate_issue_405_module(
+            schema, "test_issue405_sets")
+        module = self._import_generated(
+            src_dir, "test_issue405_sets.test.issue405.sets")
+
+        record = module.Sets(
+            labels={"a", "b"},
+            days={datetime.date(2024, 1, 1), datetime.date(2024, 2, 2)})
+
+        payload = record.to_json()
+        for label, restored in (
+                ("from_json", module.Sets.from_json(payload)),
+                ("from_serializer_dict",
+                 module.Sets.from_serializer_dict(json.loads(payload))),
+                ("from_data",
+                 module.Sets.from_data(payload.encode("utf-8"),
+                                       "application/json")),
+        ):
+            assert isinstance(restored.labels, set), \
+                f"{label} returned {type(restored.labels).__name__} for Set[str]:\n{source}"
+            assert isinstance(restored.days, set), \
+                f"{label} returned {type(restored.days).__name__} for Set[date]"
+            assert restored == record, f"{label} did not round-trip: {restored!r}"
+
+        # The byte-array path is what a caller actually uses end to end.
+        assert module.Sets.from_data(record.to_byte_array("application/json"),
+                                     "application/json") == record, \
+            "from_data(to_byte_array(x)) must equal x"
+
+    def test_issue_405_nullable_temporal_survives_schema_round_trip(self):
+        """Invalid/boundary fixture: nullable temporal fields under schema().
+
+        The ``mm_field`` branch also skips ``allow_none``, so a null value for
+        an optional temporal field failed marshmallow validation.
+        """
+        schema = {
+            "type": "object",
+            "name": "Opt",
+            "namespace": "test.issue405",
+            "properties": {
+                "maybe-day": {"type": ["null", "date"]},
+                "label": {"type": "string"},
+            },
+            "required": ["maybe-day", "label"],
+        }
+        src_dir, source = self._generate_issue_405_module(
+            schema, "test_issue405_optional")
+        module = self._import_generated(
+            src_dir, "test_issue405_optional.test.issue405.opt")
+
+        for value in (None, datetime.date(2024, 1, 1)):
+            with self.subTest(value=value):
+                record = module.Opt(maybe_day=value, label="L")
+                dumped = module.Opt.schema().dumps(record)
+                assert json.loads(dumped) == json.loads(record.to_json()), \
+                    f"schema().dumps and to_json disagree: {dumped}"
+                assert "maybe-day" in json.loads(dumped), \
+                    f"schema().dumps lost the JSON field name:\n{source}"
+                assert module.Opt.schema().loads(dumped) == record
 
 
 if __name__ == '__main__':
