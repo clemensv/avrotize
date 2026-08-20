@@ -1419,17 +1419,30 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                 # The other four entry points leave a non-string untouched, as
                 # they do on master: their decoders are guarded by
                 # `isinstance(v, str)` so that `from_serializer_dict` can accept
-                # the real `datetime` objects `to_serializer_dict` emits. What
-                # matters is that none of them raises AttributeError.
-                for label, call in entry_points.items():
-                    if label == "schema().loads":
-                        continue
+                # the real `datetime` objects `to_serializer_dict` emits. These
+                # calls must be built from `payload`/`value`, not reused from
+                # the malformed-string table above, or they would never feed a
+                # non-string to the decoders this block exists to pin.
+                raw = {"d": value, "t": value, "ts": value}
+                non_string_entry_points = {
+                    "from_data(bytes)": lambda: Strict.from_data(
+                        payload.encode("utf-8"), "application/json"),
+                    "from_data(dict)": lambda: Strict.from_data(
+                        dict(raw), "application/json"),
+                    "from_json": lambda: Strict.from_json(payload),
+                    "from_serializer_dict":
+                        lambda: Strict.from_serializer_dict(dict(raw)),
+                }
+                for label, call in non_string_entry_points.items():
                     try:
-                        call()
+                        record = call()
                     except AttributeError as error:  # pragma: no cover
                         self.fail(f"{label} leaked AttributeError: {error}")
-                    except Exception:  # noqa: BLE001
-                        pass
+                    for name in ("d", "t", "ts"):
+                        actual = getattr(record, name)
+                        assert actual == value, \
+                            (f"{label} must pass a non-string through "
+                             f"untouched, got {actual!r} for {name!r}")
 
     def test_issue_405_serializer_dict_round_trips_typed_temporal_values(self):
         """Boundary fixture: the decoders' ``isinstance(v, str)`` guard.
