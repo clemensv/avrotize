@@ -993,14 +993,14 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
     # "TypeError: Object of type date is not JSON serializable" on to_json().
     # ------------------------------------------------------------------
 
-    def _generate_issue_405_module(self, schema, package_name, dir_suffix):
+    def _generate_issue_405_module(self, schema, package_name):
         """Generates a dataclasses-json annotated module and returns (src_dir, source_text)."""
         from avrotize.structuretopython import convert_structure_schema_to_python
 
-        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", dir_suffix)
-        if os.path.exists(output_dir):
-            shutil.rmtree(output_dir, ignore_errors=True)
-        os.makedirs(output_dir, exist_ok=True)
+        # A unique directory per generation keeps concurrent (pytest-xdist)
+        # workers from colliding on a shared fixed path.
+        output_dir = tempfile.mkdtemp(prefix="avrotize-issue405-")
+        self.addCleanup(shutil.rmtree, output_dir, True)
 
         convert_structure_schema_to_python(
             schema, output_dir, package_name=package_name,
@@ -1014,6 +1014,8 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                 if f.lower() == expected:
                     class_file = os.path.join(root, f)
                     break
+            if class_file is not None:
+                break
         assert class_file is not None, f"Expected {expected} under {src_dir}"
 
         with open(class_file, "r", encoding="utf-8") as fh:
@@ -1022,6 +1024,24 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         import ast
         ast.parse(source)
         return src_dir, source
+
+    def _import_generated(self, src_dir, module_name):
+        """Imports a generated module and unregisters it again when the test ends."""
+        import importlib
+
+        package = module_name.split(".", 1)[0]
+        sys.path.insert(0, src_dir)
+        self.addCleanup(self._forget_generated_package, src_dir, package)
+        return importlib.import_module(module_name)
+
+    @staticmethod
+    def _forget_generated_package(src_dir, package):
+        """Removes a generated package from sys.path and sys.modules."""
+        if src_dir in sys.path:
+            sys.path.remove(src_dir)
+        for name in [n for n in sys.modules
+                     if n == package or n.startswith(package + ".")]:
+            del sys.modules[name]
 
     def test_issue_405_date_field_has_dataclasses_json_metadata(self):
         """Positive fixture: date fields carry encoder/decoder/mm_field metadata.
@@ -1043,21 +1063,21 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             "required": ["born"],
         }
         _src, source = self._generate_issue_405_module(
-            schema, "test_issue405_date", "issue-405-date-metadata")
+            schema, "test_issue405_date")
 
         assert "mm_field=fields.Date(format='iso')" in source, \
             f"date fields must declare a marshmallow Date field:\n{source}"
         assert source.count("mm_field=fields.Date(format='iso')") == 2, \
             f"both the nullable and the required date field must be annotated:\n{source}"
-        assert "datetime.date.fromisoformat(d)" in source, \
+        assert "_parse_iso_date(v)" in source, \
             f"date fields must declare an ISO date decoder:\n{source}"
-        assert "isinstance(d, datetime.date)" in source, \
+        assert "isinstance(v, datetime.date)" in source, \
             f"date encoder must handle datetime.date values:\n{source}"
 
         # No regression for the datetime sibling.
         assert "mm_field=fields.DateTime(format='iso')" in source, \
             f"datetime fields must keep their marshmallow DateTime field:\n{source}"
-        assert "datetime.datetime.fromisoformat(d)" in source, \
+        assert "_parse_iso_datetime(v)" in source, \
             f"datetime fields must keep their ISO datetime decoder:\n{source}"
 
     def test_issue_405_time_field_has_dataclasses_json_metadata(self):
@@ -1073,11 +1093,11 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             "required": ["at"],
         }
         _src, source = self._generate_issue_405_module(
-            schema, "test_issue405_time", "issue-405-time-metadata")
+            schema, "test_issue405_time")
 
         assert source.count("mm_field=fields.Time(format='iso')") == 2, \
             f"time fields must declare a marshmallow Time field:\n{source}"
-        assert "datetime.time.fromisoformat(d)" in source, \
+        assert "_parse_iso_time(v)" in source, \
             f"time fields must declare an ISO time decoder:\n{source}"
 
     def test_issue_405_date_only_schema_imports_marshmallow_fields(self):
@@ -1087,10 +1107,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         with a date (or time) field but no datetime field produced code
         referencing `fields.Date` without importing `fields`.
         """
-        for name, prop_type, suffix in (
-            ("DateOnly", "date", "issue-405-date-only-import"),
-            ("TimeOnly", "time", "issue-405-time-only-import"),
-        ):
+        for name, prop_type in (("DateOnly", "date"), ("TimeOnly", "time")):
             with self.subTest(prop_type=prop_type):
                 schema = {
                     "type": "object",
@@ -1103,25 +1120,20 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                     "required": ["value", "label"],
                 }
                 src_dir, source = self._generate_issue_405_module(
-                    schema, "test_issue405_" + prop_type + "only", suffix)
+                    schema, "test_issue405_" + prop_type + "only")
 
                 assert "from marshmallow import fields" in source, \
                     f"marshmallow fields import missing for {prop_type}-only schema:\n{source}"
 
                 # The module must actually import (NameError guard).
-                import importlib
-                sys.path.insert(0, src_dir)
-                try:
-                    module = importlib.import_module(
-                        f"test_issue405_{prop_type}only.test.issue405.{name.lower()}")
-                    assert hasattr(module, name)
-                finally:
-                    sys.path.remove(src_dir)
+                module = self._import_generated(
+                    src_dir,
+                    f"test_issue405_{prop_type}only.test.issue405.{name.lower()}")
+                assert hasattr(module, name)
 
     def test_issue_405_date_round_trips_through_json(self):
         """Round-trip fixture: the exact failure mode reported in issue #405."""
         import datetime as dt
-        import importlib
 
         schema = {
             "type": "object",
@@ -1136,66 +1148,203 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             "required": ["d", "t", "ts", "count"],
         }
         src_dir, _source = self._generate_issue_405_module(
-            schema, "test_issue405_roundtrip", "issue-405-roundtrip")
+            schema, "test_issue405_roundtrip")
 
-        sys.path.insert(0, src_dir)
-        try:
-            module = importlib.import_module(
-                "test_issue405_roundtrip.test.issue405.roundtrip")
-            RoundTrip = module.RoundTrip
-            record = RoundTrip(
-                d=dt.date(1998, 11, 20),
-                t=dt.time(13, 45, 30),
-                ts=dt.datetime(1998, 11, 20, 13, 45, 30, tzinfo=dt.timezone.utc),
-                count=9007199254740993,
-            )
+        module = self._import_generated(
+            src_dir, "test_issue405_roundtrip.test.issue405.roundtrip")
+        RoundTrip = module.RoundTrip
+        record = RoundTrip(
+            d=dt.date(1998, 11, 20),
+            t=dt.time(13, 45, 30),
+            ts=dt.datetime(1998, 11, 20, 13, 45, 30, tzinfo=dt.timezone.utc),
+            count=9007199254740993,
+        )
 
-            # pylint: disable=no-member
-            json_text = record.to_json()
-            assert '"1998-11-20"' in json_text, \
-                f"date must serialize as an ISO date string, got: {json_text}"
-            assert '"13:45:30"' in json_text, \
-                f"time must serialize as an ISO time string, got: {json_text}"
+        # pylint: disable=no-member
+        json_text = record.to_json()
+        assert '"1998-11-20"' in json_text, \
+            f"date must serialize as an ISO date string, got: {json_text}"
+        assert '"13:45:30"' in json_text, \
+            f"time must serialize as an ISO time string, got: {json_text}"
 
-            payload = record.to_byte_array("application/json")
-            assert isinstance(payload, bytes)
+        payload = record.to_byte_array("application/json")
+        assert isinstance(payload, bytes)
 
-            restored = RoundTrip.from_data(payload, "application/json")
-            assert restored == record, f"expected {record}, got {restored}"
-            assert isinstance(restored.d, dt.date) and not isinstance(restored.d, dt.datetime)
-            assert isinstance(restored.t, dt.time)
-            assert isinstance(restored.ts, dt.datetime)
+        restored = RoundTrip.from_data(payload, "application/json")
+        assert restored == record, f"expected {record}, got {restored}"
+        assert isinstance(restored.d, dt.date) and not isinstance(restored.d, dt.datetime)
+        assert isinstance(restored.t, dt.time)
+        assert isinstance(restored.ts, dt.datetime)
 
-            # dataclasses_json's own decoder path must round-trip too.
-            assert RoundTrip.from_json(json_text) == record
-        finally:
-            sys.path.remove(src_dir)
+        # dataclasses_json's own decoder path must round-trip too.
+        assert RoundTrip.from_json(json_text) == record
 
-    def test_issue_405_invalid_date_string_is_rejected(self):
-        """Invalid-input fixture: malformed temporal strings must not corrupt silently."""
-        import importlib
+    def test_issue_405_date_field_holding_datetime_emits_one_wire_format(self):
+        """Boundary fixture: datetime.datetime is a subclass of datetime.date.
+
+        A naive ``isinstance(v, datetime.datetime)``-first encoder in the date
+        branch emits a datetime-shaped string that the matching
+        ``datetime.date.fromisoformat`` decoder cannot parse, giving two wire
+        formats for one value. The date encoder must narrow to the date part.
+        """
+        import datetime as dt
 
         schema = {
             "type": "object",
-            "name": "StrictDate",
+            "name": "DateNarrowing",
             "namespace": "test.issue405",
             "properties": {"d": {"type": "date"}},
             "required": ["d"],
         }
         src_dir, _source = self._generate_issue_405_module(
-            schema, "test_issue405_strict", "issue-405-invalid-input")
+            schema, "test_issue405_narrow")
 
-        sys.path.insert(0, src_dir)
-        try:
-            module = importlib.import_module(
-                "test_issue405_strict.test.issue405.strictdate")
-            StrictDate = module.StrictDate
-            with self.assertRaises(ValueError):
-                StrictDate.from_data(b'{"d": "20 November 1998"}', "application/json")
-        finally:
-            sys.path.remove(src_dir)
+        module = self._import_generated(
+            src_dir, "test_issue405_narrow.test.issue405.datenarrowing")
+        DateNarrowing = module.DateNarrowing
+        record = DateNarrowing(d=dt.datetime(2024, 1, 1, 10, 0, 0))
+
+        # pylint: disable=no-member
+        json_text = record.to_json()
+        assert '"2024-01-01"' in json_text, \
+            f"a datetime in a date field must serialize as a date, got: {json_text}"
+        assert "10:00:00" not in json_text, \
+            f"date wire format must not carry a time component: {json_text}"
+
+        # Both wire producers must agree, and the value must survive the trip.
+        assert '"2024-01-01"' in DateNarrowing.schema().dumps(record)
+        assert DateNarrowing.from_json(json_text).d == dt.date(2024, 1, 1)
+        assert DateNarrowing.from_data(
+            json_text.encode("utf-8"), "application/json").d == dt.date(2024, 1, 1)
+
+    def test_issue_405_nested_temporal_collections_round_trip(self):
+        """Positive fixture: temporal types nested in arrays, maps and unions.
+
+        Issue #405 is only fixed if encoder selection follows the type
+        structure. Exact string matching on the six scalar spellings leaves
+        ``List[date]``, ``Dict[str, date]`` and ``Optional[List[date]]``
+        raising the original TypeError.
+        """
+        import datetime as dt
+
+        schema = {
+            "type": "object",
+            "name": "NestedTemporal",
+            "namespace": "test.issue405",
+            "properties": {
+                "dates": {"type": "array", "items": {"type": "date"}},
+                "by_key": {"type": "map", "values": {"type": "date"}},
+                "stamps": {"type": "set", "items": {"type": "datetime"}},
+                "maybe_times": {"type": ["null", {"type": "array",
+                                                  "items": {"type": "time"}}]},
+            },
+            "required": ["dates", "by_key", "stamps"],
+        }
+        src_dir, _source = self._generate_issue_405_module(
+            schema, "test_issue405_nested")
+
+        module = self._import_generated(
+            src_dir, "test_issue405_nested.test.issue405.nestedtemporal")
+        NestedTemporal = module.NestedTemporal
+        record = NestedTemporal(
+            dates=[dt.date(2024, 2, 2)],
+            by_key={"k": dt.date(2024, 3, 3)},
+            stamps=[dt.datetime(2024, 4, 4, 5, 6, 7)],
+            maybe_times=[dt.time(1, 2, 3)],
+        )
+
+        # pylint: disable=no-member
+        json_text = record.to_json()
+        assert '"2024-02-02"' in json_text, json_text
+        assert '"2024-03-03"' in json_text, json_text
+        assert '"01:02:03"' in json_text, json_text
+
+        for restored in (NestedTemporal.from_json(json_text),
+                         NestedTemporal.from_data(
+                             json_text.encode("utf-8"), "application/json")):
+            assert list(restored.dates) == [dt.date(2024, 2, 2)], restored
+            assert restored.by_key == {"k": dt.date(2024, 3, 3)}, restored
+            assert list(restored.stamps) == [dt.datetime(2024, 4, 4, 5, 6, 7)], restored
+            assert list(restored.maybe_times) == [dt.time(1, 2, 3)], restored
+
+    def test_issue_405_rfc3339_zulu_and_empty_strings_are_tolerated(self):
+        """Invalid-input and boundary fixture for the deserializer coercion.
+
+        ``datetime.fromisoformat`` only learned RFC 3339 ``Z`` on Python 3.11,
+        and it raises on an empty string on every version. The generated
+        decoders must normalise ``Z`` and must leave anything unparseable
+        untouched rather than raising, on every supported interpreter
+        (``requires-python = ">=3.10"``).
+        """
+        import datetime as dt
+
+        schema = {
+            "type": "object",
+            "name": "Tolerant",
+            "namespace": "test.issue405",
+            "properties": {
+                "d": {"type": "date"},
+                "t": {"type": "time"},
+                "ts": {"type": "datetime"},
+            },
+            "required": ["d", "t", "ts"],
+        }
+        src_dir, _source = self._generate_issue_405_module(
+            schema, "test_issue405_tolerant")
+
+        module = self._import_generated(
+            src_dir, "test_issue405_tolerant.test.issue405.tolerant")
+        Tolerant = module.Tolerant
+        utc = dt.timezone.utc
+
+        # RFC 3339 "Z" must parse identically on 3.10 and 3.11+.
+        zulu = b'{"d": "2024-01-01", "t": "13:45:30Z", "ts": "2024-01-01T00:00:00Z"}'
+        for restored in (Tolerant.from_data(zulu, "application/json"),
+                         Tolerant.from_json(zulu.decode("utf-8"))):
+            assert restored.ts == dt.datetime(2024, 1, 1, tzinfo=utc), restored
+            assert restored.t == dt.time(13, 45, 30, tzinfo=utc), restored
+
+        # Unparseable strings must pass through unchanged, not raise. The
+        # previous behaviour of these paths was to return the raw string, and
+        # callers relying on that must keep working.
+        for payload in (b'{"d": "", "t": "", "ts": ""}',
+                        b'{"d": "20 November 1998", "t": "x", "ts": "y"}'):
+            restored = Tolerant.from_data(payload, "application/json")
+            decoded = json.loads(payload.decode("utf-8"))
+            assert restored.d == decoded["d"], restored
+            assert restored.t == decoded["t"], restored
+            assert restored.ts == decoded["ts"], restored
+
+    def test_issue_405_from_serializer_dict_does_not_mutate_input(self):
+        """Invalid-input fixture: deserialization must not rewrite the caller's dict."""
+        schema = {
+            "type": "object",
+            "name": "NoMutate",
+            "namespace": "test.issue405",
+            "properties": {"d": {"type": "date"}},
+            "required": ["d"],
+        }
+        src_dir, _source = self._generate_issue_405_module(
+            schema, "test_issue405_nomutate")
+
+        module = self._import_generated(
+            src_dir, "test_issue405_nomutate.test.issue405.nomutate")
+        payload = {"d": "2024-01-01"}
+        module.NoMutate.from_serializer_dict(dict(payload))
+        original = {"d": "2024-01-01"}
+        module.NoMutate.from_serializer_dict(original)
+        assert original == payload, \
+            f"from_serializer_dict must not mutate its argument, got {original}"
+
     def test_issue_405_generation_is_deterministic(self):
-        """Repeated generation of the same schema must produce identical sources."""
+        """Repeated generation of the same schema must produce identical sources.
+
+        The two generations run in separate interpreters with different
+        PYTHONHASHSEED values; running them in-process would pass even against
+        an unsorted generator because the hash seed would be shared.
+        """
+        import textwrap
+
         schema = {
             "type": "object",
             "name": "Determinism",
@@ -1204,18 +1353,68 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                 "d": {"type": "date"},
                 "t": {"type": "time"},
                 "ts": {"type": "datetime"},
+                "label": {"type": "string"},
+                "count": {"type": "int32"},
+                "flag": {"type": "boolean"},
+                "ratio": {"type": "double"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "scores": {"type": "map", "values": {"type": "int32"}},
                 "nested": {"type": "object", "name": "NestedOne",
                            "properties": {"x": {"type": "string"}}, "required": ["x"]},
                 "other": {"type": "object", "name": "NestedTwo",
                           "properties": {"y": {"type": "string"}}, "required": ["y"]},
             },
-            "required": ["d", "t", "ts", "nested", "other"],
+            "required": ["d", "t", "ts", "label", "count", "flag", "ratio",
+                         "tags", "scores", "nested", "other"],
         }
-        first = self._generate_issue_405_module(
-            schema, "test_issue405_det", "issue-405-determinism-a")[1]
-        second = self._generate_issue_405_module(
-            schema, "test_issue405_det", "issue-405-determinism-b")[1]
-        assert first == second, "s2py output must be deterministic across runs"
+
+        work_dir = tempfile.mkdtemp(prefix="avrotize-issue405-det-")
+        self.addCleanup(shutil.rmtree, work_dir, True)
+        script = os.path.join(work_dir, "generate.py")
+        with open(script, "w", encoding="utf-8") as fh:
+            fh.write(textwrap.dedent("""
+                import json
+                import sys
+                from avrotize.structuretopython import convert_structure_schema_to_python
+
+                with open(sys.argv[1], 'r', encoding='utf-8') as handle:
+                    schema = json.load(handle)
+                convert_structure_schema_to_python(
+                    schema, sys.argv[2], package_name='det_pkg',
+                    dataclasses_json_annotation=True)
+                """))
+        schema_file = os.path.join(work_dir, "schema.json")
+        with open(schema_file, "w", encoding="utf-8") as fh:
+            json.dump(schema, fh)
+
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        renderings = []
+        for seed in ("1", "2"):
+            out_dir = os.path.join(work_dir, "out" + seed)
+            env = dict(os.environ)
+            env["PYTHONHASHSEED"] = seed
+            env["PYTHONPATH"] = os.pathsep.join(
+                [repo_root] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+            result = subprocess.run(
+                [sys.executable, script, schema_file, out_dir],
+                env=env, capture_output=True, text=True, check=False)
+            assert result.returncode == 0, \
+                f"generation failed for PYTHONHASHSEED={seed}: {result.stderr}"
+
+            rendering = {}
+            for root, dirs, files in os.walk(out_dir):
+                dirs.sort()
+                for name in sorted(files):
+                    path = os.path.join(root, name)
+                    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                        rendering[os.path.relpath(path, out_dir)] = fh.read()
+            renderings.append(rendering)
+
+        assert sorted(renderings[0]) == sorted(renderings[1]), \
+            "s2py must emit the same set of files regardless of PYTHONHASHSEED"
+        for name in sorted(renderings[0]):
+            assert renderings[0][name] == renderings[1][name], \
+                f"s2py output for {name} differs between hash seeds"
 
 
 if __name__ == '__main__':

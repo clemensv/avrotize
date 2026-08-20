@@ -17,7 +17,7 @@ from abc import ABC
 {%- if dataclasses_json_annotation %}
 import dataclasses_json
 from dataclasses_json import Undefined, dataclass_json
-{%- for field in fields if field.type in ["datetime.datetime", "typing.Optional[datetime.datetime]", "datetime.date", "typing.Optional[datetime.date]", "datetime.time", "typing.Optional[datetime.time]"] %}
+{%- for field in fields if field.mm_field %}
 {%- if loop.first %}
 from marshmallow import fields
 {%- endif %}
@@ -52,6 +52,52 @@ import uuid
 {% if xml_annotation %}
 from {{ xml_runtime_module }} import parse_xml, serialize_xml
 {% endif %}
+{% if dataclasses_json_annotation and iso_parsers %}
+
+{% for parser in iso_parsers %}
+{%- if parser == '_parse_iso_date' %}
+def _parse_iso_date(value: typing.Any) -> typing.Any:
+    """ Parses an ISO 8601 date string. Values that are not parseable dates are returned unchanged. """
+    if not isinstance(value, str):
+        return value
+    try:
+        return datetime.date.fromisoformat(value)
+    except ValueError:
+        return value
+
+{% elif parser == '_parse_iso_datetime' %}
+def _parse_iso_datetime(value: typing.Any) -> typing.Any:
+    """ Parses an ISO 8601 / RFC 3339 datetime string. Values that are not parseable datetimes are returned unchanged.
+
+    A trailing 'Z' is normalized to '+00:00' because datetime.fromisoformat only
+    accepts the 'Z' designator from Python 3.11 onwards.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value[:-1] + '+00:00' if value.endswith(('Z', 'z')) else value
+    try:
+        return datetime.datetime.fromisoformat(text)
+    except ValueError:
+        return value
+
+{% elif parser == '_parse_iso_time' %}
+def _parse_iso_time(value: typing.Any) -> typing.Any:
+    """ Parses an ISO 8601 time string. Values that are not parseable times are returned unchanged.
+
+    A trailing 'Z' is normalized to '+00:00' because time.fromisoformat only
+    accepts the 'Z' designator from Python 3.11 onwards.
+    """
+    if not isinstance(value, str):
+        return value
+    text = value[:-1] + '+00:00' if value.endswith(('Z', 'z')) else value
+    try:
+        return datetime.time.fromisoformat(text)
+    except ValueError:
+        return value
+
+{% endif %}
+{%- endfor %}
+{% endif %}
 
 {% if dataclasses_json_annotation %}
 @dataclass_json(undefined=Undefined.EXCLUDE)
@@ -78,12 +124,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
     )
     {% endif %}
     {% for field in fields %}
-    {%- set isdatetime = field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
-    {%- set isdate = field.type == "datetime.date" or field.type == "typing.Optional[datetime.date]" %}
-    {%- set istime = field.type == "datetime.time" or field.type == "typing.Optional[datetime.time]" %}
     {%- set is_int_as_string = field.source_type in ['int64', 'uint64', 'int128', 'uint128'] %}
     {%- set is_decimal_as_string = field.source_type == 'decimal' %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdatetime -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d.isoformat() if isinstance(d, datetime.date) else d if d else None, decoder=lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.Date(format='iso'){%- elif istime -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.time) else d if d else None, decoder=lambda d: datetime.time.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.Time(format='iso'){%- elif is_int_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: int(v) if isinstance(v, str) else v{%- elif is_decimal_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: decimal.Decimal(v) if isinstance(v, str) else v{%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if field.json_encoder -%}, encoder={{ field.json_encoder }}, decoder={{ field.json_decoder }}{% if field.mm_field %}, mm_field={{ field.mm_field }}{% endif %}{%- elif is_int_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: int(v) if isinstance(v, str) else v{%- elif is_decimal_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: decimal.Decimal(v) if isinstance(v, str) else v{%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
     {%- endfor %}
 
 
@@ -98,6 +141,7 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         Returns:
             The dataclass representation of the dataclass.
         """
+        data = dict(data)
         {%- for field in fields %}
         {%- if field.name != field.original_name %}
         if '{{ field.original_name }}' in data:
@@ -109,15 +153,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         {%- elif field.source_type == 'decimal' %}
         if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
             data['{{ field.name }}'] = decimal.Decimal(data['{{ field.name }}'])
-        {%- elif field.type in ['datetime.datetime', 'typing.Optional[datetime.datetime]'] %}
-        if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
-            data['{{ field.name }}'] = datetime.datetime.fromisoformat(data['{{ field.name }}'])
-        {%- elif field.type in ['datetime.date', 'typing.Optional[datetime.date]'] %}
-        if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
-            data['{{ field.name }}'] = datetime.date.fromisoformat(data['{{ field.name }}'])
-        {%- elif field.type in ['datetime.time', 'typing.Optional[datetime.time]'] %}
-        if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
-            data['{{ field.name }}'] = datetime.time.fromisoformat(data['{{ field.name }}'])
+        {%- elif dataclasses_json_annotation and field.json_decoder %}
+        if '{{ field.name }}' in data:
+            data['{{ field.name }}'] = ({{ field.json_decoder }})(data['{{ field.name }}'])
         {%- endif %}
         {%- endfor %}
         return cls(**data)
