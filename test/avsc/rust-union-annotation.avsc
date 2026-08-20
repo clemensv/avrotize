@@ -1,0 +1,259 @@
+{
+    "type": "record",
+    "name": "UnionHolder",
+    "namespace": "issue406.union_only",
+    "fields": [
+        {
+            "name": "value",
+            "type": [
+                "string",
+                "long"
+            ]
+        },
+        {
+            "name": "numeric",
+            "type": [
+                "long",
+                "int"
+            ]
+        },
+        {
+            "name": "nullable",
+            "type": [
+                "null",
+                "string",
+                "long"
+            ]
+        },
+        {
+            "name": "nested",
+            "type": {
+                "type": "record",
+                "name": "NestedHolder",
+                "fields": [
+                    {
+                        "name": "numeric",
+                        "type": [
+                            "long",
+                            "int"
+                        ]
+                    },
+                    {
+                        "name": "nestedFixed",
+                        "type": {
+                            "type": "fixed",
+                            "name": "NestedFixedTen",
+                            "size": 10
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "optionalNested",
+            "type": [
+                "null",
+                "issue406.union_only.NestedHolder"
+            ]
+        },
+        {
+            "name": "arrayValues",
+            "type": {
+                "type": "array",
+                "items": [
+                    "long",
+                    "int"
+                ]
+            }
+        },
+        {
+            "name": "mapValues",
+            "type": {
+                "type": "map",
+                "values": [
+                    "long",
+                    "int"
+                ]
+            }
+        },
+        {
+            "name": "optionalArray",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": "string"
+                }
+            ]
+        },
+        {
+            "name": "optionalMap",
+            "type": [
+                "null",
+                {
+                    "type": "map",
+                    "values": "string"
+                }
+            ]
+        },
+        {
+            "name": "optionalInlineRecord",
+            "type": [
+                "null",
+                {
+                    "type": "record",
+                    "name": "OptionalInlineRecord",
+                    "fields": [
+                        {
+                            "name": "value",
+                            "type": "string"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "optionalNamedRecord",
+            "type": [
+                "null",
+                "OptionalInlineRecord"
+            ]
+        },
+        {
+            "name": "optionalQualifiedNamedRecord",
+            "type": [
+                "null",
+                "issue406.union_only.OptionalInlineRecord"
+            ]
+        },
+        {
+            "name": "optionalNamedEnum",
+            "type": [
+                "null",
+                {
+                    "type": "enum",
+                    "name": "OptionalNamedEnum",
+                    "symbols": [
+                        "FIRST",
+                        "SECOND"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "optionalNamedEnumRef",
+            "type": [
+                "null",
+                "OptionalNamedEnum"
+            ]
+        },
+        {
+            "name": "payload",
+            "type": "bytes"
+        },
+        {
+            "name": "binaryChoice",
+            "type": [
+                "bytes",
+                "string"
+            ]
+        },
+        {
+            "name": "reverseOptional",
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        {
+            "name": "directFixed",
+            "type": {
+                "type": "fixed",
+                "name": "DirectFixedTen",
+                "size": 10
+            }
+        },
+        {
+            "name": "fixedRef",
+            "type": "issue406.union_only.DirectFixedTen"
+        },
+        {
+            "name": "optionalFixedRef",
+            "type": [
+                "null",
+                "DirectFixedTen"
+            ]
+        },
+        {
+            "name": "optionalQualifiedFixedRef",
+            "type": [
+                "null",
+                "issue406.union_only.DirectFixedTen"
+            ]
+        },
+        {
+            "name": "nullFirst",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": [
+                        "long",
+                        "int"
+                    ]
+                },
+                "string"
+            ]
+        },
+        {
+            "name": "nullMiddle",
+            "type": [
+                {
+                    "type": "array",
+                    "items": [
+                        "long",
+                        "int"
+                    ]
+                },
+                "null",
+                "string"
+            ]
+        },
+        {
+            "name": "nullLast",
+            "type": [
+                {
+                    "type": "array",
+                    "items": [
+                        "long",
+                        "int"
+                    ]
+                },
+                "string",
+                "null"
+            ]
+        },
+        {
+            "name": "fixedChoice",
+            "type": [
+                {
+                    "type": "fixed",
+                    "name": "UnionFixedTen",
+                    "size": 10
+                },
+                "string"
+            ]
+        },
+        {
+            "name": "optionalFixed",
+            "type": [
+                "null",
+                {
+                    "type": "fixed",
+                    "name": "OptionalFixedSixteen",
+                    "size": 16
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,36 @@
+[
+    {
+        "type": "record",
+        "name": "Left.Item",
+        "fields": [
+            {
+                "name": "leftValue",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Right.Item",
+        "fields": [
+            {
+                "name": "rightValue",
+                "type": "long"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Right.Holder",
+        "fields": [
+            {
+                "name": "local",
+                "type": "Item"
+            },
+            {
+                "name": "foreign",
+                "type": "Left.Item"
+            }
+        ]
+    }
+]

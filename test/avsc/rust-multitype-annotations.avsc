@@ -1,0 +1,236 @@
+[
+    {
+        "type": "enum",
+        "name": "Standalone",
+        "namespace": "issue406.multitype",
+        "symbols": [
+            "FIRST",
+            "SECOND"
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Simple",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Alternate",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "count",
+                "type": "long"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Wrapper",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "simple",
+                "type": "issue406.multitype.Simple"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Composite",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "kind",
+                "type": {
+                    "type": "enum",
+                    "name": "InlineKind",
+                    "symbols": [
+                        "TEXT",
+                        "NUMBER"
+                    ]
+                }
+            },
+            {
+                "name": "value",
+                "type": [
+                    "string",
+                    "long"
+                ]
+            },
+            {
+                "name": "choice",
+                "type": [
+                    "Simple",
+                    "issue406.multitype.Wrapper"
+                ]
+            },
+            {
+                "name": "primary",
+                "type": "Simple"
+            },
+            {
+                "name": "secondary",
+                "type": "issue406.multitype.Simple"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "CollisionOne",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "choice",
+                "type": [
+                    "long",
+                    "int"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "CollisionTwo",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "choice",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Foo",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "barBaz",
+                "type": [
+                    "long",
+                    "int"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "FooBar",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "baz",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "SyntheticPaths",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "items",
+                "type": {
+                    "type": "array",
+                    "items": [
+                        "long",
+                        "int"
+                    ]
+                }
+            },
+            {
+                "name": "itemsArrayItems",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            },
+            {
+                "name": "entries",
+                "type": {
+                    "type": "map",
+                    "values": [
+                        "long",
+                        "int"
+                    ]
+                }
+            },
+            {
+                "name": "entriesMapValues",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            },
+            {
+                "name": "branch",
+                "type": [
+                    {
+                        "type": "array",
+                        "items": [
+                            "long",
+                            "int"
+                        ]
+                    },
+                    {
+                        "type": "map",
+                        "values": [
+                            "string",
+                            "boolean"
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "TwinA",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "TwinB",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "TwinHolder",
+        "namespace": "issue406.multitype",
+        "fields": [
+            {
+                "name": "choice",
+                "type": [
+                    "TwinA",
+                    "TwinB"
+                ]
+            }
+        ]
+    }
+]

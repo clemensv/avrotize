@@ -1,6 +1,9 @@
 {%- if avro_annotation %}
 use lazy_static::lazy_static;
 use apache_avro::Schema;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use std::io::{Read, Write};
 {%- endif %}
 {%- if serde_annotation or avro_annotation or xml_annotation %}
 use serde::{self,Serialize, Deserialize};
@@ -50,6 +53,29 @@ impl Serialize for {{ enum_name }} {
 {%- endif %}
 
 {%- if avro_annotation %}
+const MAX_AVRO_DATA_SIZE: usize = 16 * 1024 * 1024;
+
+fn decode_avro_data(
+    data: &[u8],
+    gzip: bool,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    if data.len() > MAX_AVRO_DATA_SIZE {
+        return Err("input exceeds the generated data size limit".into());
+    }
+    if !gzip {
+        return Ok(data.to_vec());
+    }
+    let decoder = GzDecoder::new(data);
+    let mut result = Vec::new();
+    decoder
+        .take((MAX_AVRO_DATA_SIZE + 1) as u64)
+        .read_to_end(&mut result)?;
+    if result.len() > MAX_AVRO_DATA_SIZE {
+        return Err("decompressed input exceeds the generated data size limit".into());
+    }
+    Ok(result)
+}
+
 lazy_static! {
     /// The static Avro schema as a parsed object
     pub static ref SCHEMA: Schema = Schema::parse_str({{ avro_schema }}).unwrap();
@@ -58,6 +84,45 @@ lazy_static! {
 
 {%- if serde_annotation or avro_annotation or xml_annotation %}
 impl {{ enum_name }} {
+    {%- if avro_annotation %}
+    /// Serializes the enum to Avro binary data.
+    pub fn to_byte_array(&self, content_type: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let media_type = content_type.split(';').next().unwrap_or("");
+        let (base_media_type, gzip) = media_type
+            .strip_suffix("+gzip")
+            .map_or((media_type, false), |base| (base, true));
+        if base_media_type != "avro/binary" &&
+           base_media_type != "application/vnd.apache.avro+avro" {
+            return Err(format!("unsupported media type: {}", media_type).into());
+        }
+
+        let value = apache_avro::to_value(self)?.resolve(&SCHEMA)?;
+        let result = apache_avro::to_avro_datum(&SCHEMA, value)?;
+        if gzip {
+            let mut encoder = GzEncoder::new(Vec::new(), flate2::Compression::default());
+            encoder.write_all(&result)?;
+            return Ok(encoder.finish()?);
+        }
+        Ok(result)
+    }
+
+    /// Deserializes the enum from Avro binary data.
+    pub fn from_data(data: impl AsRef<[u8]>, content_type: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let media_type = content_type.split(';').next().unwrap_or("");
+        let (base_media_type, gzip) = media_type
+            .strip_suffix("+gzip")
+            .map_or((media_type, false), |base| (base, true));
+        if base_media_type != "avro/binary" &&
+           base_media_type != "application/vnd.apache.avro+avro" {
+            return Err(format!("unsupported media type: {}", media_type).into());
+        }
+
+        let data = decode_avro_data(data.as_ref(), gzip)?;
+        let value = apache_avro::from_avro_datum(&SCHEMA, &mut &data[..], None)?;
+        Ok(apache_avro::from_value(&value)?)
+    }
+    {%- endif %}
+
     pub fn is_json_match(node: &serde_json::Value) -> bool {
         return node.is_string();
     }
@@ -87,15 +152,39 @@ mod tests {
     use super::*;
     use rand::Rng;
 
-    {%- if serde_annotation or xml_annotation %}
+    {%- if serde_annotation or avro_annotation or xml_annotation %}
     #[test]
     fn test_serialize_deserialize_{{ enum_name.lower() }}() {
         {%- for symbol in symbols %}
         let instance = {{ enum_name }}::{{ symbol.name }};
+        {%- if serde_annotation or xml_annotation %}
         let json_bytes = serde_json::to_vec(&instance).unwrap();
         let deserialized_instance: {{ enum_name }} = serde_json::from_slice(&json_bytes).unwrap();
         assert_eq!(instance, deserialized_instance);
+        {%- endif %}
+        {%- if avro_annotation %}
+        let avro_bytes = instance.to_byte_array("avro/binary").unwrap();
+        let deserialized_instance = {{ enum_name }}::from_data(&avro_bytes, "avro/binary").unwrap();
+        assert_eq!(instance, deserialized_instance);
+        let avro_gzip_bytes = instance.to_byte_array("avro/binary+gzip").unwrap();
+        let deserialized_gzip_instance = {{ enum_name }}::from_data(&avro_gzip_bytes, "avro/binary+gzip").unwrap();
+        assert_eq!(instance, deserialized_gzip_instance);
+        {%- endif %}
         {%- endfor %}
+    }
+    {%- endif %}
+
+    {%- if avro_annotation %}
+    #[test]
+    fn test_rejects_invalid_content_type_{{ enum_name.lower() }}() {
+        let instance = {{ enum_name }}::default();
+        assert!(instance.to_byte_array("text/plain").is_err());
+        assert!({{ enum_name }}::from_data([], "text/plain").is_err());
+        assert!(instance.to_byte_array("avro/binary-invalid").is_err());
+        assert!(instance.to_byte_array("application/vnd.apache.avro+avroevil").is_err());
+        assert!({{ enum_name }}::from_data([], "avro/binary-invalid").is_err());
+        assert!({{ enum_name }}::from_data([], "application/vnd.apache.avro+avroevil").is_err());
+        assert!({{ enum_name }}::from_data([0, 1], "avro/binary+gzip").is_err());
     }
     {%- endif %}
 

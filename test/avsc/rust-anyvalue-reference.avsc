@@ -1,0 +1,24 @@
+[
+    {
+        "type": "record",
+        "name": "AnyValue",
+        "namespace": "avrotize",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "AnyValueHolder",
+        "namespace": "issue406.anyvalue",
+        "fields": [
+            {
+                "name": "payload",
+                "type": "avrotize.AnyValue"
+            }
+        ]
+    }
+]
