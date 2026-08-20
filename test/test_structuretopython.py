@@ -1400,6 +1400,94 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                 assert not isinstance(caught.exception, AttributeError), \
                     f"{label} must reject at the deserialization site"
 
+        # Non-string JSON must not leak an AttributeError out of the parser
+        # either. `_normalize_iso_string` calls str methods, so an int, bool,
+        # float, list or dict reaching it escaped as AttributeError from inside
+        # marshmallow, where master raised ValidationError and callers relying
+        # on `err.messages` for per-field aggregation crashed instead.
+        from marshmallow import ValidationError
+
+        for value in (12345, True, 1.5, [1, 2], {"a": 1}):
+            with self.subTest(non_string=value):
+                payload = json.dumps({"d": value, "t": value, "ts": value})
+                with self.assertRaises(ValidationError) as caught:
+                    Strict.schema().loads(payload)
+                messages = caught.exception.messages
+                assert set(messages) == {"d", "t", "ts"}, \
+                    f"schema().loads must aggregate per field, got {messages}"
+
+                # The other four entry points leave a non-string untouched, as
+                # they do on master: their decoders are guarded by
+                # `isinstance(v, str)` so that `from_serializer_dict` can accept
+                # the real `datetime` objects `to_serializer_dict` emits. What
+                # matters is that none of them raises AttributeError.
+                for label, call in entry_points.items():
+                    if label == "schema().loads":
+                        continue
+                    try:
+                        call()
+                    except AttributeError as error:  # pragma: no cover
+                        self.fail(f"{label} leaked AttributeError: {error}")
+                    except Exception:  # noqa: BLE001
+                        pass
+
+    def test_issue_405_serializer_dict_round_trips_typed_temporal_values(self):
+        """Boundary fixture: the decoders' ``isinstance(v, str)`` guard.
+
+        ``to_serializer_dict`` emits real ``datetime`` objects rather than ISO
+        strings, so the generated decoders must pass a non-string through
+        untouched or the documented
+        ``from_serializer_dict(to_serializer_dict(x))`` pair would stop working.
+        """
+        src_dir, _source = self._generate_issue_405_module(
+            self._TEMPORAL_TRIPLE_SCHEMA, "test_issue405_typedserdict")
+        module = self._import_generated(
+            src_dir, "test_issue405_typedserdict.test.issue405.strict")
+
+        record = module.Strict(
+            d=datetime.date(2024, 1, 1),
+            t=datetime.time(7, 0),
+            ts=datetime.datetime(2024, 1, 1, 10, 0))
+
+        serialized = record.to_serializer_dict()
+        assert isinstance(serialized["ts"], datetime.datetime), \
+            f"to_serializer_dict should keep typed values, got {serialized['ts']!r}"
+        assert module.Strict.from_serializer_dict(serialized) == record
+
+    def test_issue_405_datetime_field_holding_a_date_dumps_like_master(self):
+        """Boundary fixture: a ``date`` value in a ``datetime``-declared field.
+
+        ``marshmallow.fields.DateTime(format='iso')`` serialized anything with
+        an ``isoformat()``, so ``schema().dumps`` accepted a ``date`` in a
+        ``datetime`` field and emitted ``"2024-05-06"``. The generated
+        ``mm_field`` replaces that field, so it has to keep accepting it rather
+        than handing the raw object to ``json.dumps`` and raising ``TypeError``.
+        """
+        schema = {
+            "type": "object",
+            "name": "Dt",
+            "namespace": "test.issue405",
+            "properties": {
+                "v": {"type": "datetime"},
+                "label": {"type": "string"},
+            },
+            "required": ["v", "label"],
+        }
+        src_dir, source = self._generate_issue_405_module(
+            schema, "test_issue405_dtdump")
+        module = self._import_generated(
+            src_dir, "test_issue405_dtdump.test.issue405.dt")
+
+        record = module.Dt(v=datetime.date(2024, 5, 6), label="L")
+        dumped = module.Dt.schema().dumps(record)
+        assert json.loads(dumped)["v"] == "2024-05-06", \
+            f"schema().dumps must keep master's output for a date value: {dumped}\n{source}"
+
+        # A real datetime is still emitted with its time component.
+        exact = module.Dt(v=datetime.datetime(2024, 5, 6, 7, 8, 9), label="L")
+        assert json.loads(module.Dt.schema().dumps(exact))["v"] == "2024-05-06T07:08:09"
+        assert json.loads(exact.to_json()) == json.loads(module.Dt.schema().dumps(exact))
+
     def test_issue_405_ambiguous_temporal_union_emits_no_codec(self):
         """Invalid-input fixture: an undecidable union must not guess.
 
