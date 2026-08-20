@@ -383,13 +383,17 @@ class TestAvroToRust(unittest.TestCase):
         )
         if os.path.exists(rust_path):
             shutil.rmtree(rust_path, ignore_errors=True)
-        convert_avro_schema_to_rust(
-            hash_schema,
-            rust_path,
-            package_name="rust-plan-non-avro-hash",
-            avro_annotation=False,
-        )
-        self.assertTrue(os.path.exists(rust_path))
+        with self.assertRaisesRegex(
+            ValueError,
+            r"exact path collision.*generated union.*named type",
+        ):
+            convert_avro_schema_to_rust(
+                hash_schema,
+                rust_path,
+                package_name="rust-plan-non-avro-hash",
+                avro_annotation=False,
+            )
+        self.assertFalse(os.path.exists(rust_path))
 
         collision_schema = [
             {
@@ -419,6 +423,71 @@ class TestAvroToRust(unittest.TestCase):
             avro_annotation=False,
         )
         self.assertTrue(os.path.exists(collision_path))
+
+        different_schema_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-plan-owner-different-unions",
+        )
+        if os.path.exists(different_schema_path):
+            shutil.rmtree(different_schema_path, ignore_errors=True)
+        different_schema = [
+            {
+                "type": "record",
+                "name": "One",
+                "namespace": "n",
+                "fields": [
+                    {
+                        "name": "choice",
+                        "type": ["long", "int"],
+                    }
+                ],
+            },
+            {
+                "type": "record",
+                "name": "Two",
+                "namespace": "n",
+                "fields": [
+                    {
+                        "name": "choice",
+                        "type": ["string", "boolean"],
+                    }
+                ],
+            },
+        ]
+        convert_avro_schema_to_rust(
+            different_schema,
+            different_schema_path,
+            package_name="rust-plan-owner-different-unions",
+            avro_annotation=False,
+            serde_annotation=True,
+        )
+        self.assertFalse(
+            os.path.exists(
+                os.path.join(
+                    different_schema_path,
+                    "src",
+                    "n",
+                    "choiceunion.rs",
+                )
+            )
+        )
+        union_files = glob.glob(
+            os.path.join(
+                different_schema_path,
+                "src",
+                "n",
+                "unionpath*.rs",
+            )
+        )
+        self.assertEqual(2, len(union_files))
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=different_schema_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
 
         symbol_collision_path = os.path.join(
             tempfile.gettempdir(),
@@ -515,6 +584,71 @@ class TestAvroToRust(unittest.TestCase):
                 package_name="rust-alias-regeneration",
                 avro_annotation=True,
             )
+
+    def test_legacy_union_file_migrates_and_ambiguous_alias_is_removed(self):
+        """Migrate old union modules and remove newly ambiguous aliases."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-legacy-union-migration",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        alias_directory = os.path.join(rust_path, "src", "n")
+        os.makedirs(alias_directory, exist_ok=True)
+        alias_path = os.path.join(alias_directory, "choiceunion.rs")
+        with open(alias_path, "w", encoding="utf-8") as legacy_file:
+            legacy_file.write(
+                "pub enum ChoiceUnion { I64(i64), I32(i32) }\n"
+                "impl Default for ChoiceUnion { fn default() -> Self {"
+                " ChoiceUnion::I64(0) } }\n"
+                "impl ChoiceUnion { pub fn is_json_match(_: &()) -> bool"
+                " { true } }\n"
+                "#[cfg(test)] impl ChoiceUnion {"
+                " pub fn generate_random_instance() -> Self {"
+                " ChoiceUnion::I64(0) } }\n"
+                "#[test] fn test_union_variants_choiceunion() {}\n"
+            )
+        first_schema = {
+            "type": "record",
+            "name": "One",
+            "namespace": "n",
+            "fields": [
+                {"name": "choice", "type": ["long", "int"]}
+            ],
+        }
+        convert_avro_schema_to_rust(
+            first_schema,
+            rust_path,
+            package_name="rust-legacy-union-migration",
+            serde_annotation=True,
+        )
+        with open(alias_path, "r", encoding="utf-8") as alias_file:
+            self.assertTrue(alias_file.read().startswith(
+                "pub type ChoiceUnion = crate::"
+            ))
+
+        second_schema = [
+            first_schema,
+            {
+                "type": "record",
+                "name": "Two",
+                "namespace": "n",
+                "fields": [
+                    {
+                        "name": "choice",
+                        "type": ["string", "boolean"],
+                    }
+                ],
+            },
+        ]
+        convert_avro_schema_to_rust(
+            second_schema,
+            rust_path,
+            package_name="rust-legacy-union-migration",
+            serde_annotation=True,
+        )
+        self.assertFalse(os.path.exists(alias_path))
 
     def test_output_parent_path_case_is_preserved(self):
         """Never lowercase caller-provided output directory components."""
@@ -900,10 +1034,6 @@ class TestAvroToRust(unittest.TestCase):
             timeout=self.CARGO_TIMEOUT,
         ) == 0
 
-        legacy_field = (
-            "pub nullable: "
-            "crate::issue406::union_only::nullableunion::NullableUnion"
-        )
         for serde_annotation in (False, True):
             compatible_path = self.run_convert_to_rust(
                 "rust-union-annotation",
@@ -923,8 +1053,23 @@ class TestAvroToRust(unittest.TestCase):
                 encoding="utf-8",
             ) as generated_file:
                 compatible_source = generated_file.read()
-            self.assertIn(legacy_field, compatible_source)
+            self.assertRegex(
+                compatible_source,
+                r"pub nullable: crate::issue406::union_only::"
+                r"unionpath[a-z0-9]+::UnionPath[A-Za-z0-9]+,",
+            )
             self.assertNotIn("pub nullable: Option<", compatible_source)
+            self.assertTrue(
+                os.path.exists(
+                    os.path.join(
+                        compatible_path,
+                        "src",
+                        "issue406",
+                        "union_only",
+                        "nullableunion.rs",
+                    )
+                )
+            )
 
     def test_convert_multitype_avro_annotations_to_rust(self):
         """Compile records, enums, and unions that each define SCHEMA in one crate."""

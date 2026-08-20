@@ -34,6 +34,7 @@ class AvroToRust:
         self.union_path_identities: Dict[str, str] = {}
         self.union_alias_candidates: Dict[tuple[str, str], List[str]] = {}
         self.planned_alias_contents: Dict[str, str] = {}
+        self.generated_aliases_to_remove: List[tuple[str, str]] = []
         self.avro_annotation = False
         self.serde_annotation = False
         self.xml_annotation = False
@@ -1272,9 +1273,8 @@ class AvroToRust:
     ) -> str:
         """Generates a union enum for Rust"""
         ns = namespace.replace('.', '::').lower()
-        union_enum_name = (
-            self.union_name_from_path(path or [('field', field_name)])
-            if self.avro_annotation else pascal(field_name) + 'Union'
+        union_enum_name = self.union_name_from_path(
+            path or [('field', field_name)]
         )
         union_avro_branches = [
             (source_index, avro_branch)
@@ -1388,12 +1388,11 @@ class AvroToRust:
         }
         
         qualified_union_enum_name = self.safe_package(self.concat_package(ns, union_enum_name))
-        if self.avro_annotation:
-            legacy_name = pascal(field_name) + 'Union'
-            self.union_alias_candidates.setdefault(
-                (namespace, legacy_name),
-                [],
-            ).append(qualified_union_enum_name)
+        legacy_name = pascal(field_name) + 'Union'
+        self.union_alias_candidates.setdefault(
+            (namespace, legacy_name),
+            [],
+        ).append(qualified_union_enum_name)
         context = {
             'serde_annotation': self.serde_annotation,
             'avro_annotation': self.avro_annotation,
@@ -1420,6 +1419,10 @@ class AvroToRust:
 
     def write_union_aliases(self):
         """Emits legacy Avro union names when they are unambiguous."""
+        for alias_path, namespace in self.generated_aliases_to_remove:
+            if os.path.exists(alias_path):
+                os.remove(alias_path)
+                self.write_mod_rs(namespace)
         for (namespace, legacy_name), targets in sorted(
             self.union_alias_candidates.items()
         ):
@@ -1490,6 +1493,18 @@ class AvroToRust:
             r'\}\n$'
         )
         return re.fullmatch(pattern, content) is not None
+
+    @staticmethod
+    def is_legacy_generated_union(content: str, legacy_name: str) -> bool:
+        """Checks whether source is a previously generated union module."""
+        markers = (
+            f'pub enum {legacy_name} {{',
+            f'impl Default for {legacy_name} {{',
+            'pub fn is_json_match(',
+            'pub fn generate_random_instance()',
+            f'fn test_union_variants_{legacy_name.lower()}()',
+        )
+        return all(marker in content for marker in markers)
 
     def get_json_shape_signature(
         self,
@@ -1826,12 +1841,8 @@ class AvroToRust:
                     if item != 'null'
                 ]
                 if len(non_null) > 1:
-                    union_name = (
-                        self.union_name_from_path(
-                            path or [('field', field_name)]
-                        )
-                        if self.avro_annotation
-                        else pascal(field_name) + 'Union'
+                    union_name = self.union_name_from_path(
+                        path or [('field', field_name)]
                     )
                     namespace_parts = (
                         tuple(namespace.lower().split('.'))
@@ -1840,20 +1851,7 @@ class AvroToRust:
                     union_output_path = (
                         namespace_parts + (union_name.lower(),)
                     )
-                    union_identity = (
-                        union_name
-                        if self.avro_annotation
-                        else (
-                            union_name,
-                            json.dumps(
-                                self.inline_avro_references(
-                                    [item for _, item in non_null],
-                                    namespace,
-                                ),
-                                sort_keys=True,
-                            ),
-                        )
-                    )
+                    union_identity = union_name
                     add(
                         union_output_path,
                         'union',
@@ -1861,12 +1859,11 @@ class AvroToRust:
                         f"generated union {union_name} at "
                         f"{path or [('field', field_name)]}",
                     )
-                    if self.avro_annotation:
-                        legacy_name = pascal(field_name) + 'Union'
-                        alias_candidates.setdefault(
-                            (namespace_parts, legacy_name),
-                            set(),
-                        ).add(union_name)
+                    legacy_name = pascal(field_name) + 'Union'
+                    alias_candidates.setdefault(
+                        (namespace_parts, legacy_name),
+                        set(),
+                    ).add(union_name)
                     for source_index, branch in non_null:
                         visit(
                             branch,
@@ -1946,60 +1943,88 @@ class AvroToRust:
         for top_level in schema:
             visit(top_level)
 
-        if self.avro_annotation:
-            for (namespace_parts, legacy_name), targets in sorted(
-                alias_candidates.items()
-            ):
-                if len(targets) == 1:
-                    union_name = next(iter(targets))
-                    alias_name = legacy_name.lower()
-                    namespace = '::'.join(namespace_parts)
-                    qualified_target = self.safe_package(
-                        self.concat_package(namespace, union_name)
-                    )
-                    add(
-                        namespace_parts + (alias_name,),
-                        'alias',
-                        qualified_target,
-                        f"legacy union alias {legacy_name}",
-                    )
-                    alias_content = self.union_alias_content(
-                        legacy_name,
-                        qualified_target,
-                    )
-                    relative_parts = list(namespace_parts) + [
-                        alias_name + '.rs'
-                    ]
-                    alias_path = os.path.join(
-                        self.output_dir,
-                        'src',
-                        *relative_parts,
-                    )
-                    alias_directory = os.path.splitext(alias_path)[0]
-                    if os.path.isdir(alias_directory):
+        for (namespace_parts, legacy_name), targets in sorted(
+            alias_candidates.items()
+        ):
+            alias_name = legacy_name.lower()
+            relative_parts = list(namespace_parts) + [
+                alias_name + '.rs'
+            ]
+            alias_path = os.path.join(
+                self.output_dir,
+                'src',
+                *relative_parts,
+            )
+            alias_directory = os.path.splitext(alias_path)[0]
+            namespace = '::'.join(namespace_parts)
+            existing_content = None
+            if os.path.isdir(alias_directory):
+                raise ValueError(
+                    'Existing directory conflicts with planned legacy '
+                    f"union alias: '{alias_path}'"
+                )
+            if os.path.exists(alias_path):
+                with open(
+                    alias_path,
+                    'r',
+                    encoding='utf-8',
+                ) as alias_file:
+                    existing_content = alias_file.read()
+
+            if len(targets) != 1:
+                if existing_content is not None:
+                    if (
+                        self.is_generated_union_alias(
+                            existing_content,
+                            legacy_name,
+                        )
+                        or self.is_legacy_generated_union(
+                            existing_content,
+                            legacy_name,
+                        )
+                    ):
+                        self.generated_aliases_to_remove.append(
+                            (alias_path, namespace)
+                        )
+                    else:
                         raise ValueError(
-                            'Existing directory conflicts with planned '
+                            'Existing file conflicts with ambiguous legacy '
+                            f"union alias: '{alias_path}'"
+                        )
+                continue
+
+            if len(targets) == 1:
+                union_name = next(iter(targets))
+                qualified_target = self.safe_package(
+                    self.concat_package(namespace, union_name)
+                )
+                add(
+                    namespace_parts + (alias_name,),
+                    'alias',
+                    qualified_target,
+                    f"legacy union alias {legacy_name}",
+                )
+                alias_content = self.union_alias_content(
+                    legacy_name,
+                    qualified_target,
+                )
+                if existing_content is not None:
+                    if (
+                        existing_content != alias_content
+                        and not self.is_generated_union_alias(
+                            existing_content,
+                            legacy_name,
+                        )
+                        and not self.is_legacy_generated_union(
+                            existing_content,
+                            legacy_name,
+                        )
+                    ):
+                        raise ValueError(
+                            'Existing file conflicts with planned '
                             f"legacy union alias: '{alias_path}'"
                         )
-                    if os.path.exists(alias_path):
-                        with open(
-                            alias_path,
-                            'r',
-                            encoding='utf-8',
-                        ) as alias_file:
-                            existing_content = alias_file.read()
-                        if (
-                            existing_content != alias_content
-                            and not self.is_generated_union_alias(
-                                existing_content,
-                                legacy_name,
-                            )
-                        ):
-                            raise ValueError(
-                                'Existing file conflicts with planned '
-                                f"legacy union alias: '{alias_path}'"
-                            )
-                    self.planned_alias_contents[alias_path] = alias_content
+                self.planned_alias_contents[alias_path] = alias_content
 
         source_paths = list(planned)
         add(
