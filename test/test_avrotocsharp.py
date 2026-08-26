@@ -6,11 +6,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from os import path, getcwd
 
 import pytest
 
 from avrotize.avrotocsharp import convert_avro_to_csharp
+from avrotize.constants import CSHARP_AVRO_VERSION
 from avrotize.jsonstoavro import convert_jsons_to_avro
 
 current_script_path = os.path.abspath(__file__)
@@ -87,7 +89,24 @@ class TestAvroToCSharp(unittest.TestCase):
         default = gen_and_read(None, "default")
         assert "<TargetFramework>net10.0</TargetFramework>" in default
 
-                                        
+    def test_csharp_test_projects_use_generated_apache_avro_version(self):
+        test_projects = os.path.join(project_root, "test", "cs")
+
+        for root, _, files in os.walk(test_projects):
+            for filename in files:
+                if not filename.endswith(".csproj"):
+                    continue
+
+                project_file = os.path.join(root, filename)
+                project = ET.parse(project_file)
+                for package in project.findall(".//PackageReference"):
+                    if package.get("Include") == "Apache.Avro":
+                        assert package.get("Version") == CSHARP_AVRO_VERSION, (
+                            f"{project_file} must use Apache.Avro "
+                            f"{CSHARP_AVRO_VERSION}"
+                        )
+
+
     def test_convert_enumfield_avsc_to_csharp_annotated(self):
         """ Test converting an enumfield.avsc file to C# """
         for system_text_json_annotation in [True, False]:
