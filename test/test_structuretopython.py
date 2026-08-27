@@ -1,6 +1,7 @@
 """Tests for JSON Structure to Python conversion."""
 
 import unittest
+from unittest import mock
 import datetime
 import os
 import shutil
@@ -994,7 +995,9 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
     # "TypeError: Object of type date is not JSON serializable" on to_json().
     # ------------------------------------------------------------------
 
-    def _generate_issue_405_module(self, schema, package_name):
+    def _generate_issue_405_module(
+            self, schema, package_name, avro_annotation=False,
+            dataclasses_json_annotation=True):
         """Generates a dataclasses-json annotated module and returns (src_dir, source_text)."""
         from avrotize.structuretopython import convert_structure_schema_to_python
 
@@ -1005,7 +1008,8 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
 
         convert_structure_schema_to_python(
             schema, output_dir, package_name=package_name,
-            dataclasses_json_annotation=True)
+            dataclasses_json_annotation=dataclasses_json_annotation,
+            avro_annotation=avro_annotation)
 
         src_dir = os.path.join(output_dir, "src")
         class_file = None
@@ -1898,6 +1902,665 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                 assert "maybe-day" in json.loads(dumped), \
                     f"schema().dumps lost the JSON field name:\n{source}"
                 assert module.Opt.schema().loads(dumped) == record
+
+    # ------------------------------------------------------------------
+    # Issue #465: duration, UUID and binary fields need the same
+    # dataclasses-json metadata coverage as the temporal scalars from #405.
+    # ------------------------------------------------------------------
+
+    _ISSUE_465_SCHEMA = {
+        "type": "object",
+        "name": "WireScalars",
+        "namespace": "test.issue465",
+        "properties": {
+            "elapsed-time": {"type": "duration"},
+            "class": {"type": "uuid"},
+            "binary-value": {
+                "type": "binary",
+                "altnames": {"json": "payload"},
+            },
+            "maybe-duration": {"type": ["null", "duration"]},
+            "maybe-id": {"type": ["null", "uuid"]},
+            "maybe-bytes": {"type": ["null", "binary"]},
+            "durations": {
+                "type": "array",
+                "items": {"type": "duration"},
+            },
+            "ids": {
+                "type": "map",
+                "values": {"type": "uuid"},
+            },
+            "blobs": {
+                "type": "set",
+                "items": {"type": "binary"},
+            },
+            "maybe-blobs": {
+                "type": ["null", {
+                    "type": "array",
+                    "items": {"type": "binary"},
+                }],
+            },
+        },
+        "required": [
+            "elapsed-time", "class", "binary-value", "maybe-duration",
+            "maybe-id", "maybe-bytes", "durations", "ids", "blobs",
+            "maybe-blobs",
+        ],
+    }
+
+    @staticmethod
+    def _issue_465_record(module, nullable=False):
+        value_uuid = __import__("uuid").UUID(
+            "12345678-1234-5678-1234-567812345678")
+        return module.WireScalars(
+            elapsed_time=datetime.timedelta(seconds=90.5),
+            class_=value_uuid,
+            binary_value=b"\x00\xffabc",
+            maybe_duration=None if nullable else datetime.timedelta(seconds=-0.25),
+            maybe_id=None if nullable else value_uuid,
+            maybe_bytes=None if nullable else b"\x01\x02",
+            durations=[datetime.timedelta(seconds=1.25)],
+            ids={"primary": value_uuid},
+            blobs={b"\xfb\xef"},
+            maybe_blobs=None if nullable else [b"\x00\x10"],
+        )
+
+    def _generate_issue_465_module(
+            self, schema=None, package_name="test_issue465",
+            avro_annotation=False):
+        return self._generate_issue_405_module(
+            schema or self._ISSUE_465_SCHEMA, package_name, avro_annotation)
+
+    def test_issue_465_fields_have_dataclasses_json_metadata(self):
+        """Positive fixture: each scalar and nullable scalar has a complete codec."""
+        _src_dir, source = self._generate_issue_465_module()
+
+        for field_class in ("_DurationField", "_UuidField", "_Base64Field"):
+            assert f"mm_field={field_class}(" in source, \
+                f"{field_class} metadata missing:\n{source}"
+        assert "def _format_duration(" in source, source
+        assert "decimal.Decimal(" in source, source
+        assert "uuid.UUID(" in source, source
+        assert "base64.b64decode(" in source and "validate=True" in source, source
+        assert "from marshmallow import fields, ValidationError" in source, source
+        assert "import base64" in source, source
+
+    def test_issue_465_wire_formats_and_all_json_entry_points(self):
+        """Positive fixture: every generated JSON producer and consumer agrees."""
+        src_dir, source = self._generate_issue_465_module(
+            package_name="test_issue465_entrypoints")
+        module = self._import_generated(
+            src_dir, "test_issue465_entrypoints.test.issue465.wirescalars")
+        record = self._issue_465_record(module)
+
+        json_text = record.to_json()
+        payload = json.loads(json_text)
+        assert payload["elapsed-time"] == "90.5", payload
+        assert payload["class"] == "12345678-1234-5678-1234-567812345678", payload
+        assert payload["payload"] == "AP9hYmM=", payload
+        assert payload["blobs"] == ["++8="], payload
+
+        schema_payload = json.loads(module.WireScalars.schema().dumps(record))
+        assert schema_payload == payload, \
+            f"schema().dumps and to_json disagree:\n{schema_payload}\n{payload}\n{source}"
+        assert json.loads(record.to_byte_array("application/json")) == payload
+
+        serialized = record.to_serializer_dict()
+        entry_points = {
+            "from_json": module.WireScalars.from_json(json_text),
+            "schema().loads": module.WireScalars.schema().loads(json_text),
+            "from_data(bytes)": module.WireScalars.from_data(
+                json_text.encode("utf-8"), "application/json"),
+            "from_data(dict)": module.WireScalars.from_data(
+                dict(payload), "application/json"),
+            "from_serializer_dict(JSON)": module.WireScalars.from_serializer_dict(
+                dict(payload)),
+            "from_serializer_dict(typed)": module.WireScalars.from_serializer_dict(
+                serialized),
+        }
+        for label, restored in entry_points.items():
+            with self.subTest(entry_point=label):
+                assert restored == record, f"{label} did not round-trip: {restored!r}"
+                assert isinstance(restored.elapsed_time, datetime.timedelta)
+                assert isinstance(restored.binary_value, bytes)
+                assert isinstance(restored.blobs, set)
+
+    def test_issue_465_nullable_values_round_trip_all_json_entry_points(self):
+        """Nullable fixture: null remains null through every JSON decoder."""
+        src_dir, _source = self._generate_issue_465_module(
+            package_name="test_issue465_nullable")
+        module = self._import_generated(
+            src_dir, "test_issue465_nullable.test.issue465.wirescalars")
+        record = self._issue_465_record(module, nullable=True)
+        text = record.to_json()
+        payload = json.loads(text)
+
+        for key in ("maybe-duration", "maybe-id", "maybe-bytes", "maybe-blobs"):
+            assert payload[key] is None, payload
+
+        for restored in (
+                module.WireScalars.from_json(text),
+                module.WireScalars.schema().loads(text),
+                module.WireScalars.from_data(
+                    text.encode("utf-8"), "application/json"),
+                module.WireScalars.from_data(dict(payload), "application/json"),
+                module.WireScalars.from_serializer_dict(dict(payload))):
+            assert restored == record, restored
+
+    def test_issue_465_malformed_strings_are_rejected_by_all_json_entry_points(self):
+        """Invalid fixtures: duration, UUID and base64 decoders fail at ingestion."""
+        schema = {
+            "type": "object",
+            "name": "StrictWire",
+            "namespace": "test.issue465",
+            "properties": {
+                "duration": {"type": "duration"},
+                "uuid": {"type": "uuid"},
+                "binary": {"type": "binary"},
+            },
+            "required": ["duration", "uuid", "binary"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_invalid")
+        module = self._import_generated(
+            src_dir, "test_issue465_invalid.test.issue465.strictwire")
+        valid = {
+            "duration": "90.5",
+            "uuid": "12345678-1234-5678-1234-567812345678",
+            "binary": "AP9hYmM=",
+        }
+        malformed = (
+            ("duration", "ninety seconds"),
+            ("duration", "1e10000000"),
+            ("duration", "1e-10000000"),
+            ("duration", "-1e-10000000"),
+            ("duration", "NaN"),
+            ("duration", "Infinity"),
+            ("duration", "1e-7"),
+            ("uuid", "not-a-uuid"),
+            ("uuid", "12345678123456781234567812345678"),
+            ("uuid", "12345678-1234-5678-9ABC-DEF012345678"),
+            ("uuid", "{12345678-1234-5678-1234-567812345678}"),
+            ("uuid", "urn:uuid:12345678-1234-5678-1234-567812345678"),
+            ("binary", "not base64!"),
+            ("binary", "YQ"),
+            ("binary", "YQ==\n"),
+            ("binary", "-_8="),
+            ("binary", "YR=="),
+        )
+
+        for field_name, bad_value in malformed:
+            raw = {**valid, field_name: bad_value}
+            text = json.dumps(raw)
+            entry_points = {
+                "from_json": lambda: module.StrictWire.from_json(text),
+                "schema().loads": lambda: module.StrictWire.schema().loads(text),
+                "from_data(bytes)": lambda: module.StrictWire.from_data(
+                    text.encode("utf-8"), "application/json"),
+                "from_data(dict)": lambda: module.StrictWire.from_data(
+                    dict(raw), "application/json"),
+                "from_serializer_dict": lambda: module.StrictWire.from_serializer_dict(
+                    dict(raw)),
+            }
+            for label, call in entry_points.items():
+                with self.subTest(field=field_name, entry_point=label):
+                    with self.assertRaises(Exception) as caught:
+                        call()
+                    assert not isinstance(caught.exception, AttributeError), \
+                        f"{label} leaked AttributeError for {field_name}"
+
+    def test_issue_465_non_string_values_are_rejected_by_all_json_entry_points(self):
+        """Invalid fixtures: only null and the expected already-typed value pass through."""
+        schema = {
+            "type": "object",
+            "name": "StrictWireTypes",
+            "namespace": "test.issue465",
+            "properties": {
+                "duration": {"type": "duration"},
+                "uuid": {"type": "uuid"},
+                "binary": {"type": "binary"},
+            },
+            "required": ["duration", "uuid", "binary"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_invalid_types")
+        module = self._import_generated(
+            src_dir, "test_issue465_invalid_types.test.issue465.strictwiretypes")
+        valid = {
+            "duration": "90.5",
+            "uuid": "12345678-1234-5678-1234-567812345678",
+            "binary": "AP9hYmM=",
+        }
+
+        for field_name in valid:
+            for bad_value in (True, 1, 1.5, [], {}):
+                raw = {**valid, field_name: bad_value}
+                text = json.dumps(raw)
+                entry_points = {
+                    "from_json": lambda: module.StrictWireTypes.from_json(text),
+                    "schema().loads": lambda: module.StrictWireTypes.schema().loads(text),
+                    "from_data(bytes)": lambda: module.StrictWireTypes.from_data(
+                        text.encode("utf-8"), "application/json"),
+                    "from_data(dict)": lambda: module.StrictWireTypes.from_data(
+                        dict(raw), "application/json"),
+                    "from_serializer_dict":
+                        lambda: module.StrictWireTypes.from_serializer_dict(dict(raw)),
+                }
+                for label, call in entry_points.items():
+                    with self.subTest(
+                            field=field_name, value=bad_value,
+                            entry_point=label):
+                        with self.assertRaises(Exception) as caught:
+                            call()
+                        assert field_name in str(caught.exception), \
+                            f"{label} error did not identify {field_name}: {caught.exception}"
+
+    def test_issue_465_duration_uses_exact_decimal_microseconds(self):
+        """Boundary fixtures: float conversion must not alter a timedelta by a microsecond."""
+        schema = {
+            "type": "object",
+            "name": "ExactDuration",
+            "namespace": "test.issue465",
+            "properties": {"value": {"type": "duration"}},
+            "required": ["value"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_exact_duration")
+        module = self._import_generated(
+            src_dir, "test_issue465_exact_duration.test.issue465.exactduration")
+        fixtures = (
+            (datetime.timedelta(seconds=90.5), "90.5"),
+            (datetime.timedelta(microseconds=1), "0.000001"),
+            (datetime.timedelta(microseconds=-1), "-0.000001"),
+            (datetime.timedelta(days=100000, microseconds=1),
+             "8640000000.000001"),
+            (datetime.timedelta(days=-100000, microseconds=1),
+             "-8639999999.999999"),
+            (datetime.timedelta.max, "86399999999999.999999"),
+            (datetime.timedelta.min, "-86399999913600.0"),
+        )
+
+        for value, expected_wire in fixtures:
+            with self.subTest(value=value):
+                record = module.ExactDuration(value=value)
+                text = record.to_json()
+                assert json.loads(text)["value"] == expected_wire, text
+                assert json.loads(module.ExactDuration.schema().dumps(record))[
+                    "value"] == expected_wire
+                assert json.loads(record.to_byte_array("application/json"))[
+                    "value"] == expected_wire
+
+                raw = {"value": expected_wire}
+                for restored in (
+                        module.ExactDuration.from_json(text),
+                        module.ExactDuration.schema().loads(text),
+                        module.ExactDuration.from_data(
+                            text.encode("utf-8"), "application/json"),
+                        module.ExactDuration.from_data(
+                            dict(raw), "application/json"),
+                        module.ExactDuration.from_serializer_dict(dict(raw))):
+                    assert restored == record, \
+                        f"{expected_wire} restored as {restored.value!r}"
+
+    def test_issue_465_duration_rejects_oversized_literals_before_decimal(self):
+        """Size guard rejects oversized coefficients/exponents before Decimal parsing."""
+        schema = {
+            "type": "object",
+            "name": "BoundedDurationLiteral",
+            "namespace": "test.issue465",
+            "properties": {"value": {"type": "duration"}},
+            "required": ["value"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_duration_literal_bound")
+        module = self._import_generated(
+            src_dir,
+            "test_issue465_duration_literal_bound.test.issue465."
+            "boundeddurationliteral")
+        oversized = (
+            ("1" * 80000) + "0e-7",
+            ("0" * 80000) + "1.0",
+            "1e-" + ("9" * 80000),
+        )
+
+        for value in oversized:
+            with self.subTest(length=len(value), suffix=value[-8:]):
+                with mock.patch.object(
+                        module.decimal, "Decimal",
+                        side_effect=AssertionError("Decimal must not be called")):
+                    with self.assertRaises(ValueError) as caught:
+                        module._parse_duration(value, "value")
+                assert "value" in str(caught.exception)
+                assert caught.exception.__cause__ is not None
+                assert "supported timedelta size" in str(
+                    caught.exception.__cause__)
+
+    def test_issue_465_duration_bounds_digits_before_integer_accumulation(self):
+        """Negative exponents cannot bypass the representable digit guard."""
+        schema = {
+            "type": "object",
+            "name": "BoundedDurationDigits",
+            "namespace": "test.issue465",
+            "properties": {"value": {"type": "duration"}},
+            "required": ["value"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_duration_digit_bound")
+        module = self._import_generated(
+            src_dir,
+            "test_issue465_duration_digit_bound.test.issue465."
+            "boundeddurationdigits")
+        value = ("1" * 21) + "0e-7"
+
+        with self.assertRaises(ValueError) as direct:
+            module._parse_duration(value, "value")
+        assert "value" in str(direct.exception)
+        assert direct.exception.__cause__ is not None
+        assert "supported timedelta size" in str(direct.exception.__cause__)
+
+        text = json.dumps({"value": value})
+        raw = {"value": value}
+        entry_points = {
+            "from_json": lambda: module.BoundedDurationDigits.from_json(text),
+            "schema().loads":
+                lambda: module.BoundedDurationDigits.schema().loads(text),
+            "from_data(bytes)": lambda: module.BoundedDurationDigits.from_data(
+                text.encode("utf-8"), "application/json"),
+            "from_data(dict)": lambda: module.BoundedDurationDigits.from_data(
+                dict(raw), "application/json"),
+            "from_serializer_dict":
+                lambda: module.BoundedDurationDigits.from_serializer_dict(
+                    dict(raw)),
+        }
+        for label, call in entry_points.items():
+            with self.subTest(entry_point=label):
+                with self.assertRaises(Exception) as caught:
+                    call()
+                assert "value" in str(caught.exception), \
+                    f"{label} error did not identify value: {caught.exception}"
+
+    def test_issue_465_duration_ignores_ambient_decimal_context(self):
+        """Boundary fixture: caller precision and traps cannot affect wire parsing."""
+        import decimal
+
+        schema = {
+            "type": "object",
+            "name": "ContextDuration",
+            "namespace": "test.issue465",
+            "properties": {"value": {"type": "duration"}},
+            "required": ["value"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_decimal_context")
+        module = self._import_generated(
+            src_dir,
+            "test_issue465_decimal_context.test.issue465.contextduration")
+        text = '{"value": "1.0"}'
+        raw = {"value": "1.0"}
+        expected = module.ContextDuration(
+            value=datetime.timedelta(seconds=1))
+
+        original = decimal.getcontext()
+        with decimal.localcontext() as context:
+            context.prec = 10
+            context.traps[decimal.Inexact] = True
+            context.clear_flags()
+            for restored in (
+                    module.ContextDuration.from_json(text),
+                    module.ContextDuration.schema().loads(text),
+                    module.ContextDuration.from_data(
+                        text.encode("utf-8"), "application/json"),
+                    module.ContextDuration.from_data(
+                        dict(raw), "application/json"),
+                    module.ContextDuration.from_serializer_dict(dict(raw))):
+                assert restored == expected
+            assert context.prec == 10
+            assert context.traps[decimal.Inexact]
+            assert not context.flags[decimal.Inexact]
+        assert decimal.getcontext() is original
+
+    def test_issue_465_nullability_is_enforced_at_each_declared_shape(self):
+        """Null is accepted only where the field or element type is Optional."""
+        schema = {
+            "type": "object",
+            "name": "Nullability",
+            "namespace": "test.issue465",
+            "properties": {
+                "duration": {"type": "duration"},
+                "uuid": {"type": "uuid"},
+                "binary": {"type": "binary"},
+                "durations": {
+                    "type": "array",
+                    "items": {"type": "duration"},
+                },
+                "ids": {
+                    "type": "set",
+                    "items": {"type": "uuid"},
+                },
+                "payloads": {
+                    "type": "map",
+                    "values": {"type": "binary"},
+                },
+                "maybe-duration": {"type": ["null", "duration"]},
+                "maybe-payloads": {
+                    "type": ["null", {
+                        "type": "array",
+                        "items": {"type": "binary"},
+                    }],
+                },
+                "nullable-elements": {
+                    "type": "array",
+                    "items": {"type": ["null", "binary"]},
+                },
+            },
+            "required": [
+                "duration", "uuid", "binary", "durations", "ids",
+                "payloads", "maybe-duration", "maybe-payloads",
+                "nullable-elements",
+            ],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_nullability")
+        module = self._import_generated(
+            src_dir, "test_issue465_nullability.test.issue465.nullability")
+        valid = {
+            "duration": "1.0",
+            "uuid": "12345678-1234-5678-1234-567812345678",
+            "binary": "YQ==",
+            "durations": ["1.0"],
+            "ids": ["12345678-1234-5678-1234-567812345678"],
+            "payloads": {"a": "YQ=="},
+            "maybe-duration": None,
+            "maybe-payloads": None,
+            "nullable-elements": [None, "Yg=="],
+        }
+
+        expected_uuid = __import__("uuid").UUID(
+            "12345678-1234-5678-1234-567812345678")
+        expected = module.Nullability(
+            duration=datetime.timedelta(seconds=1),
+            uuid=expected_uuid,
+            binary=b"a",
+            durations=[datetime.timedelta(seconds=1)],
+            ids={expected_uuid},
+            payloads={"a": b"a"},
+            maybe_duration=None,
+            maybe_payloads=None,
+            nullable_elements=[None, b"b"],
+        )
+        text = json.dumps(valid)
+        for restored in (
+                module.Nullability.from_json(text),
+                module.Nullability.schema().loads(text),
+                module.Nullability.from_data(
+                    text.encode("utf-8"), "application/json"),
+                module.Nullability.from_data(dict(valid), "application/json"),
+                module.Nullability.from_serializer_dict(dict(valid))):
+            assert restored == expected
+
+        malformed = (
+            ("duration", None),
+            ("uuid", None),
+            ("binary", None),
+            ("durations", None),
+            ("ids", None),
+            ("payloads", None),
+            ("durations", [None]),
+            ("ids", [None]),
+            ("payloads", {"a": None}),
+        )
+        for field_name, bad_value in malformed:
+            raw = {**valid, field_name: bad_value}
+            bad_text = json.dumps(raw)
+            entry_points = {
+                "from_json": lambda: module.Nullability.from_json(bad_text),
+                "schema().loads":
+                    lambda: module.Nullability.schema().loads(bad_text),
+                "from_data(bytes)": lambda: module.Nullability.from_data(
+                    bad_text.encode("utf-8"), "application/json"),
+                "from_data(dict)": lambda: module.Nullability.from_data(
+                    dict(raw), "application/json"),
+                "from_serializer_dict":
+                    lambda: module.Nullability.from_serializer_dict(dict(raw)),
+            }
+            for label, call in entry_points.items():
+                with self.subTest(
+                        field=field_name, value=bad_value,
+                        entry_point=label):
+                    with self.assertRaises(Exception) as caught:
+                        call()
+                    assert field_name in str(caught.exception), \
+                        f"{label} error did not identify {field_name}: {caught.exception}"
+
+    def test_issue_465_invalid_outer_container_shapes_are_rejected(self):
+        """Invalid fixtures: custom scalar containers reject non-container values."""
+        schema = {
+            "type": "object",
+            "name": "StrictContainers",
+            "namespace": "test.issue465",
+            "properties": {
+                "durations": {
+                    "type": "array",
+                    "items": {"type": "duration"},
+                },
+                "ids": {
+                    "type": "set",
+                    "items": {"type": "uuid"},
+                },
+                "payloads": {
+                    "type": "map",
+                    "values": {"type": "binary"},
+                },
+                "maybe-payloads": {
+                    "type": ["null", {
+                        "type": "array",
+                        "items": {"type": "binary"},
+                    }],
+                },
+            },
+            "required": ["durations", "ids", "payloads", "maybe-payloads"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_invalid_containers")
+        module = self._import_generated(
+            src_dir,
+            "test_issue465_invalid_containers.test.issue465.strictcontainers")
+        valid = {
+            "durations": ["1.0"],
+            "ids": ["12345678-1234-5678-1234-567812345678"],
+            "payloads": {"a": "YQ=="},
+            "maybe-payloads": ["Yg=="],
+        }
+        malformed = (
+            ("durations", True),
+            ("ids", 1),
+            ("payloads", []),
+            ("maybe-payloads", {}),
+        )
+
+        for field_name, bad_value in malformed:
+            raw = {**valid, field_name: bad_value}
+            text = json.dumps(raw)
+
+            def from_serializer_dict():
+                caller_data = dict(raw)
+                try:
+                    return module.StrictContainers.from_serializer_dict(
+                        caller_data)
+                finally:
+                    assert caller_data == raw
+
+            entry_points = {
+                "from_json": lambda: module.StrictContainers.from_json(text),
+                "schema().loads":
+                    lambda: module.StrictContainers.schema().loads(text),
+                "from_data(bytes)": lambda: module.StrictContainers.from_data(
+                    text.encode("utf-8"), "application/json"),
+                "from_data(dict)": lambda: module.StrictContainers.from_data(
+                    dict(raw), "application/json"),
+                "from_serializer_dict": from_serializer_dict,
+            }
+            for label, call in entry_points.items():
+                with self.subTest(field=field_name, entry_point=label):
+                    with self.assertRaises(Exception) as caught:
+                        call()
+                    assert field_name in str(caught.exception), \
+                        f"{label} error did not identify {field_name}: {caught.exception}"
+
+    def test_issue_465_non_annotated_binary_set_keeps_container_rebuild(self):
+        """Compatibility fixture: JSON codecs must not disable un-emitted decoders."""
+        schema = {
+            "type": "object",
+            "name": "PlainSet",
+            "namespace": "test.issue465",
+            "properties": {
+                "values": {"type": "set", "items": {"type": "binary"}},
+            },
+            "required": ["values"],
+        }
+        src_dir, source = self._generate_issue_405_module(
+            schema, "test_issue465_plain_set",
+            dataclasses_json_annotation=False)
+        module = self._import_generated(
+            src_dir, "test_issue465_plain_set.test.issue465.plainset")
+        caller_data = {"values": [b"a", b"b"]}
+
+        restored = module.PlainSet.from_serializer_dict(caller_data)
+        assert restored.values == {b"a", b"b"}, source
+        assert isinstance(restored.values, set), source
+        assert caller_data == {"values": [b"a", b"b"]}
+        assert "dataclasses_json" not in source
+
+    def test_issue_465_typed_serializer_dict_is_not_mutated(self):
+        """Already-typed fixture: guarded decoders preserve values and caller data."""
+        src_dir, _source = self._generate_issue_465_module(
+            package_name="test_issue465_typed")
+        module = self._import_generated(
+            src_dir, "test_issue465_typed.test.issue465.wirescalars")
+        record = self._issue_465_record(module)
+        serialized = record.to_serializer_dict()
+        original = dict(serialized)
+
+        restored = module.WireScalars.from_serializer_dict(serialized)
+        assert restored == record
+        assert serialized == original
+        assert isinstance(restored.elapsed_time, datetime.timedelta)
+        assert isinstance(restored.class_, __import__("uuid").UUID)
+        assert isinstance(restored.binary_value, bytes)
+
+    def test_issue_465_avro_dictionary_encoding_is_unchanged(self):
+        """Compatibility fixture: this JSON fix leaves established Avro values intact."""
+        src_dir, _source = self._generate_issue_465_module(
+            package_name="test_issue465_avro", avro_annotation=True)
+        module = self._import_generated(
+            src_dir, "test_issue465_avro.test.issue465.wirescalars")
+        record = self._issue_465_record(module)
+
+        avro_data = record.to_avro_dict()
+        assert avro_data["elapsed-time"] == "90.5"
+        assert avro_data["class"] == "12345678-1234-5678-1234-567812345678"
+        assert avro_data["payload"] == b"\x00\xffabc"
+        assert module.WireScalars.from_avro_dict(avro_data) == record
 
 
 if __name__ == '__main__':

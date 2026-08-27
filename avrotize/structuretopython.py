@@ -16,15 +16,22 @@ JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
 INDENT = '    '
 
-# Temporal Python types that need a dataclasses-json encoder/decoder pair.
+# Python types that need a dataclasses-json encoder/decoder pair.
 # Ordered most-specific first: datetime.datetime is a subclass of datetime.date,
 # so an isinstance chain must test datetime before date.
-TEMPORAL_SCALARS = ('datetime.datetime', 'datetime.date', 'datetime.time')
+JSON_CODEC_SCALARS = (
+    'datetime.datetime',
+    'datetime.date',
+    'datetime.time',
+    'datetime.timedelta',
+    'uuid.UUID',
+    'bytes',
+)
+STRICT_JSON_CODEC_SCALARS = frozenset(
+    ('datetime.timedelta', 'uuid.UUID', 'bytes'))
 
-# marshmallow field expression per temporal scalar. Only emitted for scalar and
-# Optional[scalar] fields, where the marshmallow representation is exact; nested
-# containers get an encoder/decoder pair but no mm_field, because marshmallow has
-# no faithful equivalent for e.g. typing.Set.
+# Marshmallow field expression per custom JSON scalar. List, set and string-keyed
+# map fields compose these scalar fields so schema() uses the same wire codec.
 #
 # These name generated subclasses rather than marshmallow's own fields, because
 # dataclasses_json.mm.schema() uses a supplied mm_field verbatim: it neither
@@ -35,25 +42,49 @@ _MM_FIELDS = {
     'datetime.datetime': '_IsoDateTimeField',
     'datetime.date': '_IsoDateField',
     'datetime.time': '_IsoTimeField',
+    'datetime.timedelta': '_DurationField',
+    'uuid.UUID': '_UuidField',
+    'bytes': '_Base64Field',
 }
 
-_ISO_PARSERS = {
+_JSON_PARSERS = {
     'datetime.datetime': '_parse_iso_datetime',
     'datetime.date': '_parse_iso_date',
     'datetime.time': '_parse_iso_time',
+    'datetime.timedelta': '_parse_duration',
+    'uuid.UUID': '_parse_uuid',
+    'bytes': '_parse_base64',
 }
 
-# Each generated marshmallow field delegates to one of the ISO parsers, so
+# Each generated marshmallow field delegates to one of the JSON parsers, so
 # emitting the field also requires emitting its parser.
 _MM_FIELD_PARSERS = {
     '_IsoDateField': '_parse_iso_date',
     '_IsoDateTimeField': '_parse_iso_datetime',
     '_IsoTimeField': '_parse_iso_time',
+    '_DurationField': '_parse_duration',
+    '_UuidField': '_parse_uuid',
+    '_Base64Field': '_parse_base64',
 }
 
 # Emitted in this order so a module's helper block is stable.
-ISO_PARSER_ORDER = ('_parse_iso_date', '_parse_iso_datetime', '_parse_iso_time')
-MM_FIELD_ORDER = ('_IsoDateField', '_IsoDateTimeField', '_IsoTimeField')
+JSON_PARSER_ORDER = (
+    '_parse_iso_date',
+    '_parse_iso_datetime',
+    '_parse_iso_time',
+    '_parse_duration',
+    '_parse_uuid',
+    '_parse_base64',
+)
+MM_FIELD_ORDER = (
+    '_IsoDateField',
+    '_IsoDateTimeField',
+    '_IsoTimeField',
+    '_DurationField',
+    '_UuidField',
+    '_Base64Field',
+    '_SetField',
+)
 
 _GENERIC_RE = re.compile(r'^typing\.(Optional|List|Set|Dict|Union|Tuple|FrozenSet)\[(.+)\]$')
 
@@ -87,14 +118,14 @@ def parse_generic_type(type_name: str) -> Optional[Tuple[str, List[str]]]:
     return origin, split_type_args(arg_text)
 
 
-def type_contains_temporal(type_name: str) -> bool:
-    """ Reports whether a Python type annotation contains a temporal scalar at any nesting depth. """
-    if type_name in TEMPORAL_SCALARS:
+def type_contains_json_codec(type_name: str) -> bool:
+    """ Reports whether a Python type annotation contains a custom JSON scalar at any nesting depth. """
+    if type_name in JSON_CODEC_SCALARS:
         return True
     generic = parse_generic_type(type_name)
     if not generic:
         return False
-    return any(type_contains_temporal(arg) for arg in generic[1])
+    return any(type_contains_json_codec(arg) for arg in generic[1])
 
 
 NONE_TYPES = ('None', 'NoneType', 'type(None)')
@@ -105,27 +136,30 @@ _PRIORITY_DATETIME = 0
 _PRIORITY_DATE_NARROWING = 1
 _PRIORITY_DATE = 2
 _PRIORITY_TIME = 3
-_PRIORITY_CONTAINER = 4
+_PRIORITY_DURATION = 4
+_PRIORITY_UUID = 5
+_PRIORITY_BINARY = 6
+_PRIORITY_CONTAINER = 7
 
 
-def temporal_scalars_in(type_name: str) -> Set[str]:
-    """ Collects the distinct temporal scalars a Python type annotation contains at any depth. """
-    if type_name in TEMPORAL_SCALARS:
+def json_codec_scalars_in(type_name: str) -> Set[str]:
+    """ Collects the distinct custom JSON scalars a Python type annotation contains at any depth. """
+    if type_name in JSON_CODEC_SCALARS:
         return {type_name}
     generic = parse_generic_type(type_name)
     if not generic:
         return set()
     found: Set[str] = set()
     for arg in generic[1]:
-        found |= temporal_scalars_in(arg)
+        found |= json_codec_scalars_in(arg)
     return found
 
 
 def union_is_ambiguous(args: List[str]) -> bool:
-    """ Reports whether a union mixes temporal arms in a way no undiscriminated codec can encode.
+    """ Reports whether a union mixes custom scalar arms in a way no undiscriminated codec can encode.
 
-    A union of two temporal scalars (``Union[date, datetime]``) cannot be encoded
-    without losing the distinction, and a temporal scalar beside a non-temporal
+    A union of two custom scalars (``Union[date, datetime]``) cannot be encoded
+    without losing the distinction, and a custom scalar beside an unencoded
     arm (``Union[date, str]``) cannot be decoded without coercing values that
     legitimately belong to the other arm. In both cases no codec is emitted, so
     the pre-existing loud failure is preserved rather than replaced by silent
@@ -134,20 +168,21 @@ def union_is_ambiguous(args: List[str]) -> bool:
     arms = [arg for arg in args if arg not in NONE_TYPES]
     scalars: Set[str] = set()
     for arm in arms:
-        scalars |= temporal_scalars_in(arm)
+        scalars |= json_codec_scalars_in(arm)
     if len(scalars) > 1:
         return True
-    return any(not type_contains_temporal(arm) for arm in arms)
+    return any(not type_contains_json_codec(arm) for arm in arms)
 
 
 def _codec_branches(type_name: str, var: str, depth: int, encode: bool,
                     parsers: Set[str]) -> List[Tuple[int, str, str]]:
-    """ Builds the (priority, condition, value) branches of a temporal codec expression.
+    """ Builds the (priority, condition, value) branches of a custom JSON codec expression.
 
-    Every ISO parser referenced by the emitted branches is recorded in ``parsers``
+    Every parser referenced by the emitted branches is recorded in ``parsers``
     so the caller knows exactly which helper definitions the generated module
     needs. Values whose type the branches do not recognize are left untouched;
-    strings that should be temporal but cannot be parsed raise from the parser.
+    strings that should use a custom wire format but cannot be parsed raise from
+    the parser.
     """
     if type_name == 'datetime.datetime':
         if encode:
@@ -170,6 +205,26 @@ def _codec_branches(type_name: str, var: str, depth: int, encode: bool,
             return [(_PRIORITY_TIME, f'isinstance({var}, datetime.time)', f'{var}.isoformat()')]
         parsers.add('_parse_iso_time')
         return [(_PRIORITY_TIME, f'isinstance({var}, str)', f'_parse_iso_time({var}, {{field_name}})')]
+    if type_name == 'datetime.timedelta':
+        if encode:
+            return [(_PRIORITY_DURATION, f'isinstance({var}, datetime.timedelta)',
+                     f'_format_duration({var})')]
+        parsers.add('_parse_duration')
+        return [(_PRIORITY_DURATION, 'True',
+                 f'_parse_duration({var}, {{field_name}})')]
+    if type_name == 'uuid.UUID':
+        if encode:
+            return [(_PRIORITY_UUID, f'isinstance({var}, uuid.UUID)', f'str({var})')]
+        parsers.add('_parse_uuid')
+        return [(_PRIORITY_UUID, 'True',
+                 f'_parse_uuid({var}, {{field_name}})')]
+    if type_name == 'bytes':
+        if encode:
+            return [(_PRIORITY_BINARY, f'isinstance({var}, bytes)',
+                     f"base64.b64encode({var}).decode('ascii')")]
+        parsers.add('_parse_base64')
+        return [(_PRIORITY_BINARY, 'True',
+                 f'_parse_base64({var}, {{field_name}})')]
 
     generic = parse_generic_type(type_name)
     if not generic:
@@ -198,7 +253,7 @@ def _codec_branches(type_name: str, var: str, depth: int, encode: bool,
     # cannot describe it.
     if origin in ('List', 'Set', 'FrozenSet'):
         inner = args[0]
-        if not type_contains_temporal(inner):
+        if not type_contains_json_codec(inner):
             return []
         inner_expr = build_codec_expression(inner, item, depth + 1, encode, parsers)
         comprehension = f'[{inner_expr} for {item} in {var}]'
@@ -209,7 +264,7 @@ def _codec_branches(type_name: str, var: str, depth: int, encode: bool,
         return [(_PRIORITY_CONTAINER, f'isinstance({var}, (list, tuple, set, frozenset))', comprehension)]
     if origin == 'Dict':
         value_type = args[-1]
-        if not type_contains_temporal(value_type):
+        if not type_contains_json_codec(value_type):
             return []
         key = f'_key{depth}'
         inner_expr = build_codec_expression(value_type, item, depth + 1, encode, parsers)
@@ -220,19 +275,54 @@ def _codec_branches(type_name: str, var: str, depth: int, encode: bool,
 
 def build_codec_expression(type_name: str, var: str, depth: int, encode: bool,
                            parsers: Set[str]) -> str:
-    """ Builds a temporal encode/decode expression over ``var``, or ``var`` itself when nothing applies. """
+    """ Builds a custom JSON encode/decode expression over ``var``, or ``var`` itself when nothing applies. """
     branches = _codec_branches(type_name, var, depth, encode, parsers)
     expression = var
+    if not encode and (
+            json_codec_scalars_in(type_name) & STRICT_JSON_CODEC_SCALARS):
+        expected_container = decoded_container_kind(type_name)
+        if expected_container:
+            expression = (
+                f"_invalid_container({var}, {{field_name}}, "
+                f"'{expected_container}')"
+            )
     for _priority, condition, value in reversed(branches):
         expression = f'{value} if {condition} else {expression}'
+    if not encode and type_allows_none(type_name):
+        expression = f'None if {var} is None else {expression}'
     return expression
+
+
+def type_allows_none(type_name: str) -> bool:
+    """ Reports whether this exact annotation node declares nullability. """
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return type_name in NONE_TYPES
+    origin, args = generic
+    return origin == 'Optional' or (
+        origin == 'Union' and any(arg in NONE_TYPES for arg in args))
+
+
+def decoded_container_kind(type_name: str) -> Optional[str]:
+    """ Returns the JSON container kind required by a decoded custom-scalar field. """
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return None
+    origin, args = generic
+    if origin == 'Optional':
+        return decoded_container_kind(args[0])
+    if origin in ('List', 'Set', 'FrozenSet'):
+        return 'array'
+    if origin == 'Dict':
+        return 'object'
+    return None
 
 
 def build_mm_field(type_name: str, mm_classes: Set[str],
                    options: str = '') -> Optional[str]:
-    """ Builds the marshmallow field expression for a temporal type, or None when
-    marshmallow has no faithful equivalent (e.g. typing.Set, or a union of
-    several temporal types).
+    """ Builds the marshmallow field expression for a custom JSON type, or None when
+    marshmallow has no faithful equivalent (e.g. a union of several custom
+    scalar types).
 
     ``options`` carries the keyword arguments for the outermost field only, so
     ``data_key`` is not repeated on the element field of a list or map.
@@ -246,10 +336,20 @@ def build_mm_field(type_name: str, mm_classes: Set[str],
         return None
     origin, args = generic
     if origin == 'Optional':
-        return build_mm_field(args[0], mm_classes, options)
+        optional_options = options
+        if 'allow_none=' not in optional_options:
+            optional_options += (
+                ', ' if optional_options else '') + 'allow_none=True'
+        return build_mm_field(args[0], mm_classes, optional_options)
     if origin == 'List':
         inner = build_mm_field(args[0], mm_classes)
         return f'fields.List({inner}{", " + options if options else ""})' if inner else None
+    if origin == 'Set':
+        inner = build_mm_field(args[0], mm_classes)
+        if not inner:
+            return None
+        mm_classes.add('_SetField')
+        return f'_SetField({inner}{", " + options if options else ""})'
     if origin == 'Dict' and len(args) == 2 and args[0] == 'str':
         inner = build_mm_field(args[1], mm_classes)
         if not inner:
@@ -298,15 +398,15 @@ def build_container_rebuild(type_name: str) -> Optional[str]:
     return None
 
 
-def build_temporal_codec(type_name: str, field_name: str) -> Optional[Dict[str, Optional[str]]]:
-    """ Builds the dataclasses-json encoder/decoder/mm_field triple for a temporal field type.
+def build_json_codec(type_name: str, field_name: str) -> Optional[Dict[str, Optional[str]]]:
+    """ Builds the dataclasses-json encoder/decoder/mm_field triple for a custom JSON field type.
 
-    Returns None when the type contains no temporal scalar, or when it is a union
+    Returns None when the type contains no custom JSON scalar, or when it is a union
     whose arms cannot be told apart on the wire. The encoder and decoder walk
     nested ``Optional``/``Union``/``List``/``Set``/``Dict`` annotations, so
-    collections of dates are serialized just like scalar dates.
+    collections of custom scalars are serialized just like scalar values.
     """
-    if not type_contains_temporal(type_name):
+    if not type_contains_json_codec(type_name):
         return None
     encode_parsers: Set[str] = set()
     decode_parsers: Set[str] = set()
@@ -329,7 +429,9 @@ def build_temporal_codec(type_name: str, field_name: str) -> Optional[Dict[str, 
     # its parser has to be emitted even when no decoder lambda referenced it.
     parsers = set(decode_parsers)
     for mm_class in mm_classes:
-        parsers.add(_MM_FIELD_PARSERS[mm_class])
+        parser = _MM_FIELD_PARSERS.get(mm_class)
+        if parser:
+            parsers.add(parser)
 
     return {
         'encoder': f'lambda v: {encoder}',
@@ -734,7 +836,7 @@ class StructureToPython:
         # Generate field docstrings
         field_docstrings = []
         for field in fields:
-            codec = build_temporal_codec(
+            codec = build_json_codec(
                 field['type'], field.get('json_name') or field['name'])
             field_docstrings.append({
                 'name': self.safe_name(field['name']),
@@ -749,11 +851,17 @@ class StructureToPython:
                 'json_decoder': codec['decoder'] if codec else None,
                 'mm_field': codec['mm_field'] if codec else None,
                 'mm_classes': codec['mm_classes'] if codec else [],
-                'iso_parsers': codec['parsers'] if codec else [],
+                'json_parsers': codec['parsers'] if codec else [],
+                'reject_json_null': (
+                    bool(codec)
+                    and bool(json_codec_scalars_in(field['type'])
+                             & STRICT_JSON_CODEC_SCALARS)
+                    and not type_allows_none(field['type'])
+                ),
                 # A set arrives from JSON as a list. Temporal sets are rebuilt by
                 # their own decoder; every other set needs an explicit rebuild so
                 # from_serializer_dict agrees with the dataclasses-json path.
-                'container_rebuild': (None if codec
+                'container_rebuild': (None if self.dataclasses_json_annotation and codec
                                       else build_container_rebuild(field['type'])),
                 'xml_name': field['xml_name'],
                 'xml_kind': field['xml_kind'],
@@ -766,9 +874,9 @@ class StructureToPython:
                 },
             })
 
-        # ISO parsing helpers required by the emitted decoders, in a stable order.
-        iso_parsers = [parser for parser in ISO_PARSER_ORDER
-                       if any(parser in field['iso_parsers'] for field in field_docstrings)]
+        # JSON parsing helpers required by the emitted decoders, in a stable order.
+        json_parsers = [parser for parser in JSON_PARSER_ORDER
+                        if any(parser in field['json_parsers'] for field in field_docstrings)]
         # Marshmallow field subclasses required by the emitted mm_fields.
         mm_classes = [mm_class for mm_class in MM_FIELD_ORDER
                       if any(mm_class in field['mm_classes'] for field in field_docstrings)]
@@ -789,7 +897,16 @@ class StructureToPython:
             class_name=class_name,
             docstring=doc,
             fields=field_docstrings,
-            iso_parsers=iso_parsers,
+            json_parsers=json_parsers,
+            uses_iso_parser=any(parser.startswith('_parse_iso_') for parser in json_parsers),
+            uses_container_validator=any(
+                field['json_decoder']
+                and '_invalid_container' in field['json_decoder']
+                for field in field_docstrings),
+            needs_base64='_parse_base64' in json_parsers,
+            needs_decimal=('decimal.Decimal' in import_types
+                           or (self.dataclasses_json_annotation
+                               and '_parse_duration' in json_parsers)),
             mm_classes=mm_classes,
             import_types=sorted(import_types),
             base_package=self.base_package,
