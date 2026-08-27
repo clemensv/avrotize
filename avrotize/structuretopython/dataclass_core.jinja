@@ -17,9 +17,9 @@ from abc import ABC
 {%- if dataclasses_json_annotation %}
 import dataclasses_json
 from dataclasses_json import Undefined, dataclass_json
-{%- for field in fields if field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
+{%- for field in fields if field.mm_field %}
 {%- if loop.first %}
-from marshmallow import fields
+from marshmallow import fields, ValidationError
 {%- endif %}
 {%- endfor %}
 {%- endif %}
@@ -52,6 +52,139 @@ import uuid
 {% if xml_annotation %}
 from {{ xml_runtime_module }} import parse_xml, serialize_xml
 {% endif %}
+{% if dataclasses_json_annotation and iso_parsers %}
+
+def _normalize_iso_string(value: str) -> str:
+    """ Normalizes an RFC 3339 string into a form datetime.fromisoformat accepts.
+
+    A trailing 'Z' is rewritten to '+00:00' and fractional seconds are padded or
+    truncated to exactly microsecond precision, because fromisoformat only
+    accepts the 'Z' designator and arbitrary fraction lengths from Python 3.11
+    onwards, and this package supports Python 3.10.
+
+    A non-string value raises ValueError so that callers report it the same way
+    they report a malformed string, rather than leaking an AttributeError.
+    """
+    if not isinstance(value, str):
+        raise ValueError(f'expected an ISO 8601 string, got {type(value).__name__}')
+    text = value[:-1] + '+00:00' if value.endswith(('Z', 'z')) else value
+    dot = text.find('.')
+    if dot != -1:
+        end = dot + 1
+        while end < len(text) and text[end].isdigit():
+            end += 1
+        digits = text[dot + 1:end]
+        if digits and len(digits) != 6:
+            text = text[:dot + 1] + digits[:6].ljust(6, '0') + text[end:]
+    return text
+
+{% for parser in iso_parsers %}
+{%- if parser == '_parse_iso_date' %}
+def _parse_iso_date(value: str, field_name: str) -> datetime.date:
+    """ Parses an ISO 8601 date string, raising ValueError if it is malformed. """
+    try:
+        return datetime.date.fromisoformat(_normalize_iso_string(value))
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid ISO 8601 date for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_iso_datetime' %}
+def _parse_iso_datetime(value: str, field_name: str) -> datetime.datetime:
+    """ Parses an ISO 8601 / RFC 3339 datetime string, raising ValueError if it is malformed. """
+    try:
+        return datetime.datetime.fromisoformat(_normalize_iso_string(value))
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid ISO 8601 datetime for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_iso_time' %}
+def _parse_iso_time(value: str, field_name: str) -> datetime.time:
+    """ Parses an ISO 8601 time string, raising ValueError if it is malformed. """
+    try:
+        return datetime.time.fromisoformat(_normalize_iso_string(value))
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid ISO 8601 time for field '{field_name}': {value!r}") from error
+
+{% endif %}
+{%- endfor %}
+{% if mm_classes %}
+{% for mm_class in mm_classes %}
+{%- if mm_class == '_IsoDateField' %}
+class _IsoDateField(fields.Date):
+    """ A marshmallow date field that shares the module's ISO date parser.
+
+    dataclasses_json uses a configured mm_field verbatim, so without this the
+    schema() path would parse with marshmallow's own parser and disagree with
+    to_json/from_json about which strings are valid and what they mean.
+    """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, datetime.datetime):
+            return value.date().isoformat()
+        if isinstance(value, datetime.date):
+            return value.isoformat()
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_iso_date(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_IsoDateTimeField' %}
+class _IsoDateTimeField(fields.DateTime):
+    """ A marshmallow datetime field that shares the module's ISO datetime parser. """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        # datetime.date is accepted as well because marshmallow's own
+        # DateTime(format='iso') serialized anything with an isoformat().
+        if isinstance(value, (datetime.datetime, datetime.date)):
+            return value.isoformat()
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_iso_datetime(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_IsoTimeField' %}
+class _IsoTimeField(fields.Time):
+    """ A marshmallow time field that shares the module's ISO time parser.
+
+    marshmallow's own time parser silently discards a UTC offset, so delegating
+    here is what keeps schema().loads from losing the offset that from_json
+    preserves.
+    """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, datetime.time):
+            return value.isoformat()
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_iso_time(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% endif %}
+{%- endfor %}
+{% endif %}
+{% endif %}
 
 {% if dataclasses_json_annotation %}
 @dataclass_json(undefined=Undefined.EXCLUDE)
@@ -78,10 +211,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
     )
     {% endif %}
     {% for field in fields %}
-    {%- set isdate = field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
     {%- set is_int_as_string = field.source_type in ['int64', 'uint64', 'int128', 'uint128'] %}
     {%- set is_decimal_as_string = field.source_type == 'decimal' %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif is_int_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: int(v) if isinstance(v, str) else v{%- elif is_decimal_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: decimal.Decimal(v) if isinstance(v, str) else v{%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if field.json_encoder -%}, encoder={{ field.json_encoder }}, decoder={{ field.json_decoder }}{% if field.mm_field %}, mm_field={{ field.mm_field }}{% endif %}{%- elif is_int_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: int(v) if isinstance(v, str) else v{%- elif is_decimal_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: decimal.Decimal(v) if isinstance(v, str) else v{%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
     {%- endfor %}
 
 
@@ -96,6 +228,7 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         Returns:
             The dataclass representation of the dataclass.
         """
+        data = dict(data)
         {%- for field in fields %}
         {%- if field.name != field.original_name %}
         if '{{ field.original_name }}' in data:
@@ -107,6 +240,12 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         {%- elif field.source_type == 'decimal' %}
         if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
             data['{{ field.name }}'] = decimal.Decimal(data['{{ field.name }}'])
+        {%- elif dataclasses_json_annotation and field.json_decoder %}
+        if '{{ field.name }}' in data:
+            data['{{ field.name }}'] = ({{ field.json_decoder }})(data['{{ field.name }}'])
+        {%- elif field.container_rebuild %}
+        if '{{ field.name }}' in data:
+            data['{{ field.name }}'] = (lambda v: {{ field.container_rebuild }})(data['{{ field.name }}'])
         {%- endif %}
         {%- endfor %}
         return cls(**data)
