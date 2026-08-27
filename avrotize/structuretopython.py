@@ -27,6 +27,8 @@ JSON_CODEC_SCALARS = (
     'uuid.UUID',
     'bytes',
 )
+STRICT_JSON_CODEC_SCALARS = frozenset(
+    ('datetime.timedelta', 'uuid.UUID', 'bytes'))
 
 # Marshmallow field expression per custom JSON scalar. List, set and string-keyed
 # map fields compose these scalar fields so schema() uses the same wire codec.
@@ -276,9 +278,32 @@ def build_codec_expression(type_name: str, var: str, depth: int, encode: bool,
     """ Builds a custom JSON encode/decode expression over ``var``, or ``var`` itself when nothing applies. """
     branches = _codec_branches(type_name, var, depth, encode, parsers)
     expression = var
+    if not encode and (
+            json_codec_scalars_in(type_name) & STRICT_JSON_CODEC_SCALARS):
+        expected_container = decoded_container_kind(type_name)
+        if expected_container:
+            expression = (
+                f"{var} if {var} is None else "
+                f"_invalid_container({var}, {{field_name}}, '{expected_container}')"
+            )
     for _priority, condition, value in reversed(branches):
         expression = f'{value} if {condition} else {expression}'
     return expression
+
+
+def decoded_container_kind(type_name: str) -> Optional[str]:
+    """ Returns the JSON container kind required by a decoded custom-scalar field. """
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return None
+    origin, args = generic
+    if origin == 'Optional':
+        return decoded_container_kind(args[0])
+    if origin in ('List', 'Set', 'FrozenSet'):
+        return 'array'
+    if origin == 'Dict':
+        return 'object'
+    return None
 
 
 def build_mm_field(type_name: str, mm_classes: Set[str],
@@ -814,7 +839,7 @@ class StructureToPython:
                 # A set arrives from JSON as a list. Temporal sets are rebuilt by
                 # their own decoder; every other set needs an explicit rebuild so
                 # from_serializer_dict agrees with the dataclasses-json path.
-                'container_rebuild': (None if codec
+                'container_rebuild': (None if self.dataclasses_json_annotation and codec
                                       else build_container_rebuild(field['type'])),
                 'xml_name': field['xml_name'],
                 'xml_kind': field['xml_kind'],
@@ -852,6 +877,10 @@ class StructureToPython:
             fields=field_docstrings,
             json_parsers=json_parsers,
             uses_iso_parser=any(parser.startswith('_parse_iso_') for parser in json_parsers),
+            uses_container_validator=any(
+                field['json_decoder']
+                and '_invalid_container' in field['json_decoder']
+                for field in field_docstrings),
             needs_base64='_parse_base64' in json_parsers,
             needs_decimal=('decimal.Decimal' in import_types
                            or (self.dataclasses_json_annotation

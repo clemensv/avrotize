@@ -994,7 +994,9 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
     # "TypeError: Object of type date is not JSON serializable" on to_json().
     # ------------------------------------------------------------------
 
-    def _generate_issue_405_module(self, schema, package_name, avro_annotation=False):
+    def _generate_issue_405_module(
+            self, schema, package_name, avro_annotation=False,
+            dataclasses_json_annotation=True):
         """Generates a dataclasses-json annotated module and returns (src_dir, source_text)."""
         from avrotize.structuretopython import convert_structure_schema_to_python
 
@@ -1005,7 +1007,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
 
         convert_structure_schema_to_python(
             schema, output_dir, package_name=package_name,
-            dataclasses_json_annotation=True,
+            dataclasses_json_annotation=dataclasses_json_annotation,
             avro_annotation=avro_annotation)
 
         src_dir = os.path.join(output_dir, "src")
@@ -2068,6 +2070,12 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         }
         malformed = (
             ("duration", "ninety seconds"),
+            ("duration", "1e10000000"),
+            ("duration", "1e-10000000"),
+            ("duration", "-1e-10000000"),
+            ("duration", "NaN"),
+            ("duration", "Infinity"),
+            ("duration", "1e-7"),
             ("uuid", "not-a-uuid"),
             ("uuid", "12345678123456781234567812345678"),
             ("uuid", "12345678-1234-5678-9ABC-DEF012345678"),
@@ -2161,6 +2169,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
             src_dir, "test_issue465_exact_duration.test.issue465.exactduration")
         fixtures = (
             (datetime.timedelta(seconds=90.5), "90.5"),
+            (datetime.timedelta(microseconds=1), "0.000001"),
             (datetime.timedelta(microseconds=-1), "-0.000001"),
             (datetime.timedelta(days=100000, microseconds=1),
              "8640000000.000001"),
@@ -2189,6 +2198,105 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                         module.ExactDuration.from_serializer_dict(dict(raw))):
                     assert restored == record, \
                         f"{expected_wire} restored as {restored.value!r}"
+
+    def test_issue_465_invalid_outer_container_shapes_are_rejected(self):
+        """Invalid fixtures: custom scalar containers reject non-container values."""
+        schema = {
+            "type": "object",
+            "name": "StrictContainers",
+            "namespace": "test.issue465",
+            "properties": {
+                "durations": {
+                    "type": "array",
+                    "items": {"type": "duration"},
+                },
+                "ids": {
+                    "type": "set",
+                    "items": {"type": "uuid"},
+                },
+                "payloads": {
+                    "type": "map",
+                    "values": {"type": "binary"},
+                },
+                "maybe-payloads": {
+                    "type": ["null", {
+                        "type": "array",
+                        "items": {"type": "binary"},
+                    }],
+                },
+            },
+            "required": ["durations", "ids", "payloads", "maybe-payloads"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_invalid_containers")
+        module = self._import_generated(
+            src_dir,
+            "test_issue465_invalid_containers.test.issue465.strictcontainers")
+        valid = {
+            "durations": ["1.0"],
+            "ids": ["12345678-1234-5678-1234-567812345678"],
+            "payloads": {"a": "YQ=="},
+            "maybe-payloads": ["Yg=="],
+        }
+        malformed = (
+            ("durations", True),
+            ("ids", 1),
+            ("payloads", []),
+            ("maybe-payloads", {}),
+        )
+
+        for field_name, bad_value in malformed:
+            raw = {**valid, field_name: bad_value}
+            text = json.dumps(raw)
+
+            def from_serializer_dict():
+                caller_data = dict(raw)
+                try:
+                    return module.StrictContainers.from_serializer_dict(
+                        caller_data)
+                finally:
+                    assert caller_data == raw
+
+            entry_points = {
+                "from_json": lambda: module.StrictContainers.from_json(text),
+                "schema().loads":
+                    lambda: module.StrictContainers.schema().loads(text),
+                "from_data(bytes)": lambda: module.StrictContainers.from_data(
+                    text.encode("utf-8"), "application/json"),
+                "from_data(dict)": lambda: module.StrictContainers.from_data(
+                    dict(raw), "application/json"),
+                "from_serializer_dict": from_serializer_dict,
+            }
+            for label, call in entry_points.items():
+                with self.subTest(field=field_name, entry_point=label):
+                    with self.assertRaises(Exception) as caught:
+                        call()
+                    assert field_name in str(caught.exception), \
+                        f"{label} error did not identify {field_name}: {caught.exception}"
+
+    def test_issue_465_non_annotated_binary_set_keeps_container_rebuild(self):
+        """Compatibility fixture: JSON codecs must not disable un-emitted decoders."""
+        schema = {
+            "type": "object",
+            "name": "PlainSet",
+            "namespace": "test.issue465",
+            "properties": {
+                "values": {"type": "set", "items": {"type": "binary"}},
+            },
+            "required": ["values"],
+        }
+        src_dir, source = self._generate_issue_405_module(
+            schema, "test_issue465_plain_set",
+            dataclasses_json_annotation=False)
+        module = self._import_generated(
+            src_dir, "test_issue465_plain_set.test.issue465.plainset")
+        caller_data = {"values": [b"a", b"b"]}
+
+        restored = module.PlainSet.from_serializer_dict(caller_data)
+        assert restored.values == {b"a", b"b"}, source
+        assert isinstance(restored.values, set), source
+        assert caller_data == {"values": [b"a", b"b"]}
+        assert "dataclasses_json" not in source
 
     def test_issue_465_typed_serializer_dict_is_not_mutated(self):
         """Already-typed fixture: guarded decoders preserve values and caller data."""

@@ -141,11 +141,25 @@ def _parse_duration(value: typing.Any, field_name: str) -> datetime.timedelta:
         )
         if not seconds.is_finite() or not minimum <= seconds <= maximum:
             raise decimal.InvalidOperation
-        with decimal.localcontext() as context:
-            context.prec = max(len(seconds.as_tuple().digits) + 6, 28)
-            total_microseconds = seconds * decimal.Decimal(1000000)
-        if total_microseconds != total_microseconds.to_integral_value():
-            raise decimal.InvalidOperation
+        sign, digits, exponent = seconds.as_tuple()
+        if not any(digits):
+            return datetime.timedelta(0)
+        scaled_exponent = exponent + 6
+        if scaled_exponent < 0:
+            fractional_digits = -scaled_exponent
+            if fractional_digits >= len(digits):
+                raise decimal.InvalidOperation
+            split = len(digits) - fractional_digits
+            if any(digits[split:]):
+                raise decimal.InvalidOperation
+            integer_digits = digits[:split]
+        else:
+            integer_digits = digits + (0,) * scaled_exponent
+        total_microseconds = 0
+        for digit in integer_digits:
+            total_microseconds = total_microseconds * 10 + digit
+        if sign:
+            total_microseconds = -total_microseconds
         return datetime.timedelta(microseconds=int(total_microseconds))
     except (decimal.InvalidOperation, ValueError, OverflowError) as error:
         raise ValueError(
@@ -189,6 +203,15 @@ def _parse_base64(value: typing.Any, field_name: str) -> bytes:
 
 {% endif %}
 {%- endfor %}
+{% if uses_container_validator %}
+def _invalid_container(value: typing.Any, field_name: str, expected: str):
+    """ Raises a field-specific error for an invalid decoded container shape. """
+    raise ValueError(
+        f"Invalid container for field '{field_name}': "
+        f"expected a JSON {expected}, got {type(value).__name__}")
+
+
+{% endif %}
 {% if mm_classes %}
 {% for mm_class in mm_classes %}
 {%- if mm_class == '_IsoDateField' %}
