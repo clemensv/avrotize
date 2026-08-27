@@ -1846,7 +1846,7 @@ class AvroToRust:
 
     @staticmethod
     def json_match_accepts_shape(match_signature, shape_signature) -> bool:
-        """Checks whether a generated matcher accepts a serialized shape."""
+        """Checks matcher overlap across all realizable serialized shapes."""
         shape_kind = (
             shape_signature[0]
             if isinstance(shape_signature, tuple) and shape_signature
@@ -1857,16 +1857,31 @@ class AvroToRust:
             if isinstance(match_signature, tuple) and match_signature
             else match_signature
         )
+        if shape_kind == 'union':
+            return any(
+                AvroToRust.json_match_accepts_shape(
+                    match_signature,
+                    branch_shape,
+                )
+                for branch_shape in shape_signature[1]
+            )
+        if match_kind == 'union':
+            return any(
+                AvroToRust.json_match_accepts_shape(
+                    branch_match,
+                    shape_signature,
+                )
+                for branch_match in match_signature[1]
+            )
         if match_kind == 'record_match':
             if shape_kind != 'record':
                 return False
             expected_fields = dict(match_signature[1])
             value_fields = dict(shape_signature[1])
             return all(
-                field_name in value_fields
-                and AvroToRust.json_match_accepts_shape(
+                AvroToRust.json_match_accepts_shape(
                     field_match,
-                    value_fields[field_name],
+                    value_fields.get(field_name, 'null'),
                 )
                 for field_name, field_match in expected_fields.items()
             )

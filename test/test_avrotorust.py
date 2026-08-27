@@ -89,6 +89,183 @@ class TestAvroToRust(unittest.TestCase):
         )
         self.assertEqual(signature_a, signature_b)
 
+    def test_nullable_record_signatures_model_realizable_shapes(self):
+        """Model absent, null, and present nullable record field shapes."""
+        converter = AvroToRust()
+        optional_record = {
+            "type": "record",
+            "name": "OptionalString",
+            "namespace": "issue484.shapes",
+            "fields": [
+                {
+                    "name": "x",
+                    "type": ["null", "string"],
+                    "default": None,
+                }
+            ],
+        }
+        required_record = {
+            "type": "record",
+            "name": "RequiredString",
+            "namespace": "issue484.shapes",
+            "fields": [{"name": "x", "type": "string"}],
+        }
+        converter.index_avro_named_types([
+            optional_record,
+            required_record,
+        ])
+
+        optional_match = converter.get_json_match_signature(
+            optional_record,
+            "issue484.shapes",
+        )
+        optional_shape = converter.get_json_shape_signature(
+            optional_record,
+            "issue484.shapes",
+        )
+        required_match = converter.get_json_match_signature(
+            required_record,
+            "issue484.shapes",
+        )
+        required_shape = converter.get_json_shape_signature(
+            required_record,
+            "issue484.shapes",
+        )
+        absent_shape = ("record", ())
+        null_shape = ("record", (("x", "null"),))
+
+        self.assertTrue(converter.json_match_accepts_shape(
+            optional_match,
+            absent_shape,
+        ))
+        self.assertTrue(converter.json_match_accepts_shape(
+            optional_match,
+            null_shape,
+        ))
+        self.assertTrue(converter.json_match_accepts_shape(
+            optional_match,
+            required_shape,
+        ))
+        self.assertTrue(converter.json_match_accepts_shape(
+            required_match,
+            optional_shape,
+        ))
+        self.assertFalse(converter.json_match_accepts_shape(
+            required_match,
+            absent_shape,
+        ))
+        self.assertFalse(converter.json_match_accepts_shape(
+            required_match,
+            null_shape,
+        ))
+
+    def test_optional_record_union_overlap_is_order_independent(self):
+        """Detect optional overlaps, including nested records, in either order."""
+        converter = AvroToRust()
+        records = [
+            {
+                "type": "record",
+                "name": "OptionalString",
+                "namespace": "issue484.overlap",
+                "fields": [
+                    {
+                        "name": "x",
+                        "type": ["null", "string"],
+                        "default": None,
+                    }
+                ],
+            },
+            {
+                "type": "record",
+                "name": "RequiredString",
+                "namespace": "issue484.overlap",
+                "fields": [{"name": "x", "type": "string"}],
+            },
+            {
+                "type": "record",
+                "name": "RequiredInteger",
+                "namespace": "issue484.overlap",
+                "fields": [{"name": "x", "type": "long"}],
+            },
+            {
+                "type": "record",
+                "name": "RequiredNull",
+                "namespace": "issue484.overlap",
+                "fields": [{"name": "x", "type": "null"}],
+            },
+            {
+                "type": "record",
+                "name": "Empty",
+                "namespace": "issue484.overlap",
+                "fields": [],
+            },
+            {
+                "type": "record",
+                "name": "NestedOptionalString",
+                "namespace": "issue484.overlap",
+                "fields": [
+                    {
+                        "name": "value",
+                        "type": ["null", "string"],
+                        "default": None,
+                    }
+                ],
+            },
+            {
+                "type": "record",
+                "name": "NestedRequiredString",
+                "namespace": "issue484.overlap",
+                "fields": [{"name": "value", "type": "string"}],
+            },
+            {
+                "type": "record",
+                "name": "OptionalOuter",
+                "namespace": "issue484.overlap",
+                "fields": [
+                    {
+                        "name": "nested",
+                        "type": "NestedOptionalString",
+                    }
+                ],
+            },
+            {
+                "type": "record",
+                "name": "RequiredOuter",
+                "namespace": "issue484.overlap",
+                "fields": [
+                    {
+                        "name": "nested",
+                        "type": "NestedRequiredString",
+                    }
+                ],
+            },
+        ]
+        converter.index_avro_named_types(records)
+
+        for branches in (
+            ["OptionalString", "RequiredString"],
+            ["RequiredString", "OptionalString"],
+            ["OptionalString", "RequiredNull"],
+            ["RequiredNull", "OptionalString"],
+            ["OptionalString", "Empty"],
+            ["Empty", "OptionalString"],
+            ["OptionalOuter", "RequiredOuter"],
+            ["RequiredOuter", "OptionalOuter"],
+        ):
+            self.assertFalse(converter.is_json_round_trip_safe(
+                branches,
+                "issue484.overlap",
+            ))
+
+        for branches in (
+            ["OptionalString", "RequiredInteger"],
+            ["RequiredInteger", "OptionalString"],
+        ):
+            self.assertTrue(converter.is_json_round_trip_safe(
+                branches,
+                "issue484.overlap",
+            ))
+
     def test_json_union_subset_records_reject_ambiguity(self):
         """Reject a record branch also accepted by a subset-field matcher."""
         rust_path = os.path.join(
@@ -136,6 +313,34 @@ class TestAvroToRust(unittest.TestCase):
             stderr=sys.stderr,
             timeout=self.CARGO_TIMEOUT,
         ) == 0
+
+    def test_optional_record_union_rejects_generated_json_ambiguity(self):
+        """Compile the issue 484 fixture and exercise fail-closed JSON matching."""
+        rust_path = self.run_convert_to_rust(
+            "rust-optional-record-union",
+            serde_annotation=True,
+        )
+        union_files = glob.glob(os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "optional_record_union",
+            "unionpath*.rs",
+        ))
+        self.assertEqual(1, len(union_files))
+        with open(union_files[0], "r", encoding="utf-8") as union_file:
+            union_source = union_file.read()
+        self.assertIn(
+            "fn test_rejects_ambiguous_json_",
+            union_source,
+        )
+        self.assertEqual(
+            2,
+            union_source.count(
+                "Skip JSON round-trip: structurally identical to an earlier "
+                "variant."
+            ),
+        )
 
     def test_named_type_resolution_requires_current_namespace(self):
         """Do not resolve unqualified names from unrelated namespaces."""
