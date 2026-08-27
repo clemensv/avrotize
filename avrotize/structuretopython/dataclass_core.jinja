@@ -10,6 +10,9 @@ import gzip
 import enum
 import typing
 import dataclasses
+{%- if dataclasses_json_annotation and needs_base64 %}
+import base64
+{%- endif %}
 from dataclasses import dataclass
 {%- if is_abstract %}
 from abc import ABC
@@ -52,8 +55,9 @@ import uuid
 {% if xml_annotation %}
 from {{ xml_runtime_module }} import parse_xml, serialize_xml
 {% endif %}
-{% if dataclasses_json_annotation and iso_parsers %}
+{% if dataclasses_json_annotation and json_parsers %}
 
+{% if uses_iso_parser %}
 def _normalize_iso_string(value: str) -> str:
     """ Normalizes an RFC 3339 string into a form datetime.fromisoformat accepts.
 
@@ -78,7 +82,8 @@ def _normalize_iso_string(value: str) -> str:
             text = text[:dot + 1] + digits[:6].ljust(6, '0') + text[end:]
     return text
 
-{% for parser in iso_parsers %}
+{% endif %}
+{% for parser in json_parsers %}
 {%- if parser == '_parse_iso_date' %}
 def _parse_iso_date(value: str, field_name: str) -> datetime.date:
     """ Parses an ISO 8601 date string, raising ValueError if it is malformed. """
@@ -105,6 +110,33 @@ def _parse_iso_time(value: str, field_name: str) -> datetime.time:
     except ValueError as error:
         raise ValueError(
             f"Invalid ISO 8601 time for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_duration' %}
+def _parse_duration(value: str, field_name: str) -> datetime.timedelta:
+    """ Parses a decimal total-seconds string, raising ValueError if it is malformed. """
+    try:
+        return datetime.timedelta(seconds=float(value))
+    except (TypeError, ValueError, OverflowError) as error:
+        raise ValueError(
+            f"Invalid decimal duration for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_uuid' %}
+def _parse_uuid(value: str, field_name: str) -> uuid.UUID:
+    """ Parses a UUID string, raising ValueError if it is malformed. """
+    try:
+        return uuid.UUID(value)
+    except (AttributeError, TypeError, ValueError) as error:
+        raise ValueError(
+            f"Invalid UUID for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_base64' %}
+def _parse_base64(value: str, field_name: str) -> bytes:
+    """ Parses strict RFC 4648 base64, raising ValueError if it is malformed. """
+    try:
+        return base64.b64decode(value, validate=True)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            f"Invalid RFC 4648 base64 for field '{field_name}': {value!r}") from error
 
 {% endif %}
 {%- endfor %}
@@ -180,6 +212,72 @@ class _IsoTimeField(fields.Time):
             return _parse_iso_time(value, self.data_key or attr or 'value')
         except ValueError as error:
             raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_DurationField' %}
+class _DurationField(fields.String):
+    """ A marshmallow field for decimal total-seconds duration strings. """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, datetime.timedelta):
+            return str(value.total_seconds())
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_duration(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_UuidField' %}
+class _UuidField(fields.String):
+    """ A marshmallow field for canonical hyphenated UUID strings. """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_uuid(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_Base64Field' %}
+class _Base64Field(fields.String):
+    """ A marshmallow field for strict RFC 4648 base64 strings. """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            return base64.b64encode(value).decode('ascii')
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_base64(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_SetField' %}
+class _SetField(fields.List):
+    """ A marshmallow list field that restores the declared Python set type. """
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        return set(super()._deserialize(value, attr, data, **kwargs))
 
 {% endif %}
 {%- endfor %}

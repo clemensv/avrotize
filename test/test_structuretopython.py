@@ -994,7 +994,7 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
     # "TypeError: Object of type date is not JSON serializable" on to_json().
     # ------------------------------------------------------------------
 
-    def _generate_issue_405_module(self, schema, package_name):
+    def _generate_issue_405_module(self, schema, package_name, avro_annotation=False):
         """Generates a dataclasses-json annotated module and returns (src_dir, source_text)."""
         from avrotize.structuretopython import convert_structure_schema_to_python
 
@@ -1005,7 +1005,8 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
 
         convert_structure_schema_to_python(
             schema, output_dir, package_name=package_name,
-            dataclasses_json_annotation=True)
+            dataclasses_json_annotation=True,
+            avro_annotation=avro_annotation)
 
         src_dir = os.path.join(output_dir, "src")
         class_file = None
@@ -1898,6 +1899,231 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                 assert "maybe-day" in json.loads(dumped), \
                     f"schema().dumps lost the JSON field name:\n{source}"
                 assert module.Opt.schema().loads(dumped) == record
+
+    # ------------------------------------------------------------------
+    # Issue #465: duration, UUID and binary fields need the same
+    # dataclasses-json metadata coverage as the temporal scalars from #405.
+    # ------------------------------------------------------------------
+
+    _ISSUE_465_SCHEMA = {
+        "type": "object",
+        "name": "WireScalars",
+        "namespace": "test.issue465",
+        "properties": {
+            "elapsed-time": {"type": "duration"},
+            "class": {"type": "uuid"},
+            "binary-value": {
+                "type": "binary",
+                "altnames": {"json": "payload"},
+            },
+            "maybe-duration": {"type": ["null", "duration"]},
+            "maybe-id": {"type": ["null", "uuid"]},
+            "maybe-bytes": {"type": ["null", "binary"]},
+            "durations": {
+                "type": "array",
+                "items": {"type": "duration"},
+            },
+            "ids": {
+                "type": "map",
+                "values": {"type": "uuid"},
+            },
+            "blobs": {
+                "type": "set",
+                "items": {"type": "binary"},
+            },
+            "maybe-blobs": {
+                "type": ["null", {
+                    "type": "array",
+                    "items": {"type": "binary"},
+                }],
+            },
+        },
+        "required": [
+            "elapsed-time", "class", "binary-value", "maybe-duration",
+            "maybe-id", "maybe-bytes", "durations", "ids", "blobs",
+            "maybe-blobs",
+        ],
+    }
+
+    @staticmethod
+    def _issue_465_record(module, nullable=False):
+        value_uuid = __import__("uuid").UUID(
+            "12345678-1234-5678-1234-567812345678")
+        return module.WireScalars(
+            elapsed_time=datetime.timedelta(seconds=90.5),
+            class_=value_uuid,
+            binary_value=b"\x00\xffabc",
+            maybe_duration=None if nullable else datetime.timedelta(seconds=-0.25),
+            maybe_id=None if nullable else value_uuid,
+            maybe_bytes=None if nullable else b"\x01\x02",
+            durations=[datetime.timedelta(seconds=1.25)],
+            ids={"primary": value_uuid},
+            blobs={b"\xfb\xef"},
+            maybe_blobs=None if nullable else [b"\x00\x10"],
+        )
+
+    def _generate_issue_465_module(
+            self, schema=None, package_name="test_issue465",
+            avro_annotation=False):
+        return self._generate_issue_405_module(
+            schema or self._ISSUE_465_SCHEMA, package_name, avro_annotation)
+
+    def test_issue_465_fields_have_dataclasses_json_metadata(self):
+        """Positive fixture: each scalar and nullable scalar has a complete codec."""
+        _src_dir, source = self._generate_issue_465_module()
+
+        for field_class in ("_DurationField", "_UuidField", "_Base64Field"):
+            assert f"mm_field={field_class}(" in source, \
+                f"{field_class} metadata missing:\n{source}"
+        assert "datetime.timedelta(seconds=float(" in source, source
+        assert "uuid.UUID(" in source, source
+        assert "base64.b64decode(" in source and "validate=True" in source, source
+        assert "from marshmallow import fields, ValidationError" in source, source
+        assert "import base64" in source, source
+
+    def test_issue_465_wire_formats_and_all_json_entry_points(self):
+        """Positive fixture: every generated JSON producer and consumer agrees."""
+        src_dir, source = self._generate_issue_465_module(
+            package_name="test_issue465_entrypoints")
+        module = self._import_generated(
+            src_dir, "test_issue465_entrypoints.test.issue465.wirescalars")
+        record = self._issue_465_record(module)
+
+        json_text = record.to_json()
+        payload = json.loads(json_text)
+        assert payload["elapsed-time"] == "90.5", payload
+        assert payload["class"] == "12345678-1234-5678-1234-567812345678", payload
+        assert payload["payload"] == "AP9hYmM=", payload
+        assert payload["blobs"] == ["++8="], payload
+
+        schema_payload = json.loads(module.WireScalars.schema().dumps(record))
+        assert schema_payload == payload, \
+            f"schema().dumps and to_json disagree:\n{schema_payload}\n{payload}\n{source}"
+        assert json.loads(record.to_byte_array("application/json")) == payload
+
+        serialized = record.to_serializer_dict()
+        entry_points = {
+            "from_json": module.WireScalars.from_json(json_text),
+            "schema().loads": module.WireScalars.schema().loads(json_text),
+            "from_data(bytes)": module.WireScalars.from_data(
+                json_text.encode("utf-8"), "application/json"),
+            "from_data(dict)": module.WireScalars.from_data(
+                dict(payload), "application/json"),
+            "from_serializer_dict(JSON)": module.WireScalars.from_serializer_dict(
+                dict(payload)),
+            "from_serializer_dict(typed)": module.WireScalars.from_serializer_dict(
+                serialized),
+        }
+        for label, restored in entry_points.items():
+            with self.subTest(entry_point=label):
+                assert restored == record, f"{label} did not round-trip: {restored!r}"
+                assert isinstance(restored.elapsed_time, datetime.timedelta)
+                assert isinstance(restored.binary_value, bytes)
+                assert isinstance(restored.blobs, set)
+
+    def test_issue_465_nullable_values_round_trip_all_json_entry_points(self):
+        """Nullable fixture: null remains null through every JSON decoder."""
+        src_dir, _source = self._generate_issue_465_module(
+            package_name="test_issue465_nullable")
+        module = self._import_generated(
+            src_dir, "test_issue465_nullable.test.issue465.wirescalars")
+        record = self._issue_465_record(module, nullable=True)
+        text = record.to_json()
+        payload = json.loads(text)
+
+        for key in ("maybe-duration", "maybe-id", "maybe-bytes", "maybe-blobs"):
+            assert payload[key] is None, payload
+
+        for restored in (
+                module.WireScalars.from_json(text),
+                module.WireScalars.schema().loads(text),
+                module.WireScalars.from_data(
+                    text.encode("utf-8"), "application/json"),
+                module.WireScalars.from_data(dict(payload), "application/json"),
+                module.WireScalars.from_serializer_dict(dict(payload))):
+            assert restored == record, restored
+
+    def test_issue_465_malformed_strings_are_rejected_by_all_json_entry_points(self):
+        """Invalid fixtures: duration, UUID and base64 decoders fail at ingestion."""
+        schema = {
+            "type": "object",
+            "name": "StrictWire",
+            "namespace": "test.issue465",
+            "properties": {
+                "duration": {"type": "duration"},
+                "uuid": {"type": "uuid"},
+                "binary": {"type": "binary"},
+            },
+            "required": ["duration", "uuid", "binary"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_invalid")
+        module = self._import_generated(
+            src_dir, "test_issue465_invalid.test.issue465.strictwire")
+        valid = {
+            "duration": "90.5",
+            "uuid": "12345678-1234-5678-1234-567812345678",
+            "binary": "AP9hYmM=",
+        }
+        malformed = (
+            ("duration", "ninety seconds"),
+            ("uuid", "not-a-uuid"),
+            ("binary", "not base64!"),
+            ("binary", "YQ"),
+            ("binary", "YQ==\n"),
+            ("binary", "-_8="),
+        )
+
+        for field_name, bad_value in malformed:
+            raw = {**valid, field_name: bad_value}
+            text = json.dumps(raw)
+            entry_points = {
+                "from_json": lambda: module.StrictWire.from_json(text),
+                "schema().loads": lambda: module.StrictWire.schema().loads(text),
+                "from_data(bytes)": lambda: module.StrictWire.from_data(
+                    text.encode("utf-8"), "application/json"),
+                "from_data(dict)": lambda: module.StrictWire.from_data(
+                    dict(raw), "application/json"),
+                "from_serializer_dict": lambda: module.StrictWire.from_serializer_dict(
+                    dict(raw)),
+            }
+            for label, call in entry_points.items():
+                with self.subTest(field=field_name, entry_point=label):
+                    with self.assertRaises(Exception) as caught:
+                        call()
+                    assert not isinstance(caught.exception, AttributeError), \
+                        f"{label} leaked AttributeError for {field_name}"
+
+    def test_issue_465_typed_serializer_dict_is_not_mutated(self):
+        """Already-typed fixture: guarded decoders preserve values and caller data."""
+        src_dir, _source = self._generate_issue_465_module(
+            package_name="test_issue465_typed")
+        module = self._import_generated(
+            src_dir, "test_issue465_typed.test.issue465.wirescalars")
+        record = self._issue_465_record(module)
+        serialized = record.to_serializer_dict()
+        original = dict(serialized)
+
+        restored = module.WireScalars.from_serializer_dict(serialized)
+        assert restored == record
+        assert serialized == original
+        assert isinstance(restored.elapsed_time, datetime.timedelta)
+        assert isinstance(restored.class_, __import__("uuid").UUID)
+        assert isinstance(restored.binary_value, bytes)
+
+    def test_issue_465_avro_dictionary_encoding_is_unchanged(self):
+        """Compatibility fixture: this JSON fix leaves established Avro values intact."""
+        src_dir, _source = self._generate_issue_465_module(
+            package_name="test_issue465_avro", avro_annotation=True)
+        module = self._import_generated(
+            src_dir, "test_issue465_avro.test.issue465.wirescalars")
+        record = self._issue_465_record(module)
+
+        avro_data = record.to_avro_dict()
+        assert avro_data["elapsed-time"] == "90.5"
+        assert avro_data["class"] == "12345678-1234-5678-1234-567812345678"
+        assert avro_data["payload"] == b"\x00\xffabc"
+        assert module.WireScalars.from_avro_dict(avro_data) == record
 
 
 if __name__ == '__main__':
