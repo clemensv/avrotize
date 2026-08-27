@@ -110,6 +110,147 @@ class TestAvroToPython(unittest.TestCase):
         finally:
             sys.path.remove(generated_src)
 
+    def test_issue_399_json_dictionary_entry_points_use_temporal_decoders(self):
+        """JSON dictionaries must use the generated date/datetime decoders."""
+        import datetime
+        import json
+
+        schema = {
+            "type": "record",
+            "name": "TemporalPayload",
+            "namespace": "example.issue399",
+            "fields": [
+                {
+                    "name": "required_at",
+                    "type": {"type": "long", "logicalType": "timestamp-millis"},
+                },
+                {
+                    "name": "optional_at",
+                    "type": [
+                        "null",
+                        {"type": "long", "logicalType": "timestamp-micros"},
+                    ],
+                },
+                {
+                    "name": "event_date",
+                    "type": {"type": "int", "logicalType": "date"},
+                },
+            ],
+        }
+        py_path = tempfile.mkdtemp(prefix="avrotize-issue399-")
+        self.addCleanup(shutil.rmtree, py_path, True)
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+        convert_avro_schema_to_python(
+            schema, py_path, package_name="issue_399_temporal",
+            dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        self.addCleanup(sys.path.remove, generated_src)
+        module = importlib.import_module(
+            "issue_399_temporal.example.issue399.temporalpayload")
+        self.addCleanup(
+            lambda: [
+                sys.modules.pop(name, None)
+                for name in list(sys.modules)
+                if name == "issue_399_temporal"
+                or name.startswith("issue_399_temporal.")
+            ])
+        TemporalPayload = module.TemporalPayload
+
+        expected = TemporalPayload(
+            required_at=datetime.datetime(
+                2026, 7, 14, 17, 30, 34, tzinfo=datetime.timezone.utc),
+            optional_at=datetime.datetime(2026, 7, 14, 17, 31),
+            event_date=datetime.date(2026, 7, 14),
+        )
+        encoded = expected.to_byte_array("application/json")
+        decoded = json.loads(encoded)
+
+        entry_points = {
+            "from_data(bytes)": lambda data: TemporalPayload.from_data(
+                json.dumps(data).encode("utf-8"), "application/json"),
+            "from_data(dict)": lambda data: TemporalPayload.from_data(
+                data, "application/json"),
+            "from_serializer_dict": TemporalPayload.from_serializer_dict,
+        }
+        for label, load in entry_points.items():
+            with self.subTest(entry_point=label):
+                payload = dict(decoded)
+                restored = load(payload)
+                assert restored == expected
+                assert isinstance(restored.required_at, datetime.datetime)
+                assert isinstance(restored.optional_at, datetime.datetime)
+                assert isinstance(restored.event_date, datetime.date)
+                assert payload == decoded, \
+                    f"{label} must not mutate the caller's dictionary"
+
+        nullable = dict(decoded, optional_at=None)
+        for label, load in entry_points.items():
+            with self.subTest(entry_point=label, optional_at=None):
+                assert load(dict(nullable)).optional_at is None
+
+        malformed = dict(decoded, required_at="not-a-datetime")
+        for label, load in entry_points.items():
+            with self.subTest(entry_point=label, malformed=True):
+                with self.assertRaises(ValueError):
+                    load(dict(malformed))
+
+    def test_issue_399_json_dictionary_entry_points_preserve_field_names(self):
+        """Configured JSON names must survive decoder dispatch."""
+        import datetime
+        import json
+
+        schema = {
+            "type": "record",
+            "name": "RenamedTemporal",
+            "namespace": "example.issue399",
+            "fields": [
+                {
+                    "name": "class",
+                    "type": {"type": "long", "logicalType": "timestamp-millis"},
+                },
+                {"name": "label", "type": "string"},
+            ],
+        }
+        py_path = tempfile.mkdtemp(prefix="avrotize-issue399-name-")
+        self.addCleanup(shutil.rmtree, py_path, True)
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+        convert_avro_schema_to_python(
+            schema, py_path, package_name="issue_399_names",
+            dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        self.addCleanup(sys.path.remove, generated_src)
+        module = importlib.import_module(
+            "issue_399_names.example.issue399.renamedtemporal")
+        self.addCleanup(
+            lambda: [
+                sys.modules.pop(name, None)
+                for name in list(sys.modules)
+                if name == "issue_399_names"
+                or name.startswith("issue_399_names.")
+            ])
+        RenamedTemporal = module.RenamedTemporal
+
+        value = datetime.datetime(
+            2026, 7, 14, 17, 30, 34,
+            tzinfo=datetime.timezone(datetime.timedelta(hours=8)))
+        payload = {"class": value.isoformat(), "label": "station"}
+        encoded = json.dumps(payload).encode("utf-8")
+
+        from_bytes = RenamedTemporal.from_data(encoded, "application/json")
+        from_dict = RenamedTemporal.from_data(dict(payload), "application/json")
+        from_serializer = RenamedTemporal.from_serializer_dict(dict(payload))
+
+        for restored in (from_bytes, from_dict, from_serializer):
+            assert restored.class_ == value
+            assert restored.label == "station"
+            assert json.loads(restored.to_byte_array("application/json")) == payload
+
     def test_issue_402_to_byte_array_application_json_returns_bytes(self):
         """ Issue #402: to_byte_array('application/json') must return bytes, not str.
 

@@ -94,9 +94,20 @@ class {{ class_name }}:
         Returns:
             The dataclass representation of the dictionary.
         """
+        data = dict(data)
         {%- for field in fields %}
         {%- if field.name != field.original_name %}
-        data['{{ field.name }}'] = data.pop('{{ field.original_name }}')
+        if '{{ field.original_name }}' in data:
+            data['{{ field.name }}'] = data.pop('{{ field.original_name }}')
+        {%- endif %}
+        {%- set isdatetime = field.type == "datetime.datetime" or field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
+        {%- set isdate = field.type == "datetime.date" or field.type == "typing.Optional[datetime.date]" %}
+        {%- if dataclasses_json_annotation and isdatetime %}
+        if '{{ field.name }}' in data:
+            data['{{ field.name }}'] = (lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None)(data['{{ field.name }}'])
+        {%- elif dataclasses_json_annotation and isdate %}
+        if '{{ field.name }}' in data:
+            data['{{ field.name }}'] = (lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None)(data['{{ field.name }}'])
         {%- endif %}
         {%- endfor %}
         return cls(**data)
