@@ -124,6 +124,25 @@ def _format_duration(value: datetime.timedelta) -> str:
     return f'{sign}{whole_seconds}.0'
 
 
+_DURATION_MIN_MICROSECONDS = -999999999 * 86400 * 1000000
+_DURATION_MAX_MICROSECONDS = (
+    (999999999 * 86400 + 86399) * 1000000 + 999999
+)
+_DURATION_MAX_MICROSECOND_DIGITS = max(
+    len(str(abs(_DURATION_MIN_MICROSECONDS))),
+    len(str(_DURATION_MAX_MICROSECONDS)),
+)
+_DURATION_MAX_ABS_EXPONENT = _DURATION_MAX_MICROSECOND_DIGITS + 6 - 1
+# Allow a sign, leading zero before a decimal point, decimal point, exponent
+# marker/sign, and the largest useful exponent around a bounded coefficient.
+_DURATION_MAX_LITERAL_LENGTH = (
+    _DURATION_MAX_MICROSECOND_DIGITS
+    + len(str(_DURATION_MAX_ABS_EXPONENT))
+    + 5
+)
+_DURATION_SIZE_ERROR = 'duration literal exceeds supported timedelta size'
+
+
 def _parse_duration(value: typing.Any, field_name: str) -> datetime.timedelta:
     """ Parses exact decimal total seconds, raising ValueError if invalid. """
     if isinstance(value, datetime.timedelta):
@@ -133,6 +152,8 @@ def _parse_duration(value: typing.Any, field_name: str) -> datetime.timedelta:
             f"Invalid decimal duration for field '{field_name}': "
             f"expected a string or datetime.timedelta, got {type(value).__name__}")
     try:
+        if len(value) > _DURATION_MAX_LITERAL_LENGTH:
+            raise ValueError(_DURATION_SIZE_ERROR)
         seconds = decimal.Decimal(value)
         if not seconds.is_finite():
             raise decimal.InvalidOperation
@@ -140,6 +161,9 @@ def _parse_duration(value: typing.Any, field_name: str) -> datetime.timedelta:
         if not any(digits):
             return datetime.timedelta(0)
         scaled_exponent = exponent + 6
+        microsecond_digit_count = len(digits) + scaled_exponent
+        if microsecond_digit_count > _DURATION_MAX_MICROSECOND_DIGITS:
+            raise ValueError(_DURATION_SIZE_ERROR)
         if scaled_exponent < 0:
             fractional_digits = -scaled_exponent
             if fractional_digits >= len(digits):
@@ -149,21 +173,16 @@ def _parse_duration(value: typing.Any, field_name: str) -> datetime.timedelta:
                 raise decimal.InvalidOperation
             integer_digits = digits[:split]
         else:
-            # The timedelta bounds have 20 decimal digits in microseconds.
-            # Reject larger exponents before constructing a zero-filled tuple.
-            if len(digits) + scaled_exponent > 20:
-                raise decimal.InvalidOperation
             integer_digits = digits + (0,) * scaled_exponent
         total_microseconds = 0
         for digit in integer_digits:
             total_microseconds = total_microseconds * 10 + digit
         if sign:
             total_microseconds = -total_microseconds
-        minimum_microseconds = -999999999 * 86400 * 1000000
-        maximum_microseconds = (
-            (999999999 * 86400 + 86399) * 1000000 + 999999
-        )
-        if not minimum_microseconds <= total_microseconds <= maximum_microseconds:
+        if not (
+                _DURATION_MIN_MICROSECONDS
+                <= total_microseconds
+                <= _DURATION_MAX_MICROSECONDS):
             raise decimal.InvalidOperation
         return datetime.timedelta(microseconds=int(total_microseconds))
     except (decimal.InvalidOperation, ValueError, OverflowError) as error:

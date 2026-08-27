@@ -1,6 +1,7 @@
 """Tests for JSON Structure to Python conversion."""
 
 import unittest
+from unittest import mock
 import datetime
 import os
 import shutil
@@ -2175,6 +2176,8 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
              "8640000000.000001"),
             (datetime.timedelta(days=-100000, microseconds=1),
              "-8639999999.999999"),
+            (datetime.timedelta.max, "86399999999999.999999"),
+            (datetime.timedelta.min, "-86399999913600.0"),
         )
 
         for value, expected_wire in fixtures:
@@ -2198,6 +2201,83 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                         module.ExactDuration.from_serializer_dict(dict(raw))):
                     assert restored == record, \
                         f"{expected_wire} restored as {restored.value!r}"
+
+    def test_issue_465_duration_rejects_oversized_literals_before_decimal(self):
+        """Size guard rejects oversized coefficients/exponents before Decimal parsing."""
+        schema = {
+            "type": "object",
+            "name": "BoundedDurationLiteral",
+            "namespace": "test.issue465",
+            "properties": {"value": {"type": "duration"}},
+            "required": ["value"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_duration_literal_bound")
+        module = self._import_generated(
+            src_dir,
+            "test_issue465_duration_literal_bound.test.issue465."
+            "boundeddurationliteral")
+        oversized = (
+            ("1" * 80000) + "0e-7",
+            ("0" * 80000) + "1.0",
+            "1e-" + ("9" * 80000),
+        )
+
+        for value in oversized:
+            with self.subTest(length=len(value), suffix=value[-8:]):
+                with mock.patch.object(
+                        module.decimal, "Decimal",
+                        side_effect=AssertionError("Decimal must not be called")):
+                    with self.assertRaises(ValueError) as caught:
+                        module._parse_duration(value, "value")
+                assert "value" in str(caught.exception)
+                assert caught.exception.__cause__ is not None
+                assert "supported timedelta size" in str(
+                    caught.exception.__cause__)
+
+    def test_issue_465_duration_bounds_digits_before_integer_accumulation(self):
+        """Negative exponents cannot bypass the representable digit guard."""
+        schema = {
+            "type": "object",
+            "name": "BoundedDurationDigits",
+            "namespace": "test.issue465",
+            "properties": {"value": {"type": "duration"}},
+            "required": ["value"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_duration_digit_bound")
+        module = self._import_generated(
+            src_dir,
+            "test_issue465_duration_digit_bound.test.issue465."
+            "boundeddurationdigits")
+        value = ("1" * 21) + "0e-7"
+
+        with self.assertRaises(ValueError) as direct:
+            module._parse_duration(value, "value")
+        assert "value" in str(direct.exception)
+        assert direct.exception.__cause__ is not None
+        assert "supported timedelta size" in str(direct.exception.__cause__)
+
+        text = json.dumps({"value": value})
+        raw = {"value": value}
+        entry_points = {
+            "from_json": lambda: module.BoundedDurationDigits.from_json(text),
+            "schema().loads":
+                lambda: module.BoundedDurationDigits.schema().loads(text),
+            "from_data(bytes)": lambda: module.BoundedDurationDigits.from_data(
+                text.encode("utf-8"), "application/json"),
+            "from_data(dict)": lambda: module.BoundedDurationDigits.from_data(
+                dict(raw), "application/json"),
+            "from_serializer_dict":
+                lambda: module.BoundedDurationDigits.from_serializer_dict(
+                    dict(raw)),
+        }
+        for label, call in entry_points.items():
+            with self.subTest(entry_point=label):
+                with self.assertRaises(Exception) as caught:
+                    call()
+                assert "value" in str(caught.exception), \
+                    f"{label} error did not identify value: {caught.exception}"
 
     def test_issue_465_duration_ignores_ambient_decimal_context(self):
         """Boundary fixture: caller precision and traps cannot affect wire parsing."""
