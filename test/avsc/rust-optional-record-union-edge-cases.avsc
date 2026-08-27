@@ -1,0 +1,164 @@
+[
+    {
+        "type": "record",
+        "name": "OptionalString",
+        "namespace": "issue484.edge_cases",
+        "fields": [
+            {
+                "name": "x",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "RequiredString",
+        "namespace": "issue484.edge_cases",
+        "fields": [
+            {
+                "name": "x",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "RequiredInteger",
+        "namespace": "issue484.edge_cases",
+        "fields": [
+            {
+                "name": "x",
+                "type": "long"
+            }
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "Tag",
+        "namespace": "issue484.edge_cases",
+        "symbols": [
+            "FIRST",
+            "SECOND"
+        ]
+    },
+    {
+        "type": "record",
+        "name": "NestedOptional",
+        "namespace": "issue484.edge_cases",
+        "fields": [
+            {
+                "name": "nested",
+                "type": "OptionalString"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "NestedRequired",
+        "namespace": "issue484.edge_cases",
+        "fields": [
+            {
+                "name": "nested",
+                "type": "RequiredString"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Inner",
+        "namespace": "issue484.edge_cases",
+        "fields": [
+            {
+                "name": "choice",
+                "type": [
+                    "OptionalString",
+                    "RequiredString"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Outer",
+        "namespace": "issue484.edge_cases",
+        "fields": [
+            {
+                "name": "inner",
+                "type": "Inner"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Holder",
+        "namespace": "issue484.edge_cases",
+        "fields": [
+            {
+                "name": "direct",
+                "type": [
+                    "OptionalString",
+                    "RequiredString"
+                ]
+            },
+            {
+                "name": "reverse",
+                "type": [
+                    "RequiredString",
+                    "OptionalString"
+                ]
+            },
+            {
+                "name": "nested",
+                "type": [
+                    "NestedOptional",
+                    "NestedRequired"
+                ]
+            },
+            {
+                "name": "stringChoice",
+                "type": [
+                    "OptionalString",
+                    "string"
+                ]
+            },
+            {
+                "name": "enumChoice",
+                "type": [
+                    "OptionalString",
+                    "Tag"
+                ]
+            },
+            {
+                "name": "arrayChoice",
+                "type": [
+                    "OptionalString",
+                    {
+                        "type": "array",
+                        "items": "string"
+                    }
+                ]
+            },
+            {
+                "name": "mapChoice",
+                "type": [
+                    "OptionalString",
+                    {
+                        "type": "map",
+                        "values": "string"
+                    }
+                ]
+            },
+            {
+                "name": "nonOverlap",
+                "type": [
+                    "OptionalString",
+                    "RequiredInteger"
+                ]
+            }
+        ]
+    }
+]

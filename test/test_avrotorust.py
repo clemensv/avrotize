@@ -266,6 +266,205 @@ class TestAvroToRust(unittest.TestCase):
                 "issue484.overlap",
             ))
 
+    def test_named_references_preserve_nested_union_ambiguity(self):
+        """Propagate nested ambiguity through named record references."""
+        converter = AvroToRust()
+        optional_record = {
+            "type": "record",
+            "name": "OptionalString",
+            "namespace": "issue484.named",
+            "fields": [
+                {
+                    "name": "x",
+                    "type": ["null", "string"],
+                    "default": None,
+                }
+            ],
+        }
+        required_record = {
+            "type": "record",
+            "name": "RequiredString",
+            "namespace": "issue484.named",
+            "fields": [{"name": "x", "type": "string"}],
+        }
+        inner = {
+            "type": "record",
+            "name": "Inner",
+            "namespace": "issue484.named",
+            "fields": [
+                {
+                    "name": "choice",
+                    "type": ["OptionalString", "RequiredString"],
+                }
+            ],
+        }
+        outer = {
+            "type": "record",
+            "name": "Outer",
+            "namespace": "issue484.named",
+            "fields": [{"name": "inner", "type": "Inner"}],
+        }
+        converter.index_avro_named_types([
+            optional_record,
+            required_record,
+            inner,
+            outer,
+        ])
+
+        self.assertFalse(converter.is_json_round_trip_safe(
+            inner,
+            "issue484.named",
+        ))
+        self.assertFalse(converter.is_json_round_trip_safe(
+            "Inner",
+            "issue484.named",
+        ))
+        self.assertFalse(converter.is_json_round_trip_safe(
+            outer,
+            "issue484.named",
+        ))
+
+    def test_optional_record_matchers_overlap_non_record_json_kinds(self):
+        """Mirror serde_json indexing for all-nullable record predicates."""
+        converter = AvroToRust()
+        optional_record = {
+            "type": "record",
+            "name": "OptionalString",
+            "namespace": "issue484.cross_kind",
+            "fields": [
+                {
+                    "name": "x",
+                    "type": ["null", "string"],
+                    "default": None,
+                }
+            ],
+        }
+        converter.index_avro_named_types(optional_record)
+        optional_match = converter.get_json_match_signature(
+            optional_record,
+            "issue484.cross_kind",
+        )
+
+        for shape in (
+            "string",
+            ("array", "string"),
+            ("map", "string"),
+        ):
+            self.assertTrue(converter.json_match_accepts_shape(
+                optional_match,
+                shape,
+            ))
+        required_record = {
+            "type": "record",
+            "name": "RequiredString",
+            "namespace": "issue484.cross_kind",
+            "fields": [{"name": "x", "type": "string"}],
+        }
+        converter.index_avro_named_types(required_record)
+        required_match = converter.get_json_match_signature(
+            required_record,
+            "issue484.cross_kind",
+        )
+        self.assertFalse(converter.json_match_accepts_shape(
+            required_match,
+            "string",
+        ))
+
+    def test_nullable_named_record_uses_generated_predicate_semantics(self):
+        """Do not add null to a named record emitted as a bare Rust field."""
+        converter = AvroToRust()
+        child = {
+            "type": "record",
+            "name": "Child",
+            "namespace": "issue484.named_nullable",
+            "fields": [{"name": "value", "type": "string"}],
+        }
+        named_container = {
+            "type": "record",
+            "name": "NamedContainer",
+            "namespace": "issue484.named_nullable",
+            "fields": [
+                {
+                    "name": "child",
+                    "type": ["null", "Child"],
+                    "default": None,
+                }
+            ],
+        }
+        optional_container = {
+            "type": "record",
+            "name": "OptionalStringContainer",
+            "namespace": "issue484.named_nullable",
+            "fields": [
+                {
+                    "name": "child",
+                    "type": ["null", "string"],
+                    "default": None,
+                }
+            ],
+        }
+        converter.index_avro_named_types([
+            child,
+            named_container,
+            optional_container,
+        ])
+
+        named_match = converter.get_json_match_signature(
+            named_container,
+            "issue484.named_nullable",
+        )
+        named_shape = converter.get_json_shape_signature(
+            named_container,
+            "issue484.named_nullable",
+        )
+        optional_match = converter.get_json_match_signature(
+            optional_container,
+            "issue484.named_nullable",
+        )
+        optional_shape = converter.get_json_shape_signature(
+            optional_container,
+            "issue484.named_nullable",
+        )
+        self.assertFalse(converter.json_match_accepts_shape(
+            named_match,
+            optional_shape,
+        ))
+        self.assertFalse(converter.json_match_accepts_shape(
+            optional_match,
+            named_shape,
+        ))
+
+    def test_json_shape_overlap_comparison_is_memoized(self):
+        """Keep nested union comparison work bounded by unique signature pairs."""
+        match_signature = "string"
+        shape_signature = "boolean"
+        for _ in range(11):
+            shape_signature = (
+                "union",
+                (shape_signature,) * 4,
+            )
+
+        original = AvroToRust.json_match_accepts_shape
+        comparison_count = 0
+
+        def counted(match, shape, memo=None):
+            nonlocal comparison_count
+            comparison_count += 1
+            if memo is None:
+                return original(match, shape)
+            return original(match, shape, memo)
+
+        with patch.object(
+            AvroToRust,
+            "json_match_accepts_shape",
+            side_effect=counted,
+        ):
+            self.assertFalse(AvroToRust.json_match_accepts_shape(
+                match_signature,
+                shape_signature,
+            ))
+        self.assertLess(comparison_count, 200)
+
     def test_json_union_subset_records_reject_ambiguity(self):
         """Reject a record branch also accepted by a subset-field matcher."""
         rust_path = os.path.join(
@@ -340,6 +539,21 @@ class TestAvroToRust(unittest.TestCase):
                 "Skip JSON round-trip: structurally identical to an earlier "
                 "variant."
             ),
+        )
+
+    def test_optional_record_union_edge_cases_compile(self):
+        """Exercise generated direct, named, nested, and cross-kind unions."""
+        self.run_convert_to_rust(
+            "rust-optional-record-union-edge-cases",
+            serde_annotation=True,
+        )
+
+    def test_nullable_named_record_union_xml_is_not_rejected(self):
+        """Keep bare nullable named-record fields usable with XML annotations."""
+        self.run_convert_to_rust(
+            "rust-nullable-named-record-union",
+            serde_annotation=True,
+            xml_annotation=True,
         )
 
     def test_named_type_resolution_requires_current_namespace(self):

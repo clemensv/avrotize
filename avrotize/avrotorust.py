@@ -1579,6 +1579,41 @@ class AvroToRust:
         )
         return all(marker in content for marker in markers)
 
+    @staticmethod
+    def normalize_json_union_signature(signatures):
+        """Returns a flattened, deduplicated union signature."""
+        flattened = []
+        for signature in signatures:
+            if (
+                isinstance(signature, tuple)
+                and signature
+                and signature[0] == 'union'
+            ):
+                flattened.extend(signature[1])
+            else:
+                flattened.append(signature)
+        unique = tuple(dict.fromkeys(flattened))
+        if len(unique) == 1:
+            return unique[0]
+        return ('union', unique)
+
+    def generated_json_union_branches(self, avro_type, namespace: str):
+        """Returns branches represented by the generated Rust field type."""
+        non_null_types = [item for item in avro_type if item != 'null']
+        if not non_null_types:
+            return ('null',)
+        if len(non_null_types) > 1:
+            return tuple(non_null_types)
+
+        branch = non_null_types[0]
+        if (
+            isinstance(branch, str)
+            and not is_any_value_type(branch)
+            and self.resolve_avro_named_type(branch, namespace) is None
+        ):
+            return (branch, 'null')
+        return (branch,)
+
     def get_json_shape_signature(
         self,
         avro_type,
@@ -1588,6 +1623,8 @@ class AvroToRust:
         """Returns a stable structural signature for untagged JSON matching."""
         resolving = () if resolving is None else resolving
         if isinstance(avro_type, str):
+            if is_any_value_type(avro_type):
+                return 'any'
             resolved = self.resolve_avro_named_type(avro_type, namespace)
             if resolved:
                 fullname = self.avro_type_fullnames[id(resolved)]
@@ -1604,16 +1641,24 @@ class AvroToRust:
                 return 'number'
             return avro_type
         if isinstance(avro_type, list):
-            return (
-                'union',
-                tuple(
+            if is_generic_avro_type(avro_type):
+                return (
+                    'any'
+                    if self.serde_annotation or self.xml_annotation
+                    else ('map', 'string')
+                )
+            return self.normalize_json_union_signature(
+                (
                     self.get_json_shape_signature(
                         item,
                         namespace,
                         resolving,
                     )
-                    for item in avro_type
-                ),
+                    for item in self.generated_json_union_branches(
+                        avro_type,
+                        namespace,
+                    )
+                )
             )
         if not isinstance(avro_type, dict):
             return str(avro_type)
@@ -1684,7 +1729,7 @@ class AvroToRust:
             return self.is_json_round_trip_safe(
                 resolved,
                 fullname.rpartition('.')[0],
-                resolving + (fullname,),
+                resolving,
             )
         if isinstance(avro_type, list):
             branches = [item for item in avro_type if item != 'null']
@@ -1778,6 +1823,8 @@ class AvroToRust:
         """Returns the JSON shape accepted by a generated union matcher."""
         resolving = () if resolving is None else resolving
         if isinstance(avro_type, str):
+            if is_any_value_type(avro_type):
+                return 'any'
             resolved = self.resolve_avro_named_type(avro_type, namespace)
             if resolved:
                 fullname = self.avro_type_fullnames[id(resolved)]
@@ -1796,16 +1843,24 @@ class AvroToRust:
                 return 'array'
             return avro_type
         if isinstance(avro_type, list):
-            return (
-                'union',
-                tuple(
+            if is_generic_avro_type(avro_type):
+                return (
+                    'any'
+                    if self.serde_annotation or self.xml_annotation
+                    else 'object'
+                )
+            return self.normalize_json_union_signature(
+                (
                     self.get_json_match_signature(
                         item,
                         namespace,
                         resolving,
                     )
-                    for item in avro_type
-                ),
+                    for item in self.generated_json_union_branches(
+                        avro_type,
+                        namespace,
+                    )
+                )
             )
         if not isinstance(avro_type, dict):
             return str(avro_type)
@@ -1845,8 +1900,18 @@ class AvroToRust:
         )
 
     @staticmethod
-    def json_match_accepts_shape(match_signature, shape_signature) -> bool:
+    def json_match_accepts_shape(
+        match_signature,
+        shape_signature,
+        _memo=None,
+    ) -> bool:
         """Checks matcher overlap across all realizable serialized shapes."""
+        if _memo is None:
+            _memo = {}
+        key = (match_signature, shape_signature)
+        if key in _memo:
+            return _memo[key]
+        _memo[key] = False
         shape_kind = (
             shape_signature[0]
             if isinstance(shape_signature, tuple) and shape_signature
@@ -1857,39 +1922,49 @@ class AvroToRust:
             if isinstance(match_signature, tuple) and match_signature
             else match_signature
         )
-        if shape_kind == 'union':
-            return any(
+        if match_signature == 'any' or shape_signature == 'any':
+            result = True
+        elif shape_kind == 'union':
+            result = any(
                 AvroToRust.json_match_accepts_shape(
                     match_signature,
                     branch_shape,
+                    _memo,
                 )
                 for branch_shape in shape_signature[1]
             )
-        if match_kind == 'union':
-            return any(
+        elif match_kind == 'union':
+            result = any(
                 AvroToRust.json_match_accepts_shape(
                     branch_match,
                     shape_signature,
+                    _memo,
                 )
                 for branch_match in match_signature[1]
             )
-        if match_kind == 'record_match':
-            if shape_kind != 'record':
-                return False
+        elif match_kind == 'record_match':
             expected_fields = dict(match_signature[1])
-            value_fields = dict(shape_signature[1])
-            return all(
+            value_fields = (
+                dict(shape_signature[1])
+                if shape_kind == 'record'
+                else {}
+            )
+            result = all(
                 AvroToRust.json_match_accepts_shape(
                     field_match,
                     value_fields.get(field_name, 'null'),
+                    _memo,
                 )
                 for field_name, field_match in expected_fields.items()
             )
-        if match_signature == 'object':
-            return shape_kind in ('map', 'record')
-        if match_signature == 'array':
-            return shape_kind in ('array', 'bytes', 'fixed')
-        return match_signature == shape_signature
+        elif match_signature == 'object':
+            result = shape_kind in ('map', 'record')
+        elif match_signature == 'array':
+            result = shape_kind in ('array', 'bytes', 'fixed')
+        else:
+            result = match_signature == shape_signature
+        _memo[key] = result
+        return result
 
     def to_file_name(self, qualified_name):
         """Converts a qualified union enum name to a file name"""
