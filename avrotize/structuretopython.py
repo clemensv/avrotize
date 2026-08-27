@@ -210,20 +210,20 @@ def _codec_branches(type_name: str, var: str, depth: int, encode: bool,
             return [(_PRIORITY_DURATION, f'isinstance({var}, datetime.timedelta)',
                      f'_format_duration({var})')]
         parsers.add('_parse_duration')
-        return [(_PRIORITY_DURATION, f'{var} is not None',
+        return [(_PRIORITY_DURATION, 'True',
                  f'_parse_duration({var}, {{field_name}})')]
     if type_name == 'uuid.UUID':
         if encode:
             return [(_PRIORITY_UUID, f'isinstance({var}, uuid.UUID)', f'str({var})')]
         parsers.add('_parse_uuid')
-        return [(_PRIORITY_UUID, f'{var} is not None',
+        return [(_PRIORITY_UUID, 'True',
                  f'_parse_uuid({var}, {{field_name}})')]
     if type_name == 'bytes':
         if encode:
             return [(_PRIORITY_BINARY, f'isinstance({var}, bytes)',
                      f"base64.b64encode({var}).decode('ascii')")]
         parsers.add('_parse_base64')
-        return [(_PRIORITY_BINARY, f'{var} is not None',
+        return [(_PRIORITY_BINARY, 'True',
                  f'_parse_base64({var}, {{field_name}})')]
 
     generic = parse_generic_type(type_name)
@@ -283,12 +283,24 @@ def build_codec_expression(type_name: str, var: str, depth: int, encode: bool,
         expected_container = decoded_container_kind(type_name)
         if expected_container:
             expression = (
-                f"{var} if {var} is None else "
-                f"_invalid_container({var}, {{field_name}}, '{expected_container}')"
+                f"_invalid_container({var}, {{field_name}}, "
+                f"'{expected_container}')"
             )
     for _priority, condition, value in reversed(branches):
         expression = f'{value} if {condition} else {expression}'
+    if not encode and type_allows_none(type_name):
+        expression = f'None if {var} is None else {expression}'
     return expression
+
+
+def type_allows_none(type_name: str) -> bool:
+    """ Reports whether this exact annotation node declares nullability. """
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return type_name in NONE_TYPES
+    origin, args = generic
+    return origin == 'Optional' or (
+        origin == 'Union' and any(arg in NONE_TYPES for arg in args))
 
 
 def decoded_container_kind(type_name: str) -> Optional[str]:
@@ -324,7 +336,11 @@ def build_mm_field(type_name: str, mm_classes: Set[str],
         return None
     origin, args = generic
     if origin == 'Optional':
-        return build_mm_field(args[0], mm_classes, options)
+        optional_options = options
+        if 'allow_none=' not in optional_options:
+            optional_options += (
+                ', ' if optional_options else '') + 'allow_none=True'
+        return build_mm_field(args[0], mm_classes, optional_options)
     if origin == 'List':
         inner = build_mm_field(args[0], mm_classes)
         return f'fields.List({inner}{", " + options if options else ""})' if inner else None
@@ -836,6 +852,12 @@ class StructureToPython:
                 'mm_field': codec['mm_field'] if codec else None,
                 'mm_classes': codec['mm_classes'] if codec else [],
                 'json_parsers': codec['parsers'] if codec else [],
+                'reject_json_null': (
+                    bool(codec)
+                    and bool(json_codec_scalars_in(field['type'])
+                             & STRICT_JSON_CODEC_SCALARS)
+                    and not type_allows_none(field['type'])
+                ),
                 # A set arrives from JSON as a list. Temporal sets are rebuilt by
                 # their own decoder; every other set needs an explicit rebuild so
                 # from_serializer_dict agrees with the dataclasses-json path.

@@ -2199,6 +2199,159 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                     assert restored == record, \
                         f"{expected_wire} restored as {restored.value!r}"
 
+    def test_issue_465_duration_ignores_ambient_decimal_context(self):
+        """Boundary fixture: caller precision and traps cannot affect wire parsing."""
+        import decimal
+
+        schema = {
+            "type": "object",
+            "name": "ContextDuration",
+            "namespace": "test.issue465",
+            "properties": {"value": {"type": "duration"}},
+            "required": ["value"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_decimal_context")
+        module = self._import_generated(
+            src_dir,
+            "test_issue465_decimal_context.test.issue465.contextduration")
+        text = '{"value": "1.0"}'
+        raw = {"value": "1.0"}
+        expected = module.ContextDuration(
+            value=datetime.timedelta(seconds=1))
+
+        original = decimal.getcontext()
+        with decimal.localcontext() as context:
+            context.prec = 10
+            context.traps[decimal.Inexact] = True
+            context.clear_flags()
+            for restored in (
+                    module.ContextDuration.from_json(text),
+                    module.ContextDuration.schema().loads(text),
+                    module.ContextDuration.from_data(
+                        text.encode("utf-8"), "application/json"),
+                    module.ContextDuration.from_data(
+                        dict(raw), "application/json"),
+                    module.ContextDuration.from_serializer_dict(dict(raw))):
+                assert restored == expected
+            assert context.prec == 10
+            assert context.traps[decimal.Inexact]
+            assert not context.flags[decimal.Inexact]
+        assert decimal.getcontext() is original
+
+    def test_issue_465_nullability_is_enforced_at_each_declared_shape(self):
+        """Null is accepted only where the field or element type is Optional."""
+        schema = {
+            "type": "object",
+            "name": "Nullability",
+            "namespace": "test.issue465",
+            "properties": {
+                "duration": {"type": "duration"},
+                "uuid": {"type": "uuid"},
+                "binary": {"type": "binary"},
+                "durations": {
+                    "type": "array",
+                    "items": {"type": "duration"},
+                },
+                "ids": {
+                    "type": "set",
+                    "items": {"type": "uuid"},
+                },
+                "payloads": {
+                    "type": "map",
+                    "values": {"type": "binary"},
+                },
+                "maybe-duration": {"type": ["null", "duration"]},
+                "maybe-payloads": {
+                    "type": ["null", {
+                        "type": "array",
+                        "items": {"type": "binary"},
+                    }],
+                },
+                "nullable-elements": {
+                    "type": "array",
+                    "items": {"type": ["null", "binary"]},
+                },
+            },
+            "required": [
+                "duration", "uuid", "binary", "durations", "ids",
+                "payloads", "maybe-duration", "maybe-payloads",
+                "nullable-elements",
+            ],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_nullability")
+        module = self._import_generated(
+            src_dir, "test_issue465_nullability.test.issue465.nullability")
+        valid = {
+            "duration": "1.0",
+            "uuid": "12345678-1234-5678-1234-567812345678",
+            "binary": "YQ==",
+            "durations": ["1.0"],
+            "ids": ["12345678-1234-5678-1234-567812345678"],
+            "payloads": {"a": "YQ=="},
+            "maybe-duration": None,
+            "maybe-payloads": None,
+            "nullable-elements": [None, "Yg=="],
+        }
+
+        expected_uuid = __import__("uuid").UUID(
+            "12345678-1234-5678-1234-567812345678")
+        expected = module.Nullability(
+            duration=datetime.timedelta(seconds=1),
+            uuid=expected_uuid,
+            binary=b"a",
+            durations=[datetime.timedelta(seconds=1)],
+            ids={expected_uuid},
+            payloads={"a": b"a"},
+            maybe_duration=None,
+            maybe_payloads=None,
+            nullable_elements=[None, b"b"],
+        )
+        text = json.dumps(valid)
+        for restored in (
+                module.Nullability.from_json(text),
+                module.Nullability.schema().loads(text),
+                module.Nullability.from_data(
+                    text.encode("utf-8"), "application/json"),
+                module.Nullability.from_data(dict(valid), "application/json"),
+                module.Nullability.from_serializer_dict(dict(valid))):
+            assert restored == expected
+
+        malformed = (
+            ("duration", None),
+            ("uuid", None),
+            ("binary", None),
+            ("durations", None),
+            ("ids", None),
+            ("payloads", None),
+            ("durations", [None]),
+            ("ids", [None]),
+            ("payloads", {"a": None}),
+        )
+        for field_name, bad_value in malformed:
+            raw = {**valid, field_name: bad_value}
+            bad_text = json.dumps(raw)
+            entry_points = {
+                "from_json": lambda: module.Nullability.from_json(bad_text),
+                "schema().loads":
+                    lambda: module.Nullability.schema().loads(bad_text),
+                "from_data(bytes)": lambda: module.Nullability.from_data(
+                    bad_text.encode("utf-8"), "application/json"),
+                "from_data(dict)": lambda: module.Nullability.from_data(
+                    dict(raw), "application/json"),
+                "from_serializer_dict":
+                    lambda: module.Nullability.from_serializer_dict(dict(raw)),
+            }
+            for label, call in entry_points.items():
+                with self.subTest(
+                        field=field_name, value=bad_value,
+                        entry_point=label):
+                    with self.assertRaises(Exception) as caught:
+                        call()
+                    assert field_name in str(caught.exception), \
+                        f"{label} error did not identify {field_name}: {caught.exception}"
+
     def test_issue_465_invalid_outer_container_shapes_are_rejected(self):
         """Invalid fixtures: custom scalar containers reject non-container values."""
         schema = {

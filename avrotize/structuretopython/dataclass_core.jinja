@@ -134,12 +134,7 @@ def _parse_duration(value: typing.Any, field_name: str) -> datetime.timedelta:
             f"expected a string or datetime.timedelta, got {type(value).__name__}")
     try:
         seconds = decimal.Decimal(value)
-        minimum = decimal.Decimal(-999999999 * 86400)
-        maximum = (
-            decimal.Decimal(999999999 * 86400 + 86399)
-            + decimal.Decimal('0.999999')
-        )
-        if not seconds.is_finite() or not minimum <= seconds <= maximum:
+        if not seconds.is_finite():
             raise decimal.InvalidOperation
         sign, digits, exponent = seconds.as_tuple()
         if not any(digits):
@@ -154,12 +149,22 @@ def _parse_duration(value: typing.Any, field_name: str) -> datetime.timedelta:
                 raise decimal.InvalidOperation
             integer_digits = digits[:split]
         else:
+            # The timedelta bounds have 20 decimal digits in microseconds.
+            # Reject larger exponents before constructing a zero-filled tuple.
+            if len(digits) + scaled_exponent > 20:
+                raise decimal.InvalidOperation
             integer_digits = digits + (0,) * scaled_exponent
         total_microseconds = 0
         for digit in integer_digits:
             total_microseconds = total_microseconds * 10 + digit
         if sign:
             total_microseconds = -total_microseconds
+        minimum_microseconds = -999999999 * 86400 * 1000000
+        maximum_microseconds = (
+            (999999999 * 86400 + 86399) * 1000000 + 999999
+        )
+        if not minimum_microseconds <= total_microseconds <= maximum_microseconds:
+            raise decimal.InvalidOperation
         return datetime.timedelta(microseconds=int(total_microseconds))
     except (decimal.InvalidOperation, ValueError, OverflowError) as error:
         raise ValueError(
@@ -357,6 +362,36 @@ class _SetField(fields.List):
 {% endif %}
 
 {% if dataclasses_json_annotation %}
+{%- for field in fields if field.reject_json_null %}
+{%- if loop.first %}
+def _reject_nonnullable_json_nulls(cls):
+    """ Makes dataclasses-json reject null before it skips custom decoders. """
+    original_from_dict = cls.from_dict.__func__
+
+    @classmethod
+    def from_dict(inner_cls, data, *, infer_missing=False):
+        if isinstance(data, dict):
+        {%- for required_field in fields if required_field.reject_json_null %}
+            if data.get('{{ required_field.original_name }}', ...) is None:
+                raise ValueError(
+                    "Invalid null for field '{{ required_field.original_name }}'")
+        {%- endfor %}
+        return original_from_dict(
+            inner_cls, data, infer_missing=infer_missing)
+
+    cls.from_dict = from_dict
+    return cls
+
+
+{%- endif %}
+{%- endfor %}
+{% endif %}
+{% if dataclasses_json_annotation %}
+{%- for field in fields if field.reject_json_null %}
+{%- if loop.first %}
+@_reject_nonnullable_json_nulls
+{%- endif %}
+{%- endfor %}
 @dataclass_json(undefined=Undefined.EXCLUDE)
 {%- endif %}
 @dataclass
