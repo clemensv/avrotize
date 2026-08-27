@@ -47,6 +47,7 @@ class AvroToRust:
         self.planned_source_paths: set[tuple[str, ...]] = set()
         self.union_schema_targets: Dict[tuple, str] = {}
         self.union_targets_in_progress: set[tuple] = set()
+        self.json_round_trip_safety = None
         
     reserved_words = [
             'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern', 'false', 'fn', 'for', 'if', 'impl',
@@ -302,6 +303,7 @@ class AvroToRust:
 
     def index_avro_named_types(self, node, parent_namespace=''):
         """Indexes named Avro types by canonical fullname."""
+        self.json_round_trip_safety = None
         if isinstance(node, list):
             for item in node:
                 self.index_avro_named_types(item, parent_namespace)
@@ -1360,6 +1362,10 @@ class AvroToRust:
                 union_avro_types[i],
                 namespace,
             )
+            default_shape_signature = self.get_json_default_shape_signature(
+                union_avro_types[i],
+                namespace,
+            )
             # Mark if this is the first variant with this predicate structure
             is_first_with_predicate = predicate_key not in seen_predicates
             seen_predicates.add(predicate_key)
@@ -1401,6 +1407,7 @@ class AvroToRust:
                 'json_match_predicate': predicate,
                 'json_match_signature': predicate_key,
                 'json_shape_signature': shape_signature,
+                'json_default_shape_signature': default_shape_signature,
                 'is_first_with_predicate': is_first_with_predicate,
             })
         scalar_kinds = {
@@ -1426,9 +1433,24 @@ class AvroToRust:
             field['xml_reject_value'] = (
                 (scalar_kind is not None and scalar_kind != 'string' and 'string' in present_scalar_kinds)
                 or (scalar_kind == 'integer' and 'float' in present_scalar_kinds)
-                or json_ambiguous
             )
-            field['xml_safe_for_random'] = not field['xml_reject_value']
+            field['xml_check_value_ambiguity'] = json_ambiguous
+            default_is_ambiguous = sum(
+                1 for candidate in union_fields
+                if self.json_match_accepts_shape(
+                    candidate['json_match_signature'],
+                    field['json_default_shape_signature'],
+                )
+            ) > 1
+            field['xml_safe_for_random'] = not (
+                field['xml_reject_value']
+                or default_is_ambiguous
+            )
+            field['xml_random_value'] = (
+                field['default_value']
+                if field['xml_check_value_ambiguity']
+                else field['random_value']
+            )
             field['json_ambiguous'] = json_ambiguous
             field['json_round_trip_safe'] = (
                 not field['json_ambiguous']
@@ -1711,42 +1733,126 @@ class AvroToRust:
             resolving,
         )
 
-    def is_json_round_trip_safe(
+    def get_json_default_shape_signature(
         self,
         avro_type,
         namespace: str,
         resolving=None,
-    ) -> bool:
-        """Checks whether generated untagged JSON has a deterministic branch."""
+    ):
+        """Returns the JSON shape produced by the generated Rust Default value."""
         resolving = () if resolving is None else resolving
+        if isinstance(avro_type, str):
+            if is_any_value_type(avro_type):
+                return 'null'
+            resolved = self.resolve_avro_named_type(avro_type, namespace)
+            if resolved:
+                fullname = self.avro_type_fullnames[id(resolved)]
+                if fullname in resolving:
+                    return ('ref', resolving.index(fullname))
+                return self.get_json_default_shape_signature(
+                    resolved,
+                    fullname.rpartition('.')[0],
+                    resolving,
+                )
+            if avro_type in ('int', 'long'):
+                return 'integer'
+            if avro_type in ('float', 'double'):
+                return 'number'
+            return avro_type
+        if isinstance(avro_type, list):
+            generated_branches = self.generated_json_union_branches(
+                avro_type,
+                namespace,
+            )
+            if 'null' in generated_branches:
+                return 'null'
+            if not generated_branches:
+                return 'null'
+            return self.get_json_default_shape_signature(
+                generated_branches[0],
+                namespace,
+                resolving,
+            )
+        if not isinstance(avro_type, dict):
+            return str(avro_type)
+        node_type = avro_type.get('type')
+        if node_type == 'record':
+            fullname, record_namespace, _ = self.canonical_avro_name(
+                avro_type['name'],
+                avro_type.get('namespace', namespace),
+            )
+            if fullname in resolving:
+                return ('ref', resolving.index(fullname))
+            nested_resolving = resolving + (fullname,)
+            return (
+                'record',
+                tuple(
+                    (
+                        field['name'],
+                        self.get_json_default_shape_signature(
+                            field['type'],
+                            record_namespace,
+                            nested_resolving,
+                        ),
+                    )
+                    for field in avro_type.get('fields', [])
+                ),
+            )
+        if node_type == 'enum':
+            return 'string'
+        if node_type == 'array':
+            return (
+                'array',
+                self.get_json_default_shape_signature(
+                    avro_type['items'],
+                    namespace,
+                    resolving,
+                ),
+            )
+        if node_type == 'map':
+            return (
+                'map',
+                self.get_json_default_shape_signature(
+                    avro_type['values'],
+                    namespace,
+                    resolving,
+                ),
+            )
+        return self.get_json_default_shape_signature(
+            node_type,
+            namespace,
+            resolving,
+        )
+
+    def evaluate_json_round_trip_safe(
+        self,
+        avro_type,
+        namespace: str,
+        named_safety,
+        owner=None,
+    ) -> bool:
+        """Evaluates JSON safety using the current named-type fixed point."""
         if isinstance(avro_type, str):
             resolved = self.resolve_avro_named_type(avro_type, namespace)
             if not resolved:
                 return True
             fullname = self.avro_type_fullnames[id(resolved)]
-            if fullname in resolving:
-                return True
-            return self.is_json_round_trip_safe(
-                resolved,
-                fullname.rpartition('.')[0],
-                resolving,
-            )
+            return named_safety.get(fullname, True)
         if isinstance(avro_type, list):
             branches = [item for item in avro_type if item != 'null']
             if len(branches) <= 1:
                 return (
                     not branches
-                    or self.is_json_round_trip_safe(
+                    or self.evaluate_json_round_trip_safe(
                         branches[0],
                         namespace,
-                        resolving,
+                        named_safety,
                     )
                 )
             match_signatures = [
                 self.get_json_match_signature(
                     branch,
                     namespace,
-                    resolving,
                 )
                 for branch in branches
             ]
@@ -1754,7 +1860,6 @@ class AvroToRust:
                 self.get_json_shape_signature(
                     branch,
                     namespace,
-                    resolving,
                 )
                 for branch in branches
             ]
@@ -1766,10 +1871,10 @@ class AvroToRust:
                         shape_signature,
                     )
                 ) == 1
-                and self.is_json_round_trip_safe(
+                and self.evaluate_json_round_trip_safe(
                     branch,
                     namespace,
-                    resolving,
+                    named_safety,
                 )
                 for branch, shape_signature
                 in zip(branches, shape_signatures)
@@ -1783,36 +1888,85 @@ class AvroToRust:
                 avro_type['name'],
                 avro_type.get('namespace', namespace),
             )
-            if fullname in resolving:
-                return True
-            nested_resolving = resolving + (fullname,)
+            if fullname != owner and fullname in named_safety:
+                return named_safety[fullname]
             return all(
-                self.is_json_round_trip_safe(
+                self.evaluate_json_round_trip_safe(
                     field['type'],
                     record_namespace,
-                    nested_resolving,
+                    named_safety,
                 )
                 for field in avro_type.get('fields', [])
             )
         if node_type == 'array':
-            return self.is_json_round_trip_safe(
+            return self.evaluate_json_round_trip_safe(
                 avro_type['items'],
                 namespace,
-                resolving,
+                named_safety,
             )
         if node_type == 'map':
-            return self.is_json_round_trip_safe(
+            return self.evaluate_json_round_trip_safe(
                 avro_type['values'],
                 namespace,
-                resolving,
+                named_safety,
             )
         if isinstance(node_type, (dict, list)):
-            return self.is_json_round_trip_safe(
+            return self.evaluate_json_round_trip_safe(
                 node_type,
                 namespace,
-                resolving,
+                named_safety,
             )
         return True
+
+    def ensure_json_round_trip_safety(self):
+        """Computes the greatest fixed point for named-type JSON safety."""
+        if self.json_round_trip_safety is not None:
+            return
+        safety = {
+            fullname: True
+            for fullname in self.avro_named_types
+        }
+        changed = True
+        while changed:
+            changed = False
+            for fullname in sorted(self.avro_named_types):
+                if not safety[fullname]:
+                    continue
+                schema = self.avro_named_types[fullname]
+                namespace = fullname.rpartition('.')[0]
+                if not self.evaluate_json_round_trip_safe(
+                    schema,
+                    namespace,
+                    safety,
+                    owner=fullname,
+                ):
+                    safety[fullname] = False
+                    changed = True
+        self.json_round_trip_safety = safety
+
+    def is_json_round_trip_safe(
+        self,
+        avro_type,
+        namespace: str,
+        resolving=None,
+    ) -> bool:
+        """Checks whether generated untagged JSON has a deterministic branch."""
+        del resolving
+        self.ensure_json_round_trip_safety()
+        if isinstance(avro_type, str):
+            resolved = self.resolve_avro_named_type(avro_type, namespace)
+            if resolved:
+                fullname = self.avro_type_fullnames[id(resolved)]
+                return self.json_round_trip_safety[fullname]
+        if isinstance(avro_type, dict) and avro_type.get('name'):
+            fullname = self.avro_type_fullnames.get(id(avro_type))
+            if fullname in self.json_round_trip_safety:
+                return self.json_round_trip_safety[fullname]
+        return self.evaluate_json_round_trip_safe(
+            avro_type,
+            namespace,
+            self.json_round_trip_safety,
+        )
 
     def get_json_match_signature(
         self,

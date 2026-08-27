@@ -465,6 +465,40 @@ class TestAvroToRust(unittest.TestCase):
             ))
         self.assertLess(comparison_count, 200)
 
+    def test_named_json_safety_traversal_is_memoized(self):
+        """Evaluate repeated named-reference DAG edges once per conversion."""
+        converter = AvroToRust()
+        records = [
+            {
+                "type": "record",
+                "name": "Node0",
+                "namespace": "issue484.safety_dag",
+                "fields": [{"name": "value", "type": "string"}],
+            }
+        ]
+        for index in range(1, 18):
+            records.append({
+                "type": "record",
+                "name": f"Node{index}",
+                "namespace": "issue484.safety_dag",
+                "fields": [
+                    {"name": "left", "type": f"Node{index - 1}"},
+                    {"name": "right", "type": f"Node{index - 1}"},
+                ],
+            })
+        converter.index_avro_named_types(records)
+
+        with patch.object(
+            converter,
+            "resolve_avro_named_type",
+            wraps=converter.resolve_avro_named_type,
+        ) as resolve:
+            self.assertTrue(converter.is_json_round_trip_safe(
+                "Node17",
+                "issue484.safety_dag",
+            ))
+        self.assertLess(resolve.call_count, 100)
+
     def test_json_union_subset_records_reject_ambiguity(self):
         """Reject a record branch also accepted by a subset-field matcher."""
         rust_path = os.path.join(
@@ -555,6 +589,64 @@ class TestAvroToRust(unittest.TestCase):
             serde_annotation=True,
             xml_annotation=True,
         )
+
+    def test_partial_record_xml_ambiguity_uses_concrete_value(self):
+        """Allow A(None) but reject overlapping A(Some) in either union order."""
+        rust_path = self.run_convert_to_rust(
+            "rust-partial-xml-record-union",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "partial_xml_ambiguity.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_partial_xml_record_union::issue484::partial_xml::{\n"
+                "    a::A,\n"
+                "    forwardunion::ForwardUnion,\n"
+                "    reverseunion::ReverseUnion,\n"
+                "};\n\n"
+                "#[test]\n"
+                "fn optional_record_xml_ambiguity_uses_the_value_shape() {\n"
+                "    let forward_none = ForwardUnion::A(A { x: None });\n"
+                "    let forward_xml = quick_xml::se::to_string("
+                "&forward_none).unwrap();\n"
+                "    let forward_round_trip: ForwardUnion = "
+                "quick_xml::de::from_str(&forward_xml).unwrap();\n"
+                "    assert_eq!(forward_none, forward_round_trip);\n"
+                "    let reverse_none = ReverseUnion::A(A { x: None });\n"
+                "    let reverse_xml = quick_xml::se::to_string("
+                "&reverse_none).unwrap();\n"
+                "    let reverse_round_trip: ReverseUnion = "
+                "quick_xml::de::from_str(&reverse_xml).unwrap();\n"
+                "    assert_eq!(reverse_none, reverse_round_trip);\n"
+                "    let forward_some = ForwardUnion::A(A {\n"
+                "        x: Some(\"overlap\".into()),\n"
+                "    });\n"
+                "    let forward_error = quick_xml::se::to_string("
+                "&forward_some).unwrap_err();\n"
+                "    assert!(forward_error.to_string().contains("
+                "\"ambiguous XML union value\"));\n"
+                "    let reverse_some = ReverseUnion::A(A {\n"
+                "        x: Some(\"overlap\".into()),\n"
+                "    });\n"
+                "    let reverse_error = quick_xml::se::to_string("
+                "&reverse_some).unwrap_err();\n"
+                "    assert!(reverse_error.to_string().contains("
+                "\"ambiguous XML union value\"));\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test', '--test', 'partial_xml_ambiguity'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
 
     def test_named_type_resolution_requires_current_namespace(self):
         """Do not resolve unqualified names from unrelated namespaces."""

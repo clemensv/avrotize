@@ -75,6 +75,21 @@ impl Serialize for {{ union_enum_name }} {
                     return Err(serde::ser::Error::custom("ambiguous XML union value"));
                 }
                 {%- endif %}
+                {%- if xml_annotation and union_field.xml_check_value_ambiguity %}
+                if is_xml {
+                    let node = serde_json::to_value(value)
+                        .map_err(serde::ser::Error::custom)?;
+                    let match_count = 0usize
+                        {%- for candidate in union_fields %}
+                        + usize::from({{ candidate.json_match_predicate }})
+                        {%- endfor %};
+                    if match_count > 1 {
+                        return Err(serde::ser::Error::custom(
+                            "ambiguous XML union value"
+                        ));
+                    }
+                }
+                {%- endif %}
                 {%- if xml_annotation and union_field.xml_guard_string %}
                 if is_xml && (
                     {%- if xml_string_guards.bool %}
@@ -414,11 +429,11 @@ impl {{ union_enum_name }} {
 {%- set xml_safe_fields = union_fields | selectattr('xml_safe_for_random') | list %}
     pub fn generate_random_instance() -> {{ union_enum_name }} {
         let mut rng = rand::thread_rng();
-        {%- if xml_annotation and xml_safe_fields | length > 0 and xml_safe_fields | length < union_fields | length %}
-        // Avoid variants whose XML lexical form is inherently ambiguous.
+        {%- if xml_annotation and xml_safe_fields | length > 0 %}
+        // Use concrete values whose XML lexical form is unambiguous.
         match rand::Rng::gen_range(&mut rng, 0..{{ xml_safe_fields | length }}) {
             {%- for union_field in xml_safe_fields %}
-            {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }}),
+            {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}({{ union_field.xml_random_value }}),
             {%- endfor %}
             _ => panic!("Invalid random index generated"),
         }
