@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "name": "DatePayload",
+  "namespace": "example.issue466",
+  "fields": [
+    {
+      "name": "class",
+      "type": {
+        "type": "int",
+        "logicalType": "date"
+      }
+    },
+    {
+      "name": "updated_at",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    }
+  ]
+}

@@ -251,6 +251,136 @@ class TestAvroToPython(unittest.TestCase):
             assert restored.label == "station"
             assert json.loads(restored.to_byte_array("application/json")) == payload
 
+    def test_issue_466_date_json_entry_points_narrow_datetime_subclass(self):
+        """A datetime value in an Avro date field must use the date wire format."""
+        import datetime
+        import gzip
+        import json
+        from marshmallow import ValidationError
+
+        avro_path = os.path.join(
+            os.getcwd(), "test", "avsc", "issue-466-date.avsc")
+        py_path = tempfile.mkdtemp(prefix="avrotize-issue466-")
+        self.addCleanup(shutil.rmtree, py_path, True)
+
+        convert_avro_to_python(
+            avro_path, py_path, package_name="issue_466_date",
+            dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        self.addCleanup(sys.path.remove, generated_src)
+        module = importlib.import_module(
+            "issue_466_date.example.issue466.datepayload")
+        self.addCleanup(
+            lambda: [
+                sys.modules.pop(name, None)
+                for name in list(sys.modules)
+                if name == "issue_466_date"
+                or name.startswith("issue_466_date.")
+            ])
+        DatePayload = module.DatePayload
+
+        updated_at = datetime.datetime(
+            2026, 8, 27, 12, 34, 56, tzinfo=datetime.timezone.utc)
+        expected_payload = {
+            "class": "2026-08-27",
+            "updated_at": "2026-08-27T12:34:56+00:00",
+        }
+        schema_payload = {
+            "class_": expected_payload["class"],
+            "updated_at": expected_payload["updated_at"],
+        }
+
+        for date_value in (
+                datetime.date(2026, 8, 27),
+                datetime.datetime(2026, 8, 27, 23, 59, 58)):
+            with self.subTest(date_value_type=type(date_value).__name__):
+                record = DatePayload(class_=date_value, updated_at=updated_at)
+                json_bytes = record.to_byte_array("application/json")
+                compressed = record.to_byte_array("application/json+gzip")
+
+                producers = {
+                    "to_dict": (record.to_dict(), expected_payload),
+                    "to_json": (
+                        json.loads(record.to_json()), expected_payload),
+                    "schema.dump": (
+                        DatePayload.schema().dump(record), schema_payload),
+                    "schema.dumps": (
+                        json.loads(DatePayload.schema().dumps(record)),
+                        schema_payload),
+                    "to_byte_array": (
+                        json.loads(json_bytes), expected_payload),
+                    "to_byte_array+gzip": (
+                        json.loads(gzip.decompress(compressed)),
+                        expected_payload),
+                }
+                for label, (payload, expected) in producers.items():
+                    with self.subTest(producer=label):
+                        assert payload == expected
+
+                consumers = {
+                    "from_dict": lambda: DatePayload.from_dict(
+                        dict(expected_payload)),
+                    "from_json": lambda: DatePayload.from_json(
+                        json.dumps(expected_payload)),
+                    "schema.load": lambda: DatePayload.schema().load(
+                        dict(schema_payload)),
+                    "schema.loads": lambda: DatePayload.schema().loads(
+                        json.dumps(schema_payload)),
+                    "from_data(str)": lambda: DatePayload.from_data(
+                        json.dumps(expected_payload), "application/json"),
+                    "from_data(bytes)": lambda: DatePayload.from_data(
+                        json_bytes, "application/json"),
+                    "from_data(dict)": lambda: DatePayload.from_data(
+                        dict(expected_payload), "application/json"),
+                    "from_data+gzip": lambda: DatePayload.from_data(
+                        compressed, "application/json+gzip"),
+                    "from_serializer_dict": lambda:
+                        DatePayload.from_serializer_dict(
+                            dict(expected_payload)),
+                }
+                for label, load in consumers.items():
+                    with self.subTest(consumer=label):
+                        restored = load()
+                        assert restored.class_ == datetime.date(2026, 8, 27)
+                        assert type(restored.class_) is datetime.date
+                        assert restored.updated_at == updated_at
+                        assert type(restored.updated_at) is datetime.datetime
+
+        malformed = {
+            "class": "not-a-date",
+            "updated_at": expected_payload["updated_at"],
+        }
+        malformed_schema = {
+            "class_": malformed["class"],
+            "updated_at": malformed["updated_at"],
+        }
+        malformed_compressed = gzip.compress(
+            json.dumps(malformed).encode("utf-8"))
+        malformed_consumers = {
+            "from_dict": lambda: DatePayload.from_dict(dict(malformed)),
+            "from_json": lambda: DatePayload.from_json(json.dumps(malformed)),
+            "schema.load": lambda: DatePayload.schema().load(
+                dict(malformed_schema)),
+            "schema.loads": lambda: DatePayload.schema().loads(
+                json.dumps(malformed_schema)),
+            "from_data(str)": lambda: DatePayload.from_data(
+                json.dumps(malformed), "application/json"),
+            "from_data(bytes)": lambda: DatePayload.from_data(
+                json.dumps(malformed).encode("utf-8"), "application/json"),
+            "from_data(dict)": lambda: DatePayload.from_data(
+                dict(malformed), "application/json"),
+            "from_data+gzip": lambda: DatePayload.from_data(
+                malformed_compressed, "application/json+gzip"),
+            "from_serializer_dict": lambda: DatePayload.from_serializer_dict(
+                dict(malformed)),
+        }
+        for label, load in malformed_consumers.items():
+            with self.subTest(consumer=label, malformed=True):
+                with self.assertRaises((ValueError, ValidationError)):
+                    load()
+
     def test_issue_402_to_byte_array_application_json_returns_bytes(self):
         """ Issue #402: to_byte_array('application/json') must return bytes, not str.
 
