@@ -206,22 +206,22 @@ def _codec_branches(type_name: str, var: str, depth: int, encode: bool,
     if type_name == 'datetime.timedelta':
         if encode:
             return [(_PRIORITY_DURATION, f'isinstance({var}, datetime.timedelta)',
-                     f'str({var}.total_seconds())')]
+                     f'_format_duration({var})')]
         parsers.add('_parse_duration')
-        return [(_PRIORITY_DURATION, f'isinstance({var}, str)',
+        return [(_PRIORITY_DURATION, f'{var} is not None',
                  f'_parse_duration({var}, {{field_name}})')]
     if type_name == 'uuid.UUID':
         if encode:
             return [(_PRIORITY_UUID, f'isinstance({var}, uuid.UUID)', f'str({var})')]
         parsers.add('_parse_uuid')
-        return [(_PRIORITY_UUID, f'isinstance({var}, str)',
+        return [(_PRIORITY_UUID, f'{var} is not None',
                  f'_parse_uuid({var}, {{field_name}})')]
     if type_name == 'bytes':
         if encode:
             return [(_PRIORITY_BINARY, f'isinstance({var}, bytes)',
                      f"base64.b64encode({var}).decode('ascii')")]
         parsers.add('_parse_base64')
-        return [(_PRIORITY_BINARY, f'isinstance({var}, str)',
+        return [(_PRIORITY_BINARY, f'{var} is not None',
                  f'_parse_base64({var}, {{field_name}})')]
 
     generic = parse_generic_type(type_name)
@@ -853,6 +853,9 @@ class StructureToPython:
             json_parsers=json_parsers,
             uses_iso_parser=any(parser.startswith('_parse_iso_') for parser in json_parsers),
             needs_base64='_parse_base64' in json_parsers,
+            needs_decimal=('decimal.Decimal' in import_types
+                           or (self.dataclasses_json_annotation
+                               and '_parse_duration' in json_parsers)),
             mm_classes=mm_classes,
             import_types=sorted(import_types),
             base_package=self.base_package,

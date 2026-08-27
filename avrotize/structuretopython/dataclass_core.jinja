@@ -41,11 +41,9 @@ from {{ '.'.join(import_type.split('.')[:-1]) | lower }} import {{ import_type.s
 import datetime
 {%- endif %}
 {%- endfor %}
-{%- for import_type in import_types if import_type == 'decimal.Decimal' %}
-{%- if loop.first %}
+{%- if needs_decimal %}
 import decimal
 {%- endif %}
-{%- endfor %}
 {%- for import_type in import_types if import_type == 'uuid.UUID' %}
 {%- if loop.first %}
 import uuid
@@ -112,28 +110,79 @@ def _parse_iso_time(value: str, field_name: str) -> datetime.time:
             f"Invalid ISO 8601 time for field '{field_name}': {value!r}") from error
 
 {% elif parser == '_parse_duration' %}
-def _parse_duration(value: str, field_name: str) -> datetime.timedelta:
-    """ Parses a decimal total-seconds string, raising ValueError if it is malformed. """
+def _format_duration(value: datetime.timedelta) -> str:
+    """ Formats a timedelta as exact decimal total seconds. """
+    total_microseconds = (
+        (value.days * 86400 + value.seconds) * 1000000
+        + value.microseconds
+    )
+    sign = '-' if total_microseconds < 0 else ''
+    whole_seconds, microseconds = divmod(abs(total_microseconds), 1000000)
+    if microseconds:
+        fraction = f'{microseconds:06d}'.rstrip('0')
+        return f'{sign}{whole_seconds}.{fraction}'
+    return f'{sign}{whole_seconds}.0'
+
+
+def _parse_duration(value: typing.Any, field_name: str) -> datetime.timedelta:
+    """ Parses exact decimal total seconds, raising ValueError if invalid. """
+    if isinstance(value, datetime.timedelta):
+        return value
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Invalid decimal duration for field '{field_name}': "
+            f"expected a string or datetime.timedelta, got {type(value).__name__}")
     try:
-        return datetime.timedelta(seconds=float(value))
-    except (TypeError, ValueError, OverflowError) as error:
+        seconds = decimal.Decimal(value)
+        minimum = decimal.Decimal(-999999999 * 86400)
+        maximum = (
+            decimal.Decimal(999999999 * 86400 + 86399)
+            + decimal.Decimal('0.999999')
+        )
+        if not seconds.is_finite() or not minimum <= seconds <= maximum:
+            raise decimal.InvalidOperation
+        with decimal.localcontext() as context:
+            context.prec = max(len(seconds.as_tuple().digits) + 6, 28)
+            total_microseconds = seconds * decimal.Decimal(1000000)
+        if total_microseconds != total_microseconds.to_integral_value():
+            raise decimal.InvalidOperation
+        return datetime.timedelta(microseconds=int(total_microseconds))
+    except (decimal.InvalidOperation, ValueError, OverflowError) as error:
         raise ValueError(
             f"Invalid decimal duration for field '{field_name}': {value!r}") from error
 
 {% elif parser == '_parse_uuid' %}
-def _parse_uuid(value: str, field_name: str) -> uuid.UUID:
-    """ Parses a UUID string, raising ValueError if it is malformed. """
+def _parse_uuid(value: typing.Any, field_name: str) -> uuid.UUID:
+    """ Parses a canonical UUID string, raising ValueError if invalid. """
+    if isinstance(value, uuid.UUID):
+        return value
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Invalid UUID for field '{field_name}': "
+            f"expected a canonical string or uuid.UUID, got {type(value).__name__}")
     try:
-        return uuid.UUID(value)
-    except (AttributeError, TypeError, ValueError) as error:
+        parsed = uuid.UUID(value)
+        if value != str(parsed):
+            raise ValueError('UUID is not in canonical hyphenated form')
+        return parsed
+    except ValueError as error:
         raise ValueError(
             f"Invalid UUID for field '{field_name}': {value!r}") from error
 
 {% elif parser == '_parse_base64' %}
-def _parse_base64(value: str, field_name: str) -> bytes:
-    """ Parses strict RFC 4648 base64, raising ValueError if it is malformed. """
+def _parse_base64(value: typing.Any, field_name: str) -> bytes:
+    """ Parses canonical RFC 4648 base64, raising ValueError if invalid. """
+    if isinstance(value, bytes):
+        return value
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Invalid RFC 4648 base64 for field '{field_name}': "
+            f"expected a canonical string or bytes, got {type(value).__name__}")
     try:
-        return base64.b64decode(value, validate=True)
+        decoded = base64.b64decode(value, validate=True)
+        if value != base64.b64encode(decoded).decode('ascii'):
+            raise ValueError('base64 is not in canonical RFC 4648 form')
+        return decoded
     except (TypeError, ValueError) as error:
         raise ValueError(
             f"Invalid RFC 4648 base64 for field '{field_name}': {value!r}") from error
@@ -221,7 +270,7 @@ class _DurationField(fields.String):
         if value is None:
             return None
         if isinstance(value, datetime.timedelta):
-            return str(value.total_seconds())
+            return _format_duration(value)
         return value
 
     def _deserialize(self, value, attr, data, **kwargs):

@@ -1975,7 +1975,8 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         for field_class in ("_DurationField", "_UuidField", "_Base64Field"):
             assert f"mm_field={field_class}(" in source, \
                 f"{field_class} metadata missing:\n{source}"
-        assert "datetime.timedelta(seconds=float(" in source, source
+        assert "def _format_duration(" in source, source
+        assert "decimal.Decimal(" in source, source
         assert "uuid.UUID(" in source, source
         assert "base64.b64decode(" in source and "validate=True" in source, source
         assert "from marshmallow import fields, ValidationError" in source, source
@@ -2068,10 +2069,15 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
         malformed = (
             ("duration", "ninety seconds"),
             ("uuid", "not-a-uuid"),
+            ("uuid", "12345678123456781234567812345678"),
+            ("uuid", "12345678-1234-5678-9ABC-DEF012345678"),
+            ("uuid", "{12345678-1234-5678-1234-567812345678}"),
+            ("uuid", "urn:uuid:12345678-1234-5678-1234-567812345678"),
             ("binary", "not base64!"),
             ("binary", "YQ"),
             ("binary", "YQ==\n"),
             ("binary", "-_8="),
+            ("binary", "YR=="),
         )
 
         for field_name, bad_value in malformed:
@@ -2093,6 +2099,96 @@ for name, obj in inspect.getmembers(sys.modules['{module_name}']):
                         call()
                     assert not isinstance(caught.exception, AttributeError), \
                         f"{label} leaked AttributeError for {field_name}"
+
+    def test_issue_465_non_string_values_are_rejected_by_all_json_entry_points(self):
+        """Invalid fixtures: only null and the expected already-typed value pass through."""
+        schema = {
+            "type": "object",
+            "name": "StrictWireTypes",
+            "namespace": "test.issue465",
+            "properties": {
+                "duration": {"type": "duration"},
+                "uuid": {"type": "uuid"},
+                "binary": {"type": "binary"},
+            },
+            "required": ["duration", "uuid", "binary"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_invalid_types")
+        module = self._import_generated(
+            src_dir, "test_issue465_invalid_types.test.issue465.strictwiretypes")
+        valid = {
+            "duration": "90.5",
+            "uuid": "12345678-1234-5678-1234-567812345678",
+            "binary": "AP9hYmM=",
+        }
+
+        for field_name in valid:
+            for bad_value in (True, 1, 1.5, [], {}):
+                raw = {**valid, field_name: bad_value}
+                text = json.dumps(raw)
+                entry_points = {
+                    "from_json": lambda: module.StrictWireTypes.from_json(text),
+                    "schema().loads": lambda: module.StrictWireTypes.schema().loads(text),
+                    "from_data(bytes)": lambda: module.StrictWireTypes.from_data(
+                        text.encode("utf-8"), "application/json"),
+                    "from_data(dict)": lambda: module.StrictWireTypes.from_data(
+                        dict(raw), "application/json"),
+                    "from_serializer_dict":
+                        lambda: module.StrictWireTypes.from_serializer_dict(dict(raw)),
+                }
+                for label, call in entry_points.items():
+                    with self.subTest(
+                            field=field_name, value=bad_value,
+                            entry_point=label):
+                        with self.assertRaises(Exception) as caught:
+                            call()
+                        assert field_name in str(caught.exception), \
+                            f"{label} error did not identify {field_name}: {caught.exception}"
+
+    def test_issue_465_duration_uses_exact_decimal_microseconds(self):
+        """Boundary fixtures: float conversion must not alter a timedelta by a microsecond."""
+        schema = {
+            "type": "object",
+            "name": "ExactDuration",
+            "namespace": "test.issue465",
+            "properties": {"value": {"type": "duration"}},
+            "required": ["value"],
+        }
+        src_dir, _source = self._generate_issue_465_module(
+            schema, "test_issue465_exact_duration")
+        module = self._import_generated(
+            src_dir, "test_issue465_exact_duration.test.issue465.exactduration")
+        fixtures = (
+            (datetime.timedelta(seconds=90.5), "90.5"),
+            (datetime.timedelta(microseconds=-1), "-0.000001"),
+            (datetime.timedelta(days=100000, microseconds=1),
+             "8640000000.000001"),
+            (datetime.timedelta(days=-100000, microseconds=1),
+             "-8639999999.999999"),
+        )
+
+        for value, expected_wire in fixtures:
+            with self.subTest(value=value):
+                record = module.ExactDuration(value=value)
+                text = record.to_json()
+                assert json.loads(text)["value"] == expected_wire, text
+                assert json.loads(module.ExactDuration.schema().dumps(record))[
+                    "value"] == expected_wire
+                assert json.loads(record.to_byte_array("application/json"))[
+                    "value"] == expected_wire
+
+                raw = {"value": expected_wire}
+                for restored in (
+                        module.ExactDuration.from_json(text),
+                        module.ExactDuration.schema().loads(text),
+                        module.ExactDuration.from_data(
+                            text.encode("utf-8"), "application/json"),
+                        module.ExactDuration.from_data(
+                            dict(raw), "application/json"),
+                        module.ExactDuration.from_serializer_dict(dict(raw))):
+                    assert restored == record, \
+                        f"{expected_wire} restored as {restored.value!r}"
 
     def test_issue_465_typed_serializer_dict_is_not_mutated(self):
         """Already-typed fixture: guarded decoders preserve values and caller data."""
