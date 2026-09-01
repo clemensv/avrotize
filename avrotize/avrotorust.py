@@ -2224,6 +2224,9 @@ class AvroToRust:
                 or (scalar_kind == 'integer' and 'float' in present_scalar_kinds)
             )
             field['xml_check_value_ambiguity'] = json_ambiguous
+            field['xml_requires_runtime_probe'] = (
+                json_ambiguous or field['xml_reject_value']
+            )
             default_is_ambiguous = sum(
                 1 for candidate in union_fields
                 if self.json_match_accepts_shape(

@@ -819,6 +819,26 @@ impl<'de> Deserializer<'de> for XmlValue {
 thread_local! {
     static XML_UNION_PROBE_DEPTH: Cell<usize> = const { Cell::new(0) };
     static XML_UNION_DESERIALIZE_DEPTH: Cell<usize> = const { Cell::new(0) };
+    #[cfg(test)]
+    static XML_UNION_SERIALIZATION_PROBE_COUNT: Cell<usize> =
+        const { Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn record_xml_union_serialization_probe() {
+    XML_UNION_SERIALIZATION_PROBE_COUNT.with(
+        |count| count.set(count.get() + 1)
+    );
+}
+
+#[cfg(test)]
+pub(crate) fn reset_xml_union_serialization_probe_count() {
+    XML_UNION_SERIALIZATION_PROBE_COUNT.with(|count| count.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn xml_union_serialization_probe_count() -> usize {
+    XML_UNION_SERIALIZATION_PROBE_COUNT.with(Cell::get)
 }
 
 pub(crate) fn xml_union_probe_active() -> bool {

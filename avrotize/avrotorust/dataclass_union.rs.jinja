@@ -122,6 +122,8 @@ fn xml_candidate_matches(matches: bool) -> bool {
 
 impl {{ union_enum_name }} {
     fn xml_probe_matches_selected(&self) -> bool {
+        #[cfg(test)]
+        crate::xml_support::record_xml_union_serialization_probe();
         match self {
             {%- for union_field in union_fields %}
             {{ union_enum_name }}::{{ union_field.name }}(value) => {
@@ -239,6 +241,7 @@ impl Serialize for {{ union_enum_name }} {
                 {%- if xml_annotation %}
                 if is_xml
                     && !crate::xml_support::xml_union_probe_active()
+                    && {{ union_field.xml_requires_runtime_probe | lower }}
                     && !self.xml_probe_matches_selected()
                 {
                     return Err(serde::ser::Error::custom(

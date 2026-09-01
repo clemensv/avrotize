@@ -1364,6 +1364,15 @@ class TestAvroToRust(unittest.TestCase):
                 ],
             }],
         })
+        records.append({
+            "type": "record",
+            "name": "PairHolder",
+            "namespace": "issue484.candidate_memory",
+            "fields": [{
+                "name": "pair",
+                "type": ["AmbiguousRecord0", "AmbiguousRecord1"],
+            }],
+        })
         convert_avro_schema_to_rust(
             records,
             rust_path,
@@ -1378,7 +1387,7 @@ class TestAvroToRust(unittest.TestCase):
             "candidate_memory",
             "unionpath*.rs",
         ))
-        self.assertEqual(2, len(union_files))
+        self.assertEqual(3, len(union_files))
         sources = {}
         for union_file in union_files:
             with open(union_file, encoding="utf-8") as generated_file:
@@ -1391,6 +1400,13 @@ class TestAvroToRust(unittest.TestCase):
             file for file, source in sources.items()
             if "::AmbiguousRecord15" in source
         )
+        pair_file = next(
+            file for file, source in sources.items()
+            if (
+                "::AmbiguousRecord1" in source
+                and "::AmbiguousRecord15" not in source
+            )
+        )
         selected_source = sources[selected_file]
         ambiguous_source = sources[ambiguous_file]
         selected_type = re.search(
@@ -1401,7 +1417,6 @@ class TestAvroToRust(unittest.TestCase):
             r"pub enum (\w+)",
             ambiguous_source,
         ).group(1)
-
         for source in sources.values():
             self.assertNotIn("node.clone()", source)
             self.assertNotIn("content.clone()", source)
@@ -1480,6 +1495,8 @@ class TestAvroToRust(unittest.TestCase):
                 "mod borrowed_candidate_regression {\n"
                 "    use super::*;\n"
                 "    use crate::allocation_counter::measure;\n\n"
+                "    use crate::issue484::candidate_memory::"
+                "selectedrecord15::SelectedRecord15;\n\n"
                 "    #[test]\n"
                 "    fn near_limit_payload_is_borrowed_until_selection() {\n"
                 "        const PAYLOAD_SIZE: usize = 15 * 1024 * 1024;\n"
@@ -1509,6 +1526,33 @@ class TestAvroToRust(unittest.TestCase):
                 "\"XML probe allocated {xml_bytes} bytes\");\n"
                 "        eprintln!(\"borrowed-probe allocations: "
                 "json={json_bytes}, xml={xml_bytes}\");\n"
+                "\n"
+                "        let direct = SelectedRecord15 {\n"
+                "            blob: \"x\".repeat(PAYLOAD_SIZE),\n"
+                "            marker15: \"selected\".into(),\n"
+                "        };\n"
+                f"        let union = {selected_type}::SelectedRecord15(\n"
+                "            SelectedRecord15 {\n"
+                "                blob: \"x\".repeat(PAYLOAD_SIZE),\n"
+                "                marker15: \"selected\".into(),\n"
+                "            },\n"
+                "        );\n"
+                "        let (direct_xml, direct_bytes) = measure(||\n"
+                "            quick_xml::se::to_string(&direct).unwrap()\n"
+                "        );\n"
+                "        crate::xml_support::reset_xml_union_serialization_probe_count();\n"
+                "        let (union_xml, union_bytes) = measure(||\n"
+                "            quick_xml::se::to_string(&union).unwrap()\n"
+                "        );\n"
+                "        assert_eq!(direct_xml, union_xml);\n"
+                "        assert_eq!(\n"
+                "            0,\n"
+                "            crate::xml_support::xml_union_serialization_probe_count(),\n"
+                "        );\n"
+                "        assert!(union_bytes <= direct_bytes + 4096,\n"
+                "            \"disjoint union allocated {union_bytes} vs {direct_bytes}\");\n"
+                "        eprintln!(\"disjoint serialization allocations: "
+                "direct={direct_bytes}, union={union_bytes}\");\n"
                 "    }\n"
                 "}\n"
             )
@@ -1518,6 +1562,10 @@ class TestAvroToRust(unittest.TestCase):
                 "mod identical_candidate_regression {\n"
                 "    use super::*;\n"
                 "    use crate::allocation_counter::measure;\n\n"
+                "    use crate::issue484::candidate_memory::{\n"
+                "        ambiguousrecord0::AmbiguousRecord0,\n"
+                "        pairunion::PairUnion,\n"
+                "    };\n\n"
                 "    #[test]\n"
                 "    fn identical_near_limit_records_do_not_clone_payload() {\n"
                 "        const PAYLOAD_SIZE: usize = 15 * 1024 * 1024;\n"
@@ -1545,6 +1593,40 @@ class TestAvroToRust(unittest.TestCase):
                 "\"XML probes allocated {xml_bytes} bytes\");\n"
                 "        eprintln!(\"identical-record allocations: "
                 "json={json_bytes}, xml={xml_bytes}\");\n"
+                "\n"
+                "        let pair = PairUnion::AmbiguousRecord0(\n"
+                "            AmbiguousRecord0 {\n"
+                "                blob: \"x\".repeat(PAYLOAD_SIZE),\n"
+                "            },\n"
+                "        );\n"
+                f"        let wide = {ambiguous_type}::AmbiguousRecord0(\n"
+                "            AmbiguousRecord0 {\n"
+                "                blob: \"x\".repeat(PAYLOAD_SIZE),\n"
+                "            },\n"
+                "        );\n"
+                "        crate::xml_support::reset_xml_union_serialization_probe_count();\n"
+                "        let (pair_result, pair_bytes) = measure(||\n"
+                "            quick_xml::se::to_string(&pair)\n"
+                "        );\n"
+                "        assert!(pair_result.is_err());\n"
+                "        assert_eq!(\n"
+                "            1,\n"
+                "            crate::xml_support::xml_union_serialization_probe_count(),\n"
+                "        );\n"
+                "        crate::xml_support::reset_xml_union_serialization_probe_count();\n"
+                "        let (wide_result, wide_bytes) = measure(||\n"
+                "            quick_xml::se::to_string(&wide)\n"
+                "        );\n"
+                "        assert!(wide_result.is_err());\n"
+                "        assert_eq!(\n"
+                "            1,\n"
+                "            crate::xml_support::xml_union_serialization_probe_count(),\n"
+                "        );\n"
+                "        assert!(wide_bytes <= pair_bytes + 1024 * 1024,\n"
+                "            \"16 candidates allocated {wide_bytes} vs "
+                "2 candidates {pair_bytes}\");\n"
+                "        eprintln!(\"ambiguous serialization allocations: "
+                "pair={pair_bytes}, wide={wide_bytes}\");\n"
                 "    }\n"
                 "}\n"
             )
@@ -1710,6 +1792,99 @@ class TestAvroToRust(unittest.TestCase):
                 'deep_payload_visits_follow_matching_discriminators',
                 '--',
                 '--test-threads=1',
+            ],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
+    def test_nested_xml_serialization_probes_each_boundary_once(self):
+        """Probe one outer and one inner ambiguous XML union boundary."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-nested-xml-probe-count",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "record",
+                "name": "NestedValue",
+                "namespace": "issue484.nested_probe",
+                "fields": [{
+                    "name": "inner",
+                    "type": ["int", "long"],
+                }],
+            }, {
+                "type": "record",
+                "name": "IntValue",
+                "namespace": "issue484.nested_probe",
+                "fields": [{"name": "inner", "type": "int"}],
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.nested_probe",
+                "fields": [{
+                    "name": "choice",
+                    "type": ["NestedValue", "IntValue"],
+                }],
+            }],
+            rust_path,
+            package_name="rust-nested-xml-probe-count",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        namespace_dir = os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "nested_probe",
+        )
+        union_files = glob.glob(os.path.join(namespace_dir, "unionpath*.rs"))
+        outer_file = None
+        for union_file in union_files:
+            with open(union_file, encoding="utf-8") as generated:
+                if "::NestedValue" in generated.read():
+                    outer_file = union_file
+                    break
+        self.assertIsNotNone(outer_file)
+        with open(outer_file, encoding="utf-8") as generated:
+            outer_source = generated.read()
+        outer_type = re.search(r"pub enum (\w+)", outer_source).group(1)
+        with open(outer_file, "a", encoding="utf-8") as generated:
+            generated.write(
+                "\n#[cfg(test)]\n"
+                "mod nested_probe_regression {\n"
+                "    use super::*;\n"
+                "    use crate::issue484::nested_probe::{\n"
+                "        innerunion::InnerUnion,\n"
+                "        nestedvalue::NestedValue,\n"
+                "    };\n\n"
+                "    #[test]\n"
+                "    fn each_ambiguous_boundary_probes_once() {\n"
+                f"        let value = {outer_type}::NestedValue(NestedValue {{\n"
+                "            inner: InnerUnion::I64(2_147_483_648),\n"
+                "        });\n"
+                "        crate::xml_support::"
+                "reset_xml_union_serialization_probe_count();\n"
+                "        let xml = quick_xml::se::to_string(&value).unwrap();\n"
+                "        assert!(xml.contains(\"2147483648\"));\n"
+                "        assert_eq!(\n"
+                "            2,\n"
+                "            crate::xml_support::"
+                "xml_union_serialization_probe_count(),\n"
+                "        );\n"
+                "    }\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            [
+                'cargo',
+                'test',
+                '--lib',
+                'each_ambiguous_boundary_probes_once',
             ],
             cwd=rust_path,
             stdout=sys.stdout,
