@@ -2319,6 +2319,28 @@ class AvroToRust:
                     namespace,
                 )
             )
+        xml_match_groups = {}
+        for index, field in enumerate(union_fields):
+            group_key = (
+                field['json_match_signature'],
+                field['json_shape_signature'],
+                field['xml_representation'],
+                (
+                    None
+                    if field['xml_representation'] == 'record'
+                    else field['type']
+                ),
+            )
+            group = xml_match_groups.setdefault(group_key, {
+                'indexes': [],
+                'match_predicate': field[
+                    'xml_borrowed_match_predicate'
+                ],
+                'canonical_predicate': field[
+                    'xml_canonical_match_predicate'
+                ],
+            })
+            group['indexes'].append(index)
         xml_string_guards = {
             'bool': 'bool' in present_scalar_kinds,
             'integer': 'integer' in present_scalar_kinds,
@@ -2361,6 +2383,7 @@ class AvroToRust:
                 field['json_match_predicate']
                 for field in union_fields
             ],
+            'xml_match_groups': list(xml_match_groups.values()),
         }
 
         file_name = self.to_file_name(qualified_union_enum_name)

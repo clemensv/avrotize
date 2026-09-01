@@ -148,14 +148,18 @@ impl {{ union_enum_name }} {
                     Ok(probe) => probe.value,
                     Err(_) => return false,
                 };
-                let candidate_matches = [
-                {%- for candidate in union_fields %}
-                    xml_candidate_matches({
+                let mut candidate_matches = [false; {{ union_fields | length }}];
+                {%- for group in xml_match_groups %}
+                let group_matches = xml_candidate_matches({
                     let node = &content;
-                    {{ candidate.xml_borrowed_match_predicate }}
-                    }),
+                    {{ group.match_predicate }}
+                    });
+                if group_matches {
+                    {%- for index in group.indexes %}
+                    candidate_matches[{{ index }}] = true;
+                    {%- endfor %}
+                }
                 {%- endfor %}
-                ];
                 let match_count = candidate_matches
                     .iter()
                     .filter(|matches| **matches)
@@ -166,14 +170,22 @@ impl {{ union_enum_name }} {
                 let selected_variant = if match_count == 1 {
                     matched_variant
                 } else {
-                    let canonical_matches = [
-                {%- for candidate in union_fields %}
-                    candidate_matches[{{ loop.index0 }}] && {
-                    let node = &content;
-                    {{ candidate.xml_canonical_match_predicate }}
-                    },
-                {%- endfor %}
+                    let mut canonical_matches = [
+                    false;
+                    {{ union_fields | length }}
                     ];
+                {%- for group in xml_match_groups %}
+                    let group_matches =
+                    candidate_matches[{{ group.indexes[0] }}] && {
+                    let node = &content;
+                    {{ group.canonical_predicate }}
+                    };
+                    if group_matches {
+                    {%- for index in group.indexes %}
+                    canonical_matches[{{ index }}] = true;
+                    {%- endfor %}
+                    }
+                {%- endfor %}
                     (canonical_matches
                     .iter()
                     .filter(|matches| **matches)
@@ -277,14 +289,18 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             let content = crate::xml_support::XmlValue::deserialize(
                 deserializer
             )?;
-            let candidate_matches = [
-            {%- for union_field in union_fields %}
-                xml_candidate_matches({
+            let mut candidate_matches = [false; {{ union_fields | length }}];
+            {%- for group in xml_match_groups %}
+            let group_matches = xml_candidate_matches({
                     let node = &content;
-                    {{ union_field.xml_borrowed_match_predicate }}
-                }),
+                    {{ group.match_predicate }}
+                });
+            if group_matches {
+                {%- for index in group.indexes %}
+                candidate_matches[{{ index }}] = true;
+                {%- endfor %}
+            }
             {%- endfor %}
-            ];
             let match_count = candidate_matches
                 .iter()
                 .filter(|matches| **matches)
@@ -295,14 +311,22 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             let selected_variant = if match_count == 1 {
                 matched_variant
             } else {
-                let canonical_matches = [
-                {%- for union_field in union_fields %}
-                    candidate_matches[{{ loop.index0 }}] && {
-                        let node = &content;
-                        {{ union_field.xml_canonical_match_predicate }}
-                    },
-                {%- endfor %}
+                let mut canonical_matches = [
+                    false;
+                    {{ union_fields | length }}
                 ];
+                {%- for group in xml_match_groups %}
+                let group_matches =
+                    candidate_matches[{{ group.indexes[0] }}] && {
+                        let node = &content;
+                        {{ group.canonical_predicate }}
+                    };
+                if group_matches {
+                    {%- for index in group.indexes %}
+                    canonical_matches[{{ index }}] = true;
+                    {%- endfor %}
+                }
+                {%- endfor %}
                 if canonical_matches
                     .iter()
                     .filter(|matches| **matches)
@@ -590,18 +614,18 @@ impl {{ union_enum_name }} {
     ) -> bool {
         let content = node;
         let match_count = 0usize
-            {%- for union_field in union_fields %}
-            + usize::from({
+            {%- for group in xml_match_groups %}
+            + if {
                 let node = content;
-                {{ union_field.xml_borrowed_match_predicate }}
-            })
+                {{ group.match_predicate }}
+            } { {{ group.indexes | length }} } else { 0 }
             {%- endfor %};
         let canonical_count = 0usize
-            {%- for union_field in union_fields %}
-            + usize::from({
+            {%- for group in xml_match_groups %}
+            + if {
                 let node = content;
-                {{ union_field.xml_canonical_match_predicate }}
-            })
+                {{ group.canonical_predicate }}
+            } { {{ group.indexes | length }} } else { 0 }
             {%- endfor %};
         canonical_count == 1 || (canonical_count == 0 && match_count == 1)
     }
@@ -611,11 +635,11 @@ impl {{ union_enum_name }} {
     ) -> bool {
         let content = node;
         let canonical_count = 0usize
-            {%- for union_field in union_fields %}
-            + usize::from({
+            {%- for group in xml_match_groups %}
+            + if {
                 let node = content;
-                {{ union_field.xml_canonical_match_predicate }}
-            })
+                {{ group.canonical_predicate }}
+            } { {{ group.indexes | length }} } else { 0 }
             {%- endfor %};
         canonical_count == 1
     }

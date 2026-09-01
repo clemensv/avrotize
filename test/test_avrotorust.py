@@ -1690,7 +1690,7 @@ class TestAvroToRust(unittest.TestCase):
                 f"        let (result, xml_bytes) = measure(|| "
                 f"quick_xml::de::from_str::<{ambiguous_type}>(&xml));\n"
                 "        assert!(result.is_err());\n"
-                f"        assert_eq!((0, {candidate_count}, 0, 0), "
+                "        assert_eq!((0, 1, 0, 0), "
                 "candidate_test_counts());\n"
                 "        assert!(xml_bytes < PAYLOAD_SIZE + 1024 * 1024, "
                 "\"XML probes allocated {xml_bytes} bytes\");\n"
@@ -1895,6 +1895,201 @@ class TestAvroToRust(unittest.TestCase):
                 'deep_payload_visits_follow_matching_discriminators',
                 '--',
                 '--test-threads=1',
+            ],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
+    def test_xml_candidate_interning_bounds_identical_deep_predicates(self):
+        """Evaluate equivalent deep XML predicates once for 2 or 16 branches."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-xml-candidate-interning",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        candidate_count = 16
+        item_count = 2048
+        namespace = "issue484.xml_interning"
+        schemas = [{
+            "type": "record",
+            "name": f"Deep{index}",
+            "namespace": namespace,
+            "fields": [{
+                "name": "payload",
+                "type": {"type": "array", "items": "long"},
+            }],
+        } for index in range(candidate_count)]
+        for index in range(candidate_count):
+            schemas.append({
+                "type": "record",
+                "name": f"Nested{index}",
+                "namespace": namespace,
+                "fields": [{
+                    "name": "inner",
+                    "type": [
+                        f"Deep{branch}"
+                        for branch in range(candidate_count)
+                    ],
+                }],
+            })
+        schemas.extend([{
+            "type": "record",
+            "name": "DirectPairHolder",
+            "namespace": namespace,
+            "fields": [{
+                "name": "directPair",
+                "type": ["Deep0", "Deep1"],
+            }],
+        }, {
+            "type": "record",
+            "name": "DirectWideHolder",
+            "namespace": namespace,
+            "fields": [{
+                "name": "directWide",
+                "type": [
+                    f"Deep{index}"
+                    for index in range(candidate_count)
+                ],
+            }],
+        }, {
+            "type": "record",
+            "name": "NestedPairHolder",
+            "namespace": namespace,
+            "fields": [{
+                "name": "nestedPair",
+                "type": ["Nested0", "Nested1"],
+            }],
+        }, {
+            "type": "record",
+            "name": "NestedWideHolder",
+            "namespace": namespace,
+            "fields": [{
+                "name": "nestedWide",
+                "type": [
+                    f"Nested{index}"
+                    for index in range(candidate_count)
+                ],
+            }],
+        }])
+        convert_avro_schema_to_rust(
+            schemas,
+            rust_path,
+            package_name="rust-xml-candidate-interning",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        with open(
+            os.path.join(rust_path, "src", "lib.rs"),
+            "a",
+            encoding="utf-8",
+        ) as lib_file:
+            lib_file.write(
+                "\n#[cfg(test)]\n"
+                "pub(crate) mod probe_visits {\n"
+                "    use std::sync::atomic::{AtomicUsize, Ordering};\n"
+                "    static VISITS: AtomicUsize = AtomicUsize::new(0);\n"
+                "    pub fn record() { VISITS.fetch_add(1, Ordering::Relaxed); }\n"
+                "    pub fn reset() { VISITS.store(0, Ordering::Relaxed); }\n"
+                "    pub fn get() -> usize { VISITS.load(Ordering::Relaxed) }\n"
+                "}\n"
+            )
+        xml_support_file = os.path.join(rust_path, "src", "xml_support.rs")
+        with open(xml_support_file, encoding="utf-8") as generated:
+            xml_support = generated.read()
+        xml_support = xml_support.replace(
+            "XmlValue::Seq(values) => values.iter().all(matches),",
+            "XmlValue::Seq(values) => values.iter()"
+            ".inspect(|_| crate::probe_visits::record()).all(matches),",
+        )
+        with open(xml_support_file, "w", encoding="utf-8") as generated:
+            generated.write(xml_support)
+
+        namespace_dir = os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "xml_interning",
+        )
+        union_metadata = []
+        for union_file in glob.glob(os.path.join(
+            namespace_dir,
+            "unionpath*.rs",
+        )):
+            with open(union_file, encoding="utf-8") as generated:
+                source = generated.read()
+            union_metadata.append((
+                union_file,
+                path.splitext(path.basename(union_file))[0],
+                re.search(r"pub enum (\w+)", source).group(1),
+                source,
+            ))
+
+        def find_union(required, excluded=None):
+            return next(
+                metadata for metadata in union_metadata
+                if required in metadata[3]
+                and (excluded is None or excluded not in metadata[3])
+            )
+
+        direct_pair = find_union("::Deep1", "::Deep15")
+        direct_wide = find_union("::Deep15")
+        nested_pair = find_union("::Nested1", "::Nested15")
+        nested_wide = find_union("::Nested15")
+        with open(direct_wide[0], "a", encoding="utf-8") as generated:
+            generated.write(
+                "\n#[cfg(test)]\n"
+                "mod equivalent_predicate_regression {\n"
+                "    use super::*;\n"
+                "    use crate::probe_visits;\n"
+                f"    use crate::issue484::xml_interning::"
+                f"{direct_pair[1]}::{direct_pair[2]} as PairUnion;\n"
+                f"    use crate::issue484::xml_interning::"
+                f"{nested_pair[1]}::{nested_pair[2]} as NestedPairUnion;\n"
+                f"    use crate::issue484::xml_interning::"
+                f"{nested_wide[1]}::{nested_wide[2]} as NestedWideUnion;\n\n"
+                "    fn payload() -> String {\n"
+                f"        (0..{item_count})\n"
+                "            .map(|value| format!(\"<payload>{value}</payload>\"))\n"
+                "            .collect()\n"
+                "    }\n\n"
+                "    fn visits<T>(xml: &str) -> usize\n"
+                "    where T: serde::de::DeserializeOwned {\n"
+                "        probe_visits::reset();\n"
+                "        assert!(quick_xml::de::from_str::<T>(xml).is_err());\n"
+                "        probe_visits::get()\n"
+                "    }\n\n"
+                "    #[test]\n"
+                "    fn equivalent_predicates_are_branch_count_independent() {\n"
+                "        let direct_xml = format!(\"<Choice>{}</Choice>\", payload());\n"
+                "        let pair = visits::<PairUnion>(&direct_xml);\n"
+                f"        let wide = visits::<{direct_wide[2]}>(&direct_xml);\n"
+                f"        assert_eq!({2 * item_count}, pair);\n"
+                "        assert_eq!(pair, wide);\n\n"
+                "        let nested_xml = format!(\n"
+                "            \"<Choice><inner>{}</inner></Choice>\", payload()\n"
+                "        );\n"
+                "        let nested_pair = visits::<NestedPairUnion>(&nested_xml);\n"
+                "        let nested_wide = visits::<NestedWideUnion>(&nested_xml);\n"
+                "        assert_eq!(nested_pair, nested_wide);\n"
+                f"        assert!(nested_wide <= {4 * item_count});\n"
+                "        eprintln!(\"predicate visits: direct={wide}, "
+                "nested={nested_wide}\");\n"
+                "    }\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            [
+                'cargo',
+                'test',
+                '--lib',
+                'equivalent_predicates_are_branch_count_independent',
+                '--',
+                '--test-threads=1',
+                '--nocapture',
             ],
             cwd=rust_path,
             stdout=sys.stdout,
