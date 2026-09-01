@@ -519,6 +519,109 @@ class TestAvroToRust(unittest.TestCase):
         self.assertEqual(depth, stats["dependency_notifications"])
         self.assertEqual(depth + 1, stats["queue_pushes"])
 
+    def test_empty_maps_overlap_across_distinct_value_types(self):
+        """Treat the realizable empty map as accepted by every map matcher."""
+        converter = AvroToRust()
+        int_map = {"type": "map", "values": "int"}
+        string_map = {"type": "map", "values": "string"}
+        self.assertTrue(converter.json_match_accepts_shape(
+            converter.get_json_match_signature(int_map, "issue484.empty_map"),
+            converter.get_json_shape_signature(
+                string_map,
+                "issue484.empty_map",
+            ),
+        ))
+        self.assertTrue(converter.json_match_accepts_shape(
+            converter.get_json_match_signature(
+                string_map,
+                "issue484.empty_map",
+            ),
+            converter.get_json_shape_signature(int_map, "issue484.empty_map"),
+        ))
+
+    def test_empty_map_record_union_rejects_only_empty_ambiguity(self):
+        """Reject empty maps while retaining unique nonempty value matches."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-empty-map-union",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "record",
+                "name": "IntMap",
+                "namespace": "issue484.empty_map",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "map", "values": "int"},
+                }],
+            }, {
+                "type": "record",
+                "name": "StringMap",
+                "namespace": "issue484.empty_map",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "map", "values": "string"},
+                }],
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.empty_map",
+                "fields": [{
+                    "name": "choice",
+                    "type": ["IntMap", "StringMap"],
+                }],
+            }],
+            rust_path,
+            package_name="rust-empty-map-union",
+            serde_annotation=True,
+        )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "empty_map.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_empty_map_union::issue484::empty_map::{\n"
+                "    choiceunion::ChoiceUnion,\n"
+                "    intmap::IntMap,\n"
+                "    stringmap::StringMap,\n"
+                "};\n"
+                "use std::collections::HashMap;\n\n"
+                "#[test]\n"
+                "fn empty_is_ambiguous_and_nonempty_values_are_unique() {\n"
+                "    let error = serde_json::from_value::<ChoiceUnion>(\n"
+                "        serde_json::json!({\"values\": {}}),\n"
+                "    ).unwrap_err();\n"
+                "    assert!(error.to_string().contains(\"ambiguous JSON union value\"));\n"
+                "    let integers: ChoiceUnion = serde_json::from_value(\n"
+                "        serde_json::json!({\"values\": {\"key\": 42}}),\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(ChoiceUnion::IntMap(IntMap {\n"
+                "        values: HashMap::from([(\"key\".into(), 42)]),\n"
+                "    }), integers);\n"
+                "    let strings: ChoiceUnion = serde_json::from_value(\n"
+                "        serde_json::json!({\"values\": {\"key\": \"value\"}}),\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(ChoiceUnion::StringMap(StringMap {\n"
+                "        values: HashMap::from([(\n"
+                "            \"key\".into(), \"value\".into(),\n"
+                "        )]),\n"
+                "    }), strings);\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test', '--test', 'empty_map'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_named_json_safety_traversal_is_memoized(self):
         """Evaluate repeated named-reference DAG edges once per conversion."""
         converter = AvroToRust()

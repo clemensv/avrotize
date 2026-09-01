@@ -3220,10 +3220,10 @@ class AvroToRust:
             elif match_kind == 'object':
                 equations[key] = shape_kind in ('map', 'record')
             elif match_kind == 'map_match':
-                operator = 'all'
                 if shape_kind == 'map':
-                    dependencies = [(match_data, shape_data)]
+                    equations[key] = True
                 elif shape_kind == 'record':
+                    operator = 'all'
                     dependencies = [
                         (match_data, field_shape)
                         for _, field_shape in shape_data
