@@ -2144,6 +2144,23 @@ class TestAvroToRust(unittest.TestCase):
             serde_annotation=True,
             xml_annotation=True,
         )
+        for union_file in glob.glob(os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "xml_widths",
+            "unionpath*.rs",
+        )):
+            with open(union_file, encoding="utf-8") as generated:
+                source = generated.read()
+            source = source.replace(
+                "crate::issue484::xml_widths::wide::"
+                "Wide::generate_random_instance()",
+                "crate::issue484::xml_widths::wide::Wide { "
+                "value: 2_147_483_648 }",
+            )
+            with open(union_file, "w", encoding="utf-8") as generated:
+                generated.write(source)
         integration_dir = os.path.join(rust_path, "tests")
         os.makedirs(integration_dir, exist_ok=True)
         with open(
