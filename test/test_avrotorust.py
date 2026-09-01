@@ -1002,6 +1002,104 @@ class TestAvroToRust(unittest.TestCase):
             "issue484.decimal",
         ))
 
+    def test_logical_time_signatures_follow_generated_chrono_strings(self):
+        """Model chrono logical types by their emitted JSON string shape."""
+        converter = AvroToRust()
+        logical_types = (
+            {"type": "int", "logicalType": "date"},
+            {"type": "int", "logicalType": "time-millis"},
+            {"type": "long", "logicalType": "time-micros"},
+            {"type": "long", "logicalType": "timestamp-millis"},
+            {"type": "long", "logicalType": "timestamp-micros"},
+        )
+        for logical_type in logical_types:
+            for builder in (
+                converter.get_json_match_signature,
+                converter.get_json_shape_signature,
+                converter.get_json_default_shape_signature,
+            ):
+                self.assertEqual(
+                    builder(logical_type, "issue484.logical"),
+                    builder("string", "issue484.logical"),
+                )
+            self.assertFalse(converter.is_json_round_trip_safe(
+                [logical_type, "string"],
+                "issue484.logical",
+            ))
+
+    def test_logical_time_string_unions_reject_json_ambiguity(self):
+        """Reject chrono JSON strings also accepted by a string branch."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-logical-time-union",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        schema = {
+            "type": "record",
+            "name": "Holder",
+            "namespace": "issue484.logical",
+            "fields": [{
+                "name": "dateChoice",
+                "type": [
+                    {"type": "int", "logicalType": "date"},
+                    "string",
+                ],
+            }, {
+                "name": "timeChoice",
+                "type": [
+                    {"type": "long", "logicalType": "time-micros"},
+                    "string",
+                ],
+            }, {
+                "name": "timestampChoice",
+                "type": [
+                    {"type": "long", "logicalType": "timestamp-micros"},
+                    "string",
+                ],
+            }],
+        }
+        convert_avro_schema_to_rust(
+            schema,
+            rust_path,
+            package_name="rust-logical-time-union",
+            serde_annotation=True,
+        )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "logical_ambiguity.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_logical_time_union::issue484::logical::{\n"
+                "    datechoiceunion::DateChoiceUnion,\n"
+                "    timechoiceunion::TimeChoiceUnion,\n"
+                "    timestampchoiceunion::TimestampChoiceUnion,\n"
+                "};\n\n"
+                "#[test]\n"
+                "fn chrono_strings_are_ambiguous_with_string_branches() {\n"
+                "    assert!(serde_json::from_str::<DateChoiceUnion>(\n"
+                "        r#\"\"1970-01-01\"\"#,\n"
+                "    ).unwrap_err().to_string().contains(\"ambiguous JSON union value\"));\n"
+                "    assert!(serde_json::from_str::<TimeChoiceUnion>(\n"
+                "        r#\"\"00:00:00\"\"#,\n"
+                "    ).unwrap_err().to_string().contains(\"ambiguous JSON union value\"));\n"
+                "    assert!(serde_json::from_str::<TimestampChoiceUnion>(\n"
+                "        r#\"\"1970-01-01T00:00:00\"\"#,\n"
+                "    ).unwrap_err().to_string().contains(\"ambiguous JSON union value\"));\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test', '--test', 'logical_ambiguity'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_json_match_signatures_include_xml_serde_aliases(self):
         """Model aliases accepted by combined JSON and XML generated types."""
         converter = AvroToRust()

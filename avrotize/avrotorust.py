@@ -2645,6 +2645,14 @@ class AvroToRust:
                         node['values'],
                         current_namespace,
                     )
+                if node.get('logicalType') in {
+                    'date',
+                    'time-millis',
+                    'time-micros',
+                    'timestamp-millis',
+                    'timestamp-micros',
+                }:
+                    return add_atom('string')
                 if (
                     node_type in ('fixed', 'bytes')
                     and node.get('logicalType') == 'decimal'
