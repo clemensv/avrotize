@@ -876,6 +876,30 @@ class AvroToRust:
             return 'record'
         return 'text'
 
+    def xml_record_field_sets(self, avro_type, namespace: str):
+        """Returns canonical declared and required XML fields for a record."""
+        resolved = (
+            self.resolve_avro_named_type(avro_type, namespace)
+            if isinstance(avro_type, str)
+            else avro_type
+        )
+        if not isinstance(resolved, dict) or resolved.get('type') != 'record':
+            return None
+        declared = set()
+        required = set()
+        for field in resolved.get('fields', []):
+            wire_name = xml_wire_name(field['name'], field)
+            if field.get('xmlkind', 'element') == 'attribute':
+                wire_name = f'@{wire_name}'
+            declared.add(wire_name)
+            field_type = field['type']
+            if not (
+                isinstance(field_type, list)
+                and 'null' in field_type
+            ):
+                required.add(wire_name)
+        return declared, required
+
     def generate_struct(
         self,
         avro_schema: Dict,
@@ -2207,6 +2231,25 @@ class AvroToRust:
             'isize': 'integer', 'usize': 'integer',
             'f32': 'float', 'f64': 'float',
         }
+        record_field_sets = [
+            self.xml_record_field_sets(
+                field['avro_type'],
+                namespace,
+            )
+            for field in union_fields
+        ]
+        for index, field in enumerate(union_fields):
+            selected_fields = record_field_sets[index]
+            field['xml_statically_disjoint'] = bool(
+                selected_fields
+                and all(
+                    other_fields
+                    and bool(other_fields[1] - selected_fields[0])
+                    for other_index, other_fields
+                    in enumerate(record_field_sets)
+                    if other_index != index
+                )
+            )
         present_scalar_kinds = {scalar_kinds[field['type']] for field in union_fields if field['type'] in scalar_kinds}
         for field in union_fields:
             json_ambiguous = sum(
@@ -2225,7 +2268,7 @@ class AvroToRust:
             )
             field['xml_check_value_ambiguity'] = json_ambiguous
             field['xml_requires_runtime_probe'] = (
-                json_ambiguous or field['xml_reject_value']
+                not field['xml_statically_disjoint']
             )
             default_is_ambiguous = sum(
                 1 for candidate in union_fields
