@@ -1565,6 +1565,158 @@ class TestAvroToRust(unittest.TestCase):
             timeout=self.CARGO_TIMEOUT,
         ) == 0
 
+    def test_union_candidate_prunes_common_deep_fields(self):
+        """Visit shared collection items only for candidates with matching keys."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-union-candidate-pruning",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        candidate_count = 16
+        item_count = 2048
+        records = [{
+            "type": "record",
+            "name": f"Record{index}",
+            "namespace": "issue484.candidate_pruning",
+            "fields": [{
+                "name": "payload",
+                "type": {"type": "array", "items": "long"},
+            }, {
+                "name": f"marker{index}",
+                "type": "string",
+            }],
+        } for index in range(candidate_count)]
+        records.append({
+            "type": "record",
+            "name": "Holder",
+            "namespace": "issue484.candidate_pruning",
+            "fields": [{
+                "name": "choice",
+                "type": [
+                    f"Record{index}"
+                    for index in range(candidate_count)
+                ],
+            }],
+        })
+        convert_avro_schema_to_rust(
+            records,
+            rust_path,
+            package_name="rust-union-candidate-pruning",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        namespace_dir = os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "candidate_pruning",
+        )
+        record_files = glob.glob(os.path.join(namespace_dir, "record*.rs"))
+        self.assertEqual(candidate_count, len(record_files))
+        for record_file in record_files:
+            with open(record_file, encoding="utf-8") as generated:
+                source = generated.read()
+            source = source.replace(
+                "items.iter().all(|item|",
+                "items.iter().inspect(|_| "
+                "crate::probe_visits::record()).all(|item|",
+            )
+            with open(record_file, "w", encoding="utf-8") as generated:
+                generated.write(source)
+        xml_support_file = os.path.join(rust_path, "src", "xml_support.rs")
+        with open(xml_support_file, encoding="utf-8") as generated:
+            xml_support = generated.read()
+        xml_support = xml_support.replace(
+            "XmlValue::Seq(values) => values.iter().all(matches),",
+            "XmlValue::Seq(values) => values.iter()"
+            ".inspect(|_| crate::probe_visits::record()).all(matches),",
+        )
+        with open(xml_support_file, "w", encoding="utf-8") as generated:
+            generated.write(xml_support)
+        with open(
+            os.path.join(rust_path, "src", "lib.rs"),
+            "a",
+            encoding="utf-8",
+        ) as lib_file:
+            lib_file.write(
+                "\n#[cfg(test)]\n"
+                "pub(crate) mod probe_visits {\n"
+                "    use std::sync::atomic::{AtomicUsize, Ordering};\n"
+                "    static VISITS: AtomicUsize = AtomicUsize::new(0);\n"
+                "    pub fn record() { VISITS.fetch_add(1, Ordering::Relaxed); }\n"
+                "    pub fn reset() { VISITS.store(0, Ordering::Relaxed); }\n"
+                "    pub fn get() -> usize { VISITS.load(Ordering::Relaxed) }\n"
+                "}\n"
+            )
+        union_file = glob.glob(os.path.join(namespace_dir, "unionpath*.rs"))[0]
+        with open(union_file, encoding="utf-8") as generated:
+            union_source = generated.read()
+        union_type = re.search(r"pub enum (\w+)", union_source).group(1)
+        record15 = os.path.join(namespace_dir, "record15.rs")
+        with open(record15, encoding="utf-8") as generated:
+            record_source = generated.read()
+        private_match = record_source[
+            record_source.index("pub(crate) fn is_json_value_match"):
+        ]
+        self.assertLess(
+            private_match.index('node.get("marker15")'),
+            private_match.index('node.get("payload")'),
+        )
+        with open(union_file, "a", encoding="utf-8") as generated:
+            generated.write(
+                "\n#[cfg(test)]\n"
+                "mod pruning_regression {\n"
+                "    use super::*;\n"
+                "    use crate::probe_visits;\n\n"
+                "    fn payload() -> Vec<i64> {\n"
+                f"        (0..{item_count}).map(i64::from).collect()\n"
+                "    }\n\n"
+                "    #[test]\n"
+                "    fn deep_payload_visits_follow_matching_discriminators() {\n"
+                "        let json = serde_json::json!({\n"
+                "            \"payload\": payload(),\n"
+                "            \"marker15\": \"selected\",\n"
+                "        });\n"
+                "        probe_visits::reset();\n"
+                f"        assert!(serde_json::from_value::<{union_type}>(json).is_ok());\n"
+                f"        assert_eq!({item_count}, probe_visits::get());\n\n"
+                "        let json = serde_json::json!({\n"
+                "            \"payload\": payload(),\n"
+                "            \"marker0\": \"first\",\n"
+                "            \"marker1\": \"second\",\n"
+                "        });\n"
+                "        probe_visits::reset();\n"
+                f"        assert!(serde_json::from_value::<{union_type}>(json).is_err());\n"
+                f"        assert_eq!({2 * item_count}, probe_visits::get());\n\n"
+                "        let items = payload().into_iter()\n"
+                "            .map(|value| format!(\"<payload>{value}</payload>\"))\n"
+                "            .collect::<String>();\n"
+                "        let xml = format!(\n"
+                "            \"<Choice>{items}<marker15>selected</marker15></Choice>\"\n"
+                "        );\n"
+                "        probe_visits::reset();\n"
+                f"        assert!(quick_xml::de::from_str::<{union_type}>(&xml).is_ok());\n"
+                f"        assert_eq!({item_count}, probe_visits::get());\n"
+                "    }\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            [
+                'cargo',
+                'test',
+                '--lib',
+                'deep_payload_visits_follow_matching_discriminators',
+                '--',
+                '--test-threads=1',
+            ],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_optional_record_union_edge_cases_compile(self):
         """Exercise generated direct, named, nested, and cross-kind unions."""
         self.run_convert_to_rust(

@@ -146,34 +146,40 @@ impl {{ union_enum_name }} {
                     Ok(probe) => probe.value,
                     Err(_) => return false,
                 };
-                let mut matched_variant = None;
-                let mut match_count = 0usize;
-                let mut canonical_variant = None;
-                let mut canonical_count = 0usize;
+                let candidate_matches = [
                 {%- for candidate in union_fields %}
-                let candidate_matches = xml_candidate_matches({
+                    xml_candidate_matches({
                     let node = &content;
                     {{ candidate.xml_borrowed_match_predicate }}
-                });
-                if candidate_matches {
-                    match_count += 1;
-                    matched_variant.get_or_insert({{ loop.index0 }});
-                    let canonical_matches = {
-                        let node = &content;
-                        {{ candidate.xml_canonical_match_predicate }}
-                    };
-                    if canonical_matches {
-                        canonical_count += 1;
-                        canonical_variant.get_or_insert({{ loop.index0 }});
-                    }
-                }
+                    }),
                 {%- endfor %}
-                let selected_variant = if canonical_count == 1 {
-                    canonical_variant
-                } else if canonical_count == 0 && match_count == 1 {
+                ];
+                let match_count = candidate_matches
+                    .iter()
+                    .filter(|matches| **matches)
+                    .count();
+                let matched_variant = candidate_matches
+                    .iter()
+                    .position(|matches| *matches);
+                let selected_variant = if match_count == 1 {
                     matched_variant
                 } else {
-                    None
+                    let canonical_matches = [
+                {%- for candidate in union_fields %}
+                    candidate_matches[{{ loop.index0 }}] && {
+                    let node = &content;
+                    {{ candidate.xml_canonical_match_predicate }}
+                    },
+                {%- endfor %}
+                    ];
+                    (canonical_matches
+                    .iter()
+                    .filter(|matches| **matches)
+                    .count() == 1)
+                    .then(|| canonical_matches
+                        .iter()
+                        .position(|matches| *matches)
+                        .unwrap())
                 };
                 selected_variant == Some({{ loop.index0 }})
             },
@@ -268,38 +274,47 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             let content = crate::xml_support::XmlValue::deserialize(
                 deserializer
             )?;
-            let mut matched_variant = None;
-            let mut match_count = 0usize;
-            let mut canonical_variant = None;
-            let mut canonical_count = 0usize;
+            let candidate_matches = [
             {%- for union_field in union_fields %}
-            let candidate_matches = xml_candidate_matches({
-                let node = &content;
-                {{ union_field.xml_borrowed_match_predicate }}
-            });
-            if candidate_matches {
-                match_count += 1;
-                matched_variant.get_or_insert({{ loop.index0 }});
-                let canonical_matches = {
+                xml_candidate_matches({
                     let node = &content;
-                    {{ union_field.xml_canonical_match_predicate }}
-                };
-                if canonical_matches {
-                    canonical_count += 1;
-                    canonical_variant.get_or_insert({{ loop.index0 }});
-                }
-            }
+                    {{ union_field.xml_borrowed_match_predicate }}
+                }),
             {%- endfor %}
-            let selected_variant = if canonical_count == 1 {
-                canonical_variant
-            } else if canonical_count == 0 && match_count == 1 {
+            ];
+            let match_count = candidate_matches
+                .iter()
+                .filter(|matches| **matches)
+                .count();
+            let matched_variant = candidate_matches
+                .iter()
+                .position(|matches| *matches);
+            let selected_variant = if match_count == 1 {
                 matched_variant
-            } else if match_count > 0 {
-                return Err(serde::de::Error::custom(
-                    "ambiguous XML union value"
-                ));
             } else {
-                None
+                let canonical_matches = [
+                {%- for union_field in union_fields %}
+                    candidate_matches[{{ loop.index0 }}] && {
+                        let node = &content;
+                        {{ union_field.xml_canonical_match_predicate }}
+                    },
+                {%- endfor %}
+                ];
+                if canonical_matches
+                    .iter()
+                    .filter(|matches| **matches)
+                    .count() == 1
+                {
+                    canonical_matches
+                        .iter()
+                        .position(|matches| *matches)
+                } else if match_count > 0 {
+                    return Err(serde::de::Error::custom(
+                        "ambiguous XML union value"
+                    ));
+                } else {
+                    None
+                }
             };
             return match selected_variant {
                 {%- for union_field in union_fields %}

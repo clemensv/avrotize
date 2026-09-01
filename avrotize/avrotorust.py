@@ -1058,7 +1058,7 @@ class AvroToRust:
                     ),
                     field['type'],
                 )
-                for field in fields
+                for field in sorted(fields, key=self.match_validation_cost)
             ],
             'json_value_match_predicates': [
                 self.get_is_json_match_clause(
@@ -1069,15 +1069,15 @@ class AvroToRust:
                     field['type'],
                     exact_nested=True,
                 )
-                for field in fields
+                for field in sorted(fields, key=self.match_validation_cost)
             ],
             'xml_canonical_match_predicates': [
                 self.get_is_xml_canonical_match_clause(field)
-                for field in fields
+                for field in sorted(fields, key=self.match_validation_cost)
             ],
             'xml_shape_predicates': [
                 self.get_is_xml_shape_clause(field)
-                for field in fields
+                for field in sorted(fields, key=self.match_validation_cost)
             ],
             'xml_match_predicates': [
                 self.get_is_xml_match_clause(
@@ -1087,7 +1087,7 @@ class AvroToRust:
                     ),
                     field['type'],
                 )
-                for field in fields
+                for field in sorted(fields, key=self.match_validation_cost)
             ],
             'legacy_xml_shape_predicates': [
                 self.get_legacy_is_xml_shape_clause(field)
@@ -1739,6 +1739,27 @@ class AvroToRust:
             f'({alias_guard}node.get("{canonical_name}").map_or('
             f'{str(missing_matches).lower()}, |value| {value_match}))'
         )
+
+    def match_validation_cost(self, field) -> tuple[int, int]:
+        """Orders cheap required discriminators before deep candidate fields."""
+        rust_type = field['type']
+        optional = rust_type.startswith('Option<')
+        base_type = rust_type[7:-1] if optional else rust_type
+        if (
+            base_type.startswith('Vec<')
+            or base_type.startswith('std::collections::HashMap<')
+        ):
+            cost = 3
+        elif self.generated_types_rust_package.get(base_type) in {
+            'struct',
+            'union',
+        }:
+            cost = 2
+        elif 'chrono::' in base_type or 'uuid::' in base_type:
+            cost = 1
+        else:
+            cost = 0
+        return (int(optional), cost)
 
     def get_is_xml_match_clause(
         self,
