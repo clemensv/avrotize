@@ -174,15 +174,21 @@ impl {{ union_enum_name }} {
                     false;
                     {{ union_fields | length }}
                     ];
-                {%- for group in xml_match_groups %}
+                {%- for group in xml_canonical_groups %}
                     let group_matches =
-                    candidate_matches[{{ group.indexes[0] }}] && {
+                    (
+                    false
+                    {%- for index in group.indexes %}
+                    || candidate_matches[{{ index }}]
+                    {%- endfor %}
+                    ) && {
                     let node = &content;
                     {{ group.canonical_predicate }}
                     };
                     if group_matches {
                     {%- for index in group.indexes %}
-                    canonical_matches[{{ index }}] = true;
+                    canonical_matches[{{ index }}] =
+                        candidate_matches[{{ index }}];
                     {%- endfor %}
                     }
                 {%- endfor %}
@@ -315,15 +321,21 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
                     false;
                     {{ union_fields | length }}
                 ];
-                {%- for group in xml_match_groups %}
+                {%- for group in xml_canonical_groups %}
                 let group_matches =
-                    candidate_matches[{{ group.indexes[0] }}] && {
+                    (
+                        false
+                        {%- for index in group.indexes %}
+                        || candidate_matches[{{ index }}]
+                        {%- endfor %}
+                    ) && {
                         let node = &content;
                         {{ group.canonical_predicate }}
                     };
                 if group_matches {
                     {%- for index in group.indexes %}
-                    canonical_matches[{{ index }}] = true;
+                    canonical_matches[{{ index }}] =
+                        candidate_matches[{{ index }}];
                     {%- endfor %}
                 }
                 {%- endfor %}
@@ -621,7 +633,7 @@ impl {{ union_enum_name }} {
             } { {{ group.indexes | length }} } else { 0 }
             {%- endfor %};
         let canonical_count = 0usize
-            {%- for group in xml_match_groups %}
+            {%- for group in xml_canonical_groups %}
             + if {
                 let node = content;
                 {{ group.canonical_predicate }}
@@ -635,7 +647,7 @@ impl {{ union_enum_name }} {
     ) -> bool {
         let content = node;
         let canonical_count = 0usize
-            {%- for group in xml_match_groups %}
+            {%- for group in xml_canonical_groups %}
             + if {
                 let node = content;
                 {{ group.canonical_predicate }}

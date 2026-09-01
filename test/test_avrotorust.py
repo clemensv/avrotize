@@ -2056,26 +2056,36 @@ class TestAvroToRust(unittest.TestCase):
                 "            .map(|value| format!(\"<payload>{value}</payload>\"))\n"
                 "            .collect()\n"
                 "    }\n\n"
-                "    fn visits<T>(xml: &str) -> usize\n"
-                "    where T: serde::de::DeserializeOwned {\n"
+                "    fn visits<T>(xml: &str, expected: &str) -> usize\n"
+                "    where T: serde::de::DeserializeOwned + std::fmt::Debug {\n"
                 "        probe_visits::reset();\n"
-                "        assert!(quick_xml::de::from_str::<T>(xml).is_err());\n"
+                "        let error = quick_xml::de::from_str::<T>(xml).unwrap_err();\n"
+                "        eprintln!(\"union error: {error}\");\n"
+                "        assert!(error.to_string().contains(expected));\n"
                 "        probe_visits::get()\n"
                 "    }\n\n"
                 "    #[test]\n"
                 "    fn equivalent_predicates_are_branch_count_independent() {\n"
                 "        let direct_xml = format!(\"<Choice>{}</Choice>\", payload());\n"
-                "        let pair = visits::<PairUnion>(&direct_xml);\n"
-                f"        let wide = visits::<{direct_wide[2]}>(&direct_xml);\n"
+                "        let pair = visits::<PairUnion>(\n"
+                "            &direct_xml, \"ambiguous XML union value\",\n"
+                "        );\n"
+                f"        let wide = visits::<{direct_wide[2]}>(\n"
+                "            &direct_xml, \"ambiguous XML union value\",\n"
+                "        );\n"
                 f"        assert_eq!({2 * item_count}, pair);\n"
                 "        assert_eq!(pair, wide);\n\n"
                 "        let nested_xml = format!(\n"
                 "            \"<Choice><inner>{}</inner></Choice>\", payload()\n"
                 "        );\n"
-                "        let nested_pair = visits::<NestedPairUnion>(&nested_xml);\n"
-                "        let nested_wide = visits::<NestedWideUnion>(&nested_xml);\n"
+                "        let nested_pair = visits::<NestedPairUnion>(\n"
+                "            &nested_xml, \"No valid variant found\",\n"
+                "        );\n"
+                "        let nested_wide = visits::<NestedWideUnion>(\n"
+                "            &nested_xml, \"No valid variant found\",\n"
+                "        );\n"
                 "        assert_eq!(nested_pair, nested_wide);\n"
-                f"        assert!(nested_wide <= {4 * item_count});\n"
+                f"        assert_eq!({2 * item_count}, nested_wide);\n"
                 "        eprintln!(\"predicate visits: direct={wide}, "
                 "nested={nested_wide}\");\n"
                 "    }\n"
@@ -2091,6 +2101,83 @@ class TestAvroToRust(unittest.TestCase):
                 '--test-threads=1',
                 '--nocapture',
             ],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
+    def test_xml_record_numeric_widths_remain_distinct_in_both_orders(self):
+        """Do not intern record predicates with different integer widths."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-xml-record-number-widths",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "record",
+                "name": "Narrow",
+                "namespace": "issue484.xml_widths",
+                "fields": [{"name": "value", "type": "int"}],
+            }, {
+                "type": "record",
+                "name": "Wide",
+                "namespace": "issue484.xml_widths",
+                "fields": [{"name": "value", "type": "long"}],
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.xml_widths",
+                "fields": [{
+                    "name": "forward",
+                    "type": ["Narrow", "Wide"],
+                }, {
+                    "name": "reverse",
+                    "type": ["Wide", "Narrow"],
+                }],
+            }],
+            rust_path,
+            package_name="rust-xml-record-number-widths",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "numeric_widths.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_xml_record_number_widths::issue484::xml_widths::{\n"
+                "    forwardunion::ForwardUnion,\n"
+                "    reverseunion::ReverseUnion,\n"
+                "    wide::Wide,\n"
+                "};\n\n"
+                "#[test]\n"
+                "fn wide_record_is_unique_in_both_orders() {\n"
+                "    let xml = \"<Choice><value>2147483648</value></Choice>\";\n"
+                "    let forward: ForwardUnion = quick_xml::de::from_str(xml).unwrap();\n"
+                "    assert_eq!(ForwardUnion::Wide(Wide {\n"
+                "        value: 2_147_483_648,\n"
+                "    }), forward);\n"
+                "    let reverse: ReverseUnion = quick_xml::de::from_str(xml).unwrap();\n"
+                "    assert_eq!(ReverseUnion::Wide(Wide {\n"
+                "        value: 2_147_483_648,\n"
+                "    }), reverse);\n"
+                "    assert!(quick_xml::se::to_string(&ForwardUnion::Wide(Wide {\n"
+                "        value: 2_147_483_648,\n"
+                "    })).is_ok());\n"
+                "    assert!(quick_xml::se::to_string(&ReverseUnion::Wide(Wide {\n"
+                "        value: 2_147_483_648,\n"
+                "    })).is_ok());\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test', '--test', 'numeric_widths'],
             cwd=rust_path,
             stdout=sys.stdout,
             stderr=sys.stderr,

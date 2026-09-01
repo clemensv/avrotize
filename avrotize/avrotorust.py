@@ -913,6 +913,122 @@ class AvroToRust:
                 required.add(wire_name)
         return declared, required
 
+    def xml_exact_predicate_key(
+        self,
+        avro_type,
+        namespace: str,
+        canonical: bool = False,
+        active=None,
+    ):
+        """Returns a conservative structural key for an exact XML predicate."""
+        active = set() if active is None else active
+        if isinstance(avro_type, str):
+            resolved = self.resolve_avro_named_type(avro_type, namespace)
+            if resolved is not None:
+                return self.xml_exact_predicate_key(
+                    resolved,
+                    self.avro_type_fullnames[id(resolved)].rpartition('.')[0],
+                    canonical,
+                    active,
+                )
+            return ('primitive', avro_type)
+        if isinstance(avro_type, list):
+            return (
+                'union',
+                tuple(
+                    self.xml_exact_predicate_key(
+                        branch,
+                        namespace,
+                        canonical,
+                        active,
+                    )
+                    for branch in avro_type
+                    if branch != 'null'
+                ),
+                'null' in avro_type,
+            )
+        if not isinstance(avro_type, dict):
+            return ('literal', repr(avro_type))
+
+        node_type = avro_type.get('type')
+        logical_type = avro_type.get('logicalType')
+        if logical_type:
+            return ('logical', logical_type, node_type)
+        if node_type == 'record':
+            fullname, record_namespace, _ = self.canonical_avro_name(
+                avro_type['name'],
+                avro_type.get('namespace', namespace),
+            )
+            if fullname in active:
+                return ('recursive-record', fullname)
+            nested_active = active | {fullname}
+            fields = []
+            for field in avro_type.get('fields', []):
+                wire_name = xml_wire_name(field['name'], field)
+                if field.get('xmlkind', 'element') == 'attribute':
+                    wire_name = f'@{wire_name}'
+                names = (wire_name,)
+                if (
+                    not canonical
+                    and (self.serde_annotation or self.avro_annotation)
+                    and field['name'] != wire_name
+                ):
+                    names = tuple(sorted((wire_name, field['name'])))
+                field_type = field['type']
+                nullable = (
+                    isinstance(field_type, list)
+                    and 'null' in field_type
+                )
+                fields.append((
+                    names,
+                    nullable,
+                    self.xml_exact_predicate_key(
+                        field_type,
+                        record_namespace,
+                        canonical,
+                        nested_active,
+                    ),
+                ))
+            return ('record', tuple(fields))
+        if node_type == 'enum':
+            symbols = tuple(
+                xml_enum_wire_value(symbol, avro_type)
+                for symbol in avro_type.get('symbols', [])
+            )
+            if not canonical and (self.serde_annotation or self.avro_annotation):
+                symbols = tuple(sorted(set(
+                    symbols + tuple(avro_type.get('symbols', []))
+                )))
+            return ('enum', symbols)
+        if node_type == 'array':
+            return (
+                'array',
+                self.xml_exact_predicate_key(
+                    avro_type.get('items'),
+                    namespace,
+                    canonical,
+                    active,
+                ),
+            )
+        if node_type == 'map':
+            return (
+                'map',
+                self.xml_exact_predicate_key(
+                    avro_type.get('values'),
+                    namespace,
+                    canonical,
+                    active,
+                ),
+            )
+        if isinstance(node_type, (dict, list)):
+            return self.xml_exact_predicate_key(
+                node_type,
+                namespace,
+                canonical,
+                active,
+            )
+        return ('primitive', node_type)
+
     def generate_struct(
         self,
         avro_schema: Dict,
@@ -2229,6 +2345,17 @@ class AvroToRust:
                     )
                 ),
                 'xml_representation': xml_representation,
+                'xml_exact_predicate_key': self.xml_exact_predicate_key(
+                    union_avro_types[i],
+                    namespace,
+                ),
+                'xml_canonical_predicate_key': (
+                    self.xml_exact_predicate_key(
+                        union_avro_types[i],
+                        namespace,
+                        canonical=True,
+                    )
+                ),
                 'xml_sequence_item_type': (
                     self._rust_inner_type(t, 'Vec<')
                     if xml_representation == 'sequence'
@@ -2320,17 +2447,9 @@ class AvroToRust:
                 )
             )
         xml_match_groups = {}
+        xml_canonical_groups = {}
         for index, field in enumerate(union_fields):
-            group_key = (
-                field['json_match_signature'],
-                field['json_shape_signature'],
-                field['xml_representation'],
-                (
-                    None
-                    if field['xml_representation'] == 'record'
-                    else field['type']
-                ),
-            )
+            group_key = field['xml_exact_predicate_key']
             group = xml_match_groups.setdefault(group_key, {
                 'indexes': [],
                 'match_predicate': field[
@@ -2341,6 +2460,16 @@ class AvroToRust:
                 ],
             })
             group['indexes'].append(index)
+            canonical_group = xml_canonical_groups.setdefault(
+                field['xml_canonical_predicate_key'],
+                {
+                    'indexes': [],
+                    'canonical_predicate': field[
+                        'xml_canonical_match_predicate'
+                    ],
+                },
+            )
+            canonical_group['indexes'].append(index)
         xml_string_guards = {
             'bool': 'bool' in present_scalar_kinds,
             'integer': 'integer' in present_scalar_kinds,
@@ -2384,6 +2513,7 @@ class AvroToRust:
                 for field in union_fields
             ],
             'xml_match_groups': list(xml_match_groups.values()),
+            'xml_canonical_groups': list(xml_canonical_groups.values()),
         }
 
         file_name = self.to_file_name(qualified_union_enum_name)
