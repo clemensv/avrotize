@@ -602,6 +602,10 @@ class TestAvroToRust(unittest.TestCase):
             )
             self.assertEqual(1102, signature.node_count)
             self.assertEqual(1101, signature.edge_count)
+            self.assertEqual(
+                signature.node_count,
+                signature.canonical_visit_count,
+            )
             self.assertLess(len(repr(signature)), 50000)
 
     def test_anonymous_cyclic_union_signatures_are_bounded(self):
@@ -803,6 +807,111 @@ class TestAvroToRust(unittest.TestCase):
             self.assertEqual(1000, len(set(signatures)))
         self.assertLess(comparison_count, 100)
 
+    def test_json_signature_equality_ignores_incidental_sharing(self):
+        """Canonicalize shared and duplicated equivalent named subgraphs."""
+        converter = AvroToRust()
+        schemas = [
+            {
+                "type": "record",
+                "name": "Leaf",
+                "namespace": "issue484.sharing",
+                "fields": [{"name": "value", "type": "string"}],
+            },
+            {
+                "type": "record",
+                "name": "Leaf1",
+                "namespace": "issue484.sharing",
+                "fields": [{"name": "value", "type": "string"}],
+            },
+            {
+                "type": "record",
+                "name": "Leaf2",
+                "namespace": "issue484.sharing",
+                "fields": [{"name": "value", "type": "string"}],
+            },
+            {
+                "type": "record",
+                "name": "Shared",
+                "namespace": "issue484.sharing",
+                "fields": [
+                    {"name": "left", "type": "Leaf"},
+                    {"name": "right", "type": "Leaf"},
+                ],
+            },
+            {
+                "type": "record",
+                "name": "Duplicated",
+                "namespace": "issue484.sharing",
+                "fields": [
+                    {"name": "left", "type": "Leaf1"},
+                    {"name": "right", "type": "Leaf2"},
+                ],
+            },
+        ]
+        converter.index_avro_named_types(schemas)
+
+        shared = converter.get_json_match_signature(
+            "Shared",
+            "issue484.sharing",
+        )
+        duplicated = converter.get_json_match_signature(
+            "Duplicated",
+            "issue484.sharing",
+        )
+        self.assertEqual(shared, duplicated)
+        self.assertEqual(hash(shared), hash(duplicated))
+
+    def test_json_signature_equality_merges_equivalent_recursive_sccs(self):
+        """Canonicalize shared and duplicated recursive named subgraphs."""
+        converter = AvroToRust()
+
+        def recursive_leaf(name):
+            return {
+                "type": "record",
+                "name": name,
+                "namespace": "issue484.cyclic_sharing",
+                "fields": [{
+                    "name": "children",
+                    "type": {"type": "array", "items": name},
+                }],
+            }
+
+        schemas = [
+            recursive_leaf("Leaf"),
+            recursive_leaf("Leaf1"),
+            recursive_leaf("Leaf2"),
+            {
+                "type": "record",
+                "name": "Shared",
+                "namespace": "issue484.cyclic_sharing",
+                "fields": [
+                    {"name": "left", "type": "Leaf"},
+                    {"name": "right", "type": "Leaf"},
+                ],
+            },
+            {
+                "type": "record",
+                "name": "Duplicated",
+                "namespace": "issue484.cyclic_sharing",
+                "fields": [
+                    {"name": "left", "type": "Leaf1"},
+                    {"name": "right", "type": "Leaf2"},
+                ],
+            },
+        ]
+        converter.index_avro_named_types(schemas)
+
+        shared = converter.get_json_shape_signature(
+            "Shared",
+            "issue484.cyclic_sharing",
+        )
+        duplicated = converter.get_json_shape_signature(
+            "Duplicated",
+            "issue484.cyclic_sharing",
+        )
+        self.assertEqual(shared, duplicated)
+        self.assertEqual(hash(shared), hash(duplicated))
+
     def test_decimal_fixed_signatures_follow_generated_f64(self):
         """Model decimal fixed and bytes by their generated Rust number shape."""
         converter = AvroToRust()
@@ -970,6 +1079,87 @@ class TestAvroToRust(unittest.TestCase):
             ),
         )
 
+    def test_union_candidate_matching_drops_probe_values(self):
+        """Keep large candidate probes sequential rather than simultaneously live."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-union-candidate-memory",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        records = [
+            {
+                "type": "record",
+                "name": f"Record{index}",
+                "namespace": "issue484.candidate_memory",
+                "fields": [{"name": "blob", "type": "bytes"}],
+            }
+            for index in range(64)
+        ]
+        records.append({
+            "type": "record",
+            "name": "Holder",
+            "namespace": "issue484.candidate_memory",
+            "fields": [{
+                "name": "choice",
+                "type": [f"Record{index}" for index in range(64)],
+            }],
+        })
+        convert_avro_schema_to_rust(
+            records,
+            rust_path,
+            package_name="rust-union-candidate-memory",
+            serde_annotation=True,
+        )
+        union_files = glob.glob(os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "candidate_memory",
+            "unionpath*.rs",
+        ))
+        self.assertEqual(1, len(union_files))
+        with open(union_files[0], encoding="utf-8") as generated_file:
+            source = generated_file.read()
+        self.assertNotIn("let candidate_", source)
+        self.assertEqual(
+            64,
+            source.count("json_candidate_matches::<"),
+        )
+        self.assertEqual(64, source.count("if let Ok(result)"))
+
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "candidate_memory.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_union_candidate_memory::issue484::candidate_memory::{\n"
+                "    choiceunion::ChoiceUnion,\n"
+                "    record0::Record0,\n"
+                "};\n\n"
+                "#[test]\n"
+                "fn large_payload_probes_are_dropped_before_the_next_candidate() {\n"
+                "    let value = ChoiceUnion::Record0(Record0 {\n"
+                "        blob: vec![7; 2 * 1024 * 1024],\n"
+                "    });\n"
+                "    let json = serde_json::to_vec(&value).unwrap();\n"
+                "    let error = serde_json::from_slice::<ChoiceUnion>(&json)\n"
+                "        .unwrap_err();\n"
+                "    assert!(error.to_string().contains(\"ambiguous JSON union value\"));\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test', '--test', 'candidate_memory'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_optional_record_union_edge_cases_compile(self):
         """Exercise generated direct, named, nested, and cross-kind unions."""
         self.run_convert_to_rust(
@@ -1101,6 +1291,8 @@ class TestAvroToRust(unittest.TestCase):
                 "    requiredlong::RequiredLong,\n"
                 "    taga::TagA,\n"
                 "    tagb::TagB,\n"
+                "    textboolforwardunion::TextBoolForwardUnion,\n"
+                "    textboolreverseunion::TextBoolReverseUnion,\n"
                 "    wiretag::WireTag,\n"
                 "};\n"
                 "use serde::{Deserialize, Serialize};\n"
@@ -1128,6 +1320,11 @@ class TestAvroToRust(unittest.TestCase):
                 "    ));\n"
                 "    assert_ambiguous(BoolReverseUnion::OptionalString(\n"
                 "        OptionalString { x: Some(\"false\".into()) },\n"
+                "    ));\n"
+                "    assert_ambiguous(TextBoolForwardUnion::String(\"1\".into()));\n"
+                "    assert_ambiguous(TextBoolReverseUnion::String(\"0\".into()));\n"
+                "    assert_ambiguous(NumericForwardUnion::OptionalString(\n"
+                "        OptionalString { x: Some(\" 42 \".into()) },\n"
                 "    ));\n"
                 "    assert_ambiguous(ActualOverlapUnion::OptionalString(\n"
                 "        OptionalString { x: Some(\"text\".into()) },\n"
@@ -1214,6 +1411,28 @@ class TestAvroToRust(unittest.TestCase):
                 "    let recovered: Root<IntLongReverseUnion> =\n"
                 "        quick_xml::de::from_str(&xml).unwrap();\n"
                 "    assert_eq!(reverse.value, recovered.value);\n\n"
+                "    let spaced: Root<IntLongForwardUnion> =\n"
+                "        quick_xml::de::from_str(\n"
+                "            \"<Root><value> 2147483648 </value></Root>\"\n"
+                "        ).unwrap();\n"
+                "    assert_eq!(\n"
+                "        IntLongForwardUnion::I64(2_147_483_648),\n"
+                "        spaced.value\n"
+                "    );\n"
+                "    assert!(quick_xml::de::from_str::<Root<TextBoolForwardUnion>>(\n"
+                "        \"<Root><value>1</value></Root>\"\n"
+                "    ).is_err());\n"
+                "    assert!(quick_xml::de::from_str::<Root<TextBoolReverseUnion>>(\n"
+                "        \"<Root><value>0</value></Root>\"\n"
+                "    ).is_err());\n\n"
+                "    let non_xml_space: Root<NarrowForwardUnion> =\n"
+                "        quick_xml::de::from_str(\n"
+                "            \"<Root><value>&#xA0;42&#xA0;</value></Root>\"\n"
+                "        ).unwrap();\n"
+                "    assert_eq!(\n"
+                "        NarrowForwardUnion::String(\"\\u{a0}42\\u{a0}\".into()),\n"
+                "        non_xml_space.value\n"
+                "    );\n\n"
                 "    let nested_forward = Root {\n"
                 "        value: NarrowRecordForwardUnion::OptionalString(\n"
                 "            OptionalString { x: Some(\"2147483648\".into()) },\n"

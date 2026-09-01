@@ -28,6 +28,7 @@ class JsonSignature:
         'edge_count',
         '_canonical',
         '_hash',
+        'canonical_visit_count',
     )
 
     def __init__(self, root: int, nodes: list[tuple]) -> None:
@@ -40,6 +41,7 @@ class JsonSignature:
             else int(data is not None)
             for kind, data in self.nodes
         )
+        self.canonical_visit_count = 0
         self._canonical = self._canonicalize()
         self._hash = hash(self._canonical)
 
@@ -55,70 +57,249 @@ class JsonSignature:
         return repr(self._canonical)
 
     def _canonicalize(self):
-        """Returns a canonical quotient graph for hashing and equality."""
-        descriptors = []
-        for kind, data in self.nodes:
+        """Returns an SCC-aware structural quotient without recursive walks."""
+        adjacency = []
+        reverse = [[] for _ in self.nodes]
+        for node_id, (kind, data) in enumerate(self.nodes):
             if data is None:
-                descriptors.append((kind, None))
+                children = ()
             elif kind in ('record', 'record_match'):
-                descriptors.append((
-                    kind,
-                    tuple(name for name, _ in data),
-                ))
+                children = tuple(child for _, child in data)
             elif kind == 'union':
-                descriptors.append((kind, len(data)))
+                children = data
             else:
-                descriptors.append((kind, 1))
+                children = (data,)
+            adjacency.append(children)
+            for child in children:
+                reverse[child].append(node_id)
 
-        def classify(items):
-            class_ids = {}
-            return tuple(
-                class_ids.setdefault(item, len(class_ids))
-                for item in items
-            )
-
-        classes = classify(descriptors)
-        while True:
-            refined = []
-            for node_id, (kind, data) in enumerate(self.nodes):
-                if data is None:
-                    refined.append((classes[node_id], kind, None))
-                elif kind in ('record', 'record_match'):
-                    refined.append((
-                        classes[node_id],
-                        kind,
-                        tuple(
-                            (name, classes[child_id])
-                            for name, child_id in data
-                        ),
-                    ))
-                elif kind == 'union':
-                    refined.append((
-                        classes[node_id],
-                        kind,
-                        tuple(classes[child_id] for child_id in data),
-                    ))
+        visited = set()
+        finish_order = []
+        for start in range(len(self.nodes)):
+            if start in visited:
+                continue
+            visited.add(start)
+            stack = [(start, 0)]
+            while stack:
+                node_id, child_index = stack[-1]
+                children = adjacency[node_id]
+                if child_index < len(children):
+                    child = children[child_index]
+                    stack[-1] = (node_id, child_index + 1)
+                    if child not in visited:
+                        visited.add(child)
+                        stack.append((child, 0))
                 else:
-                    refined.append((
-                        classes[node_id],
-                        kind,
-                        classes[data],
-                    ))
-            refined_classes = classify(refined)
-            if refined_classes == classes:
-                break
-            classes = refined_classes
+                    finish_order.append(node_id)
+                    stack.pop()
+
+        components = []
+        component_of = [-1] * len(self.nodes)
+        for start in reversed(finish_order):
+            if component_of[start] != -1:
+                continue
+            component_id = len(components)
+            component = []
+            stack = [start]
+            component_of[start] = component_id
+            while stack:
+                node_id = stack.pop()
+                component.append(node_id)
+                for predecessor in reverse[node_id]:
+                    if component_of[predecessor] == -1:
+                        component_of[predecessor] = component_id
+                        stack.append(predecessor)
+            components.append(component)
+
+        component_children = [set() for _ in components]
+        component_parents = [set() for _ in components]
+        for node_id, children in enumerate(adjacency):
+            parent_component = component_of[node_id]
+            for child in children:
+                child_component = component_of[child]
+                if child_component != parent_component:
+                    component_children[parent_component].add(child_component)
+                    component_parents[child_component].add(parent_component)
+
+        remaining_children = [
+            len(children)
+            for children in component_children
+        ]
+        ready = [
+            component_id
+            for component_id, count in enumerate(remaining_children)
+            if count == 0
+        ]
+        ready_index = 0
+        classes = [-1] * len(self.nodes)
+        descriptor_classes = {}
+        cyclic_descriptor_classes = {}
+        next_class = 0
+
+        def node_descriptor(node_id, child_class):
+            kind, data = self.nodes[node_id]
+            if data is None:
+                return (kind, None)
+            if kind in ('record', 'record_match'):
+                return (
+                    kind,
+                    tuple(
+                        (name, child_class(child))
+                        for name, child in data
+                    ),
+                )
+            if kind == 'union':
+                return (
+                    kind,
+                    tuple(child_class(child) for child in data),
+                )
+            return (kind, child_class(data))
+
+        while ready_index < len(ready):
+            component_id = ready[ready_index]
+            ready_index += 1
+            component = sorted(components[component_id])
+            cyclic = (
+                len(component) > 1
+                or component[0] in adjacency[component[0]]
+            )
+            if not cyclic:
+                node_id = component[0]
+                descriptor = node_descriptor(
+                    node_id,
+                    lambda child: classes[child],
+                )
+                if descriptor not in descriptor_classes:
+                    descriptor_classes[descriptor] = next_class
+                    next_class += 1
+                classes[node_id] = descriptor_classes[descriptor]
+            else:
+                local_index = {
+                    node_id: index
+                    for index, node_id in enumerate(component)
+                }
+
+                def classify(descriptors):
+                    identifiers = {}
+                    return tuple(
+                        identifiers.setdefault(
+                            descriptor,
+                            len(identifiers),
+                        )
+                        for descriptor in descriptors
+                    )
+
+                local_classes = classify([
+                    node_descriptor(
+                        node_id,
+                        lambda child: (
+                            ('internal',)
+                            if component_of[child] == component_id
+                            else ('external', classes[child])
+                        ),
+                    )
+                    for node_id in component
+                ])
+                while True:
+                    refined = [
+                        (
+                            local_classes[index],
+                            node_descriptor(
+                                node_id,
+                                lambda child: (
+                                    'internal',
+                                    local_classes[local_index[child]],
+                                )
+                                if component_of[child] == component_id
+                                else ('external', classes[child]),
+                            ),
+                        )
+                        for index, node_id in enumerate(component)
+                    ]
+                    refined_classes = classify(refined)
+                    if refined_classes == local_classes:
+                        break
+                    local_classes = refined_classes
+                local_representatives = {}
+                for node_id, local_class in zip(component, local_classes):
+                    local_representatives.setdefault(local_class, node_id)
+
+                def cyclic_key(root_local_class):
+                    canonical_ids = {root_local_class: 0}
+                    pending_classes = [root_local_class]
+                    definitions = []
+                    pending_class_index = 0
+                    while pending_class_index < len(pending_classes):
+                        local_class = pending_classes[pending_class_index]
+                        pending_class_index += 1
+                        node_id = local_representatives[local_class]
+                        kind, data = self.nodes[node_id]
+
+                        def child_key(child):
+                            if component_of[child] != component_id:
+                                return ('external', classes[child])
+                            child_local = local_classes[
+                                local_index[child]
+                            ]
+                            if child_local not in canonical_ids:
+                                canonical_ids[child_local] = len(
+                                    canonical_ids
+                                )
+                                pending_classes.append(child_local)
+                            return (
+                                'internal',
+                                canonical_ids[child_local],
+                            )
+
+                        if data is None:
+                            definition = (kind, None)
+                        elif kind in ('record', 'record_match'):
+                            definition = (
+                                kind,
+                                tuple(
+                                    (name, child_key(child))
+                                    for name, child in data
+                                ),
+                            )
+                        elif kind == 'union':
+                            definition = (
+                                kind,
+                                tuple(child_key(child) for child in data),
+                            )
+                        else:
+                            definition = (kind, child_key(data))
+                        definitions.append(definition)
+                    return tuple(definitions)
+
+                global_classes = {}
+                for local_class in sorted(set(local_classes)):
+                    descriptor = cyclic_key(local_class)
+                    if descriptor not in cyclic_descriptor_classes:
+                        cyclic_descriptor_classes[descriptor] = next_class
+                        next_class += 1
+                    global_classes[local_class] = (
+                        cyclic_descriptor_classes[descriptor]
+                    )
+                for node_id, local_class in zip(component, local_classes):
+                    classes[node_id] = global_classes[local_class]
+
+            for parent in component_parents[component_id]:
+                remaining_children[parent] -= 1
+                if remaining_children[parent] == 0:
+                    ready.append(parent)
 
         representatives = {}
         for node_id, class_id in enumerate(classes):
             representatives.setdefault(class_id, node_id)
-        canonical_ids = {classes[self.root]: 0}
-        pending = [classes[self.root]]
+        root_class = classes[self.root]
+        canonical_ids = {root_class: 0}
+        pending = [root_class]
         definitions = []
         pending_index = 0
         while pending_index < len(pending):
             class_id = pending[pending_index]
             pending_index += 1
+            self.canonical_visit_count += 1
             kind, data = self.nodes[representatives[class_id]]
 
             def canonical_id(child_id):
