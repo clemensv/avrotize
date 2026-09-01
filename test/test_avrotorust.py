@@ -2087,6 +2087,160 @@ class TestAvroToRust(unittest.TestCase):
             timeout=self.CARGO_TIMEOUT,
         ) == 0
 
+    def test_forward_named_collection_matches_ignore_declaration_order(self):
+        """Resolve private enum/record helpers from the pre-indexed schema."""
+        namespace = "issue484.forward_collections"
+        future_types = [{
+            "type": "enum",
+            "name": "FutureTagA",
+            "namespace": namespace,
+            "symbols": ["OVERLAP", "A_ONLY"],
+        }, {
+            "type": "enum",
+            "name": "FutureTagB",
+            "namespace": namespace,
+            "symbols": ["OVERLAP", "B_ONLY"],
+        }, {
+            "type": "record",
+            "name": "FutureRecordA",
+            "namespace": namespace,
+            "fields": [{"name": "value", "type": "string"}],
+        }, {
+            "type": "record",
+            "name": "FutureRecordB",
+            "namespace": namespace,
+            "fields": [{"name": "value", "type": "string"}],
+        }]
+        users = [{
+            "type": "record",
+            "name": "Holder",
+            "namespace": namespace,
+            "fields": [{
+                "name": "choice",
+                "type": ["TagCollections", "StringCollections"],
+            }],
+        }, {
+            "type": "record",
+            "name": "TagCollections",
+            "namespace": namespace,
+            "fields": [{
+                "name": "items",
+                "type": {
+                    "type": "array",
+                    "items": ["FutureTagA", "FutureTagB"],
+                },
+            }, {
+                "name": "values",
+                "type": {
+                    "type": "map",
+                    "values": ["FutureTagA", "FutureTagB"],
+                },
+            }],
+        }, {
+            "type": "record",
+            "name": "StringCollections",
+            "namespace": namespace,
+            "fields": [{
+                "name": "items",
+                "type": {"type": "array", "items": "string"},
+            }, {
+                "name": "values",
+                "type": {"type": "map", "values": "string"},
+            }],
+        }, {
+            "type": "record",
+            "name": "RecordCollections",
+            "namespace": namespace,
+            "fields": [{
+                "name": "items",
+                "type": {
+                    "type": "array",
+                    "items": ["FutureRecordA", "FutureRecordB"],
+                },
+            }],
+        }]
+
+        for order_name, schemas in (
+            ("forward", users + future_types),
+            ("reverse", future_types + users),
+        ):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                f"rust-forward-collection-{order_name}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            convert_avro_schema_to_rust(
+                schemas,
+                rust_path,
+                package_name=f"rust-forward-collection-{order_name}",
+                serde_annotation=True,
+            )
+            namespace_dir = os.path.join(
+                rust_path,
+                "src",
+                "issue484",
+                "forward_collections",
+            )
+            union_sources = []
+            for union_file in glob.glob(os.path.join(
+                namespace_dir,
+                "unionpath*.rs",
+            )):
+                with open(union_file, encoding="utf-8") as generated:
+                    union_sources.append(generated.read())
+            all_unions = "\n".join(union_sources)
+            self.assertIn(
+                "FutureTagA::is_json_value_match",
+                all_unions,
+            )
+            self.assertIn(
+                "FutureRecordA::is_json_value_match",
+                all_unions,
+            )
+            integration_dir = os.path.join(rust_path, "tests")
+            os.makedirs(integration_dir, exist_ok=True)
+            crate_name = f"rust_forward_collection_{order_name}"
+            with open(
+                os.path.join(integration_dir, "forward_order.rs"),
+                "w",
+                encoding="utf-8",
+            ) as integration_test:
+                integration_test.write(
+                    f"use {crate_name}::issue484::forward_collections::{{\n"
+                    "    choiceunion::ChoiceUnion,\n"
+                    "    holder::Holder,\n"
+                    "    stringcollections::StringCollections,\n"
+                    "};\n"
+                    "use std::collections::HashMap;\n\n"
+                    "#[test]\n"
+                    "fn ambiguous_nested_tags_select_string_collections() {\n"
+                    "    let holder: Holder = serde_json::from_value(\n"
+                    "        serde_json::json!({\"choice\": {\n"
+                    "            \"items\": [\"OVERLAP\"],\n"
+                    "            \"values\": {\"key\": \"OVERLAP\"},\n"
+                    "        }})\n"
+                    "    ).unwrap();\n"
+                    "    assert_eq!(\n"
+                    "        ChoiceUnion::StringCollections(StringCollections {\n"
+                    "            items: vec![\"OVERLAP\".into()],\n"
+                    "            values: HashMap::from([(\n"
+                    "                \"key\".into(), \"OVERLAP\".into(),\n"
+                    "            )]),\n"
+                    "        }),\n"
+                    "        holder.choice,\n"
+                    "    );\n"
+                    "}\n"
+                )
+            assert subprocess.check_call(
+                ['cargo', 'test', '--test', 'forward_order'],
+                cwd=rust_path,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                timeout=self.CARGO_TIMEOUT,
+            ) == 0
+
     def test_nullable_named_record_union_xml_is_not_rejected(self):
         """Keep bare nullable named-record fields usable with XML annotations."""
         self.run_convert_to_rust(

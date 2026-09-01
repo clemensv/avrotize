@@ -283,6 +283,7 @@ class AvroToRust:
         self.avro_named_types: Dict[str, Dict] = {}
         self.avro_short_names: Dict[str, List[str]] = {}
         self.avro_type_fullnames: Dict[int, str] = {}
+        self.indexed_rust_type_kinds: Dict[str, str] = {}
         self.union_path_identities: Dict[str, str] = {}
         self.union_alias_candidates: Dict[tuple[str, str], List[str]] = {}
         self.planned_alias_contents: Dict[str, str] = {}
@@ -567,6 +568,18 @@ class AvroToRust:
             )
             self.avro_named_types[fullname] = node
             self.avro_type_fullnames[id(node)] = fullname
+            if node_type in ('record', 'enum'):
+                named_namespace = fullname.rpartition('.')[0]
+                rust_namespace = named_namespace.replace('.', '::').lower()
+                rust_name = self.safe_identifier(
+                    pascal(fullname.rsplit('.', 1)[-1])
+                )
+                rust_type = self.safe_package(
+                    self.concat_package(rust_namespace, rust_name)
+                )
+                self.indexed_rust_type_kinds[rust_type] = (
+                    'struct' if node_type == 'record' else 'enum'
+                )
             candidates = self.avro_short_names.setdefault(short_name, [])
             if fullname not in candidates:
                 candidates.append(fullname)
@@ -1696,7 +1709,10 @@ class AvroToRust:
                 f'{reference}.as_object().map_or(false, '
                 f'|values| values.values().all(|value| {value_match}))'
             )
-        generated_kind = self.generated_types_rust_package.get(field_type)
+        generated_kind = (
+            self.generated_types_rust_package.get(field_type)
+            or self.indexed_rust_type_kinds.get(field_type)
+        )
         method = (
             'is_json_value_match'
             if exact_nested and generated_kind in {'union', 'struct', 'enum'}
