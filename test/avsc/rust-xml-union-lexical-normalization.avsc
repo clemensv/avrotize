@@ -74,6 +74,24 @@
     },
     {
         "type": "record",
+        "name": "OptionalRenamedField",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "value",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null,
+                "altnames": {
+                    "xml": "optionalWire"
+                }
+            }
+        ]
+    },
+    {
+        "type": "record",
         "name": "AttributeField",
         "namespace": "issue484.xml_lexical",
         "fields": [
@@ -122,6 +140,23 @@
         ]
     },
     {
+        "type": "enum",
+        "name": "NestedTagA",
+        "namespace": "issue484.xml_lexical",
+        "symbols": [
+            "UNIQUE",
+            "OVERLAP"
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "NestedTagB",
+        "namespace": "issue484.xml_lexical",
+        "symbols": [
+            "OVERLAP"
+        ]
+    },
+    {
         "type": "record",
         "name": "InnerFlag",
         "namespace": "issue484.xml_lexical",
@@ -143,6 +178,31 @@
                     "InnerText",
                     "InnerFlag"
                 ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "NestedScalarChoice",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "scalar",
+                "type": [
+                    "NestedTagA",
+                    "NestedTagB"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "NestedScalarFallback",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "scalar",
+                "type": "string"
             }
         ]
     },
@@ -235,6 +295,20 @@
                 ]
             },
             {
+                "name": "optionalRenamedForward",
+                "type": [
+                    "OptionalRenamedField",
+                    "OtherChoice"
+                ]
+            },
+            {
+                "name": "optionalRenamedReverse",
+                "type": [
+                    "OtherChoice",
+                    "OptionalRenamedField"
+                ]
+            },
+            {
                 "name": "attributeField",
                 "type": [
                     "AttributeField",
@@ -260,6 +334,13 @@
                 "type": [
                     "NestedChoice",
                     "OtherChoice"
+                ]
+            },
+            {
+                "name": "nestedScalar",
+                "type": [
+                    "NestedScalarChoice",
+                    "NestedScalarFallback"
                 ]
             },
             {

@@ -2,7 +2,7 @@ import json
 import os
 import hashlib
 import re
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import Dict, List, Union
 from avrotize.common import (
     is_generic_avro_type,
@@ -1050,9 +1050,27 @@ class AvroToRust:
             ),
             'json_match_predicates': [
                 self.get_is_json_match_clause(
-                    field['original_name'],
+                    (
+                        field['serde_name'],
+                        field['serde_alias'],
+                    ),
                     field['type'],
                 )
+                for field in fields
+            ],
+            'json_value_match_predicates': [
+                self.get_is_json_match_clause(
+                    (
+                        field['serde_name'],
+                        field['serde_alias'],
+                    ),
+                    field['type'],
+                    exact_nested=True,
+                )
+                for field in fields
+            ],
+            'xml_canonical_match_predicates': [
+                self.get_is_xml_canonical_match_clause(field)
                 for field in fields
             ],
             'xml_shape_predicates': [
@@ -1060,10 +1078,23 @@ class AvroToRust:
                 for field in fields
             ],
             'xml_match_predicates': [
-                self.get_is_json_match_clause(
+                self.get_is_xml_match_clause(
+                    (
+                        field['serde_name'],
+                        field['serde_alias'],
+                    ),
+                    field['type'],
+                )
+                for field in fields
+            ],
+            'legacy_xml_shape_predicates': [
+                self.get_legacy_is_xml_shape_clause(field)
+                for field in fields
+            ],
+            'legacy_xml_match_predicates': [
+                self.get_legacy_is_xml_match_clause(
                     field['serde_name'],
                     field['type'],
-                    xml=True,
                 )
                 for field in fields
             ],
@@ -1488,70 +1519,347 @@ class AvroToRust:
 
         return f'apache_avro::from_value({value_expression})?'
     
+    @staticmethod
+    def _rust_inner_type(rust_type: str, prefix: str) -> str | None:
+        """Returns the inner type when `rust_type` has the requested wrapper."""
+        if rust_type.startswith(prefix) and rust_type.endswith('>'):
+            return rust_type[len(prefix):-1]
+        return None
+
+    def get_value_match_expression(
+        self,
+        reference: str,
+        field_type: str,
+        xml: bool = False,
+        canonical_xml: bool = False,
+        exact_nested: bool = False,
+    ) -> str:
+        """Builds an allocation-free exact predicate for a generated Rust type."""
+        optional_type = self._rust_inner_type(field_type, 'Option<')
+        if optional_type is not None:
+            inner = self.get_value_match_expression(
+                reference,
+                optional_type,
+                xml,
+                canonical_xml,
+                exact_nested,
+            )
+            null_test = (
+                f'{reference}.is_xml_null()'
+                if xml else f'{reference}.is_null()'
+            )
+            return f'({null_test} || {inner})'
+
+        if field_type == 'serde_json::Value':
+            return 'true'
+
+        if xml:
+            if field_type == 'String':
+                return f'{reference}.is_xml_text()'
+            if field_type == 'bool':
+                return f'{reference}.matches_xml_bool()'
+            if field_type in {
+                'i8', 'i16', 'i32', 'i64', 'i128', 'isize',
+                'u8', 'u16', 'u32', 'u64', 'u128', 'usize',
+                'f32', 'f64',
+            }:
+                return (
+                    f'{reference}.matches_xml_number::<{field_type}>()'
+                )
+            if field_type == '()':
+                return f'{reference}.is_xml_unit()'
+            if (
+                'chrono::' in field_type
+                or 'uuid::Uuid' in field_type
+                or field_type == 'Uuid'
+            ):
+                return (
+                    f'{reference}.matches_xml_from_str::<{field_type}>()'
+                )
+            vector_type = self._rust_inner_type(field_type, 'Vec<')
+            if vector_type is not None:
+                item_match = self.get_value_match_expression(
+                    'item',
+                    vector_type,
+                    True,
+                    canonical_xml,
+                    exact_nested,
+                )
+                return (
+                    f'{reference}.xml_sequence_matches('
+                    f'|item| {item_match})'
+                )
+            map_type = self._rust_inner_type(
+                field_type,
+                'std::collections::HashMap<String, ',
+            )
+            if map_type is not None:
+                value_match = self.get_value_match_expression(
+                    'value',
+                    map_type,
+                    True,
+                    canonical_xml,
+                    exact_nested,
+                )
+                return (
+                    f'{reference}.xml_map_matches('
+                    f'|value| {value_match})'
+                )
+            method = (
+                'is_xml_value_canonical_match'
+                if canonical_xml
+                else 'is_xml_value_match'
+            )
+            return f'{field_type}::{method}({reference})'
+
+        if field_type == 'String':
+            return f'{reference}.is_string()'
+        if field_type == 'bool':
+            return f'{reference}.is_boolean()'
+        if field_type in {'i8', 'i16', 'i32', 'isize'}:
+            return (
+                f'{reference}.as_i64().map_or(false, '
+                f'|value| {field_type}::try_from(value).is_ok())'
+            )
+        if field_type == 'i64':
+            return f'{reference}.as_i64().is_some()'
+        if field_type in {'u8', 'u16', 'u32', 'usize'}:
+            return (
+                f'{reference}.as_u64().map_or(false, '
+                f'|value| {field_type}::try_from(value).is_ok())'
+            )
+        if field_type == 'u64':
+            return f'{reference}.as_u64().is_some()'
+        if field_type == 'f32':
+            return f'{reference}.as_f64().is_some()'
+        if field_type == 'f64':
+            return f'{reference}.as_f64().is_some()'
+        if field_type == '()':
+            return f'{reference}.is_null()'
+        if (
+            'chrono::' in field_type
+            or 'uuid::Uuid' in field_type
+            or field_type == 'Uuid'
+        ):
+            return (
+                f'{reference}.as_str().map_or(false, '
+                f'|value| value.parse::<{field_type}>().is_ok())'
+            )
+        vector_type = self._rust_inner_type(field_type, 'Vec<')
+        if vector_type is not None:
+            item_match = self.get_value_match_expression(
+                'item',
+                vector_type,
+            )
+            return (
+                f'{reference}.as_array().map_or(false, '
+                f'|items| items.iter().all(|item| {item_match}))'
+            )
+        map_type = self._rust_inner_type(
+            field_type,
+            'std::collections::HashMap<String, ',
+        )
+        if map_type is not None:
+            value_match = self.get_value_match_expression(
+                'value',
+                map_type,
+            )
+            return (
+                f'{reference}.as_object().map_or(false, '
+                f'|values| values.values().all(|value| {value_match}))'
+            )
+        generated_kind = self.generated_types_rust_package.get(field_type)
+        method = (
+            'is_json_value_match'
+            if exact_nested and generated_kind in {'union', 'struct'}
+            else 'is_json_match'
+        )
+        return f'{field_type}::{method}({reference})'
+
     def get_is_json_match_clause(
+        self,
+        field_name: str | tuple[str, ...],
+        field_type: str,
+        for_union=False,
+        exact_nested=False,
+    ) -> str:
+        """Generates an exact borrowed JSON match clause for a field."""
+        if for_union:
+            return self.get_value_match_expression(
+                'node',
+                field_type,
+                exact_nested=exact_nested,
+            )
+
+        field_names = (
+            field_name if isinstance(field_name, tuple) else (field_name,)
+        )
+        lookups = [
+            f'node.get("{name}")'
+            for name in dict.fromkeys(field_names)
+            if name
+        ]
+        value_match = self.get_value_match_expression(
+            'value',
+            field_type,
+            exact_nested=exact_nested,
+        )
+        missing_matches = field_type.startswith('Option<')
+        lookup = '.or_else(|| '.join(lookups) + ')' * (len(lookups) - 1)
+        duplicate_guard = ' + '.join(
+            f'usize::from(node.get("{name}").is_some())'
+            for name in dict.fromkeys(field_names)
+            if name
+        )
+        return (
+            f'(({duplicate_guard}) <= 1 && {lookup}.map_or('
+            f'{str(missing_matches).lower()}, |value| {value_match}))'
+        )
+
+    def get_is_xml_canonical_match_clause(self, field) -> str:
+        """Matches only canonical XML wire names and enum spellings."""
+        canonical_name = field['serde_name']
+        alias_name = field['serde_alias']
+        value_match = self.get_value_match_expression(
+            'value',
+            field['type'],
+            True,
+            True,
+        )
+        missing_matches = field['type'].startswith('Option<')
+        alias_guard = (
+            f'!node.contains_key("{alias_name}") && '
+            if alias_name and alias_name != canonical_name else ''
+        )
+        return (
+            f'({alias_guard}node.get("{canonical_name}").map_or('
+            f'{str(missing_matches).lower()}, |value| {value_match}))'
+        )
+
+    def get_is_xml_match_clause(
+        self,
+        field_name: str | tuple[str, ...],
+        field_type: str,
+        for_union=False,
+    ) -> str:
+        """Generates an exact borrowed XML match clause for a field."""
+        if for_union:
+            return self.get_value_match_expression('node', field_type, True)
+
+        field_names = (
+            field_name if isinstance(field_name, tuple) else (field_name,)
+        )
+        lookups = [
+            f'node.get("{name}")'
+            for name in dict.fromkeys(field_names)
+            if name
+        ]
+        value_match = self.get_value_match_expression(
+            'value',
+            field_type,
+            True,
+        )
+        missing_matches = field_type.startswith('Option<')
+        lookup = '.or_else(|| '.join(lookups) + ')' * (len(lookups) - 1)
+        duplicate_guard = ' + '.join(
+            f'usize::from(node.contains_key("{name}"))'
+            for name in dict.fromkeys(field_names)
+            if name
+        )
+        return (
+            f'(({duplicate_guard}) <= 1 && {lookup}.map_or('
+            f'{str(missing_matches).lower()}, |value| {value_match}))'
+        )
+
+    def get_legacy_is_xml_match_clause(
         self,
         field_name: str,
         field_type: str,
         for_union=False,
-        xml=False,
     ) -> str:
-        """Generates the is_json_match clause for a field"""
-        ref = f'node[\"{field_name}\"]' if not for_union else 'node'
-        
-        # Check if type is optional - if so, we need to allow null values
-        is_optional = field_type.startswith('Option<')
-        base_type = field_type[7:-1] if is_optional else field_type
-        null_check = f" || {ref}.is_null()" if is_optional else ""
-        
-        # serde_json::Value can be any JSON type, so always return true
+        """Preserves the public normalized-JSON XML predicate API."""
+        reference = 'node' if for_union else f'node["{field_name}"]'
+        optional_type = self._rust_inner_type(field_type, 'Option<')
+        base_type = optional_type or field_type
+        null_check = f' || {reference}.is_null()' if optional_type else ''
         if base_type == 'serde_json::Value':
-            return "true"
-        
+            return 'true'
         if base_type == 'String':
-            return f"({ref}.is_string(){null_check})"
-        elif base_type == 'bool':
-            return f"({ref}.is_boolean(){null_check})"
-        elif base_type == 'i32':
-            return f"({ref}.is_i64(){null_check})"
-        elif base_type == 'i64':
-            return f"({ref}.is_i64(){null_check})"
-        elif base_type == 'f32':
-            return f"({ref}.is_f64(){null_check})"
-        elif base_type == 'f64':
-            return f"({ref}.is_f64(){null_check})"
-        elif base_type == 'Vec<u8>':
-            return f"({ref}.is_array(){null_check})"
-        elif base_type == '()':
-            return f"({ref}.is_null(){null_check})"
-        elif base_type == 'std::collections::HashMap<String, String>':
-            return f"({ref}.is_object(){null_check})"
-        elif base_type.startswith('std::collections::HashMap<String, '):
-            return f"({ref}.is_object(){null_check})"
-        elif base_type.startswith('Vec<'):
-            return f"({ref}.is_array(){null_check})"
-        # chrono types - check for string (ISO 8601 format) or number (timestamp)
-        elif 'chrono::NaiveDateTime' in base_type or 'NaiveDateTime' in base_type:
-            return f"({ref}.is_string() || {ref}.is_i64(){null_check})"
-        elif 'chrono::NaiveDate' in base_type or 'NaiveDate' in base_type:
-            return f"({ref}.is_string() || {ref}.is_i64(){null_check})"
-        elif 'chrono::NaiveTime' in base_type or 'NaiveTime' in base_type:
-            return f"({ref}.is_string() || {ref}.is_i64(){null_check})"
-        # uuid type - check for string
-        elif 'uuid::Uuid' in base_type or 'Uuid' in base_type:
-            return f"({ref}.is_string(){null_check})"
-        else:
-            match_method = 'is_xml_match' if xml else 'is_json_match'
-            if is_optional:
-                return (
-                    f"({base_type}::{match_method}(&{ref})"
-                    f" || {ref}.is_null())"
-                )
-            return f"{base_type}::{match_method}(&{ref})"
+            return f'({reference}.is_string(){null_check})'
+        if base_type == 'bool':
+            return f'({reference}.is_boolean(){null_check})'
+        if base_type in {
+            'i8', 'i16', 'i32', 'i64', 'isize',
+            'u8', 'u16', 'u32', 'u64', 'usize',
+        }:
+            return f'({reference}.is_i64(){null_check})'
+        if base_type in {'f32', 'f64'}:
+            return f'({reference}.is_f64(){null_check})'
+        if base_type == 'Vec<u8>' or base_type.startswith('Vec<'):
+            return f'({reference}.is_array(){null_check})'
+        if base_type == '()':
+            return f'({reference}.is_null(){null_check})'
+        if base_type.startswith('std::collections::HashMap<String, '):
+            return f'({reference}.is_object(){null_check})'
+        if 'chrono::' in base_type:
+            return (
+                f'({reference}.is_string() || '
+                f'{reference}.is_i64(){null_check})'
+            )
+        if 'uuid::Uuid' in base_type or base_type == 'Uuid':
+            return f'({reference}.is_string(){null_check})'
+        if optional_type:
+            return (
+                f'({base_type}::is_xml_match(&{reference})'
+                f' || {reference}.is_null())'
+            )
+        return f'{base_type}::is_xml_match(&{reference})'
+
+    @staticmethod
+    def get_legacy_is_xml_shape_clause(field) -> str:
+        """Preserves public normalized-JSON XML shape predicates."""
+        reference = f'node.get("{field["serde_name"]}")'
+        base_type = (
+            field['type'][7:-1]
+            if field['type'].startswith('Option<')
+            else field['type']
+        )
+        primitive = (
+            base_type in {
+                'String', 'bool', 'i8', 'i16', 'i32', 'i64',
+                'u8', 'u16', 'u32', 'u64', 'isize', 'usize',
+                'f32', 'f64', 'Vec<u8>', '()', 'serde_json::Value',
+            }
+            or base_type.startswith('Vec<')
+            or base_type.startswith('std::collections::HashMap<')
+            or 'chrono::' in base_type
+            or 'uuid::Uuid' in base_type
+        )
+        if field['is_optional']:
+            if primitive:
+                return 'true'
+            return (
+                f'{reference}.map_or(true, |value| '
+                f'{base_type}::is_xml_shape(value))'
+            )
+        if primitive:
+            return f'{reference}.is_some()'
+        return (
+            f'{reference}.map_or(false, |value| '
+            f'{base_type}::is_xml_shape(value))'
+        )
 
     @staticmethod
     def get_is_xml_shape_clause(field) -> str:
         """Checks XML wire keys without reclassifying concrete values."""
-        reference = f'node.get("{field["serde_name"]}")'
+        field_names = (field['serde_name'],)
+        lookup = '.or_else(|| '.join(
+            f'node.get("{name}")' for name in field_names
+        ) + ')' * (len(field_names) - 1)
+        duplicate_guard = ' + '.join(
+            f'usize::from(node.contains_key("{name}"))'
+            for name in field_names
+        )
         base_type = (
             field['type'][7:-1]
             if field['type'].startswith('Option<')
@@ -1584,16 +1892,20 @@ class AvroToRust:
         )
         if field['is_optional']:
             if primitive:
-                return 'true'
+                return f'({duplicate_guard}) <= 1'
             return (
-                f'{reference}.map_or(true, |value| '
-                f'{base_type}::is_xml_shape(value))'
+                f'(({duplicate_guard}) <= 1 && '
+                f'{lookup}.map_or(true, |value| '
+                f'{base_type}::is_xml_value_shape(value))'
+                f')'
             )
         if primitive:
-            return f'{reference}.is_some()'
+            return f'(({duplicate_guard}) == 1)'
         return (
-            f'{reference}.map_or(false, |value| '
-            f'{base_type}::is_xml_shape(value))'
+            f'(({duplicate_guard}) == 1 && '
+            f'{lookup}.map_or(false, |value| '
+            f'{base_type}::is_xml_value_shape(value))'
+            f')'
         )
 
 
@@ -1744,11 +2056,27 @@ class AvroToRust:
                 t,
                 for_union=True,
             )
-            xml_predicate = self.get_is_json_match_clause(
+            value_predicate = self.get_is_json_match_clause(
                 field_name,
                 t,
                 for_union=True,
-                xml=True,
+                exact_nested=True,
+            )
+            xml_predicate = self.get_is_xml_match_clause(
+                field_name,
+                t,
+                for_union=True,
+            )
+            canonical_xml_predicate = self.get_value_match_expression(
+                'node',
+                t,
+                True,
+                True,
+            )
+            legacy_xml_predicate = self.get_legacy_is_xml_match_clause(
+                field_name,
+                t,
+                for_union=True,
             )
             predicate_key = self.get_json_match_signature(
                 union_avro_types[i],
@@ -1774,6 +2102,11 @@ class AvroToRust:
             else:
                 seen_names[variant_name] = 1
             
+            xml_representation = self.xml_union_representation(
+                union_avro_types[i],
+                t,
+                namespace,
+            )
             union_fields.append({
                 'name': variant_name, 
                 'type': t, 
@@ -1801,12 +2134,36 @@ class AvroToRust:
                 ),
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,
+                'json_value_match_predicate': value_predicate,
                 'xml_match_predicate': xml_predicate,
-                'xml_representation': self.xml_union_representation(
-                    union_avro_types[i],
-                    t,
-                    namespace,
+                'legacy_xml_match_predicate': legacy_xml_predicate,
+                'xml_borrowed_match_predicate': (
+                    f'content.get("item").map_or('
+                    f'content.is_empty_xml_map(), |node| '
+                    f'{xml_predicate})'
+                    if xml_representation == 'sequence'
+                    else (
+                        f'content.get("entries").map_or(false, |node| '
+                        f'{xml_predicate})'
+                        if xml_representation == 'map'
+                        else xml_predicate
+                    )
                 ),
+                'xml_canonical_match_predicate': (
+                    (
+                        f'content.get("item").map_or('
+                        f'content.is_empty_xml_map(), |node| '
+                        f'{canonical_xml_predicate})'
+                        if xml_representation == 'sequence'
+                        else (
+                            f'content.get("entries").map_or(false, |node| '
+                            f'{canonical_xml_predicate})'
+                            if xml_representation == 'map'
+                            else canonical_xml_predicate
+                        )
+                    )
+                ),
+                'xml_representation': xml_representation,
                 'json_match_signature': predicate_key,
                 'json_shape_signature': shape_signature,
                 'json_default_shape_signature': default_shape_signature,
@@ -2639,6 +2996,7 @@ class AvroToRust:
         match_signature,
         shape_signature,
         _memo=None,
+        _stats=None,
     ) -> bool:
         """Checks matcher overlap across all realizable serialized shapes."""
         if _memo is None:
@@ -2656,6 +3014,13 @@ class AvroToRust:
 
         start_key = pair_key(start)
         if start_key in _memo:
+            if _stats is not None:
+                _stats.update({
+                    'equation_count': 0,
+                    'equation_evaluations': 0,
+                    'queue_pushes': 0,
+                    'dependency_notifications': 0,
+                })
             return _memo[start_key]
 
         equations = {}
@@ -2798,29 +3163,87 @@ class AvroToRust:
             key: equation if isinstance(equation, bool) else False
             for key, equation in equations.items()
         }
-        changed = True
-        while changed:
-            changed = False
-            for key, equation in equations.items():
-                if isinstance(equation, bool):
-                    continue
-                operator, dependencies = equation
-                result = (
-                    any(values[dependency] for dependency in dependencies)
-                    if operator == 'any'
-                    else all(
-                        any(values[alternative] for alternative in alternatives)
-                        for alternatives in dependencies
-                    )
-                    if operator == 'all_any'
-                    else all(
-                        values[dependency]
-                        for dependency in dependencies
-                    )
-                )
-                if result and not values[key]:
+        dependents = defaultdict(set)
+        remaining = {}
+        satisfied_groups = defaultdict(set)
+        queue = deque()
+        queued = set()
+        queue_pushes = 0
+        equation_evaluations = 0
+        dependency_notifications = 0
+
+        def publish(key):
+            nonlocal queue_pushes
+            if values[key] and key not in queued:
+                queued.add(key)
+                queue.append(key)
+                queue_pushes += 1
+
+        for key, equation in equations.items():
+            if isinstance(equation, bool):
+                if equation:
+                    publish(key)
+                continue
+            equation_evaluations += 1
+            operator, dependencies = equation
+            if operator == 'any':
+                dependency_keys = set(dependencies)
+                for dependency in dependency_keys:
+                    dependents[dependency].add((key, None))
+                if any(values[dependency] for dependency in dependency_keys):
                     values[key] = True
-                    changed = True
+                    publish(key)
+            elif operator == 'all':
+                dependency_keys = set(dependencies)
+                for dependency in dependency_keys:
+                    dependents[dependency].add((key, None))
+                remaining[key] = len(dependency_keys)
+                if remaining[key] == 0:
+                    values[key] = True
+                    publish(key)
+            else:
+                remaining[key] = len(dependencies)
+                for group_index, alternatives in enumerate(dependencies):
+                    alternative_keys = set(alternatives)
+                    for dependency in alternative_keys:
+                        dependents[dependency].add((key, group_index))
+                    if any(
+                        values[dependency]
+                        for dependency in alternative_keys
+                    ):
+                        satisfied_groups[key].add(group_index)
+                        remaining[key] -= 1
+                if remaining[key] == 0:
+                    values[key] = True
+                    publish(key)
+
+        while queue:
+            dependency = queue.popleft()
+            queued.remove(dependency)
+            for key, group_index in dependents[dependency]:
+                dependency_notifications += 1
+                if values[key]:
+                    continue
+                operator, _ = equations[key]
+                if operator == 'any':
+                    values[key] = True
+                elif operator == 'all':
+                    remaining[key] -= 1
+                    values[key] = remaining[key] == 0
+                elif group_index not in satisfied_groups[key]:
+                    satisfied_groups[key].add(group_index)
+                    remaining[key] -= 1
+                    values[key] = remaining[key] == 0
+                if values[key]:
+                    publish(key)
+
+        if _stats is not None:
+            _stats.update({
+                'equation_count': len(equations),
+                'equation_evaluations': equation_evaluations,
+                'queue_pushes': queue_pushes,
+                'dependency_notifications': dependency_notifications,
+            })
         _memo.update(values)
         return values[start_key]
 

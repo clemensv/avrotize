@@ -38,6 +38,7 @@ struct XmlSequenceRef<'a, T: ?Sized> {
 
 #[derive(Deserialize)]
 struct XmlSequence<T> {
+    #[serde(default)]
     item: T,
 }
 
@@ -72,39 +73,6 @@ thread_local! {
     static XML_SELECTED_DECODE_COUNT: std::cell::Cell<usize> =
         const { std::cell::Cell::new(0) };
     {%- endif %}
-    static CANDIDATE_PROBE_LIVE_COUNT: std::cell::Cell<usize> =
-        const { std::cell::Cell::new(0) };
-    static CANDIDATE_PROBE_MAX_LIVE_COUNT: std::cell::Cell<usize> =
-        const { std::cell::Cell::new(0) };
-}
-
-#[cfg(test)]
-struct CandidateProbeGuard;
-
-#[cfg(test)]
-impl CandidateProbeGuard {
-    fn enter(
-        counter: &'static std::thread::LocalKey<std::cell::Cell<usize>>,
-    ) -> Self {
-        counter.with(|count| count.set(count.get() + 1));
-        CANDIDATE_PROBE_LIVE_COUNT.with(|live| {
-            let current = live.get() + 1;
-            live.set(current);
-            CANDIDATE_PROBE_MAX_LIVE_COUNT.with(|maximum| {
-                maximum.set(maximum.get().max(current));
-            });
-        });
-        Self
-    }
-}
-
-#[cfg(test)]
-impl Drop for CandidateProbeGuard {
-    fn drop(&mut self) {
-        CANDIDATE_PROBE_LIVE_COUNT.with(|live| {
-            live.set(live.get() - 1);
-        });
-    }
 }
 
 #[cfg(test)]
@@ -116,13 +84,11 @@ fn reset_candidate_test_counters() {
     XML_CANDIDATE_PROBE_COUNT.with(|count| count.set(0));
     XML_SELECTED_DECODE_COUNT.with(|count| count.set(0));
     {%- endif %}
-    CANDIDATE_PROBE_LIVE_COUNT.with(|count| count.set(0));
-    CANDIDATE_PROBE_MAX_LIVE_COUNT.with(|count| count.set(0));
 }
 
 #[cfg(test)]
 #[allow(dead_code)]
-fn candidate_test_counts() -> (usize, usize, usize, usize, usize) {
+fn candidate_test_counts() -> (usize, usize, usize, usize) {
     (
         JSON_CANDIDATE_PROBE_COUNT.with(std::cell::Cell::get),
         {%- if xml_annotation %}
@@ -136,64 +102,21 @@ fn candidate_test_counts() -> (usize, usize, usize, usize, usize) {
         {%- else %}
         0,
         {%- endif %}
-        CANDIDATE_PROBE_MAX_LIVE_COUNT.with(std::cell::Cell::get),
     )
 }
 
-fn json_candidate_matches<T>(node: &serde_json::Value) -> bool
-where
-    T: serde::de::DeserializeOwned,
-{
+fn json_candidate_matches(matches: bool) -> bool {
     #[cfg(test)]
-    let _probe = CandidateProbeGuard::enter(&JSON_CANDIDATE_PROBE_COUNT);
-    match T::deserialize(node.clone()) {
-        Ok(value) => {
-            drop(value);
-            true
-        }
-        Err(error) => {
-            drop(error);
-            false
-        }
-    }
+    JSON_CANDIDATE_PROBE_COUNT.with(|count| count.set(count.get() + 1));
+    matches
 }
 {%- endif %}
 
 {%- if xml_annotation %}
-fn xml_candidate_matches<T>(content: crate::xml_support::XmlValue) -> bool
-where
-    T: serde::de::DeserializeOwned,
-{
+fn xml_candidate_matches(matches: bool) -> bool {
     #[cfg(test)]
-    let _probe = CandidateProbeGuard::enter(&XML_CANDIDATE_PROBE_COUNT);
-    match crate::xml_support::with_xml_union_deserialize(
-        || T::deserialize(content)
-    ) {
-        Ok(value) => {
-            drop(value);
-            true
-        }
-        Err(error) => {
-            drop(error);
-            false
-        }
-    }
-}
-
-fn quick_xml_candidate_matches<T>(xml: &str) -> bool
-where
-    T: serde::de::DeserializeOwned,
-{
-    match quick_xml::de::from_str::<T>(xml) {
-        Ok(value) => {
-            drop(value);
-            true
-        }
-        Err(error) => {
-            drop(error);
-            false
-        }
-    }
+    XML_CANDIDATE_PROBE_COUNT.with(|count| count.set(count.get() + 1));
+    matches
 }
 
 impl {{ union_enum_name }} {
@@ -216,35 +139,42 @@ impl {{ union_enum_name }} {
                     Ok(xml) => xml,
                     Err(_) => return false,
                 };
-                {%- if xml_has_record_variant %}
-                let shape_node = match quick_xml::de::from_str::<
+                let content = match quick_xml::de::from_str::<
                     XmlUnionProbe<crate::xml_support::XmlValue>
                 >(&xml) {
-                    Ok(probe) => probe.value.to_json(),
+                    Ok(probe) => probe.value,
                     Err(_) => return false,
                 };
-                {%- endif %}
                 let mut matched_variant = None;
+                let mut match_count = 0usize;
+                let mut canonical_variant = None;
+                let mut canonical_count = 0usize;
                 {%- for candidate in union_fields %}
-                if quick_xml_candidate_matches::<
-                    {%- if candidate.xml_representation == "sequence" %}
-                    XmlUnionProbe<XmlSequence<{{ candidate.type }}>>
-                    {%- elif candidate.xml_representation == "map" %}
-                    XmlUnionProbe<XmlMap<{{ candidate.type }}>>
-                    {%- else %}
-                    XmlUnionProbe<{{ candidate.type }}>
-                    {%- endif %}
-                >(&xml)
-                    {%- if candidate.xml_representation == "record" %}
-                    && <{{ candidate.type }}>::is_xml_shape(&shape_node)
-                    {%- endif %}
-                {
-                    if matched_variant.replace({{ loop.index0 }}).is_some() {
-                        return false;
+                let candidate_matches = xml_candidate_matches({
+                    let node = &content;
+                    {{ candidate.xml_borrowed_match_predicate }}
+                });
+                if candidate_matches {
+                    match_count += 1;
+                    matched_variant.get_or_insert({{ loop.index0 }});
+                    let canonical_matches = {
+                        let node = &content;
+                        {{ candidate.xml_canonical_match_predicate }}
+                    };
+                    if canonical_matches {
+                        canonical_count += 1;
+                        canonical_variant.get_or_insert({{ loop.index0 }});
                     }
                 }
                 {%- endfor %}
-                matched_variant == Some({{ loop.index0 }})
+                let selected_variant = if canonical_count == 1 {
+                    canonical_variant
+                } else if canonical_count == 0 && match_count == 1 {
+                    matched_variant
+                } else {
+                    None
+                };
+                selected_variant == Some({{ loop.index0 }})
             },
             {%- endfor %}
         }
@@ -337,35 +267,40 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             let content = crate::xml_support::XmlValue::deserialize(
                 deserializer
             )?;
-            {%- if xml_has_record_variant %}
-            let shape_node = content.to_json();
-            {%- endif %}
             let mut matched_variant = None;
+            let mut match_count = 0usize;
+            let mut canonical_variant = None;
+            let mut canonical_count = 0usize;
             {%- for union_field in union_fields %}
-            if
-                {%- if union_field.xml_representation == "record" %}
-                <{{ union_field.type }}>::is_xml_shape(&shape_node)
-                {%- else %}
-                true
-                {%- endif %}
-                && xml_candidate_matches::<
-                    {%- if union_field.xml_representation == "sequence" %}
-                    XmlSequence<{{ union_field.type }}>
-                    {%- elif union_field.xml_representation == "map" %}
-                    XmlMap<{{ union_field.type }}>
-                    {%- else %}
-                    {{ union_field.type }}
-                    {%- endif %}
-                >(content.clone())
-            {
-                if matched_variant.replace({{ loop.index0 }}).is_some() {
-                    return Err(serde::de::Error::custom(
-                        "ambiguous XML union value"
-                    ));
+            let candidate_matches = xml_candidate_matches({
+                let node = &content;
+                {{ union_field.xml_borrowed_match_predicate }}
+            });
+            if candidate_matches {
+                match_count += 1;
+                matched_variant.get_or_insert({{ loop.index0 }});
+                let canonical_matches = {
+                    let node = &content;
+                    {{ union_field.xml_canonical_match_predicate }}
+                };
+                if canonical_matches {
+                    canonical_count += 1;
+                    canonical_variant.get_or_insert({{ loop.index0 }});
                 }
             }
             {%- endfor %}
-            return match matched_variant {
+            let selected_variant = if canonical_count == 1 {
+                canonical_variant
+            } else if canonical_count == 0 && match_count == 1 {
+                matched_variant
+            } else if match_count > 0 {
+                return Err(serde::de::Error::custom(
+                    "ambiguous XML union value"
+                ));
+            } else {
+                None
+            };
+            return match selected_variant {
                 {%- for union_field in union_fields %}
                 Some({{ loop.index0 }}) => {
                     #[cfg(test)]
@@ -396,7 +331,10 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
         let node = serde_json::Value::deserialize(deserializer)?;
         let mut matched_variant = None;
         {%- for union_field in union_fields %}
-        if json_candidate_matches::<{{ union_field.type }}>(&node) {
+        if json_candidate_matches({
+            let node = &node;
+            {{ union_field.json_value_match_predicate }}
+        }) {
             if matched_variant.replace({{ loop.index0 }}).is_some() {
                 return Err(serde::de::Error::custom(
                     "ambiguous JSON union value"
@@ -420,71 +358,6 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
         }
     }
 }
-
-{%- if xml_annotation %}
-fn normalize_xml_value(value: serde_json::Value) -> serde_json::Value {
-    match value {
-        serde_json::Value::Object(mut object) if object.len() == 1 && object.contains_key("$text") => {
-            normalize_xml_text(object.remove("$text").unwrap())
-        }
-        serde_json::Value::Object(object) => serde_json::Value::Object(
-            object.into_iter().map(|(key, value)| (key, normalize_xml_value(value))).collect()
-        ),
-        serde_json::Value::Array(values) => {
-            serde_json::Value::Array(values.into_iter().map(normalize_xml_value).collect())
-        }
-        serde_json::Value::String(text) => {
-            normalize_xml_text(serde_json::Value::String(text))
-        }
-        other => other,
-    }
-}
-
-fn normalize_xml_text(value: serde_json::Value) -> serde_json::Value {
-    let text = match value {
-        serde_json::Value::String(text) => text,
-        other => return normalize_xml_value(other),
-    };
-    {%- for union_field in union_fields %}
-    {%- if union_field.type == "bool" %}
-    if let Ok(value) = text.parse::<bool>() {
-        return serde_json::Value::Bool(value);
-    }
-    {%- elif union_field.type in ["i8", "i16", "i32", "i64", "isize"] %}
-    if let Ok(value) = text.parse::<{{ union_field.type }}>() {
-        return serde_json::Value::Number((value as i64).into());
-    }
-    {%- elif union_field.type in ["u8", "u16", "u32", "u64", "usize"] %}
-    if let Ok(value) = text.parse::<{{ union_field.type }}>() {
-        return serde_json::Value::Number((value as u64).into());
-    }
-    {%- elif union_field.type in ["f32", "f64"] %}
-    if let Ok(value) = text.parse::<{{ union_field.type }}>() {
-        if let Some(value) = serde_json::Number::from_f64(value as f64) {
-            return serde_json::Value::Number(value);
-        }
-    }
-    {%- endif %}
-    {%- endfor %}
-    {%- if not xml_has_typed_scalar_parse %}
-    if let Ok(value) = text.parse::<bool>() {
-        return serde_json::Value::Bool(value);
-    }
-    if let Ok(value) = text.parse::<i64>() {
-        return serde_json::Value::Number(value.into());
-    }
-    if let Ok(value) = text.parse::<u64>() {
-        return serde_json::Value::Number(value.into());
-    }
-    if let Ok(value) = text.parse::<f64>() {
-        if let Some(value) = serde_json::Number::from_f64(value) {
-            return serde_json::Value::Number(value);
-        }
-    }
-    {%- endif %}
-    serde_json::Value::String(text)
-}
-{%- endif %}
 
 impl {{ union_enum_name }} {
     {%- if avro_annotation %}
@@ -670,15 +543,67 @@ impl {{ union_enum_name }} {
         {{ predicate }}{%if not loop.last%}||{%endif%}
         {%- endfor %}; 
     }
+
+    pub(crate) fn is_json_value_match(node: &serde_json::Value) -> bool {
+        let match_count = 0usize
+            {%- for union_field in union_fields %}
+            + usize::from({
+                let node = node;
+                {{ union_field.json_value_match_predicate }}
+            })
+            {%- endfor %};
+        match_count == 1
+    }
     {%- if xml_annotation %}
 
     pub fn is_xml_match(node: &serde_json::Value) -> bool {
         return{%- for union_field in union_fields %}
-        {{ union_field.xml_match_predicate }}{%if not loop.last%}||{%endif%}
+        {{ union_field.legacy_xml_match_predicate }}{%if not loop.last%}||{%endif%}
         {%- endfor %};
     }
 
     pub fn is_xml_shape(_node: &serde_json::Value) -> bool {
+        true
+    }
+
+    pub(crate) fn is_xml_value_match(
+        node: &crate::xml_support::XmlValue,
+    ) -> bool {
+        let content = node;
+        let match_count = 0usize
+            {%- for union_field in union_fields %}
+            + usize::from({
+                let node = content;
+                {{ union_field.xml_borrowed_match_predicate }}
+            })
+            {%- endfor %};
+        let canonical_count = 0usize
+            {%- for union_field in union_fields %}
+            + usize::from({
+                let node = content;
+                {{ union_field.xml_canonical_match_predicate }}
+            })
+            {%- endfor %};
+        canonical_count == 1 || (canonical_count == 0 && match_count == 1)
+    }
+
+    pub(crate) fn is_xml_value_canonical_match(
+        node: &crate::xml_support::XmlValue,
+    ) -> bool {
+        let content = node;
+        let canonical_count = 0usize
+            {%- for union_field in union_fields %}
+            + usize::from({
+                let node = content;
+                {{ union_field.xml_canonical_match_predicate }}
+            })
+            {%- endfor %};
+        canonical_count == 1
+    }
+
+    pub(crate) fn is_xml_value_shape(
+        _node: &crate::xml_support::XmlValue,
+    ) -> bool {
         true
     }
     {%- endif %}
@@ -777,6 +702,9 @@ mod tests {
         let instance = {{ union_enum_name }}::{{ union_field.name }}({{ union_field.random_value }});
         {%- if serde_annotation and union_field.json_round_trip_safe %}
         let json_bytes = serde_json::to_vec(&instance).unwrap();
+        let json_node = serde_json::to_value(&instance).unwrap();
+        assert!({{ union_enum_name }}::is_json_match(&json_node));
+        assert!({{ union_enum_name }}::is_json_value_match(&json_node));
         let deserialized_instance: {{ union_enum_name }} = serde_json::from_slice(&json_bytes).unwrap();
         assert_eq!(instance, deserialized_instance);
         {%- elif serde_annotation %}
@@ -816,6 +744,17 @@ mod tests {
             {{ ambiguous_json_field.default_value }}
         );
         let json_bytes = serde_json::to_vec(&instance).unwrap();
+        let json_node = serde_json::to_value(&instance).unwrap();
+        assert!({{ union_enum_name }}::is_json_match(&json_node));
+        let private_match_count = 0usize
+            {%- for union_field in union_fields %}
+            + usize::from({
+                let node = &json_node;
+                {{ union_field.json_value_match_predicate }}
+            })
+            {%- endfor %};
+        assert!(private_match_count > 1);
+        assert!(!{{ union_enum_name }}::is_json_value_match(&json_node));
         let result = serde_json::from_slice::<{{ union_enum_name }}>(
             &json_bytes
         );

@@ -420,12 +420,20 @@ impl {{ struct_name }} {
         {%- endfor %}
         true
     }
+
+    pub(crate) fn is_json_value_match(node: &serde_json::Value) -> bool {
+        node.is_object() &&
+        {%- for predicate in json_value_match_predicates %}
+        {{ predicate }} &&
+        {%- endfor %}
+        true
+    }
     {%- if xml_annotation %}
 
     /// Checks if the given normalized XML value matches the struct.
     pub fn is_xml_match(node: &serde_json::Value) -> bool {
         node.is_object() &&
-        {%- for predicate in xml_match_predicates %}
+        {%- for predicate in legacy_xml_match_predicates %}
         {{ predicate }} &&
         {%- endfor %}
         true
@@ -433,6 +441,36 @@ impl {{ struct_name }} {
 
     pub fn is_xml_shape(node: &serde_json::Value) -> bool {
         node.is_object() &&
+        {%- for predicate in legacy_xml_shape_predicates %}
+        {{ predicate }} &&
+        {%- endfor %}
+        true
+    }
+
+    pub(crate) fn is_xml_value_match(
+        node: &crate::xml_support::XmlValue,
+    ) -> bool {
+        matches!(node, crate::xml_support::XmlValue::Map(_)) &&
+        {%- for predicate in xml_match_predicates %}
+        {{ predicate }} &&
+        {%- endfor %}
+        true
+    }
+
+    pub(crate) fn is_xml_value_canonical_match(
+        node: &crate::xml_support::XmlValue,
+    ) -> bool {
+        matches!(node, crate::xml_support::XmlValue::Map(_)) &&
+        {%- for predicate in xml_canonical_match_predicates %}
+        {{ predicate }} &&
+        {%- endfor %}
+        true
+    }
+
+    pub(crate) fn is_xml_value_shape(
+        node: &crate::xml_support::XmlValue,
+    ) -> bool {
+        matches!(node, crate::xml_support::XmlValue::Map(_)) &&
         {%- for predicate in xml_shape_predicates %}
         {{ predicate }} &&
         {%- endfor %}

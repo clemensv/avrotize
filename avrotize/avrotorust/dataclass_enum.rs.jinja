@@ -124,7 +124,14 @@ impl {{ enum_name }} {
     {%- endif %}
 
     pub fn is_json_match(node: &serde_json::Value) -> bool {
-        return node.is_string();
+        node.as_str().map_or(false, |value| false
+            {%- for symbol in symbols %}
+            || value == "{{ symbol.value }}"
+            {%- if xml_annotation and (serde_annotation or avro_annotation) and symbol.json_value != symbol.value %}
+            || value == "{{ symbol.json_value }}"
+            {%- endif %}
+            {%- endfor %}
+        )
     }
     {%- if xml_annotation %}
 
@@ -134,6 +141,35 @@ impl {{ enum_name }} {
 
     pub fn is_xml_shape(node: &serde_json::Value) -> bool {
         node.is_string()
+    }
+
+    pub(crate) fn is_xml_value_match(
+        node: &crate::xml_support::XmlValue,
+    ) -> bool {
+        node.xml_text().map_or(false, |value| false
+            {%- for symbol in symbols %}
+            || value == "{{ symbol.value }}"
+            {%- if xml_annotation and (serde_annotation or avro_annotation) and symbol.json_value != symbol.value %}
+            || value == "{{ symbol.json_value }}"
+            {%- endif %}
+            {%- endfor %}
+        )
+    }
+
+    pub(crate) fn is_xml_value_canonical_match(
+        node: &crate::xml_support::XmlValue,
+    ) -> bool {
+        node.xml_text().map_or(false, |value| false
+            {%- for symbol in symbols %}
+            || value == "{{ symbol.value }}"
+            {%- endfor %}
+        )
+    }
+
+    pub(crate) fn is_xml_value_shape(
+        node: &crate::xml_support::XmlValue,
+    ) -> bool {
+        node.is_xml_text()
     }
     {%- endif %}
 

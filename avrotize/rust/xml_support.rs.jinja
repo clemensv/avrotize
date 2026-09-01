@@ -14,7 +14,7 @@ use std::io::Read;
 pub(crate) const MAX_XML_DATA_SIZE: usize = 16 * 1024 * 1024;
 const MAX_XML_DEPTH: usize = 128;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum XmlValue {
     Bool(bool),
     I64(i64),
@@ -24,8 +24,14 @@ pub(crate) enum XmlValue {
     Unit,
     Option(Option<Box<XmlValue>>),
     Seq(Vec<XmlValue>),
-    Map(Vec<(XmlValue, XmlValue)>),
+    Map(XmlMapValue),
     Bytes(Vec<u8>),
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) struct XmlMapValue {
+    values: Vec<(XmlValue, XmlValue)>,
+    indexes: HashMap<String, usize>,
 }
 
 struct XmlValueVisitor;
@@ -33,6 +39,7 @@ struct XmlValueVisitor;
 #[cfg(test)]
 thread_local! {
     static XML_MAP_LOOKUP_COUNT: Cell<usize> = const { Cell::new(0) };
+    static XML_MAP_PROBE_LOOKUP_COUNT: Cell<usize> = const { Cell::new(0) };
 }
 
 fn push_xml_map_entry(
@@ -137,7 +144,7 @@ impl<'de> Visitor<'de> for XmlValueVisitor {
         while let Some((key, value)) = map.next_entry()? {
             push_xml_map_entry(&mut values, &mut indexes, key, value);
         }
-        Ok(XmlValue::Map(values))
+        Ok(XmlValue::Map(XmlMapValue { values, indexes }))
     }
 
     fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E> {
@@ -187,6 +194,15 @@ mod xml_value_tests {
             XmlValue::Seq(ref items) if items.len() == 2
         ));
         XML_MAP_LOOKUP_COUNT.with(|count| assert_eq!(4097, count.get()));
+
+        let map = XmlValue::Map(XmlMapValue { values, indexes });
+        XML_MAP_PROBE_LOOKUP_COUNT.with(|count| count.set(0));
+        for index in 0..4096 {
+            assert!(map.get(&format!("key{index}")).is_some());
+        }
+        XML_MAP_PROBE_LOOKUP_COUNT.with(
+            |count| assert_eq!(4096, count.get())
+        );
     }
 
     #[derive(Debug, Deserialize, PartialEq)]
@@ -229,6 +245,40 @@ mod xml_value_tests {
         assert_eq!(
             direct.value,
             replay::<Option<String>>(empty_option).unwrap(),
+        );
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Item {
+        name: String,
+    }
+
+    fn item(name: &str) -> XmlValue {
+        XmlValue::map(vec![(
+            XmlValue::String("name".into()),
+            XmlValue::String(name.into()),
+        )])
+    }
+
+    #[test]
+    fn replays_zero_one_and_two_record_sequence_items() {
+        let empty = Vec::<Item>::deserialize(XmlValue::map(Vec::new()))
+            .unwrap();
+        assert!(empty.is_empty());
+
+        let single = Vec::<Item>::deserialize(item("one")).unwrap();
+        assert_eq!(vec![Item { name: "one".into() }], single);
+
+        let pair = Vec::<Item>::deserialize(XmlValue::Seq(vec![
+            item("one"),
+            item("two"),
+        ])).unwrap();
+        assert_eq!(
+            vec![
+                Item { name: "one".into() },
+                Item { name: "two".into() },
+            ],
+            pair,
         );
     }
 }
@@ -305,46 +355,124 @@ impl XmlValue {
         })
     }
 
-    pub(crate) fn to_json(&self) -> serde_json::Value {
+    fn map(values: Vec<(XmlValue, XmlValue)>) -> XmlValue {
+        let indexes = values.iter().enumerate().filter_map(
+            |(index, (key, _))| match key {
+                XmlValue::String(key) => Some((key.clone(), index)),
+                _ => None,
+            },
+        ).collect();
+        XmlValue::Map(XmlMapValue { values, indexes })
+    }
+
+    pub(crate) fn get(&self, expected: &str) -> Option<&XmlValue> {
         match self {
-            XmlValue::Bool(value) => serde_json::Value::Bool(*value),
-            XmlValue::I64(value) => (*value).into(),
-            XmlValue::U64(value) => (*value).into(),
-            XmlValue::F64(value) => serde_json::Number::from_f64(*value)
-                .map_or(serde_json::Value::Null, serde_json::Value::Number),
-            XmlValue::String(value) => {
-                serde_json::Value::String(value.clone())
+            XmlValue::Map(map) => {
+                #[cfg(test)]
+                XML_MAP_PROBE_LOOKUP_COUNT.with(
+                    |count| count.set(count.get() + 1)
+                );
+                map.indexes.get(expected).map(
+                    |index| &map.values[*index].1
+                )
             }
-            XmlValue::Unit | XmlValue::Option(None) => {
-                serde_json::Value::Null
-            }
-            XmlValue::Option(Some(value)) => value.to_json(),
-            XmlValue::Seq(values) => serde_json::Value::Array(
-                values.iter().map(XmlValue::to_json).collect()
-            ),
-            XmlValue::Map(values) => {
-                let mut object = serde_json::Map::new();
-                for (key, value) in values {
-                    if let XmlValue::String(key) = key {
-                        object.insert(key.clone(), value.to_json());
-                    }
+            _ => None,
+        }
+    }
+
+    pub(crate) fn contains_key(&self, expected: &str) -> bool {
+        self.get(expected).is_some()
+    }
+
+    pub(crate) fn is_empty_xml_map(&self) -> bool {
+        matches!(self, XmlValue::Map(map) if map.values.is_empty())
+    }
+
+    pub(crate) fn xml_text(&self) -> Option<&str> {
+        match self {
+            XmlValue::String(value) => Some(value),
+            XmlValue::Map(map) if map.values.is_empty() => Some(""),
+            XmlValue::Map(map) if map.values.len() == 1 => {
+                let (key, value) = &map.values[0];
+                if matches!(key, XmlValue::String(key) if key == "$text") {
+                    value.xml_text()
+                } else {
+                    None
                 }
-                serde_json::Value::Object(object)
             }
-            XmlValue::Bytes(value) => serde_json::Value::Array(
-                value.iter().copied().map(serde_json::Value::from).collect()
-            ),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn is_xml_text(&self) -> bool {
+        self.xml_text().is_some()
+    }
+
+    pub(crate) fn is_xml_null(&self) -> bool {
+        matches!(self, XmlValue::Unit | XmlValue::Option(None))
+            || matches!(self, XmlValue::String(value) if value.is_empty())
+    }
+
+    pub(crate) fn is_xml_unit(&self) -> bool {
+        matches!(self, XmlValue::Unit | XmlValue::String(_))
+            || matches!(self, XmlValue::Map(map) if map.values.is_empty())
+    }
+
+    pub(crate) fn matches_xml_bool(&self) -> bool {
+        self.xml_text().is_some_and(|text| matches!(
+            Self::trim_xml_whitespace(text),
+            "1" | "0" | "true" | "false"
+        ))
+    }
+
+    pub(crate) fn matches_xml_number<T>(&self) -> bool
+    where
+        T: std::str::FromStr,
+    {
+        self.xml_text().is_some_and(|text| {
+            Self::trim_xml_whitespace(text).parse::<T>().is_ok()
+        })
+    }
+
+    pub(crate) fn matches_xml_from_str<T>(&self) -> bool
+    where
+        T: std::str::FromStr,
+    {
+        self.xml_text().is_some_and(|text| text.parse::<T>().is_ok())
+    }
+
+    pub(crate) fn xml_sequence_matches(
+        &self,
+        matches: impl Fn(&XmlValue) -> bool,
+    ) -> bool {
+        match self {
+            XmlValue::Seq(values) => values.iter().all(matches),
+            XmlValue::Map(map) if map.values.is_empty() => true,
+            XmlValue::String(_) | XmlValue::Map(_) => matches(self),
+            _ => false,
+        }
+    }
+
+    pub(crate) fn xml_map_matches(
+        &self,
+        matches: impl Fn(&XmlValue) -> bool,
+    ) -> bool {
+        match self {
+            XmlValue::Map(map) => map.values.iter().all(|(key, value)| {
+                matches!(key, XmlValue::String(_)) && matches(value)
+            }),
+            _ => false,
         }
     }
 
     fn into_text(self) -> Result<String, de::value::Error> {
         match self {
             XmlValue::String(value) => Ok(value),
-            XmlValue::Map(values) if values.is_empty() => {
+            XmlValue::Map(map) if map.values.is_empty() => {
                 Ok(String::new())
             }
-            XmlValue::Map(mut values) if values.len() == 1 => {
-                let (key, value) = values.pop().unwrap();
+            XmlValue::Map(mut map) if map.values.len() == 1 => {
+                let (key, value) = map.values.pop().unwrap();
                 if matches!(key, XmlValue::String(ref key) if key == "$text") {
                     value.into_text()
                 } else {
@@ -399,9 +527,9 @@ impl<'de> Deserializer<'de> for XmlValue {
                     values: values.into_iter(),
                 })
             }
-            XmlValue::Map(values) => {
+            XmlValue::Map(map) => {
                 visitor.visit_map(XmlMapAccess {
-                    values: values.into_iter(),
+                    values: map.values.into_iter(),
                     value: None,
                 })
             }
@@ -495,7 +623,7 @@ impl<'de> Deserializer<'de> for XmlValue {
     {
         match self {
             XmlValue::Unit | XmlValue::String(_) => visitor.visit_unit(),
-            XmlValue::Map(values) if values.is_empty() => visitor.visit_unit(),
+            XmlValue::Map(map) if map.values.is_empty() => visitor.visit_unit(),
             _ => Err(de::Error::custom("expected empty XML value")),
         }
     }
@@ -528,17 +656,8 @@ impl<'de> Deserializer<'de> for XmlValue {
     {
         let values = match self {
             XmlValue::Seq(values) => values,
-            XmlValue::Map(values) if values.is_empty() => Vec::new(),
-            XmlValue::Map(values) => {
-                let first_key = &values[0].0;
-                if values.iter().all(|(key, _)| key == first_key) {
-                    values.into_iter().map(|(_, value)| value).collect()
-                } else {
-                    return Err(de::Error::custom(
-                        "expected repeated XML elements",
-                    ));
-                }
-            }
+            XmlValue::Map(map) if map.values.is_empty() => Vec::new(),
+            XmlValue::Map(map) => vec![XmlValue::Map(map)],
             value @ XmlValue::String(_) => vec![value],
             _ => return Err(de::Error::custom("expected XML sequence")),
         };
@@ -575,8 +694,8 @@ impl<'de> Deserializer<'de> for XmlValue {
         V: Visitor<'de>,
     {
         match self {
-            XmlValue::Map(values) => visitor.visit_map(XmlMapAccess {
-                values: values.into_iter(),
+            XmlValue::Map(map) => visitor.visit_map(XmlMapAccess {
+                values: map.values.into_iter(),
                 value: None,
             }),
             _ => Err(de::Error::custom("expected XML map")),

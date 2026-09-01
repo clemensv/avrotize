@@ -493,6 +493,32 @@ class TestAvroToRust(unittest.TestCase):
             ))
         self.assertLess(comparison_count, 200)
 
+    def test_json_shape_overlap_worklist_is_linear_on_deep_chain(self):
+        """Propagate overlap only through equations whose operands changed."""
+        depth = 4000
+        match_nodes = [("string", None)]
+        shape_nodes = [("string", None)]
+        for index in range(depth):
+            match_nodes.append((
+                "record_match",
+                (("next", index),),
+            ))
+            shape_nodes.append((
+                "record",
+                (("next", index),),
+            ))
+        stats = {}
+
+        self.assertTrue(AvroToRust.json_match_accepts_shape(
+            JsonSignature(depth, match_nodes),
+            JsonSignature(depth, shape_nodes),
+            _stats=stats,
+        ))
+        self.assertEqual(depth + 1, stats["equation_count"])
+        self.assertEqual(depth, stats["equation_evaluations"])
+        self.assertEqual(depth, stats["dependency_notifications"])
+        self.assertEqual(depth + 1, stats["queue_pushes"])
+
     def test_named_json_safety_traversal_is_memoized(self):
         """Evaluate repeated named-reference DAG edges once per conversion."""
         converter = AvroToRust()
@@ -1116,7 +1142,7 @@ class TestAvroToRust(unittest.TestCase):
         )
 
     def test_union_candidate_matching_drops_probe_values(self):
-        """Probe near-limit JSON and XML payloads with one live value at a time."""
+        """Borrow candidate payloads and allocate only the selected value."""
         rust_path = os.path.join(
             tempfile.gettempdir(),
             "avrotize",
@@ -1125,26 +1151,38 @@ class TestAvroToRust(unittest.TestCase):
         if os.path.exists(rust_path):
             shutil.rmtree(rust_path, ignore_errors=True)
         candidate_count = 16
-        records = [
-            {
-                "type": "record",
-                "name": f"Record{index}",
-                "namespace": "issue484.candidate_memory",
-                "fields": [
-                    {"name": "blob", "type": "string"},
-                    {"name": f"marker{index}", "type": "string"},
-                ],
-            }
-            for index in range(candidate_count)
-        ]
+        records = []
+        for prefix, include_marker in (
+            ("SelectedRecord", True),
+            ("AmbiguousRecord", False),
+        ):
+            for index in range(candidate_count):
+                fields = [{"name": "blob", "type": "string"}]
+                if include_marker:
+                    fields.append({
+                        "name": f"marker{index}",
+                        "type": "string",
+                    })
+                records.append({
+                    "type": "record",
+                    "name": f"{prefix}{index}",
+                    "namespace": "issue484.candidate_memory",
+                    "fields": fields,
+                })
         records.append({
             "type": "record",
             "name": "Holder",
             "namespace": "issue484.candidate_memory",
             "fields": [{
-                "name": "choice",
+                "name": "selected",
                 "type": [
-                    f"Record{index}"
+                    f"SelectedRecord{index}"
+                    for index in range(candidate_count)
+                ],
+            }, {
+                "name": "ambiguous",
+                "type": [
+                    f"AmbiguousRecord{index}"
                     for index in range(candidate_count)
                 ],
             }],
@@ -1163,82 +1201,186 @@ class TestAvroToRust(unittest.TestCase):
             "candidate_memory",
             "unionpath*.rs",
         ))
-        self.assertEqual(1, len(union_files))
-        with open(union_files[0], encoding="utf-8") as generated_file:
-            source = generated_file.read()
-        union_type = re.search(
-            r"pub enum (\w+)",
-            source,
-        ).group(1)
-        self.assertNotIn("let candidate_", source)
-        self.assertEqual(
-            candidate_count,
-            source.count("json_candidate_matches::<"),
+        self.assertEqual(2, len(union_files))
+        sources = {}
+        for union_file in union_files:
+            with open(union_file, encoding="utf-8") as generated_file:
+                sources[union_file] = generated_file.read()
+        selected_file = next(
+            file for file, source in sources.items()
+            if "::SelectedRecord15" in source
         )
+        ambiguous_file = next(
+            file for file, source in sources.items()
+            if "::AmbiguousRecord15" in source
+        )
+        selected_source = sources[selected_file]
+        ambiguous_source = sources[ambiguous_file]
+        selected_type = re.search(
+            r"pub enum (\w+)",
+            selected_source,
+        ).group(1)
+        ambiguous_type = re.search(
+            r"pub enum (\w+)",
+            ambiguous_source,
+        ).group(1)
+
+        for source in sources.values():
+            self.assertNotIn("node.clone()", source)
+            self.assertNotIn("content.clone()", source)
+            self.assertNotIn("T::deserialize", source)
+            self.assertNotIn("quick_xml_candidate_matches", source)
+        with open(
+            os.path.join(rust_path, "src", "xml_support.rs"),
+            encoding="utf-8",
+        ) as xml_support:
+            self.assertNotIn(
+                "Clone, Debug, PartialEq",
+                xml_support.read(),
+            )
         self.assertEqual(
             candidate_count,
-            source.count("&& xml_candidate_matches::<"),
+            selected_source.count("json_candidate_matches({"),
         )
         self.assertEqual(
             2 * candidate_count,
-            len(re.findall(r"\.map\(\w+::Record\d+\)", source)),
+            len(re.findall(
+                rf"\.map\({selected_type}::SelectedRecord\d+\)",
+                selected_source,
+            )),
         )
 
-        # Keep all probes eligible in this test-only crate so each failed
-        # candidate allocates and then drops the same near-limit payload.
-        source = re.sub(
-            r"<[^>\n]*Record\d+>::is_xml_shape\(&shape_node\)",
-            "true",
-            source,
-        )
         with open(
-            union_files[0],
-            "w",
+            os.path.join(rust_path, "src", "lib.rs"),
+            "a",
             encoding="utf-8",
-        ) as union_file:
-            union_file.write(source)
-            union_file.write(
-                "\n\n#[cfg(test)]\n"
-                "mod candidate_lifetime_regression {\n"
-                "    use super::*;\n"
-                "    use crate::issue484::candidate_memory::{\n"
-                "        holder::Holder,\n"
-                "        record0::Record0,\n"
-                "    };\n\n"
-                "#[test]\n"
-                "    fn candidate_probe_values_are_sequential() {\n"
-                "        let record = Record0 {\n"
-                "            blob: \"x\".repeat(15 * 1024 * 1024),\n"
-                "            marker0: \"selected\".into(),\n"
-                "        };\n"
-                f"        let value = {union_type}::Record0(record);\n\n"
-                "        let xml = crate::xml_support::with_xml_union_probe(\n"
-                "            || quick_xml::se::to_string(&Holder {\n"
-                "                choice: value.clone(),\n"
-                "            })\n"
-                "        ).unwrap();\n"
-                "        let json = serde_json::to_value(&value).unwrap();\n"
-                "        reset_candidate_test_counters();\n"
-                f"        let json_result: {union_type} =\n"
-                "            serde_json::from_value(json).unwrap();\n"
-                "        assert_eq!(value, json_result);\n"
-                f"        assert_eq!(({candidate_count}, 0, 1, 0, 1), "
-                "candidate_test_counts());\n\n"
-                "        reset_candidate_test_counters();\n"
-                "        let xml_result: Holder =\n"
-                "            quick_xml::de::from_str(&xml).unwrap();\n"
-                "        assert_eq!(value, xml_result.choice);\n"
-                f"        assert_eq!((0, {candidate_count}, 0, 1, 1), "
-                "candidate_test_counts());\n"
+        ) as lib_file:
+            lib_file.write(
+                "\n#[cfg(test)]\n"
+                "pub(crate) mod allocation_counter {\n"
+                "    use std::alloc::{GlobalAlloc, Layout, System};\n"
+                "    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};\n\n"
+                "    pub struct CountingAllocator;\n"
+                "    static TRACKING: AtomicBool = AtomicBool::new(false);\n"
+                "    static ALLOCATED: AtomicUsize = AtomicUsize::new(0);\n\n"
+                "    unsafe impl GlobalAlloc for CountingAllocator {\n"
+                "        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {\n"
+                "            if TRACKING.load(Ordering::Relaxed) {\n"
+                "                ALLOCATED.fetch_add(layout.size(), Ordering::Relaxed);\n"
+                "            }\n"
+                "            unsafe { System.alloc(layout) }\n"
+                "        }\n"
+                "        unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {\n"
+                "            unsafe { System.dealloc(pointer, layout) }\n"
+                "        }\n"
+                "        unsafe fn realloc(\n"
+                "            &self,\n"
+                "            pointer: *mut u8,\n"
+                "            layout: Layout,\n"
+                "            size: usize,\n"
+                "        ) -> *mut u8 {\n"
+                "            if TRACKING.load(Ordering::Relaxed) {\n"
+                "                ALLOCATED.fetch_add(size, Ordering::Relaxed);\n"
+                "            }\n"
+                "            unsafe { System.realloc(pointer, layout, size) }\n"
+                "        }\n"
+                "    }\n\n"
+                "    #[global_allocator]\n"
+                "    static GLOBAL: CountingAllocator = CountingAllocator;\n\n"
+                "    pub fn measure<T>(operation: impl FnOnce() -> T) -> (T, usize) {\n"
+                "        ALLOCATED.store(0, Ordering::Relaxed);\n"
+                "        TRACKING.store(true, Ordering::Relaxed);\n"
+                "        let result = operation();\n"
+                "        TRACKING.store(false, Ordering::Relaxed);\n"
+                "        (result, ALLOCATED.load(Ordering::Relaxed))\n"
                 "    }\n"
                 "}\n"
             )
+
+        with open(selected_file, "a", encoding="utf-8") as union_file:
+            union_file.write(
+                "\n\n#[cfg(test)]\n"
+                "mod borrowed_candidate_regression {\n"
+                "    use super::*;\n"
+                "    use crate::allocation_counter::measure;\n\n"
+                "    #[test]\n"
+                "    fn near_limit_payload_is_borrowed_until_selection() {\n"
+                "        const PAYLOAD_SIZE: usize = 15 * 1024 * 1024;\n"
+                "        let json = serde_json::json!({\n"
+                "            \"blob\": \"x\".repeat(PAYLOAD_SIZE),\n"
+                "            \"marker15\": \"selected\",\n"
+                "        });\n"
+                "        reset_candidate_test_counters();\n"
+                f"        let (result, json_bytes) = measure(|| "
+                f"serde_json::from_value::<{selected_type}>(json));\n"
+                "        assert!(result.is_ok());\n"
+                f"        assert_eq!(({candidate_count}, 0, 1, 0), "
+                "candidate_test_counts());\n"
+                "        assert!(json_bytes < 1024 * 1024, "
+                "\"JSON probe allocated {json_bytes} bytes\");\n\n"
+                "        let xml = format!(\n"
+                "            \"<Choice><blob>{}</blob><marker15>selected</marker15></Choice>\",\n"
+                "            \"x\".repeat(PAYLOAD_SIZE),\n"
+                "        );\n"
+                "        reset_candidate_test_counters();\n"
+                f"        let (result, xml_bytes) = measure(|| "
+                f"quick_xml::de::from_str::<{selected_type}>(&xml));\n"
+                "        assert!(result.is_ok());\n"
+                f"        assert_eq!((0, {candidate_count}, 0, 1), "
+                "candidate_test_counts());\n"
+                "        assert!(xml_bytes < PAYLOAD_SIZE + 1024 * 1024, "
+                "\"XML probe allocated {xml_bytes} bytes\");\n"
+                "        eprintln!(\"borrowed-probe allocations: "
+                "json={json_bytes}, xml={xml_bytes}\");\n"
+                "    }\n"
+                "}\n"
+            )
+        with open(ambiguous_file, "a", encoding="utf-8") as union_file:
+            union_file.write(
+                "\n\n#[cfg(test)]\n"
+                "mod identical_candidate_regression {\n"
+                "    use super::*;\n"
+                "    use crate::allocation_counter::measure;\n\n"
+                "    #[test]\n"
+                "    fn identical_near_limit_records_do_not_clone_payload() {\n"
+                "        const PAYLOAD_SIZE: usize = 15 * 1024 * 1024;\n"
+                "        let json = serde_json::json!({\n"
+                "            \"blob\": \"x\".repeat(PAYLOAD_SIZE),\n"
+                "        });\n"
+                "        reset_candidate_test_counters();\n"
+                f"        let (result, json_bytes) = measure(|| "
+                f"serde_json::from_value::<{ambiguous_type}>(json));\n"
+                "        assert!(result.is_err());\n"
+                "        assert_eq!((2, 0, 0, 0), candidate_test_counts());\n"
+                "        assert!(json_bytes < 1024 * 1024, "
+                "\"JSON probes allocated {json_bytes} bytes\");\n\n"
+                "        let xml = format!(\n"
+                "            \"<Choice><blob>{}</blob></Choice>\",\n"
+                "            \"x\".repeat(PAYLOAD_SIZE),\n"
+                "        );\n"
+                "        reset_candidate_test_counters();\n"
+                f"        let (result, xml_bytes) = measure(|| "
+                f"quick_xml::de::from_str::<{ambiguous_type}>(&xml));\n"
+                "        assert!(result.is_err());\n"
+                f"        assert_eq!((0, {candidate_count}, 0, 0), "
+                "candidate_test_counts());\n"
+                "        assert!(xml_bytes < PAYLOAD_SIZE + 1024 * 1024, "
+                "\"XML probes allocated {xml_bytes} bytes\");\n"
+                "        eprintln!(\"identical-record allocations: "
+                "json={json_bytes}, xml={xml_bytes}\");\n"
+                "    }\n"
+                "}\n"
+            )
+
         assert subprocess.check_call(
             [
                 'cargo',
                 'test',
                 '--lib',
-                'candidate_probe_values_are_sequential',
+                'candidate_regression',
+                '--',
+                '--test-threads=1',
+                '--nocapture',
             ],
             cwd=rust_path,
             stdout=sys.stdout,
@@ -1252,6 +1394,66 @@ class TestAvroToRust(unittest.TestCase):
             "rust-optional-record-union-edge-cases",
             serde_annotation=True,
         )
+
+    def test_xml_only_enum_union_matches_emitted_aliases(self):
+        """Do not accept a JSON enum alias absent from XML-only derives."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-xml-only-enum-alias",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "enum",
+                "name": "WireTag",
+                "namespace": "issue484.xml_only_alias",
+                "symbols": ["FIRST"],
+                "altenums": {"xml": {"FIRST": "wire-first"}},
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.xml_only_alias",
+                "fields": [{
+                    "name": "value",
+                    "type": ["string", "WireTag"],
+                }],
+            }],
+            rust_path,
+            package_name="rust-xml-only-enum-alias",
+            xml_annotation=True,
+        )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "xml_only_alias.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_xml_only_enum_alias::issue484::xml_only_alias::{\n"
+                "    holder::Holder,\n"
+                "    valueunion::ValueUnion,\n"
+                "};\n\n"
+                "#[test]\n"
+                "fn only_emitted_xml_enum_names_match() {\n"
+                "    let holder: Holder = quick_xml::de::from_str(\n"
+                "        \"<Holder><value>FIRST</value></Holder>\"\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(ValueUnion::String(\"FIRST\".into()), holder.value);\n"
+                "    assert!(quick_xml::de::from_str::<Holder>(\n"
+                "        \"<Holder><value>wire-first</value></Holder>\"\n"
+                "    ).is_err());\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test', '--test', 'xml_only_alias'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
 
     def test_nullable_named_record_union_xml_is_not_rejected(self):
         """Keep bare nullable named-record fields usable with XML annotations."""
@@ -1362,6 +1564,8 @@ class TestAvroToRust(unittest.TestCase):
                 "    intlongforwardunion::IntLongForwardUnion,\n"
                 "    intlongreverseunion::IntLongReverseUnion,\n"
                 "    nestedchoice::NestedChoice,\n"
+                "    nestedscalarfallback::NestedScalarFallback,\n"
+                "    nestedscalarunion::NestedScalarUnion,\n"
                 "    nestedunion::NestedUnion,\n"
                 "    narrowforwardunion::NarrowForwardUnion,\n"
                 "    narrowrecordforwardunion::NarrowRecordForwardUnion,\n"
@@ -1372,6 +1576,9 @@ class TestAvroToRust(unittest.TestCase):
                 "    optionalstring::OptionalString,\n"
                 "    optionalstringforwardunion::OptionalStringForwardUnion,\n"
                 "    optionalstringreverseunion::OptionalStringReverseUnion,\n"
+                "    optionalrenamedfield::OptionalRenamedField,\n"
+                "    optionalrenamedforwardunion::OptionalRenamedForwardUnion,\n"
+                "    optionalrenamedreverseunion::OptionalRenamedReverseUnion,\n"
                 "    renamedfield::RenamedField,\n"
                 "    renamedfieldunion::RenamedFieldUnion,\n"
                 "    requiredlong::RequiredLong,\n"
@@ -1479,7 +1686,16 @@ class TestAvroToRust(unittest.TestCase):
                 "    let recovered: OptionalStringReverseUnion = serde_json::from_slice(\n"
                 "        &serde_json::to_vec(&record_value).unwrap(),\n"
                 "    ).unwrap();\n"
-                "    assert_eq!(record_value, recovered);\n"
+                "    assert_eq!(record_value, recovered);\n\n"
+                "    let nested: NestedScalarUnion = serde_json::from_str(\n"
+                "        r#\"{\"scalar\":\"OVERLAP\"}\"#,\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(\n"
+                "        NestedScalarUnion::NestedScalarFallback(\n"
+                "            NestedScalarFallback { scalar: \"OVERLAP\".into() },\n"
+                "        ),\n"
+                "        nested,\n"
+                "    );\n"
                 "}\n\n"
                 "#[test]\n"
                 "fn concrete_xml_matching_preserves_variant_identity() {\n"
@@ -1497,6 +1713,16 @@ class TestAvroToRust(unittest.TestCase):
                 "    let recovered: Root<IntLongReverseUnion> =\n"
                 "        quick_xml::de::from_str(&xml).unwrap();\n"
                 "    assert_eq!(reverse.value, recovered.value);\n\n"
+                "    let nested_scalar: Root<NestedScalarUnion> =\n"
+                "        quick_xml::de::from_str(\n"
+                "            \"<Root><value><scalar>OVERLAP</scalar></value></Root>\"\n"
+                "        ).unwrap();\n"
+                "    assert_eq!(\n"
+                "        NestedScalarUnion::NestedScalarFallback(\n"
+                "            NestedScalarFallback { scalar: \"OVERLAP\".into() },\n"
+                "        ),\n"
+                "        nested_scalar.value,\n"
+                "    );\n\n"
                 "    let spaced: Root<IntLongForwardUnion> =\n"
                 "        quick_xml::de::from_str(\n"
                 "            \"<Root><value> 2147483648 </value></Root>\"\n"
@@ -1566,6 +1792,37 @@ class TestAvroToRust(unittest.TestCase):
                 "        renamed_round_trip.value,\n"
                 "        RenamedFieldUnion::RenamedField(_)\n"
                 "    ));\n\n"
+                "    let alias_round_trip: Root<RenamedFieldUnion> =\n"
+                "        quick_xml::de::from_str(\n"
+                "            \"<Root><value><value>alias</value></value></Root>\"\n"
+                "        ).unwrap();\n"
+                "    assert!(matches!(\n"
+                "        alias_round_trip.value,\n"
+                "        RenamedFieldUnion::RenamedField(RenamedField {\n"
+                "            value,\n"
+                "        }) if value == \"alias\"\n"
+                "    ));\n"
+                "    assert!(RenamedField::is_xml_match(&serde_json::json!({\n"
+                "        \"wireValue\": \"text\",\n"
+                "    })));\n\n"
+                "    let optional_alias =\n"
+                "        \"<Root><value><value>alias</value></value></Root>\";\n"
+                "    let forward: Root<OptionalRenamedForwardUnion> =\n"
+                "        quick_xml::de::from_str(optional_alias).unwrap();\n"
+                "    assert_eq!(\n"
+                "        OptionalRenamedForwardUnion::OptionalRenamedField(\n"
+                "            OptionalRenamedField { value: Some(\"alias\".into()) },\n"
+                "        ),\n"
+                "        forward.value,\n"
+                "    );\n"
+                "    let reverse: Root<OptionalRenamedReverseUnion> =\n"
+                "        quick_xml::de::from_str(optional_alias).unwrap();\n"
+                "    assert_eq!(\n"
+                "        OptionalRenamedReverseUnion::OptionalRenamedField(\n"
+                "            OptionalRenamedField { value: Some(\"alias\".into()) },\n"
+                "        ),\n"
+                "        reverse.value,\n"
+                "    );\n\n"
                 "    let attribute_xml = quick_xml::se::to_string(&Root {\n"
                 "        value: AttributeFieldUnion::AttributeField(AttributeField {\n"
                 "            value: \"text\".into(),\n"
@@ -1606,6 +1863,14 @@ class TestAvroToRust(unittest.TestCase):
                 "        enum_round_trip.value,\n"
                 "        AlternateEnumUnion::WireTag(WireTag::FIRST)\n"
                 "    ));\n\n"
+                "    let enum_alias: Root<AlternateEnumUnion> =\n"
+                "        quick_xml::de::from_str(\n"
+                "            \"<Root><value>FIRST</value></Root>\"\n"
+                "        ).unwrap();\n"
+                "    assert_eq!(\n"
+                "        AlternateEnumUnion::WireTag(WireTag::FIRST),\n"
+                "        enum_alias.value,\n"
+                "    );\n\n"
                 "    let vec_holder = CollectionHolder {\n"
                 "        collection: CollectionUnion::VecString(vec![\n"
                 "            \"one\".into(), \"two\".into(),\n"
