@@ -85,6 +85,17 @@
         ]
     },
     {
+        "type": "record",
+        "name": "ElementField",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
         "type": "enum",
         "name": "WireTag",
         "namespace": "issue484.xml_lexical",
@@ -147,10 +158,20 @@
         ]
     },
     {
-        "type": "record",
-        "name": "Empty",
+        "type": "enum",
+        "name": "TagA",
         "namespace": "issue484.xml_lexical",
-        "fields": []
+        "symbols": [
+            "ALPHA"
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "TagB",
+        "namespace": "issue484.xml_lexical",
+        "symbols": [
+            "BETA"
+        ]
     },
     {
         "type": "record",
@@ -221,23 +242,17 @@
                 ]
             },
             {
+                "name": "attributeElement",
+                "type": [
+                    "AttributeField",
+                    "ElementField"
+                ]
+            },
+            {
                 "name": "alternateEnum",
                 "type": [
                     "WireTag",
                     "long"
-                ]
-            },
-            {
-                "name": "collection",
-                "type": [
-                    {
-                        "type": "array",
-                        "items": "string"
-                    },
-                    {
-                        "type": "map",
-                        "values": "string"
-                    }
                 ]
             },
             {
@@ -248,10 +263,45 @@
                 ]
             },
             {
-                "name": "absentOverlap",
+                "name": "intLongForward",
+                "type": [
+                    "int",
+                    "long"
+                ]
+            },
+            {
+                "name": "intLongReverse",
+                "type": [
+                    "long",
+                    "int"
+                ]
+            },
+            {
+                "name": "enumForward",
+                "type": [
+                    "TagA",
+                    "TagB"
+                ]
+            },
+            {
+                "name": "enumReverse",
+                "type": [
+                    "TagB",
+                    "TagA"
+                ]
+            },
+            {
+                "name": "optionalStringForward",
                 "type": [
                     "OptionalString",
-                    "Empty"
+                    "string"
+                ]
+            },
+            {
+                "name": "optionalStringReverse",
+                "type": [
+                    "string",
+                    "OptionalString"
                 ]
             },
             {
@@ -266,6 +316,26 @@
                 "type": [
                     "int",
                     "string"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "CollectionHolder",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "collection",
+                "type": [
+                    {
+                        "type": "array",
+                        "items": "string"
+                    },
+                    {
+                        "type": "map",
+                        "values": "string"
+                    }
                 ]
             }
         ]

@@ -84,10 +84,8 @@ class TestAvroToRust(unittest.TestCase):
             node_b,
             "issue406.recursive",
         )
-        self.assertIn(
-            "('ref', 0)",
-            str(signature_a),
-        )
+        self.assertEqual(2, signature_a.node_count)
+        self.assertEqual(2, signature_a.edge_count)
         self.assertEqual(signature_a, signature_b)
         self.assertEqual(hash(signature_a), hash(signature_b))
 
@@ -116,7 +114,7 @@ class TestAvroToRust(unittest.TestCase):
         )
         self.assertEqual(2, signature.node_count)
         self.assertEqual(2, signature.edge_count)
-        self.assertIn("('ref', 0)", repr(signature))
+        self.assertLess(len(repr(signature)), 256)
 
     def test_nullable_record_signatures_model_realizable_shapes(self):
         """Model absent, null, and present nullable record field shapes."""
@@ -374,15 +372,15 @@ class TestAvroToRust(unittest.TestCase):
             "issue484.cross_kind",
         )
 
-        for shape in (
-            "string",
-            ("array", "string"),
-            ("map", "string"),
-        ):
-            self.assertTrue(converter.json_match_accepts_shape(
+        for shape in ("string", ("array", "string"), "null"):
+            self.assertFalse(converter.json_match_accepts_shape(
                 optional_match,
                 shape,
             ))
+        self.assertTrue(converter.json_match_accepts_shape(
+            optional_match,
+            ("map", "string"),
+        ))
         required_record = {
             "type": "record",
             "name": "RequiredString",
@@ -570,6 +568,101 @@ class TestAvroToRust(unittest.TestCase):
             self.assertEqual(37, signature.edge_count)
             self.assertLess(len(repr(signature)), 4096)
 
+    def test_deep_json_signature_construction_is_iterative(self):
+        """Build and canonicalize signatures beyond Python's recursion limit."""
+        converter = AvroToRust()
+        records = [
+            {
+                "type": "record",
+                "name": "Node0000",
+                "namespace": "issue484.deep_signature",
+                "fields": [{"name": "value", "type": "string"}],
+            }
+        ]
+        for index in range(1, 1101):
+            records.append({
+                "type": "record",
+                "name": f"Node{index:04d}",
+                "namespace": "issue484.deep_signature",
+                "fields": [{
+                    "name": "next",
+                    "type": f"Node{index - 1:04d}",
+                }],
+            })
+        converter.index_avro_named_types(records)
+
+        for builder in (
+            converter.get_json_match_signature,
+            converter.get_json_shape_signature,
+            converter.get_json_default_shape_signature,
+        ):
+            signature = builder(
+                "Node1100",
+                "issue484.deep_signature",
+            )
+            self.assertEqual(1102, signature.node_count)
+            self.assertEqual(1101, signature.edge_count)
+            self.assertLess(len(repr(signature)), 50000)
+
+    def test_anonymous_cyclic_union_signatures_are_bounded(self):
+        """Memoize anonymous union identity before structural inspection."""
+        recursive_union = []
+        recursive_union.extend(["string", recursive_union])
+        converter = AvroToRust()
+
+        for builder in (
+            converter.get_json_match_signature,
+            converter.get_json_shape_signature,
+            converter.get_json_default_shape_signature,
+        ):
+            signature = builder(recursive_union, "")
+            self.assertLessEqual(signature.node_count, 2)
+            self.assertLessEqual(signature.edge_count, 2)
+            self.assertLess(len(repr(signature)), 128)
+
+    def test_named_json_safety_worklist_is_linear_on_reverse_chain(self):
+        """Re-evaluate only named dependents whose safety can change."""
+        converter = AvroToRust()
+        schemas = [
+            {
+                "type": "enum",
+                "name": "Tag",
+                "namespace": "issue484.safety_chain",
+                "symbols": ["ONE", "TWO"],
+            },
+            {
+                "type": "record",
+                "name": "Node0000",
+                "namespace": "issue484.safety_chain",
+                "fields": [{
+                    "name": "choice",
+                    "type": ["string", "Tag"],
+                }],
+            },
+        ]
+        for index in range(1, 2001):
+            schemas.append({
+                "type": "record",
+                "name": f"Node{index:04d}",
+                "namespace": "issue484.safety_chain",
+                "fields": [{
+                    "name": "next",
+                    "type": f"Node{index - 1:04d}",
+                }],
+            })
+        converter.index_avro_named_types(schemas)
+
+        with patch.object(
+            converter,
+            "evaluate_json_round_trip_safe",
+            wraps=converter.evaluate_json_round_trip_safe,
+        ) as evaluate:
+            self.assertFalse(converter.is_json_round_trip_safe(
+                "Node2000",
+                "issue484.safety_chain",
+            ))
+        self.assertLess(evaluate.call_count, 5000)
+
     def test_named_json_safety_handles_namespaced_sccs(self):
         """Propagate unsafe SCCs without conflating duplicate short names."""
         converter = AvroToRust()
@@ -736,6 +829,69 @@ class TestAvroToRust(unittest.TestCase):
         self.assertFalse(converter.is_json_round_trip_safe(
             ["Amount", "double"],
             "issue484.decimal",
+        ))
+
+    def test_json_match_signatures_include_xml_serde_aliases(self):
+        """Model aliases accepted by combined JSON and XML generated types."""
+        converter = AvroToRust()
+        converter.serde_annotation = True
+        converter.xml_annotation = True
+        schemas = [
+            {
+                "type": "enum",
+                "name": "First",
+                "namespace": "issue484.aliases",
+                "symbols": ["ALPHA"],
+                "altenums": {"xml": {"ALPHA": "BETA"}},
+            },
+            {
+                "type": "enum",
+                "name": "Second",
+                "namespace": "issue484.aliases",
+                "symbols": ["BETA"],
+                "altenums": {"xml": {"BETA": "GAMMA"}},
+            },
+            {
+                "type": "record",
+                "name": "Renamed",
+                "namespace": "issue484.aliases",
+                "fields": [{
+                    "name": "original",
+                    "type": "string",
+                    "altnames": {"xml": "shared"},
+                }],
+            },
+            {
+                "type": "record",
+                "name": "Original",
+                "namespace": "issue484.aliases",
+                "fields": [{
+                    "name": "shared",
+                    "type": "string",
+                }],
+            },
+        ]
+        converter.index_avro_named_types(schemas)
+
+        self.assertTrue(converter.json_match_accepts_shape(
+            converter.get_json_match_signature(
+                "First",
+                "issue484.aliases",
+            ),
+            converter.get_json_shape_signature(
+                "Second",
+                "issue484.aliases",
+            ),
+        ))
+        self.assertTrue(converter.json_match_accepts_shape(
+            converter.get_json_match_signature(
+                "Renamed",
+                "issue484.aliases",
+            ),
+            converter.get_json_shape_signature(
+                "Original",
+                "issue484.aliases",
+            ),
         ))
 
     def test_json_union_subset_records_reject_ambiguity(self):
@@ -913,16 +1069,22 @@ class TestAvroToRust(unittest.TestCase):
         ) as integration_test:
             integration_test.write(
                 "use rust_xml_union_lexical_normalization::issue484::xml_lexical::{\n"
-                "    absentoverlapunion::AbsentOverlapUnion,\n"
                 "    actualoverlapunion::ActualOverlapUnion,\n"
                 "    alternateenumunion::AlternateEnumUnion,\n"
                 "    attributefield::AttributeField,\n"
                 "    attributefieldunion::AttributeFieldUnion,\n"
+                "    attributeelementunion::AttributeElementUnion,\n"
                 "    boolforwardunion::BoolForwardUnion,\n"
                 "    boolreverseunion::BoolReverseUnion,\n"
+                "    collectionholder::CollectionHolder,\n"
                 "    collectionunion::CollectionUnion,\n"
+                "    enumforwardunion::EnumForwardUnion,\n"
+                "    enumreverseunion::EnumReverseUnion,\n"
+                "    elementfield::ElementField,\n"
                 "    innertext::InnerText,\n"
                 "    innerunion::InnerUnion,\n"
+                "    intlongforwardunion::IntLongForwardUnion,\n"
+                "    intlongreverseunion::IntLongReverseUnion,\n"
                 "    nestedchoice::NestedChoice,\n"
                 "    nestedunion::NestedUnion,\n"
                 "    narrowforwardunion::NarrowForwardUnion,\n"
@@ -932,9 +1094,13 @@ class TestAvroToRust(unittest.TestCase):
                 "    numericforwardunion::NumericForwardUnion,\n"
                 "    numericreverseunion::NumericReverseUnion,\n"
                 "    optionalstring::OptionalString,\n"
+                "    optionalstringforwardunion::OptionalStringForwardUnion,\n"
+                "    optionalstringreverseunion::OptionalStringReverseUnion,\n"
                 "    renamedfield::RenamedField,\n"
                 "    renamedfieldunion::RenamedFieldUnion,\n"
                 "    requiredlong::RequiredLong,\n"
+                "    taga::TagA,\n"
+                "    tagb::TagB,\n"
                 "    wiretag::WireTag,\n"
                 "};\n"
                 "use serde::{Deserialize, Serialize};\n"
@@ -966,18 +1132,8 @@ class TestAvroToRust(unittest.TestCase):
                 "    assert_ambiguous(ActualOverlapUnion::OptionalString(\n"
                 "        OptionalString { x: Some(\"text\".into()) },\n"
                 "    ));\n"
-                "    assert_ambiguous(AbsentOverlapUnion::OptionalString(\n"
-                "        OptionalString { x: None },\n"
-                "    ));\n"
-                "    assert_ambiguous(CollectionUnion::VecString(Vec::new()));\n\n"
                 "    assert_ambiguous(NarrowForwardUnion::String(\"42\".into()));\n"
                 "    assert_ambiguous(NarrowReverseUnion::String(\"42\".into()));\n\n"
-                "    assert_ambiguous(NarrowRecordForwardUnion::OptionalString(\n"
-                "        OptionalString { x: Some(\"2147483648\".into()) },\n"
-                "    ));\n"
-                "    assert_ambiguous(NarrowRecordReverseUnion::OptionalString(\n"
-                "        OptionalString { x: Some(\"2147483648\".into()) },\n"
-                "    ));\n\n"
                 "    assert_ambiguous(NumericForwardUnion::RequiredLong(\n"
                 "        RequiredLong { x: 42 },\n"
                 "    ));\n\n"
@@ -1002,6 +1158,94 @@ class TestAvroToRust(unittest.TestCase):
                 "    let overflow_round_trip: Root<NarrowForwardUnion> =\n"
                 "        quick_xml::de::from_str(&overflow_xml).unwrap();\n"
                 "    assert_eq!(overflow.value, overflow_round_trip.value);\n"
+                "}\n\n"
+                "#[test]\n"
+                "fn concrete_json_matching_preserves_variant_identity() {\n"
+                "    let forward = IntLongForwardUnion::I64(2_147_483_648);\n"
+                "    let json = serde_json::to_vec(&forward).unwrap();\n"
+                "    let recovered: IntLongForwardUnion =\n"
+                "        serde_json::from_slice(&json).unwrap();\n"
+                "    assert_eq!(forward, recovered);\n\n"
+                "    let reverse = IntLongReverseUnion::I64(2_147_483_648);\n"
+                "    let json = serde_json::to_vec(&reverse).unwrap();\n"
+                "    let recovered: IntLongReverseUnion =\n"
+                "        serde_json::from_slice(&json).unwrap();\n"
+                "    assert_eq!(reverse, recovered);\n\n"
+                "    assert!(serde_json::from_str::<IntLongForwardUnion>(\"42\").is_err());\n"
+                "    assert!(serde_json::from_str::<IntLongReverseUnion>(\"42\").is_err());\n\n"
+                "    let alpha = EnumForwardUnion::TagA(TagA::ALPHA);\n"
+                "    let recovered: EnumForwardUnion = serde_json::from_slice(\n"
+                "        &serde_json::to_vec(&alpha).unwrap(),\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(alpha, recovered);\n"
+                "    let beta = EnumReverseUnion::TagB(TagB::BETA);\n"
+                "    let recovered: EnumReverseUnion = serde_json::from_slice(\n"
+                "        &serde_json::to_vec(&beta).unwrap(),\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(beta, recovered);\n\n"
+                "    let string_value = OptionalStringForwardUnion::String(\n"
+                "        \"hello\".into(),\n"
+                "    );\n"
+                "    let recovered: OptionalStringForwardUnion = serde_json::from_slice(\n"
+                "        &serde_json::to_vec(&string_value).unwrap(),\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(string_value, recovered);\n"
+                "    let record_value = OptionalStringReverseUnion::OptionalString(\n"
+                "        OptionalString { x: None },\n"
+                "    );\n"
+                "    let recovered: OptionalStringReverseUnion = serde_json::from_slice(\n"
+                "        &serde_json::to_vec(&record_value).unwrap(),\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(record_value, recovered);\n"
+                "}\n\n"
+                "#[test]\n"
+                "fn concrete_xml_matching_preserves_variant_identity() {\n"
+                "    let forward = Root {\n"
+                "        value: IntLongForwardUnion::I64(2_147_483_648),\n"
+                "    };\n"
+                "    let xml = quick_xml::se::to_string(&forward).unwrap();\n"
+                "    let recovered: Root<IntLongForwardUnion> =\n"
+                "        quick_xml::de::from_str(&xml).unwrap();\n"
+                "    assert_eq!(forward.value, recovered.value);\n"
+                "    let reverse = Root {\n"
+                "        value: IntLongReverseUnion::I64(2_147_483_648),\n"
+                "    };\n"
+                "    let xml = quick_xml::se::to_string(&reverse).unwrap();\n"
+                "    let recovered: Root<IntLongReverseUnion> =\n"
+                "        quick_xml::de::from_str(&xml).unwrap();\n"
+                "    assert_eq!(reverse.value, recovered.value);\n\n"
+                "    let nested_forward = Root {\n"
+                "        value: NarrowRecordForwardUnion::OptionalString(\n"
+                "            OptionalString { x: Some(\"2147483648\".into()) },\n"
+                "        ),\n"
+                "    };\n"
+                "    let xml = quick_xml::se::to_string(&nested_forward).unwrap();\n"
+                "    let recovered: Root<NarrowRecordForwardUnion> =\n"
+                "        quick_xml::de::from_str(&xml).unwrap();\n"
+                "    assert_eq!(nested_forward.value, recovered.value);\n"
+                "    let nested_reverse = Root {\n"
+                "        value: NarrowRecordReverseUnion::OptionalString(\n"
+                "            OptionalString { x: Some(\"2147483648\".into()) },\n"
+                "        ),\n"
+                "    };\n"
+                "    let xml = quick_xml::se::to_string(&nested_reverse).unwrap();\n"
+                "    let recovered: Root<NarrowRecordReverseUnion> =\n"
+                "        quick_xml::de::from_str(&xml).unwrap();\n"
+                "    assert_eq!(nested_reverse.value, recovered.value);\n\n"
+                "    let alpha = Root {\n"
+                "        value: EnumForwardUnion::TagA(TagA::ALPHA),\n"
+                "    };\n"
+                "    let xml = quick_xml::se::to_string(&alpha).unwrap();\n"
+                "    let recovered: Root<EnumForwardUnion> =\n"
+                "        quick_xml::de::from_str(&xml).unwrap();\n"
+                "    assert_eq!(alpha.value, recovered.value);\n"
+                "    let beta = Root {\n"
+                "        value: EnumReverseUnion::TagB(TagB::BETA),\n"
+                "    };\n"
+                "    let xml = quick_xml::se::to_string(&beta).unwrap();\n"
+                "    let recovered: Root<EnumReverseUnion> =\n"
+                "        quick_xml::de::from_str(&xml).unwrap();\n"
+                "    assert_eq!(beta.value, recovered.value);\n"
                 "}\n\n"
                 "#[test]\n"
                 "fn exact_probe_uses_xml_metadata_and_collection_shapes() {\n"
@@ -1029,6 +1273,24 @@ class TestAvroToRust(unittest.TestCase):
                 "        attribute_round_trip.value,\n"
                 "        AttributeFieldUnion::AttributeField(_)\n"
                 "    ));\n\n"
+                "    let attribute_variant = Root {\n"
+                "        value: AttributeElementUnion::AttributeField(AttributeField {\n"
+                "            value: \"attribute\".into(),\n"
+                "        }),\n"
+                "    };\n"
+                "    let xml = quick_xml::se::to_string(&attribute_variant).unwrap();\n"
+                "    let recovered: Root<AttributeElementUnion> =\n"
+                "        quick_xml::de::from_str(&xml).unwrap();\n"
+                "    assert_eq!(attribute_variant.value, recovered.value);\n"
+                "    let element_variant = Root {\n"
+                "        value: AttributeElementUnion::ElementField(ElementField {\n"
+                "            value: \"element\".into(),\n"
+                "        }),\n"
+                "    };\n"
+                "    let xml = quick_xml::se::to_string(&element_variant).unwrap();\n"
+                "    let recovered: Root<AttributeElementUnion> =\n"
+                "        quick_xml::de::from_str(&xml).unwrap();\n"
+                "    assert_eq!(element_variant.value, recovered.value);\n\n"
                 "    let enum_xml = quick_xml::se::to_string(&Root {\n"
                 "        value: AlternateEnumUnion::WireTag(WireTag::FIRST),\n"
                 "    }).unwrap();\n"
@@ -1039,28 +1301,26 @@ class TestAvroToRust(unittest.TestCase):
                 "        enum_round_trip.value,\n"
                 "        AlternateEnumUnion::WireTag(WireTag::FIRST)\n"
                 "    ));\n\n"
-                "    let vec_xml = quick_xml::se::to_string(&Root {\n"
-                "        value: CollectionUnion::VecString(vec![\n"
-                "            \"one\".into(),\n"
-                "            \"two\".into(),\n"
+                "    let vec_holder = CollectionHolder {\n"
+                "        collection: CollectionUnion::VecString(vec![\n"
+                "            \"one\".into(), \"two\".into(),\n"
                 "        ]),\n"
-                "    }).unwrap();\n"
-                "    assert_eq!(2, vec_xml.matches(\"<value>\").count());\n\n"
-                "    let vec_round_trip: Root<Vec<String>> =\n"
-                "        quick_xml::de::from_str(&vec_xml).unwrap();\n"
-                "    assert_eq!(vec![\"one\", \"two\"], vec_round_trip.value);\n\n"
-                "    let map_xml = quick_xml::se::to_string(&Root {\n"
-                "        value: CollectionUnion::HashMapStringString(\n"
+                "    };\n"
+                "    let vec_xml = vec_holder.to_byte_array(\"application/xml\").unwrap();\n"
+                "    let vec_round_trip = CollectionHolder::from_data(\n"
+                "        &vec_xml, \"application/xml\",\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(vec_holder, vec_round_trip);\n\n"
+                "    let map_holder = CollectionHolder {\n"
+                "        collection: CollectionUnion::HashMapStringString(\n"
                 "            HashMap::from([(\"key\".into(), \"value\".into())]),\n"
                 "        ),\n"
-                "    }).unwrap();\n"
-                "    assert!(map_xml.contains(\"<key>value</key>\"));\n\n"
-                "    let map_round_trip: Root<HashMap<String, String>> =\n"
-                "        quick_xml::de::from_str(&map_xml).unwrap();\n"
-                "    assert_eq!(\n"
-                "        map_round_trip.value.get(\"key\").map(String::as_str),\n"
-                "        Some(\"value\")\n"
-                "    );\n\n"
+                "    };\n"
+                "    let map_xml = map_holder.to_byte_array(\"application/xml\").unwrap();\n"
+                "    let map_round_trip = CollectionHolder::from_data(\n"
+                "        &map_xml, \"application/xml\",\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(map_holder, map_round_trip);\n\n"
                 "    let nested_xml = quick_xml::se::to_string(&Root {\n"
                 "        value: NestedUnion::NestedChoice(NestedChoice {\n"
                 "            inner: InnerUnion::InnerText(InnerText {\n"

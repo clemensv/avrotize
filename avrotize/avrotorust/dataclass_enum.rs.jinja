@@ -131,6 +131,10 @@ impl {{ enum_name }} {
     pub fn is_xml_match(node: &serde_json::Value) -> bool {
         node.is_string()
     }
+
+    pub fn is_xml_shape(node: &serde_json::Value) -> bool {
+        node.is_string()
+    }
     {%- endif %}
 
     /// Returns the struct instance itself

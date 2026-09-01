@@ -112,31 +112,41 @@ class JsonSignature:
         representatives = {}
         for node_id, class_id in enumerate(classes):
             representatives.setdefault(class_id, node_id)
-        references = {}
-
-        def render(class_id: int):
-            if class_id in references:
-                return ('ref', references[class_id])
-            references[class_id] = len(references)
+        canonical_ids = {classes[self.root]: 0}
+        pending = [classes[self.root]]
+        definitions = []
+        pending_index = 0
+        while pending_index < len(pending):
+            class_id = pending[pending_index]
+            pending_index += 1
             kind, data = self.nodes[representatives[class_id]]
+
+            def canonical_id(child_id):
+                child_class = classes[child_id]
+                if child_class not in canonical_ids:
+                    canonical_ids[child_class] = len(canonical_ids)
+                    pending.append(child_class)
+                return canonical_ids[child_class]
+
             if data is None:
-                return kind
-            if kind in ('record', 'record_match'):
-                return (
+                definition = (kind, None)
+            elif kind in ('record', 'record_match'):
+                definition = (
                     kind,
                     tuple(
-                        (name, render(classes[child_id]))
+                        (name, canonical_id(child_id))
                         for name, child_id in data
                     ),
                 )
-            if kind == 'union':
-                return (
+            elif kind == 'union':
+                definition = (
                     kind,
-                    tuple(render(classes[child_id]) for child_id in data),
+                    tuple(canonical_id(child_id) for child_id in data),
                 )
-            return (kind, render(classes[data]))
-
-        return render(classes[self.root])
+            else:
+                definition = (kind, canonical_id(data))
+            definitions.append(definition)
+        return tuple(definitions)
 
 
 class _JsonSignatureRef:
@@ -653,8 +663,25 @@ class AvroToRust:
                             if parent_element:
                                 relationships.add((parent_element, name))
                             nested_type = nested_field.get('type')
-                            if isinstance(nested_type, dict) and nested_type.get('type') == 'map':
-                                maps.add(name)
+                            if self.xml_type_contains_collection(
+                                nested_type,
+                                'map',
+                            ):
+                                if isinstance(nested_type, list):
+                                    elements.add('entries')
+                                    relationships.add((name, 'entries'))
+                                    maps.add('entries')
+                                else:
+                                    maps.add(name)
+                            if (
+                                isinstance(nested_type, list)
+                                and self.xml_type_contains_collection(
+                                    nested_type,
+                                    'array',
+                                )
+                            ):
+                                elements.add('item')
+                                relationships.add((name, 'item'))
                             records = nested_records(
                                 nested_type,
                                 record_avro_namespace,
@@ -703,6 +730,45 @@ class AvroToRust:
             )
         visit(avro_type, inherited_avro_namespace=initial_avro_namespace)
         return elements, attributes, maps, relationships, namespaces, attribute_owners
+
+    def xml_type_contains_collection(
+        self,
+        avro_type,
+        collection_type: str,
+    ) -> bool:
+        """Checks direct union branches for an XML collection wire shape."""
+        pending = [avro_type]
+        while pending:
+            node = pending.pop()
+            if isinstance(node, list):
+                pending.extend(node)
+            elif isinstance(node, dict):
+                node_type = node.get('type')
+                if node_type == collection_type:
+                    return True
+                if isinstance(node_type, (dict, list)):
+                    pending.append(node_type)
+        return False
+
+    def xml_union_representation(
+        self,
+        avro_type,
+        rust_type: str,
+        namespace: str,
+    ) -> str:
+        """Returns the XML wire wrapper used by a union variant."""
+        if rust_type.startswith('Vec<'):
+            return 'sequence'
+        if rust_type.startswith('std::collections::HashMap<'):
+            return 'map'
+        resolved = (
+            self.resolve_avro_named_type(avro_type, namespace)
+            if isinstance(avro_type, str)
+            else avro_type
+        )
+        if isinstance(resolved, dict) and resolved.get('type') == 'record':
+            return 'record'
+        return 'text'
 
     def generate_struct(
         self,
@@ -780,6 +846,20 @@ class AvroToRust:
                 'serde_alias': original_field_name if self.xml_annotation and (self.serde_annotation or self.avro_annotation) and original_field_name != serde_name else '',
                 'xml_name': xml_name,
                 'xml_kind': xml_kind,
+                'xml_repeatable': (
+                    not isinstance(field['type'], list)
+                    and self.xml_type_contains_collection(
+                        field['type'],
+                        'array',
+                    )
+                ),
+                'xml_map': (
+                    not isinstance(field['type'], list)
+                    and self.xml_type_contains_collection(
+                        field['type'],
+                        'map',
+                    )
+                ),
                 'name': field_name,
                 'type': field_type,
                 'serde_rename': serde_rename,
@@ -869,6 +949,10 @@ class AvroToRust:
                     field['original_name'],
                     field['type'],
                 )
+                for field in fields
+            ],
+            'xml_shape_predicates': [
+                self.get_is_xml_shape_clause(field)
                 for field in fields
             ],
             'xml_match_predicates': [
@@ -1360,6 +1444,54 @@ class AvroToRust:
                 )
             return f"{base_type}::{match_method}(&{ref})"
 
+    @staticmethod
+    def get_is_xml_shape_clause(field) -> str:
+        """Checks XML wire keys without reclassifying concrete values."""
+        reference = f'node.get("{field["serde_name"]}")'
+        base_type = (
+            field['type'][7:-1]
+            if field['type'].startswith('Option<')
+            else field['type']
+        )
+        primitive = (
+            base_type in {
+                'String',
+                'bool',
+                'i8',
+                'i16',
+                'i32',
+                'i64',
+                'u8',
+                'u16',
+                'u32',
+                'u64',
+                'isize',
+                'usize',
+                'f32',
+                'f64',
+                'Vec<u8>',
+                '()',
+                'serde_json::Value',
+            }
+            or base_type.startswith('Vec<')
+            or base_type.startswith('std::collections::HashMap<')
+            or 'chrono::' in base_type
+            or 'uuid::Uuid' in base_type
+        )
+        if field['is_optional']:
+            if primitive:
+                return 'true'
+            return (
+                f'{reference}.map_or(true, |value| '
+                f'{base_type}::is_xml_shape(value))'
+            )
+        if primitive:
+            return f'{reference}.is_some()'
+        return (
+            f'{reference}.map_or(false, |value| '
+            f'{base_type}::is_xml_shape(value))'
+        )
+
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str) -> str:
         """Generates a Rust enum from an Avro enum schema"""
@@ -1566,6 +1698,11 @@ class AvroToRust:
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,
                 'xml_match_predicate': xml_predicate,
+                'xml_representation': self.xml_union_representation(
+                    union_avro_types[i],
+                    t,
+                    namespace,
+                ),
                 'json_match_signature': predicate_key,
                 'json_shape_signature': shape_signature,
                 'json_default_shape_signature': default_shape_signature,
@@ -1603,14 +1740,23 @@ class AvroToRust:
                     field['json_default_shape_signature'],
                 )
             ) > 1
+            field['json_default_is_ambiguous'] = default_is_ambiguous
             field['xml_safe_for_random'] = not (
                 field['xml_reject_value']
                 or default_is_ambiguous
             )
             field['xml_random_value'] = (
-                field['default_value']
-                if field['xml_check_value_ambiguity']
-                else field['random_value']
+                'i64::MAX'
+                if field['type'] == 'i64'
+                and any(
+                    candidate['type'] == 'i32'
+                    for candidate in union_fields
+                )
+                else (
+                    field['default_value']
+                    if field['xml_check_value_ambiguity']
+                    else field['random_value']
+                )
             )
             field['json_ambiguous'] = json_ambiguous
             field['json_round_trip_safe'] = (
@@ -1642,6 +1788,10 @@ class AvroToRust:
             'xml_has_typed_scalar_parse': bool(
                 present_scalar_kinds & {'bool', 'integer', 'float'}
             ),
+            'xml_has_record_variant': any(
+                field['xml_representation'] == 'record'
+                for field in union_fields
+            ),
             'avro_schema': avro_schema_str,
             'source_avro_schema': source_avro_schema_str,
             'source_null_index': (
@@ -1650,7 +1800,7 @@ class AvroToRust:
             'ambiguous_json_field': next(
                 (
                     field for field in union_fields
-                    if field['json_ambiguous']
+                    if field['json_default_is_ambiguous']
                 ),
                 None,
             ),
@@ -1809,8 +1959,11 @@ class AvroToRust:
         """Builds a cycle-safe graph with one node per named schema node."""
         nodes: list[tuple | None] = []
         atoms = {}
-        compounds = {}
         named_nodes = {}
+        anonymous_nodes = {}
+        pending = []
+        generic_type_cache = {}
+        acyclic_type_cache = {}
 
         def add_atom(kind: str) -> int:
             if kind not in atoms:
@@ -1818,139 +1971,273 @@ class AvroToRust:
                 nodes.append((kind, None))
             return atoms[kind]
 
-        def add_compound(kind: str, data) -> int:
-            key = (kind, data)
-            if key not in compounds:
-                compounds[key] = len(nodes)
-                nodes.append(key)
-            return compounds[key]
-
-        def build_named(schema, fullname: str) -> int:
-            if fullname in named_nodes:
-                return named_nodes[fullname]
+        def add_pending(key, kind, payload, current_namespace):
+            if key in anonymous_nodes:
+                return anonymous_nodes[key]
             node_id = len(nodes)
-            named_nodes[fullname] = node_id
+            anonymous_nodes[key] = node_id
             nodes.append(None)
-            record_namespace = fullname.rpartition('.')[0]
-            fields = tuple(
-                (
-                    field['name'],
-                    build(field['type'], record_namespace),
-                )
-                for field in schema.get('fields', [])
-            )
-            nodes[node_id] = (
-                'record_match' if mode == 'match' else 'record',
-                fields,
+            pending.append(
+                (kind, node_id, payload, current_namespace)
             )
             return node_id
 
-        def build(node, current_namespace: str) -> int:
-            if isinstance(node, str):
-                if is_any_value_type(node):
-                    return add_atom('null' if mode == 'default' else 'any')
-                resolved = self.resolve_avro_named_type(
-                    node,
-                    current_namespace,
-                )
-                if resolved:
-                    fullname = self.avro_type_fullnames[id(resolved)]
-                    if resolved.get('type') == 'record':
-                        return build_named(resolved, fullname)
-                    if (
-                        resolved.get('type') == 'fixed'
-                        and resolved.get('logicalType') == 'decimal'
-                    ):
-                        return add_atom('number')
-                    return add_atom(
-                        'string'
-                        if resolved.get('type') == 'enum'
-                        else (
+        def is_acyclic(root) -> bool:
+            active = set()
+            finished = set()
+            stack = [(root, False)]
+            while stack:
+                value, leaving = stack.pop()
+                if not isinstance(value, (dict, list)):
+                    continue
+                value_id = id(value)
+                if leaving:
+                    active.discard(value_id)
+                    finished.add(value_id)
+                    continue
+                if value_id in active:
+                    return False
+                if value_id in finished:
+                    continue
+                active.add(value_id)
+                stack.append((value, True))
+                children = value.values() if isinstance(value, dict) else value
+                stack.extend((child, False) for child in children)
+            return True
+
+        def ensure(node, current_namespace: str) -> int:
+            while True:
+                if isinstance(node, str):
+                    if is_any_value_type(node):
+                        return add_atom(
+                            'null' if mode == 'default' else 'any'
+                        )
+                    resolved = self.resolve_avro_named_type(
+                        node,
+                        current_namespace,
+                    )
+                    if resolved:
+                        fullname = self.avro_type_fullnames[id(resolved)]
+                        if resolved.get('type') == 'record':
+                            if fullname in named_nodes:
+                                return named_nodes[fullname]
+                            node_id = len(nodes)
+                            named_nodes[fullname] = node_id
+                            nodes.append(None)
+                            pending.append((
+                                'record',
+                                node_id,
+                                resolved,
+                                fullname.rpartition('.')[0],
+                            ))
+                            return node_id
+                        if (
+                            resolved.get('type') == 'fixed'
+                            and resolved.get('logicalType') == 'decimal'
+                        ):
+                            return add_atom('number')
+                        if resolved.get('type') == 'enum':
+                            symbols = resolved.get('symbols', [])
+                            if mode == 'match' and self.xml_annotation:
+                                symbols = symbols + [
+                                    xml_enum_wire_value(
+                                        symbol,
+                                        resolved,
+                                    )
+                                    for symbol in symbols
+                                ]
+                            if mode == 'default':
+                                symbols = symbols[:1]
+                            return add_atom(
+                                'enum:' + '\x1f'.join(sorted(symbols))
+                            )
+                        return add_atom(
                             'array'
                             if resolved.get('type') == 'fixed'
                             else resolved.get('type', node)
                         )
-                    )
-                if node in ('int', 'long'):
-                    return add_atom('integer')
-                if node in ('float', 'double'):
-                    return add_atom('number')
-                if mode == 'match' and node == 'bytes':
-                    return add_atom('array')
-                return add_atom(node)
+                    if node in ('int', 'long'):
+                        return add_atom('integer')
+                    if node in ('float', 'double'):
+                        return add_atom('number')
+                    if mode == 'match' and node == 'bytes':
+                        return add_atom('array')
+                    return add_atom(node)
 
-            if isinstance(node, list):
-                if is_generic_avro_type(node) and mode != 'default':
-                    if self.serde_annotation or self.xml_annotation:
-                        return add_atom('any')
+                if isinstance(node, list):
+                    union_key = ('union', id(node), current_namespace)
+                    if union_key in anonymous_nodes:
+                        return anonymous_nodes[union_key]
+                    is_generic = generic_type_cache.get(id(node))
+                    if is_generic is None:
+                        acyclic = is_acyclic(node)
+                        acyclic_type_cache[id(node)] = acyclic
+                        is_generic = acyclic and is_generic_avro_type(node)
+                        generic_type_cache[id(node)] = is_generic
+                    if is_generic and mode != 'default':
+                        if self.serde_annotation or self.xml_annotation:
+                            return add_atom('any')
+                        if mode == 'match':
+                            return add_pending(
+                                (
+                                    'generic-map-match',
+                                    id(node),
+                                    current_namespace,
+                                ),
+                                'map_match',
+                                'string',
+                                current_namespace,
+                            )
+                        key = ('generic-map', id(node), current_namespace)
+                        return add_pending(
+                            key,
+                            'map',
+                            'string',
+                            current_namespace,
+                        )
+                    generated_branches = self.generated_json_union_branches(
+                        node,
+                        current_namespace,
+                    )
+                    if mode == 'default':
+                        if not acyclic_type_cache[id(node)]:
+                            return add_pending(
+                                union_key,
+                                'union',
+                                generated_branches,
+                                current_namespace,
+                            )
+                        if (
+                            'null' in generated_branches
+                            or not generated_branches
+                        ):
+                            return add_atom('null')
+                        node = generated_branches[0]
+                        continue
+                    if len(generated_branches) == 1:
+                        node = generated_branches[0]
+                        continue
+                    return add_pending(
+                        union_key,
+                        'union',
+                        generated_branches,
+                        current_namespace,
+                    )
+
+                if not isinstance(node, dict):
+                    return add_atom(str(node))
+
+                node_type = node.get('type')
+                if node_type == 'record':
+                    fullname, record_namespace, _ = (
+                        self.canonical_avro_name(
+                            node['name'],
+                            node.get('namespace', current_namespace),
+                        )
+                    )
+                    if fullname in named_nodes:
+                        return named_nodes[fullname]
+                    node_id = len(nodes)
+                    named_nodes[fullname] = node_id
+                    nodes.append(None)
+                    pending.append((
+                        'record',
+                        node_id,
+                        node,
+                        record_namespace,
+                    ))
+                    return node_id
+                if node_type == 'enum':
+                    symbols = node.get('symbols', [])
+                    if mode == 'match' and self.xml_annotation:
+                        symbols = symbols + [
+                            xml_enum_wire_value(symbol, node)
+                            for symbol in symbols
+                        ]
+                    if mode == 'default':
+                        symbols = symbols[:1]
+                    return add_atom(
+                        'enum:' + '\x1f'.join(sorted(symbols))
+                    )
+                if node_type == 'array':
                     if mode == 'match':
-                        return add_atom('object')
-                    return add_compound('map', add_atom('string'))
-                generated_branches = self.generated_json_union_branches(
-                    node,
-                    current_namespace,
-                )
-                if mode == 'default':
-                    if 'null' in generated_branches or not generated_branches:
-                        return add_atom('null')
-                    return build(generated_branches[0], current_namespace)
-                branch_ids = []
-                for branch in generated_branches:
-                    branch_id = build(branch, current_namespace)
-                    branch_node = nodes[branch_id]
-                    branch_kind, branch_data = (
-                        branch_node
-                        if branch_node is not None
-                        else (None, None)
+                        return add_atom('array')
+                    return add_pending(
+                        ('array', id(node), current_namespace),
+                        'array',
+                        node['items'],
+                        current_namespace,
                     )
-                    candidates = (
-                        branch_data
-                        if branch_kind == 'union'
-                        else (branch_id,)
+                if node_type == 'map':
+                    if mode == 'match':
+                        return add_pending(
+                            ('map-match', id(node), current_namespace),
+                            'map_match',
+                            node['values'],
+                            current_namespace,
+                        )
+                    return add_pending(
+                        ('map', id(node), current_namespace),
+                        'map',
+                        node['values'],
+                        current_namespace,
                     )
-                    for candidate in candidates:
-                        if candidate not in branch_ids:
-                            branch_ids.append(candidate)
-                if len(branch_ids) == 1:
-                    return branch_ids[0]
-                return add_compound('union', tuple(branch_ids))
-
-            if not isinstance(node, dict):
-                return add_atom(str(node))
-
-            node_type = node.get('type')
-            if node_type == 'record':
-                fullname, _, _ = self.canonical_avro_name(
-                    node['name'],
-                    node.get('namespace', current_namespace),
-                )
-                return build_named(node, fullname)
-            if node_type == 'enum':
-                return add_atom('string')
-            if node_type == 'array':
-                if mode == 'match':
+                if (
+                    node_type in ('fixed', 'bytes')
+                    and node.get('logicalType') == 'decimal'
+                ):
+                    return add_atom('number')
+                if node_type in ('fixed', 'bytes'):
                     return add_atom('array')
-                return add_compound(
-                    'array',
-                    build(node['items'], current_namespace),
-                )
-            if node_type == 'map':
-                if mode == 'match':
-                    return add_atom('object')
-                return add_compound(
-                    'map',
-                    build(node['values'], current_namespace),
-                )
-            if (
-                node_type in ('fixed', 'bytes')
-                and node.get('logicalType') == 'decimal'
-            ):
-                return add_atom('number')
-            if node_type in ('fixed', 'bytes'):
-                return add_atom('array')
-            return build(node_type, current_namespace)
+                node = node_type
 
-        root = build(avro_type, namespace)
+        root = ensure(avro_type, namespace)
+        pending_index = 0
+        while pending_index < len(pending):
+            kind, node_id, payload, current_namespace = pending[pending_index]
+            pending_index += 1
+            if kind == 'record':
+                fields = tuple(
+                    (
+                        (
+                            tuple(dict.fromkeys((
+                                field['name'],
+                                (
+                                    f"@{xml_wire_name(field['name'], field)}"
+                                    if field.get(
+                                        'xmlkind',
+                                        'element',
+                                    ) == 'attribute'
+                                    else xml_wire_name(
+                                        field['name'],
+                                        field,
+                                    )
+                                ),
+                            )))
+                            if mode == 'match' and self.xml_annotation
+                            else field['name']
+                        ),
+                        ensure(field['type'], current_namespace),
+                    )
+                    for field in payload.get('fields', [])
+                )
+                nodes[node_id] = (
+                    'record_match' if mode == 'match' else 'record',
+                    fields,
+                )
+            elif kind == 'union':
+                branch_ids = []
+                for branch in payload:
+                    branch_id = ensure(branch, current_namespace)
+                    if branch_id not in branch_ids:
+                        branch_ids.append(branch_id)
+                nodes[node_id] = ('union', tuple(branch_ids))
+            else:
+                nodes[node_id] = (
+                    kind,
+                    ensure(payload, current_namespace),
+                )
+
         return JsonSignature(root, nodes)
 
     def get_json_shape_signature(
@@ -2075,22 +2362,93 @@ class AvroToRust:
             fullname: True
             for fullname in self.avro_named_types
         }
-        changed = True
-        while changed:
-            changed = False
-            for fullname in sorted(self.avro_named_types):
-                if not safety[fullname]:
+        reverse_dependencies = {
+            fullname: set()
+            for fullname in self.avro_named_types
+        }
+
+        def collect_dependencies(owner, schema):
+            dependencies = set()
+            pending = [(schema, owner.rpartition('.')[0])]
+            while pending:
+                node, namespace = pending.pop()
+                if isinstance(node, str):
+                    resolved = self.resolve_avro_named_type(node, namespace)
+                    if resolved:
+                        dependencies.add(
+                            self.avro_type_fullnames[id(resolved)]
+                        )
                     continue
-                schema = self.avro_named_types[fullname]
-                namespace = fullname.rpartition('.')[0]
-                if not self.evaluate_json_round_trip_safe(
-                    schema,
-                    namespace,
-                    safety,
-                    owner=fullname,
-                ):
-                    safety[fullname] = False
-                    changed = True
+                if isinstance(node, list):
+                    pending.extend((item, namespace) for item in node)
+                    continue
+                if not isinstance(node, dict):
+                    continue
+                node_type = node.get('type')
+                if node_type == 'record':
+                    fullname, record_namespace, _ = (
+                        self.canonical_avro_name(
+                            node['name'],
+                            node.get('namespace', namespace),
+                        )
+                    )
+                    if fullname != owner:
+                        dependencies.add(fullname)
+                        continue
+                    pending.extend(
+                        (field['type'], record_namespace)
+                        for field in node.get('fields', [])
+                    )
+                elif node_type == 'array':
+                    pending.append((node.get('items'), namespace))
+                elif node_type == 'map':
+                    pending.append((node.get('values'), namespace))
+                elif isinstance(node_type, (dict, list)):
+                    pending.append((node_type, namespace))
+                elif isinstance(node_type, str):
+                    resolved = self.resolve_avro_named_type(
+                        node_type,
+                        namespace,
+                    )
+                    if resolved:
+                        dependencies.add(
+                            self.avro_type_fullnames[id(resolved)]
+                        )
+            return dependencies
+
+        for owner, schema in self.avro_named_types.items():
+            for dependency in collect_dependencies(owner, schema):
+                if dependency != owner:
+                    reverse_dependencies.setdefault(
+                        dependency,
+                        set(),
+                    ).add(owner)
+
+        pending = sorted(self.avro_named_types)
+        queued = set(pending)
+        pending_index = 0
+        while pending_index < len(pending):
+            fullname = pending[pending_index]
+            pending_index += 1
+            queued.discard(fullname)
+            if not safety[fullname]:
+                continue
+            schema = self.avro_named_types[fullname]
+            namespace = fullname.rpartition('.')[0]
+            if self.evaluate_json_round_trip_safe(
+                schema,
+                namespace,
+                safety,
+                owner=fullname,
+            ):
+                continue
+            safety[fullname] = False
+            for dependent in sorted(
+                reverse_dependencies.get(fullname, ())
+            ):
+                if safety[dependent] and dependent not in queued:
+                    pending.append(dependent)
+                    queued.add(dependent)
         self.json_round_trip_safety = safety
 
     def is_json_round_trip_safe(
@@ -2227,27 +2585,80 @@ class AvroToRust:
                     for branch_match in match_data
                 ]
             elif match_kind == 'record_match':
-                operator = 'all'
-                value_fields = (
-                    dict(shape_data)
-                    if shape_kind == 'record'
-                    else {}
-                )
-                dependencies = [
-                    (
-                        field_match,
-                        value_fields.get(field_name, 'null'),
-                    )
-                    for field_name, field_match in match_data
-                ]
+                if shape_kind == 'record':
+                    operator = 'all'
+                    value_fields = dict(shape_data)
+                    dependencies = [
+                        (
+                            field_match,
+                            next(
+                                (
+                                    value_fields[name]
+                                    for name in (
+                                        field_name
+                                        if isinstance(field_name, tuple)
+                                        else (field_name,)
+                                    )
+                                    if name in value_fields
+                                ),
+                                'null',
+                            ),
+                        )
+                        for field_name, field_match in match_data
+                    ]
+                elif shape_kind == 'map':
+                    operator = 'all_any'
+                    dependencies = [
+                        (
+                            (field_match, 'null'),
+                            (field_match, shape_data),
+                        )
+                        for _, field_match in match_data
+                    ]
+                else:
+                    equations[key] = False
             elif match_kind == 'object':
                 equations[key] = shape_kind in ('map', 'record')
+            elif match_kind == 'map_match':
+                operator = 'all'
+                if shape_kind == 'map':
+                    dependencies = [(match_data, shape_data)]
+                elif shape_kind == 'record':
+                    dependencies = [
+                        (match_data, field_shape)
+                        for _, field_shape in shape_data
+                    ]
+                else:
+                    equations[key] = False
+            elif match_kind == 'number':
+                equations[key] = shape_kind in ('integer', 'number')
             elif match_kind == 'array':
                 equations[key] = shape_kind in (
                     'array',
                     'bytes',
                     'fixed',
                 )
+            elif (
+                isinstance(match_kind, str)
+                and match_kind.startswith('enum:')
+            ):
+                match_symbols = set(match_kind[5:].split('\x1f'))
+                if (
+                    isinstance(shape_kind, str)
+                    and shape_kind.startswith('enum:')
+                ):
+                    shape_symbols = set(shape_kind[5:].split('\x1f'))
+                    equations[key] = bool(
+                        match_symbols & shape_symbols
+                    )
+                else:
+                    equations[key] = shape_kind == 'string'
+            elif (
+                match_kind == 'string'
+                and isinstance(shape_kind, str)
+                and shape_kind.startswith('enum:')
+            ):
+                equations[key] = True
             else:
                 equations[key] = (
                     match_kind == shape_kind
@@ -2260,11 +2671,23 @@ class AvroToRust:
             if dependencies is not None:
                 dependency_keys = []
                 for dependency in dependencies:
-                    dependency_key = pair_key(dependency)
-                    dependency_keys.append(dependency_key)
-                    operands.setdefault(dependency_key, dependency)
-                    if dependency_key not in equations:
-                        pending.append(dependency_key)
+                    alternatives = (
+                        dependency
+                        if operator == 'all_any'
+                        else (dependency,)
+                    )
+                    alternative_keys = []
+                    for alternative in alternatives:
+                        dependency_key = pair_key(alternative)
+                        alternative_keys.append(dependency_key)
+                        operands.setdefault(dependency_key, alternative)
+                        if dependency_key not in equations:
+                            pending.append(dependency_key)
+                    dependency_keys.append(
+                        tuple(alternative_keys)
+                        if operator == 'all_any'
+                        else alternative_keys[0]
+                    )
                 equations[key] = (operator, tuple(dependency_keys))
 
         values = {
@@ -2281,6 +2704,11 @@ class AvroToRust:
                 result = (
                     any(values[dependency] for dependency in dependencies)
                     if operator == 'any'
+                    else all(
+                        any(values[alternative] for alternative in alternatives)
+                        for alternatives in dependencies
+                    )
+                    if operator == 'all_any'
                     else all(
                         values[dependency]
                         for dependency in dependencies

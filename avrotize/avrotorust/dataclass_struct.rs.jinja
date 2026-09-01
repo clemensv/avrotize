@@ -352,8 +352,8 @@ impl {{ struct_name }} {
                     {%- if field.xml_kind != "attribute" %}
                     (
                         "{{ field.xml_name }}",
-                        {{ "true" if field.type.startswith("Vec<") or field.type.startswith("std::collections::HashSet<") else "false" }},
-                        {{ "true" if "std::collections::HashMap<String, " in field.type else "false" }},
+                        {{ "true" if field.xml_repeatable else "false" }},
+                        {{ "true" if field.xml_map else "false" }},
                     ),
                     {%- endif %}
                     {%- endfor %}
@@ -414,6 +414,7 @@ impl {{ struct_name }} {
 {%- if serde_annotation or avro_annotation or xml_annotation %}
     /// Checks if the given JSON value matches the schema of the struct
     pub fn is_json_match(node: &serde_json::Value) -> bool {
+        node.is_object() &&
         {%- for predicate in json_match_predicates %}
         {{ predicate }} &&
         {%- endfor %}
@@ -423,7 +424,16 @@ impl {{ struct_name }} {
 
     /// Checks if the given normalized XML value matches the struct.
     pub fn is_xml_match(node: &serde_json::Value) -> bool {
+        node.is_object() &&
         {%- for predicate in xml_match_predicates %}
+        {{ predicate }} &&
+        {%- endfor %}
+        true
+    }
+
+    pub fn is_xml_shape(node: &serde_json::Value) -> bool {
+        node.is_object() &&
+        {%- for predicate in xml_shape_predicates %}
         {{ predicate }} &&
         {%- endfor %}
         true
