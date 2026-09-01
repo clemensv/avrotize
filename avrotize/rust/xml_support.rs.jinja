@@ -2,11 +2,69 @@ use flate2::read::GzDecoder;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::name::ResolveResult;
 use quick_xml::reader::NsReader;
+use std::cell::Cell;
 use std::collections::HashSet;
 use std::io::Read;
 
 pub(crate) const MAX_XML_DATA_SIZE: usize = 16 * 1024 * 1024;
 const MAX_XML_DEPTH: usize = 128;
+
+thread_local! {
+    static XML_UNION_PROBE_DEPTH: Cell<usize> = const { Cell::new(0) };
+    static XML_UNION_DESERIALIZE_DEPTH: Cell<usize> = const { Cell::new(0) };
+}
+
+pub(crate) fn xml_union_probe_active() -> bool {
+    XML_UNION_PROBE_DEPTH.with(|depth| depth.get() != 0)
+}
+
+pub(crate) fn xml_union_deserialize_active() -> bool {
+    XML_UNION_DESERIALIZE_DEPTH.with(|depth| depth.get() != 0)
+}
+
+pub(crate) fn with_xml_union_deserialize<T, E>(
+    deserialize: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
+    XML_UNION_DESERIALIZE_DEPTH.with(|depth| {
+        struct RestoreDepth<'a> {
+            depth: &'a Cell<usize>,
+            previous: usize,
+        }
+
+        impl Drop for RestoreDepth<'_> {
+            fn drop(&mut self) {
+                self.depth.set(self.previous);
+            }
+        }
+
+        let previous = depth.get();
+        depth.set(previous + 1);
+        let _restore = RestoreDepth { depth, previous };
+        deserialize()
+    })
+}
+
+pub(crate) fn with_xml_union_probe<T, E>(
+    probe: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
+    XML_UNION_PROBE_DEPTH.with(|depth| {
+        struct RestoreDepth<'a> {
+            depth: &'a Cell<usize>,
+            previous: usize,
+        }
+
+        impl Drop for RestoreDepth<'_> {
+            fn drop(&mut self) {
+                self.depth.set(self.previous);
+            }
+        }
+
+        let previous = depth.get();
+        depth.set(previous + 1);
+        let _restore = RestoreDepth { depth, previous };
+        probe()
+    })
+}
 
 fn invalid_data(message: impl Into<String>) -> Box<dyn std::error::Error> {
     std::io::Error::new(std::io::ErrorKind::InvalidData, message.into()).into()

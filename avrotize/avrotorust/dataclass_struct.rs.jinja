@@ -419,6 +419,16 @@ impl {{ struct_name }} {
         {%- endfor %}
         true
     }
+    {%- if xml_annotation %}
+
+    /// Checks if the given normalized XML value matches the struct.
+    pub fn is_xml_match(node: &serde_json::Value) -> bool {
+        {%- for predicate in xml_match_predicates %}
+        {{ predicate }} &&
+        {%- endfor %}
+        true
+    }
+    {%- endif %}
 {%- endif %}
 
     /// Returns the struct instance itself

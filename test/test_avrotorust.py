@@ -16,6 +16,7 @@ sys.path.append(project_root)
 
 from avrotize.avrotorust import (
     AvroToRust,
+    JsonSignature,
     convert_avro_schema_to_rust,
     convert_avro_to_rust,
 )
@@ -88,6 +89,34 @@ class TestAvroToRust(unittest.TestCase):
             str(signature_a),
         )
         self.assertEqual(signature_a, signature_b)
+        self.assertEqual(hash(signature_a), hash(signature_b))
+
+    def test_recursive_union_shape_signature_is_bounded(self):
+        """Keep recursive union edges as graph references during construction."""
+        converter = AvroToRust()
+        node = {
+            "type": "record",
+            "name": "Node",
+            "namespace": "issue484.recursive_union",
+            "fields": [
+                {
+                    "name": "children",
+                    "type": {
+                        "type": "array",
+                        "items": ["null", "Node"],
+                    },
+                }
+            ],
+        }
+        converter.index_avro_named_types(node)
+
+        signature = converter.get_json_shape_signature(
+            "Node",
+            "issue484.recursive_union",
+        )
+        self.assertEqual(2, signature.node_count)
+        self.assertEqual(2, signature.edge_count)
+        self.assertIn("('ref', 0)", repr(signature))
 
     def test_nullable_record_signatures_model_realizable_shapes(self):
         """Model absent, null, and present nullable record field shapes."""
@@ -499,6 +528,216 @@ class TestAvroToRust(unittest.TestCase):
             ))
         self.assertLess(resolve.call_count, 100)
 
+    def test_json_signature_construction_is_structurally_bounded(self):
+        """Build each signature graph once per named node and schema edge."""
+        converter = AvroToRust()
+        records = [
+            {
+                "type": "record",
+                "name": "Node0",
+                "namespace": "issue484.signature_dag",
+                "fields": [{"name": "value", "type": "string"}],
+            }
+        ]
+        for index in range(1, 19):
+            records.append({
+                "type": "record",
+                "name": f"Node{index}",
+                "namespace": "issue484.signature_dag",
+                "fields": [
+                    {"name": "left", "type": f"Node{index - 1}"},
+                    {"name": "right", "type": f"Node{index - 1}"},
+                ],
+            })
+        converter.index_avro_named_types(records)
+
+        signatures = (
+            converter.get_json_match_signature(
+                "Node18",
+                "issue484.signature_dag",
+            ),
+            converter.get_json_shape_signature(
+                "Node18",
+                "issue484.signature_dag",
+            ),
+            converter.get_json_default_shape_signature(
+                "Node18",
+                "issue484.signature_dag",
+            ),
+        )
+        for signature in signatures:
+            self.assertEqual(20, signature.node_count)
+            self.assertEqual(37, signature.edge_count)
+            self.assertLess(len(repr(signature)), 4096)
+
+    def test_named_json_safety_handles_namespaced_sccs(self):
+        """Propagate unsafe SCCs without conflating duplicate short names."""
+        converter = AvroToRust()
+        schemas = [
+            {
+                "type": "record",
+                "name": "Optional",
+                "namespace": "issue484.unsafe",
+                "fields": [{
+                    "name": "x",
+                    "type": ["null", "string"],
+                    "default": None,
+                }],
+            },
+            {
+                "type": "record",
+                "name": "Required",
+                "namespace": "issue484.unsafe",
+                "fields": [{"name": "x", "type": "string"}],
+            },
+            {
+                "type": "record",
+                "name": "Node",
+                "namespace": "issue484.safe",
+                "fields": [{"name": "next", "type": "Peer"}],
+            },
+            {
+                "type": "record",
+                "name": "Peer",
+                "namespace": "issue484.safe",
+                "fields": [{"name": "next", "type": "Node"}],
+            },
+            {
+                "type": "record",
+                "name": "Node",
+                "namespace": "issue484.unsafe",
+                "fields": [{"name": "next", "type": "Peer"}],
+            },
+            {
+                "type": "record",
+                "name": "Peer",
+                "namespace": "issue484.unsafe",
+                "fields": [
+                    {"name": "next", "type": "Node"},
+                    {
+                        "name": "choice",
+                        "type": ["Optional", "Required"],
+                    },
+                ],
+            },
+        ]
+        converter.index_avro_named_types(schemas)
+
+        self.assertTrue(converter.is_json_round_trip_safe(
+            "Node",
+            "issue484.safe",
+        ))
+        self.assertTrue(converter.is_json_round_trip_safe(
+            "Peer",
+            "issue484.safe",
+        ))
+        self.assertFalse(converter.is_json_round_trip_safe(
+            "Node",
+            "issue484.unsafe",
+        ))
+        self.assertFalse(converter.is_json_round_trip_safe(
+            "Peer",
+            "issue484.unsafe",
+        ))
+
+    def test_recursive_union_overlap_requires_a_concrete_match(self):
+        """Do not infer overlap solely by revisiting a recursive pair."""
+        converter = AvroToRust()
+        schemas = [
+            {
+                "type": "record",
+                "name": "A",
+                "namespace": "issue484.recursive_disjoint",
+                "fields": [{
+                    "name": "value",
+                    "type": ["A", "string"],
+                }],
+            },
+            {
+                "type": "record",
+                "name": "B",
+                "namespace": "issue484.recursive_disjoint",
+                "fields": [{
+                    "name": "value",
+                    "type": ["B", "long"],
+                }],
+            },
+        ]
+        converter.index_avro_named_types(schemas)
+
+        self.assertFalse(converter.json_match_accepts_shape(
+            converter.get_json_match_signature(
+                "A",
+                "issue484.recursive_disjoint",
+            ),
+            converter.get_json_shape_signature(
+                "B",
+                "issue484.recursive_disjoint",
+            ),
+        ))
+        self.assertTrue(converter.is_json_round_trip_safe(
+            ["A", "B"],
+            "issue484.recursive_disjoint",
+        ))
+
+    def test_json_signature_hashing_is_structurally_bounded(self):
+        """Avoid quadratic equality scans when signatures enter sets."""
+        converter = AvroToRust()
+        signatures = [
+            converter.get_json_match_signature(
+                {
+                    "type": "record",
+                    "name": f"Record{index}",
+                    "namespace": "issue484.signature_hash",
+                    "fields": [{
+                        "name": f"value{index}",
+                        "type": "string",
+                    }],
+                },
+                "issue484.signature_hash",
+            )
+            for index in range(1000)
+        ]
+        original = JsonSignature.__eq__
+        comparison_count = 0
+
+        def counted(left, right):
+            nonlocal comparison_count
+            comparison_count += 1
+            return original(left, right)
+
+        with patch.object(JsonSignature, "__eq__", counted):
+            self.assertEqual(1000, len(set(signatures)))
+        self.assertLess(comparison_count, 100)
+
+    def test_decimal_fixed_signatures_follow_generated_f64(self):
+        """Model decimal fixed and bytes by their generated Rust number shape."""
+        converter = AvroToRust()
+        decimal_fixed = {
+            "type": "fixed",
+            "name": "Amount",
+            "namespace": "issue484.decimal",
+            "size": 8,
+            "logicalType": "decimal",
+            "precision": 12,
+            "scale": 2,
+        }
+        converter.index_avro_named_types(decimal_fixed)
+
+        for builder in (
+            converter.get_json_match_signature,
+            converter.get_json_shape_signature,
+            converter.get_json_default_shape_signature,
+        ):
+            self.assertEqual(
+                builder("Amount", "issue484.decimal"),
+                builder("double", "issue484.decimal"),
+            )
+        self.assertFalse(converter.is_json_round_trip_safe(
+            ["Amount", "double"],
+            "issue484.decimal",
+        ))
+
     def test_json_union_subset_records_reject_ambiguity(self):
         """Reject a record branch also accepted by a subset-field matcher."""
         rust_path = os.path.join(
@@ -642,6 +881,204 @@ class TestAvroToRust(unittest.TestCase):
             )
         assert subprocess.check_call(
             ['cargo', 'test', '--test', 'partial_xml_ambiguity'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
+    def test_xml_union_serialization_uses_normalized_variant_identity(self):
+        """Reject XML values that normalize into a different union variant."""
+        fixture_name = "rust-xml-union-lexical-normalization"
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            f"{fixture_name}-rs-serde-xml",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_to_rust(
+            os.path.join(os.getcwd(), "test", "avsc", f"{fixture_name}.avsc"),
+            rust_path,
+            package_name=fixture_name,
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "xml_lexical_normalization.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_xml_union_lexical_normalization::issue484::xml_lexical::{\n"
+                "    absentoverlapunion::AbsentOverlapUnion,\n"
+                "    actualoverlapunion::ActualOverlapUnion,\n"
+                "    alternateenumunion::AlternateEnumUnion,\n"
+                "    attributefield::AttributeField,\n"
+                "    attributefieldunion::AttributeFieldUnion,\n"
+                "    boolforwardunion::BoolForwardUnion,\n"
+                "    boolreverseunion::BoolReverseUnion,\n"
+                "    collectionunion::CollectionUnion,\n"
+                "    innertext::InnerText,\n"
+                "    innerunion::InnerUnion,\n"
+                "    nestedchoice::NestedChoice,\n"
+                "    nestedunion::NestedUnion,\n"
+                "    narrowforwardunion::NarrowForwardUnion,\n"
+                "    narrowrecordforwardunion::NarrowRecordForwardUnion,\n"
+                "    narrowrecordreverseunion::NarrowRecordReverseUnion,\n"
+                "    narrowreverseunion::NarrowReverseUnion,\n"
+                "    numericforwardunion::NumericForwardUnion,\n"
+                "    numericreverseunion::NumericReverseUnion,\n"
+                "    optionalstring::OptionalString,\n"
+                "    renamedfield::RenamedField,\n"
+                "    renamedfieldunion::RenamedFieldUnion,\n"
+                "    requiredlong::RequiredLong,\n"
+                "    wiretag::WireTag,\n"
+                "};\n"
+                "use serde::{Deserialize, Serialize};\n"
+                "use std::collections::HashMap;\n\n"
+                "#[derive(Deserialize, Serialize)]\n"
+                "#[serde(rename = \"Root\")]\n"
+                "struct Root<T> {\n"
+                "    value: T,\n"
+                "}\n\n"
+                "fn assert_ambiguous<T: Serialize>(value: T) {\n"
+                "    let error = quick_xml::se::to_string(&Root { value })\n"
+                "        .unwrap_err();\n"
+                "    assert!(error.to_string().contains(\"ambiguous XML union value\"));\n"
+                "}\n\n"
+                "#[test]\n"
+                "fn normalized_lexical_values_preserve_selected_variant_identity() {\n"
+                "    assert_ambiguous(NumericForwardUnion::OptionalString(\n"
+                "        OptionalString { x: Some(\"42\".into()) },\n"
+                "    ));\n"
+                "    assert_ambiguous(NumericReverseUnion::OptionalString(\n"
+                "        OptionalString { x: Some(\"-7\".into()) },\n"
+                "    ));\n"
+                "    assert_ambiguous(BoolForwardUnion::OptionalString(\n"
+                "        OptionalString { x: Some(\"true\".into()) },\n"
+                "    ));\n"
+                "    assert_ambiguous(BoolReverseUnion::OptionalString(\n"
+                "        OptionalString { x: Some(\"false\".into()) },\n"
+                "    ));\n"
+                "    assert_ambiguous(ActualOverlapUnion::OptionalString(\n"
+                "        OptionalString { x: Some(\"text\".into()) },\n"
+                "    ));\n"
+                "    assert_ambiguous(AbsentOverlapUnion::OptionalString(\n"
+                "        OptionalString { x: None },\n"
+                "    ));\n"
+                "    assert_ambiguous(CollectionUnion::VecString(Vec::new()));\n\n"
+                "    assert_ambiguous(NarrowForwardUnion::String(\"42\".into()));\n"
+                "    assert_ambiguous(NarrowReverseUnion::String(\"42\".into()));\n\n"
+                "    assert_ambiguous(NarrowRecordForwardUnion::OptionalString(\n"
+                "        OptionalString { x: Some(\"2147483648\".into()) },\n"
+                "    ));\n"
+                "    assert_ambiguous(NarrowRecordReverseUnion::OptionalString(\n"
+                "        OptionalString { x: Some(\"2147483648\".into()) },\n"
+                "    ));\n\n"
+                "    assert_ambiguous(NumericForwardUnion::RequiredLong(\n"
+                "        RequiredLong { x: 42 },\n"
+                "    ));\n\n"
+                "    let none = NumericForwardUnion::OptionalString(\n"
+                "        OptionalString { x: None },\n"
+                "    );\n"
+                "    let none_xml = quick_xml::se::to_string(&none).unwrap();\n"
+                "    let none_round_trip: NumericForwardUnion =\n"
+                "        quick_xml::de::from_str(&none_xml).unwrap();\n"
+                "    assert_eq!(none, none_round_trip);\n\n"
+                "    let null_text = NumericReverseUnion::OptionalString(\n"
+                "        OptionalString { x: Some(\"null\".into()) },\n"
+                "    );\n"
+                "    let null_xml = quick_xml::se::to_string(&null_text).unwrap();\n"
+                "    let null_round_trip: NumericReverseUnion =\n"
+                "        quick_xml::de::from_str(&null_xml).unwrap();\n"
+                "    assert_eq!(null_text, null_round_trip);\n"
+                "    let overflow = Root {\n"
+                "        value: NarrowForwardUnion::String(\"2147483648\".into()),\n"
+                "    };\n"
+                "    let overflow_xml = quick_xml::se::to_string(&overflow).unwrap();\n"
+                "    let overflow_round_trip: Root<NarrowForwardUnion> =\n"
+                "        quick_xml::de::from_str(&overflow_xml).unwrap();\n"
+                "    assert_eq!(overflow.value, overflow_round_trip.value);\n"
+                "}\n\n"
+                "#[test]\n"
+                "fn exact_probe_uses_xml_metadata_and_collection_shapes() {\n"
+                "    let renamed_xml = quick_xml::se::to_string(&Root {\n"
+                "        value: RenamedFieldUnion::RenamedField(RenamedField {\n"
+                "            value: \"text\".into(),\n"
+                "        }),\n"
+                "    }).unwrap();\n"
+                "    assert!(renamed_xml.contains(\"<wireValue>text</wireValue>\"));\n\n"
+                "    let renamed_round_trip: Root<RenamedFieldUnion> =\n"
+                "        quick_xml::de::from_str(&renamed_xml).unwrap();\n"
+                "    assert!(matches!(\n"
+                "        renamed_round_trip.value,\n"
+                "        RenamedFieldUnion::RenamedField(_)\n"
+                "    ));\n\n"
+                "    let attribute_xml = quick_xml::se::to_string(&Root {\n"
+                "        value: AttributeFieldUnion::AttributeField(AttributeField {\n"
+                "            value: \"text\".into(),\n"
+                "        }),\n"
+                "    }).unwrap();\n"
+                "    assert!(attribute_xml.contains(\"value=\\\"text\\\"\"));\n\n"
+                "    let attribute_round_trip: Root<AttributeFieldUnion> =\n"
+                "        quick_xml::de::from_str(&attribute_xml).unwrap();\n"
+                "    assert!(matches!(\n"
+                "        attribute_round_trip.value,\n"
+                "        AttributeFieldUnion::AttributeField(_)\n"
+                "    ));\n\n"
+                "    let enum_xml = quick_xml::se::to_string(&Root {\n"
+                "        value: AlternateEnumUnion::WireTag(WireTag::FIRST),\n"
+                "    }).unwrap();\n"
+                "    assert!(enum_xml.contains(\">wire-first<\"));\n\n"
+                "    let enum_round_trip: Root<AlternateEnumUnion> =\n"
+                "        quick_xml::de::from_str(&enum_xml).unwrap();\n"
+                "    assert!(matches!(\n"
+                "        enum_round_trip.value,\n"
+                "        AlternateEnumUnion::WireTag(WireTag::FIRST)\n"
+                "    ));\n\n"
+                "    let vec_xml = quick_xml::se::to_string(&Root {\n"
+                "        value: CollectionUnion::VecString(vec![\n"
+                "            \"one\".into(),\n"
+                "            \"two\".into(),\n"
+                "        ]),\n"
+                "    }).unwrap();\n"
+                "    assert_eq!(2, vec_xml.matches(\"<value>\").count());\n\n"
+                "    let vec_round_trip: Root<Vec<String>> =\n"
+                "        quick_xml::de::from_str(&vec_xml).unwrap();\n"
+                "    assert_eq!(vec![\"one\", \"two\"], vec_round_trip.value);\n\n"
+                "    let map_xml = quick_xml::se::to_string(&Root {\n"
+                "        value: CollectionUnion::HashMapStringString(\n"
+                "            HashMap::from([(\"key\".into(), \"value\".into())]),\n"
+                "        ),\n"
+                "    }).unwrap();\n"
+                "    assert!(map_xml.contains(\"<key>value</key>\"));\n\n"
+                "    let map_round_trip: Root<HashMap<String, String>> =\n"
+                "        quick_xml::de::from_str(&map_xml).unwrap();\n"
+                "    assert_eq!(\n"
+                "        map_round_trip.value.get(\"key\").map(String::as_str),\n"
+                "        Some(\"value\")\n"
+                "    );\n\n"
+                "    let nested_xml = quick_xml::se::to_string(&Root {\n"
+                "        value: NestedUnion::NestedChoice(NestedChoice {\n"
+                "            inner: InnerUnion::InnerText(InnerText {\n"
+                "                text: \"nested\".into(),\n"
+                "            }),\n"
+                "        }),\n"
+                "    }).unwrap();\n"
+                "    assert!(nested_xml.contains(\"<text>nested</text>\"));\n"
+                "    let nested_round_trip: Root<NestedUnion> =\n"
+                "        quick_xml::de::from_str(&nested_xml).unwrap();\n"
+                "    assert!(matches!(\n"
+                "        nested_round_trip.value,\n"
+                "        NestedUnion::NestedChoice(_)\n"
+                "    ));\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test', '--test', 'xml_lexical_normalization'],
             cwd=rust_path,
             stdout=sys.stdout,
             stderr=sys.stderr,

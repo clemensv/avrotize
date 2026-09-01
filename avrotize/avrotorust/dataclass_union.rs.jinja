@@ -17,11 +17,78 @@ pub enum {{ union_enum_name }} {
 {%- endfor %}
 }
 
+{%- if xml_annotation %}
+#[derive(Serialize)]
+#[serde(rename = "UnionProbe")]
+struct XmlUnionProbeRef<'a, T: ?Sized> {
+    value: &'a T,
+}
+
+#[derive(Deserialize)]
+#[serde(rename = "UnionProbe")]
+struct XmlUnionProbe<T> {
+    value: T,
+}
+{%- endif %}
+
 impl Default for {{ union_enum_name }} {
     fn default() -> Self {
         return {{ union_enum_name }}::{{ union_fields[0].name }}({{ union_fields[0].default_value }})
     }
 }
+
+{%- if xml_annotation %}
+impl {{ union_enum_name }} {
+    fn xml_probe_matches_selected(&self) -> bool {
+        match self {
+            {%- for union_field in union_fields %}
+            {{ union_enum_name }}::{{ union_field.name }}(value) => {
+                let xml = match crate::xml_support::with_xml_union_probe(
+                    || quick_xml::se::to_string(
+                        &XmlUnionProbeRef { value }
+                    )
+                ) {
+                    Ok(xml) => xml,
+                    Err(_) => return false,
+                };
+                let match_count = 0usize
+                    {%- for candidate in union_fields %}
+                    + usize::from(match quick_xml::de::from_str::<
+                        XmlUnionProbe<{{ candidate.type }}>
+                    >(&xml) {
+                        Ok(probe) => serde_json::to_value(probe.value)
+                            .map(|node| {{ candidate.json_match_predicate }})
+                            .unwrap_or(false),
+                        Err(_) => false,
+                    })
+                    {%- endfor %};
+                let selected_matches = match quick_xml::de::from_str::<
+                    XmlUnionProbe<{{ union_field.type }}>
+                >(&xml) {
+                    Ok(probe) => serde_json::to_value(probe.value)
+                        .map(|node| {{ union_field.json_match_predicate }})
+                        .unwrap_or(false),
+                    Err(_) => false,
+                };
+                if match_count != 1 || !selected_matches {
+                    return false;
+                }
+                let node = match serde_json::to_value(value) {
+                    Ok(node) => normalize_xml_value(node),
+                    Err(_) => return false,
+                };
+                let normalized_match_count = 0usize
+                    {%- for candidate in union_fields %}
+                    + usize::from({{ candidate.json_match_predicate }})
+                    {%- endfor %};
+                normalized_match_count == 1
+                    && {{ union_field.json_match_predicate }}
+            },
+            {%- endfor %}
+        }
+    }
+}
+{%- endif %}
 
 {%- if avro_annotation %}
 const MAX_AVRO_DATA_SIZE: usize = 16 * 1024 * 1024;
@@ -70,40 +137,14 @@ impl Serialize for {{ union_enum_name }} {
         match self {
             {%- for union_field in union_fields %}
             {{ union_enum_name }}::{{ union_field.name}}(value) => {
-                {%- if xml_annotation and union_field.xml_reject_value %}
-                if is_xml {
-                    return Err(serde::ser::Error::custom("ambiguous XML union value"));
-                }
-                {%- endif %}
-                {%- if xml_annotation and union_field.xml_check_value_ambiguity %}
-                if is_xml {
-                    let node = serde_json::to_value(value)
-                        .map_err(serde::ser::Error::custom)?;
-                    let match_count = 0usize
-                        {%- for candidate in union_fields %}
-                        + usize::from({{ candidate.json_match_predicate }})
-                        {%- endfor %};
-                    if match_count > 1 {
-                        return Err(serde::ser::Error::custom(
-                            "ambiguous XML union value"
-                        ));
-                    }
-                }
-                {%- endif %}
-                {%- if xml_annotation and union_field.xml_guard_string %}
-                if is_xml && (
-                    {%- if xml_string_guards.bool %}
-                    value.parse::<bool>().is_ok() ||
-                    {%- endif %}
-                    {%- if xml_string_guards.integer %}
-                    value.parse::<i128>().is_ok() ||
-                    {%- endif %}
-                    {%- if xml_string_guards.float %}
-                    value.parse::<f64>().is_ok() ||
-                    {%- endif %}
-                    false
-                ) {
-                    return Err(serde::ser::Error::custom("ambiguous XML union scalar"));
+                {%- if xml_annotation %}
+                if is_xml
+                    && !crate::xml_support::xml_union_probe_active()
+                    && !self.xml_probe_matches_selected()
+                {
+                    return Err(serde::ser::Error::custom(
+                        "ambiguous XML union value"
+                    ));
                 }
                 {%- endif %}
                 value.serialize(serializer)
@@ -119,7 +160,8 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
         D: serde::de::Deserializer<'de>
     {
         {%- if xml_annotation %}
-        let is_xml = std::any::type_name::<D>().contains("quick_xml");
+        let is_xml = std::any::type_name::<D>().contains("quick_xml")
+            || crate::xml_support::xml_union_deserialize_active();
         {%- endif %}
         let node = serde_json::Value::deserialize(deserializer)?;
         {%- if xml_annotation %}
@@ -130,7 +172,7 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
         if is_xml {
             let match_count = 0usize
                 {%- for union_field in union_fields %}
-                + usize::from({{ union_field.json_match_predicate }})
+                + usize::from({{ union_field.xml_match_predicate }})
                 {%- endfor %};
             if match_count > 1 {
                 return Err(serde::de::Error::custom("ambiguous XML union value"));
@@ -141,24 +183,42 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             {%- for union_field in union_fields %}
             + usize::from({{ union_field.json_match_predicate }})
             {%- endfor %};
-        if match_count > 1 {
+        if {%- if xml_annotation %} !is_xml &&{% endif %} match_count > 1 {
             return Err(serde::de::Error::custom(
                 "ambiguous JSON union value"
             ));
         }
         {%- for union_field in union_fields %}
+        {%- if xml_annotation %}
+        if (
+            is_xml && {{ union_field.xml_match_predicate }}
+        ) || (
+            !is_xml && {{ union_field.json_match_predicate }}
+        ) {
+        {%- else %}
         if {{ union_field.json_match_predicate }} {
+        {%- endif %}
             {%- if union_field.type.startswith("Vec<") %}
             {%- set field_type = 'Vec::<'+union_field.type[4:] %}
-            let result = {{ field_type }}::deserialize(node).map_err(serde::de::Error::custom)?;
             {%- elif union_field.type.startswith("std::collections::HashMap<") %}
             {%- set field_type = 'std::collections::HashMap::<'+union_field.type[26:] %}
-            let result = {{ field_type }}::deserialize(node).map_err(serde::de::Error::custom)?;
             {%- elif union_field.type == "()" %}
-            let result = <()>::deserialize(node).map_err(serde::de::Error::custom)?;
-            {%-else %}
-            let result = {{ union_field.type }}::deserialize(node).map_err(serde::de::Error::custom)?;
-            {%-endif %}
+            {%- set field_type = '<()>' %}
+            {%- else %}
+            {%- set field_type = union_field.type %}
+            {%- endif %}
+            {%- if xml_annotation %}
+            let result = if is_xml {
+                crate::xml_support::with_xml_union_deserialize(
+                    || {{ field_type }}::deserialize(node)
+                )
+            } else {
+                {{ field_type }}::deserialize(node)
+            }.map_err(serde::de::Error::custom)?;
+            {%- else %}
+            let result = {{ field_type }}::deserialize(node)
+                .map_err(serde::de::Error::custom)?;
+            {%- endif %}
             return Ok({{ union_enum_name }}::{{ union_field.name }}(result));
         }
         {%- endfor %}
@@ -186,9 +246,16 @@ fn xml_scalar_match_count(value: &serde_json::Value) -> usize {
         {%- elif union_field.type == "bool" %}
         + usize::from(text.parse::<bool>().is_ok())
         {%- elif union_field.type in ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "isize", "usize"] %}
-        + usize::from(text.parse::<i128>().is_ok())
+        + usize::from(text.parse::<{{ union_field.type }}>().is_ok())
         {%- elif union_field.type in ["f32", "f64"] %}
-        + usize::from(text.parse::<f64>().is_ok())
+        + usize::from(
+            text.parse::<{{ union_field.type }}>()
+                .ok()
+                .and_then(|value| {
+                    serde_json::Number::from_f64(value as f64)
+                })
+                .is_some()
+        )
         {%- endif %}
         {%- endfor %}
 }
@@ -204,6 +271,9 @@ fn normalize_xml_value(value: serde_json::Value) -> serde_json::Value {
         serde_json::Value::Array(values) => {
             serde_json::Value::Array(values.into_iter().map(normalize_xml_value).collect())
         }
+        serde_json::Value::String(text) => {
+            normalize_xml_text(serde_json::Value::String(text))
+        }
         other => other,
     }
 }
@@ -213,6 +283,28 @@ fn normalize_xml_text(value: serde_json::Value) -> serde_json::Value {
         serde_json::Value::String(text) => text,
         other => return normalize_xml_value(other),
     };
+    {%- for union_field in union_fields %}
+    {%- if union_field.type == "bool" %}
+    if let Ok(value) = text.parse::<bool>() {
+        return serde_json::Value::Bool(value);
+    }
+    {%- elif union_field.type in ["i8", "i16", "i32", "i64", "isize"] %}
+    if let Ok(value) = text.parse::<{{ union_field.type }}>() {
+        return serde_json::Value::Number((value as i64).into());
+    }
+    {%- elif union_field.type in ["u8", "u16", "u32", "u64", "usize"] %}
+    if let Ok(value) = text.parse::<{{ union_field.type }}>() {
+        return serde_json::Value::Number((value as u64).into());
+    }
+    {%- elif union_field.type in ["f32", "f64"] %}
+    if let Ok(value) = text.parse::<{{ union_field.type }}>() {
+        if let Some(value) = serde_json::Number::from_f64(value as f64) {
+            return serde_json::Value::Number(value);
+        }
+    }
+    {%- endif %}
+    {%- endfor %}
+    {%- if not xml_has_typed_scalar_parse %}
     if let Ok(value) = text.parse::<bool>() {
         return serde_json::Value::Bool(value);
     }
@@ -227,6 +319,7 @@ fn normalize_xml_text(value: serde_json::Value) -> serde_json::Value {
             return serde_json::Value::Number(value);
         }
     }
+    {%- endif %}
     serde_json::Value::String(text)
 }
 {%- endif %}
@@ -415,6 +508,14 @@ impl {{ union_enum_name }} {
         {{ predicate }}{%if not loop.last%}||{%endif%}
         {%- endfor %}; 
     }
+    {%- if xml_annotation %}
+
+    pub fn is_xml_match(node: &serde_json::Value) -> bool {
+        return{%- for union_field in union_fields %}
+        {{ union_field.xml_match_predicate }}{%if not loop.last%}||{%endif%}
+        {%- endfor %};
+    }
+    {%- endif %}
 
     /// Returns the struct instance itself
     pub fn to_object(&self) -> &Self {
@@ -426,17 +527,24 @@ impl {{ union_enum_name }} {
 #[cfg(test)]
 impl {{ union_enum_name }} {
 {%- set json_safe_fields = union_fields | selectattr('json_round_trip_safe') | list %}
-{%- set xml_safe_fields = union_fields | selectattr('xml_safe_for_random') | list %}
     pub fn generate_random_instance() -> {{ union_enum_name }} {
         let mut rng = rand::thread_rng();
-        {%- if xml_annotation and xml_safe_fields | length > 0 %}
-        // Use concrete values whose XML lexical form is unambiguous.
-        match rand::Rng::gen_range(&mut rng, 0..{{ xml_safe_fields | length }}) {
-            {%- for union_field in xml_safe_fields %}
-            {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}({{ union_field.xml_random_value }}),
-            {%- endfor %}
-            _ => panic!("Invalid random index generated"),
+        {%- if xml_annotation %}
+        let start = rand::Rng::gen_range(&mut rng, 0..{{ union_fields | length }});
+        for offset in 0..{{ union_fields | length }} {
+            let candidate = match (start + offset) % {{ union_fields | length }} {
+                {%- for union_field in union_fields %}
+                {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}(
+                    {{ union_field.xml_random_value }}
+                ),
+                {%- endfor %}
+                _ => unreachable!(),
+            };
+            if candidate.xml_probe_matches_selected() {
+                return candidate;
+            }
         }
+        panic!("No XML-unambiguous union value can be generated");
         {%- elif serde_annotation and json_safe_fields | length > 0 and json_safe_fields | length < union_fields | length %}
         // Only pick from variants with unique JSON structures to ensure round-trip works
         match rand::Rng::gen_range(&mut rng, 0..{{ json_safe_fields | length }}) {

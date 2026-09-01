@@ -18,6 +18,137 @@ INDENT = '    '
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
 
+class JsonSignature:
+    """A bounded graph describing generated JSON matcher or value shapes."""
+
+    __slots__ = (
+        'root',
+        'nodes',
+        'node_count',
+        'edge_count',
+        '_canonical',
+        '_hash',
+    )
+
+    def __init__(self, root: int, nodes: list[tuple]) -> None:
+        self.root = root
+        self.nodes = tuple(nodes)
+        self.node_count = len(self.nodes)
+        self.edge_count = sum(
+            len(data)
+            if kind in ('record', 'record_match', 'union')
+            else int(data is not None)
+            for kind, data in self.nodes
+        )
+        self._canonical = self._canonicalize()
+        self._hash = hash(self._canonical)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, JsonSignature):
+            return NotImplemented
+        return self._canonical == other._canonical
+
+    def __repr__(self) -> str:
+        return repr(self._canonical)
+
+    def _canonicalize(self):
+        """Returns a canonical quotient graph for hashing and equality."""
+        descriptors = []
+        for kind, data in self.nodes:
+            if data is None:
+                descriptors.append((kind, None))
+            elif kind in ('record', 'record_match'):
+                descriptors.append((
+                    kind,
+                    tuple(name for name, _ in data),
+                ))
+            elif kind == 'union':
+                descriptors.append((kind, len(data)))
+            else:
+                descriptors.append((kind, 1))
+
+        def classify(items):
+            class_ids = {}
+            return tuple(
+                class_ids.setdefault(item, len(class_ids))
+                for item in items
+            )
+
+        classes = classify(descriptors)
+        while True:
+            refined = []
+            for node_id, (kind, data) in enumerate(self.nodes):
+                if data is None:
+                    refined.append((classes[node_id], kind, None))
+                elif kind in ('record', 'record_match'):
+                    refined.append((
+                        classes[node_id],
+                        kind,
+                        tuple(
+                            (name, classes[child_id])
+                            for name, child_id in data
+                        ),
+                    ))
+                elif kind == 'union':
+                    refined.append((
+                        classes[node_id],
+                        kind,
+                        tuple(classes[child_id] for child_id in data),
+                    ))
+                else:
+                    refined.append((
+                        classes[node_id],
+                        kind,
+                        classes[data],
+                    ))
+            refined_classes = classify(refined)
+            if refined_classes == classes:
+                break
+            classes = refined_classes
+
+        representatives = {}
+        for node_id, class_id in enumerate(classes):
+            representatives.setdefault(class_id, node_id)
+        references = {}
+
+        def render(class_id: int):
+            if class_id in references:
+                return ('ref', references[class_id])
+            references[class_id] = len(references)
+            kind, data = self.nodes[representatives[class_id]]
+            if data is None:
+                return kind
+            if kind in ('record', 'record_match'):
+                return (
+                    kind,
+                    tuple(
+                        (name, render(classes[child_id]))
+                        for name, child_id in data
+                    ),
+                )
+            if kind == 'union':
+                return (
+                    kind,
+                    tuple(render(classes[child_id]) for child_id in data),
+                )
+            return (kind, render(classes[data]))
+
+        return render(classes[self.root])
+
+
+class _JsonSignatureRef:
+    """Identity cursor used while comparing nodes from signature graphs."""
+
+    __slots__ = ('signature', 'node_id')
+
+    def __init__(self, signature: JsonSignature, node_id: int) -> None:
+        self.signature = signature
+        self.node_id = node_id
+
+
 class AvroToRust:
     """Converts Avro schema to Rust structs, including Serde and Avro marshalling methods"""
 
@@ -733,7 +864,21 @@ class AvroToRust:
                 avro_schema,
                 parent_namespace,
             ),
-            'json_match_predicates': [self.get_is_json_match_clause(f['original_name'], f['type']) for f in fields]
+            'json_match_predicates': [
+                self.get_is_json_match_clause(
+                    field['original_name'],
+                    field['type'],
+                )
+                for field in fields
+            ],
+            'xml_match_predicates': [
+                self.get_is_json_match_clause(
+                    field['serde_name'],
+                    field['type'],
+                    xml=True,
+                )
+                for field in fields
+            ],
         }
 
         file_name = self.to_file_name(qualified_struct_name)
@@ -1155,7 +1300,13 @@ class AvroToRust:
 
         return f'apache_avro::from_value({value_expression})?'
     
-    def get_is_json_match_clause(self, field_name: str, field_type: str, for_union=False) -> str:
+    def get_is_json_match_clause(
+        self,
+        field_name: str,
+        field_type: str,
+        for_union=False,
+        xml=False,
+    ) -> str:
         """Generates the is_json_match clause for a field"""
         ref = f'node[\"{field_name}\"]' if not for_union else 'node'
         
@@ -1201,10 +1352,13 @@ class AvroToRust:
         elif 'uuid::Uuid' in base_type or 'Uuid' in base_type:
             return f"({ref}.is_string(){null_check})"
         else:
-            # Custom types - call their is_json_match method
+            match_method = 'is_xml_match' if xml else 'is_json_match'
             if is_optional:
-                return f"({base_type}::is_json_match(&{ref}) || {ref}.is_null())"
-            return f"{base_type}::is_json_match(&{ref})"
+                return (
+                    f"({base_type}::{match_method}(&{ref})"
+                    f" || {ref}.is_null())"
+                )
+            return f"{base_type}::{match_method}(&{ref})"
 
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str) -> str:
@@ -1354,6 +1508,12 @@ class AvroToRust:
                 t,
                 for_union=True,
             )
+            xml_predicate = self.get_is_json_match_clause(
+                field_name,
+                t,
+                for_union=True,
+                xml=True,
+            )
             predicate_key = self.get_json_match_signature(
                 union_avro_types[i],
                 namespace,
@@ -1405,6 +1565,7 @@ class AvroToRust:
                 ),
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,
+                'xml_match_predicate': xml_predicate,
                 'json_match_signature': predicate_key,
                 'json_shape_signature': shape_signature,
                 'json_default_shape_signature': default_shape_signature,
@@ -1478,6 +1639,9 @@ class AvroToRust:
             'union_enum_name': union_enum_name,
             'union_fields': union_fields,
             'xml_string_guards': xml_string_guards,
+            'xml_has_typed_scalar_parse': bool(
+                present_scalar_kinds & {'bool', 'integer', 'float'}
+            ),
             'avro_schema': avro_schema_str,
             'source_avro_schema': source_avro_schema_str,
             'source_null_index': (
@@ -1636,102 +1800,168 @@ class AvroToRust:
             return (branch, 'null')
         return (branch,)
 
+    def _build_json_signature(
+        self,
+        avro_type,
+        namespace: str,
+        mode: str,
+    ) -> JsonSignature:
+        """Builds a cycle-safe graph with one node per named schema node."""
+        nodes: list[tuple | None] = []
+        atoms = {}
+        compounds = {}
+        named_nodes = {}
+
+        def add_atom(kind: str) -> int:
+            if kind not in atoms:
+                atoms[kind] = len(nodes)
+                nodes.append((kind, None))
+            return atoms[kind]
+
+        def add_compound(kind: str, data) -> int:
+            key = (kind, data)
+            if key not in compounds:
+                compounds[key] = len(nodes)
+                nodes.append(key)
+            return compounds[key]
+
+        def build_named(schema, fullname: str) -> int:
+            if fullname in named_nodes:
+                return named_nodes[fullname]
+            node_id = len(nodes)
+            named_nodes[fullname] = node_id
+            nodes.append(None)
+            record_namespace = fullname.rpartition('.')[0]
+            fields = tuple(
+                (
+                    field['name'],
+                    build(field['type'], record_namespace),
+                )
+                for field in schema.get('fields', [])
+            )
+            nodes[node_id] = (
+                'record_match' if mode == 'match' else 'record',
+                fields,
+            )
+            return node_id
+
+        def build(node, current_namespace: str) -> int:
+            if isinstance(node, str):
+                if is_any_value_type(node):
+                    return add_atom('null' if mode == 'default' else 'any')
+                resolved = self.resolve_avro_named_type(
+                    node,
+                    current_namespace,
+                )
+                if resolved:
+                    fullname = self.avro_type_fullnames[id(resolved)]
+                    if resolved.get('type') == 'record':
+                        return build_named(resolved, fullname)
+                    if (
+                        resolved.get('type') == 'fixed'
+                        and resolved.get('logicalType') == 'decimal'
+                    ):
+                        return add_atom('number')
+                    return add_atom(
+                        'string'
+                        if resolved.get('type') == 'enum'
+                        else (
+                            'array'
+                            if resolved.get('type') == 'fixed'
+                            else resolved.get('type', node)
+                        )
+                    )
+                if node in ('int', 'long'):
+                    return add_atom('integer')
+                if node in ('float', 'double'):
+                    return add_atom('number')
+                if mode == 'match' and node == 'bytes':
+                    return add_atom('array')
+                return add_atom(node)
+
+            if isinstance(node, list):
+                if is_generic_avro_type(node) and mode != 'default':
+                    if self.serde_annotation or self.xml_annotation:
+                        return add_atom('any')
+                    if mode == 'match':
+                        return add_atom('object')
+                    return add_compound('map', add_atom('string'))
+                generated_branches = self.generated_json_union_branches(
+                    node,
+                    current_namespace,
+                )
+                if mode == 'default':
+                    if 'null' in generated_branches or not generated_branches:
+                        return add_atom('null')
+                    return build(generated_branches[0], current_namespace)
+                branch_ids = []
+                for branch in generated_branches:
+                    branch_id = build(branch, current_namespace)
+                    branch_node = nodes[branch_id]
+                    branch_kind, branch_data = (
+                        branch_node
+                        if branch_node is not None
+                        else (None, None)
+                    )
+                    candidates = (
+                        branch_data
+                        if branch_kind == 'union'
+                        else (branch_id,)
+                    )
+                    for candidate in candidates:
+                        if candidate not in branch_ids:
+                            branch_ids.append(candidate)
+                if len(branch_ids) == 1:
+                    return branch_ids[0]
+                return add_compound('union', tuple(branch_ids))
+
+            if not isinstance(node, dict):
+                return add_atom(str(node))
+
+            node_type = node.get('type')
+            if node_type == 'record':
+                fullname, _, _ = self.canonical_avro_name(
+                    node['name'],
+                    node.get('namespace', current_namespace),
+                )
+                return build_named(node, fullname)
+            if node_type == 'enum':
+                return add_atom('string')
+            if node_type == 'array':
+                if mode == 'match':
+                    return add_atom('array')
+                return add_compound(
+                    'array',
+                    build(node['items'], current_namespace),
+                )
+            if node_type == 'map':
+                if mode == 'match':
+                    return add_atom('object')
+                return add_compound(
+                    'map',
+                    build(node['values'], current_namespace),
+                )
+            if (
+                node_type in ('fixed', 'bytes')
+                and node.get('logicalType') == 'decimal'
+            ):
+                return add_atom('number')
+            if node_type in ('fixed', 'bytes'):
+                return add_atom('array')
+            return build(node_type, current_namespace)
+
+        root = build(avro_type, namespace)
+        return JsonSignature(root, nodes)
+
     def get_json_shape_signature(
         self,
         avro_type,
         namespace: str,
         resolving=None,
     ):
-        """Returns a stable structural signature for untagged JSON matching."""
-        resolving = () if resolving is None else resolving
-        if isinstance(avro_type, str):
-            if is_any_value_type(avro_type):
-                return 'any'
-            resolved = self.resolve_avro_named_type(avro_type, namespace)
-            if resolved:
-                fullname = self.avro_type_fullnames[id(resolved)]
-                if fullname in resolving:
-                    return ('ref', resolving.index(fullname))
-                return self.get_json_shape_signature(
-                    resolved,
-                    fullname.rpartition('.')[0],
-                    resolving,
-                )
-            if avro_type in ('int', 'long'):
-                return 'integer'
-            if avro_type in ('float', 'double'):
-                return 'number'
-            return avro_type
-        if isinstance(avro_type, list):
-            if is_generic_avro_type(avro_type):
-                return (
-                    'any'
-                    if self.serde_annotation or self.xml_annotation
-                    else ('map', 'string')
-                )
-            return self.normalize_json_union_signature(
-                (
-                    self.get_json_shape_signature(
-                        item,
-                        namespace,
-                        resolving,
-                    )
-                    for item in self.generated_json_union_branches(
-                        avro_type,
-                        namespace,
-                    )
-                )
-            )
-        if not isinstance(avro_type, dict):
-            return str(avro_type)
-        node_type = avro_type.get('type')
-        if node_type == 'record':
-            fullname, record_namespace, _ = self.canonical_avro_name(
-                avro_type['name'],
-                avro_type.get('namespace', namespace),
-            )
-            if fullname in resolving:
-                return ('ref', resolving.index(fullname))
-            nested_resolving = resolving + (fullname,)
-            return (
-                'record',
-                tuple(
-                    (
-                        field['name'],
-                        self.get_json_shape_signature(
-                            field['type'],
-                            record_namespace,
-                            nested_resolving,
-                        ),
-                    )
-                    for field in avro_type.get('fields', [])
-                ),
-            )
-        if node_type == 'enum':
-            return 'string'
-        if node_type == 'array':
-            return (
-                'array',
-                self.get_json_shape_signature(
-                    avro_type['items'],
-                    namespace,
-                    resolving,
-                ),
-            )
-        if node_type == 'map':
-            return (
-                'map',
-                self.get_json_shape_signature(
-                    avro_type['values'],
-                    namespace,
-                    resolving,
-                ),
-            )
-        return self.get_json_shape_signature(
-            node_type,
-            namespace,
-            resolving,
-        )
+        """Returns a bounded graph for generated untagged JSON values."""
+        del resolving
+        return self._build_json_signature(avro_type, namespace, 'shape')
 
     def get_json_default_shape_signature(
         self,
@@ -1739,90 +1969,9 @@ class AvroToRust:
         namespace: str,
         resolving=None,
     ):
-        """Returns the JSON shape produced by the generated Rust Default value."""
-        resolving = () if resolving is None else resolving
-        if isinstance(avro_type, str):
-            if is_any_value_type(avro_type):
-                return 'null'
-            resolved = self.resolve_avro_named_type(avro_type, namespace)
-            if resolved:
-                fullname = self.avro_type_fullnames[id(resolved)]
-                if fullname in resolving:
-                    return ('ref', resolving.index(fullname))
-                return self.get_json_default_shape_signature(
-                    resolved,
-                    fullname.rpartition('.')[0],
-                    resolving,
-                )
-            if avro_type in ('int', 'long'):
-                return 'integer'
-            if avro_type in ('float', 'double'):
-                return 'number'
-            return avro_type
-        if isinstance(avro_type, list):
-            generated_branches = self.generated_json_union_branches(
-                avro_type,
-                namespace,
-            )
-            if 'null' in generated_branches:
-                return 'null'
-            if not generated_branches:
-                return 'null'
-            return self.get_json_default_shape_signature(
-                generated_branches[0],
-                namespace,
-                resolving,
-            )
-        if not isinstance(avro_type, dict):
-            return str(avro_type)
-        node_type = avro_type.get('type')
-        if node_type == 'record':
-            fullname, record_namespace, _ = self.canonical_avro_name(
-                avro_type['name'],
-                avro_type.get('namespace', namespace),
-            )
-            if fullname in resolving:
-                return ('ref', resolving.index(fullname))
-            nested_resolving = resolving + (fullname,)
-            return (
-                'record',
-                tuple(
-                    (
-                        field['name'],
-                        self.get_json_default_shape_signature(
-                            field['type'],
-                            record_namespace,
-                            nested_resolving,
-                        ),
-                    )
-                    for field in avro_type.get('fields', [])
-                ),
-            )
-        if node_type == 'enum':
-            return 'string'
-        if node_type == 'array':
-            return (
-                'array',
-                self.get_json_default_shape_signature(
-                    avro_type['items'],
-                    namespace,
-                    resolving,
-                ),
-            )
-        if node_type == 'map':
-            return (
-                'map',
-                self.get_json_default_shape_signature(
-                    avro_type['values'],
-                    namespace,
-                    resolving,
-                ),
-            )
-        return self.get_json_default_shape_signature(
-            node_type,
-            namespace,
-            resolving,
-        )
+        """Returns a bounded graph for the generated Rust Default value."""
+        del resolving
+        return self._build_json_signature(avro_type, namespace, 'default')
 
     def evaluate_json_round_trip_safe(
         self,
@@ -1974,84 +2123,54 @@ class AvroToRust:
         namespace: str,
         resolving=None,
     ):
-        """Returns the JSON shape accepted by a generated union matcher."""
-        resolving = () if resolving is None else resolving
-        if isinstance(avro_type, str):
-            if is_any_value_type(avro_type):
-                return 'any'
-            resolved = self.resolve_avro_named_type(avro_type, namespace)
-            if resolved:
-                fullname = self.avro_type_fullnames[id(resolved)]
-                if fullname in resolving:
-                    return ('ref', resolving.index(fullname))
-                return self.get_json_match_signature(
-                    resolved,
-                    fullname.rpartition('.')[0],
-                    resolving,
-                )
-            if avro_type in ('int', 'long'):
-                return 'integer'
-            if avro_type in ('float', 'double'):
-                return 'number'
-            if avro_type == 'bytes':
-                return 'array'
-            return avro_type
-        if isinstance(avro_type, list):
-            if is_generic_avro_type(avro_type):
-                return (
-                    'any'
-                    if self.serde_annotation or self.xml_annotation
-                    else 'object'
-                )
-            return self.normalize_json_union_signature(
-                (
-                    self.get_json_match_signature(
-                        item,
-                        namespace,
-                        resolving,
-                    )
-                    for item in self.generated_json_union_branches(
-                        avro_type,
-                        namespace,
-                    )
-                )
-            )
-        if not isinstance(avro_type, dict):
-            return str(avro_type)
-        node_type = avro_type.get('type')
-        if node_type == 'record':
-            fullname, record_namespace, _ = self.canonical_avro_name(
-                avro_type['name'],
-                avro_type.get('namespace', namespace),
-            )
-            if fullname in resolving:
-                return ('ref', resolving.index(fullname))
-            nested_resolving = resolving + (fullname,)
+        """Returns a bounded graph accepted by a generated union matcher."""
+        del resolving
+        return self._build_json_signature(avro_type, namespace, 'match')
+
+    @staticmethod
+    def _json_signature_root(signature):
+        if isinstance(signature, JsonSignature):
+            return _JsonSignatureRef(signature, signature.root)
+        return signature
+
+    @staticmethod
+    def _json_signature_key(signature):
+        if isinstance(signature, _JsonSignatureRef):
             return (
-                'record_match',
-                tuple(
-                    (
-                        field['name'],
-                        self.get_json_match_signature(
-                            field['type'],
-                            record_namespace,
-                            nested_resolving,
-                        ),
-                    )
-                    for field in avro_type.get('fields', [])
-                ),
+                'graph',
+                id(signature.signature),
+                signature.node_id,
             )
-        if node_type == 'enum':
-            return 'string'
-        if node_type in ('array', 'fixed', 'bytes'):
-            return 'array'
-        if node_type == 'map':
-            return 'object'
-        return self.get_json_match_signature(
-            node_type,
-            namespace,
-            resolving,
-        )
+        if isinstance(signature, tuple):
+            return ('legacy', id(signature))
+        return ('atom', signature)
+
+    @staticmethod
+    def _json_signature_view(signature):
+        if isinstance(signature, _JsonSignatureRef):
+            kind, data = signature.signature.nodes[signature.node_id]
+            if kind in ('record', 'record_match'):
+                return kind, tuple(
+                    (
+                        name,
+                        _JsonSignatureRef(signature.signature, child_id),
+                    )
+                    for name, child_id in data
+                )
+            if kind == 'union':
+                return kind, tuple(
+                    _JsonSignatureRef(signature.signature, child_id)
+                    for child_id in data
+                )
+            if data is not None:
+                return kind, _JsonSignatureRef(signature.signature, data)
+            return kind, None
+        if isinstance(signature, tuple) and signature:
+            return (
+                signature[0],
+                signature[1] if len(signature) > 1 else None,
+            )
+        return signature, None
 
     @staticmethod
     def json_match_accepts_shape(
@@ -2062,63 +2181,116 @@ class AvroToRust:
         """Checks matcher overlap across all realizable serialized shapes."""
         if _memo is None:
             _memo = {}
-        key = (match_signature, shape_signature)
-        if key in _memo:
-            return _memo[key]
-        _memo[key] = False
-        shape_kind = (
-            shape_signature[0]
-            if isinstance(shape_signature, tuple) and shape_signature
-            else shape_signature
+        start = (
+            AvroToRust._json_signature_root(match_signature),
+            AvroToRust._json_signature_root(shape_signature),
         )
-        match_kind = (
-            match_signature[0]
-            if isinstance(match_signature, tuple) and match_signature
-            else match_signature
-        )
-        if match_signature == 'any' or shape_signature == 'any':
-            result = True
-        elif shape_kind == 'union':
-            result = any(
-                AvroToRust.json_match_accepts_shape(
-                    match_signature,
-                    branch_shape,
-                    _memo,
+
+        def pair_key(pair):
+            return tuple(
+                AvroToRust._json_signature_key(signature)
+                for signature in pair
+            )
+
+        start_key = pair_key(start)
+        if start_key in _memo:
+            return _memo[start_key]
+
+        equations = {}
+        operands = {start_key: start}
+        pending = [start_key]
+        while pending:
+            key = pending.pop()
+            if key in equations:
+                continue
+            match_node, shape_node = operands[key]
+            shape_kind, shape_data = AvroToRust._json_signature_view(
+                shape_node
+            )
+            match_kind, match_data = AvroToRust._json_signature_view(
+                match_node
+            )
+            dependencies = None
+            operator = None
+            if match_kind == 'any' or shape_kind == 'any':
+                equations[key] = True
+            elif shape_kind == 'union':
+                operator = 'any'
+                dependencies = [
+                    (match_node, branch_shape)
+                    for branch_shape in shape_data
+                ]
+            elif match_kind == 'union':
+                operator = 'any'
+                dependencies = [
+                    (branch_match, shape_node)
+                    for branch_match in match_data
+                ]
+            elif match_kind == 'record_match':
+                operator = 'all'
+                value_fields = (
+                    dict(shape_data)
+                    if shape_kind == 'record'
+                    else {}
                 )
-                for branch_shape in shape_signature[1]
-            )
-        elif match_kind == 'union':
-            result = any(
-                AvroToRust.json_match_accepts_shape(
-                    branch_match,
-                    shape_signature,
-                    _memo,
+                dependencies = [
+                    (
+                        field_match,
+                        value_fields.get(field_name, 'null'),
+                    )
+                    for field_name, field_match in match_data
+                ]
+            elif match_kind == 'object':
+                equations[key] = shape_kind in ('map', 'record')
+            elif match_kind == 'array':
+                equations[key] = shape_kind in (
+                    'array',
+                    'bytes',
+                    'fixed',
                 )
-                for branch_match in match_signature[1]
-            )
-        elif match_kind == 'record_match':
-            expected_fields = dict(match_signature[1])
-            value_fields = (
-                dict(shape_signature[1])
-                if shape_kind == 'record'
-                else {}
-            )
-            result = all(
-                AvroToRust.json_match_accepts_shape(
-                    field_match,
-                    value_fields.get(field_name, 'null'),
-                    _memo,
+            else:
+                equations[key] = (
+                    match_kind == shape_kind
+                    and (
+                        match_data == shape_data
+                        if match_kind == 'ref'
+                        else True
+                    )
                 )
-                for field_name, field_match in expected_fields.items()
-            )
-        elif match_signature == 'object':
-            result = shape_kind in ('map', 'record')
-        elif match_signature == 'array':
-            result = shape_kind in ('array', 'bytes', 'fixed')
-        else:
-            result = match_signature == shape_signature
-        _memo[key] = result
-        return result
+            if dependencies is not None:
+                dependency_keys = []
+                for dependency in dependencies:
+                    dependency_key = pair_key(dependency)
+                    dependency_keys.append(dependency_key)
+                    operands.setdefault(dependency_key, dependency)
+                    if dependency_key not in equations:
+                        pending.append(dependency_key)
+                equations[key] = (operator, tuple(dependency_keys))
+
+        values = {
+            key: equation if isinstance(equation, bool) else False
+            for key, equation in equations.items()
+        }
+        changed = True
+        while changed:
+            changed = False
+            for key, equation in equations.items():
+                if isinstance(equation, bool):
+                    continue
+                operator, dependencies = equation
+                result = (
+                    any(values[dependency] for dependency in dependencies)
+                    if operator == 'any'
+                    else all(
+                        values[dependency]
+                        for dependency in dependencies
+                    )
+                )
+                if result and not values[key]:
+                    values[key] = True
+                    changed = True
+        _memo.update(values)
+        return values[start_key]
 
     def to_file_name(self, qualified_name):
         """Converts a qualified union enum name to a file name"""
