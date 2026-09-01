@@ -293,6 +293,8 @@ class AvroToRust:
         self.union_schema_targets: Dict[tuple, str] = {}
         self.union_targets_in_progress: set[tuple] = set()
         self.json_round_trip_safety = None
+        self._json_signature_cache = None
+        self.json_safety_signature_stats = None
         
     reserved_words = [
             'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern', 'false', 'fn', 'for', 'if', 'impl',
@@ -2425,6 +2427,20 @@ class AvroToRust:
         mode: str,
     ) -> JsonSignature:
         """Builds a cycle-safe graph with one node per named schema node."""
+        cache_key = (
+            mode,
+            namespace,
+            (
+                ('name', avro_type)
+                if isinstance(avro_type, str)
+                else ('identity', id(avro_type))
+            ),
+        )
+        if self._json_signature_cache is not None:
+            cached = self._json_signature_cache.get(cache_key)
+            if cached is not None:
+                self.json_safety_signature_stats['cache_hits'] += 1
+                return cached
         nodes: list[tuple | None] = []
         atoms = {}
         named_nodes = {}
@@ -2714,7 +2730,14 @@ class AvroToRust:
                     ensure(payload, current_namespace),
                 )
 
-        return JsonSignature(root, nodes)
+        signature = JsonSignature(root, nodes)
+        if self._json_signature_cache is not None:
+            self._json_signature_cache[cache_key] = signature
+            self.json_safety_signature_stats['build_count'] += 1
+            self.json_safety_signature_stats[
+                'node_count'
+            ] += signature.node_count
+        return signature
 
     def get_json_shape_signature(
         self,
@@ -2900,32 +2923,42 @@ class AvroToRust:
                         set(),
                     ).add(owner)
 
-        pending = sorted(self.avro_named_types)
-        queued = set(pending)
-        pending_index = 0
-        while pending_index < len(pending):
-            fullname = pending[pending_index]
-            pending_index += 1
-            queued.discard(fullname)
-            if not safety[fullname]:
-                continue
-            schema = self.avro_named_types[fullname]
-            namespace = fullname.rpartition('.')[0]
-            if self.evaluate_json_round_trip_safe(
-                schema,
-                namespace,
-                safety,
-                owner=fullname,
-            ):
-                continue
-            safety[fullname] = False
-            for dependent in sorted(
-                reverse_dependencies.get(fullname, ())
-            ):
-                if safety[dependent] and dependent not in queued:
-                    pending.append(dependent)
-                    queued.add(dependent)
-        self.json_round_trip_safety = safety
+        previous_cache = self._json_signature_cache
+        self._json_signature_cache = {}
+        self.json_safety_signature_stats = {
+            'build_count': 0,
+            'node_count': 0,
+            'cache_hits': 0,
+        }
+        try:
+            pending = sorted(self.avro_named_types)
+            queued = set(pending)
+            pending_index = 0
+            while pending_index < len(pending):
+                fullname = pending[pending_index]
+                pending_index += 1
+                queued.discard(fullname)
+                if not safety[fullname]:
+                    continue
+                schema = self.avro_named_types[fullname]
+                namespace = fullname.rpartition('.')[0]
+                if self.evaluate_json_round_trip_safe(
+                    schema,
+                    namespace,
+                    safety,
+                    owner=fullname,
+                ):
+                    continue
+                safety[fullname] = False
+                for dependent in sorted(
+                    reverse_dependencies.get(fullname, ())
+                ):
+                    if safety[dependent] and dependent not in queued:
+                        pending.append(dependent)
+                        queued.add(dependent)
+            self.json_round_trip_safety = safety
+        finally:
+            self._json_signature_cache = previous_cache
 
     def is_json_round_trip_safe(
         self,

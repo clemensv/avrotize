@@ -786,6 +786,85 @@ class TestAvroToRust(unittest.TestCase):
             "issue484.unsafe",
         ))
 
+    def test_named_safety_signature_cache_bounds_shared_deep_graphs(self):
+        """Reuse named branch signatures throughout one safety fixed point."""
+        def measure(depth):
+            namespace = "issue484.signature_cache"
+            schemas = [{
+                "type": "record",
+                "name": "Deep0000",
+                "namespace": namespace,
+                "fields": [{"name": "value", "type": "string"}],
+            }]
+            for index in range(1, depth + 1):
+                schemas.append({
+                    "type": "record",
+                    "name": f"Deep{index:04d}",
+                    "namespace": namespace,
+                    "fields": [{
+                        "name": "next",
+                        "type": f"Deep{index - 1:04d}",
+                    }],
+                })
+            schemas.append({
+                "type": "record",
+                "name": "Wrapper",
+                "namespace": namespace,
+                "fields": [{
+                    "name": "items",
+                    "type": {
+                        "type": "array",
+                        "items": f"Deep{depth:04d}",
+                    },
+                }],
+            })
+            for index in range(depth):
+                schemas.append({
+                    "type": "record",
+                    "name": f"Dependent{index:04d}",
+                    "namespace": namespace,
+                    "fields": [{
+                        "name": "choice",
+                        "type": [f"Deep{depth:04d}", "Wrapper"],
+                    }],
+                })
+            schemas.extend([{
+                "type": "record",
+                "name": "CycleA",
+                "namespace": namespace,
+                "fields": [{"name": "next", "type": "CycleB"}],
+            }, {
+                "type": "record",
+                "name": "CycleB",
+                "namespace": namespace,
+                "fields": [{"name": "next", "type": "CycleA"}],
+            }])
+
+            converter = AvroToRust()
+            converter.index_avro_named_types(schemas)
+            self.assertTrue(converter.is_json_round_trip_safe(
+                "Dependent0000",
+                namespace,
+            ))
+            self.assertTrue(converter.is_json_round_trip_safe(
+                "CycleA",
+                namespace,
+            ))
+            self.assertTrue(converter.is_json_round_trip_safe(
+                "CycleB",
+                namespace,
+            ))
+            return converter.json_safety_signature_stats
+
+        small = measure(20)
+        large = measure(40)
+        self.assertEqual(4, small["build_count"])
+        self.assertEqual(4, large["build_count"])
+        self.assertEqual(70, small["node_count"])
+        self.assertEqual(130, large["node_count"])
+        self.assertEqual(76, small["cache_hits"])
+        self.assertEqual(156, large["cache_hits"])
+
     def test_recursive_union_overlap_requires_a_concrete_match(self):
         """Do not infer overlap solely by revisiting a recursive pair."""
         converter = AvroToRust()
