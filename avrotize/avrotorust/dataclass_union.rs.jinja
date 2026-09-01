@@ -60,10 +60,92 @@ impl Default for {{ union_enum_name }} {
 }
 
 {%- if serde_annotation or avro_annotation or xml_annotation %}
+#[cfg(test)]
+thread_local! {
+    static JSON_CANDIDATE_PROBE_COUNT: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
+    static JSON_SELECTED_DECODE_COUNT: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
+    {%- if xml_annotation %}
+    static XML_CANDIDATE_PROBE_COUNT: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
+    static XML_SELECTED_DECODE_COUNT: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
+    {%- endif %}
+    static CANDIDATE_PROBE_LIVE_COUNT: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
+    static CANDIDATE_PROBE_MAX_LIVE_COUNT: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+struct CandidateProbeGuard;
+
+#[cfg(test)]
+impl CandidateProbeGuard {
+    fn enter(
+        counter: &'static std::thread::LocalKey<std::cell::Cell<usize>>,
+    ) -> Self {
+        counter.with(|count| count.set(count.get() + 1));
+        CANDIDATE_PROBE_LIVE_COUNT.with(|live| {
+            let current = live.get() + 1;
+            live.set(current);
+            CANDIDATE_PROBE_MAX_LIVE_COUNT.with(|maximum| {
+                maximum.set(maximum.get().max(current));
+            });
+        });
+        Self
+    }
+}
+
+#[cfg(test)]
+impl Drop for CandidateProbeGuard {
+    fn drop(&mut self) {
+        CANDIDATE_PROBE_LIVE_COUNT.with(|live| {
+            live.set(live.get() - 1);
+        });
+    }
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+fn reset_candidate_test_counters() {
+    JSON_CANDIDATE_PROBE_COUNT.with(|count| count.set(0));
+    JSON_SELECTED_DECODE_COUNT.with(|count| count.set(0));
+    {%- if xml_annotation %}
+    XML_CANDIDATE_PROBE_COUNT.with(|count| count.set(0));
+    XML_SELECTED_DECODE_COUNT.with(|count| count.set(0));
+    {%- endif %}
+    CANDIDATE_PROBE_LIVE_COUNT.with(|count| count.set(0));
+    CANDIDATE_PROBE_MAX_LIVE_COUNT.with(|count| count.set(0));
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+fn candidate_test_counts() -> (usize, usize, usize, usize, usize) {
+    (
+        JSON_CANDIDATE_PROBE_COUNT.with(std::cell::Cell::get),
+        {%- if xml_annotation %}
+        XML_CANDIDATE_PROBE_COUNT.with(std::cell::Cell::get),
+        {%- else %}
+        0,
+        {%- endif %}
+        JSON_SELECTED_DECODE_COUNT.with(std::cell::Cell::get),
+        {%- if xml_annotation %}
+        XML_SELECTED_DECODE_COUNT.with(std::cell::Cell::get),
+        {%- else %}
+        0,
+        {%- endif %}
+        CANDIDATE_PROBE_MAX_LIVE_COUNT.with(std::cell::Cell::get),
+    )
+}
+
 fn json_candidate_matches<T>(node: &serde_json::Value) -> bool
 where
     T: serde::de::DeserializeOwned,
 {
+    #[cfg(test)]
+    let _probe = CandidateProbeGuard::enter(&JSON_CANDIDATE_PROBE_COUNT);
     match T::deserialize(node.clone()) {
         Ok(value) => {
             drop(value);
@@ -82,6 +164,8 @@ fn xml_candidate_matches<T>(content: crate::xml_support::XmlValue) -> bool
 where
     T: serde::de::DeserializeOwned,
 {
+    #[cfg(test)]
+    let _probe = CandidateProbeGuard::enter(&XML_CANDIDATE_PROBE_COUNT);
     match crate::xml_support::with_xml_union_deserialize(
         || T::deserialize(content)
     ) {
@@ -140,39 +224,27 @@ impl {{ union_enum_name }} {
                     Err(_) => return false,
                 };
                 {%- endif %}
-                let match_count = 0usize
-                    {%- for candidate in union_fields %}
-                    + usize::from(
-                        quick_xml_candidate_matches::<
-                            {%- if candidate.xml_representation == "sequence" %}
-                            XmlUnionProbe<XmlSequence<{{ candidate.type }}>>
-                            {%- elif candidate.xml_representation == "map" %}
-                            XmlUnionProbe<XmlMap<{{ candidate.type }}>>
-                            {%- else %}
-                            XmlUnionProbe<{{ candidate.type }}>
-                            {%- endif %}
-                        >(&xml)
-                        {%- if candidate.xml_representation == "record" %}
-                        && <{{ candidate.type }}>::is_xml_shape(&shape_node)
-                        {%- endif %}
-                    )
-                    {%- endfor %};
-                let selected_matches = quick_xml_candidate_matches::<
-                    {%- if union_field.xml_representation == "sequence" %}
-                    XmlUnionProbe<XmlSequence<{{ union_field.type }}>>
-                    {%- elif union_field.xml_representation == "map" %}
-                    XmlUnionProbe<XmlMap<{{ union_field.type }}>>
+                let mut matched_variant = None;
+                {%- for candidate in union_fields %}
+                if quick_xml_candidate_matches::<
+                    {%- if candidate.xml_representation == "sequence" %}
+                    XmlUnionProbe<XmlSequence<{{ candidate.type }}>>
+                    {%- elif candidate.xml_representation == "map" %}
+                    XmlUnionProbe<XmlMap<{{ candidate.type }}>>
                     {%- else %}
-                    XmlUnionProbe<{{ union_field.type }}>
+                    XmlUnionProbe<{{ candidate.type }}>
                     {%- endif %}
                 >(&xml)
-                    {%- if union_field.xml_representation == "record" %}
-                    && <{{ union_field.type }}>::is_xml_shape(&shape_node)
-                    {%- endif %};
-                if match_count != 1 || !selected_matches {
-                    return false;
+                    {%- if candidate.xml_representation == "record" %}
+                    && <{{ candidate.type }}>::is_xml_shape(&shape_node)
+                    {%- endif %}
+                {
+                    if matched_variant.replace({{ loop.index0 }}).is_some() {
+                        return false;
+                    }
                 }
-                true
+                {%- endfor %}
+                matched_variant == Some({{ loop.index0 }})
             },
             {%- endfor %}
         }
@@ -268,28 +340,7 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             {%- if xml_has_record_variant %}
             let shape_node = content.to_json();
             {%- endif %}
-            let match_count = 0usize
-                {%- for union_field in union_fields %}
-                + usize::from(
-                    {%- if union_field.xml_representation == "record" %}
-                    <{{ union_field.type }}>::is_xml_shape(&shape_node) &&
-                    {%- endif %}
-                    xml_candidate_matches::<
-                        {%- if union_field.xml_representation == "sequence" %}
-                        XmlSequence<{{ union_field.type }}>
-                        {%- elif union_field.xml_representation == "map" %}
-                        XmlMap<{{ union_field.type }}>
-                        {%- else %}
-                        {{ union_field.type }}
-                        {%- endif %}
-                    >(content.clone())
-                )
-                {%- endfor %};
-            if match_count > 1 {
-                return Err(serde::de::Error::custom(
-                    "ambiguous XML union value"
-                ));
-            }
+            let mut matched_variant = None;
             {%- for union_field in union_fields %}
             if
                 {%- if union_field.xml_representation == "record" %}
@@ -297,50 +348,76 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
                 {%- else %}
                 true
                 {%- endif %}
-            {
-                if let Ok(result) =
-                crate::xml_support::with_xml_union_deserialize(
+                && xml_candidate_matches::<
                     {%- if union_field.xml_representation == "sequence" %}
-                    || <XmlSequence<{{ union_field.type }}>>::deserialize(
-                        content.clone()
-                    ).map(|wire| wire.item)
+                    XmlSequence<{{ union_field.type }}>
                     {%- elif union_field.xml_representation == "map" %}
-                    || <XmlMap<{{ union_field.type }}>>::deserialize(
-                        content.clone()
-                    ).map(|wire| wire.entries)
+                    XmlMap<{{ union_field.type }}>
                     {%- else %}
-                    || <{{ union_field.type }}>::deserialize(content.clone())
+                    {{ union_field.type }}
                     {%- endif %}
-                ) {
-                    return Ok(
-                        {{ union_enum_name }}::{{ union_field.name }}(result)
-                    );
+                >(content.clone())
+            {
+                if matched_variant.replace({{ loop.index0 }}).is_some() {
+                    return Err(serde::de::Error::custom(
+                        "ambiguous XML union value"
+                    ));
                 }
             }
             {%- endfor %}
-            return Err(serde::de::Error::custom("No valid variant found"));
+            return match matched_variant {
+                {%- for union_field in union_fields %}
+                Some({{ loop.index0 }}) => {
+                    #[cfg(test)]
+                    XML_SELECTED_DECODE_COUNT.with(
+                        |count| count.set(count.get() + 1)
+                    );
+                    crate::xml_support::with_xml_union_deserialize(
+                    {%- if union_field.xml_representation == "sequence" %}
+                        || <XmlSequence<{{ union_field.type }}>>::deserialize(
+                            content
+                        ).map(|wire| wire.item)
+                    {%- elif union_field.xml_representation == "map" %}
+                        || <XmlMap<{{ union_field.type }}>>::deserialize(
+                            content
+                        ).map(|wire| wire.entries)
+                    {%- else %}
+                        || <{{ union_field.type }}>::deserialize(content)
+                    {%- endif %}
+                    )
+                    .map({{ union_enum_name }}::{{ union_field.name }})
+                    .map_err(serde::de::Error::custom)
+                },
+                {%- endfor %}
+                _ => Err(serde::de::Error::custom("No valid variant found")),
+            }
         }
         {%- endif %}
         let node = serde_json::Value::deserialize(deserializer)?;
-        let match_count = 0usize
-            {%- for union_field in union_fields %}
-            + usize::from(
-                json_candidate_matches::<{{ union_field.type }}>(&node)
-            )
-            {%- endfor %};
-        if match_count > 1 {
-            return Err(serde::de::Error::custom(
-                "ambiguous JSON union value"
-            ));
-        }
+        let mut matched_variant = None;
         {%- for union_field in union_fields %}
-        if let Ok(result) =
-            <{{ union_field.type }}>::deserialize(node.clone())
-        {
-            return Ok({{ union_enum_name }}::{{ union_field.name }}(result));
+        if json_candidate_matches::<{{ union_field.type }}>(&node) {
+            if matched_variant.replace({{ loop.index0 }}).is_some() {
+                return Err(serde::de::Error::custom(
+                    "ambiguous JSON union value"
+                ));
+            }
         }
         {%- endfor %}
-        Err(serde::de::Error::custom("No valid variant found"))
+        match matched_variant {
+            {%- for union_field in union_fields %}
+            Some({{ loop.index0 }}) => {
+                #[cfg(test)]
+                JSON_SELECTED_DECODE_COUNT.with(
+                    |count| count.set(count.get() + 1)
+                );
+                <{{ union_field.type }}>::deserialize(node)
+                    .map({{ union_enum_name }}::{{ union_field.name }})
+                    .map_err(serde::de::Error::custom)
+            },
+            {%- endfor %}
+            _ => Err(serde::de::Error::custom("No valid variant found")),
+        }
     }
 }
 

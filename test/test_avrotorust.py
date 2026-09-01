@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -608,6 +609,28 @@ class TestAvroToRust(unittest.TestCase):
             )
             self.assertLess(len(repr(signature)), 50000)
 
+    def test_cyclic_signature_refinement_is_predecessor_driven(self):
+        """Refine a deep SCC by visiting predecessor edges, not whole depths."""
+        node_count = 4096
+        nodes = [
+            (
+                "record",
+                ((
+                    "marker" if index == 0 else "next",
+                    (index + 1) % node_count,
+                ),),
+            )
+            for index in range(node_count)
+        ]
+
+        signature = JsonSignature(0, nodes)
+
+        self.assertEqual(node_count, signature.canonical_visit_count)
+        self.assertLess(
+            signature.canonical_refinement_count,
+            6 * signature.edge_count,
+        )
+
     def test_anonymous_cyclic_union_signatures_are_bounded(self):
         """Memoize anonymous union identity before structural inspection."""
         recursive_union = []
@@ -912,6 +935,19 @@ class TestAvroToRust(unittest.TestCase):
         self.assertEqual(shared, duplicated)
         self.assertEqual(hash(shared), hash(duplicated))
 
+    def test_json_signature_equality_preserves_scc_boundaries(self):
+        """Do not fold an acyclic wrapper into its recursive child SCC."""
+        wrapped_cycle = JsonSignature(0, [
+            ("record", (("left", 1), ("right", 1))),
+            ("record", (("left", 2), ("right", 2))),
+            ("record", (("left", 1), ("right", 1))),
+        ])
+        self_recursive = JsonSignature(0, [
+            ("record", (("left", 0), ("right", 0))),
+        ])
+
+        self.assertNotEqual(wrapped_cycle, self_recursive)
+
     def test_decimal_fixed_signatures_follow_generated_f64(self):
         """Model decimal fixed and bytes by their generated Rust number shape."""
         converter = AvroToRust()
@@ -1080,7 +1116,7 @@ class TestAvroToRust(unittest.TestCase):
         )
 
     def test_union_candidate_matching_drops_probe_values(self):
-        """Keep large candidate probes sequential rather than simultaneously live."""
+        """Probe near-limit JSON and XML payloads with one live value at a time."""
         rust_path = os.path.join(
             tempfile.gettempdir(),
             "avrotize",
@@ -1088,14 +1124,18 @@ class TestAvroToRust(unittest.TestCase):
         )
         if os.path.exists(rust_path):
             shutil.rmtree(rust_path, ignore_errors=True)
+        candidate_count = 16
         records = [
             {
                 "type": "record",
                 "name": f"Record{index}",
                 "namespace": "issue484.candidate_memory",
-                "fields": [{"name": "blob", "type": "bytes"}],
+                "fields": [
+                    {"name": "blob", "type": "string"},
+                    {"name": f"marker{index}", "type": "string"},
+                ],
             }
-            for index in range(64)
+            for index in range(candidate_count)
         ]
         records.append({
             "type": "record",
@@ -1103,7 +1143,10 @@ class TestAvroToRust(unittest.TestCase):
             "namespace": "issue484.candidate_memory",
             "fields": [{
                 "name": "choice",
-                "type": [f"Record{index}" for index in range(64)],
+                "type": [
+                    f"Record{index}"
+                    for index in range(candidate_count)
+                ],
             }],
         })
         convert_avro_schema_to_rust(
@@ -1111,6 +1154,7 @@ class TestAvroToRust(unittest.TestCase):
             rust_path,
             package_name="rust-union-candidate-memory",
             serde_annotation=True,
+            xml_annotation=True,
         )
         union_files = glob.glob(os.path.join(
             rust_path,
@@ -1122,38 +1166,80 @@ class TestAvroToRust(unittest.TestCase):
         self.assertEqual(1, len(union_files))
         with open(union_files[0], encoding="utf-8") as generated_file:
             source = generated_file.read()
+        union_type = re.search(
+            r"pub enum (\w+)",
+            source,
+        ).group(1)
         self.assertNotIn("let candidate_", source)
         self.assertEqual(
-            64,
+            candidate_count,
             source.count("json_candidate_matches::<"),
         )
-        self.assertEqual(64, source.count("if let Ok(result)"))
+        self.assertEqual(
+            candidate_count,
+            source.count("&& xml_candidate_matches::<"),
+        )
+        self.assertEqual(
+            2 * candidate_count,
+            len(re.findall(r"\.map\(\w+::Record\d+\)", source)),
+        )
 
-        integration_dir = os.path.join(rust_path, "tests")
-        os.makedirs(integration_dir, exist_ok=True)
+        # Keep all probes eligible in this test-only crate so each failed
+        # candidate allocates and then drops the same near-limit payload.
+        source = re.sub(
+            r"<[^>\n]*Record\d+>::is_xml_shape\(&shape_node\)",
+            "true",
+            source,
+        )
         with open(
-            os.path.join(integration_dir, "candidate_memory.rs"),
+            union_files[0],
             "w",
             encoding="utf-8",
-        ) as integration_test:
-            integration_test.write(
-                "use rust_union_candidate_memory::issue484::candidate_memory::{\n"
-                "    choiceunion::ChoiceUnion,\n"
-                "    record0::Record0,\n"
-                "};\n\n"
+        ) as union_file:
+            union_file.write(source)
+            union_file.write(
+                "\n\n#[cfg(test)]\n"
+                "mod candidate_lifetime_regression {\n"
+                "    use super::*;\n"
+                "    use crate::issue484::candidate_memory::{\n"
+                "        holder::Holder,\n"
+                "        record0::Record0,\n"
+                "    };\n\n"
                 "#[test]\n"
-                "fn large_payload_probes_are_dropped_before_the_next_candidate() {\n"
-                "    let value = ChoiceUnion::Record0(Record0 {\n"
-                "        blob: vec![7; 2 * 1024 * 1024],\n"
-                "    });\n"
-                "    let json = serde_json::to_vec(&value).unwrap();\n"
-                "    let error = serde_json::from_slice::<ChoiceUnion>(&json)\n"
-                "        .unwrap_err();\n"
-                "    assert!(error.to_string().contains(\"ambiguous JSON union value\"));\n"
+                "    fn candidate_probe_values_are_sequential() {\n"
+                "        let record = Record0 {\n"
+                "            blob: \"x\".repeat(15 * 1024 * 1024),\n"
+                "            marker0: \"selected\".into(),\n"
+                "        };\n"
+                f"        let value = {union_type}::Record0(record);\n\n"
+                "        let xml = crate::xml_support::with_xml_union_probe(\n"
+                "            || quick_xml::se::to_string(&Holder {\n"
+                "                choice: value.clone(),\n"
+                "            })\n"
+                "        ).unwrap();\n"
+                "        let json = serde_json::to_value(&value).unwrap();\n"
+                "        reset_candidate_test_counters();\n"
+                f"        let json_result: {union_type} =\n"
+                "            serde_json::from_value(json).unwrap();\n"
+                "        assert_eq!(value, json_result);\n"
+                f"        assert_eq!(({candidate_count}, 0, 1, 0, 1), "
+                "candidate_test_counts());\n\n"
+                "        reset_candidate_test_counters();\n"
+                "        let xml_result: Holder =\n"
+                "            quick_xml::de::from_str(&xml).unwrap();\n"
+                "        assert_eq!(value, xml_result.choice);\n"
+                f"        assert_eq!((0, {candidate_count}, 0, 1, 1), "
+                "candidate_test_counts());\n"
+                "    }\n"
                 "}\n"
             )
         assert subprocess.check_call(
-            ['cargo', 'test', '--test', 'candidate_memory'],
+            [
+                'cargo',
+                'test',
+                '--lib',
+                'candidate_probe_values_are_sequential',
+            ],
             cwd=rust_path,
             stdout=sys.stdout,
             stderr=sys.stderr,

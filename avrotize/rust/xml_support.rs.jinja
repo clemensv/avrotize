@@ -30,6 +30,11 @@ pub(crate) enum XmlValue {
 
 struct XmlValueVisitor;
 
+#[cfg(test)]
+thread_local! {
+    static XML_MAP_LOOKUP_COUNT: Cell<usize> = const { Cell::new(0) };
+}
+
 fn push_xml_map_entry(
     values: &mut Vec<(XmlValue, XmlValue)>,
     indexes: &mut HashMap<String, usize>,
@@ -37,7 +42,11 @@ fn push_xml_map_entry(
     value: XmlValue,
 ) {
     let index = match &key {
-        XmlValue::String(key) => indexes.get(key).copied(),
+        XmlValue::String(key) => {
+            #[cfg(test)]
+            XML_MAP_LOOKUP_COUNT.with(|count| count.set(count.get() + 1));
+            indexes.get(key).copied()
+        }
         _ => None,
     };
     if let Some(index) = index {
@@ -146,6 +155,7 @@ mod xml_value_tests {
 
     #[test]
     fn indexes_large_xml_maps_without_scanning_prior_keys() {
+        XML_MAP_LOOKUP_COUNT.with(|count| count.set(0));
         let mut values = Vec::new();
         let mut indexes = HashMap::new();
         for index in 0..4096 {
@@ -166,10 +176,60 @@ mod xml_value_tests {
             XmlValue::String("duplicate".into()),
         );
         assert_eq!(4096, values.len());
+        for (index, (key, value)) in values.iter().enumerate() {
+            assert_eq!(&XmlValue::String(format!("key{index}")), key);
+            if index != 2048 {
+                assert_eq!(&XmlValue::String(format!("value{index}")), value);
+            }
+        }
         assert!(matches!(
             values[2048].1,
             XmlValue::Seq(ref items) if items.len() == 2
         ));
+        XML_MAP_LOOKUP_COUNT.with(|count| assert_eq!(4097, count.get()));
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Scalar<T> {
+        value: T,
+    }
+
+    fn replay<T>(xml: &str) -> Result<T, de::value::Error>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let buffered: Scalar<XmlValue> = quick_xml::de::from_str(xml).unwrap();
+        T::deserialize(buffered.value)
+    }
+
+    #[test]
+    fn replays_quick_xml_scalar_lexical_rules() {
+        let spaced_number = "<Scalar><value> \t42\r\n </value></Scalar>";
+        let direct: Scalar<i64> = quick_xml::de::from_str(spaced_number).unwrap();
+        assert_eq!(direct.value, replay::<i64>(spaced_number).unwrap());
+
+        for (xml, expected) in [
+            ("<Scalar><value> 1 </value></Scalar>", true),
+            ("<Scalar><value>\t0\r</value></Scalar>", false),
+            ("<Scalar><value> true </value></Scalar>", true),
+            ("<Scalar><value>false</value></Scalar>", false),
+        ] {
+            let direct: Scalar<bool> = quick_xml::de::from_str(xml).unwrap();
+            assert_eq!(expected, direct.value);
+            assert_eq!(direct.value, replay::<bool>(xml).unwrap());
+        }
+
+        let non_xml_space = "<Scalar><value>&#xA0;42&#xA0;</value></Scalar>";
+        assert!(quick_xml::de::from_str::<Scalar<i64>>(non_xml_space).is_err());
+        assert!(replay::<i64>(non_xml_space).is_err());
+
+        let empty_option = "<Scalar><value/></Scalar>";
+        let direct: Scalar<Option<String>> =
+            quick_xml::de::from_str(empty_option).unwrap();
+        assert_eq!(
+            direct.value,
+            replay::<Option<String>>(empty_option).unwrap(),
+        );
     }
 }
 
@@ -424,6 +484,7 @@ impl<'de> Deserializer<'de> for XmlValue {
         match self {
             XmlValue::Option(None) | XmlValue::Unit => visitor.visit_none(),
             XmlValue::Option(Some(value)) => visitor.visit_some(*value),
+            XmlValue::String(value) if value.is_empty() => visitor.visit_none(),
             value => visitor.visit_some(value),
         }
     }
@@ -433,13 +494,8 @@ impl<'de> Deserializer<'de> for XmlValue {
         V: Visitor<'de>,
     {
         match self {
-            XmlValue::Unit => visitor.visit_unit(),
-            XmlValue::Map(values) if values.is_empty() => {
-                visitor.visit_unit()
-            }
-            XmlValue::String(value) if value.is_empty() => {
-                visitor.visit_unit()
-            }
+            XmlValue::Unit | XmlValue::String(_) => visitor.visit_unit(),
+            XmlValue::Map(values) if values.is_empty() => visitor.visit_unit(),
             _ => Err(de::Error::custom("expected empty XML value")),
         }
     }
