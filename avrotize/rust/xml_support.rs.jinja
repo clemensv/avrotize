@@ -253,6 +253,16 @@ mod xml_value_tests {
         name: String,
     }
 
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct EmptyItem {}
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(bound(deserialize = "T: serde::de::DeserializeOwned"))]
+    struct Items<T> {
+        #[serde(default)]
+        item: XmlItems<T>,
+    }
+
     fn item(name: &str) -> XmlValue {
         XmlValue::map(vec![(
             XmlValue::String("name".into()),
@@ -261,15 +271,43 @@ mod xml_value_tests {
     }
 
     #[test]
-    fn replays_zero_one_and_two_record_sequence_items() {
-        let empty = Vec::<Item>::deserialize(XmlValue::map(Vec::new()))
+    fn distinguishes_absent_and_present_empty_sequence_items() {
+        let empty = Items::<String>::deserialize(XmlValue::map(Vec::new()))
             .unwrap();
-        assert!(empty.is_empty());
+        assert!(empty.item.0.is_empty());
 
-        let single = Vec::<Item>::deserialize(item("one")).unwrap();
-        assert_eq!(vec![Item { name: "one".into() }], single);
+        let single_empty = Items::<String>::deserialize(XmlValue::map(vec![(
+            XmlValue::String("item".into()),
+            XmlValue::map(Vec::new()),
+        )])).unwrap();
+        assert_eq!(vec![String::new()], single_empty.item.0);
 
-        let pair = Vec::<Item>::deserialize(XmlValue::Seq(vec![
+        let pair = Items::<String>::deserialize(XmlValue::map(vec![(
+            XmlValue::String("item".into()),
+            XmlValue::Seq(vec![
+                XmlValue::map(Vec::new()),
+                XmlValue::String("two".into()),
+            ]),
+        )])).unwrap();
+        assert_eq!(vec![String::new(), "two".into()], pair.item.0);
+
+        let empty_record = XmlItems::<EmptyItem>::deserialize(
+            XmlValue::map(Vec::new()),
+        ).unwrap();
+        assert_eq!(1, empty_record.0.len());
+
+        let empty_map = XmlItems::<HashMap<String, String>>::deserialize(
+            XmlValue::map(Vec::new()),
+        ).unwrap();
+        assert_eq!(vec![HashMap::new()], empty_map.0);
+    }
+
+    #[test]
+    fn replays_one_and_two_record_sequence_items() {
+        let single = XmlItems::<Item>::deserialize(item("one")).unwrap();
+        assert_eq!(vec![Item { name: "one".into() }], single.0);
+
+        let pair = XmlItems::<Item>::deserialize(XmlValue::Seq(vec![
             item("one"),
             item("two"),
         ])).unwrap();
@@ -278,7 +316,7 @@ mod xml_value_tests {
                 Item { name: "one".into() },
                 Item { name: "two".into() },
             ],
-            pair,
+            pair.0,
         );
     }
 }
@@ -289,6 +327,37 @@ impl<'de> Deserialize<'de> for XmlValue {
         D: Deserializer<'de>,
     {
         deserializer.deserialize_any(XmlValueVisitor)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) struct XmlItems<T>(pub Vec<T>);
+
+impl<T> Default for XmlItems<T> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<'de, T> Deserialize<'de> for XmlItems<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = XmlValue::deserialize(deserializer)?;
+        let values = match value {
+            XmlValue::Seq(values) => values,
+            value => vec![value],
+        };
+        values
+            .into_iter()
+            .map(T::deserialize)
+            .collect::<Result<Vec<_>, _>>()
+            .map(Self)
+            .map_err(de::Error::custom)
     }
 }
 

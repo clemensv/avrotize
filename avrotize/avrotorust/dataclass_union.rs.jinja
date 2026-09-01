@@ -37,9 +37,10 @@ struct XmlSequenceRef<'a, T: ?Sized> {
 }
 
 #[derive(Deserialize)]
+#[serde(bound(deserialize = "T: serde::de::DeserializeOwned"))]
 struct XmlSequence<T> {
     #[serde(default)]
-    item: T,
+    item: crate::xml_support::XmlItems<T>,
 }
 
 #[derive(Serialize)]
@@ -309,9 +310,9 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
                     );
                     crate::xml_support::with_xml_union_deserialize(
                     {%- if union_field.xml_representation == "sequence" %}
-                        || <XmlSequence<{{ union_field.type }}>>::deserialize(
+                        || <XmlSequence<{{ union_field.xml_sequence_item_type }}>>::deserialize(
                             content
-                        ).map(|wire| wire.item)
+                        ).map(|wire| wire.item.0)
                     {%- elif union_field.xml_representation == "map" %}
                         || <XmlMap<{{ union_field.type }}>>::deserialize(
                             content

@@ -2166,6 +2166,11 @@ class AvroToRust:
                     )
                 ),
                 'xml_representation': xml_representation,
+                'xml_sequence_item_type': (
+                    self._rust_inner_type(t, 'Vec<')
+                    if xml_representation == 'sequence'
+                    else ''
+                ),
                 'json_match_signature': predicate_key,
                 'json_shape_signature': shape_signature,
                 'json_default_shape_signature': default_shape_signature,
