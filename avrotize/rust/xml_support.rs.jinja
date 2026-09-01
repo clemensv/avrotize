@@ -7,7 +7,7 @@ use serde::de::{
 };
 use serde::{Deserialize, Deserializer};
 use std::cell::Cell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io::Read;
 
@@ -29,6 +29,33 @@ pub(crate) enum XmlValue {
 }
 
 struct XmlValueVisitor;
+
+fn push_xml_map_entry(
+    values: &mut Vec<(XmlValue, XmlValue)>,
+    indexes: &mut HashMap<String, usize>,
+    key: XmlValue,
+    value: XmlValue,
+) {
+    let index = match &key {
+        XmlValue::String(key) => indexes.get(key).copied(),
+        _ => None,
+    };
+    if let Some(index) = index {
+        let existing = &mut values[index].1;
+        match existing {
+            XmlValue::Seq(items) => items.push(value),
+            _ => {
+                let first = std::mem::replace(existing, XmlValue::Unit);
+                *existing = XmlValue::Seq(vec![first, value]);
+            }
+        }
+        return;
+    }
+    if let XmlValue::String(key) = &key {
+        indexes.insert(key.clone(), values.len());
+    }
+    values.push((key, value));
+}
 
 impl<'de> Visitor<'de> for XmlValueVisitor {
     type Value = XmlValue;
@@ -97,24 +124,9 @@ impl<'de> Visitor<'de> for XmlValueVisitor {
         A: MapAccess<'de>,
     {
         let mut values: Vec<(XmlValue, XmlValue)> = Vec::new();
+        let mut indexes = HashMap::new();
         while let Some((key, value)) = map.next_entry()? {
-            if let Some((_, existing)) = values
-                .iter_mut()
-                .find(|(existing_key, _)| *existing_key == key)
-            {
-                match existing {
-                    XmlValue::Seq(items) => items.push(value),
-                    _ => {
-                        let first = std::mem::replace(
-                            existing,
-                            XmlValue::Unit,
-                        );
-                        *existing = XmlValue::Seq(vec![first, value]);
-                    }
-                }
-            } else {
-                values.push((key, value));
-            }
+            push_xml_map_entry(&mut values, &mut indexes, key, value);
         }
         Ok(XmlValue::Map(values))
     }
@@ -125,6 +137,39 @@ impl<'de> Visitor<'de> for XmlValueVisitor {
 
     fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E> {
         Ok(XmlValue::Bytes(value))
+    }
+}
+
+#[cfg(test)]
+mod xml_value_tests {
+    use super::*;
+
+    #[test]
+    fn indexes_large_xml_maps_without_scanning_prior_keys() {
+        let mut values = Vec::new();
+        let mut indexes = HashMap::new();
+        for index in 0..4096 {
+            push_xml_map_entry(
+                &mut values,
+                &mut indexes,
+                XmlValue::String(format!("key{index}")),
+                XmlValue::String(format!("value{index}")),
+            );
+        }
+        assert_eq!(4096, values.len());
+        assert_eq!(4096, indexes.len());
+
+        push_xml_map_entry(
+            &mut values,
+            &mut indexes,
+            XmlValue::String("key2048".into()),
+            XmlValue::String("duplicate".into()),
+        );
+        assert_eq!(4096, values.len());
+        assert!(matches!(
+            values[2048].1,
+            XmlValue::Seq(ref items) if items.len() == 2
+        ));
     }
 }
 
@@ -194,6 +239,12 @@ impl<'de> MapAccess<'de> for XmlMapAccess {
 }
 
 impl XmlValue {
+    fn trim_xml_whitespace(value: &str) -> &str {
+        value.trim_matches(|character| {
+            matches!(character, ' ' | '\t' | '\r' | '\n')
+        })
+    }
+
     pub(crate) fn to_json(&self) -> serde_json::Value {
         match self {
             XmlValue::Bool(value) => serde_json::Value::Bool(*value),
@@ -249,7 +300,8 @@ impl XmlValue {
         T: std::str::FromStr,
         T::Err: fmt::Display,
     {
-        self.into_text()?
+        let text = self.into_text()?;
+        Self::trim_xml_whitespace(&text)
             .parse()
             .map_err(de::Error::custom)
     }
@@ -301,7 +353,13 @@ impl<'de> Deserializer<'de> for XmlValue {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_bool(self.parse::<bool>()?)
+        let text = self.into_text()?;
+        let value = match XmlValue::trim_xml_whitespace(&text) {
+            "1" => true,
+            "0" => false,
+            text => text.parse().map_err(de::Error::custom)?,
+        };
+        visitor.visit_bool(value)
     }
 
     deserialize_number!(deserialize_i8, visit_i8, i8);

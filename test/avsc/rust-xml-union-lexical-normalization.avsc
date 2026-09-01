@@ -305,6 +305,20 @@
                 ]
             },
             {
+                "name": "textBoolForward",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            },
+            {
+                "name": "textBoolReverse",
+                "type": [
+                    "boolean",
+                    "string"
+                ]
+            },
+            {
                 "name": "narrowForward",
                 "type": [
                     "string",

@@ -59,7 +59,59 @@ impl Default for {{ union_enum_name }} {
     }
 }
 
+{%- if serde_annotation or avro_annotation or xml_annotation %}
+fn json_candidate_matches<T>(node: &serde_json::Value) -> bool
+where
+    T: serde::de::DeserializeOwned,
+{
+    match T::deserialize(node.clone()) {
+        Ok(value) => {
+            drop(value);
+            true
+        }
+        Err(error) => {
+            drop(error);
+            false
+        }
+    }
+}
+{%- endif %}
+
 {%- if xml_annotation %}
+fn xml_candidate_matches<T>(content: crate::xml_support::XmlValue) -> bool
+where
+    T: serde::de::DeserializeOwned,
+{
+    match crate::xml_support::with_xml_union_deserialize(
+        || T::deserialize(content)
+    ) {
+        Ok(value) => {
+            drop(value);
+            true
+        }
+        Err(error) => {
+            drop(error);
+            false
+        }
+    }
+}
+
+fn quick_xml_candidate_matches<T>(xml: &str) -> bool
+where
+    T: serde::de::DeserializeOwned,
+{
+    match quick_xml::de::from_str::<T>(xml) {
+        Ok(value) => {
+            drop(value);
+            true
+        }
+        Err(error) => {
+            drop(error);
+            false
+        }
+    }
+}
+
 impl {{ union_enum_name }} {
     fn xml_probe_matches_selected(&self) -> bool {
         match self {
@@ -91,7 +143,7 @@ impl {{ union_enum_name }} {
                 let match_count = 0usize
                     {%- for candidate in union_fields %}
                     + usize::from(
-                        quick_xml::de::from_str::<
+                        quick_xml_candidate_matches::<
                             {%- if candidate.xml_representation == "sequence" %}
                             XmlUnionProbe<XmlSequence<{{ candidate.type }}>>
                             {%- elif candidate.xml_representation == "map" %}
@@ -99,13 +151,13 @@ impl {{ union_enum_name }} {
                             {%- else %}
                             XmlUnionProbe<{{ candidate.type }}>
                             {%- endif %}
-                        >(&xml).is_ok()
+                        >(&xml)
                         {%- if candidate.xml_representation == "record" %}
                         && <{{ candidate.type }}>::is_xml_shape(&shape_node)
                         {%- endif %}
                     )
                     {%- endfor %};
-                let selected_matches = quick_xml::de::from_str::<
+                let selected_matches = quick_xml_candidate_matches::<
                     {%- if union_field.xml_representation == "sequence" %}
                     XmlUnionProbe<XmlSequence<{{ union_field.type }}>>
                     {%- elif union_field.xml_representation == "map" %}
@@ -113,7 +165,7 @@ impl {{ union_enum_name }} {
                     {%- else %}
                     XmlUnionProbe<{{ union_field.type }}>
                     {%- endif %}
-                >(&xml).is_ok()
+                >(&xml)
                     {%- if union_field.xml_representation == "record" %}
                     && <{{ union_field.type }}>::is_xml_shape(&shape_node)
                     {%- endif %};
@@ -216,14 +268,37 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             {%- if xml_has_record_variant %}
             let shape_node = content.to_json();
             {%- endif %}
+            let match_count = 0usize
+                {%- for union_field in union_fields %}
+                + usize::from(
+                    {%- if union_field.xml_representation == "record" %}
+                    <{{ union_field.type }}>::is_xml_shape(&shape_node) &&
+                    {%- endif %}
+                    xml_candidate_matches::<
+                        {%- if union_field.xml_representation == "sequence" %}
+                        XmlSequence<{{ union_field.type }}>
+                        {%- elif union_field.xml_representation == "map" %}
+                        XmlMap<{{ union_field.type }}>
+                        {%- else %}
+                        {{ union_field.type }}
+                        {%- endif %}
+                    >(content.clone())
+                )
+                {%- endfor %};
+            if match_count > 1 {
+                return Err(serde::de::Error::custom(
+                    "ambiguous XML union value"
+                ));
+            }
             {%- for union_field in union_fields %}
-            let candidate_{{ loop.index0 }} = if
+            if
                 {%- if union_field.xml_representation == "record" %}
                 <{{ union_field.type }}>::is_xml_shape(&shape_node)
                 {%- else %}
                 true
                 {%- endif %}
             {
+                if let Ok(result) =
                 crate::xml_support::with_xml_union_deserialize(
                     {%- if union_field.xml_representation == "sequence" %}
                     || <XmlSequence<{{ union_field.type }}>>::deserialize(
@@ -236,40 +311,22 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
                     {%- else %}
                     || <{{ union_field.type }}>::deserialize(content.clone())
                     {%- endif %}
-                )
-            } else {
-                Err(<serde::de::value::Error as serde::de::Error>::custom(
-                    "XML wire shape does not match candidate"
-                ))
-            };
-            {%- endfor %}
-            let match_count = 0usize
-                {%- for union_field in union_fields %}
-                + usize::from(candidate_{{ loop.index0 }}.is_ok())
-                {%- endfor %};
-            if match_count > 1 {
-                return Err(serde::de::Error::custom(
-                    "ambiguous XML union value"
-                ));
-            }
-            {%- for union_field in union_fields %}
-            if let Ok(result) = candidate_{{ loop.index0 }} {
-                return Ok(
-                    {{ union_enum_name }}::{{ union_field.name }}(result)
-                );
+                ) {
+                    return Ok(
+                        {{ union_enum_name }}::{{ union_field.name }}(result)
+                    );
+                }
             }
             {%- endfor %}
             return Err(serde::de::Error::custom("No valid variant found"));
         }
         {%- endif %}
         let node = serde_json::Value::deserialize(deserializer)?;
-        {%- for union_field in union_fields %}
-        let candidate_{{ loop.index0 }} =
-            <{{ union_field.type }}>::deserialize(node.clone());
-        {%- endfor %}
         let match_count = 0usize
             {%- for union_field in union_fields %}
-            + usize::from(candidate_{{ loop.index0 }}.is_ok())
+            + usize::from(
+                json_candidate_matches::<{{ union_field.type }}>(&node)
+            )
             {%- endfor %};
         if match_count > 1 {
             return Err(serde::de::Error::custom(
@@ -277,7 +334,9 @@ impl<'de> Deserialize<'de> for {{ union_enum_name }} {
             ));
         }
         {%- for union_field in union_fields %}
-        if let Ok(result) = candidate_{{ loop.index0 }} {
+        if let Ok(result) =
+            <{{ union_field.type }}>::deserialize(node.clone())
+        {
             return Ok({{ union_enum_name }}::{{ union_field.name }}(result));
         }
         {%- endfor %}
