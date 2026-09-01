@@ -1455,6 +1455,134 @@ class TestAvroToRust(unittest.TestCase):
             timeout=self.CARGO_TIMEOUT,
         ) == 0
 
+    def test_nested_collection_unions_use_exact_private_matches(self):
+        """Keep public enum shapes coarse but nested selection exact."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-nested-collection-union-matching",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        schemas = [{
+            "type": "enum",
+            "name": "TagA",
+            "namespace": "issue484.nested_collection",
+            "symbols": ["OVERLAP", "A_ONLY"],
+        }, {
+            "type": "enum",
+            "name": "TagB",
+            "namespace": "issue484.nested_collection",
+            "symbols": ["OVERLAP", "B_ONLY"],
+        }]
+        for collection in ("array", "map"):
+            suffix = collection.capitalize()
+            value_schema = (
+                {"type": "array", "items": ["TagA", "TagB"]}
+                if collection == "array"
+                else {"type": "map", "values": ["TagA", "TagB"]}
+            )
+            fallback_schema = (
+                {"type": "array", "items": "string"}
+                if collection == "array"
+                else {"type": "map", "values": "string"}
+            )
+            schemas.extend([{
+                "type": "record",
+                "name": f"Nested{suffix}",
+                "namespace": "issue484.nested_collection",
+                "fields": [{"name": "values", "type": value_schema}],
+            }, {
+                "type": "record",
+                "name": f"Fallback{suffix}",
+                "namespace": "issue484.nested_collection",
+                "fields": [{"name": "values", "type": fallback_schema}],
+            }])
+        schemas.append({
+            "type": "record",
+            "name": "Holder",
+            "namespace": "issue484.nested_collection",
+            "fields": [{
+                "name": "arrayChoice",
+                "type": ["NestedArray", "FallbackArray"],
+            }, {
+                "name": "mapChoice",
+                "type": ["NestedMap", "FallbackMap"],
+            }],
+        })
+        convert_avro_schema_to_rust(
+            schemas,
+            rust_path,
+            package_name="rust-nested-collection-union-matching",
+            serde_annotation=True,
+        )
+        enum_file = os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "nested_collection",
+            "taga.rs",
+        )
+        with open(enum_file, "a", encoding="utf-8") as generated_enum:
+            generated_enum.write(
+                "\n#[cfg(test)]\n"
+                "mod public_private_match_regression {\n"
+                "    use super::*;\n\n"
+                "    #[test]\n"
+                "    fn public_shape_is_coarse_and_private_symbols_are_exact() {\n"
+                "        let unknown = serde_json::json!(\"BLUE\");\n"
+                "        assert!(TagA::is_json_match(&unknown));\n"
+                "        assert!(!TagA::is_json_value_match(&unknown));\n"
+                "    }\n"
+                "}\n"
+            )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "nested_collections.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_nested_collection_union_matching::"
+                "issue484::nested_collection::{\n"
+                "    arraychoiceunion::ArrayChoiceUnion,\n"
+                "    fallbackarray::FallbackArray,\n"
+                "    fallbackmap::FallbackMap,\n"
+                "    holder::Holder,\n"
+                "    mapchoiceunion::MapChoiceUnion,\n"
+                "};\n"
+                "use std::collections::HashMap;\n\n"
+                "#[test]\n"
+                "fn ambiguous_nested_unions_do_not_shadow_exact_fallbacks() {\n"
+                "    let holder: Holder = serde_json::from_value(serde_json::json!({\n"
+                "        \"arrayChoice\": {\"values\": [\"OVERLAP\"]},\n"
+                "        \"mapChoice\": {\"values\": {\"key\": \"OVERLAP\"}},\n"
+                "    })).unwrap();\n"
+                "    assert_eq!(\n"
+                "        ArrayChoiceUnion::FallbackArray(FallbackArray {\n"
+                "            values: vec![\"OVERLAP\".into()],\n"
+                "        }),\n"
+                "        holder.array_choice,\n"
+                "    );\n"
+                "    assert_eq!(\n"
+                "        MapChoiceUnion::FallbackMap(FallbackMap {\n"
+                "            values: HashMap::from([(\n"
+                "                \"key\".into(), \"OVERLAP\".into(),\n"
+                "            )]),\n"
+                "        }),\n"
+                "        holder.map_choice,\n"
+                "    );\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_nullable_named_record_union_xml_is_not_rejected(self):
         """Keep bare nullable named-record fields usable with XML annotations."""
         self.run_convert_to_rust(

@@ -1650,6 +1650,7 @@ class AvroToRust:
             item_match = self.get_value_match_expression(
                 'item',
                 vector_type,
+                exact_nested=exact_nested,
             )
             return (
                 f'{reference}.as_array().map_or(false, '
@@ -1663,6 +1664,7 @@ class AvroToRust:
             value_match = self.get_value_match_expression(
                 'value',
                 map_type,
+                exact_nested=exact_nested,
             )
             return (
                 f'{reference}.as_object().map_or(false, '
@@ -1671,7 +1673,7 @@ class AvroToRust:
         generated_kind = self.generated_types_rust_package.get(field_type)
         method = (
             'is_json_value_match'
-            if exact_nested and generated_kind in {'union', 'struct'}
+            if exact_nested and generated_kind in {'union', 'struct', 'enum'}
             else 'is_json_match'
         )
         return f'{field_type}::{method}({reference})'

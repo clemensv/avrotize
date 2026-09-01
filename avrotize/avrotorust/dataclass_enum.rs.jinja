@@ -124,6 +124,12 @@ impl {{ enum_name }} {
     {%- endif %}
 
     pub fn is_json_match(node: &serde_json::Value) -> bool {
+        node.is_string()
+    }
+
+    pub(crate) fn is_json_value_match(
+        node: &serde_json::Value,
+    ) -> bool {
         node.as_str().map_or(false, |value| false
             {%- for symbol in symbols %}
             || value == "{{ symbol.value }}"
