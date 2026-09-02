@@ -2651,6 +2651,73 @@ class TestAvroToRust(unittest.TestCase):
             xml_annotation=True,
         )
 
+    def test_nullable_singleton_collections_keep_xml_metadata(self):
+        """Retain direct array/map metadata for nullable singleton schemas."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-nullable-collection-metadata",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.nullable_collections",
+                "fields": [{
+                    "name": "items",
+                    "type": [
+                        "null",
+                        {"type": "array", "items": "string"},
+                    ],
+                    "default": None,
+                }, {
+                    "name": "entries",
+                    "type": [
+                        "null",
+                        {"type": "map", "values": "string"},
+                    ],
+                    "default": None,
+                }],
+            },
+            rust_path,
+            package_name="rust-nullable-collection-metadata",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "nullable_collections.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_nullable_collection_metadata::"
+                "issue484::nullable_collections::holder::Holder;\n"
+                "use std::collections::HashMap;\n\n"
+                "#[test]\n"
+                "fn nullable_singleton_collections_round_trip_xml() {\n"
+                "    let value = Holder {\n"
+                "        items: vec![\"one\".into(), \"two\".into()],\n"
+                "        entries: HashMap::from([(\n"
+                "            \"key_326529693\".into(), \"value\".into(),\n"
+                "        )]),\n"
+                "    };\n"
+                "    let xml = value.to_byte_array(\"application/xml\").unwrap();\n"
+                "    let recovered = Holder::from_data(&xml, \"application/xml\").unwrap();\n"
+                "    assert_eq!(value, recovered);\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_partial_record_xml_ambiguity_uses_concrete_value(self):
         """Allow A(None) but reject overlapping A(Some) in either union order."""
         rust_path = self.run_convert_to_rust(

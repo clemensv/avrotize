@@ -1069,6 +1069,10 @@ class AvroToRust:
                 self.generated_union_fields.get(base_field_type, [])
                 if self.avro_annotation else []
             )
+            is_generated_union_wrapper = (
+                self.generated_types_rust_package.get(base_field_type)
+                == 'union'
+            )
             source_null_index = (
                 field['type'].index('null')
                 if isinstance(field['type'], list)
@@ -1106,14 +1110,14 @@ class AvroToRust:
                 'xml_name': xml_name,
                 'xml_kind': xml_kind,
                 'xml_repeatable': (
-                    not isinstance(field['type'], list)
+                    not is_generated_union_wrapper
                     and self.xml_type_contains_collection(
                         field['type'],
                         'array',
                     )
                 ),
                 'xml_map': (
-                    not isinstance(field['type'], list)
+                    not is_generated_union_wrapper
                     and self.xml_type_contains_collection(
                         field['type'],
                         'map',
