@@ -15,6 +15,7 @@ from avrotize.common import (
 from avrotize.rust_xml import xml_wire_name, xml_enum_wire_value
 
 INDENT = '    '
+XML_RECIPE_BLOCKED = object()
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -1011,10 +1012,11 @@ class AvroToRust:
                 self.xml_discriminator_stats['cache_hits'] += 1
                 return self._xml_discriminator_recipe_cache[cache_key]
             if cache_key[0] in active:
-                return None
+                return XML_RECIPE_BLOCKED
             active = active | {cache_key[0]}
 
         recipe = None
+        blocked = False
         if isinstance(resolved, dict):
             node_type = resolved.get('type')
             if node_type == 'record':
@@ -1034,6 +1036,9 @@ class AvroToRust:
                         record_namespace,
                         active,
                     )
+                    if child is XML_RECIPE_BLOCKED:
+                        blocked = True
+                        continue
                     if child is not None:
                         recipe = (
                             'record',
@@ -1050,7 +1055,9 @@ class AvroToRust:
                     namespace,
                     active,
                 )
-                if child is not None:
+                if child is XML_RECIPE_BLOCKED:
+                    blocked = True
+                elif child is not None:
                     recipe = (
                         'array',
                         self.analysis_rust_type(
@@ -1066,7 +1073,9 @@ class AvroToRust:
                     namespace,
                     active,
                 )
-                if child is not None:
+                if child is XML_RECIPE_BLOCKED:
+                    blocked = True
+                elif child is not None:
                     recipe = (
                         'map',
                         self.analysis_rust_type(
@@ -1081,9 +1090,62 @@ class AvroToRust:
         elif resolved == 'long':
             recipe = ('value', 'i64::MAX')
 
+        if recipe is None and blocked:
+            return XML_RECIPE_BLOCKED
         if cache_key is not None:
             self._xml_discriminator_recipe_cache[cache_key] = recipe
         return recipe
+
+    def resolve_xml_schema_node(self, avro_type, namespace: str):
+        """Resolves named references, including wrapped named type objects."""
+        node = avro_type
+        while True:
+            if isinstance(node, str):
+                return self.resolve_avro_named_type(node, namespace) or node
+            if not isinstance(node, dict):
+                return node
+            node_type = node.get('type')
+            if not isinstance(node_type, str):
+                return node
+            resolved = self.resolve_avro_named_type(node_type, namespace)
+            if resolved is None:
+                return node
+            node = resolved
+
+    def xml_enum_wire_symbols(self, avro_type, namespace: str):
+        """Returns accepted enum wire symbols, or None for non-enums."""
+        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        if not isinstance(resolved, dict) or resolved.get('type') != 'enum':
+            return None
+        return {
+            xml_enum_wire_value(symbol, resolved)
+            for symbol in resolved.get('symbols', [])
+        }
+
+    def xml_enum_candidate_overlaps(
+        self,
+        avro_type,
+        competitors,
+        namespace: str,
+    ) -> bool:
+        """Checks XML wire overlap for an enum candidate."""
+        symbols = self.xml_enum_wire_symbols(avro_type, namespace)
+        if symbols is None:
+            return False
+        for competitor in competitors:
+            other_symbols = self.xml_enum_wire_symbols(
+                competitor,
+                namespace,
+            )
+            if other_symbols is not None and symbols & other_symbols:
+                return True
+            resolved = self.resolve_xml_schema_node(competitor, namespace)
+            if resolved == 'string' or (
+                isinstance(resolved, dict)
+                and resolved.get('type') == 'string'
+            ):
+                return True
+        return False
 
     def _render_xml_discriminator_recipe(
         self,
@@ -1148,19 +1210,14 @@ class AvroToRust:
         if rust_type == 'String':
             return '"xml-distinct".to_string()'
 
-        resolved = (
-            self.resolve_avro_named_type(avro_type, namespace)
-            if isinstance(avro_type, str)
-            else avro_type
-        )
+        resolved = self.resolve_xml_schema_node(avro_type, namespace)
         if isinstance(resolved, dict) and resolved.get('type') == 'enum':
             competing_symbols = set()
             accepts_all_text = False
             for competitor in competitors or ():
-                other = (
-                    self.resolve_avro_named_type(competitor, namespace)
-                    if isinstance(competitor, str)
-                    else competitor
+                other = self.resolve_xml_schema_node(
+                    competitor,
+                    namespace,
                 )
                 if isinstance(other, dict) and other.get('type') == 'enum':
                     competing_symbols.update(
@@ -1190,6 +1247,8 @@ class AvroToRust:
             return f'{rust_type}::default()'
 
         recipe = self._xml_discriminator_recipe(avro_type, namespace)
+        if recipe is XML_RECIPE_BLOCKED:
+            recipe = None
         if recipe is not None:
             value = self._render_xml_discriminator_recipe(
                 recipe,
@@ -2785,6 +2844,15 @@ class AvroToRust:
                 or (scalar_kind == 'integer' and 'float' in present_scalar_kinds)
             )
             field['xml_check_value_ambiguity'] = json_ambiguous
+            field['xml_enum_overlap'] = self.xml_enum_candidate_overlaps(
+                field['avro_type'],
+                [
+                    candidate['avro_type']
+                    for candidate in union_fields
+                    if candidate is not field
+                ],
+                namespace,
+            )
             field['xml_requires_runtime_probe'] = (
                 not field['xml_statically_disjoint']
             )
@@ -2811,7 +2879,10 @@ class AvroToRust:
                         if candidate is not field
                     ],
                 )
-                if field['xml_check_value_ambiguity']
+                if (
+                    field['xml_check_value_ambiguity']
+                    or field['xml_enum_overlap']
+                )
                 else field['random_value']
             )
             field['json_ambiguous'] = json_ambiguous

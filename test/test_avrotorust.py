@@ -18,6 +18,7 @@ sys.path.append(project_root)
 from avrotize.avrotorust import (
     AvroToRust,
     JsonSignature,
+    XML_RECIPE_BLOCKED,
     convert_avro_schema_to_rust,
     convert_avro_to_rust,
 )
@@ -1241,6 +1242,39 @@ class TestAvroToRust(unittest.TestCase):
             self.assertLess(current[0], previous[0] * 3)
             self.assertLess(current[3], previous[3] * 3)
             self.assertLess(current[4], previous[4] * 3)
+
+        recursive = {
+            "type": "record",
+            "name": "Recursive",
+            "namespace": "issue484.xml_analysis_recursive",
+            "fields": [{
+                "name": "next",
+                "type": "Recursive",
+            }, {
+                "name": "value",
+                "type": "long",
+            }],
+        }
+        converter = AvroToRust()
+        converter.index_avro_named_types(recursive)
+        fullname = "issue484.xml_analysis_recursive.Recursive"
+        blocked = converter._xml_discriminator_recipe(
+            "Recursive",
+            "issue484.xml_analysis_recursive",
+            {fullname},
+        )
+        self.assertIs(XML_RECIPE_BLOCKED, blocked)
+        self.assertFalse(converter._xml_discriminator_recipe_cache)
+        rust_type = converter.analysis_rust_type(
+            "Recursive",
+            "issue484.xml_analysis_recursive",
+        )
+        value = converter.generate_xml_distinguishing_value(
+            rust_type,
+            "Recursive",
+            "issue484.xml_analysis_recursive",
+        )
+        self.assertIn("value.value = i64::MAX", value)
 
     def test_xml_discriminator_analysis_preserves_union_identity_order(self):
         """Never register synthetic nested unions while analyzing values."""
@@ -2668,12 +2702,20 @@ class TestAvroToRust(unittest.TestCase):
                 "type": "enum",
                 "name": "TagA",
                 "namespace": "issue484.enum_discriminator",
-                "symbols": ["SHARED", "A_ONLY"],
+                "symbols": ["A_SHARED", "A_ONLY"],
+                "altenums": {"xml": {
+                    "A_SHARED": "shared",
+                    "A_ONLY": "a-only",
+                }},
             }, {
                 "type": "enum",
                 "name": "TagB",
                 "namespace": "issue484.enum_discriminator",
-                "symbols": ["SHARED", "B_ONLY"],
+                "symbols": ["B_SHARED", "B_ONLY"],
+                "altenums": {"xml": {
+                    "B_SHARED": "shared",
+                    "B_ONLY": "b-only",
+                }},
             }, {
                 "type": "record",
                 "name": "Holder",
