@@ -913,6 +913,8 @@ class AvroToRust:
             if isinstance(avro_type, str)
             else avro_type
         )
+        if isinstance(resolved, dict) and resolved.get('type') == 'enum':
+            return f'{rust_type}::default()'
         if isinstance(resolved, dict) and resolved.get('type') == 'record':
             fullname, record_namespace, _ = self.canonical_avro_name(
                 resolved['name'],
