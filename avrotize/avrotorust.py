@@ -1500,6 +1500,8 @@ class AvroToRust:
             )
         else:
             value = 'Default::default()'
+        if self._rust_inner_type(current_rust_type, 'Option<') is not None:
+            value = f'Some({value})'
         for kind, wrapper, wrapper_rust_type in reversed(wrappers):
             if kind == 'record':
                 field_name = wrapper[1]
@@ -4485,6 +4487,7 @@ class AvroToRust:
         rust_type: str,
         avro_type,
         namespace: str,
+        wrap_optional: bool = False,
     ) -> str:
         """Generates a random value that respects schema-specific sizes."""
         resolved_type = avro_type
@@ -4506,6 +4509,7 @@ class AvroToRust:
                     inner_type,
                     resolved_type['items'],
                     namespace,
+                    True,
                 )
                 return f'(0..3).map(|_| {inner_value}).collect()'
             if node_type == 'map':
@@ -4514,6 +4518,7 @@ class AvroToRust:
                     inner_type,
                     resolved_type['values'],
                     namespace,
+                    True,
                 )
                 return (
                     '(0..3).map(|_| ('
@@ -4525,14 +4530,17 @@ class AvroToRust:
                 item for item in avro_type if item != 'null'
             ]
             if len(non_null_types) == 1:
-                inner_type = (
-                    rust_type[7:-1]
-                    if rust_type.startswith('Option<') else rust_type
-                )
-                return self.generate_random_value_for_avro(
+                optional = rust_type.startswith('Option<')
+                inner_type = rust_type[7:-1] if optional else rust_type
+                value = self.generate_random_value_for_avro(
                     inner_type,
                     non_null_types[0],
                     namespace,
+                )
+                return (
+                    f'Some({value})'
+                    if optional and wrap_optional
+                    else value
                 )
             return self.generate_random_value(rust_type)
         return self.generate_random_value(rust_type)

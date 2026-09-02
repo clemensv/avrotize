@@ -2871,6 +2871,68 @@ class TestAvroToRust(unittest.TestCase):
                 ],
             }, {
                 "type": "record",
+                "name": "NullableNarrow",
+                "namespace": "issue484.competitor_proven",
+                "fields": [{
+                    "name": "tag",
+                    "type": ["null", "int"],
+                    "default": None,
+                }],
+            }, {
+                "type": "record",
+                "name": "NullableWide",
+                "namespace": "issue484.competitor_proven",
+                "fields": [{
+                    "name": "tag",
+                    "type": ["null", "long"],
+                    "default": None,
+                }],
+            }, {
+                "type": "record",
+                "name": "NullableArrayNarrow",
+                "namespace": "issue484.competitor_proven",
+                "fields": [{
+                    "name": "values",
+                    "type": {
+                        "type": "array",
+                        "items": ["null", "int"],
+                    },
+                }],
+            }, {
+                "type": "record",
+                "name": "NullableArrayWide",
+                "namespace": "issue484.competitor_proven",
+                "fields": [{
+                    "name": "values",
+                    "type": {
+                        "type": "array",
+                        "items": ["null", "long"],
+                    },
+                }],
+            }, {
+                "type": "record",
+                "name": "NullableMapNarrow",
+                "namespace": "issue484.competitor_proven",
+                "fields": [{
+                    "name": "values",
+                    "type": {
+                        "type": "map",
+                        "values": ["null", "int"],
+                    },
+                }],
+            }, {
+                "type": "record",
+                "name": "NullableMapWide",
+                "namespace": "issue484.competitor_proven",
+                "fields": [{
+                    "name": "values",
+                    "type": {
+                        "type": "map",
+                        "values": ["null", "long"],
+                    },
+                }],
+            }, {
+                "type": "record",
                 "name": "Holder",
                 "namespace": "issue484.competitor_proven",
                 "fields": [{
@@ -2879,6 +2941,18 @@ class TestAvroToRust(unittest.TestCase):
                 }, {
                     "name": "tagged",
                     "type": ["EnumA", "EnumB"],
+                }, {
+                    "name": "nullable",
+                    "type": ["NullableNarrow", "NullableWide"],
+                }, {
+                    "name": "nullableArray",
+                    "type": [
+                        "NullableArrayNarrow",
+                        "NullableArrayWide",
+                    ],
+                }, {
+                    "name": "nullableMap",
+                    "type": ["NullableMapNarrow", "NullableMapWide"],
                 }],
             }],
             rust_path,
@@ -2915,6 +2989,10 @@ class TestAvroToRust(unittest.TestCase):
         ):]
         self.assertIn("TagA::A_ONLY", enum_generator)
         self.assertIn("TagB::B_ONLY", enum_generator)
+        self.assertIn(
+            "Some(i64::MAX)",
+            "\n".join(sources),
+        )
         for _ in range(10):
             assert subprocess.check_call(
                 ['cargo', 'test', '--quiet'],
