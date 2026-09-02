@@ -994,7 +994,7 @@ class AvroToRust:
 
     def xml_schema_identity(self, avro_type, namespace: str):
         """Returns a stable identity for discriminator recipe caching."""
-        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
         if isinstance(resolved, dict) and resolved.get('name'):
             return (
                 'named',
@@ -1010,7 +1010,7 @@ class AvroToRust:
 
     def xml_record_match_info(self, avro_type, namespace: str):
         """Returns declared/required canonical names and accepted field lookup."""
-        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
         if not isinstance(resolved, dict) or resolved.get('type') != 'record':
             return None
         record_namespace = (
@@ -1042,7 +1042,7 @@ class AvroToRust:
 
     def xml_type_accepts_i64_max(self, avro_type, namespace: str) -> bool:
         """Conservatively checks whether an XML type accepts i64::MAX text."""
-        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
         if isinstance(resolved, list):
             return any(
                 self.xml_type_accepts_i64_max(branch, namespace)
@@ -1080,7 +1080,10 @@ class AvroToRust:
             'avro_type': avro_type,
             'namespace': namespace,
             'active': root_active,
-            'competitors': list(competitors or ()),
+            'competitors': [
+                (competitor, namespace)
+                for competitor in competitors or ()
+            ],
             'initialized': False,
             'awaiting': False,
             'blocked': False,
@@ -1113,15 +1116,10 @@ class AvroToRust:
                 frame['initialized'] = True
                 self.xml_discriminator_stats['node_visits'] += 1
                 node = frame['avro_type']
-                resolved = node
-                if isinstance(node, str):
-                    resolved = (
-                        self.resolve_avro_named_type(
-                            node,
-                            frame['namespace'],
-                        )
-                        or node
-                    )
+                resolved = self.normalize_xml_recipe_schema(
+                    node,
+                    frame['namespace'],
+                )
                 frame['resolved'] = resolved
                 cache_key = None
                 if isinstance(resolved, dict) and resolved.get('name'):
@@ -1131,9 +1129,10 @@ class AvroToRust:
                         tuple(
                             self.xml_schema_identity(
                                 competitor,
-                                frame['namespace'],
+                                competitor_namespace,
                             )
-                            for competitor in frame['competitors']
+                            for competitor, competitor_namespace
+                            in frame['competitors']
                         ),
                     )
                     frame['cache_key'] = cache_key
@@ -1164,10 +1163,12 @@ class AvroToRust:
                         )
                         record_namespace = candidate_info[1]
                         viable_competitors = []
-                        for competitor in frame['competitors']:
+                        for competitor, competitor_namespace in (
+                            frame['competitors']
+                        ):
                             other_info = self.xml_record_match_info(
                                 competitor,
-                                frame['namespace'],
+                                competitor_namespace,
                             )
                             if other_info is None:
                                 continue
@@ -1195,7 +1196,10 @@ class AvroToRust:
                                 if other_field is None:
                                     child_competitors = None
                                     break
-                                child_competitors.append(other_field)
+                                child_competitors.append((
+                                    other_field,
+                                    other_info[1],
+                                ))
                             if child_competitors is None:
                                 continue
                             field_type = self.analysis_rust_type(
@@ -1219,17 +1223,22 @@ class AvroToRust:
                                 ))
                     elif node_type == 'array':
                         viable_competitors = []
-                        for competitor in frame['competitors']:
-                            other = self.resolve_xml_schema_node(
+                        for competitor, competitor_namespace in (
+                            frame['competitors']
+                        ):
+                            other = self.normalize_xml_recipe_schema(
                                 competitor,
-                                frame['namespace'],
+                                competitor_namespace,
                             )
                             if (
                                 isinstance(other, dict)
                                 and other.get('type') == 'array'
                             ):
                                 viable_competitors.append(
-                                    other.get('items')
+                                    (
+                                        other.get('items'),
+                                        competitor_namespace,
+                                    )
                                 )
                         if (
                             frame['competitors']
@@ -1258,17 +1267,22 @@ class AvroToRust:
                             ))
                     elif node_type == 'map':
                         viable_competitors = []
-                        for competitor in frame['competitors']:
-                            other = self.resolve_xml_schema_node(
+                        for competitor, competitor_namespace in (
+                            frame['competitors']
+                        ):
+                            other = self.normalize_xml_recipe_schema(
                                 competitor,
-                                frame['namespace'],
+                                competitor_namespace,
                             )
                             if (
                                 isinstance(other, dict)
                                 and other.get('type') == 'map'
                             ):
                                 viable_competitors.append(
-                                    other.get('values')
+                                    (
+                                        other.get('values'),
+                                        competitor_namespace,
+                                    )
                                 )
                         if (
                             frame['competitors']
@@ -1301,32 +1315,46 @@ class AvroToRust:
                             frame['namespace'],
                         )
                         competing_symbols = set()
-                        for competitor in frame['competitors']:
+                        accepts_all_text = False
+                        for competitor, competitor_namespace in (
+                            frame['competitors']
+                        ):
+                            other = self.normalize_xml_recipe_schema(
+                                competitor,
+                                competitor_namespace,
+                            )
+                            if other == 'string' or (
+                                isinstance(other, dict)
+                                and other.get('type') == 'string'
+                            ):
+                                accepts_all_text = True
                             competing_symbols.update(
                                 self.xml_enum_wire_symbols(
                                     competitor,
-                                    frame['namespace'],
+                                    competitor_namespace,
                                 )
                                 or ()
                             )
-                        for symbol in resolved.get('symbols', []):
-                            if xml_enum_wire_value(
-                                symbol,
-                                resolved,
-                            ) not in competing_symbols:
-                                stack.pop()
-                                returned = ('enum', symbol)
-                                has_returned = True
-                                break
+                        if not accepts_all_text:
+                            for symbol in resolved.get('symbols', []):
+                                if xml_enum_wire_value(
+                                    symbol,
+                                    resolved,
+                                ) not in competing_symbols:
+                                    stack.pop()
+                                    returned = ('enum', symbol)
+                                    has_returned = True
+                                    break
                         if has_returned:
                             continue
                     elif node_type == 'long':
                         if all(
                             not self.xml_type_accepts_i64_max(
                                 competitor,
-                                frame['namespace'],
+                                competitor_namespace,
                             )
-                            for competitor in frame['competitors']
+                            for competitor, competitor_namespace
+                            in frame['competitors']
                         ):
                             stack.pop()
                             returned = ('value', 'i64::MAX')
@@ -1336,9 +1364,10 @@ class AvroToRust:
                     if all(
                         not self.xml_type_accepts_i64_max(
                             competitor,
-                            frame['namespace'],
+                            competitor_namespace,
                         )
-                        for competitor in frame['competitors']
+                        for competitor, competitor_namespace
+                        in frame['competitors']
                     ):
                         stack.pop()
                         returned = ('value', 'i64::MAX')
@@ -1396,9 +1425,21 @@ class AvroToRust:
                 return node
             node = resolved
 
+    def normalize_xml_recipe_schema(self, avro_type, namespace: str):
+        """Unwraps singleton-null schemas for structural recipe traversal."""
+        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        if isinstance(resolved, list):
+            branches = [branch for branch in resolved if branch != 'null']
+            if len(branches) == 1:
+                return self.resolve_xml_schema_node(
+                    branches[0],
+                    namespace,
+                )
+        return resolved
+
     def xml_enum_wire_symbols(self, avro_type, namespace: str):
         """Returns accepted enum wire symbols, or None for non-enums."""
-        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
         if not isinstance(resolved, dict) or resolved.get('type') != 'enum':
             return None
         symbols = {
@@ -1494,12 +1535,12 @@ class AvroToRust:
         if rust_type == 'String':
             return '"xml-distinct".to_string()'
 
-        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
         if isinstance(resolved, dict) and resolved.get('type') == 'enum':
             competing_symbols = set()
             accepts_all_text = False
             for competitor in competitors or ():
-                other = self.resolve_xml_schema_node(
+                other = self.normalize_xml_recipe_schema(
                     competitor,
                     namespace,
                 )

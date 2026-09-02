@@ -2924,6 +2924,119 @@ class TestAvroToRust(unittest.TestCase):
                 timeout=self.CARGO_TIMEOUT,
             ) == 0
 
+    def test_competitor_recipes_preserve_nullable_and_namespaces(self):
+        """Carry nullable complex shapes and competitor namespaces recursively."""
+        schemas = [{
+            "type": "record",
+            "name": "Leaf",
+            "namespace": "issue484.recipe_a",
+            "fields": [{"name": "value", "type": "long"}],
+        }, {
+            "type": "record",
+            "name": "Container",
+            "namespace": "issue484.recipe_a",
+            "fields": [{
+                "name": "nested",
+                "type": ["null", {
+                    "type": "array",
+                    "items": {
+                        "type": "map",
+                        "values": "issue484.recipe_a.Leaf",
+                    },
+                }],
+            }],
+        }, {
+            "type": "record",
+            "name": "Leaf",
+            "namespace": "issue484.recipe_b",
+            "fields": [{"name": "value", "type": "int"}],
+        }, {
+            "type": "record",
+            "name": "Container",
+            "namespace": "issue484.recipe_b",
+            "fields": [{
+                "name": "nested",
+                "type": ["null", {
+                    "type": "array",
+                    "items": {
+                        "type": "map",
+                        "values": "issue484.recipe_b.Leaf",
+                    },
+                }],
+            }],
+        }, {
+            "type": "enum",
+            "name": "TagA",
+            "namespace": "issue484.recipe_enum",
+            "symbols": ["SHARED", "A_ONLY"],
+        }, {
+            "type": "enum",
+            "name": "TagB",
+            "namespace": "issue484.recipe_enum",
+            "symbols": ["SHARED", "B_ONLY"],
+        }, {
+            "type": "record",
+            "name": "EnumContainerA",
+            "namespace": "issue484.recipe_enum",
+            "fields": [{
+                "name": "tag",
+                "type": ["null", "TagA"],
+            }],
+        }, {
+            "type": "record",
+            "name": "EnumContainerB",
+            "namespace": "issue484.recipe_enum",
+            "fields": [{
+                "name": "tag",
+                "type": ["null", "TagB"],
+            }],
+        }, {
+            "type": "record",
+            "name": "StringContainer",
+            "namespace": "issue484.recipe_enum",
+            "fields": [{"name": "tag", "type": "string"}],
+        }]
+        converter = AvroToRust()
+        converter.serde_annotation = True
+        converter.xml_annotation = True
+        converter.index_avro_named_types(schemas)
+
+        rust_type = converter.analysis_rust_type(
+            "issue484.recipe_a.Container",
+            "issue484.recipe_a",
+        )
+        value = converter.generate_xml_distinguishing_value(
+            rust_type,
+            "issue484.recipe_a.Container",
+            "issue484.recipe_a",
+            ["issue484.recipe_b.Container"],
+        )
+        self.assertIn(
+            "crate::issue484::recipe_a::leaf::Leaf",
+            value,
+        )
+        self.assertNotIn("recipe_b", value)
+        self.assertIn("i64::MAX", value)
+
+        rust_type = converter.analysis_rust_type(
+            "EnumContainerA",
+            "issue484.recipe_enum",
+        )
+        enum_value = converter.generate_xml_distinguishing_value(
+            rust_type,
+            "EnumContainerA",
+            "issue484.recipe_enum",
+            ["EnumContainerB"],
+        )
+        self.assertIn("TagA::A_ONLY", enum_value)
+        string_value = converter.generate_xml_distinguishing_value(
+            rust_type,
+            "EnumContainerA",
+            "issue484.recipe_enum",
+            ["StringContainer"],
+        )
+        self.assertEqual("Default::default()", string_value)
+
     def test_enum_xml_discriminators_choose_unique_symbols(self):
         """Choose a provably unique enum symbol before random fallback."""
         rust_path = os.path.join(
