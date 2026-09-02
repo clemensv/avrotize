@@ -889,6 +889,95 @@ class AvroToRust:
             return 'record'
         return 'text'
 
+    def generate_xml_distinguishing_value(
+        self,
+        rust_type: str,
+        avro_type,
+        namespace: str,
+        active=None,
+    ) -> str:
+        """Generates a deterministic value that preserves numeric width."""
+        active = set() if active is None else active
+        optional_type = self._rust_inner_type(rust_type, 'Option<')
+        if optional_type is not None:
+            return (
+                'Some('
+                + self.generate_xml_distinguishing_value(
+                    optional_type,
+                    avro_type,
+                    namespace,
+                    active,
+                )
+                + ')'
+            )
+        if rust_type == 'i64':
+            return 'i64::MAX'
+        if rust_type == 'u64':
+            return 'u64::MAX'
+        if rust_type == 'String':
+            return '"xml-distinct".to_string()'
+
+        resolved = (
+            self.resolve_avro_named_type(avro_type, namespace)
+            if isinstance(avro_type, str)
+            else avro_type
+        )
+        if isinstance(resolved, dict) and resolved.get('type') == 'record':
+            fullname, record_namespace, _ = self.canonical_avro_name(
+                resolved['name'],
+                resolved.get('namespace', namespace),
+            )
+            if fullname in active:
+                return 'Default::default()'
+            nested_active = active | {fullname}
+            values = []
+            for field in resolved.get('fields', []):
+                field_name = self.safe_identifier(snake(field['name']))
+                field_type = self.convert_avro_type_to_rust(
+                    field_name,
+                    field['type'],
+                    record_namespace,
+                )
+                field_value = self.generate_xml_distinguishing_value(
+                    field_type,
+                    field['type'],
+                    record_namespace,
+                    nested_active,
+                )
+                values.append(f'{field_name}: {field_value}')
+            return f'{rust_type} {{ {", ".join(values)} }}'
+        if isinstance(resolved, dict) and resolved.get('type') == 'array':
+            item_type = self._rust_inner_type(rust_type, 'Vec<')
+            if item_type is not None:
+                item = self.generate_xml_distinguishing_value(
+                    item_type,
+                    resolved.get('items'),
+                    namespace,
+                    active,
+                )
+                return f'vec![{item}]'
+        if isinstance(resolved, dict) and resolved.get('type') == 'map':
+            value_type = self._rust_inner_type(
+                rust_type,
+                'std::collections::HashMap<String, ',
+            )
+            if value_type is not None:
+                value = self.generate_xml_distinguishing_value(
+                    value_type,
+                    resolved.get('values'),
+                    namespace,
+                    active,
+                )
+                return (
+                    'std::collections::HashMap::from(['
+                    f'("key".to_string(), {value})])'
+                )
+        return self.generate_random_value_for_avro(
+            rust_type,
+            avro_type,
+            namespace,
+        )
+
     def xml_record_field_sets(self, avro_type, namespace: str):
         """Returns canonical declared and required XML fields for a record."""
         resolved = (
@@ -2430,17 +2519,13 @@ class AvroToRust:
                 or default_is_ambiguous
             )
             field['xml_random_value'] = (
-                'i64::MAX'
-                if field['type'] == 'i64'
-                and any(
-                    candidate['type'] == 'i32'
-                    for candidate in union_fields
+                self.generate_xml_distinguishing_value(
+                    field['type'],
+                    field['avro_type'],
+                    namespace,
                 )
-                else (
-                    field['default_value']
-                    if field['xml_check_value_ambiguity']
-                    else field['random_value']
-                )
+                if field['xml_check_value_ambiguity']
+                else field['random_value']
             )
             field['json_ambiguous'] = json_ambiguous
             field['json_round_trip_safe'] = (

@@ -2229,6 +2229,38 @@ class TestAvroToRust(unittest.TestCase):
                 "fields": [{"name": "value", "type": "long"}],
             }, {
                 "type": "record",
+                "name": "NarrowArray",
+                "namespace": "issue484.xml_widths",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "array", "items": "int"},
+                }],
+            }, {
+                "type": "record",
+                "name": "WideArray",
+                "namespace": "issue484.xml_widths",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "array", "items": "long"},
+                }],
+            }, {
+                "type": "record",
+                "name": "NarrowMap",
+                "namespace": "issue484.xml_widths",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "map", "values": "int"},
+                }],
+            }, {
+                "type": "record",
+                "name": "WideMap",
+                "namespace": "issue484.xml_widths",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "map", "values": "long"},
+                }],
+            }, {
+                "type": "record",
                 "name": "Holder",
                 "namespace": "issue484.xml_widths",
                 "fields": [{
@@ -2237,6 +2269,12 @@ class TestAvroToRust(unittest.TestCase):
                 }, {
                     "name": "reverse",
                     "type": ["Wide", "Narrow"],
+                }, {
+                    "name": "arrayWidth",
+                    "type": ["NarrowArray", "WideArray"],
+                }, {
+                    "name": "mapWidth",
+                    "type": ["NarrowMap", "WideMap"],
                 }],
             }],
             rust_path,
@@ -2244,23 +2282,6 @@ class TestAvroToRust(unittest.TestCase):
             serde_annotation=True,
             xml_annotation=True,
         )
-        for union_file in glob.glob(os.path.join(
-            rust_path,
-            "src",
-            "issue484",
-            "xml_widths",
-            "unionpath*.rs",
-        )):
-            with open(union_file, encoding="utf-8") as generated:
-                source = generated.read()
-            source = source.replace(
-                "crate::issue484::xml_widths::wide::"
-                "Wide::generate_random_instance()",
-                "crate::issue484::xml_widths::wide::Wide { "
-                "value: 2_147_483_648 }",
-            )
-            with open(union_file, "w", encoding="utf-8") as generated:
-                generated.write(source)
         integration_dir = os.path.join(rust_path, "tests")
         os.makedirs(integration_dir, exist_ok=True)
         with open(
@@ -2272,8 +2293,13 @@ class TestAvroToRust(unittest.TestCase):
                 "use rust_xml_record_number_widths::issue484::xml_widths::{\n"
                 "    forwardunion::ForwardUnion,\n"
                 "    reverseunion::ReverseUnion,\n"
+                "    arraywidthunion::ArrayWidthUnion,\n"
+                "    mapwidthunion::MapWidthUnion,\n"
                 "    wide::Wide,\n"
+                "    widearray::WideArray,\n"
+                "    widemap::WideMap,\n"
                 "};\n\n"
+                "use std::collections::HashMap;\n\n"
                 "#[test]\n"
                 "fn wide_record_is_unique_in_both_orders() {\n"
                 "    let xml = \"<Choice><value>2147483648</value></Choice>\";\n"
@@ -2291,6 +2317,18 @@ class TestAvroToRust(unittest.TestCase):
                 "    assert!(quick_xml::se::to_string(&ReverseUnion::Wide(Wide {\n"
                 "        value: 2_147_483_648,\n"
                 "    })).is_ok());\n"
+                "    assert!(quick_xml::se::to_string(\n"
+                "        &ArrayWidthUnion::WideArray(WideArray {\n"
+                "            values: vec![2_147_483_648],\n"
+                "        })\n"
+                "    ).is_ok());\n"
+                "    assert!(quick_xml::se::to_string(\n"
+                "        &MapWidthUnion::WideMap(WideMap {\n"
+                "            values: HashMap::from([(\n"
+                "                \"key\".into(), 2_147_483_648,\n"
+                "            )]),\n"
+                "        })\n"
+                "    ).is_ok());\n"
                 "}\n"
             )
         assert subprocess.check_call(
