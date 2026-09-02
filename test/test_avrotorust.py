@@ -2817,6 +2817,113 @@ class TestAvroToRust(unittest.TestCase):
             timeout=self.CARGO_TIMEOUT,
         ) == 0
 
+    def test_recursive_xml_discriminators_are_competitor_proven(self):
+        """Choose the field and nested enum value competitors reject."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-competitor-proven-xml",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "enum",
+                "name": "TagA",
+                "namespace": "issue484.competitor_proven",
+                "symbols": ["SHARED", "A_ONLY"],
+            }, {
+                "type": "enum",
+                "name": "TagB",
+                "namespace": "issue484.competitor_proven",
+                "symbols": ["SHARED", "B_ONLY"],
+            }, {
+                "type": "record",
+                "name": "Narrow",
+                "namespace": "issue484.competitor_proven",
+                "fields": [
+                    {"name": "common", "type": "long"},
+                    {"name": "tag", "type": "int"},
+                ],
+            }, {
+                "type": "record",
+                "name": "Wide",
+                "namespace": "issue484.competitor_proven",
+                "fields": [
+                    {"name": "common", "type": "long"},
+                    {"name": "tag", "type": "long"},
+                ],
+            }, {
+                "type": "record",
+                "name": "EnumA",
+                "namespace": "issue484.competitor_proven",
+                "fields": [
+                    {"name": "common", "type": "long"},
+                    {"name": "tag", "type": "TagA"},
+                ],
+            }, {
+                "type": "record",
+                "name": "EnumB",
+                "namespace": "issue484.competitor_proven",
+                "fields": [
+                    {"name": "common", "type": "long"},
+                    {"name": "tag", "type": "TagB"},
+                ],
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.competitor_proven",
+                "fields": [{
+                    "name": "numeric",
+                    "type": ["Narrow", "Wide"],
+                }, {
+                    "name": "tagged",
+                    "type": ["EnumA", "EnumB"],
+                }],
+            }],
+            rust_path,
+            package_name="rust-competitor-proven-xml",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        union_files = glob.glob(os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "competitor_proven",
+            "unionpath*.rs",
+        ))
+        sources = []
+        for union_file in union_files:
+            with open(union_file, encoding="utf-8") as generated:
+                sources.append(generated.read())
+        numeric_source = next(
+            source for source in sources
+            if "::Wide(" in source
+        )
+        numeric_generator = numeric_source[numeric_source.index(
+            "pub fn generate_random_instance()"
+        ):]
+        self.assertIn("value.tag = i64::MAX", numeric_generator)
+        self.assertNotIn("value.common = i64::MAX", numeric_generator)
+        enum_source = next(
+            source for source in sources
+            if "::EnumA(" in source
+        )
+        enum_generator = enum_source[enum_source.index(
+            "pub fn generate_random_instance()"
+        ):]
+        self.assertIn("TagA::A_ONLY", enum_generator)
+        self.assertIn("TagB::B_ONLY", enum_generator)
+        for _ in range(10):
+            assert subprocess.check_call(
+                ['cargo', 'test', '--quiet'],
+                cwd=rust_path,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                timeout=self.CARGO_TIMEOUT,
+            ) == 0
+
     def test_enum_xml_discriminators_choose_unique_symbols(self):
         """Choose a provably unique enum symbol before random fallback."""
         rust_path = os.path.join(

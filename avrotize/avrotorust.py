@@ -992,13 +992,95 @@ class AvroToRust:
             )
         return self.analysis_rust_type(node_type, namespace)
 
-    def _xml_discriminator_recipe(self, avro_type, namespace: str, active=None):
+    def xml_schema_identity(self, avro_type, namespace: str):
+        """Returns a stable identity for discriminator recipe caching."""
+        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        if isinstance(resolved, dict) and resolved.get('name'):
+            return (
+                'named',
+                self.avro_type_fullnames.get(id(resolved))
+                or self.canonical_avro_name(
+                    resolved['name'],
+                    resolved.get('namespace', namespace),
+                )[0],
+            )
+        if isinstance(resolved, (dict, list)):
+            return ('identity', id(resolved))
+        return ('value', resolved)
+
+    def xml_record_match_info(self, avro_type, namespace: str):
+        """Returns declared/required canonical names and accepted field lookup."""
+        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        if not isinstance(resolved, dict) or resolved.get('type') != 'record':
+            return None
+        record_namespace = (
+            self.avro_type_fullnames.get(id(resolved), '')
+            .rpartition('.')[0]
+            or namespace
+        )
+        declared = set()
+        required = set()
+        accepted = {}
+        for field in resolved.get('fields', []):
+            wire_name = xml_wire_name(field['name'], field)
+            if field.get('xmlkind', 'element') == 'attribute':
+                wire_name = f'@{wire_name}'
+            declared.add(wire_name)
+            accepted[wire_name] = field['type']
+            if (
+                (self.serde_annotation or self.avro_annotation)
+                and field['name'] != wire_name
+            ):
+                accepted[field['name']] = field['type']
+            field_type = self.analysis_rust_type(
+                field['type'],
+                record_namespace,
+            )
+            if not (field_type and field_type.startswith('Option<')):
+                required.add(wire_name)
+        return resolved, record_namespace, declared, required, accepted
+
+    def xml_type_accepts_i64_max(self, avro_type, namespace: str) -> bool:
+        """Conservatively checks whether an XML type accepts i64::MAX text."""
+        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        if isinstance(resolved, list):
+            return any(
+                self.xml_type_accepts_i64_max(branch, namespace)
+                for branch in resolved
+                if branch != 'null'
+            )
+        if isinstance(resolved, dict):
+            logical_type = resolved.get('logicalType')
+            if logical_type:
+                return False
+            node_type = resolved.get('type')
+            if node_type == 'enum':
+                return str(2**63 - 1) in self.xml_enum_wire_symbols(
+                    resolved,
+                    namespace,
+                )
+            if isinstance(node_type, (dict, list)):
+                return self.xml_type_accepts_i64_max(
+                    node_type,
+                    namespace,
+                )
+            resolved = node_type
+        return resolved in ('long', 'float', 'double', 'string')
+
+    def _xml_discriminator_recipe(
+        self,
+        avro_type,
+        namespace: str,
+        active=None,
+        competitors=None,
+    ):
         """Finds one distinguishing path through a named schema DAG."""
         root_active = set() if active is None else set(active)
         stack = [{
             'avro_type': avro_type,
             'namespace': namespace,
             'active': root_active,
+            'competitors': list(competitors or ()),
             'initialized': False,
             'awaiting': False,
             'blocked': False,
@@ -1046,6 +1128,13 @@ class AvroToRust:
                     cache_key = (
                         self.avro_type_fullnames.get(id(resolved)),
                         frame['namespace'],
+                        tuple(
+                            self.xml_schema_identity(
+                                competitor,
+                                frame['namespace'],
+                            )
+                            for competitor in frame['competitors']
+                        ),
                     )
                     frame['cache_key'] = cache_key
                     if cache_key in self._xml_discriminator_recipe_cache:
@@ -1069,11 +1158,46 @@ class AvroToRust:
                 if isinstance(resolved, dict):
                     node_type = resolved.get('type')
                     if node_type == 'record':
-                        record_namespace = (
-                            self.avro_type_fullnames.get(id(resolved), '')
-                            .rpartition('.')[0]
+                        candidate_info = self.xml_record_match_info(
+                            resolved,
+                            frame['namespace'],
                         )
+                        record_namespace = candidate_info[1]
+                        viable_competitors = []
+                        for competitor in frame['competitors']:
+                            other_info = self.xml_record_match_info(
+                                competitor,
+                                frame['namespace'],
+                            )
+                            if other_info is None:
+                                continue
+                            if other_info[3] - candidate_info[2]:
+                                continue
+                            viable_competitors.append(other_info)
+                        if (
+                            frame['competitors']
+                            and not viable_competitors
+                        ):
+                            stack.pop()
+                            returned = ('default',)
+                            has_returned = True
+                            continue
                         for field in resolved.get('fields', []):
+                            wire_name = xml_wire_name(
+                                field['name'],
+                                field,
+                            )
+                            if field.get('xmlkind', 'element') == 'attribute':
+                                wire_name = f'@{wire_name}'
+                            child_competitors = []
+                            for other_info in viable_competitors:
+                                other_field = other_info[4].get(wire_name)
+                                if other_field is None:
+                                    child_competitors = None
+                                    break
+                                child_competitors.append(other_field)
+                            if child_competitors is None:
+                                continue
                             field_type = self.analysis_rust_type(
                                 field['type'],
                                 record_namespace,
@@ -1091,8 +1215,30 @@ class AvroToRust:
                                     ),
                                     field['type'],
                                     record_namespace,
+                                    child_competitors,
                                 ))
                     elif node_type == 'array':
+                        viable_competitors = []
+                        for competitor in frame['competitors']:
+                            other = self.resolve_xml_schema_node(
+                                competitor,
+                                frame['namespace'],
+                            )
+                            if (
+                                isinstance(other, dict)
+                                and other.get('type') == 'array'
+                            ):
+                                viable_competitors.append(
+                                    other.get('items')
+                                )
+                        if (
+                            frame['competitors']
+                            and not viable_competitors
+                        ):
+                            stack.pop()
+                            returned = ('default',)
+                            has_returned = True
+                            continue
                         item_type = self.analysis_rust_type(
                             resolved.get('items'),
                             frame['namespace'],
@@ -1108,8 +1254,30 @@ class AvroToRust:
                                 ),
                                 resolved.get('items'),
                                 frame['namespace'],
+                                viable_competitors,
                             ))
                     elif node_type == 'map':
+                        viable_competitors = []
+                        for competitor in frame['competitors']:
+                            other = self.resolve_xml_schema_node(
+                                competitor,
+                                frame['namespace'],
+                            )
+                            if (
+                                isinstance(other, dict)
+                                and other.get('type') == 'map'
+                            ):
+                                viable_competitors.append(
+                                    other.get('values')
+                                )
+                        if (
+                            frame['competitors']
+                            and not viable_competitors
+                        ):
+                            stack.pop()
+                            returned = ('default',)
+                            has_returned = True
+                            continue
                         value_type = self.analysis_rust_type(
                             resolved.get('values'),
                             frame['namespace'],
@@ -1125,24 +1293,67 @@ class AvroToRust:
                                 ),
                                 resolved.get('values'),
                                 frame['namespace'],
+                                viable_competitors,
                             ))
+                    elif node_type == 'enum':
+                        symbols = self.xml_enum_wire_symbols(
+                            resolved,
+                            frame['namespace'],
+                        )
+                        competing_symbols = set()
+                        for competitor in frame['competitors']:
+                            competing_symbols.update(
+                                self.xml_enum_wire_symbols(
+                                    competitor,
+                                    frame['namespace'],
+                                )
+                                or ()
+                            )
+                        for symbol in resolved.get('symbols', []):
+                            if xml_enum_wire_value(
+                                symbol,
+                                resolved,
+                            ) not in competing_symbols:
+                                stack.pop()
+                                returned = ('enum', symbol)
+                                has_returned = True
+                                break
+                        if has_returned:
+                            continue
                     elif node_type == 'long':
+                        if all(
+                            not self.xml_type_accepts_i64_max(
+                                competitor,
+                                frame['namespace'],
+                            )
+                            for competitor in frame['competitors']
+                        ):
+                            stack.pop()
+                            returned = ('value', 'i64::MAX')
+                            has_returned = True
+                            continue
+                elif resolved == 'long':
+                    if all(
+                        not self.xml_type_accepts_i64_max(
+                            competitor,
+                            frame['namespace'],
+                        )
+                        for competitor in frame['competitors']
+                    ):
                         stack.pop()
                         returned = ('value', 'i64::MAX')
                         has_returned = True
                         continue
-                elif resolved == 'long':
-                    stack.pop()
-                    returned = ('value', 'i64::MAX')
-                    has_returned = True
-                    continue
                 frame['children'] = children
                 frame['child_index'] = 0
 
             if frame['child_index'] < len(frame['children']):
-                builder, child_type, child_namespace = frame['children'][
-                    frame['child_index']
-                ]
+                (
+                    builder,
+                    child_type,
+                    child_namespace,
+                    child_competitors,
+                ) = frame['children'][frame['child_index']]
                 frame['child_index'] += 1
                 frame['current_builder'] = builder
                 frame['awaiting'] = True
@@ -1150,6 +1361,7 @@ class AvroToRust:
                     'avro_type': child_type,
                     'namespace': child_namespace,
                     'active': frame['active'],
+                    'competitors': child_competitors,
                     'initialized': False,
                     'awaiting': False,
                     'blocked': False,
@@ -1232,13 +1444,21 @@ class AvroToRust:
         wrappers = []
         current_recipe = recipe
         current_rust_type = rust_type
-        while current_recipe[0] != 'value':
+        while current_recipe[0] not in ('value', 'enum', 'default'):
             kind = current_recipe[0]
             wrappers.append((kind, current_recipe, current_rust_type))
             current_rust_type = current_recipe[2]
             current_recipe = current_recipe[-1]
 
-        value = current_recipe[1]
+        if current_recipe[0] == 'value':
+            value = current_recipe[1]
+        elif current_recipe[0] == 'enum':
+            value = (
+                f'{current_rust_type}::'
+                f'{self.safe_identifier(current_recipe[1])}'
+            )
+        else:
+            value = 'Default::default()'
         for kind, wrapper, wrapper_rust_type in reversed(wrappers):
             if kind == 'record':
                 field_name = wrapper[1]
@@ -1312,7 +1532,11 @@ class AvroToRust:
                         return value
             return f'{rust_type}::default()'
 
-        recipe = self._xml_discriminator_recipe(avro_type, namespace)
+        recipe = self._xml_discriminator_recipe(
+            avro_type,
+            namespace,
+            competitors=competitors,
+        )
         if recipe is XML_RECIPE_BLOCKED:
             recipe = None
         if recipe is not None:
