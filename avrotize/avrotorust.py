@@ -296,6 +296,18 @@ class AvroToRust:
         self.json_round_trip_safety = None
         self._json_signature_cache = None
         self.json_safety_signature_stats = None
+        self._xml_predicate_signature_cache = {}
+        self.xml_predicate_signature_stats = {
+            'build_count': 0,
+            'node_count': 0,
+            'cache_hits': 0,
+        }
+        self._xml_discriminator_recipe_cache = {}
+        self.xml_discriminator_stats = {
+            'node_visits': 0,
+            'cache_hits': 0,
+            'max_output_size': 0,
+        }
         
     reserved_words = [
             'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern', 'false', 'fn', 'for', 'if', 'impl',
@@ -552,6 +564,8 @@ class AvroToRust:
     def index_avro_named_types(self, node, parent_namespace=''):
         """Indexes named Avro types by canonical fullname."""
         self.json_round_trip_safety = None
+        self._xml_predicate_signature_cache.clear()
+        self._xml_discriminator_recipe_cache.clear()
         if isinstance(node, list):
             for item in node:
                 self.index_avro_named_types(item, parent_namespace)
@@ -889,15 +903,241 @@ class AvroToRust:
             return 'record'
         return 'text'
 
+    def analysis_rust_type(self, avro_type, namespace: str):
+        """Maps schema types without generating or registering Rust artifacts."""
+        if isinstance(avro_type, str):
+            resolved = self.resolve_avro_named_type(avro_type, namespace)
+            if resolved is not None:
+                fullname = self.avro_type_fullnames[id(resolved)]
+                named_namespace = fullname.rpartition('.')[0]
+                rust_namespace = named_namespace.replace('.', '::').lower()
+                rust_name = self.safe_identifier(
+                    pascal(fullname.rsplit('.', 1)[-1])
+                )
+                if resolved.get('type') == 'fixed':
+                    if resolved.get('logicalType') == 'decimal':
+                        return 'f64'
+                    return 'Vec<u8>'
+                return self.safe_package(
+                    self.concat_package(rust_namespace, rust_name)
+                )
+            return self.map_primitive_to_rust(avro_type, False)
+        if isinstance(avro_type, list):
+            branches = [branch for branch in avro_type if branch != 'null']
+            if len(branches) != 1:
+                return None
+            inner = self.analysis_rust_type(branches[0], namespace)
+            if inner is None:
+                return None
+            if 'null' not in avro_type:
+                return inner
+            if (
+                isinstance(branches[0], str)
+                and self.resolve_avro_named_type(
+                    branches[0],
+                    namespace,
+                ) is not None
+            ):
+                return inner
+            return inner if inner.startswith('Option<') else f'Option<{inner}>'
+        if not isinstance(avro_type, dict):
+            return None
+        node_type = avro_type.get('type')
+        if node_type in ('record', 'enum'):
+            fullname, _, short_name = self.canonical_avro_name(
+                avro_type['name'],
+                avro_type.get('namespace', namespace),
+            )
+            rust_namespace = fullname.rpartition('.')[0].replace(
+                '.',
+                '::',
+            ).lower()
+            return self.safe_package(self.concat_package(
+                rust_namespace,
+                self.safe_identifier(pascal(short_name)),
+            ))
+        if node_type == 'array':
+            item_type = self.analysis_rust_type(
+                avro_type.get('items'),
+                namespace,
+            )
+            return None if item_type is None else f'Vec<{item_type}>'
+        if node_type == 'map':
+            value_type = self.analysis_rust_type(
+                avro_type.get('values'),
+                namespace,
+            )
+            return (
+                None
+                if value_type is None
+                else f'std::collections::HashMap<String, {value_type}>'
+            )
+        if avro_type.get('logicalType') == 'date':
+            return 'chrono::NaiveDate'
+        if avro_type.get('logicalType') in ('time-millis', 'time-micros'):
+            return 'chrono::NaiveTime'
+        if avro_type.get('logicalType') in (
+            'timestamp-millis',
+            'timestamp-micros',
+        ):
+            return 'chrono::NaiveDateTime'
+        if avro_type.get('logicalType') == 'uuid':
+            return 'uuid::Uuid'
+        if node_type == 'fixed':
+            return (
+                'f64'
+                if avro_type.get('logicalType') == 'decimal'
+                else 'Vec<u8>'
+            )
+        return self.analysis_rust_type(node_type, namespace)
+
+    def _xml_discriminator_recipe(self, avro_type, namespace: str, active=None):
+        """Finds one distinguishing path through a named schema DAG."""
+        active = set() if active is None else active
+        self.xml_discriminator_stats['node_visits'] += 1
+        resolved = avro_type
+        if isinstance(avro_type, str):
+            resolved = (
+                self.resolve_avro_named_type(avro_type, namespace)
+                or avro_type
+            )
+        cache_key = None
+        if isinstance(resolved, dict) and resolved.get('name'):
+            cache_key = (
+                self.avro_type_fullnames.get(id(resolved)),
+                namespace,
+            )
+            if cache_key in self._xml_discriminator_recipe_cache:
+                self.xml_discriminator_stats['cache_hits'] += 1
+                return self._xml_discriminator_recipe_cache[cache_key]
+            if cache_key[0] in active:
+                return None
+            active = active | {cache_key[0]}
+
+        recipe = None
+        if isinstance(resolved, dict):
+            node_type = resolved.get('type')
+            if node_type == 'record':
+                record_namespace = (
+                    self.avro_type_fullnames.get(id(resolved), '')
+                    .rpartition('.')[0]
+                )
+                for field in resolved.get('fields', []):
+                    field_type = self.analysis_rust_type(
+                        field['type'],
+                        record_namespace,
+                    )
+                    if field_type is None:
+                        continue
+                    child = self._xml_discriminator_recipe(
+                        field['type'],
+                        record_namespace,
+                        active,
+                    )
+                    if child is not None:
+                        recipe = (
+                            'record',
+                            self.safe_identifier(snake(field['name'])),
+                            field_type,
+                            field['type'],
+                            record_namespace,
+                            child,
+                        )
+                        break
+            elif node_type == 'array':
+                child = self._xml_discriminator_recipe(
+                    resolved.get('items'),
+                    namespace,
+                    active,
+                )
+                if child is not None:
+                    recipe = (
+                        'array',
+                        self.analysis_rust_type(
+                            resolved.get('items'),
+                            namespace,
+                        ),
+                        resolved.get('items'),
+                        child,
+                    )
+            elif node_type == 'map':
+                child = self._xml_discriminator_recipe(
+                    resolved.get('values'),
+                    namespace,
+                    active,
+                )
+                if child is not None:
+                    recipe = (
+                        'map',
+                        self.analysis_rust_type(
+                            resolved.get('values'),
+                            namespace,
+                        ),
+                        resolved.get('values'),
+                        child,
+                    )
+            elif node_type == 'long':
+                recipe = ('value', 'i64::MAX')
+        elif resolved == 'long':
+            recipe = ('value', 'i64::MAX')
+
+        if cache_key is not None:
+            self._xml_discriminator_recipe_cache[cache_key] = recipe
+        return recipe
+
+    def _render_xml_discriminator_recipe(
+        self,
+        recipe,
+        rust_type: str,
+        avro_type,
+        namespace: str,
+    ) -> str:
+        kind = recipe[0]
+        if kind == 'value':
+            return recipe[1]
+        if kind == 'record':
+            _, field_name, field_type, field_avro, field_namespace, child = (
+                recipe
+            )
+            field_value = self._render_xml_discriminator_recipe(
+                child,
+                field_type,
+                field_avro,
+                field_namespace,
+            )
+            return (
+                f'{{ let mut value: {rust_type} = Default::default(); '
+                f'value.{field_name} = {field_value}; value }}'
+            )
+        if kind == 'array':
+            _, item_type, item_avro, child = recipe
+            item = self._render_xml_discriminator_recipe(
+                child,
+                item_type,
+                item_avro,
+                namespace,
+            )
+            return f'vec![{item}]'
+        _, value_type, value_avro, child = recipe
+        value = self._render_xml_discriminator_recipe(
+            child,
+            value_type,
+            value_avro,
+            namespace,
+        )
+        return (
+            'std::collections::HashMap::from(['
+            f'("key".to_string(), {value})])'
+        )
+
     def generate_xml_distinguishing_value(
         self,
         rust_type: str,
         avro_type,
         namespace: str,
-        active=None,
+        competitors=None,
     ) -> str:
-        """Generates a deterministic value that preserves numeric width."""
-        active = set() if active is None else active
+        """Generates one bounded deterministic XML-distinguishing value."""
         optional_type = self._rust_inner_type(rust_type, 'Option<')
         if optional_type is not None:
             return 'None'
@@ -914,62 +1154,60 @@ class AvroToRust:
             else avro_type
         )
         if isinstance(resolved, dict) and resolved.get('type') == 'enum':
+            competing_symbols = set()
+            accepts_all_text = False
+            for competitor in competitors or ():
+                other = (
+                    self.resolve_avro_named_type(competitor, namespace)
+                    if isinstance(competitor, str)
+                    else competitor
+                )
+                if isinstance(other, dict) and other.get('type') == 'enum':
+                    competing_symbols.update(
+                        xml_enum_wire_value(symbol, other)
+                        for symbol in other.get('symbols', [])
+                    )
+                elif other == 'string' or (
+                    isinstance(other, dict)
+                    and other.get('type') == 'string'
+                ):
+                    accepts_all_text = True
+            if not accepts_all_text:
+                for symbol in resolved.get('symbols', []):
+                    if xml_enum_wire_value(symbol, resolved) not in (
+                        competing_symbols
+                    ):
+                        value = (
+                            f'{rust_type}::{self.safe_identifier(symbol)}'
+                        )
+                        self.xml_discriminator_stats[
+                            'max_output_size'
+                        ] = max(
+                            self.xml_discriminator_stats['max_output_size'],
+                            len(value),
+                        )
+                        return value
             return f'{rust_type}::default()'
-        if isinstance(resolved, dict) and resolved.get('type') == 'record':
-            fullname, record_namespace, _ = self.canonical_avro_name(
-                resolved['name'],
-                resolved.get('namespace', namespace),
-            )
-            if fullname in active:
-                return 'Default::default()'
-            nested_active = active | {fullname}
-            values = []
-            for field in resolved.get('fields', []):
-                field_name = self.safe_identifier(snake(field['name']))
-                field_type = self.convert_avro_type_to_rust(
-                    field_name,
-                    field['type'],
-                    record_namespace,
-                )
-                field_value = self.generate_xml_distinguishing_value(
-                    field_type,
-                    field['type'],
-                    record_namespace,
-                    nested_active,
-                )
-                values.append(f'{field_name}: {field_value}')
-            return f'{rust_type} {{ {", ".join(values)} }}'
-        if isinstance(resolved, dict) and resolved.get('type') == 'array':
-            item_type = self._rust_inner_type(rust_type, 'Vec<')
-            if item_type is not None:
-                item = self.generate_xml_distinguishing_value(
-                    item_type,
-                    resolved.get('items'),
-                    namespace,
-                    active,
-                )
-                return f'vec![{item}]'
-        if isinstance(resolved, dict) and resolved.get('type') == 'map':
-            value_type = self._rust_inner_type(
+
+        recipe = self._xml_discriminator_recipe(avro_type, namespace)
+        if recipe is not None:
+            value = self._render_xml_discriminator_recipe(
+                recipe,
                 rust_type,
-                'std::collections::HashMap<String, ',
+                avro_type,
+                namespace,
             )
-            if value_type is not None:
-                value = self.generate_xml_distinguishing_value(
-                    value_type,
-                    resolved.get('values'),
-                    namespace,
-                    active,
-                )
-                return (
-                    'std::collections::HashMap::from(['
-                    f'("key".to_string(), {value})])'
-                )
-        return self.generate_random_value_for_avro(
-            rust_type,
-            avro_type,
-            namespace,
+        else:
+            value = self.generate_random_value_for_avro(
+                rust_type,
+                avro_type,
+                namespace,
+            )
+        self.xml_discriminator_stats['max_output_size'] = max(
+            self.xml_discriminator_stats['max_output_size'],
+            len(value),
         )
+        return value
 
     def xml_record_field_sets(self, avro_type, namespace: str):
         """Returns canonical declared and required XML fields for a record."""
@@ -1000,116 +1238,167 @@ class AvroToRust:
         avro_type,
         namespace: str,
         canonical: bool = False,
-        active=None,
     ):
-        """Returns a conservative structural key for an exact XML predicate."""
-        active = set() if active is None else active
-        if isinstance(avro_type, str):
-            resolved = self.resolve_avro_named_type(avro_type, namespace)
-            if resolved is not None:
-                return self.xml_exact_predicate_key(
-                    resolved,
-                    self.avro_type_fullnames[id(resolved)].rpartition('.')[0],
-                    canonical,
-                    active,
-                )
-            return ('primitive', avro_type)
-        if isinstance(avro_type, list):
-            return (
-                'union',
-                tuple(
-                    self.xml_exact_predicate_key(
-                        branch,
-                        namespace,
-                        canonical,
-                        active,
-                    )
-                    for branch in avro_type
-                    if branch != 'null'
-                ),
-                'null' in avro_type,
-            )
-        if not isinstance(avro_type, dict):
-            return ('literal', repr(avro_type))
+        """Returns a bounded graph key for an exact XML predicate."""
+        cache_key = (
+            canonical,
+            namespace,
+            (
+                ('name', avro_type)
+                if isinstance(avro_type, str)
+                else ('identity', id(avro_type))
+            ),
+        )
+        cached = self._xml_predicate_signature_cache.get(cache_key)
+        if cached is not None:
+            self.xml_predicate_signature_stats['cache_hits'] += 1
+            return cached
 
-        node_type = avro_type.get('type')
-        logical_type = avro_type.get('logicalType')
-        if logical_type:
-            return ('logical', logical_type, node_type)
-        if node_type == 'record':
-            fullname, record_namespace, _ = self.canonical_avro_name(
-                avro_type['name'],
-                avro_type.get('namespace', namespace),
-            )
-            if fullname in active:
-                return ('recursive-record', fullname)
-            nested_active = active | {fullname}
-            fields = []
-            for field in avro_type.get('fields', []):
-                wire_name = xml_wire_name(field['name'], field)
-                if field.get('xmlkind', 'element') == 'attribute':
-                    wire_name = f'@{wire_name}'
-                names = (wire_name,)
-                if (
-                    not canonical
-                    and (self.serde_annotation or self.avro_annotation)
-                    and field['name'] != wire_name
-                ):
-                    names = tuple(sorted((wire_name, field['name'])))
-                field_type = field['type']
-                nullable = (
-                    isinstance(field_type, list)
-                    and 'null' in field_type
-                )
-                fields.append((
-                    names,
-                    nullable,
-                    self.xml_exact_predicate_key(
-                        field_type,
+        nodes = []
+        atoms = {}
+        named_nodes = {}
+        anonymous_nodes = {}
+        pending = []
+
+        def atom(kind):
+            if kind not in atoms:
+                atoms[kind] = len(nodes)
+                nodes.append((kind, None))
+            return atoms[kind]
+
+        def ensure(node, current_namespace):
+            while True:
+                if isinstance(node, str):
+                    resolved = self.resolve_avro_named_type(
+                        node,
+                        current_namespace,
+                    )
+                    if resolved is None:
+                        return atom(f'primitive:{node}')
+                    node = resolved
+                if isinstance(node, list):
+                    key = ('union', id(node), current_namespace)
+                    if key in anonymous_nodes:
+                        return anonymous_nodes[key]
+                    node_id = len(nodes)
+                    anonymous_nodes[key] = node_id
+                    nodes.append(None)
+                    pending.append((
+                        'union',
+                        node_id,
+                        node,
+                        current_namespace,
+                    ))
+                    return node_id
+                if not isinstance(node, dict):
+                    return atom(f'literal:{node!r}')
+
+                node_type = node.get('type')
+                logical_type = node.get('logicalType')
+                if logical_type:
+                    return atom(f'logical:{logical_type}:{node_type}')
+                if node_type == 'record':
+                    fullname, record_namespace, _ = self.canonical_avro_name(
+                        node['name'],
+                        node.get('namespace', current_namespace),
+                    )
+                    if fullname in named_nodes:
+                        return named_nodes[fullname]
+                    node_id = len(nodes)
+                    named_nodes[fullname] = node_id
+                    nodes.append(None)
+                    pending.append((
+                        'record',
+                        node_id,
+                        node,
                         record_namespace,
-                        canonical,
-                        nested_active,
+                    ))
+                    return node_id
+                if node_type == 'enum':
+                    symbols = tuple(
+                        xml_enum_wire_value(symbol, node)
+                        for symbol in node.get('symbols', [])
+                    )
+                    if (
+                        not canonical
+                        and (self.serde_annotation or self.avro_annotation)
+                    ):
+                        symbols = tuple(sorted(set(
+                            symbols + tuple(node.get('symbols', []))
+                        )))
+                    return atom('enum:' + '\x1f'.join(symbols))
+                if node_type in ('array', 'map'):
+                    key = (node_type, id(node), current_namespace)
+                    if key in anonymous_nodes:
+                        return anonymous_nodes[key]
+                    node_id = len(nodes)
+                    anonymous_nodes[key] = node_id
+                    nodes.append(None)
+                    payload = (
+                        node.get('items')
+                        if node_type == 'array'
+                        else node.get('values')
+                    )
+                    pending.append((
+                        node_type,
+                        node_id,
+                        payload,
+                        current_namespace,
+                    ))
+                    return node_id
+                if isinstance(node_type, (dict, list)):
+                    node = node_type
+                    continue
+                return atom(f'primitive:{node_type}')
+
+        root = ensure(avro_type, namespace)
+        pending_index = 0
+        while pending_index < len(pending):
+            kind, node_id, payload, current_namespace = pending[pending_index]
+            pending_index += 1
+            if kind == 'record':
+                fields = []
+                for field in payload.get('fields', []):
+                    wire_name = xml_wire_name(field['name'], field)
+                    if field.get('xmlkind', 'element') == 'attribute':
+                        wire_name = f'@{wire_name}'
+                    names = (wire_name,)
+                    if (
+                        not canonical
+                        and (self.serde_annotation or self.avro_annotation)
+                        and field['name'] != wire_name
+                    ):
+                        names = tuple(sorted((wire_name, field['name'])))
+                    nullable = (
+                        isinstance(field['type'], list)
+                        and 'null' in field['type']
+                    )
+                    fields.append((
+                        (names, nullable),
+                        ensure(field['type'], current_namespace),
+                    ))
+                nodes[node_id] = ('record_match', tuple(fields))
+            elif kind == 'union':
+                nodes[node_id] = (
+                    'union',
+                    tuple(
+                        ensure(branch, current_namespace)
+                        for branch in payload
                     ),
-                ))
-            return ('record', tuple(fields))
-        if node_type == 'enum':
-            symbols = tuple(
-                xml_enum_wire_value(symbol, avro_type)
-                for symbol in avro_type.get('symbols', [])
-            )
-            if not canonical and (self.serde_annotation or self.avro_annotation):
-                symbols = tuple(sorted(set(
-                    symbols + tuple(avro_type.get('symbols', []))
-                )))
-            return ('enum', symbols)
-        if node_type == 'array':
-            return (
-                'array',
-                self.xml_exact_predicate_key(
-                    avro_type.get('items'),
-                    namespace,
-                    canonical,
-                    active,
-                ),
-            )
-        if node_type == 'map':
-            return (
-                'map',
-                self.xml_exact_predicate_key(
-                    avro_type.get('values'),
-                    namespace,
-                    canonical,
-                    active,
-                ),
-            )
-        if isinstance(node_type, (dict, list)):
-            return self.xml_exact_predicate_key(
-                node_type,
-                namespace,
-                canonical,
-                active,
-            )
-        return ('primitive', node_type)
+                )
+            else:
+                nodes[node_id] = (
+                    kind,
+                    ensure(payload, current_namespace),
+                )
+
+        signature = JsonSignature(root, nodes)
+        self._xml_predicate_signature_cache[cache_key] = signature
+        self.xml_predicate_signature_stats['build_count'] += 1
+        self.xml_predicate_signature_stats[
+            'node_count'
+        ] += signature.node_count
+        return signature
 
     def generate_struct(
         self,
@@ -2516,6 +2805,11 @@ class AvroToRust:
                     field['type'],
                     field['avro_type'],
                     namespace,
+                    [
+                        candidate['avro_type']
+                        for candidate in union_fields
+                        if candidate is not field
+                    ],
                 )
                 if field['xml_check_value_ambiguity']
                 else field['random_value']

@@ -1068,6 +1068,130 @@ class TestAvroToRust(unittest.TestCase):
         self.assertEqual(76, small["cache_hits"])
         self.assertEqual(156, large["cache_hits"])
 
+    def test_xml_analysis_is_bounded_on_shared_named_dags(self):
+        """Intern exact predicates and follow one discriminator path."""
+        measurements = []
+        for depth in (10, 15, 20):
+            namespace = "issue484.xml_analysis_dag"
+            schemas = [{
+                "type": "record",
+                "name": "Node00",
+                "namespace": namespace,
+                "fields": [{"name": "value", "type": "long"}],
+            }]
+            for index in range(1, depth + 1):
+                schemas.append({
+                    "type": "record",
+                    "name": f"Node{index:02d}",
+                    "namespace": namespace,
+                    "fields": [{
+                        "name": "left",
+                        "type": f"Node{index - 1:02d}",
+                    }, {
+                        "name": "right",
+                        "type": f"Node{index - 1:02d}",
+                    }],
+                })
+            converter = AvroToRust()
+            converter.index_avro_named_types(schemas)
+            rust_type = converter.analysis_rust_type(
+                f"Node{depth:02d}",
+                namespace,
+            )
+            value = converter.generate_xml_distinguishing_value(
+                rust_type,
+                f"Node{depth:02d}",
+                namespace,
+            )
+            signature = converter.xml_exact_predicate_key(
+                f"Node{depth:02d}",
+                namespace,
+            )
+            measurements.append((
+                len(value),
+                converter.xml_discriminator_stats["node_visits"],
+                signature.node_count,
+                len(repr(signature)),
+                converter.xml_predicate_signature_stats["node_count"],
+            ))
+            self.assertLessEqual(
+                converter.xml_discriminator_stats["node_visits"],
+                depth + 2,
+            )
+            self.assertEqual(depth + 2, signature.node_count)
+            self.assertLess(len(value), 10_000)
+            self.assertLess(len(repr(signature)), 10_000)
+
+        for previous, current in zip(measurements, measurements[1:]):
+            self.assertLess(current[0], previous[0] * 3)
+            self.assertLess(current[3], previous[3] * 3)
+            self.assertLess(current[4], previous[4] * 3)
+
+    def test_xml_discriminator_analysis_preserves_union_identity_order(self):
+        """Never register synthetic nested unions while analyzing values."""
+        namespace = "issue484.xml_analysis_order"
+        container = {
+            "type": "record",
+            "name": "Container",
+            "namespace": namespace,
+            "fields": [{
+                "name": "nested",
+                "type": ["int", "long"],
+            }],
+        }
+        other = {
+            "type": "record",
+            "name": "Other",
+            "namespace": namespace,
+            "fields": [{"name": "other", "type": "boolean"}],
+        }
+        holder = {
+            "type": "record",
+            "name": "Holder",
+            "namespace": namespace,
+            "fields": [{
+                "name": "choice",
+                "type": ["Container", "Other"],
+            }],
+        }
+        identities = []
+        for order_name, schemas in (
+            ("before", [container, other, holder]),
+            ("after", [holder, container, other]),
+        ):
+            rust_path = os.path.join(
+                tempfile.gettempdir(),
+                "avrotize",
+                f"rust-xml-analysis-order-{order_name}",
+            )
+            if os.path.exists(rust_path):
+                shutil.rmtree(rust_path, ignore_errors=True)
+            convert_avro_schema_to_rust(
+                schemas,
+                rust_path,
+                package_name=f"rust-xml-analysis-order-{order_name}",
+                serde_annotation=True,
+                xml_annotation=True,
+            )
+            identities.append(sorted(
+                path.basename(union_file)
+                for union_file in glob.glob(os.path.join(
+                    rust_path,
+                    "src",
+                    "issue484",
+                    "xml_analysis_order",
+                    "unionpath*.rs",
+                ))
+            ))
+            assert subprocess.check_call(
+                ['cargo', 'test'],
+                cwd=rust_path,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                timeout=self.CARGO_TIMEOUT,
+            ) == 0
+        self.assertEqual(identities[0], identities[1])
+
     def test_recursive_union_overlap_requires_a_concrete_match(self):
         """Do not infer overlap solely by revisiting a recursive pair."""
         converter = AvroToRust()
@@ -2405,6 +2529,63 @@ class TestAvroToRust(unittest.TestCase):
             stderr=sys.stderr,
             timeout=self.CARGO_TIMEOUT,
         ) == 0
+
+    def test_enum_xml_discriminators_choose_unique_symbols(self):
+        """Choose a provably unique enum symbol before random fallback."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-enum-xml-discriminator",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "enum",
+                "name": "TagA",
+                "namespace": "issue484.enum_discriminator",
+                "symbols": ["SHARED", "A_ONLY"],
+            }, {
+                "type": "enum",
+                "name": "TagB",
+                "namespace": "issue484.enum_discriminator",
+                "symbols": ["SHARED", "B_ONLY"],
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.enum_discriminator",
+                "fields": [{
+                    "name": "choice",
+                    "type": ["TagA", "TagB"],
+                }],
+            }],
+            rust_path,
+            package_name="rust-enum-xml-discriminator",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        union_file = glob.glob(os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "enum_discriminator",
+            "unionpath*.rs",
+        ))[0]
+        with open(union_file, encoding="utf-8") as generated:
+            source = generated.read()
+        generator = source[source.index(
+            "pub fn generate_random_instance()"
+        ):]
+        self.assertIn("TagA::A_ONLY", generator)
+        self.assertIn("TagB::B_ONLY", generator)
+        for _ in range(10):
+            assert subprocess.check_call(
+                ['cargo', 'test', '--quiet'],
+                cwd=rust_path,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                timeout=self.CARGO_TIMEOUT,
+            ) == 0
 
     def test_nested_xml_serialization_probes_each_boundary_once(self):
         """Probe one outer and one inner ambiguous XML union boundary."""
