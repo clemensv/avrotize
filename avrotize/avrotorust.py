@@ -900,16 +900,7 @@ class AvroToRust:
         active = set() if active is None else active
         optional_type = self._rust_inner_type(rust_type, 'Option<')
         if optional_type is not None:
-            return (
-                'Some('
-                + self.generate_xml_distinguishing_value(
-                    optional_type,
-                    avro_type,
-                    namespace,
-                    active,
-                )
-                + ')'
-            )
+            return 'None'
         if rust_type == 'i64':
             return 'i64::MAX'
         if rust_type == 'u64':
