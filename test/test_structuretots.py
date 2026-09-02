@@ -188,6 +188,47 @@ class TestStructureToTypeScript(unittest.TestCase):
         except FileNotFoundError:
             print("Warning: npm not found, skipping TypeScript compilation for schema-test")
 
+    def test_named_tuple_uses_properties_and_serializes_in_tuple_order(self):
+        """A named tuple exposes properties but keeps its positional JSON form."""
+        schema = {
+            "type": "object",
+            "name": "Wgs84Position",
+            "properties": {
+                "position": {
+                    "type": "tuple",
+                    "name": "GeographicPoint",
+                    "properties": {
+                        "longitude": {"type": "double"},
+                        "latitude": {"type": "double"}
+                    },
+                    "tuple": ["longitude", "latitude"]
+                }
+            },
+            "required": ["position"]
+        }
+        ts_path = os.path.join(tempfile.gettempdir(), "avrotize", "named-tuple-ts")
+        if os.path.exists(ts_path):
+            shutil.rmtree(ts_path, ignore_errors=True)
+
+        convert_structure_schema_to_typescript(schema, ts_path)
+
+        tuple_path = os.path.join(ts_path, "src", "GeographicPoint.ts")
+        with open(tuple_path, 'r', encoding='utf-8') as tuple_file:
+            generated = tuple_file.read()
+
+        self.assertIn("public longitude: number", generated)
+        self.assertIn("public latitude: number", generated)
+        self.assertIn("return [this.longitude, this.latitude];", generated)
+        self.assertIn("value[0] as number", generated)
+        self.assertIn("value[1] as number", generated)
+        self.assertIn("static createInstance(): GeographicPoint", generated)
+
+        record_path = os.path.join(ts_path, "src", "Wgs84Position.ts")
+        with open(record_path, 'r', encoding='utf-8') as record_file:
+            record = record_file.read()
+        self.assertIn("public position: GeographicPoint", record)
+        self.assertIn("GeographicPoint.createInstance()", record)
+
     def test_convert_schema_list_to_typescript(self):
         """Test converting a list of schemas to TypeScript"""
         schemas = [

@@ -562,32 +562,92 @@ class StructureToTypeScript:
 
     def generate_tuple(self, structure_schema: Dict, parent_namespace: str, 
                       write_file: bool = True, explicit_name: str = '') -> str:
-        """ Generates a TypeScript tuple type from JSON Structure tuple type """
+        """Generates a named TypeScript class that serializes as a JSON array."""
         tuple_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'Tuple'))
         namespace = self.concat_namespace(self.base_package, structure_schema.get('namespace', parent_namespace)).lower()
         schema_namespace = structure_schema.get('namespace', parent_namespace)
-        typescript_qualified_name = self.typescript_fully_qualified_name_from_structure_type(parent_namespace, tuple_name)
+        typescript_qualified_name = self.typescript_fully_qualified_name_from_structure_type(schema_namespace, tuple_name)
         
         if typescript_qualified_name in self.generated_types:
             return typescript_qualified_name
 
         import_types: Set[str] = set()
-        tuple_items = structure_schema.get('items', [])
-        item_types = []
-        for idx, item in enumerate(tuple_items):
+        properties = structure_schema.get('properties', {})
+        tuple_order = structure_schema.get('tuple', [])
+        elements = []
+        for prop_name in tuple_order:
+            prop_schema = properties.get(prop_name, {'type': 'any'})
             item_type = self.convert_structure_type_to_typescript(
-                tuple_name, f'item{idx}', item, schema_namespace, import_types)
-            item_types.append(item_type)
+                tuple_name, prop_name, prop_schema, schema_namespace, import_types)
+            item_type_no_null = self.strip_nullable(item_type)
+            elements.append({
+                'name': self.safe_name(prop_name),
+                'type': item_type_no_null,
+                'test_value': self.generate_test_value({
+                    'type_no_null': item_type_no_null,
+                    'is_enum': any(
+                        import_type.endswith('.' + item_type_no_null)
+                        and self.generated_types.get(import_type) == 'enum'
+                        for import_type in import_types)
+                }),
+                'docstring': prop_schema.get('description', '') if isinstance(prop_schema, dict) else ''
+            })
 
-        # TypeScript tuples are just arrays with fixed length and types
-        tuple_type = f"[{', '.join(item_types)}]"
-        
-        # Generate type alias
-        tuple_definition = f"export type {tuple_name} = {tuple_type};\n"
+        imports = []
+        for import_type in import_types:
+            if import_type == typescript_qualified_name:
+                continue
+            import_type_parts = import_type.split('.')
+            import_type_name = pascal(import_type_parts[-1])
+            import_path = '/'.join(import_type_parts)
+            current_path = '/'.join(namespace.split('.'))
+            relative_import_path = os.path.relpath(import_path, current_path).replace(os.sep, '/')
+            if not relative_import_path.startswith('.'):
+                relative_import_path = f'./{relative_import_path}'
+            imports.append(f"import {{ {import_type_name} }} from '{relative_import_path}.js';")
+
+        tuple_type = f"[{', '.join(element['type'] for element in elements)}]"
+        constructor_parameters = ',\n        '.join(
+            f"public {element['name']}: {element['type']}" for element in elements)
+        array_values = ', '.join(f"this.{element['name']}" for element in elements)
+        parsed_values = ',\n            '.join(
+            f"value[{index}] as {element['type']}" for index, element in enumerate(elements))
+        test_values = ',\n            '.join(element['test_value'] for element in elements)
+        docstring = structure_schema.get('description', f'A {tuple_name} tuple.')
+        tuple_definition = '\n'.join(imports)
+        if imports:
+            tuple_definition += '\n'
+        tuple_definition += f"""/** {docstring} */
+export class {tuple_name} {{
+    constructor(
+        {constructor_parameters}
+    ) {{}}
+
+    public toJSON(): {tuple_type} {{
+        return [{array_values}];
+    }}
+
+    public static fromJSON(json: string): {tuple_name} {{
+        const value: unknown = JSON.parse(json);
+        if (!Array.isArray(value) || value.length !== {len(elements)}) {{
+            throw new Error('Expected a {tuple_name} JSON array with {len(elements)} elements');
+        }}
+        return new {tuple_name}(
+            {parsed_values}
+        );
+    }}
+
+    public static createInstance(): {tuple_name} {{
+        return new {tuple_name}(
+            {test_values}
+        );
+    }}
+}}
+"""
 
         if write_file:
             self.write_to_file(namespace, tuple_name, tuple_definition)
-        self.generated_types[typescript_qualified_name] = 'tuple'
+        self.generated_types[typescript_qualified_name] = 'class'
         return typescript_qualified_name
 
     def generate_test_value(self, field: Dict) -> str:
