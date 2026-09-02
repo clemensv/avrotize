@@ -907,6 +907,8 @@ class AvroToRust:
     def analysis_rust_type(self, avro_type, namespace: str):
         """Maps schema types without generating or registering Rust artifacts."""
         if isinstance(avro_type, str):
+            if is_any_value_type(avro_type):
+                return self.map_primitive_to_rust(avro_type, False)
             resolved = self.resolve_avro_named_type(avro_type, namespace)
             if resolved is not None:
                 fullname = self.avro_type_fullnames[id(resolved)]
@@ -1116,9 +1118,13 @@ class AvroToRust:
                 frame['initialized'] = True
                 self.xml_discriminator_stats['node_visits'] += 1
                 node = frame['avro_type']
-                resolved = self.normalize_xml_recipe_schema(
-                    node,
-                    frame['namespace'],
+                resolved = (
+                    '__runtime_any__'
+                    if isinstance(node, str) and is_any_value_type(node)
+                    else self.normalize_xml_recipe_schema(
+                        node,
+                        frame['namespace'],
+                    )
                 )
                 frame['resolved'] = resolved
                 cache_key = None
@@ -1162,6 +1168,19 @@ class AvroToRust:
                             frame['namespace'],
                         )
                         record_namespace = candidate_info[1]
+                        stable_any_fields = tuple(
+                            (
+                                self.safe_identifier(snake(field['name'])),
+                                stable_value,
+                            )
+                            for field in resolved.get('fields', [])
+                            if (
+                                stable_value := self.xml_stable_any_value(
+                                    field['type'],
+                                    record_namespace,
+                                )
+                            ) is not None
+                        )
                         viable_competitors = []
                         for competitor, competitor_namespace in (
                             frame['competitors']
@@ -1216,6 +1235,7 @@ class AvroToRust:
                                         field_type,
                                         field['type'],
                                         record_namespace,
+                                        stable_any_fields,
                                     ),
                                     field['type'],
                                     record_namespace,
@@ -1409,6 +1429,43 @@ class AvroToRust:
 
         return returned
 
+    def xml_stable_any_value(self, avro_type, namespace: str):
+        """Builds an XML-round-trippable value for runtime AnyValue fields."""
+        if isinstance(avro_type, str) and is_any_value_type(avro_type):
+            return 'serde_json::json!({"value": {}})'
+        if isinstance(avro_type, list):
+            branches = [
+                branch for branch in avro_type
+                if branch != 'null'
+                and not (
+                    isinstance(branch, dict)
+                    and branch.get('type') == 'null'
+                )
+            ]
+            if len(branches) == 1:
+                return self.xml_stable_any_value(branches[0], namespace)
+            return None
+        if not isinstance(avro_type, dict):
+            return None
+        node_type = avro_type.get('type')
+        if node_type == 'array':
+            item = self.xml_stable_any_value(
+                avro_type.get('items'),
+                namespace,
+            )
+            return f'vec![{item}]' if item is not None else None
+        if node_type == 'map':
+            value = self.xml_stable_any_value(
+                avro_type.get('values'),
+                namespace,
+            )
+            if value is not None:
+                return (
+                    'std::collections::HashMap::from(['
+                    f'("key".to_string(), {value})])'
+                )
+        return None
+
     def resolve_xml_schema_node(self, avro_type, namespace: str):
         """Resolves named references, including wrapped named type objects."""
         node = avro_type
@@ -1505,9 +1562,14 @@ class AvroToRust:
         for kind, wrapper, wrapper_rust_type in reversed(wrappers):
             if kind == 'record':
                 field_name = wrapper[1]
+                initializers = ''.join(
+                    f' value.{name} = {initial_value};'
+                    for name, initial_value in wrapper[5]
+                )
                 value = (
                     f'{{ let mut value: {wrapper_rust_type} = '
-                    f'Default::default(); value.{field_name} = {value}; '
+                    f'Default::default();{initializers} '
+                    f'value.{field_name} = {value}; '
                     'value }'
                 )
             elif kind == 'array':
@@ -1536,6 +1598,8 @@ class AvroToRust:
             return 'u64::MAX'
         if rust_type == 'String':
             return '"xml-distinct".to_string()'
+        if rust_type == 'serde_json::Value':
+            return 'serde_json::json!({"value": {}})'
 
         resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
         if isinstance(resolved, dict) and resolved.get('type') == 'enum':
@@ -1667,6 +1731,8 @@ class AvroToRust:
         def ensure(node, current_namespace):
             while True:
                 if isinstance(node, str):
+                    if is_any_value_type(node):
+                        return atom('runtime:any')
                     resolved = self.resolve_avro_named_type(
                         node,
                         current_namespace,
@@ -4490,6 +4556,8 @@ class AvroToRust:
         wrap_optional: bool = False,
     ) -> str:
         """Generates a random value that respects schema-specific sizes."""
+        if isinstance(avro_type, str) and is_any_value_type(avro_type):
+            return 'serde_json::json!({"value": {}})'
         resolved_type = avro_type
         if isinstance(avro_type, str):
             resolved_type = (

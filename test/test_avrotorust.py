@@ -5934,6 +5934,178 @@ class TestAvroToRust(unittest.TestCase):
         self.assertIn("pub payload: serde_json::Value", source)
         self.assertNotIn("crate::avrotize::anyvalue::AnyValue", source)
 
+    def test_anyvalue_analysis_matches_runtime_wildcard_mapping(self):
+        """Never construct declared AnyValue records in discriminator analysis."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-anyvalue-analysis-parity",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        schemas = [{
+            "type": "record",
+            "name": "WideAnyValue",
+            "namespace": "evolved.wide",
+            "fields": [{"name": "value", "type": "long"}],
+        }, {
+            "type": "record",
+            "name": "NarrowAnyValue",
+            "namespace": "evolved.narrow",
+            "fields": [{"name": "value", "type": "int"}],
+        }, {
+            "type": "record",
+            "name": "SimilarValue",
+            "namespace": "evolved.control",
+            "fields": [{"name": "value", "type": "long"}],
+        }, {
+            "type": "record",
+            "name": "Narrow",
+            "namespace": "issue484.any_analysis",
+            "fields": [{
+                "name": "direct",
+                "type": "evolved.narrow.NarrowAnyValue",
+            }, {
+                "name": "items",
+                "type": {
+                    "type": "array",
+                    "items": "evolved.narrow.NarrowAnyValue",
+                },
+            }, {
+                "name": "entries",
+                "type": {
+                    "type": "map",
+                    "values": "evolved.narrow.NarrowAnyValue",
+                },
+            }, {
+                "name": "tag",
+                "type": "int",
+            }],
+        }, {
+            "type": "record",
+            "name": "Wide",
+            "namespace": "issue484.any_analysis",
+            "fields": [{
+                "name": "direct",
+                "type": "evolved.wide.WideAnyValue",
+            }, {
+                "name": "items",
+                "type": {
+                    "type": "array",
+                    "items": "evolved.wide.WideAnyValue",
+                },
+            }, {
+                "name": "entries",
+                "type": {
+                    "type": "map",
+                    "values": "evolved.wide.WideAnyValue",
+                },
+            }, {
+                "name": "tag",
+                "type": "long",
+            }],
+        }, {
+            "type": "record",
+            "name": "Container",
+            "namespace": "issue484.any_analysis",
+            "fields": [{
+                "name": "direct",
+                "type": "evolved.wide.WideAnyValue",
+            }, {
+                "name": "items",
+                "type": {
+                    "type": "array",
+                    "items": "evolved.wide.WideAnyValue",
+                },
+            }, {
+                "name": "entries",
+                "type": {
+                    "type": "map",
+                    "values": "evolved.narrow.NarrowAnyValue",
+                },
+            }, {
+                "name": "control",
+                "type": "evolved.control.SimilarValue",
+            }],
+        }, {
+            "type": "record",
+            "name": "Holder",
+            "namespace": "issue484.any_analysis",
+            "fields": [{
+                "name": "choice",
+                "type": ["Narrow", "Wide"],
+            }, {
+                "name": "container",
+                "type": "Container",
+            }],
+        }]
+        converter = AvroToRust()
+        converter.serde_annotation = True
+        converter.xml_annotation = True
+        converter.index_avro_named_types(schemas)
+        self.assertEqual(
+            "serde_json::Value",
+            converter.analysis_rust_type(
+                "evolved.wide.WideAnyValue",
+                "issue484.any_analysis",
+            ),
+        )
+        self.assertEqual(
+            'serde_json::json!({"value": {}})',
+            converter.generate_xml_distinguishing_value(
+                "serde_json::Value",
+                "evolved.wide.WideAnyValue",
+                "issue484.any_analysis",
+                ["evolved.narrow.NarrowAnyValue"],
+            ),
+        )
+
+        convert_avro_schema_to_rust(
+            schemas,
+            rust_path,
+            package_name="rust-anyvalue-analysis-parity",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        container_file = os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "any_analysis",
+            "container.rs",
+        )
+        with open(container_file, encoding="utf-8") as generated:
+            source = generated.read()
+        self.assertIn("pub direct: serde_json::Value", source)
+        self.assertIn("pub items: Vec<serde_json::Value>", source)
+        self.assertIn(
+            "pub entries: std::collections::HashMap<String, "
+            "serde_json::Value>",
+            source,
+        )
+        self.assertIn(
+            "pub control: crate::evolved::control::similarvalue::SimilarValue",
+            source,
+        )
+        union_sources = []
+        for union_file in glob.glob(os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "any_analysis",
+            "unionpath*.rs",
+        )):
+            with open(union_file, encoding="utf-8") as generated:
+                union_sources.append(generated.read())
+        self.assertNotIn("WideAnyValue {", "\n".join(union_sources))
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_convert_generic_anyvalue_union_to_rust(self):
         """Compile Avro decoding for the generic AnyValue union."""
         for serde_annotation in (True, False):
