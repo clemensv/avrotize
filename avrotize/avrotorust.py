@@ -1975,7 +1975,7 @@ class AvroToRust:
                 'avro_decode': avro_decode,
                 'avro_encode': avro_encode,
             })
-        
+
         ns = parent_namespace.replace('.', '::').lower()
         qualified_struct_name = self.safe_package(self.concat_package(ns, struct_name))
         avro_test_instances = []
