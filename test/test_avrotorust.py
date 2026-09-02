@@ -1276,6 +1276,46 @@ class TestAvroToRust(unittest.TestCase):
         )
         self.assertIn("value.value = i64::MAX", value)
 
+        namespace = "issue484.xml_analysis_deep"
+        depth = 1100
+        schemas = [{
+            "type": "record",
+            "name": "Node0000",
+            "namespace": namespace,
+            "fields": [{"name": "value", "type": "long"}],
+        }]
+        for index in range(1, depth + 1):
+            schemas.append({
+                "type": "record",
+                "name": f"Node{index:04d}",
+                "namespace": namespace,
+                "fields": [{
+                    "name": "next",
+                    "type": f"Node{index - 1:04d}",
+                }],
+            })
+        converter = AvroToRust()
+        converter.index_avro_named_types(schemas)
+        rust_type = converter.analysis_rust_type(
+            f"Node{depth:04d}",
+            namespace,
+        )
+        value = converter.generate_xml_distinguishing_value(
+            rust_type,
+            f"Node{depth:04d}",
+            namespace,
+        )
+        signature = converter.xml_exact_predicate_key(
+            f"Node{depth:04d}",
+            namespace,
+        )
+        self.assertEqual(depth + 2, signature.node_count)
+        self.assertEqual(
+            depth + 2,
+            converter.xml_discriminator_stats["node_visits"],
+        )
+        self.assertLess(len(value), 250_000)
+
     def test_xml_discriminator_analysis_preserves_union_identity_order(self):
         """Never register synthetic nested unions while analyzing values."""
         namespace = "issue484.xml_analysis_order"

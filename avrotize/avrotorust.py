@@ -994,107 +994,175 @@ class AvroToRust:
 
     def _xml_discriminator_recipe(self, avro_type, namespace: str, active=None):
         """Finds one distinguishing path through a named schema DAG."""
-        active = set() if active is None else active
-        self.xml_discriminator_stats['node_visits'] += 1
-        resolved = avro_type
-        if isinstance(avro_type, str):
-            resolved = (
-                self.resolve_avro_named_type(avro_type, namespace)
-                or avro_type
-            )
-        cache_key = None
-        if isinstance(resolved, dict) and resolved.get('name'):
-            cache_key = (
-                self.avro_type_fullnames.get(id(resolved)),
-                namespace,
-            )
-            if cache_key in self._xml_discriminator_recipe_cache:
-                self.xml_discriminator_stats['cache_hits'] += 1
-                return self._xml_discriminator_recipe_cache[cache_key]
-            if cache_key[0] in active:
-                return XML_RECIPE_BLOCKED
-            active = active | {cache_key[0]}
+        root_active = set() if active is None else set(active)
+        stack = [{
+            'avro_type': avro_type,
+            'namespace': namespace,
+            'active': root_active,
+            'initialized': False,
+            'awaiting': False,
+            'blocked': False,
+        }]
+        returned = None
+        has_returned = False
 
-        recipe = None
-        blocked = False
-        if isinstance(resolved, dict):
-            node_type = resolved.get('type')
-            if node_type == 'record':
-                record_namespace = (
-                    self.avro_type_fullnames.get(id(resolved), '')
-                    .rpartition('.')[0]
-                )
-                for field in resolved.get('fields', []):
-                    field_type = self.analysis_rust_type(
-                        field['type'],
-                        record_namespace,
-                    )
-                    if field_type is None:
-                        continue
-                    child = self._xml_discriminator_recipe(
-                        field['type'],
-                        record_namespace,
-                        active,
-                    )
-                    if child is XML_RECIPE_BLOCKED:
-                        blocked = True
-                        continue
-                    if child is not None:
-                        recipe = (
-                            'record',
-                            self.safe_identifier(snake(field['name'])),
-                            field_type,
-                            field['type'],
-                            record_namespace,
-                            child,
+        while stack:
+            frame = stack[-1]
+            if frame['awaiting'] and has_returned:
+                frame['awaiting'] = False
+                has_returned = False
+                child = returned
+                if child is XML_RECIPE_BLOCKED:
+                    frame['blocked'] = True
+                elif child is not None:
+                    builder = frame['current_builder']
+                    recipe = builder + (child,)
+                    cache_key = frame.get('cache_key')
+                    if cache_key is not None:
+                        self._xml_discriminator_recipe_cache[
+                            cache_key
+                        ] = recipe
+                    stack.pop()
+                    returned = recipe
+                    has_returned = True
+                    continue
+
+            if not frame['initialized']:
+                frame['initialized'] = True
+                self.xml_discriminator_stats['node_visits'] += 1
+                node = frame['avro_type']
+                resolved = node
+                if isinstance(node, str):
+                    resolved = (
+                        self.resolve_avro_named_type(
+                            node,
+                            frame['namespace'],
                         )
-                        break
-            elif node_type == 'array':
-                child = self._xml_discriminator_recipe(
-                    resolved.get('items'),
-                    namespace,
-                    active,
-                )
-                if child is XML_RECIPE_BLOCKED:
-                    blocked = True
-                elif child is not None:
-                    recipe = (
-                        'array',
-                        self.analysis_rust_type(
-                            resolved.get('items'),
-                            namespace,
-                        ),
-                        resolved.get('items'),
-                        child,
+                        or node
                     )
-            elif node_type == 'map':
-                child = self._xml_discriminator_recipe(
-                    resolved.get('values'),
-                    namespace,
-                    active,
-                )
-                if child is XML_RECIPE_BLOCKED:
-                    blocked = True
-                elif child is not None:
-                    recipe = (
-                        'map',
-                        self.analysis_rust_type(
-                            resolved.get('values'),
-                            namespace,
-                        ),
-                        resolved.get('values'),
-                        child,
+                frame['resolved'] = resolved
+                cache_key = None
+                if isinstance(resolved, dict) and resolved.get('name'):
+                    cache_key = (
+                        self.avro_type_fullnames.get(id(resolved)),
+                        frame['namespace'],
                     )
-            elif node_type == 'long':
-                recipe = ('value', 'i64::MAX')
-        elif resolved == 'long':
-            recipe = ('value', 'i64::MAX')
+                    frame['cache_key'] = cache_key
+                    if cache_key in self._xml_discriminator_recipe_cache:
+                        self.xml_discriminator_stats['cache_hits'] += 1
+                        stack.pop()
+                        returned = self._xml_discriminator_recipe_cache[
+                            cache_key
+                        ]
+                        has_returned = True
+                        continue
+                    if cache_key[0] in frame['active']:
+                        stack.pop()
+                        returned = XML_RECIPE_BLOCKED
+                        has_returned = True
+                        continue
+                    frame['active'] = (
+                        frame['active'] | {cache_key[0]}
+                    )
 
-        if recipe is None and blocked:
-            return XML_RECIPE_BLOCKED
-        if cache_key is not None:
-            self._xml_discriminator_recipe_cache[cache_key] = recipe
-        return recipe
+                children = []
+                if isinstance(resolved, dict):
+                    node_type = resolved.get('type')
+                    if node_type == 'record':
+                        record_namespace = (
+                            self.avro_type_fullnames.get(id(resolved), '')
+                            .rpartition('.')[0]
+                        )
+                        for field in resolved.get('fields', []):
+                            field_type = self.analysis_rust_type(
+                                field['type'],
+                                record_namespace,
+                            )
+                            if field_type is not None:
+                                children.append((
+                                    (
+                                        'record',
+                                        self.safe_identifier(
+                                            snake(field['name'])
+                                        ),
+                                        field_type,
+                                        field['type'],
+                                        record_namespace,
+                                    ),
+                                    field['type'],
+                                    record_namespace,
+                                ))
+                    elif node_type == 'array':
+                        item_type = self.analysis_rust_type(
+                            resolved.get('items'),
+                            frame['namespace'],
+                        )
+                        if item_type is not None:
+                            children.append((
+                                (
+                                    'array',
+                                    item_type,
+                                    resolved.get('items'),
+                                ),
+                                resolved.get('items'),
+                                frame['namespace'],
+                            ))
+                    elif node_type == 'map':
+                        value_type = self.analysis_rust_type(
+                            resolved.get('values'),
+                            frame['namespace'],
+                        )
+                        if value_type is not None:
+                            children.append((
+                                (
+                                    'map',
+                                    value_type,
+                                    resolved.get('values'),
+                                ),
+                                resolved.get('values'),
+                                frame['namespace'],
+                            ))
+                    elif node_type == 'long':
+                        stack.pop()
+                        returned = ('value', 'i64::MAX')
+                        has_returned = True
+                        continue
+                elif resolved == 'long':
+                    stack.pop()
+                    returned = ('value', 'i64::MAX')
+                    has_returned = True
+                    continue
+                frame['children'] = children
+                frame['child_index'] = 0
+
+            if frame['child_index'] < len(frame['children']):
+                builder, child_type, child_namespace = frame['children'][
+                    frame['child_index']
+                ]
+                frame['child_index'] += 1
+                frame['current_builder'] = builder
+                frame['awaiting'] = True
+                stack.append({
+                    'avro_type': child_type,
+                    'namespace': child_namespace,
+                    'active': frame['active'],
+                    'initialized': False,
+                    'awaiting': False,
+                    'blocked': False,
+                })
+                continue
+
+            result = (
+                XML_RECIPE_BLOCKED if frame['blocked'] else None
+            )
+            cache_key = frame.get('cache_key')
+            if cache_key is not None and result is not XML_RECIPE_BLOCKED:
+                self._xml_discriminator_recipe_cache[cache_key] = result
+            stack.pop()
+            returned = result
+            has_returned = True
+
+        return returned
 
     def resolve_xml_schema_node(self, avro_type, namespace: str):
         """Resolves named references, including wrapped named type objects."""
@@ -1154,43 +1222,32 @@ class AvroToRust:
         avro_type,
         namespace: str,
     ) -> str:
-        kind = recipe[0]
-        if kind == 'value':
-            return recipe[1]
-        if kind == 'record':
-            _, field_name, field_type, field_avro, field_namespace, child = (
-                recipe
-            )
-            field_value = self._render_xml_discriminator_recipe(
-                child,
-                field_type,
-                field_avro,
-                field_namespace,
-            )
-            return (
-                f'{{ let mut value: {rust_type} = Default::default(); '
-                f'value.{field_name} = {field_value}; value }}'
-            )
-        if kind == 'array':
-            _, item_type, item_avro, child = recipe
-            item = self._render_xml_discriminator_recipe(
-                child,
-                item_type,
-                item_avro,
-                namespace,
-            )
-            return f'vec![{item}]'
-        _, value_type, value_avro, child = recipe
-        value = self._render_xml_discriminator_recipe(
-            child,
-            value_type,
-            value_avro,
-            namespace,
-        )
-        return (
-            'std::collections::HashMap::from(['
-            f'("key".to_string(), {value})])'
-        )
+        wrappers = []
+        current_recipe = recipe
+        current_rust_type = rust_type
+        while current_recipe[0] != 'value':
+            kind = current_recipe[0]
+            wrappers.append((kind, current_recipe, current_rust_type))
+            current_rust_type = current_recipe[2]
+            current_recipe = current_recipe[-1]
+
+        value = current_recipe[1]
+        for kind, wrapper, wrapper_rust_type in reversed(wrappers):
+            if kind == 'record':
+                field_name = wrapper[1]
+                value = (
+                    f'{{ let mut value: {wrapper_rust_type} = '
+                    f'Default::default(); value.{field_name} = {value}; '
+                    'value }'
+                )
+            elif kind == 'array':
+                value = f'vec![{value}]'
+            else:
+                value = (
+                    'std::collections::HashMap::from(['
+                    f'("key".to_string(), {value})])'
+                )
+        return value
 
     def generate_xml_distinguishing_value(
         self,
