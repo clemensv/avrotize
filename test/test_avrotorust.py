@@ -622,6 +622,106 @@ class TestAvroToRust(unittest.TestCase):
             timeout=self.CARGO_TIMEOUT,
         ) == 0
 
+    def test_empty_map_defaults_are_concrete_empty_objects(self):
+        """Do not model HashMap::default as containing arbitrary values."""
+        converter = AvroToRust()
+        required = {
+            "type": "record",
+            "name": "Required",
+            "namespace": "issue484.map_default",
+            "fields": [{"name": "x", "type": "string"}],
+        }
+        converter.index_avro_named_types(required)
+        empty_map = converter.get_json_default_shape_signature(
+            {"type": "map", "values": "string"},
+            "issue484.map_default",
+        )
+        self.assertTrue(converter.json_match_accepts_shape(
+            converter.get_json_match_signature(
+                {"type": "map", "values": "string"},
+                "issue484.map_default",
+            ),
+            empty_map,
+        ))
+        self.assertFalse(converter.json_match_accepts_shape(
+            converter.get_json_match_signature(
+                required,
+                "issue484.map_default",
+            ),
+            empty_map,
+        ))
+
+    def test_map_record_union_default_is_uniquely_deserializable(self):
+        """Generate no false ambiguity test for an empty map default."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-empty-map-default",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "record",
+                "name": "Required",
+                "namespace": "issue484.map_default",
+                "fields": [{"name": "x", "type": "string"}],
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.map_default",
+                "fields": [{
+                    "name": "choice",
+                    "type": [
+                        {"type": "map", "values": "string"},
+                        "Required",
+                    ],
+                }],
+            }],
+            rust_path,
+            package_name="rust-empty-map-default",
+            serde_annotation=True,
+        )
+        union_file = glob.glob(os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "map_default",
+            "unionpath*.rs",
+        ))[0]
+        with open(union_file, encoding="utf-8") as generated:
+            source = generated.read()
+        ambiguity_test = source[source.index(
+            "fn test_rejects_ambiguous_json_"
+        ):]
+        self.assertIn("::Required(", ambiguity_test)
+        self.assertNotIn("::HashMapStringString(\n            Default::default()", ambiguity_test)
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "map_default.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_empty_map_default::issue484::map_default::"
+                "choiceunion::ChoiceUnion;\n\n"
+                "#[test]\n"
+                "fn empty_default_selects_the_map_branch() {\n"
+                "    let value: ChoiceUnion = serde_json::from_str(\"{}\").unwrap();\n"
+                "    assert!(matches!(value, ChoiceUnion::HashMapStringString(\n"
+                "        ref entries\n"
+                "    ) if entries.is_empty()));\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_named_json_safety_traversal_is_memoized(self):
         """Evaluate repeated named-reference DAG edges once per conversion."""
         converter = AvroToRust()

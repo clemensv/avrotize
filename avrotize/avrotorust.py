@@ -2900,6 +2900,8 @@ class AvroToRust:
                             node['values'],
                             current_namespace,
                         )
+                    if mode == 'default':
+                        return add_atom('empty_map')
                     return add_pending(
                         ('map', id(node), current_namespace),
                         'map',
@@ -3363,6 +3365,12 @@ class AvroToRust:
                         )
                         for field_name, field_match in match_data
                     ]
+                elif shape_kind == 'empty_map':
+                    operator = 'all'
+                    dependencies = [
+                        (field_match, 'null')
+                        for _, field_match in match_data
+                    ]
                 elif shape_kind == 'map':
                     operator = 'all_any'
                     dependencies = [
@@ -3375,9 +3383,13 @@ class AvroToRust:
                 else:
                     equations[key] = False
             elif match_kind == 'object':
-                equations[key] = shape_kind in ('map', 'record')
+                equations[key] = shape_kind in (
+                    'empty_map',
+                    'map',
+                    'record',
+                )
             elif match_kind == 'map_match':
-                if shape_kind == 'map':
+                if shape_kind in ('empty_map', 'map'):
                     equations[key] = True
                 elif shape_kind == 'record':
                     operator = 'all'
