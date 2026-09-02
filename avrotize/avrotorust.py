@@ -933,8 +933,8 @@ class AvroToRust:
             if 'null' not in avro_type:
                 return inner
             if (
-                isinstance(branches[0], str)
-                and self.resolve_avro_named_type(
+                not isinstance(branches[0], str)
+                or self.resolve_avro_named_type(
                     branches[0],
                     namespace,
                 ) is not None
@@ -1101,8 +1101,10 @@ class AvroToRust:
                             children.append((
                                 (
                                     'array',
+                                    None,
                                     item_type,
                                     resolved.get('items'),
+                                    frame['namespace'],
                                 ),
                                 resolved.get('items'),
                                 frame['namespace'],
@@ -1116,8 +1118,10 @@ class AvroToRust:
                             children.append((
                                 (
                                     'map',
+                                    None,
                                     value_type,
                                     resolved.get('values'),
+                                    frame['namespace'],
                                 ),
                                 resolved.get('values'),
                                 frame['namespace'],

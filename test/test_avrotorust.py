@@ -2607,6 +2607,48 @@ class TestAvroToRust(unittest.TestCase):
                 }],
             }, {
                 "type": "record",
+                "name": "NarrowLeaf",
+                "namespace": "issue484.xml_widths",
+                "fields": [{"name": "value", "type": "int"}],
+            }, {
+                "type": "record",
+                "name": "WideLeaf",
+                "namespace": "issue484.xml_widths",
+                "fields": [{"name": "value", "type": "long"}],
+            }, {
+                "type": "record",
+                "name": "NarrowLeafArray",
+                "namespace": "issue484.xml_widths",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "array", "items": "NarrowLeaf"},
+                }],
+            }, {
+                "type": "record",
+                "name": "WideLeafArray",
+                "namespace": "issue484.xml_widths",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "array", "items": "WideLeaf"},
+                }],
+            }, {
+                "type": "record",
+                "name": "NarrowLeafMap",
+                "namespace": "issue484.xml_widths",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "map", "values": "NarrowLeaf"},
+                }],
+            }, {
+                "type": "record",
+                "name": "WideLeafMap",
+                "namespace": "issue484.xml_widths",
+                "fields": [{
+                    "name": "values",
+                    "type": {"type": "map", "values": "WideLeaf"},
+                }],
+            }, {
+                "type": "record",
                 "name": "Holder",
                 "namespace": "issue484.xml_widths",
                 "fields": [{
@@ -2621,6 +2663,12 @@ class TestAvroToRust(unittest.TestCase):
                 }, {
                     "name": "mapWidth",
                     "type": ["NarrowMap", "WideMap"],
+                }, {
+                    "name": "nestedArrayWidth",
+                    "type": ["NarrowLeafArray", "WideLeafArray"],
+                }, {
+                    "name": "nestedMapWidth",
+                    "type": ["NarrowLeafMap", "WideLeafMap"],
                 }],
             }],
             rust_path,
@@ -2641,9 +2689,14 @@ class TestAvroToRust(unittest.TestCase):
                 "    reverseunion::ReverseUnion,\n"
                 "    arraywidthunion::ArrayWidthUnion,\n"
                 "    mapwidthunion::MapWidthUnion,\n"
+                "    nestedarraywidthunion::NestedArrayWidthUnion,\n"
+                "    nestedmapwidthunion::NestedMapWidthUnion,\n"
                 "    wide::Wide,\n"
                 "    widearray::WideArray,\n"
                 "    widemap::WideMap,\n"
+                "    wideleaf::WideLeaf,\n"
+                "    wideleafarray::WideLeafArray,\n"
+                "    wideleafmap::WideLeafMap,\n"
                 "};\n\n"
                 "use std::collections::HashMap;\n\n"
                 "#[test]\n"
@@ -2666,6 +2719,18 @@ class TestAvroToRust(unittest.TestCase):
                 "    assert!(quick_xml::se::to_string(\n"
                 "        &ArrayWidthUnion::WideArray(WideArray {\n"
                 "            values: vec![2_147_483_648],\n"
+                "        })\n"
+                "    ).is_ok());\n"
+                "    assert!(quick_xml::se::to_string(\n"
+                "        &NestedArrayWidthUnion::WideLeafArray(WideLeafArray {\n"
+                "            values: vec![WideLeaf { value: 2_147_483_648 }],\n"
+                "        })\n"
+                "    ).is_ok());\n"
+                "    assert!(quick_xml::se::to_string(\n"
+                "        &NestedMapWidthUnion::WideLeafMap(WideLeafMap {\n"
+                "            values: HashMap::from([(\n"
+                "                \"key\".into(), WideLeaf { value: 2_147_483_648 },\n"
+                "            )]),\n"
                 "        })\n"
                 "    ).is_ok());\n"
                 "    assert!(quick_xml::se::to_string(\n"
@@ -3323,6 +3388,113 @@ class TestAvroToRust(unittest.TestCase):
                 "    let xml = value.to_byte_array(\"application/xml\").unwrap();\n"
                 "    let recovered = Holder::from_data(&xml, \"application/xml\").unwrap();\n"
                 "    assert_eq!(value, recovered);\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
+    def test_nullable_inline_singletons_remain_required_bare_fields(self):
+        """Mirror converter rules for nullable inline complex singleton types."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-nullable-inline-required",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "record",
+                "name": "RequiredInline",
+                "namespace": "issue484.inline_required",
+                "fields": [{
+                    "name": "recordValue",
+                    "type": ["null", {
+                        "type": "record",
+                        "name": "InlineChild",
+                        "fields": [{"name": "value", "type": "string"}],
+                    }],
+                    "default": None,
+                }, {
+                    "name": "enumValue",
+                    "type": ["null", {
+                        "type": "enum",
+                        "name": "InlineTag",
+                        "symbols": ["A"],
+                    }],
+                    "default": None,
+                }, {
+                    "name": "arrayValue",
+                    "type": ["null", {
+                        "type": "array",
+                        "items": "string",
+                    }],
+                    "default": None,
+                }, {
+                    "name": "mapValue",
+                    "type": ["null", {
+                        "type": "map",
+                        "values": "string",
+                    }],
+                    "default": None,
+                }],
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.inline_required",
+                "fields": [{
+                    "name": "choice",
+                    "type": [{
+                        "type": "map",
+                        "values": "string",
+                    }, "RequiredInline"],
+                }],
+            }],
+            rust_path,
+            package_name="rust-nullable-inline-required",
+            serde_annotation=True,
+        )
+        required_file = os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "inline_required",
+            "requiredinline.rs",
+        )
+        with open(required_file, encoding="utf-8") as generated:
+            required_source = generated.read()
+        for field_name in (
+            "record_value",
+            "enum_value",
+            "array_value",
+            "map_value",
+        ):
+            self.assertNotRegex(
+                required_source,
+                rf"pub {field_name}: Option<",
+            )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "inline_required.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_nullable_inline_required::"
+                "issue484::inline_required::choiceunion::ChoiceUnion;\n\n"
+                "#[test]\n"
+                "fn absent_inline_fields_do_not_match_required_record() {\n"
+                "    let value: ChoiceUnion = serde_json::from_str(\"{}\").unwrap();\n"
+                "    assert!(matches!(\n"
+                "        value,\n"
+                "        ChoiceUnion::HashMapStringString(ref map) if map.is_empty()\n"
+                "    ));\n"
                 "}\n"
             )
         assert subprocess.check_call(
