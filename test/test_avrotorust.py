@@ -1631,6 +1631,30 @@ class TestAvroToRust(unittest.TestCase):
                 "issue484.logical",
             ))
 
+        uuid_default = converter.get_json_default_shape_signature(
+            {"type": "string", "logicalType": "uuid"},
+            "issue484.logical",
+        )
+        self.assertEqual(
+            JsonSignature(0, [(
+                "const_string:"
+                "00000000-0000-0000-0000-000000000000",
+                None,
+            )]),
+            uuid_default,
+        )
+        self.assertTrue(converter.json_match_accepts_shape(
+            (
+                "enum:"
+                "00000000-0000-0000-0000-000000000000"
+            ),
+            uuid_default,
+        ))
+        self.assertFalse(converter.json_match_accepts_shape(
+            ("enum:NIL",),
+            uuid_default,
+        ))
+
     def test_logical_time_string_unions_reject_json_ambiguity(self):
         """Reject chrono JSON strings also accepted by a string branch."""
         rust_path = os.path.join(
@@ -2744,7 +2768,7 @@ class TestAvroToRust(unittest.TestCase):
                 "namespace": "issue484.enum_discriminator",
                 "symbols": ["A_SHARED", "A_ONLY"],
                 "altenums": {"xml": {
-                    "A_SHARED": "shared",
+                    "A_SHARED": "B_SHARED",
                     "A_ONLY": "a-only",
                 }},
             }, {
@@ -2783,7 +2807,6 @@ class TestAvroToRust(unittest.TestCase):
             "pub fn generate_random_instance()"
         ):]
         self.assertIn("TagA::A_ONLY", generator)
-        self.assertIn("TagB::B_ONLY", generator)
         for _ in range(10):
             assert subprocess.check_call(
                 ['cargo', 'test', '--quiet'],

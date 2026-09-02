@@ -1185,10 +1185,13 @@ class AvroToRust:
         resolved = self.resolve_xml_schema_node(avro_type, namespace)
         if not isinstance(resolved, dict) or resolved.get('type') != 'enum':
             return None
-        return {
+        symbols = {
             xml_enum_wire_value(symbol, resolved)
             for symbol in resolved.get('symbols', [])
         }
+        if self.serde_annotation or self.avro_annotation:
+            symbols.update(resolved.get('symbols', []))
+        return symbols
 
     def xml_enum_candidate_overlaps(
         self,
@@ -1278,8 +1281,10 @@ class AvroToRust:
                 )
                 if isinstance(other, dict) and other.get('type') == 'enum':
                     competing_symbols.update(
-                        xml_enum_wire_value(symbol, other)
-                        for symbol in other.get('symbols', [])
+                        self.xml_enum_wire_symbols(
+                            competitor,
+                            namespace,
+                        )
                     )
                 elif other == 'string' or (
                     isinstance(other, dict)
@@ -3444,6 +3449,7 @@ class AvroToRust:
                     'time-micros',
                     'timestamp-millis',
                     'timestamp-micros',
+                    'uuid',
                 }:
                     if mode == 'default':
                         default_values = {
@@ -3452,6 +3458,9 @@ class AvroToRust:
                             'time-micros': '00:00:00',
                             'timestamp-millis': '1970-01-01T00:00:00',
                             'timestamp-micros': '1970-01-01T00:00:00',
+                            'uuid': (
+                                '00000000-0000-0000-0000-000000000000'
+                            ),
                         }
                         return add_atom(
                             'const_string:'
