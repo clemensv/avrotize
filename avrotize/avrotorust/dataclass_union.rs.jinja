@@ -673,14 +673,16 @@ impl {{ union_enum_name }} {
 #[cfg(test)]
 impl {{ union_enum_name }} {
 {%- set json_safe_fields = union_fields | selectattr('json_round_trip_safe') | list %}
+{%- set xml_generation_fields = json_safe_fields if serde_annotation else union_fields %}
     pub fn generate_random_instance() -> {{ union_enum_name }} {
         let mut rng = rand::thread_rng();
         {%- if xml_annotation %}
-        let start = rand::Rng::gen_range(&mut rng, 0..{{ union_fields | length }});
+        {%- if xml_generation_fields | length > 0 %}
+        let start = rand::Rng::gen_range(&mut rng, 0..{{ xml_generation_fields | length }});
         for use_random in [false, true] {
-            for offset in 0..{{ union_fields | length }} {
-                let candidate = match (start + offset) % {{ union_fields | length }} {
-                    {%- for union_field in union_fields %}
+            for offset in 0..{{ xml_generation_fields | length }} {
+                let candidate = match (start + offset) % {{ xml_generation_fields | length }} {
+                    {%- for union_field in xml_generation_fields %}
                     {{ loop.index0 }} => {{ union_enum_name }}::{{ union_field.name }}(
                         if use_random {
                             {{ union_field.random_value }}
@@ -697,6 +699,9 @@ impl {{ union_enum_name }} {
             }
         }
         panic!("No XML-unambiguous union value can be generated");
+        {%- else %}
+        panic!("No JSON-and-XML-unambiguous union value can be generated");
+        {%- endif %}
         {%- elif serde_annotation and json_safe_fields | length > 0 and json_safe_fields | length < union_fields | length %}
         // Only pick from variants with unique JSON structures to ensure round-trip works
         match rand::Rng::gen_range(&mut rng, 0..{{ json_safe_fields | length }}) {

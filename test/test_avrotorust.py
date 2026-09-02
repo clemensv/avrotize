@@ -2339,6 +2339,73 @@ class TestAvroToRust(unittest.TestCase):
             timeout=self.CARGO_TIMEOUT,
         ) == 0
 
+    def test_combined_random_generation_intersects_json_xml_safety(self):
+        """Choose only variants safe for both generated JSON and XML tests."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-combined-safe-union",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "record",
+                "name": "AttributeText",
+                "namespace": "issue484.combined_safe",
+                "fields": [{
+                    "name": "value",
+                    "type": "string",
+                    "xmlkind": "attribute",
+                }],
+            }, {
+                "type": "record",
+                "name": "ElementText",
+                "namespace": "issue484.combined_safe",
+                "fields": [{"name": "value", "type": "string"}],
+            }, {
+                "type": "record",
+                "name": "SafeFlag",
+                "namespace": "issue484.combined_safe",
+                "fields": [{"name": "flag", "type": "boolean"}],
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.combined_safe",
+                "fields": [{
+                    "name": "choice",
+                    "type": ["AttributeText", "ElementText", "SafeFlag"],
+                }],
+            }],
+            rust_path,
+            package_name="rust-combined-safe-union",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        union_file = glob.glob(os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "combined_safe",
+            "unionpath*.rs",
+        ))[0]
+        with open(union_file, encoding="utf-8") as generated:
+            source = generated.read()
+        generator = source[
+            source.index("pub fn generate_random_instance()"):
+            source.index("\n}\n\n#[cfg(test)]\nmod tests")
+        ]
+        self.assertIn("::SafeFlag(", generator)
+        self.assertNotIn("::AttributeText(", generator)
+        self.assertNotIn("::ElementText(", generator)
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_nested_xml_serialization_probes_each_boundary_once(self):
         """Probe one outer and one inner ambiguous XML union boundary."""
         rust_path = os.path.join(
