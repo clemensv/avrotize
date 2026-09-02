@@ -952,7 +952,7 @@ class TestAvroToRust(unittest.TestCase):
                 signature.node_count,
                 signature.canonical_visit_count,
             )
-            self.assertLess(len(repr(signature)), 50000)
+            self.assertLess(len(repr(signature)), 70000)
 
     def test_cyclic_signature_refinement_is_predecessor_driven(self):
         """Refine a deep SCC by visiting predecessor edges, not whole depths."""

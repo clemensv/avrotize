@@ -1256,6 +1256,12 @@ class AvroToRust:
                 avro_type,
                 namespace,
             )
+        elif isinstance(resolved, dict) and resolved.get('type') in (
+            'record',
+            'array',
+            'map',
+        ):
+            value = 'Default::default()'
         else:
             value = self.generate_random_value_for_avro(
                 rust_type,
@@ -3128,7 +3134,6 @@ class AvroToRust:
         atoms = {}
         named_nodes = {}
         anonymous_nodes = {}
-        field_nodes = {}
         pending = []
         generic_type_cache = {}
         acyclic_type_cache = {}
@@ -3149,16 +3154,6 @@ class AvroToRust:
                 (kind, node_id, payload, current_namespace)
             )
             return node_id
-
-        def add_field_match(child_id, optional):
-            key = (child_id, optional)
-            if key not in field_nodes:
-                field_nodes[key] = len(nodes)
-                nodes.append((
-                    'optional_field' if optional else 'required_field',
-                    child_id,
-                ))
-            return field_nodes[key]
 
         def is_acyclic(root) -> bool:
             active = set()
@@ -3453,8 +3448,9 @@ class AvroToRust:
                             field['type'],
                             current_namespace,
                         )
-                        child_id = add_field_match(
-                            child_id,
+                        field_name = (
+                            '__field__',
+                            field_name,
                             bool(
                                 field_type
                                 and field_type.startswith('Option<')
@@ -3835,12 +3831,8 @@ class AvroToRust:
             )
             dependencies = None
             operator = None
-            if match_kind in ('required_field', 'optional_field'):
-                if shape_kind == 'missing':
-                    equations[key] = match_kind == 'optional_field'
-                else:
-                    operator = 'all'
-                    dependencies = [(match_data, shape_node)]
+            if shape_kind == 'missing':
+                equations[key] = False
             elif match_kind == 'any' or shape_kind == 'any':
                 equations[key] = True
             elif shape_kind == 'union':
@@ -3859,38 +3851,68 @@ class AvroToRust:
                 if shape_kind == 'record':
                     operator = 'all'
                     value_fields = dict(shape_data)
-                    dependencies = [
-                        (
-                            field_match,
-                            next(
-                                (
-                                    value_fields[name]
-                                    for name in (
-                                        field_name
-                                        if isinstance(field_name, tuple)
-                                        else (field_name,)
-                                    )
-                                    if name in value_fields
-                                ),
-                                'missing',
-                            ),
+                    dependencies = []
+                    for field_name, field_match in match_data:
+                        optional = (
+                            isinstance(field_name, tuple)
+                            and len(field_name) == 3
+                            and field_name[0] == '__field__'
+                            and field_name[2]
                         )
-                        for field_name, field_match in match_data
-                    ]
+                        names = (
+                            field_name[1]
+                            if (
+                                isinstance(field_name, tuple)
+                                and len(field_name) == 3
+                                and field_name[0] == '__field__'
+                            )
+                            else field_name
+                        )
+                        names = (
+                            names if isinstance(names, tuple) else (names,)
+                        )
+                        field_shape = next(
+                            (
+                                value_fields[name]
+                                for name in names
+                                if name in value_fields
+                            ),
+                            None,
+                        )
+                        if field_shape is None:
+                            if not optional:
+                                dependencies.append((
+                                    field_match,
+                                    'missing',
+                                ))
+                        else:
+                            dependencies.append((
+                                field_match,
+                                field_shape,
+                            ))
                 elif shape_kind == 'empty_map':
                     operator = 'all'
                     dependencies = [
                         (field_match, 'missing')
-                        for _, field_match in match_data
+                        for field_name, field_match in match_data
+                        if not (
+                            isinstance(field_name, tuple)
+                            and len(field_name) == 3
+                            and field_name[0] == '__field__'
+                            and field_name[2]
+                        )
                     ]
                 elif shape_kind == 'map':
-                    operator = 'all_any'
+                    operator = 'all'
                     dependencies = [
-                        (
-                            (field_match, 'missing'),
-                            (field_match, shape_data),
+                        (field_match, shape_data)
+                        for field_name, field_match in match_data
+                        if not (
+                            isinstance(field_name, tuple)
+                            and len(field_name) == 3
+                            and field_name[0] == '__field__'
+                            and field_name[2]
                         )
-                        for _, field_match in match_data
                     ]
                 else:
                     equations[key] = False
