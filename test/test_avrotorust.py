@@ -2818,6 +2818,80 @@ class TestAvroToRust(unittest.TestCase):
             timeout=self.CARGO_TIMEOUT,
         ) == 0
 
+    def test_xml_sequence_union_preserves_present_empty_items(self):
+        """Distinguish absent sequences from one present empty string item."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-xml-empty-sequence-union",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.empty_sequence",
+                "fields": [{
+                    "name": "choice",
+                    "type": [{
+                        "type": "array",
+                        "items": "int",
+                    }, {
+                        "type": "array",
+                        "items": "string",
+                    }],
+                }],
+            },
+            rust_path,
+            package_name="rust-xml-empty-sequence-union",
+            serde_annotation=True,
+            xml_annotation=True,
+        )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "empty_sequence.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_xml_empty_sequence_union::"
+                "issue484::empty_sequence::choiceunion::ChoiceUnion;\n\n"
+                "#[test]\n"
+                "fn present_empty_items_run_the_item_predicate() {\n"
+                "    assert!(quick_xml::de::from_str::<ChoiceUnion>(\n"
+                "        \"<Choice/>\"\n"
+                "    ).unwrap_err().to_string().contains(\"ambiguous XML union value\"));\n"
+                "    let empty: ChoiceUnion = quick_xml::de::from_str(\n"
+                "        \"<Choice><item/></Choice>\"\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(ChoiceUnion::VecString(vec![String::new()]), empty);\n"
+                "    let text: ChoiceUnion = quick_xml::de::from_str(\n"
+                "        \"<Choice><item>text</item></Choice>\"\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(ChoiceUnion::VecString(vec![\"text\".into()]), text);\n"
+                "    assert!(quick_xml::de::from_str::<ChoiceUnion>(\n"
+                "        \"<Choice><item>42</item></Choice>\"\n"
+                "    ).unwrap_err().to_string().contains(\"ambiguous XML union value\"));\n"
+                "    for value in [\n"
+                "        ChoiceUnion::VecString(vec![String::new()]),\n"
+                "        ChoiceUnion::VecString(vec![String::new(), \"text\".into()]),\n"
+                "    ] {\n"
+                "        let xml = quick_xml::se::to_string(&value).unwrap();\n"
+                "        let recovered: ChoiceUnion = quick_xml::de::from_str(&xml).unwrap();\n"
+                "        assert_eq!(value, recovered);\n"
+                "    }\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_partial_record_xml_ambiguity_uses_concrete_value(self):
         """Allow A(None) but reject overlapping A(Some) in either union order."""
         rust_path = self.run_convert_to_rust(

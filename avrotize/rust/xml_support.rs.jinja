@@ -516,7 +516,6 @@ impl XmlValue {
     ) -> bool {
         match self {
             XmlValue::Seq(values) => values.iter().all(matches),
-            XmlValue::Map(map) if map.values.is_empty() => true,
             XmlValue::String(_) | XmlValue::Map(_) => matches(self),
             _ => false,
         }
