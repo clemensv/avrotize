@@ -673,7 +673,7 @@ impl {{ union_enum_name }} {
 #[cfg(test)]
 impl {{ union_enum_name }} {
 {%- set json_safe_fields = union_fields | selectattr('json_round_trip_safe') | list %}
-{%- set xml_generation_fields = json_safe_fields if serde_annotation else union_fields %}
+{%- set xml_generation_fields = json_safe_fields if serde_annotation and json_safe_fields | length > 0 else union_fields %}
     pub fn generate_random_instance() -> {{ union_enum_name }} {
         let mut rng = rand::thread_rng();
         {%- if xml_annotation %}
