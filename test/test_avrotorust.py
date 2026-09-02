@@ -722,6 +722,121 @@ class TestAvroToRust(unittest.TestCase):
             timeout=self.CARGO_TIMEOUT,
         ) == 0
 
+    def test_missing_fields_and_primitive_defaults_are_concrete(self):
+        """Distinguish missing required fields and exact empty strings."""
+        rust_path = os.path.join(
+            tempfile.gettempdir(),
+            "avrotize",
+            "rust-concrete-default-signatures",
+        )
+        if os.path.exists(rust_path):
+            shutil.rmtree(rust_path, ignore_errors=True)
+        convert_avro_schema_to_rust(
+            [{
+                "type": "record",
+                "name": "AnyValue",
+                "namespace": "avrotize",
+                "fields": [{"name": "value", "type": "string"}],
+            }, {
+                "type": "record",
+                "name": "RequiredAny",
+                "namespace": "issue484.concrete_defaults",
+                "fields": [{
+                    "name": "x",
+                    "type": "avrotize.AnyValue",
+                }],
+            }, {
+                "type": "enum",
+                "name": "Tag",
+                "namespace": "issue484.concrete_defaults",
+                "symbols": ["A"],
+            }, {
+                "type": "record",
+                "name": "Holder",
+                "namespace": "issue484.concrete_defaults",
+                "fields": [{
+                    "name": "mapChoice",
+                    "type": [
+                        {"type": "map", "values": "string"},
+                        "RequiredAny",
+                    ],
+                }, {
+                    "name": "stringChoice",
+                    "type": ["string", "Tag"],
+                }],
+            }],
+            rust_path,
+            package_name="rust-concrete-default-signatures",
+            serde_annotation=True,
+        )
+        union_files = glob.glob(os.path.join(
+            rust_path,
+            "src",
+            "issue484",
+            "concrete_defaults",
+            "unionpath*.rs",
+        ))
+        sources = []
+        for union_file in union_files:
+            with open(union_file, encoding="utf-8") as generated:
+                sources.append(generated.read())
+        map_source = next(
+            source for source in sources
+            if "HashMapStringString" in source
+        )
+        self.assertNotIn("test_rejects_ambiguous_json_", map_source)
+        string_source = next(
+            source for source in sources
+            if "Tag(" in source and "String(" in source
+        )
+        ambiguity_test = string_source[string_source.index(
+            "fn test_rejects_ambiguous_json_"
+        ):]
+        self.assertIn("::Tag(", ambiguity_test)
+        self.assertNotIn(
+            "::String(\n            Default::default()",
+            ambiguity_test,
+        )
+        integration_dir = os.path.join(rust_path, "tests")
+        os.makedirs(integration_dir, exist_ok=True)
+        with open(
+            os.path.join(integration_dir, "concrete_defaults.rs"),
+            "w",
+            encoding="utf-8",
+        ) as integration_test:
+            integration_test.write(
+                "use rust_concrete_default_signatures::"
+                "issue484::concrete_defaults::{\n"
+                "    mapchoiceunion::MapChoiceUnion,\n"
+                "    stringchoiceunion::StringChoiceUnion,\n"
+                "};\n\n"
+                "#[test]\n"
+                "fn defaults_select_only_their_concrete_branch() {\n"
+                "    let map: MapChoiceUnion = serde_json::from_str(\"{}\").unwrap();\n"
+                "    assert!(matches!(map, MapChoiceUnion::HashMapStringString(\n"
+                "        ref values\n"
+                "    ) if values.is_empty()));\n"
+                "    let required: MapChoiceUnion = serde_json::from_str(\n"
+                "        r#\"{\"x\":null}\"#,\n"
+                "    ).unwrap();\n"
+                "    assert!(matches!(required, MapChoiceUnion::RequiredAny(_)));\n"
+                "    let empty: StringChoiceUnion = serde_json::from_str(\n"
+                "        r#\"\"\"\"#,\n"
+                "    ).unwrap();\n"
+                "    assert_eq!(StringChoiceUnion::String(String::new()), empty);\n"
+                "    assert!(serde_json::from_str::<StringChoiceUnion>(\n"
+                "        r#\"\"A\"\"#,\n"
+                "    ).unwrap_err().to_string().contains(\"ambiguous JSON union value\"));\n"
+                "}\n"
+            )
+        assert subprocess.check_call(
+            ['cargo', 'test'],
+            cwd=rust_path,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            timeout=self.CARGO_TIMEOUT,
+        ) == 0
+
     def test_named_json_safety_traversal_is_memoized(self):
         """Evaluate repeated named-reference DAG edges once per conversion."""
         converter = AvroToRust()
@@ -1422,12 +1537,21 @@ class TestAvroToRust(unittest.TestCase):
             for builder in (
                 converter.get_json_match_signature,
                 converter.get_json_shape_signature,
-                converter.get_json_default_shape_signature,
             ):
                 self.assertEqual(
                     builder(logical_type, "issue484.logical"),
                     builder("string", "issue484.logical"),
                 )
+            self.assertNotEqual(
+                converter.get_json_default_shape_signature(
+                    logical_type,
+                    "issue484.logical",
+                ),
+                converter.get_json_default_shape_signature(
+                    "string",
+                    "issue484.logical",
+                ),
+            )
             self.assertFalse(converter.is_json_round_trip_safe(
                 [logical_type, "string"],
                 "issue484.logical",

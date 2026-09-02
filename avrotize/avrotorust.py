@@ -3057,6 +3057,7 @@ class AvroToRust:
         atoms = {}
         named_nodes = {}
         anonymous_nodes = {}
+        field_nodes = {}
         pending = []
         generic_type_cache = {}
         acyclic_type_cache = {}
@@ -3077,6 +3078,16 @@ class AvroToRust:
                 (kind, node_id, payload, current_namespace)
             )
             return node_id
+
+        def add_field_match(child_id, optional):
+            key = (child_id, optional)
+            if key not in field_nodes:
+                field_nodes[key] = len(nodes)
+                nodes.append((
+                    'optional_field' if optional else 'required_field',
+                    child_id,
+                ))
+            return field_nodes[key]
 
         def is_acyclic(root) -> bool:
             active = set()
@@ -3131,7 +3142,11 @@ class AvroToRust:
                             resolved.get('type') == 'fixed'
                             and resolved.get('logicalType') == 'decimal'
                         ):
-                            return add_atom('number')
+                            return add_atom(
+                                'const_number:0'
+                                if mode == 'default'
+                                else 'number'
+                            )
                         if resolved.get('type') == 'enum':
                             symbols = resolved.get('symbols', [])
                             if mode == 'match' and self.xml_annotation:
@@ -3148,14 +3163,32 @@ class AvroToRust:
                                 'enum:' + '\x1f'.join(sorted(symbols))
                             )
                         return add_atom(
-                            'array'
+                            (
+                                'empty_array'
+                                if mode == 'default'
+                                else 'array'
+                            )
                             if resolved.get('type') == 'fixed'
                             else resolved.get('type', node)
                         )
                     if node in ('int', 'long'):
-                        return add_atom('integer')
+                        return add_atom(
+                            'const_integer:0'
+                            if mode == 'default'
+                            else 'integer'
+                        )
                     if node in ('float', 'double'):
-                        return add_atom('number')
+                        return add_atom(
+                            'const_number:0'
+                            if mode == 'default'
+                            else 'number'
+                        )
+                    if mode == 'default' and node == 'string':
+                        return add_atom('const_string:')
+                    if mode == 'default' and node == 'boolean':
+                        return add_atom('const_boolean:false')
+                    if mode == 'default' and node == 'bytes':
+                        return add_atom('empty_array')
                     if mode == 'match' and node == 'bytes':
                         return add_atom('array')
                     return add_atom(node)
@@ -3258,6 +3291,8 @@ class AvroToRust:
                 if node_type == 'array':
                     if mode == 'match':
                         return add_atom('array')
+                    if mode == 'default':
+                        return add_atom('empty_array')
                     return add_pending(
                         ('array', id(node), current_namespace),
                         'array',
@@ -3287,14 +3322,32 @@ class AvroToRust:
                     'timestamp-millis',
                     'timestamp-micros',
                 }:
+                    if mode == 'default':
+                        default_values = {
+                            'date': '1970-01-01',
+                            'time-millis': '00:00:00',
+                            'time-micros': '00:00:00',
+                            'timestamp-millis': '1970-01-01T00:00:00',
+                            'timestamp-micros': '1970-01-01T00:00:00',
+                        }
+                        return add_atom(
+                            'const_string:'
+                            + default_values[node.get('logicalType')]
+                        )
                     return add_atom('string')
                 if (
                     node_type in ('fixed', 'bytes')
                     and node.get('logicalType') == 'decimal'
                 ):
-                    return add_atom('number')
+                    return add_atom(
+                        'const_number:0'
+                        if mode == 'default'
+                        else 'number'
+                    )
                 if node_type in ('fixed', 'bytes'):
-                    return add_atom('array')
+                    return add_atom(
+                        'empty_array' if mode == 'default' else 'array'
+                    )
                 node = node_type
 
         root = ensure(avro_type, namespace)
@@ -3303,33 +3356,43 @@ class AvroToRust:
             kind, node_id, payload, current_namespace = pending[pending_index]
             pending_index += 1
             if kind == 'record':
-                fields = tuple(
-                    (
-                        (
-                            tuple(dict.fromkeys((
-                                field['name'],
-                                (
-                                    f"@{xml_wire_name(field['name'], field)}"
-                                    if field.get(
-                                        'xmlkind',
-                                        'element',
-                                    ) == 'attribute'
-                                    else xml_wire_name(
-                                        field['name'],
-                                        field,
-                                    )
-                                ),
-                            )))
-                            if mode == 'match' and self.xml_annotation
-                            else field['name']
-                        ),
-                        ensure(field['type'], current_namespace),
+                fields = []
+                for field in payload.get('fields', []):
+                    field_name = (
+                        tuple(dict.fromkeys((
+                            field['name'],
+                            (
+                                f"@{xml_wire_name(field['name'], field)}"
+                                if field.get(
+                                    'xmlkind',
+                                    'element',
+                                ) == 'attribute'
+                                else xml_wire_name(
+                                    field['name'],
+                                    field,
+                                )
+                            ),
+                        )))
+                        if mode == 'match' and self.xml_annotation
+                        else field['name']
                     )
-                    for field in payload.get('fields', [])
-                )
+                    child_id = ensure(field['type'], current_namespace)
+                    if mode == 'match':
+                        field_type = self.analysis_rust_type(
+                            field['type'],
+                            current_namespace,
+                        )
+                        child_id = add_field_match(
+                            child_id,
+                            bool(
+                                field_type
+                                and field_type.startswith('Option<')
+                            ),
+                        )
+                    fields.append((field_name, child_id))
                 nodes[node_id] = (
                     'record_match' if mode == 'match' else 'record',
-                    fields,
+                    tuple(fields),
                 )
             elif kind == 'union':
                 branch_ids = []
@@ -3701,7 +3764,13 @@ class AvroToRust:
             )
             dependencies = None
             operator = None
-            if match_kind == 'any' or shape_kind == 'any':
+            if match_kind in ('required_field', 'optional_field'):
+                if shape_kind == 'missing':
+                    equations[key] = match_kind == 'optional_field'
+                else:
+                    operator = 'all'
+                    dependencies = [(match_data, shape_node)]
+            elif match_kind == 'any' or shape_kind == 'any':
                 equations[key] = True
             elif shape_kind == 'union':
                 operator = 'any'
@@ -3732,7 +3801,7 @@ class AvroToRust:
                                     )
                                     if name in value_fields
                                 ),
-                                'null',
+                                'missing',
                             ),
                         )
                         for field_name, field_match in match_data
@@ -3740,14 +3809,14 @@ class AvroToRust:
                 elif shape_kind == 'empty_map':
                     operator = 'all'
                     dependencies = [
-                        (field_match, 'null')
+                        (field_match, 'missing')
                         for _, field_match in match_data
                     ]
                 elif shape_kind == 'map':
                     operator = 'all_any'
                     dependencies = [
                         (
-                            (field_match, 'null'),
+                            (field_match, 'missing'),
                             (field_match, shape_data),
                         )
                         for _, field_match in match_data
@@ -3772,12 +3841,23 @@ class AvroToRust:
                 else:
                     equations[key] = False
             elif match_kind == 'number':
-                equations[key] = shape_kind in ('integer', 'number')
+                equations[key] = shape_kind in (
+                    'integer',
+                    'number',
+                    'const_integer:0',
+                    'const_number:0',
+                )
+            elif match_kind == 'integer':
+                equations[key] = shape_kind in (
+                    'integer',
+                    'const_integer:0',
+                )
             elif match_kind == 'array':
                 equations[key] = shape_kind in (
                     'array',
                     'bytes',
                     'fixed',
+                    'empty_array',
                 )
             elif (
                 isinstance(match_kind, str)
@@ -3792,6 +3872,14 @@ class AvroToRust:
                     equations[key] = bool(
                         match_symbols & shape_symbols
                     )
+                elif (
+                    isinstance(shape_kind, str)
+                    and shape_kind.startswith('const_string:')
+                ):
+                    equations[key] = (
+                        shape_kind[len('const_string:'):]
+                        in match_symbols
+                    )
                 else:
                     equations[key] = shape_kind == 'string'
             elif (
@@ -3800,6 +3888,17 @@ class AvroToRust:
                 and shape_kind.startswith('enum:')
             ):
                 equations[key] = True
+            elif (
+                match_kind == 'string'
+                and isinstance(shape_kind, str)
+                and shape_kind.startswith('const_string:')
+            ):
+                equations[key] = True
+            elif match_kind == 'boolean':
+                equations[key] = shape_kind in (
+                    'boolean',
+                    'const_boolean:false',
+                )
             else:
                 equations[key] = (
                     match_kind == shape_kind
