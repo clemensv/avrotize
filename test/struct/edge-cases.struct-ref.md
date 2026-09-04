@@ -1,11 +1,13 @@
 # edge-cases.struct
 Test schema for edge cases and special scenarios
 **Schema ID:** `https://example.com/schemas/edge-cases`
+**Uses Extensions:** JSONStructureValidation
 ## Objects
 
 ### EdgeCases
 
 Test schema for edge cases and special scenarios
+**Uses Extensions:** JSONStructureValidation
 **Properties:**
 - **emptyString**: `string`
   - Constraints: maxLength: 0

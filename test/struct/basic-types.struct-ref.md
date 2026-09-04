@@ -21,5 +21,5 @@ Test schema for basic JSON Structure types
   - Description: A boolean value
 - **uuidField**: `uuid`
   - Description: A UUID value
-- **bytesField**: `bytes`
+- **bytesField**: `binary`
   - Description: Binary data
