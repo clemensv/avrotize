@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "$id": "https://example.com/abstract-extends",
   "definitions": {
     "AbstractBase": {
       "type": "object",

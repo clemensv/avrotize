@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example.com/test-validation-attributes",
+  "$uses": ["JSONStructureValidation"],
   "name": "ValidatedClass",
   "type": "object",
   "description": "A class with various validation attributes",

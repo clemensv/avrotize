@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example.com/schemas/extensions",
-  "$uses": ["JSONStructureAlternateNames", "JSONStructureUnits"],
+  "$uses": ["JSONStructureAlternateNames", "JSONStructureUnits", "JSONStructureValidation"],
   "type": "object",
   "name": "ExtensionsExample",
   "description": "Test schema for JSON Structure extensions",

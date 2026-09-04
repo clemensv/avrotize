@@ -274,8 +274,7 @@ class TestCddlToStructure(unittest.TestCase):
         self.assertIn('fixed_bytes', result['definitions'])
         fixed = result['definitions']['fixed_bytes']
         self.assertEqual(fixed['type'], 'binary')
-        self.assertEqual(fixed.get('minLength'), 32)
-        self.assertEqual(fixed.get('maxLength'), 32)
+        self.assertEqual(fixed.get('byteLength'), 32)
 
     def test_default_value(self):
         """Test .default operator."""

@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example.com/test-validation-extensions",
+  "$uses": ["JSONStructureValidation"],
   "name": "ValidationExtensions",
   "type": "object",
   "description": "Test schema for JSON Structure validation extension keywords",

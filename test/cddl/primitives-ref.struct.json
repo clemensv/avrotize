@@ -105,8 +105,7 @@
         },
         "fixed_bytes": {
           "type": "binary",
-          "minLength": 32,
-          "maxLength": 32,
+          "byteLength": 32,
           "altnames": {
             "cddl": "fixed-bytes"
           }

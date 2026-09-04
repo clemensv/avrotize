@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example.com/schemas/edge-cases",
+  "$uses": ["JSONStructureValidation"],
   "type": "object",
   "name": "EdgeCases",
   "description": "Test schema for edge cases and special scenarios",

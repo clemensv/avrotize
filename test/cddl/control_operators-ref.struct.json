@@ -17,8 +17,7 @@
     },
     "sha256_hash": {
       "type": "binary",
-      "minLength": 32,
-      "maxLength": 32,
+      "byteLength": 32,
       "name": "sha256_hash",
       "altnames": {
         "cddl": "sha256-hash"
@@ -26,8 +25,7 @@
     },
     "uuid_bytes": {
       "type": "binary",
-      "minLength": 16,
-      "maxLength": 16,
+      "byteLength": 16,
       "name": "uuid_bytes",
       "altnames": {
         "cddl": "uuid-bytes"

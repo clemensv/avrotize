@@ -2009,11 +2009,124 @@ class JsonToStructureConverter:
                     if ('$extends' in def_schema and 
                         ('properties' not in def_schema or len(def_schema['properties']) == 0)):
                         def_schema['abstract'] = True
-                    
-                    # Mark choice types with discriminators as abstract  
-                    if (def_schema.get('type') == 'choice' and 
+
+                    # Mark choice types with discriminators as abstract
+                    if (def_schema.get('type') == 'choice' and
                         'discriminator' in def_schema):
                         def_schema['abstract'] = True
+
+    def _normalize_inline_choices(self, structure_schema: dict) -> None:
+        """Give selector-based choices the abstract base required by JSON Structure."""
+        definitions = structure_schema.setdefault('definitions', {})
+        choices_to_normalize = []
+        choice_bases = {}
+
+        def collect(node: Any) -> None:
+            if isinstance(node, dict):
+                if node.get('type') == 'choice' and node.get('selector') and '$extends' not in node:
+                    choices_to_normalize.append(node)
+                for value in list(node.values()):
+                    collect(value)
+            elif isinstance(node, list):
+                for value in node:
+                    collect(value)
+
+        collect(structure_schema)
+        for index, choice in enumerate(choices_to_normalize, start=1):
+            targets = []
+            refs = []
+            for option in choice.get('choices', {}).values():
+                ref = option.get('$ref') if isinstance(option, dict) else None
+                if ref is None and isinstance(option, dict) and isinstance(option.get('type'), dict):
+                    ref = option['type'].get('$ref')
+                if not isinstance(ref, str) or not ref.startswith('#/'):
+                    targets = []
+                    break
+                try:
+                    target = jsonpointer.resolve_pointer(structure_schema, ref[1:])
+                except JsonPointerException:
+                    targets = []
+                    break
+                if not isinstance(target, dict) or target.get('type') != 'object':
+                    targets = []
+                    break
+                targets.append(target)
+                refs.append(ref)
+
+            if not targets:
+                choice.pop('selector', None)
+                continue
+
+            selector = choice['selector']
+            base_key = (selector, tuple(refs))
+            base_ref = choice_bases.get(base_key)
+            if base_ref is None:
+                choice_name = avro_name(choice.get('name') or f'InlineChoice{index}')
+                base_name = f'{choice_name}Base'
+                suffix = 2
+                while base_name in definitions:
+                    base_name = f'{choice_name}Base{suffix}'
+                    suffix += 1
+                base_ref = f'#/definitions/{base_name}'
+                choice_bases[base_key] = base_ref
+                definitions[base_name] = {
+                    'type': 'object',
+                    'name': base_name,
+                    'abstract': True,
+                    'properties': {selector: {'type': 'string'}},
+                    'required': [selector],
+                }
+            choice['$extends'] = base_ref
+            for target in targets:
+                existing = target.get('$extends')
+                if existing is None:
+                    target['$extends'] = base_ref
+                elif isinstance(existing, str) and existing != base_ref:
+                    target['$extends'] = [existing, base_ref]
+                elif isinstance(existing, list) and base_ref not in existing:
+                    existing.append(base_ref)
+
+    def _normalize_inheritance_targets(self, structure_schema: dict) -> None:
+        """Ensure every local $extends target is an abstract object schema."""
+        extends_refs = set()
+
+        def collect(node: Any) -> None:
+            if isinstance(node, dict):
+                extends = node.get('$extends')
+                if isinstance(extends, str):
+                    extends_refs.add(extends)
+                elif isinstance(extends, list):
+                    extends_refs.update(ref for ref in extends if isinstance(ref, str))
+                for value in node.values():
+                    collect(value)
+            elif isinstance(node, list):
+                for value in node:
+                    collect(value)
+
+        collect(structure_schema)
+        for ref in extends_refs:
+            if not ref.startswith('#/'):
+                continue
+            try:
+                target = jsonpointer.resolve_pointer(structure_schema, ref[1:])
+            except JsonPointerException:
+                continue
+            if not isinstance(target, dict):
+                continue
+            if '$ref' in target and 'type' not in target:
+                try:
+                    resolved = jsonpointer.resolve_pointer(structure_schema, target['$ref'][1:])
+                except (JsonPointerException, TypeError):
+                    continue
+                if isinstance(resolved, dict):
+                    target_name = target.get('name')
+                    target.clear()
+                    target.update(copy.deepcopy(resolved))
+                    if target_name:
+                        target['name'] = target_name
+            if target.get('type') == 'object':
+                target['abstract'] = True
+                target.pop('additionalProperties', None)
     
     def _ensure_root_type(self, structure_schema: dict, json_schema: Any = None) -> None:
         """Ensure a definitions-only document nominates a root type.
@@ -2192,6 +2305,8 @@ class JsonToStructureConverter:
 
         # Mark abstract types
         self._mark_abstract_types(structure_schema)
+        self._normalize_inline_choices(structure_schema)
+        self._normalize_inheritance_targets(structure_schema)
         
         return structure_schema
     

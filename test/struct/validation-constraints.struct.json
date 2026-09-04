@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example.com/schemas/validation-constraints",
+  "$uses": ["JSONStructureValidation"],
   "type": "object",
   "name": "ValidationConstraints",
   "description": "Test schema for validation constraints",

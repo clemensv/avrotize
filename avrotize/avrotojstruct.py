@@ -73,7 +73,16 @@ class AvroToJsonStructure:
 
         # Build definitions – do NOT skip root
         self.register_definition(avro_schema, current_namespace, doc["definitions"])
+        if self._contains_default(doc):
+            doc["$uses"] = ["JSONStructureValidation"]
         return doc
+
+    def _contains_default(self, value: Any) -> bool:
+        if isinstance(value, dict):
+            return "default" in value or any(self._contains_default(item) for item in value.values())
+        if isinstance(value, list):
+            return any(self._contains_default(item) for item in value)
+        return False
 
     # ------------------------------------------------------------------ REGISTRATION
 

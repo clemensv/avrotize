@@ -1,307 +1,5 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
-  "type": "object",
-  "description": "JSON schema for Travis CI configuration files",
-  "properties": {
-    "import": {
-      "oneOf": [
-        {
-          "type": "set",
-          "items": {
-            "type": {
-              "$ref": "#/definitions/import"
-            }
-          }
-        },
-        {
-          "$ref": "#/definitions/import"
-        }
-      ]
-    },
-    "jobs": {
-      "type": "object",
-      "properties": {
-        "allow_failures": {
-          "type": "array",
-          "items": {
-            "type": {
-              "$ref": "#/definitions/job"
-            }
-          }
-        },
-        "exclude": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "stage": {
-                "type": "string"
-              }
-            },
-            "$extends": "#/definitions/jobBase",
-            "name": "document"
-          }
-        },
-        "fast_finish": {
-          "type": "boolean"
-        },
-        "include": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "stage": {
-                "type": "string"
-              }
-            },
-            "$extends": "#/definitions/jobBase",
-            "name": "document"
-          }
-        }
-      },
-      "name": "document"
-    },
-    "matrix": {
-      "type": "object",
-      "properties": {
-        "allow_failures": {
-          "type": "array",
-          "items": {
-            "type": {
-              "$ref": "#/definitions/job"
-            }
-          }
-        },
-        "exclude": {
-          "type": "array",
-          "items": {
-            "type": {
-              "$ref": "#/definitions/job"
-            }
-          }
-        },
-        "fast_finish": {
-          "type": "boolean"
-        },
-        "include": {
-          "type": "array",
-          "items": {
-            "type": {
-              "$ref": "#/definitions/job"
-            }
-          }
-        }
-      },
-      "name": "document"
-    },
-    "notifications": {
-      "type": "object",
-      "properties": {
-        "campfire": {
-          "oneOf": [
-            {
-              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "$ref": "#/definitions/notificationObject_campfire"
-            },
-            {
-              "type": "set",
-              "items": {
-                "type": {
-                  "$ref": "#/definitions/notificationObject_campfire"
-                }
-              }
-            }
-          ]
-        },
-        "email": {
-          "oneOf": [
-            {
-              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "$ref": "#/definitions/notificationObject_email"
-            },
-            {
-              "type": "set",
-              "items": {
-                "type": {
-                  "$ref": "#/definitions/notificationObject_email"
-                }
-              }
-            }
-          ]
-        },
-        "flowdock": {
-          "oneOf": [
-            {
-              "$ref": "#/definitions/possiblySecretString"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "$ref": "#/definitions/notificationObject_flowdock"
-            },
-            {
-              "type": "set",
-              "items": {
-                "type": {
-                  "$ref": "#/definitions/notificationObject_flowdock"
-                }
-              }
-            }
-          ]
-        },
-        "hipchat": {
-          "oneOf": [
-            {
-              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "$ref": "#/definitions/notificationObject_hipchat"
-            },
-            {
-              "type": "set",
-              "items": {
-                "type": {
-                  "$ref": "#/definitions/notificationObject_hipchat"
-                }
-              }
-            }
-          ]
-        },
-        "irc": {
-          "oneOf": [
-            {
-              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "$ref": "#/definitions/notificationObject_irc"
-            },
-            {
-              "type": "set",
-              "items": {
-                "type": {
-                  "$ref": "#/definitions/notificationObject_irc"
-                }
-              }
-            }
-          ]
-        },
-        "pushover": {
-          "oneOf": [
-            {
-              "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "$ref": "#/definitions/notificationObject_pushover"
-            },
-            {
-              "type": "set",
-              "items": {
-                "type": {
-                  "$ref": "#/definitions/notificationObject_pushover"
-                }
-              }
-            }
-          ]
-        },
-        "slack": {
-          "oneOf": [
-            {
-              "$ref": "#/definitions/slackRoom"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "$ref": "#/definitions/notificationObject_slack"
-            },
-            {
-              "type": "set",
-              "items": {
-                "type": {
-                  "$ref": "#/definitions/notificationObject_slack"
-                }
-              }
-            }
-          ]
-        },
-        "webhooks": {
-          "oneOf": [
-            {
-              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "$ref": "#/definitions/notificationObject_webhooks"
-            },
-            {
-              "type": "set",
-              "items": {
-                "type": {
-                  "$ref": "#/definitions/notificationObject_webhooks"
-                }
-              }
-            }
-          ]
-        }
-      },
-      "name": "document"
-    },
-    "stages": {
-      "type": "array",
-      "items": {
-        "oneOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "if": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              }
-            },
-            "name": "document"
-          }
-        ]
-      }
-    },
-    "version": {
-      "type": "string",
-      "pattern": "^(~>|>|>=|=|<=|<) (\\d+(?:\\.\\d+)?(?:\\.\\d+)?)$"
-    }
-  },
-  "$extends": "#/definitions/jobBase",
-  "$id": "https://json.schemastore.org/travis.json",
-  "$uses": [
-    "JSONStructureAlternateNames",
-    "JSONStructureConditionalComposition",
-    "JSONStructureValidation"
-  ],
   "definitions": {
     "nonEmptyString": {
       "type": "string",
@@ -1112,7 +810,10 @@
           ]
         },
         "sudo": {
-          "type": "string",
+          "type": [
+            "string",
+            "boolean"
+          ],
           "enum": [
             true,
             false,
@@ -1138,9 +839,6 @@
                     "oneOf": [
                       {
                         "type": "object",
-                        "required": [
-                          "sourceline"
-                        ],
                         "name": "job",
                         "properties": {
                           "sourceline": {
@@ -1149,7 +847,10 @@
                           "key_url": {
                             "type": "string"
                           }
-                        }
+                        },
+                        "required": [
+                          "sourceline"
+                        ]
                       },
                       {
                         "type": "string"
@@ -1186,7 +887,10 @@
             "artifacts": {
               "oneOf": [
                 {
-                  "type": "string",
+                  "type": [
+                    "string",
+                    "boolean"
+                  ],
                   "enum": [
                     true
                   ]
@@ -1287,9 +991,6 @@
               "properties": {
                 "project": {
                   "type": "object",
-                  "required": [
-                    "name"
-                  ],
                   "name": "job",
                   "properties": {
                     "name": {
@@ -1301,7 +1002,10 @@
                     "description": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "name"
+                  ]
                 },
                 "notification_email": {
                   "type": "string"
@@ -1381,9 +1085,6 @@
                       },
                       {
                         "type": "object",
-                        "required": [
-                          "name"
-                        ],
                         "name": "job",
                         "properties": {
                           "name": {
@@ -1406,7 +1107,10 @@
                               "devmode"
                             ]
                           }
-                        }
+                        },
+                        "required": [
+                          "name"
+                        ]
                       }
                     ]
                   }
@@ -1467,7 +1171,10 @@
         "cache": {
           "oneOf": [
             {
-              "type": "string",
+              "type": [
+                "string",
+                "boolean"
+              ],
               "enum": [
                 false
               ]
@@ -1566,7 +1273,10 @@
                   "type": "int32"
                 },
                 {
-                  "type": "string",
+                  "type": [
+                    "string",
+                    "boolean"
+                  ],
                   "enum": [
                     false
                   ]
@@ -1761,10 +1471,6 @@
           "oneOf": [
             {
               "type": "object",
-              "required": [
-                "provider",
-                "script"
-              ],
               "name": "deployment",
               "properties": {
                 "provider": {
@@ -1776,7 +1482,11 @@
                 "script": {
                   "type": "string"
                 }
-              }
+              },
+              "required": [
+                "provider",
+                "script"
+              ]
             },
             {
               "oneOf": [
@@ -1824,9 +1534,6 @@
             },
             {
               "type": "object",
-              "required": [
-                "provider"
-              ],
               "name": "deployment",
               "properties": {
                 "provider": {
@@ -1841,13 +1548,13 @@
                 "domain": {
                   "type": "string"
                 }
-              }
+              },
+              "required": [
+                "provider"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "provider"
-              ],
               "name": "deployment",
               "properties": {
                 "provider": {
@@ -1890,14 +1597,13 @@
                 "overwrite": {
                   "type": "boolean"
                 }
-              }
+              },
+              "required": [
+                "provider"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "provider",
-                "api_key"
-              ],
               "name": "deployment",
               "properties": {
                 "provider": {
@@ -1914,7 +1620,9 @@
                     {
                       "type": "map",
                       "values": {
-                        "$ref": "#/definitions/possiblySecretString"
+                        "type": {
+                          "$ref": "#/definitions/possiblySecretString"
+                        }
                       }
                     }
                   ]
@@ -1955,16 +1663,14 @@
                     "git"
                   ]
                 }
-              }
+              },
+              "required": [
+                "provider",
+                "api_key"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "provider",
-                "access_key_id",
-                "secret_access_key",
-                "bucket"
-              ],
               "name": "deployment",
               "properties": {
                 "provider": {
@@ -2027,19 +1733,25 @@
                 "endpoint": {
                   "type": "string"
                 }
-              }
+              },
+              "required": [
+                "provider",
+                "access_key_id",
+                "secret_access_key",
+                "bucket"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "provider"
-              ],
               "name": "deployment",
               "properties": {
                 "provider": {
                   "type": "string"
                 }
-              }
+              },
+              "required": [
+                "provider"
+              ]
             }
           ]
         }
@@ -2056,9 +1768,6 @@
       "anyOf": [
         {
           "type": "object",
-          "required": [
-            "source"
-          ],
           "name": "import",
           "properties": {
             "source": {
@@ -2080,13 +1789,28 @@
                 "$ref": "#/definitions/nonEmptyString"
               }
             }
-          }
+          },
+          "required": [
+            "source"
+          ]
         },
         {
           "$ref": "#/definitions/nonEmptyString"
         }
       ],
       "name": "import"
+    },
+    "firefox_string": {
+      "type": "string",
+      "enum": [
+        "latest",
+        "latest-esr",
+        "latest-beta",
+        "latest-dev",
+        "latest-nightly",
+        "latest-unsigned"
+      ],
+      "name": "firefox_string"
     },
     "jobBase": {
       "type": "object",
@@ -2469,7 +2193,10 @@
           ]
         },
         "sudo": {
-          "type": "string",
+          "type": [
+            "string",
+            "boolean"
+          ],
           "enum": [
             true,
             false,
@@ -2493,9 +2220,6 @@
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": [
-                      "sourceline"
-                    ],
                     "name": "jobBase",
                     "properties": {
                       "sourceline": {
@@ -2504,7 +2228,10 @@
                       "key_url": {
                         "type": "string"
                       }
-                    }
+                    },
+                    "required": [
+                      "sourceline"
+                    ]
                   }
                 },
                 "packages": {
@@ -2527,7 +2254,10 @@
               }
             },
             "artifacts": {
-              "type": "string",
+              "type": [
+                "string",
+                "boolean"
+              ],
               "enum": [
                 true
               ]
@@ -2535,15 +2265,7 @@
             "firefox": {
               "type": [
                 {
-                  "type": "string",
-                  "enum": [
-                    "latest",
-                    "latest-esr",
-                    "latest-beta",
-                    "latest-dev",
-                    "latest-nightly",
-                    "latest-unsigned"
-                  ]
+                  "$ref": "#/definitions/firefox_string"
                 },
                 {
                   "$ref": "#/definitions/nonEmptyString"
@@ -2598,9 +2320,6 @@
               "properties": {
                 "project": {
                   "type": "object",
-                  "required": [
-                    "name"
-                  ],
                   "name": "jobBase",
                   "properties": {
                     "name": {
@@ -2612,7 +2331,10 @@
                     "description": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "name"
+                  ]
                 },
                 "notification_email": {
                   "type": "string"
@@ -2717,7 +2439,10 @@
           }
         },
         "cache": {
-          "type": "string",
+          "type": [
+            "string",
+            "boolean"
+          ],
           "enum": [
             false
           ]
@@ -3265,5 +2990,307 @@
       }
     }
   },
-  "name": "document"
+  "type": "object",
+  "name": "document",
+  "$extends": "#/definitions/jobBase",
+  "properties": {
+    "notifications": {
+      "type": "object",
+      "name": "document",
+      "properties": {
+        "webhooks": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_webhooks"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_webhooks"
+                }
+              }
+            }
+          ]
+        },
+        "slack": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/slackRoom"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_slack"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_slack"
+                }
+              }
+            }
+          ]
+        },
+        "email": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_email"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_email"
+                }
+              }
+            }
+          ]
+        },
+        "irc": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_irc"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_irc"
+                }
+              }
+            }
+          ]
+        },
+        "pushover": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_pushover"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_pushover"
+                }
+              }
+            }
+          ]
+        },
+        "campfire": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_campfire"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_campfire"
+                }
+              }
+            }
+          ]
+        },
+        "flowdock": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretString"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_flowdock"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_flowdock"
+                }
+              }
+            }
+          ]
+        },
+        "hipchat": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/definitions/notificationObject_hipchat"
+            },
+            {
+              "type": "set",
+              "items": {
+                "type": {
+                  "$ref": "#/definitions/notificationObject_hipchat"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "matrix": {
+      "type": "object",
+      "name": "document",
+      "properties": {
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "allow_failures": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "fast_finish": {
+          "type": "boolean"
+        }
+      }
+    },
+    "jobs": {
+      "type": "object",
+      "name": "document",
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "document",
+            "$extends": "#/definitions/jobBase",
+            "properties": {
+              "stage": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "document",
+            "$extends": "#/definitions/jobBase",
+            "properties": {
+              "stage": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "allow_failures": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "fast_finish": {
+          "type": "boolean"
+        }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "name": "document",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "if": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(~>|>|>=|=|<=|<) (\\d+(?:\\.\\d+)?(?:\\.\\d+)?)$"
+    },
+    "import": {
+      "oneOf": [
+        {
+          "type": "set",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/import"
+            }
+          }
+        },
+        {
+          "$ref": "#/definitions/import"
+        }
+      ]
+    }
+  },
+  "$id": "https://json.schemastore.org/travis.json",
+  "description": "JSON schema for Travis CI configuration files",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureConditionalComposition",
+    "JSONStructureValidation"
+  ]
 }
