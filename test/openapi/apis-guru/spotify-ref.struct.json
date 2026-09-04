@@ -3,20 +3,6 @@
   "definitions": {
     "AlbumBase": {
       "type": "object",
-      "required": [
-        "album_type",
-        "total_tracks",
-        "available_markets",
-        "external_urls",
-        "href",
-        "id",
-        "images",
-        "name",
-        "release_date",
-        "release_date_precision",
-        "type",
-        "uri"
-      ],
       "name": "AlbumBase",
       "properties": {
         "album_type": {
@@ -83,10 +69,7 @@
         "uri": {
           "type": "string"
         }
-      }
-    },
-    "AlbumBaseBase": {
-      "type": "object",
+      },
       "required": [
         "album_type",
         "total_tracks",
@@ -100,7 +83,10 @@
         "release_date_precision",
         "type",
         "uri"
-      ],
+      ]
+    },
+    "AlbumBaseBase": {
+      "type": "object",
       "name": "AlbumBaseBase",
       "properties": {
         "album_type": {
@@ -168,6 +154,20 @@
           "type": "string"
         }
       },
+      "required": [
+        "album_type",
+        "total_tracks",
+        "available_markets",
+        "external_urls",
+        "href",
+        "id",
+        "images",
+        "name",
+        "release_date",
+        "release_date_precision",
+        "type",
+        "uri"
+      ],
       "abstract": true
     },
     "AlbumObject": {
@@ -534,26 +534,6 @@
     },
     "AudiobookBase": {
       "type": "object",
-      "required": [
-        "authors",
-        "available_markets",
-        "copyrights",
-        "description",
-        "explicit",
-        "external_urls",
-        "href",
-        "html_description",
-        "id",
-        "images",
-        "languages",
-        "media_type",
-        "name",
-        "narrators",
-        "publisher",
-        "total_chapters",
-        "type",
-        "uri"
-      ],
       "name": "AudiobookBase",
       "properties": {
         "authors": {
@@ -644,10 +624,7 @@
         "uri": {
           "type": "string"
         }
-      }
-    },
-    "AudiobookBaseBase": {
-      "type": "object",
+      },
       "required": [
         "authors",
         "available_markets",
@@ -667,7 +644,10 @@
         "total_chapters",
         "type",
         "uri"
-      ],
+      ]
+    },
+    "AudiobookBaseBase": {
+      "type": "object",
       "name": "AudiobookBaseBase",
       "properties": {
         "authors": {
@@ -759,6 +739,26 @@
           "type": "string"
         }
       },
+      "required": [
+        "authors",
+        "available_markets",
+        "copyrights",
+        "description",
+        "explicit",
+        "external_urls",
+        "href",
+        "html_description",
+        "id",
+        "images",
+        "languages",
+        "media_type",
+        "name",
+        "narrators",
+        "publisher",
+        "total_chapters",
+        "type",
+        "uri"
+      ],
       "abstract": true
     },
     "AudiobookObject": {
@@ -788,12 +788,6 @@
     },
     "CategoryObject": {
       "type": "object",
-      "required": [
-        "href",
-        "icons",
-        "id",
-        "name"
-      ],
       "name": "CategoryObject",
       "properties": {
         "href": {
@@ -813,30 +807,16 @@
         "name": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "href",
+        "icons",
+        "id",
+        "name"
+      ]
     },
     "ChapterBase": {
       "type": "object",
-      "required": [
-        "audio_preview_url",
-        "chapter_number",
-        "description",
-        "html_description",
-        "duration_ms",
-        "explicit",
-        "external_urls",
-        "href",
-        "id",
-        "images",
-        "is_playable",
-        "languages",
-        "name",
-        "release_date",
-        "release_date_precision",
-        "resume_point",
-        "type",
-        "uri"
-      ],
       "name": "ChapterBase",
       "properties": {
         "audio_preview_url": {
@@ -924,10 +904,7 @@
         "uri": {
           "type": "string"
         }
-      }
-    },
-    "ChapterBaseBase": {
-      "type": "object",
+      },
       "required": [
         "audio_preview_url",
         "chapter_number",
@@ -947,7 +924,10 @@
         "resume_point",
         "type",
         "uri"
-      ],
+      ]
+    },
+    "ChapterBaseBase": {
+      "type": "object",
       "name": "ChapterBaseBase",
       "properties": {
         "audio_preview_url": {
@@ -1036,6 +1016,26 @@
           "type": "string"
         }
       },
+      "required": [
+        "audio_preview_url",
+        "chapter_number",
+        "description",
+        "html_description",
+        "duration_ms",
+        "explicit",
+        "external_urls",
+        "href",
+        "id",
+        "images",
+        "is_playable",
+        "languages",
+        "name",
+        "release_date",
+        "release_date_precision",
+        "resume_point",
+        "type",
+        "uri"
+      ],
       "abstract": true
     },
     "ChapterObject": {
@@ -1124,13 +1124,18 @@
           "selector": "type",
           "choices": {
             "TrackObject": {
-              "$ref": "#/definitions/TrackObject"
+              "type": {
+                "$ref": "#/definitions/TrackObject"
+              }
             },
             "EpisodeObject": {
-              "$ref": "#/definitions/EpisodeObject"
+              "type": {
+                "$ref": "#/definitions/EpisodeObject"
+              }
             }
           },
-          "name": "CurrentlyPlayingContextObject"
+          "name": "CurrentlyPlayingContextObject",
+          "$extends": "#/definitions/CurrentlyPlayingContextObjectBase"
         },
         "progress_ms": {
           "type": "int32"
@@ -1166,13 +1171,18 @@
           "selector": "type",
           "choices": {
             "TrackObject": {
-              "$ref": "#/definitions/TrackObject"
+              "type": {
+                "$ref": "#/definitions/TrackObject"
+              }
             },
             "EpisodeObject": {
-              "$ref": "#/definitions/EpisodeObject"
+              "type": {
+                "$ref": "#/definitions/EpisodeObject"
+              }
             }
           },
-          "name": "CurrentlyPlayingObject"
+          "name": "CurrentlyPlayingObject",
+          "$extends": "#/definitions/CurrentlyPlayingContextObjectBase"
         },
         "progress_ms": {
           "type": "int32"
@@ -1358,26 +1368,6 @@
     },
     "EpisodeBase": {
       "type": "object",
-      "required": [
-        "audio_preview_url",
-        "description",
-        "html_description",
-        "duration_ms",
-        "explicit",
-        "external_urls",
-        "href",
-        "id",
-        "images",
-        "is_externally_hosted",
-        "is_playable",
-        "languages",
-        "name",
-        "release_date",
-        "release_date_precision",
-        "resume_point",
-        "type",
-        "uri"
-      ],
       "name": "EpisodeBase",
       "properties": {
         "audio_preview_url": {
@@ -1462,10 +1452,7 @@
         "uri": {
           "type": "string"
         }
-      }
-    },
-    "EpisodeBaseBase": {
-      "type": "object",
+      },
       "required": [
         "audio_preview_url",
         "description",
@@ -1485,7 +1472,10 @@
         "resume_point",
         "type",
         "uri"
-      ],
+      ]
+    },
+    "EpisodeBaseBase": {
+      "type": "object",
       "name": "EpisodeBaseBase",
       "properties": {
         "audio_preview_url": {
@@ -1571,12 +1561,35 @@
           "type": "string"
         }
       },
+      "required": [
+        "audio_preview_url",
+        "description",
+        "html_description",
+        "duration_ms",
+        "explicit",
+        "external_urls",
+        "href",
+        "id",
+        "images",
+        "is_externally_hosted",
+        "is_playable",
+        "languages",
+        "name",
+        "release_date",
+        "release_date_precision",
+        "resume_point",
+        "type",
+        "uri"
+      ],
       "abstract": true
     },
     "EpisodeObject": {
       "type": "object",
       "name": "EpisodeObject",
-      "$extends": "#/definitions/EpisodeBaseBase",
+      "$extends": [
+        "#/definitions/EpisodeBaseBase",
+        "#/definitions/CurrentlyPlayingContextObjectBase"
+      ],
       "properties": {
         "show": {
           "type": {
@@ -1599,10 +1612,6 @@
     },
     "ErrorObject": {
       "type": "object",
-      "required": [
-        "status",
-        "message"
-      ],
       "name": "ErrorObject",
       "properties": {
         "message": {
@@ -1613,7 +1622,11 @@
           "minimum": 400,
           "maximum": 599
         }
-      }
+      },
+      "required": [
+        "status",
+        "message"
+      ]
     },
     "ExplicitContentSettingsObject": {
       "type": "object",
@@ -1668,11 +1681,6 @@
     },
     "ImageObject": {
       "type": "object",
-      "required": [
-        "url",
-        "height",
-        "width"
-      ],
       "name": "ImageObject",
       "properties": {
         "height": {
@@ -1690,7 +1698,12 @@
             "null"
           ]
         }
-      }
+      },
+      "required": [
+        "url",
+        "height",
+        "width"
+      ]
     },
     "Key": {
       "type": "int32",
@@ -1740,15 +1753,6 @@
     },
     "PagingObjectBase": {
       "type": "object",
-      "required": [
-        "href",
-        "items",
-        "limit",
-        "next",
-        "offset",
-        "previous",
-        "total"
-      ],
       "name": "PagingObjectBase",
       "properties": {
         "href": {
@@ -1776,6 +1780,14 @@
           "type": "int32"
         }
       },
+      "required": [
+        "href",
+        "limit",
+        "next",
+        "offset",
+        "previous",
+        "total"
+      ],
       "abstract": true
     },
     "PagingArtistObject": {
@@ -1809,15 +1821,6 @@
     },
     "PagingObject": {
       "type": "object",
-      "required": [
-        "href",
-        "items",
-        "limit",
-        "next",
-        "offset",
-        "previous",
-        "total"
-      ],
       "name": "PagingObject",
       "properties": {
         "href": {
@@ -1844,7 +1847,15 @@
         "total": {
           "type": "int32"
         }
-      }
+      },
+      "required": [
+        "href",
+        "limit",
+        "next",
+        "offset",
+        "previous",
+        "total"
+      ]
     },
     "PagingPlaylistObject": {
       "type": "object",
@@ -2261,13 +2272,18 @@
           "selector": "type",
           "choices": {
             "TrackObject": {
-              "$ref": "#/definitions/TrackObject"
+              "type": {
+                "$ref": "#/definitions/TrackObject"
+              }
             },
             "EpisodeObject": {
-              "$ref": "#/definitions/EpisodeObject"
+              "type": {
+                "$ref": "#/definitions/EpisodeObject"
+              }
             }
           },
-          "name": "PlaylistTrackObject"
+          "name": "PlaylistTrackObject",
+          "$extends": "#/definitions/CurrentlyPlayingContextObjectBase"
         }
       }
     },
@@ -2421,13 +2437,18 @@
           "selector": "type",
           "choices": {
             "TrackObject": {
-              "$ref": "#/definitions/TrackObject"
+              "type": {
+                "$ref": "#/definitions/TrackObject"
+              }
             },
             "EpisodeObject": {
-              "$ref": "#/definitions/EpisodeObject"
+              "type": {
+                "$ref": "#/definitions/EpisodeObject"
+              }
             }
           },
-          "name": "QueueObject"
+          "name": "QueueObject",
+          "$extends": "#/definitions/CurrentlyPlayingContextObjectBase"
         },
         "queue": {
           "type": "array",
@@ -2436,13 +2457,18 @@
             "selector": "type",
             "choices": {
               "TrackObject": {
-                "$ref": "#/definitions/TrackObject"
+                "type": {
+                  "$ref": "#/definitions/TrackObject"
+                }
               },
               "EpisodeObject": {
-                "$ref": "#/definitions/EpisodeObject"
+                "type": {
+                  "$ref": "#/definitions/EpisodeObject"
+                }
               }
             },
-            "name": "QueueObject"
+            "name": "QueueObject",
+            "$extends": "#/definitions/CurrentlyPlayingContextObjectBase"
           }
         }
       }
@@ -2473,10 +2499,6 @@
     },
     "RecommendationsObject": {
       "type": "object",
-      "required": [
-        "seeds",
-        "tracks"
-      ],
       "name": "RecommendationsObject",
       "properties": {
         "seeds": {
@@ -2495,7 +2517,11 @@
             }
           }
         }
-      }
+      },
+      "required": [
+        "seeds",
+        "tracks"
+      ]
     },
     "ResumePointObject": {
       "type": "object",
@@ -2683,25 +2709,6 @@
     },
     "ShowBase": {
       "type": "object",
-      "required": [
-        "available_markets",
-        "copyrights",
-        "description",
-        "explicit",
-        "external_urls",
-        "href",
-        "html_description",
-        "id",
-        "images",
-        "is_externally_hosted",
-        "languages",
-        "media_type",
-        "name",
-        "publisher",
-        "total_episodes",
-        "type",
-        "uri"
-      ],
       "name": "ShowBase",
       "properties": {
         "available_markets": {
@@ -2776,10 +2783,7 @@
         "uri": {
           "type": "string"
         }
-      }
-    },
-    "ShowBaseBase": {
-      "type": "object",
+      },
       "required": [
         "available_markets",
         "copyrights",
@@ -2798,7 +2802,10 @@
         "total_episodes",
         "type",
         "uri"
-      ],
+      ]
+    },
+    "ShowBaseBase": {
+      "type": "object",
       "name": "ShowBaseBase",
       "properties": {
         "available_markets": {
@@ -2874,6 +2881,25 @@
           "type": "string"
         }
       },
+      "required": [
+        "available_markets",
+        "copyrights",
+        "description",
+        "explicit",
+        "external_urls",
+        "href",
+        "html_description",
+        "id",
+        "images",
+        "is_externally_hosted",
+        "languages",
+        "media_type",
+        "name",
+        "publisher",
+        "total_episodes",
+        "type",
+        "uri"
+      ],
       "abstract": true
     },
     "ShowObject": {
@@ -3207,7 +3233,8 @@
         "uri": {
           "type": "string"
         }
-      }
+      },
+      "$extends": "#/definitions/CurrentlyPlayingContextObjectBase"
     },
     "TrackRestrictionObject": {
       "type": "object",
@@ -3275,10 +3302,332 @@
           "type": "float"
         }
       }
+    },
+    "document": {
+      "name": "document",
+      "type": [
+        {
+          "$ref": "#/definitions/AlbumBase"
+        },
+        {
+          "$ref": "#/definitions/AlbumBaseBase"
+        },
+        {
+          "$ref": "#/definitions/AlbumObject"
+        },
+        {
+          "$ref": "#/definitions/AlbumRestrictionObject"
+        },
+        {
+          "$ref": "#/definitions/ArtistObject"
+        },
+        {
+          "$ref": "#/definitions/AudioAnalysisObject"
+        },
+        {
+          "$ref": "#/definitions/AudioFeaturesObject"
+        },
+        {
+          "$ref": "#/definitions/AudiobookBase"
+        },
+        {
+          "$ref": "#/definitions/AudiobookBaseBase"
+        },
+        {
+          "$ref": "#/definitions/AudiobookObject"
+        },
+        {
+          "$ref": "#/definitions/AuthorObject"
+        },
+        {
+          "$ref": "#/definitions/CategoryObject"
+        },
+        {
+          "$ref": "#/definitions/ChapterBase"
+        },
+        {
+          "$ref": "#/definitions/ChapterBaseBase"
+        },
+        {
+          "$ref": "#/definitions/ChapterObject"
+        },
+        {
+          "$ref": "#/definitions/ChapterRestrictionObject"
+        },
+        {
+          "$ref": "#/definitions/ContextObject"
+        },
+        {
+          "$ref": "#/definitions/CopyrightObject"
+        },
+        {
+          "$ref": "#/definitions/CurrentlyPlayingContextObject"
+        },
+        {
+          "$ref": "#/definitions/CurrentlyPlayingObject"
+        },
+        {
+          "$ref": "#/definitions/CursorObject"
+        },
+        {
+          "$ref": "#/definitions/CursorPagingObject"
+        },
+        {
+          "$ref": "#/definitions/CursorPagingObjectBase"
+        },
+        {
+          "$ref": "#/definitions/CursorPagingPlayHistoryObject"
+        },
+        {
+          "$ref": "#/definitions/CursorPagingSimplifiedArtistObject"
+        },
+        {
+          "$ref": "#/definitions/DeviceObject"
+        },
+        {
+          "$ref": "#/definitions/DevicesObject"
+        },
+        {
+          "$ref": "#/definitions/DisallowsObject"
+        },
+        {
+          "$ref": "#/definitions/EpisodeBase"
+        },
+        {
+          "$ref": "#/definitions/EpisodeBaseBase"
+        },
+        {
+          "$ref": "#/definitions/EpisodeObject"
+        },
+        {
+          "$ref": "#/definitions/EpisodeRestrictionObject"
+        },
+        {
+          "$ref": "#/definitions/ErrorObject"
+        },
+        {
+          "$ref": "#/definitions/ExplicitContentSettingsObject"
+        },
+        {
+          "$ref": "#/definitions/ExternalIdObject"
+        },
+        {
+          "$ref": "#/definitions/ExternalUrlObject"
+        },
+        {
+          "$ref": "#/definitions/FollowersObject"
+        },
+        {
+          "$ref": "#/definitions/ImageObject"
+        },
+        {
+          "$ref": "#/definitions/Key"
+        },
+        {
+          "$ref": "#/definitions/LinkedTrackObject"
+        },
+        {
+          "$ref": "#/definitions/Loudness"
+        },
+        {
+          "$ref": "#/definitions/Mode"
+        },
+        {
+          "$ref": "#/definitions/NarratorObject"
+        },
+        {
+          "$ref": "#/definitions/PagingObjectBase"
+        },
+        {
+          "$ref": "#/definitions/PagingArtistObject"
+        },
+        {
+          "$ref": "#/definitions/PagingFeaturedPlaylistObject"
+        },
+        {
+          "$ref": "#/definitions/PagingObject"
+        },
+        {
+          "$ref": "#/definitions/PagingPlaylistObject"
+        },
+        {
+          "$ref": "#/definitions/PagingPlaylistTrackObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSavedAlbumObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSavedAudiobookObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSavedEpisodeObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSavedShowObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSavedTrackObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSimplifiedAlbumObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSimplifiedArtistObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSimplifiedAudiobookObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSimplifiedChapterObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSimplifiedEpisodeObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSimplifiedShowObject"
+        },
+        {
+          "$ref": "#/definitions/PagingSimplifiedTrackObject"
+        },
+        {
+          "$ref": "#/definitions/PagingTrackObject"
+        },
+        {
+          "$ref": "#/definitions/PlayHistoryObject"
+        },
+        {
+          "$ref": "#/definitions/PlayerErrorObject"
+        },
+        {
+          "$ref": "#/definitions/PlayerErrorReasons"
+        },
+        {
+          "$ref": "#/definitions/PlaylistObject"
+        },
+        {
+          "$ref": "#/definitions/PlaylistUserObjectBase"
+        },
+        {
+          "$ref": "#/definitions/PlaylistOwnerObject"
+        },
+        {
+          "$ref": "#/definitions/PlaylistTrackObject"
+        },
+        {
+          "$ref": "#/definitions/PlaylistTracksRefObject"
+        },
+        {
+          "$ref": "#/definitions/PlaylistUserObject"
+        },
+        {
+          "$ref": "#/definitions/PrivateUserObject"
+        },
+        {
+          "$ref": "#/definitions/PublicUserObject"
+        },
+        {
+          "$ref": "#/definitions/QueueObject"
+        },
+        {
+          "$ref": "#/definitions/RecommendationSeedObject"
+        },
+        {
+          "$ref": "#/definitions/RecommendationsObject"
+        },
+        {
+          "$ref": "#/definitions/ResumePointObject"
+        },
+        {
+          "$ref": "#/definitions/SavedAlbumObject"
+        },
+        {
+          "$ref": "#/definitions/SavedAudiobookObject"
+        },
+        {
+          "$ref": "#/definitions/SavedEpisodeObject"
+        },
+        {
+          "$ref": "#/definitions/SavedShowObject"
+        },
+        {
+          "$ref": "#/definitions/SavedTrackObject"
+        },
+        {
+          "$ref": "#/definitions/SectionObject"
+        },
+        {
+          "$ref": "#/definitions/SegmentObject"
+        },
+        {
+          "$ref": "#/definitions/ShowBase"
+        },
+        {
+          "$ref": "#/definitions/ShowBaseBase"
+        },
+        {
+          "$ref": "#/definitions/ShowObject"
+        },
+        {
+          "$ref": "#/definitions/SimplifiedAlbumObject"
+        },
+        {
+          "$ref": "#/definitions/SimplifiedArtistObject"
+        },
+        {
+          "$ref": "#/definitions/SimplifiedAudiobookObject"
+        },
+        {
+          "$ref": "#/definitions/SimplifiedChapterObject"
+        },
+        {
+          "$ref": "#/definitions/SimplifiedEpisodeObject"
+        },
+        {
+          "$ref": "#/definitions/SimplifiedPlaylistObject"
+        },
+        {
+          "$ref": "#/definitions/SimplifiedShowObject"
+        },
+        {
+          "$ref": "#/definitions/SimplifiedTrackObject"
+        },
+        {
+          "$ref": "#/definitions/Tempo"
+        },
+        {
+          "$ref": "#/definitions/TimeIntervalObject"
+        },
+        {
+          "$ref": "#/definitions/TimeSignature"
+        },
+        {
+          "$ref": "#/definitions/TrackObject"
+        },
+        {
+          "$ref": "#/definitions/TrackRestrictionObject"
+        },
+        {
+          "$ref": "#/definitions/TuneableTrackObject"
+        }
+      ]
+    },
+    "CurrentlyPlayingContextObjectBase": {
+      "type": "object",
+      "name": "CurrentlyPlayingContextObjectBase",
+      "abstract": true,
+      "properties": {
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ]
     }
   },
   "$id": "https://example.com/schemas/spotify-web-api-with-fixes-and-improvements-from-sonallux/2023.2.27",
   "description": "You can use Spotify's Web API to discover music and podcasts, manage your Spotify library, control audio playback, and much more. Browse our available Web API endpoints using the sidebar at left, or via the navigation bar on top of this page on smaller screens.\n\nIn order to make successful Web API requests your app will need a valid access token. One can be obtained through <a href=\"https://developer.spotify.com/documentation/general/guides/authorization-guide/\">OAuth 2.0</a>.\n\nThe base URI for all Web API requests is `https://api.spotify.com/v1`.\n\nNeed help? See our <a href=\"https://developer.spotify.com/documentation/web-api/guides/\">Web API guides</a> for more information, or visit the <a href=\"https://community.spotify.com/t5/Spotify-for-Developers/bd-p/Spotify_Developer\">Spotify for Developers community forum</a> to ask questions and connect with other developers.\n",
+  "$root": "#/definitions/document",
   "$uses": [
     "JSONStructureValidation"
   ]

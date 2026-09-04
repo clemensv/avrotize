@@ -1,11 +1,13 @@
 # collections.struct
 Test schema for collection types
 **Schema ID:** `https://example.com/schemas/collections`
+**Uses Extensions:** JSONStructureValidation
 ## Objects
 
 ### Collections
 
 Test schema for collection types
+**Uses Extensions:** JSONStructureValidation
 **Properties:**
 - **stringArray** (required): array&lt;`string`&gt;
   - Constraints: minItems: 1, maxItems: 10

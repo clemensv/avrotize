@@ -1,104 +1,5 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
-  "description": "venvironment schema",
-  "anyOf": [
-    {
-      "if": {
-        "type": "object",
-        "name": "b2d82_full",
-        "properties": {
-          "version": {
-            "type": "object",
-            "properties": {}
-          }
-        }
-      },
-      "then": {
-        "$ref": "#/definitions/decf8_full"
-      }
-    },
-    {
-      "if": {
-        "type": "object",
-        "name": "b2d82_full",
-        "properties": {
-          "version": {
-            "type": "object",
-            "properties": {}
-          }
-        }
-      },
-      "then": {
-        "$ref": "#/definitions/_170b6_full"
-      }
-    },
-    {
-      "if": {
-        "type": "object",
-        "name": "b2d82_full",
-        "properties": {
-          "version": {
-            "type": "object",
-            "properties": {}
-          }
-        }
-      },
-      "then": {
-        "$ref": "#/definitions/_26679_full"
-      }
-    },
-    {
-      "if": {
-        "type": "object",
-        "name": "b2d82_full",
-        "properties": {
-          "version": {
-            "type": "object",
-            "properties": {}
-          }
-        }
-      },
-      "then": {
-        "$ref": "#/definitions/_91f16_full"
-      }
-    },
-    {
-      "if": {
-        "type": "object",
-        "name": "b2d82_full",
-        "properties": {
-          "version": {
-            "type": "object",
-            "properties": {}
-          }
-        }
-      },
-      "then": {
-        "$ref": "#/definitions/ed3cd_full"
-      }
-    },
-    {
-      "if": {
-        "type": "object",
-        "name": "b2d82_full",
-        "properties": {
-          "version": {
-            "type": "object",
-            "properties": {}
-          }
-        }
-      },
-      "then": {
-        "$ref": "#/definitions/b4889_full"
-      }
-    }
-  ],
-  "$id": "https://json.schemastore.org/venvironment-schema.json",
-  "$uses": [
-    "JSONStructureAlternateNames",
-    "JSONStructureConditionalComposition",
-    "JSONStructureValidation"
-  ],
   "definitions": {
     "b2d82": {
       "type": "object",
@@ -2395,9 +2296,6 @@
     },
     "faf17_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "faf17_full",
       "properties": {
         "when": {
@@ -2450,7 +2348,10 @@
             "$ref": "#/definitions/dbb1c_full"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "_8bf53_full": {
       "type": "array",
@@ -2470,9 +2371,6 @@
     },
     "_84972_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "_84972_full",
       "properties": {
         "name": {
@@ -2545,7 +2443,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_17e74_full": {
       "type": "array",
@@ -2627,10 +2528,6 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "source-channel",
-                  "target-network"
-                ],
                 "name": "_7d7e4_full",
                 "properties": {
                   "source_channel": {
@@ -2664,14 +2561,14 @@
                       "json": "target-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "source_channel",
+                  "target_network"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "source-network",
-                  "target-network"
-                ],
                 "name": "_7d7e4_full",
                 "properties": {
                   "source_network": {
@@ -2695,13 +2592,14 @@
                       "json": "target-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "source_network",
+                  "target_network"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "ignore-source-channel"
-                ],
                 "name": "_7d7e4_full",
                 "properties": {
                   "ignore_source_channel": {
@@ -2720,13 +2618,13 @@
                       "json": "ignore-source-channel"
                     }
                   }
-                }
+                },
+                "required": [
+                  "ignore_source_channel"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "ignore-source-network"
-                ],
                 "name": "_7d7e4_full",
                 "properties": {
                   "ignore_source_network": {
@@ -2735,7 +2633,10 @@
                       "json": "ignore-source-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "ignore_source_network"
+                ]
               }
             ]
           }
@@ -2744,10 +2645,6 @@
     },
     "cacc0_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "cacc0_full",
       "properties": {
         "name": {
@@ -2851,7 +2748,11 @@
             "json": "send-rx-messages"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "f4a62_full": {
       "type": "array",
@@ -2864,10 +2765,6 @@
     },
     "_5d2a8_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "_5d2a8_full",
       "properties": {
         "name": {
@@ -2913,7 +2810,11 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "_62d94_full": {
       "type": "array",
@@ -2932,9 +2833,6 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": [
-              "file-path"
-            ],
             "name": "_6d767_full",
             "properties": {
               "when": {
@@ -2994,7 +2892,10 @@
                   "$ref": "#/definitions/dbb1c_full"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path"
+            ]
           },
           "altnames": {
             "json": "input-files"
@@ -3004,9 +2905,6 @@
     },
     "_60f6d_full": {
       "type": "object",
-      "required": [
-        "define"
-      ],
       "name": "_60f6d_full",
       "properties": {
         "when": {
@@ -3034,7 +2932,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "define"
+      ]
     },
     "e8c0c_full": {
       "type": "array",
@@ -3072,10 +2973,6 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "address",
-          "subnet-prefix-length"
-        ],
         "name": "_2d92f_full",
         "properties": {
           "address": {
@@ -3106,16 +3003,16 @@
               "json": "subnet-prefix-length"
             }
           }
-        }
+        },
+        "required": [
+          "address",
+          "subnet_prefix_length"
+        ]
       },
       "name": "_2d92f_full"
     },
     "f1175_local_vlan_settings": {
       "type": "object",
-      "required": [
-        "id",
-        "priority"
-      ],
       "name": "f1175_local_vlan_settings",
       "properties": {
         "id": {
@@ -3148,9 +3045,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "address-configuration"
-              ],
               "name": "_4b907_full",
               "properties": {
                 "address_configuration": {
@@ -3171,14 +3065,13 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "address-configuration",
-                "addresses"
-              ],
               "name": "_4b907_full",
               "properties": {
                 "addresses": {
@@ -3201,7 +3094,11 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration",
+                "addresses"
+              ]
             }
           ],
           "altnames": {
@@ -3212,9 +3109,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "address-configuration"
-              ],
               "name": "e391e_full",
               "properties": {
                 "address_configuration": {
@@ -3235,14 +3129,13 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "address-configuration",
-                "addresses"
-              ],
               "name": "e391e_full",
               "properties": {
                 "addresses": {
@@ -3265,14 +3158,22 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration",
+                "addresses"
+              ]
             }
           ],
           "altnames": {
             "json": "ipv6-settings"
           }
         }
-      }
+      },
+      "required": [
+        "id",
+        "priority"
+      ]
     },
     "f1175_full": {
       "type": "array",
@@ -3319,9 +3220,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "address-configuration"
-              ],
               "name": "_4b907_full",
               "properties": {
                 "address_configuration": {
@@ -3342,14 +3240,13 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "address-configuration",
-                "addresses"
-              ],
               "name": "_4b907_full",
               "properties": {
                 "addresses": {
@@ -3372,7 +3269,11 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration",
+                "addresses"
+              ]
             }
           ],
           "altnames": {
@@ -3383,9 +3284,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "address-configuration"
-              ],
               "name": "e391e_full",
               "properties": {
                 "address_configuration": {
@@ -3406,14 +3304,13 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "address-configuration",
-                "addresses"
-              ],
               "name": "e391e_full",
               "properties": {
                 "addresses": {
@@ -3436,7 +3333,11 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration",
+                "addresses"
+              ]
             }
           ],
           "altnames": {
@@ -3452,9 +3353,6 @@
     },
     "cf195_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "cf195_full",
       "properties": {
         "name": {
@@ -3540,7 +3438,10 @@
             "json": "measurement-ports"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_6d907_full": {
       "type": "array",
@@ -3553,10 +3454,6 @@
     },
     "_7ff67_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "_7ff67_full",
       "properties": {
         "name": {
@@ -3632,7 +3529,11 @@
             "json": "channel-mapping"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "_0d2f3_full": {
       "type": "array",
@@ -3645,10 +3546,6 @@
     },
     "_0d894_full": {
       "type": "object",
-      "required": [
-        "transport-layer",
-        "port"
-      ],
       "name": "_0d894_full",
       "properties": {
         "when": {
@@ -3698,9 +3595,6 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": [
-              "file-path"
-            ],
             "name": "_0d894_full",
             "properties": {
               "when": {
@@ -3728,13 +3622,20 @@
                   "json": "file-path"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path"
+            ]
           },
           "altnames": {
             "json": "description-files"
           }
         }
-      }
+      },
+      "required": [
+        "transport_layer",
+        "port"
+      ]
     },
     "f11ad_full": {
       "type": "object",
@@ -3745,25 +3646,19 @@
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "mode"
-                ],
                 "name": "_00b39_full",
                 "properties": {
                   "mode": {
                     "type": "object",
                     "properties": {}
                   }
-                }
+                },
+                "required": [
+                  "mode"
+                ]
               },
               "then": {
                 "type": "object",
-                "required": [
-                  "usage",
-                  "slot",
-                  "mask",
-                  "leading-cold-start"
-                ],
                 "name": "_00b39_full",
                 "properties": {
                   "mask": {
@@ -3781,16 +3676,19 @@
                       "json": "leading-cold-start"
                     }
                   }
-                }
+                },
+                "required": [
+                  "usage",
+                  "slot",
+                  "mask",
+                  "leading_cold_start"
+                ]
               },
               "$comment": "prune-node-from-doc"
             },
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "mode"
-                ],
                 "name": "_00b39_full",
                 "properties": {
                   "mode": {
@@ -3805,7 +3703,10 @@
                       }
                     ]
                   }
-                }
+                },
+                "required": [
+                  "mode"
+                ]
               },
               "then": {
                 "type": "object",
@@ -3840,25 +3741,19 @@
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "mode"
-                ],
                 "name": "_00b39_full",
                 "properties": {
                   "mode": {
                     "type": "object",
                     "properties": {}
                   }
-                }
+                },
+                "required": [
+                  "mode"
+                ]
               },
               "then": {
                 "type": "object",
-                "required": [
-                  "usage",
-                  "slot",
-                  "mask",
-                  "leading-cold-start"
-                ],
                 "name": "_00b39_full",
                 "properties": {
                   "mask": {
@@ -3876,16 +3771,19 @@
                       "json": "leading-cold-start"
                     }
                   }
-                }
+                },
+                "required": [
+                  "usage",
+                  "slot",
+                  "mask",
+                  "leading_cold_start"
+                ]
               },
               "$comment": "prune-node-from-doc"
             },
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "mode"
-                ],
                 "name": "_00b39_full",
                 "properties": {
                   "mode": {
@@ -3900,7 +3798,10 @@
                       }
                     ]
                   }
-                }
+                },
+                "required": [
+                  "mode"
+                ]
               },
               "then": {
                 "type": "object",
@@ -3934,10 +3835,6 @@
     },
     "b0301_full": {
       "type": "object",
-      "required": [
-        "name",
-        "database"
-      ],
       "name": "b0301_full",
       "properties": {
         "name": {
@@ -4005,7 +3902,11 @@
             "json": "key-slot-configuration"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "database"
+      ]
     },
     "efabb_full": {
       "type": "array",
@@ -4045,9 +3946,6 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "source-network"
-                ],
                 "name": "a51de_full",
                 "properties": {
                   "source_network": {
@@ -4056,13 +3954,13 @@
                       "json": "source-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "source_network"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "source-channel"
-                ],
                 "name": "a51de_full",
                 "properties": {
                   "source_channel": {
@@ -4081,7 +3979,10 @@
                       "json": "source-channel"
                     }
                   }
-                }
+                },
+                "required": [
+                  "source_channel"
+                ]
               }
             ]
           }
@@ -4090,11 +3991,6 @@
     },
     "_40d65_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path",
-        "network"
-      ],
       "name": "_40d65_full",
       "properties": {
         "name": {
@@ -4178,7 +4074,12 @@
             "json": "replay-nodes"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path",
+        "network"
+      ]
     },
     "_8f64c_full": {
       "type": "array",
@@ -4225,10 +4126,6 @@
         "oneOf": [
           {
             "type": "object",
-            "required": [
-              "file-path",
-              "stepsize-in-sec"
-            ],
             "name": "_048e3_full",
             "properties": {
               "when": {
@@ -4286,15 +4183,14 @@
                   "json": "debug-output"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path",
+              "stepsize_in_sec"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "file-path",
-              "stepsize-in-sec",
-              "active-model-variables"
-            ],
             "name": "_048e3_full",
             "properties": {
               "when": {
@@ -4360,15 +4256,15 @@
                   "json": "active-model-variables"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path",
+              "stepsize_in_sec",
+              "active_model_variables"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "file-path",
-              "stepsize-in-sec",
-              "inactive-model-variables"
-            ],
             "name": "_048e3_full",
             "properties": {
               "when": {
@@ -4434,7 +4330,12 @@
                   "json": "inactive-model-variables"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path",
+              "stepsize_in_sec",
+              "inactive_model_variables"
+            ]
           }
         ]
       },
@@ -4442,9 +4343,6 @@
     },
     "b5d87_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "b5d87_full",
       "properties": {
         "name": {
@@ -4519,7 +4417,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "b1caa_full": {
       "type": "array",
@@ -4532,10 +4433,6 @@
     },
     "b509f_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "b509f_full",
       "properties": {
         "name": {
@@ -4657,7 +4554,11 @@
             "json": "send-events"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "ac708_full": {
       "type": "array",
@@ -4704,9 +4605,6 @@
     },
     "_4fa6d_full": {
       "type": "object",
-      "required": [
-        "file-name"
-      ],
       "name": "_4fa6d_full",
       "properties": {
         "file_name": {
@@ -4755,7 +4653,10 @@
             "$ref": "#/definitions/_97baf_full"
           }
         }
-      }
+      },
+      "required": [
+        "file_name"
+      ]
     },
     "bd659_full": {
       "type": "object",
@@ -4856,10 +4757,6 @@
         "oneOf": [
           {
             "type": "object",
-            "required": [
-              "value",
-              "name"
-            ],
             "name": "daa86_full",
             "properties": {
               "name": {
@@ -5077,14 +4974,14 @@
                   }
                 ]
               }
-            }
+            },
+            "required": [
+              "value",
+              "name"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "type",
-              "name"
-            ],
             "name": "daa86_full",
             "properties": {
               "name": {
@@ -5306,14 +5203,14 @@
                   "maximum": "9223372036854775807"
                 }
               }
-            }
-          },
-          {
-            "type": "object",
+            },
             "required": [
               "type",
               "name"
-            ],
+            ]
+          },
+          {
+            "type": "object",
             "name": "daa86_full",
             "properties": {
               "name": {
@@ -5535,14 +5432,14 @@
                   "maximum": "18446744073709551615"
                 }
               }
-            }
-          },
-          {
-            "type": "object",
+            },
             "required": [
               "type",
               "name"
-            ],
+            ]
+          },
+          {
+            "type": "object",
             "name": "daa86_full",
             "properties": {
               "name": {
@@ -5763,14 +5660,14 @@
                   "type": "string"
                 }
               }
-            }
-          },
-          {
-            "type": "object",
+            },
             "required": [
               "type",
               "name"
-            ],
+            ]
+          },
+          {
+            "type": "object",
             "name": "daa86_full",
             "properties": {
               "name": {
@@ -5988,14 +5885,14 @@
                   "type": "boolean"
                 }
               }
-            }
-          },
-          {
-            "type": "object",
+            },
             "required": [
               "type",
               "name"
-            ],
+            ]
+          },
+          {
+            "type": "object",
             "name": "daa86_full",
             "properties": {
               "name": {
@@ -6217,7 +6114,11 @@
                   "maximum": 1.79769e+308
                 }
               }
-            }
+            },
+            "required": [
+              "type",
+              "name"
+            ]
           }
         ]
       },
@@ -6225,9 +6126,6 @@
     },
     "_316e0_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "_316e0_full",
       "properties": {
         "name": {
@@ -6244,7 +6142,10 @@
             "$ref": "#/definitions/dbb1c_full"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_23009_full": {
       "type": "array",
@@ -6259,10 +6160,6 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "network",
-          "profile-id"
-        ],
         "name": "_0b81c_full",
         "properties": {
           "network": {
@@ -6303,7 +6200,11 @@
               }
             ]
           }
-        }
+        },
+        "required": [
+          "network",
+          "profile_id"
+        ]
       },
       "name": "_0b81c_full"
     },
@@ -6311,10 +6212,6 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "simulation-node",
-          "profile-id"
-        ],
         "name": "_3200b_full",
         "properties": {
           "simulation_node": {
@@ -6358,7 +6255,11 @@
               }
             ]
           }
-        }
+        },
+        "required": [
+          "simulation_node",
+          "profile_id"
+        ]
       },
       "name": "_3200b_full"
     },
@@ -6418,9 +6319,6 @@
     },
     "_761e4_full": {
       "type": "object",
-      "required": [
-        "participant-name"
-      ],
       "name": "_761e4_full",
       "properties": {
         "when": {
@@ -6513,13 +6411,13 @@
             "json": "life-cycle-event-timeout-in-sec"
           }
         }
-      }
+      },
+      "required": [
+        "participant_name"
+      ]
     },
     "_2ffc1_full": {
       "type": "object",
-      "required": [
-        "network"
-      ],
       "name": "_2ffc1_full",
       "properties": {
         "network": {
@@ -6542,7 +6440,10 @@
             "json": "tcp-ip-stack-adapter"
           }
         }
-      }
+      },
+      "required": [
+        "network"
+      ]
     },
     "_960ef_full": {
       "type": "array",
@@ -6555,10 +6456,6 @@
     },
     "_56a0f_full": {
       "type": "object",
-      "required": [
-        "name",
-        "network-assignments"
-      ],
       "name": "_56a0f_full",
       "properties": {
         "name": {
@@ -6654,9 +6551,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "selected-stack"
-              ],
               "name": "dd53d_full",
               "properties": {
                 "selected_stack": {
@@ -6669,13 +6563,13 @@
                     "json": "selected-stack"
                   }
                 }
-              }
+              },
+              "required": [
+                "selected_stack"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "selected-stack"
-              ],
               "name": "dd53d_full",
               "properties": {
                 "selected_stack": {
@@ -6769,14 +6663,21 @@
                     "json": "ipv6-gateway"
                   }
                 }
-              }
+              },
+              "required": [
+                "selected_stack"
+              ]
             }
           ],
           "altnames": {
             "json": "tcp-ip-stack"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "network_assignments"
+      ]
     },
     "c0dc1_full": {
       "type": "array",
@@ -6789,9 +6690,6 @@
     },
     "d5013_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "d5013_full",
       "properties": {
         "when": {
@@ -6838,7 +6736,10 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "f2cb9_full": {
       "type": "array",
@@ -6851,9 +6752,6 @@
     },
     "_38e8e_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "_38e8e_full",
       "properties": {
         "when": {
@@ -6882,7 +6780,10 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "d60a5_full": {
       "type": "array",
@@ -6895,9 +6796,6 @@
     },
     "_5b3ba_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "_5b3ba_full",
       "properties": {
         "when": {
@@ -6952,7 +6850,10 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "a665e_full": {
       "type": "array",
@@ -6965,9 +6866,6 @@
     },
     "decf8_full": {
       "type": "object",
-      "required": [
-        "version"
-      ],
       "name": "decf8_full",
       "properties": {
         "version": {
@@ -7071,9 +6969,6 @@
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "time-source"
-                ],
                 "name": "_896d0_full",
                 "properties": {
                   "time_source": {
@@ -7083,13 +6978,13 @@
                       "json": "time-source"
                     }
                   }
-                }
+                },
+                "required": [
+                  "time_source"
+                ]
               },
               "then": {
                 "type": "object",
-                "required": [
-                  "default-network-mapping"
-                ],
                 "name": "_896d0_full",
                 "properties": {
                   "time_scaling_factor": {
@@ -7105,16 +7000,16 @@
                       "json": "default-network-mapping"
                     }
                   }
-                }
+                },
+                "required": [
+                  "default_network_mapping"
+                ]
               },
               "$comment": "prune-node-from-doc"
             },
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "time-source"
-                ],
                 "name": "_896d0_full",
                 "properties": {
                   "time_source": {
@@ -7127,13 +7022,13 @@
                       "json": "time-source"
                     }
                   }
-                }
+                },
+                "required": [
+                  "time_source"
+                ]
               },
               "then": {
                 "type": "object",
-                "required": [
-                  "default-network-mapping"
-                ],
                 "name": "_896d0_full",
                 "properties": {
                   "time_scaling_factor": {
@@ -7157,7 +7052,10 @@
                       "json": "default-network-mapping"
                     }
                   }
-                }
+                },
+                "required": [
+                  "default_network_mapping"
+                ]
               },
               "$comment": "prune-node-from-doc"
             }
@@ -7265,7 +7163,10 @@
             "json": "xcp-configuration-files"
           }
         }
-      }
+      },
+      "required": [
+        "version"
+      ]
     },
     "_57928_full": {
       "type": "array",
@@ -7273,10 +7174,6 @@
         "oneOf": [
           {
             "type": "object",
-            "required": [
-              "value",
-              "name"
-            ],
             "name": "ce2b5_full",
             "properties": {
               "name": {
@@ -7494,14 +7391,14 @@
                   }
                 ]
               }
-            }
+            },
+            "required": [
+              "value",
+              "name"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "type",
-              "name"
-            ],
             "name": "ce2b5_full",
             "properties": {
               "name": {
@@ -7723,14 +7620,14 @@
                   "maximum": "9223372036854775807"
                 }
               }
-            }
-          },
-          {
-            "type": "object",
+            },
             "required": [
               "type",
               "name"
-            ],
+            ]
+          },
+          {
+            "type": "object",
             "name": "ce2b5_full",
             "properties": {
               "name": {
@@ -7952,14 +7849,14 @@
                   "maximum": "18446744073709551615"
                 }
               }
-            }
-          },
-          {
-            "type": "object",
+            },
             "required": [
               "type",
               "name"
-            ],
+            ]
+          },
+          {
+            "type": "object",
             "name": "ce2b5_full",
             "properties": {
               "name": {
@@ -8180,14 +8077,14 @@
                   "type": "string"
                 }
               }
-            }
-          },
-          {
-            "type": "object",
+            },
             "required": [
               "type",
               "name"
-            ],
+            ]
+          },
+          {
+            "type": "object",
             "name": "ce2b5_full",
             "properties": {
               "name": {
@@ -8405,14 +8302,14 @@
                   "type": "boolean"
                 }
               }
-            }
-          },
-          {
-            "type": "object",
+            },
             "required": [
               "type",
               "name"
-            ],
+            ]
+          },
+          {
+            "type": "object",
             "name": "ce2b5_full",
             "properties": {
               "name": {
@@ -8634,7 +8531,11 @@
                   "maximum": 1.79769e+308
                 }
               }
-            }
+            },
+            "required": [
+              "type",
+              "name"
+            ]
           }
         ]
       },
@@ -8650,9 +8551,6 @@
     },
     "_9b42a_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "_9b42a_full",
       "properties": {
         "name": {
@@ -8669,7 +8567,10 @@
             "$ref": "#/definitions/f52d1_full"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "bf151_full": {
       "type": "array",
@@ -8682,9 +8583,6 @@
     },
     "_9d23c_full": {
       "type": "object",
-      "required": [
-        "define"
-      ],
       "name": "_9d23c_full",
       "properties": {
         "when": {
@@ -8708,7 +8606,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "define"
+      ]
     },
     "_405a8_full": {
       "type": "array",
@@ -8721,9 +8622,6 @@
     },
     "_21f87_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "_21f87_full",
       "properties": {
         "when": {
@@ -8770,7 +8668,10 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "_3eaba_full": {
       "type": "array",
@@ -8783,10 +8684,6 @@
     },
     "_8d374_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "_8d374_full",
       "properties": {
         "name": {
@@ -8832,7 +8729,11 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "_7f50f_full": {
       "type": "array",
@@ -8845,9 +8746,6 @@
     },
     "ce8a4_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "ce8a4_full",
       "properties": {
         "name": {
@@ -8921,7 +8819,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_63c85_full": {
       "type": "array",
@@ -8945,10 +8846,6 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "address",
-              "subnet-mask"
-            ],
             "name": "_91edd_local_ipv4_with_subnet",
             "properties": {
               "address": {
@@ -8982,14 +8879,14 @@
                   "json": "subnet-mask"
                 }
               }
-            }
+            },
+            "required": [
+              "address",
+              "subnet_mask"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "address",
-              "subnet-prefix-length"
-            ],
             "name": "_91edd_local_ipv4_with_subnet",
             "properties": {
               "address": {
@@ -9020,7 +8917,11 @@
                   "json": "subnet-prefix-length"
                 }
               }
-            }
+            },
+            "required": [
+              "address",
+              "subnet_prefix_length"
+            ]
           }
         ]
       },
@@ -9030,10 +8931,6 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "address",
-          "subnet-prefix-length"
-        ],
         "name": "_66666_full",
         "properties": {
           "address": {
@@ -9064,16 +8961,16 @@
               "json": "subnet-prefix-length"
             }
           }
-        }
+        },
+        "required": [
+          "address",
+          "subnet_prefix_length"
+        ]
       },
       "name": "_66666_full"
     },
     "_8d980_local_vlan_settings": {
       "type": "object",
-      "required": [
-        "id",
-        "priority"
-      ],
       "name": "_8d980_local_vlan_settings",
       "properties": {
         "id": {
@@ -9106,9 +9003,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "address-configuration"
-              ],
               "name": "_952c9_full",
               "properties": {
                 "address_configuration": {
@@ -9129,14 +9023,13 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "address-configuration",
-                "addresses"
-              ],
               "name": "_952c9_full",
               "properties": {
                 "addresses": {
@@ -9159,7 +9052,11 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration",
+                "addresses"
+              ]
             }
           ],
           "altnames": {
@@ -9170,9 +9067,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "address-configuration"
-              ],
               "name": "_0cca7_full",
               "properties": {
                 "address_configuration": {
@@ -9193,14 +9087,13 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "address-configuration",
-                "addresses"
-              ],
               "name": "_0cca7_full",
               "properties": {
                 "addresses": {
@@ -9223,14 +9116,22 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration",
+                "addresses"
+              ]
             }
           ],
           "altnames": {
             "json": "ipv6-settings"
           }
         }
-      }
+      },
+      "required": [
+        "id",
+        "priority"
+      ]
     },
     "_8d980_full": {
       "type": "array",
@@ -9277,9 +9178,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "address-configuration"
-              ],
               "name": "_952c9_full",
               "properties": {
                 "address_configuration": {
@@ -9300,14 +9198,13 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "address-configuration",
-                "addresses"
-              ],
               "name": "_952c9_full",
               "properties": {
                 "addresses": {
@@ -9330,7 +9227,11 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration",
+                "addresses"
+              ]
             }
           ],
           "altnames": {
@@ -9341,9 +9242,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "address-configuration"
-              ],
               "name": "_0cca7_full",
               "properties": {
                 "address_configuration": {
@@ -9364,14 +9262,13 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "address-configuration",
-                "addresses"
-              ],
               "name": "_0cca7_full",
               "properties": {
                 "addresses": {
@@ -9394,7 +9291,11 @@
                     "json": "address-configuration"
                   }
                 }
-              }
+              },
+              "required": [
+                "address_configuration",
+                "addresses"
+              ]
             }
           ],
           "altnames": {
@@ -9410,9 +9311,6 @@
     },
     "f146b_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "f146b_full",
       "properties": {
         "name": {
@@ -9481,7 +9379,10 @@
             "json": "application-channel"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "db003_full": {
       "type": "array",
@@ -9501,25 +9402,19 @@
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "mode"
-                ],
                 "name": "_34d39_full",
                 "properties": {
                   "mode": {
                     "type": "object",
                     "properties": {}
                   }
-                }
+                },
+                "required": [
+                  "mode"
+                ]
               },
               "then": {
                 "type": "object",
-                "required": [
-                  "usage",
-                  "slot",
-                  "mask",
-                  "leading-cold-start"
-                ],
                 "name": "_34d39_full",
                 "properties": {
                   "mask": {
@@ -9537,15 +9432,18 @@
                       "json": "leading-cold-start"
                     }
                   }
-                }
+                },
+                "required": [
+                  "usage",
+                  "slot",
+                  "mask",
+                  "leading_cold_start"
+                ]
               }
             },
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "mode"
-                ],
                 "name": "_34d39_full",
                 "properties": {
                   "mode": {
@@ -9560,7 +9458,10 @@
                       }
                     ]
                   }
-                }
+                },
+                "required": [
+                  "mode"
+                ]
               },
               "then": {
                 "type": "object",
@@ -9594,25 +9495,19 @@
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "mode"
-                ],
                 "name": "_34d39_full",
                 "properties": {
                   "mode": {
                     "type": "object",
                     "properties": {}
                   }
-                }
+                },
+                "required": [
+                  "mode"
+                ]
               },
               "then": {
                 "type": "object",
-                "required": [
-                  "usage",
-                  "slot",
-                  "mask",
-                  "leading-cold-start"
-                ],
                 "name": "_34d39_full",
                 "properties": {
                   "mask": {
@@ -9630,15 +9525,18 @@
                       "json": "leading-cold-start"
                     }
                   }
-                }
+                },
+                "required": [
+                  "usage",
+                  "slot",
+                  "mask",
+                  "leading_cold_start"
+                ]
               }
             },
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "mode"
-                ],
                 "name": "_34d39_full",
                 "properties": {
                   "mode": {
@@ -9653,7 +9551,10 @@
                       }
                     ]
                   }
-                }
+                },
+                "required": [
+                  "mode"
+                ]
               },
               "then": {
                 "type": "object",
@@ -9686,10 +9587,6 @@
     },
     "e2323_full": {
       "type": "object",
-      "required": [
-        "name",
-        "database"
-      ],
       "name": "e2323_full",
       "properties": {
         "name": {
@@ -9758,7 +9655,11 @@
             "json": "key-slot-configuration"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "database"
+      ]
     },
     "c139b_full": {
       "type": "array",
@@ -9771,9 +9672,6 @@
     },
     "_3a966_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "_3a966_full",
       "properties": {
         "name": {
@@ -9850,7 +9748,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_962c1_full": {
       "type": "array",
@@ -9863,9 +9764,6 @@
     },
     "_9a1f9_full": {
       "type": "object",
-      "required": [
-        "network"
-      ],
       "name": "_9a1f9_full",
       "properties": {
         "network": {
@@ -9888,7 +9786,10 @@
             "json": "tcp-ip-stack-adapter"
           }
         }
-      }
+      },
+      "required": [
+        "network"
+      ]
     },
     "d0551_full": {
       "type": "array",
@@ -9901,10 +9802,6 @@
     },
     "a6ab3_full": {
       "type": "object",
-      "required": [
-        "name",
-        "network-assignments"
-      ],
       "name": "a6ab3_full",
       "properties": {
         "name": {
@@ -10000,9 +9897,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "selected-stack"
-              ],
               "name": "_6a522_full",
               "properties": {
                 "selected_stack": {
@@ -10015,13 +9909,13 @@
                     "json": "selected-stack"
                   }
                 }
-              }
+              },
+              "required": [
+                "selected_stack"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "selected-stack"
-              ],
               "name": "_6a522_full",
               "properties": {
                 "selected_stack": {
@@ -10115,14 +10009,21 @@
                     "json": "ipv6-gateway"
                   }
                 }
-              }
+              },
+              "required": [
+                "selected_stack"
+              ]
             }
           ],
           "altnames": {
             "json": "tcp-ip-stack"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "network_assignments"
+      ]
     },
     "_64979_full": {
       "type": "array",
@@ -10141,9 +10042,6 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": [
-              "file-path"
-            ],
             "name": "_5cec7_full",
             "properties": {
               "when": {
@@ -10203,7 +10101,10 @@
                   "$ref": "#/definitions/f52d1_full"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path"
+            ]
           },
           "altnames": {
             "json": "input-files"
@@ -10213,9 +10114,6 @@
     },
     "_4b905_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "_4b905_full",
       "properties": {
         "when": {
@@ -10268,7 +10166,10 @@
             "$ref": "#/definitions/f52d1_full"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "_6939d_full": {
       "type": "array",
@@ -10374,9 +10275,6 @@
     },
     "_4aae7_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "_4aae7_full",
       "properties": {
         "when": {
@@ -10405,7 +10303,10 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "_22ddc_full": {
       "type": "array",
@@ -10418,9 +10319,6 @@
     },
     "_375dd_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "_375dd_full",
       "properties": {
         "when": {
@@ -10499,7 +10397,10 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "bdaa7_full": {
       "type": "array",
@@ -10512,10 +10413,6 @@
     },
     "e4b54_full": {
       "type": "object",
-      "required": [
-        "transport-layer",
-        "port"
-      ],
       "name": "e4b54_full",
       "properties": {
         "when": {
@@ -10565,9 +10462,6 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": [
-              "file-path"
-            ],
             "name": "e4b54_full",
             "properties": {
               "when": {
@@ -10595,13 +10489,20 @@
                   "json": "file-path"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path"
+            ]
           },
           "altnames": {
             "json": "description-files"
           }
         }
-      }
+      },
+      "required": [
+        "transport_layer",
+        "port"
+      ]
     },
     "dfa5a_local_active_model_variables": {
       "type": "array",
@@ -10639,10 +10540,6 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "file-path",
-              "stepsize-in-sec"
-            ],
             "name": "dfa5a_full",
             "properties": {
               "when": {
@@ -10700,15 +10597,14 @@
                   "json": "debug-output"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path",
+              "stepsize_in_sec"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "file-path",
-              "stepsize-in-sec",
-              "active-model-variables"
-            ],
             "name": "dfa5a_full",
             "properties": {
               "when": {
@@ -10774,15 +10670,15 @@
                   "json": "active-model-variables"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path",
+              "stepsize_in_sec",
+              "active_model_variables"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "file-path",
-              "stepsize-in-sec",
-              "inactive-model-variables"
-            ],
             "name": "dfa5a_full",
             "properties": {
               "when": {
@@ -10848,7 +10744,12 @@
                   "json": "inactive-model-variables"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path",
+              "stepsize_in_sec",
+              "inactive_model_variables"
+            ]
           }
         ]
       },
@@ -10856,9 +10757,6 @@
     },
     "_8984d_full": {
       "type": "object",
-      "required": [
-        "participant-name"
-      ],
       "name": "_8984d_full",
       "properties": {
         "when": {
@@ -10951,7 +10849,10 @@
             "json": "life-cycle-event-timeout-in-sec"
           }
         }
-      }
+      },
+      "required": [
+        "participant_name"
+      ]
     },
     "a53a3_full": {
       "type": "object",
@@ -10989,9 +10890,6 @@
     },
     "d9f28_full": {
       "type": "object",
-      "required": [
-        "file-name"
-      ],
       "name": "d9f28_full",
       "properties": {
         "file_name": {
@@ -11040,7 +10938,10 @@
             "$ref": "#/definitions/a53a3_full"
           }
         }
-      }
+      },
+      "required": [
+        "file_name"
+      ]
     },
     "_0a52d_full": {
       "type": "object",
@@ -11113,10 +11014,6 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "source-channel",
-                  "target-network"
-                ],
                 "name": "_8451c_full",
                 "properties": {
                   "source_channel": {
@@ -11150,14 +11047,14 @@
                       "json": "target-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "source_channel",
+                  "target_network"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "source-network",
-                  "target-network"
-                ],
                 "name": "_8451c_full",
                 "properties": {
                   "source_network": {
@@ -11181,13 +11078,14 @@
                       "json": "target-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "source_network",
+                  "target_network"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "ignore-source-channel"
-                ],
                 "name": "_8451c_full",
                 "properties": {
                   "ignore_source_channel": {
@@ -11206,13 +11104,13 @@
                       "json": "ignore-source-channel"
                     }
                   }
-                }
+                },
+                "required": [
+                  "ignore_source_channel"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "ignore-source-network"
-                ],
                 "name": "_8451c_full",
                 "properties": {
                   "ignore_source_network": {
@@ -11221,7 +11119,10 @@
                       "json": "ignore-source-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "ignore_source_network"
+                ]
               }
             ]
           }
@@ -11230,10 +11131,6 @@
     },
     "_1934a_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "_1934a_full",
       "properties": {
         "name": {
@@ -11337,7 +11234,11 @@
             "json": "send-rx-messages"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "_23778_full": {
       "type": "array",
@@ -11350,10 +11251,6 @@
     },
     "_5f17a_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "_5f17a_full",
       "properties": {
         "name": {
@@ -11429,7 +11326,11 @@
             "json": "channel-mapping"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "_9b94b_full": {
       "type": "array",
@@ -11442,10 +11343,6 @@
     },
     "aebb7_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "aebb7_full",
       "properties": {
         "name": {
@@ -11567,7 +11464,11 @@
             "json": "send-events"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "_67ea2_full": {
       "type": "array",
@@ -11580,9 +11481,6 @@
     },
     "_170b6_full": {
       "type": "object",
-      "required": [
-        "version"
-      ],
       "name": "_170b6_full",
       "properties": {
         "version": {
@@ -11624,9 +11522,6 @@
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "time-source"
-                ],
                 "name": "_0fa26_full",
                 "properties": {
                   "time_source": {
@@ -11636,13 +11531,13 @@
                       "json": "time-source"
                     }
                   }
-                }
+                },
+                "required": [
+                  "time_source"
+                ]
               },
               "then": {
                 "type": "object",
-                "required": [
-                  "time-scaling-factor"
-                ],
                 "name": "_0fa26_full",
                 "properties": {
                   "time_scaling_factor": {
@@ -11651,15 +11546,15 @@
                       "json": "time-scaling-factor"
                     }
                   }
-                }
+                },
+                "required": [
+                  "time_scaling_factor"
+                ]
               }
             },
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "time-source"
-                ],
                 "name": "_0fa26_full",
                 "properties": {
                   "time_source": {
@@ -11677,7 +11572,10 @@
                       "json": "time-source"
                     }
                   }
-                }
+                },
+                "required": [
+                  "time_source"
+                ]
               },
               "then": {
                 "type": "object",
@@ -11845,13 +11743,13 @@
             "json": "lin-replay-blocks"
           }
         }
-      }
+      },
+      "required": [
+        "version"
+      ]
     },
     "_8d971_full": {
       "type": "object",
-      "required": [
-        "file-name"
-      ],
       "name": "_8d971_full",
       "properties": {
         "file_name": {
@@ -11900,14 +11798,13 @@
             "$ref": "#/definitions/a53a3_full"
           }
         }
-      }
+      },
+      "required": [
+        "file_name"
+      ]
     },
     "_00f15_full": {
       "type": "object",
-      "required": [
-        "name",
-        "network-assignments"
-      ],
       "name": "_00f15_full",
       "properties": {
         "name": {
@@ -12003,9 +11900,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "selected-stack"
-              ],
               "name": "_6a522_full",
               "properties": {
                 "selected_stack": {
@@ -12018,13 +11912,13 @@
                     "json": "selected-stack"
                   }
                 }
-              }
+              },
+              "required": [
+                "selected_stack"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "selected-stack"
-              ],
               "name": "_6a522_full",
               "properties": {
                 "selected_stack": {
@@ -12118,14 +12012,21 @@
                     "json": "ipv6-gateway"
                   }
                 }
-              }
+              },
+              "required": [
+                "selected_stack"
+              ]
             }
           ],
           "altnames": {
             "json": "tcp-ip-stack"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "network_assignments"
+      ]
     },
     "_6101e_full": {
       "type": "array",
@@ -12138,9 +12039,6 @@
     },
     "fe737_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "fe737_full",
       "properties": {
         "name": {
@@ -12214,7 +12112,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_46542_full": {
       "type": "array",
@@ -12227,9 +12128,6 @@
     },
     "_077d5_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "_077d5_full",
       "properties": {
         "name": {
@@ -12337,7 +12235,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "fe291_full": {
       "type": "array",
@@ -12350,9 +12251,6 @@
     },
     "fb03e_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "fb03e_full",
       "properties": {
         "name": {
@@ -12421,7 +12319,10 @@
             "json": "application-channel"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_0fc9e_full": {
       "type": "array",
@@ -12434,9 +12335,6 @@
     },
     "_974c5_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "_974c5_full",
       "properties": {
         "name": {
@@ -12513,7 +12411,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "d240d_full": {
       "type": "array",
@@ -12526,9 +12427,6 @@
     },
     "_26679_full": {
       "type": "object",
-      "required": [
-        "version"
-      ],
       "name": "_26679_full",
       "properties": {
         "version": {
@@ -12540,9 +12438,6 @@
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "time-source"
-                ],
                 "name": "b3abd_full",
                 "properties": {
                   "time_source": {
@@ -12552,7 +12447,10 @@
                       "json": "time-source"
                     }
                   }
-                }
+                },
+                "required": [
+                  "time_source"
+                ]
               },
               "then": {
                 "type": "object",
@@ -12732,7 +12630,10 @@
             "$ref": "#/definitions/bf151_full"
           }
         }
-      }
+      },
+      "required": [
+        "version"
+      ]
     },
     "f9fcb_full": {
       "type": "array",
@@ -12740,9 +12641,6 @@
         "oneOf": [
           {
             "type": "object",
-            "required": [
-              "value"
-            ],
             "name": "_03ea7_full",
             "properties": {
               "name": {
@@ -12960,13 +12858,13 @@
                   }
                 ]
               }
-            }
+            },
+            "required": [
+              "value"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "type"
-            ],
             "name": "_03ea7_full",
             "properties": {
               "name": {
@@ -13188,13 +13086,13 @@
                   "maximum": "9223372036854775807"
                 }
               }
-            }
+            },
+            "required": [
+              "type"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "type"
-            ],
             "name": "_03ea7_full",
             "properties": {
               "name": {
@@ -13416,13 +13314,13 @@
                   "maximum": "18446744073709551616"
                 }
               }
-            }
+            },
+            "required": [
+              "type"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "type"
-            ],
             "name": "_03ea7_full",
             "properties": {
               "name": {
@@ -13643,13 +13541,13 @@
                   "type": "string"
                 }
               }
-            }
+            },
+            "required": [
+              "type"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "type"
-            ],
             "name": "_03ea7_full",
             "properties": {
               "name": {
@@ -13867,13 +13765,13 @@
                   "type": "boolean"
                 }
               }
-            }
+            },
+            "required": [
+              "type"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "type"
-            ],
             "name": "_03ea7_full",
             "properties": {
               "name": {
@@ -14095,7 +13993,10 @@
                   "maximum": 1.79769e+308
                 }
               }
-            }
+            },
+            "required": [
+              "type"
+            ]
           }
         ]
       },
@@ -14103,9 +14004,6 @@
     },
     "_8e790_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "_8e790_full",
       "properties": {
         "when": {
@@ -14154,7 +14052,10 @@
             "$ref": "#/definitions/f52d1_full"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "_90d4b_full": {
       "type": "array",
@@ -14173,9 +14074,6 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": [
-              "file-path"
-            ],
             "name": "_015cb_full",
             "properties": {
               "when": {
@@ -14230,7 +14128,10 @@
                   "json": "file-path"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path"
+            ]
           },
           "altnames": {
             "json": "input-files"
@@ -14274,10 +14175,6 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "file-path",
-              "stepsize-in-sec"
-            ],
             "name": "_37850_full",
             "properties": {
               "when": {
@@ -14335,15 +14232,14 @@
                   "json": "debug-output"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path",
+              "stepsize_in_sec"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "file-path",
-              "stepsize-in-sec",
-              "active-model-variables"
-            ],
             "name": "_37850_full",
             "properties": {
               "when": {
@@ -14409,15 +14305,15 @@
                   "json": "active-model-variables"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path",
+              "stepsize_in_sec",
+              "active_model_variables"
+            ]
           },
           {
             "type": "object",
-            "required": [
-              "file-path",
-              "stepsize-in-sec",
-              "inactive-model-variables"
-            ],
             "name": "_37850_full",
             "properties": {
               "when": {
@@ -14483,7 +14379,12 @@
                   "json": "inactive-model-variables"
                 }
               }
-            }
+            },
+            "required": [
+              "file_path",
+              "stepsize_in_sec",
+              "inactive_model_variables"
+            ]
           }
         ]
       },
@@ -14491,9 +14392,6 @@
     },
     "_37df6_full": {
       "type": "object",
-      "required": [
-        "participant-name"
-      ],
       "name": "_37df6_full",
       "properties": {
         "when": {
@@ -14586,13 +14484,13 @@
             "json": "life-cycle-event-timeout-in-sec"
           }
         }
-      }
+      },
+      "required": [
+        "participant_name"
+      ]
     },
     "_31be0_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "_31be0_full",
       "properties": {
         "when": {
@@ -14639,7 +14537,10 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "_05c88_full": {
       "type": "array",
@@ -14686,9 +14587,6 @@
     },
     "e94dc_full": {
       "type": "object",
-      "required": [
-        "file-name"
-      ],
       "name": "e94dc_full",
       "properties": {
         "file_name": {
@@ -14736,14 +14634,13 @@
             "$ref": "#/definitions/c55d3_full"
           }
         }
-      }
+      },
+      "required": [
+        "file_name"
+      ]
     },
     "_21023_full": {
       "type": "object",
-      "required": [
-        "node",
-        "database"
-      ],
       "name": "_21023_full",
       "properties": {
         "node": {
@@ -14761,13 +14658,14 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "node",
+        "database"
+      ]
     },
     "_2ae5f_full": {
       "type": "object",
-      "required": [
-        "network"
-      ],
       "name": "_2ae5f_full",
       "properties": {
         "network": {
@@ -14824,7 +14722,10 @@
             "json": "tcp-ip-stack-adapter"
           }
         }
-      }
+      },
+      "required": [
+        "network"
+      ]
     },
     "f6782_full": {
       "type": "array",
@@ -14837,10 +14738,6 @@
     },
     "_796db_full": {
       "type": "object",
-      "required": [
-        "name",
-        "network-assignments"
-      ],
       "name": "_796db_full",
       "properties": {
         "name": {
@@ -14915,9 +14812,6 @@
           "anyOf": [
             {
               "type": "object",
-              "required": [
-                "selected-stack"
-              ],
               "name": "dfa4a_full",
               "properties": {
                 "selected_stack": {
@@ -14930,13 +14824,13 @@
                     "json": "selected-stack"
                   }
                 }
-              }
+              },
+              "required": [
+                "selected_stack"
+              ]
             },
             {
               "type": "object",
-              "required": [
-                "selected-stack"
-              ],
               "name": "dfa4a_full",
               "properties": {
                 "selected_stack": {
@@ -15056,14 +14950,21 @@
                     "json": "ipv6-gateway"
                   }
                 }
-              }
+              },
+              "required": [
+                "selected_stack"
+              ]
             }
           ],
           "altnames": {
             "json": "tcp-ip-stack"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "network_assignments"
+      ]
     },
     "_8ab30_full": {
       "type": "array",
@@ -15076,10 +14977,6 @@
     },
     "_3071b_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "_3071b_full",
       "properties": {
         "name": {
@@ -15129,7 +15026,11 @@
             "json": "file-path"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "_13e53_full": {
       "type": "array",
@@ -15158,9 +15059,6 @@
     },
     "fe7b6_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "fe7b6_full",
       "properties": {
         "name": {
@@ -15227,7 +15125,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_828be_full": {
       "type": "array",
@@ -15240,9 +15141,6 @@
     },
     "d92db_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "d92db_full",
       "properties": {
         "name": {
@@ -15343,7 +15241,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_9dce0_full": {
       "type": "array",
@@ -15356,9 +15257,6 @@
     },
     "_69b41_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "_69b41_full",
       "properties": {
         "name": {
@@ -15420,7 +15318,10 @@
             "json": "application-channel"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "bf025_full": {
       "type": "array",
@@ -15502,10 +15403,6 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "source-channel",
-                  "target-network"
-                ],
                 "name": "c4168_full",
                 "properties": {
                   "source_channel": {
@@ -15539,14 +15436,14 @@
                       "json": "target-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "source_channel",
+                  "target_network"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "source-network",
-                  "target-network"
-                ],
                 "name": "c4168_full",
                 "properties": {
                   "source_network": {
@@ -15570,13 +15467,14 @@
                       "json": "target-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "source_network",
+                  "target_network"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "ignore-source-channel"
-                ],
                 "name": "c4168_full",
                 "properties": {
                   "ignore_source_channel": {
@@ -15595,13 +15493,13 @@
                       "json": "ignore-source-channel"
                     }
                   }
-                }
+                },
+                "required": [
+                  "ignore_source_channel"
+                ]
               },
               {
                 "type": "object",
-                "required": [
-                  "ignore-source-network"
-                ],
                 "name": "c4168_full",
                 "properties": {
                   "ignore_source_network": {
@@ -15610,7 +15508,10 @@
                       "json": "ignore-source-network"
                     }
                   }
-                }
+                },
+                "required": [
+                  "ignore_source_network"
+                ]
               }
             ]
           }
@@ -15619,10 +15520,6 @@
     },
     "_77df9_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "_77df9_full",
       "properties": {
         "name": {
@@ -15726,7 +15623,11 @@
             "json": "send-rx-messages"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "_55701_full": {
       "type": "array",
@@ -15739,10 +15640,6 @@
     },
     "_3cca7_full": {
       "type": "object",
-      "required": [
-        "name",
-        "file-path"
-      ],
       "name": "_3cca7_full",
       "properties": {
         "name": {
@@ -15818,7 +15715,11 @@
             "json": "channel-mapping"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "file_path"
+      ]
     },
     "a5fab_full": {
       "type": "array",
@@ -15831,9 +15732,6 @@
     },
     "_4909e_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "_4909e_full",
       "properties": {
         "name": {
@@ -15850,7 +15748,10 @@
             "$ref": "#/definitions/f52d1_full"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "d1a67_full": {
       "type": "array",
@@ -15863,9 +15764,6 @@
     },
     "_91f16_full": {
       "type": "object",
-      "required": [
-        "version"
-      ],
       "name": "_91f16_full",
       "properties": {
         "version": {
@@ -15877,9 +15775,6 @@
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "time-source"
-                ],
                 "name": "f5db4_full",
                 "properties": {
                   "time_source": {
@@ -15889,7 +15784,10 @@
                       "json": "time-source"
                     }
                   }
-                }
+                },
+                "required": [
+                  "time_source"
+                ]
               },
               "then": {
                 "type": "object",
@@ -16061,13 +15959,13 @@
             "$ref": "#/definitions/d1a67_full"
           }
         }
-      }
+      },
+      "required": [
+        "version"
+      ]
     },
     "ed3cd_full": {
       "type": "object",
-      "required": [
-        "version"
-      ],
       "name": "ed3cd_full",
       "properties": {
         "version": {
@@ -16079,9 +15977,6 @@
             {
               "if": {
                 "type": "object",
-                "required": [
-                  "time-source"
-                ],
                 "name": "f5db4_full",
                 "properties": {
                   "time_source": {
@@ -16091,7 +15986,10 @@
                       "json": "time-source"
                     }
                   }
-                }
+                },
+                "required": [
+                  "time_source"
+                ]
               },
               "then": {
                 "type": "object",
@@ -16258,7 +16156,10 @@
             "$ref": "#/definitions/d1a67_full"
           }
         }
-      }
+      },
+      "required": [
+        "version"
+      ]
     },
     "_883aa_full": {
       "type": "array",
@@ -16270,9 +16171,6 @@
     },
     "_51b90_full": {
       "type": "object",
-      "required": [
-        "file-path"
-      ],
       "name": "_51b90_full",
       "properties": {
         "when": {
@@ -16321,7 +16219,10 @@
             "$ref": "#/definitions/_883aa_full"
           }
         }
-      }
+      },
+      "required": [
+        "file_path"
+      ]
     },
     "_497d3_full": {
       "type": "array",
@@ -16334,9 +16235,6 @@
     },
     "cd5c2_full": {
       "type": "object",
-      "required": [
-        "define"
-      ],
       "name": "cd5c2_full",
       "properties": {
         "when": {
@@ -16360,7 +16258,10 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "define"
+      ]
     },
     "_16f14_full": {
       "type": "array",
@@ -16373,10 +16274,6 @@
     },
     "_9acfe_full": {
       "type": "object",
-      "required": [
-        "node",
-        "database"
-      ],
       "name": "_9acfe_full",
       "properties": {
         "node": {
@@ -16394,13 +16291,14 @@
             }
           ]
         }
-      }
+      },
+      "required": [
+        "node",
+        "database"
+      ]
     },
     "b2479_full": {
       "type": "object",
-      "required": [
-        "network"
-      ],
       "name": "b2479_full",
       "properties": {
         "network": {
@@ -16462,7 +16360,10 @@
             "json": "lin-role"
           }
         }
-      }
+      },
+      "required": [
+        "network"
+      ]
     },
     "_34322_full": {
       "type": "array",
@@ -16475,10 +16376,6 @@
     },
     "_86b88_full": {
       "type": "object",
-      "required": [
-        "name",
-        "network-assignments"
-      ],
       "name": "_86b88_full",
       "properties": {
         "name": {
@@ -16553,7 +16450,11 @@
             "json": "modeling-libraries"
           }
         }
-      }
+      },
+      "required": [
+        "name",
+        "network_assignments"
+      ]
     },
     "c706a_full": {
       "type": "array",
@@ -16582,9 +16483,6 @@
     },
     "_00571_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "_00571_full",
       "properties": {
         "name": {
@@ -16635,7 +16533,10 @@
             "json": "application-channel"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_79d04_full": {
       "type": "array",
@@ -16648,9 +16549,6 @@
     },
     "b0b65_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "b0b65_full",
       "properties": {
         "name": {
@@ -16735,7 +16633,10 @@
             "json": "application-channel"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_252f0_full": {
       "type": "array",
@@ -16748,9 +16649,6 @@
     },
     "d12ef_full": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "d12ef_full",
       "properties": {
         "name": {
@@ -16767,7 +16665,10 @@
             "$ref": "#/definitions/_883aa_full"
           }
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "_79a89_full": {
       "type": "array",
@@ -16780,9 +16681,6 @@
     },
     "b4889_full": {
       "type": "object",
-      "required": [
-        "version"
-      ],
       "name": "b4889_full",
       "properties": {
         "version": {
@@ -16869,7 +16767,1537 @@
             "$ref": "#/definitions/_79a89_full"
           }
         }
+      },
+      "required": [
+        "version"
+      ]
+    },
+    "document": {
+      "name": "document",
+      "type": [
+        {
+          "$ref": "#/definitions/b2d82"
+        },
+        {
+          "$ref": "#/definitions/decf8"
+        },
+        {
+          "$ref": "#/definitions/ed3cd"
+        },
+        {
+          "$ref": "#/definitions/b4889"
+        },
+        {
+          "$ref": "#/definitions/a2b96"
+        },
+        {
+          "$ref": "#/definitions/f4a62"
+        },
+        {
+          "$ref": "#/definitions/e8c0c"
+        },
+        {
+          "$ref": "#/definitions/efabb"
+        },
+        {
+          "$ref": "#/definitions/b1caa"
+        },
+        {
+          "$ref": "#/definitions/ac708"
+        },
+        {
+          "$ref": "#/definitions/aad77"
+        },
+        {
+          "$ref": "#/definitions/c0dc1"
+        },
+        {
+          "$ref": "#/definitions/f2cb9"
+        },
+        {
+          "$ref": "#/definitions/d60a5"
+        },
+        {
+          "$ref": "#/definitions/a665e"
+        },
+        {
+          "$ref": "#/definitions/bf151"
+        },
+        {
+          "$ref": "#/definitions/db003"
+        },
+        {
+          "$ref": "#/definitions/c139b"
+        },
+        {
+          "$ref": "#/definitions/be294"
+        },
+        {
+          "$ref": "#/definitions/bdaa7"
+        },
+        {
+          "$ref": "#/definitions/e4b54"
+        },
+        {
+          "$ref": "#/definitions/bbc08"
+        },
+        {
+          "$ref": "#/definitions/d9f28"
+        },
+        {
+          "$ref": "#/definitions/cb919"
+        },
+        {
+          "$ref": "#/definitions/b3abd"
+        },
+        {
+          "$ref": "#/definitions/fe291"
+        },
+        {
+          "$ref": "#/definitions/d240d"
+        },
+        {
+          "$ref": "#/definitions/f5db4"
+        },
+        {
+          "$ref": "#/definitions/f9fcb"
+        },
+        {
+          "$ref": "#/definitions/f276a"
+        },
+        {
+          "$ref": "#/definitions/e94dc"
+        },
+        {
+          "$ref": "#/definitions/bf025"
+        },
+        {
+          "$ref": "#/definitions/a5fab"
+        },
+        {
+          "$ref": "#/definitions/d1a67"
+        },
+        {
+          "$ref": "#/definitions/dad40"
+        },
+        {
+          "$ref": "#/definitions/c706a"
+        },
+        {
+          "$ref": "#/definitions/faf17"
+        },
+        {
+          "$ref": "#/definitions/ba2d9"
+        },
+        {
+          "$ref": "#/definitions/cacc0"
+        },
+        {
+          "$ref": "#/definitions/dbb1c"
+        },
+        {
+          "$ref": "#/definitions/cf195"
+        },
+        {
+          "$ref": "#/definitions/a23f7"
+        },
+        {
+          "$ref": "#/definitions/b0301"
+        },
+        {
+          "$ref": "#/definitions/fa0cd"
+        },
+        {
+          "$ref": "#/definitions/fbf90"
+        },
+        {
+          "$ref": "#/definitions/b5d87"
+        },
+        {
+          "$ref": "#/definitions/b509f"
+        },
+        {
+          "$ref": "#/definitions/bcf87"
+        },
+        {
+          "$ref": "#/definitions/bd659"
+        },
+        {
+          "$ref": "#/definitions/adad4"
+        },
+        {
+          "$ref": "#/definitions/d5013"
+        },
+        {
+          "$ref": "#/definitions/daa86"
+        },
+        {
+          "$ref": "#/definitions/ce2b5"
+        },
+        {
+          "$ref": "#/definitions/cdf60"
+        },
+        {
+          "$ref": "#/definitions/ce8a4"
+        },
+        {
+          "$ref": "#/definitions/f1384"
+        },
+        {
+          "$ref": "#/definitions/f146b"
+        },
+        {
+          "$ref": "#/definitions/e2323"
+        },
+        {
+          "$ref": "#/definitions/a6ab3"
+        },
+        {
+          "$ref": "#/definitions/b88a6"
+        },
+        {
+          "$ref": "#/definitions/f52d1"
+        },
+        {
+          "$ref": "#/definitions/c3b11"
+        },
+        {
+          "$ref": "#/definitions/dfa5a"
+        },
+        {
+          "$ref": "#/definitions/c9f2a"
+        },
+        {
+          "$ref": "#/definitions/a53a3"
+        },
+        {
+          "$ref": "#/definitions/aebb7"
+        },
+        {
+          "$ref": "#/definitions/c18ab"
+        },
+        {
+          "$ref": "#/definitions/fe737"
+        },
+        {
+          "$ref": "#/definitions/fb03e"
+        },
+        {
+          "$ref": "#/definitions/c55d3"
+        },
+        {
+          "$ref": "#/definitions/fe7b6"
+        },
+        {
+          "$ref": "#/definitions/d92db"
+        },
+        {
+          "$ref": "#/definitions/cd5c2"
+        },
+        {
+          "$ref": "#/definitions/b0b65"
+        },
+        {
+          "$ref": "#/definitions/d12ef"
+        },
+        {
+          "$ref": "#/definitions/d1985"
+        },
+        {
+          "$ref": "#/definitions/d63e6"
+        },
+        {
+          "$ref": "#/definitions/a9048"
+        },
+        {
+          "$ref": "#/definitions/c6ecb"
+        },
+        {
+          "$ref": "#/definitions/d6fe8"
+        },
+        {
+          "$ref": "#/definitions/f11ad"
+        },
+        {
+          "$ref": "#/definitions/a51de"
+        },
+        {
+          "$ref": "#/definitions/db0d5"
+        },
+        {
+          "$ref": "#/definitions/c4a92"
+        },
+        {
+          "$ref": "#/definitions/dd53d"
+        },
+        {
+          "$ref": "#/definitions/c49a5"
+        },
+        {
+          "$ref": "#/definitions/f26f2"
+        },
+        {
+          "$ref": "#/definitions/d5dc9"
+        },
+        {
+          "$ref": "#/definitions/dc7e6"
+        },
+        {
+          "$ref": "#/definitions/ad271"
+        },
+        {
+          "$ref": "#/definitions/bd6e5"
+        },
+        {
+          "$ref": "#/definitions/a7419"
+        },
+        {
+          "$ref": "#/definitions/a19ff"
+        },
+        {
+          "$ref": "#/definitions/d0551"
+        },
+        {
+          "$ref": "#/definitions/b8a7b"
+        },
+        {
+          "$ref": "#/definitions/a220f"
+        },
+        {
+          "$ref": "#/definitions/b1f6d"
+        },
+        {
+          "$ref": "#/definitions/b73a4"
+        },
+        {
+          "$ref": "#/definitions/a10be"
+        },
+        {
+          "$ref": "#/definitions/f6782"
+        },
+        {
+          "$ref": "#/definitions/dfa4a"
+        },
+        {
+          "$ref": "#/definitions/b8d33"
+        },
+        {
+          "$ref": "#/definitions/c4168"
+        },
+        {
+          "$ref": "#/definitions/a8440"
+        },
+        {
+          "$ref": "#/definitions/ee1ae"
+        },
+        {
+          "$ref": "#/definitions/c2452"
+        },
+        {
+          "$ref": "#/definitions/cb1c2"
+        },
+        {
+          "$ref": "#/definitions/e391e"
+        },
+        {
+          "$ref": "#/definitions/f1175"
+        },
+        {
+          "$ref": "#/definitions/b4b72"
+        },
+        {
+          "$ref": "#/definitions/a0f9c"
+        },
+        {
+          "$ref": "#/definitions/e231b"
+        },
+        {
+          "$ref": "#/definitions/af2c7"
+        },
+        {
+          "$ref": "#/definitions/f06ea"
+        },
+        {
+          "$ref": "#/definitions/ee197"
+        },
+        {
+          "$ref": "#/definitions/b2479"
+        },
+        {
+          "$ref": "#/definitions/e4921"
+        },
+        {
+          "$ref": "#/definitions/eaee8"
+        },
+        {
+          "$ref": "#/definitions/ea732"
+        },
+        {
+          "$ref": "#/definitions/bbbd7"
+        },
+        {
+          "$ref": "#/definitions/_170b6"
+        },
+        {
+          "$ref": "#/definitions/_26679"
+        },
+        {
+          "$ref": "#/definitions/_91f16"
+        },
+        {
+          "$ref": "#/definitions/_8bf53"
+        },
+        {
+          "$ref": "#/definitions/_844f0"
+        },
+        {
+          "$ref": "#/definitions/_17e74"
+        },
+        {
+          "$ref": "#/definitions/_62d94"
+        },
+        {
+          "$ref": "#/definitions/_6d767"
+        },
+        {
+          "$ref": "#/definitions/_6d907"
+        },
+        {
+          "$ref": "#/definitions/_0d2f3"
+        },
+        {
+          "$ref": "#/definitions/_0d894"
+        },
+        {
+          "$ref": "#/definitions/_8f64c"
+        },
+        {
+          "$ref": "#/definitions/_0edfe"
+        },
+        {
+          "$ref": "#/definitions/_896d0"
+        },
+        {
+          "$ref": "#/definitions/_85495"
+        },
+        {
+          "$ref": "#/definitions/_4fa6d"
+        },
+        {
+          "$ref": "#/definitions/_23009"
+        },
+        {
+          "$ref": "#/definitions/_49dc4"
+        },
+        {
+          "$ref": "#/definitions/_761e4"
+        },
+        {
+          "$ref": "#/definitions/_5d046"
+        },
+        {
+          "$ref": "#/definitions/_716b3"
+        },
+        {
+          "$ref": "#/definitions/_57928"
+        },
+        {
+          "$ref": "#/definitions/_405a8"
+        },
+        {
+          "$ref": "#/definitions/_0fa26"
+        },
+        {
+          "$ref": "#/definitions/_3eaba"
+        },
+        {
+          "$ref": "#/definitions/_7f50f"
+        },
+        {
+          "$ref": "#/definitions/_63c85"
+        },
+        {
+          "$ref": "#/definitions/_5bc6c"
+        },
+        {
+          "$ref": "#/definitions/_962c1"
+        },
+        {
+          "$ref": "#/definitions/_64979"
+        },
+        {
+          "$ref": "#/definitions/_5cec7"
+        },
+        {
+          "$ref": "#/definitions/_6939d"
+        },
+        {
+          "$ref": "#/definitions/_22ddc"
+        },
+        {
+          "$ref": "#/definitions/_8984d"
+        },
+        {
+          "$ref": "#/definitions/_23778"
+        },
+        {
+          "$ref": "#/definitions/_9b94b"
+        },
+        {
+          "$ref": "#/definitions/_67ea2"
+        },
+        {
+          "$ref": "#/definitions/_8d971"
+        },
+        {
+          "$ref": "#/definitions/_6101e"
+        },
+        {
+          "$ref": "#/definitions/_46542"
+        },
+        {
+          "$ref": "#/definitions/_0fc9e"
+        },
+        {
+          "$ref": "#/definitions/_29b8a"
+        },
+        {
+          "$ref": "#/definitions/_90d4b"
+        },
+        {
+          "$ref": "#/definitions/_015cb"
+        },
+        {
+          "$ref": "#/definitions/_37df6"
+        },
+        {
+          "$ref": "#/definitions/_05c88"
+        },
+        {
+          "$ref": "#/definitions/_8ab30"
+        },
+        {
+          "$ref": "#/definitions/_13e53"
+        },
+        {
+          "$ref": "#/definitions/_828be"
+        },
+        {
+          "$ref": "#/definitions/_9dce0"
+        },
+        {
+          "$ref": "#/definitions/_55701"
+        },
+        {
+          "$ref": "#/definitions/_0e921"
+        },
+        {
+          "$ref": "#/definitions/_6c391"
+        },
+        {
+          "$ref": "#/definitions/_497d3"
+        },
+        {
+          "$ref": "#/definitions/_16f14"
+        },
+        {
+          "$ref": "#/definitions/_79d04"
+        },
+        {
+          "$ref": "#/definitions/_252f0"
+        },
+        {
+          "$ref": "#/definitions/_79a89"
+        },
+        {
+          "$ref": "#/definitions/_84972"
+        },
+        {
+          "$ref": "#/definitions/_5d2a8"
+        },
+        {
+          "$ref": "#/definitions/_5e277"
+        },
+        {
+          "$ref": "#/definitions/_535fe"
+        },
+        {
+          "$ref": "#/definitions/_60f6d"
+        },
+        {
+          "$ref": "#/definitions/_7ff67"
+        },
+        {
+          "$ref": "#/definitions/_779cd"
+        },
+        {
+          "$ref": "#/definitions/_40d65"
+        },
+        {
+          "$ref": "#/definitions/_048e3"
+        },
+        {
+          "$ref": "#/definitions/_7c80e"
+        },
+        {
+          "$ref": "#/definitions/_85c8a"
+        },
+        {
+          "$ref": "#/definitions/_97baf"
+        },
+        {
+          "$ref": "#/definitions/_316e0"
+        },
+        {
+          "$ref": "#/definitions/_0b81c"
+        },
+        {
+          "$ref": "#/definitions/_3200b"
+        },
+        {
+          "$ref": "#/definitions/_45cf9"
+        },
+        {
+          "$ref": "#/definitions/_56a0f"
+        },
+        {
+          "$ref": "#/definitions/_38e8e"
+        },
+        {
+          "$ref": "#/definitions/_5b3ba"
+        },
+        {
+          "$ref": "#/definitions/_9b42a"
+        },
+        {
+          "$ref": "#/definitions/_9d23c"
+        },
+        {
+          "$ref": "#/definitions/_70a7b"
+        },
+        {
+          "$ref": "#/definitions/_3dd98"
+        },
+        {
+          "$ref": "#/definitions/_21f87"
+        },
+        {
+          "$ref": "#/definitions/_8d374"
+        },
+        {
+          "$ref": "#/definitions/_3a966"
+        },
+        {
+          "$ref": "#/definitions/_09e40"
+        },
+        {
+          "$ref": "#/definitions/_4b905"
+        },
+        {
+          "$ref": "#/definitions/_4aae7"
+        },
+        {
+          "$ref": "#/definitions/_375dd"
+        },
+        {
+          "$ref": "#/definitions/_42d39"
+        },
+        {
+          "$ref": "#/definitions/_799e1"
+        },
+        {
+          "$ref": "#/definitions/_1934a"
+        },
+        {
+          "$ref": "#/definitions/_5f17a"
+        },
+        {
+          "$ref": "#/definitions/_00f15"
+        },
+        {
+          "$ref": "#/definitions/_077d5"
+        },
+        {
+          "$ref": "#/definitions/_974c5"
+        },
+        {
+          "$ref": "#/definitions/_843bf"
+        },
+        {
+          "$ref": "#/definitions/_03ea7"
+        },
+        {
+          "$ref": "#/definitions/_8e790"
+        },
+        {
+          "$ref": "#/definitions/_37850"
+        },
+        {
+          "$ref": "#/definitions/_31be0"
+        },
+        {
+          "$ref": "#/definitions/_796db"
+        },
+        {
+          "$ref": "#/definitions/_3071b"
+        },
+        {
+          "$ref": "#/definitions/_69b41"
+        },
+        {
+          "$ref": "#/definitions/_77df9"
+        },
+        {
+          "$ref": "#/definitions/_3cca7"
+        },
+        {
+          "$ref": "#/definitions/_4909e"
+        },
+        {
+          "$ref": "#/definitions/_51b90"
+        },
+        {
+          "$ref": "#/definitions/_86b88"
+        },
+        {
+          "$ref": "#/definitions/_00571"
+        },
+        {
+          "$ref": "#/definitions/_038dc"
+        },
+        {
+          "$ref": "#/definitions/_8ab6a"
+        },
+        {
+          "$ref": "#/definitions/_159aa"
+        },
+        {
+          "$ref": "#/definitions/_7d7e4"
+        },
+        {
+          "$ref": "#/definitions/_6c62c"
+        },
+        {
+          "$ref": "#/definitions/_60037"
+        },
+        {
+          "$ref": "#/definitions/_3ebec"
+        },
+        {
+          "$ref": "#/definitions/_47aa6"
+        },
+        {
+          "$ref": "#/definitions/_1030e"
+        },
+        {
+          "$ref": "#/definitions/_960ef"
+        },
+        {
+          "$ref": "#/definitions/_58c94"
+        },
+        {
+          "$ref": "#/definitions/_863d7"
+        },
+        {
+          "$ref": "#/definitions/_39ed5"
+        },
+        {
+          "$ref": "#/definitions/_56b2f"
+        },
+        {
+          "$ref": "#/definitions/_5349d"
+        },
+        {
+          "$ref": "#/definitions/_17e6a"
+        },
+        {
+          "$ref": "#/definitions/_172e4"
+        },
+        {
+          "$ref": "#/definitions/_6a522"
+        },
+        {
+          "$ref": "#/definitions/_4de3d"
+        },
+        {
+          "$ref": "#/definitions/_81bab"
+        },
+        {
+          "$ref": "#/definitions/_568cc"
+        },
+        {
+          "$ref": "#/definitions/_8af01"
+        },
+        {
+          "$ref": "#/definitions/_79394"
+        },
+        {
+          "$ref": "#/definitions/_0a52d"
+        },
+        {
+          "$ref": "#/definitions/_8451c"
+        },
+        {
+          "$ref": "#/definitions/_619f7"
+        },
+        {
+          "$ref": "#/definitions/_01ff2"
+        },
+        {
+          "$ref": "#/definitions/_0f9b3"
+        },
+        {
+          "$ref": "#/definitions/_883aa"
+        },
+        {
+          "$ref": "#/definitions/_34322"
+        },
+        {
+          "$ref": "#/definitions/_230ce"
+        },
+        {
+          "$ref": "#/definitions/_20152"
+        },
+        {
+          "$ref": "#/definitions/_6b85b"
+        },
+        {
+          "$ref": "#/definitions/_4b907"
+        },
+        {
+          "$ref": "#/definitions/_00b39"
+        },
+        {
+          "$ref": "#/definitions/_698c3"
+        },
+        {
+          "$ref": "#/definitions/_6665e"
+        },
+        {
+          "$ref": "#/definitions/_8b747"
+        },
+        {
+          "$ref": "#/definitions/_64730"
+        },
+        {
+          "$ref": "#/definitions/_2ffc1"
+        },
+        {
+          "$ref": "#/definitions/_6d6c1"
+        },
+        {
+          "$ref": "#/definitions/_04e4b"
+        },
+        {
+          "$ref": "#/definitions/_952c9"
+        },
+        {
+          "$ref": "#/definitions/_0cca7"
+        },
+        {
+          "$ref": "#/definitions/_8d980"
+        },
+        {
+          "$ref": "#/definitions/_34d39"
+        },
+        {
+          "$ref": "#/definitions/_9a1f9"
+        },
+        {
+          "$ref": "#/definitions/_0cd26"
+        },
+        {
+          "$ref": "#/definitions/_31725"
+        },
+        {
+          "$ref": "#/definitions/_2ae5f"
+        },
+        {
+          "$ref": "#/definitions/_4f5d5"
+        },
+        {
+          "$ref": "#/definitions/_37aed"
+        },
+        {
+          "$ref": "#/definitions/_87cf9"
+        },
+        {
+          "$ref": "#/definitions/_2d92f"
+        },
+        {
+          "$ref": "#/definitions/_6f0a1"
+        },
+        {
+          "$ref": "#/definitions/_91edd"
+        },
+        {
+          "$ref": "#/definitions/_66666"
+        },
+        {
+          "$ref": "#/definitions/_6daff"
+        },
+        {
+          "$ref": "#/definitions/_81058"
+        },
+        {
+          "$ref": "#/definitions/_21023"
+        },
+        {
+          "$ref": "#/definitions/_183d9"
+        },
+        {
+          "$ref": "#/definitions/_9acfe"
+        },
+        {
+          "$ref": "#/definitions/_815f9"
+        },
+        {
+          "$ref": "#/definitions/_09338"
+        },
+        {
+          "$ref": "#/definitions/dbb1c_full"
+        },
+        {
+          "$ref": "#/definitions/faf17_full"
+        },
+        {
+          "$ref": "#/definitions/_8bf53_full"
+        },
+        {
+          "$ref": "#/definitions/_844f0_full"
+        },
+        {
+          "$ref": "#/definitions/_84972_full"
+        },
+        {
+          "$ref": "#/definitions/_17e74_full"
+        },
+        {
+          "$ref": "#/definitions/_159aa_full"
+        },
+        {
+          "$ref": "#/definitions/_7d7e4_full"
+        },
+        {
+          "$ref": "#/definitions/cacc0_full"
+        },
+        {
+          "$ref": "#/definitions/f4a62_full"
+        },
+        {
+          "$ref": "#/definitions/_5d2a8_full"
+        },
+        {
+          "$ref": "#/definitions/_62d94_full"
+        },
+        {
+          "$ref": "#/definitions/_6d767_full"
+        },
+        {
+          "$ref": "#/definitions/_60f6d_full"
+        },
+        {
+          "$ref": "#/definitions/e8c0c_full"
+        },
+        {
+          "$ref": "#/definitions/_87cf9_local_ipv4_with_subnet"
+        },
+        {
+          "$ref": "#/definitions/_87cf9_full"
+        },
+        {
+          "$ref": "#/definitions/_2d92f_full"
+        },
+        {
+          "$ref": "#/definitions/f1175_local_vlan_settings"
+        },
+        {
+          "$ref": "#/definitions/f1175_full"
+        },
+        {
+          "$ref": "#/definitions/_60037_full"
+        },
+        {
+          "$ref": "#/definitions/cf195_full"
+        },
+        {
+          "$ref": "#/definitions/_6d907_full"
+        },
+        {
+          "$ref": "#/definitions/_7ff67_full"
+        },
+        {
+          "$ref": "#/definitions/_0d2f3_full"
+        },
+        {
+          "$ref": "#/definitions/_0d894_full"
+        },
+        {
+          "$ref": "#/definitions/f11ad_full"
+        },
+        {
+          "$ref": "#/definitions/b0301_full"
+        },
+        {
+          "$ref": "#/definitions/efabb_full"
+        },
+        {
+          "$ref": "#/definitions/a51de_full"
+        },
+        {
+          "$ref": "#/definitions/_40d65_full"
+        },
+        {
+          "$ref": "#/definitions/_8f64c_full"
+        },
+        {
+          "$ref": "#/definitions/_048e3_local_active_model_variables"
+        },
+        {
+          "$ref": "#/definitions/_048e3_local_inactive_model_variables"
+        },
+        {
+          "$ref": "#/definitions/_0edfe_full"
+        },
+        {
+          "$ref": "#/definitions/b5d87_full"
+        },
+        {
+          "$ref": "#/definitions/b1caa_full"
+        },
+        {
+          "$ref": "#/definitions/b509f_full"
+        },
+        {
+          "$ref": "#/definitions/ac708_full"
+        },
+        {
+          "$ref": "#/definitions/_97baf_full"
+        },
+        {
+          "$ref": "#/definitions/_4fa6d_full"
+        },
+        {
+          "$ref": "#/definitions/bd659_full"
+        },
+        {
+          "$ref": "#/definitions/aad77_full"
+        },
+        {
+          "$ref": "#/definitions/_5d046_full"
+        },
+        {
+          "$ref": "#/definitions/_316e0_full"
+        },
+        {
+          "$ref": "#/definitions/_23009_full"
+        },
+        {
+          "$ref": "#/definitions/_0b81c_full"
+        },
+        {
+          "$ref": "#/definitions/_3200b_full"
+        },
+        {
+          "$ref": "#/definitions/_49dc4_full"
+        },
+        {
+          "$ref": "#/definitions/_761e4_full"
+        },
+        {
+          "$ref": "#/definitions/_2ffc1_full"
+        },
+        {
+          "$ref": "#/definitions/_960ef_full"
+        },
+        {
+          "$ref": "#/definitions/_56a0f_full"
+        },
+        {
+          "$ref": "#/definitions/c0dc1_full"
+        },
+        {
+          "$ref": "#/definitions/d5013_full"
+        },
+        {
+          "$ref": "#/definitions/f2cb9_full"
+        },
+        {
+          "$ref": "#/definitions/_38e8e_full"
+        },
+        {
+          "$ref": "#/definitions/d60a5_full"
+        },
+        {
+          "$ref": "#/definitions/_5b3ba_full"
+        },
+        {
+          "$ref": "#/definitions/a665e_full"
+        },
+        {
+          "$ref": "#/definitions/decf8_full"
+        },
+        {
+          "$ref": "#/definitions/_57928_full"
+        },
+        {
+          "$ref": "#/definitions/f52d1_full"
+        },
+        {
+          "$ref": "#/definitions/_9b42a_full"
+        },
+        {
+          "$ref": "#/definitions/bf151_full"
+        },
+        {
+          "$ref": "#/definitions/_9d23c_full"
+        },
+        {
+          "$ref": "#/definitions/_405a8_full"
+        },
+        {
+          "$ref": "#/definitions/_21f87_full"
+        },
+        {
+          "$ref": "#/definitions/_3eaba_full"
+        },
+        {
+          "$ref": "#/definitions/_8d374_full"
+        },
+        {
+          "$ref": "#/definitions/_7f50f_full"
+        },
+        {
+          "$ref": "#/definitions/ce8a4_full"
+        },
+        {
+          "$ref": "#/definitions/_63c85_full"
+        },
+        {
+          "$ref": "#/definitions/_5bc6c_full"
+        },
+        {
+          "$ref": "#/definitions/_91edd_full"
+        },
+        {
+          "$ref": "#/definitions/_66666_full"
+        },
+        {
+          "$ref": "#/definitions/_8d980_local_vlan_settings"
+        },
+        {
+          "$ref": "#/definitions/_8d980_full"
+        },
+        {
+          "$ref": "#/definitions/bd6e5_full"
+        },
+        {
+          "$ref": "#/definitions/f146b_full"
+        },
+        {
+          "$ref": "#/definitions/db003_full"
+        },
+        {
+          "$ref": "#/definitions/a7419_full"
+        },
+        {
+          "$ref": "#/definitions/e2323_full"
+        },
+        {
+          "$ref": "#/definitions/c139b_full"
+        },
+        {
+          "$ref": "#/definitions/_3a966_full"
+        },
+        {
+          "$ref": "#/definitions/_962c1_full"
+        },
+        {
+          "$ref": "#/definitions/_9a1f9_full"
+        },
+        {
+          "$ref": "#/definitions/d0551_full"
+        },
+        {
+          "$ref": "#/definitions/a6ab3_full"
+        },
+        {
+          "$ref": "#/definitions/_64979_full"
+        },
+        {
+          "$ref": "#/definitions/_5cec7_full"
+        },
+        {
+          "$ref": "#/definitions/_4b905_full"
+        },
+        {
+          "$ref": "#/definitions/_6939d_full"
+        },
+        {
+          "$ref": "#/definitions/c3b11_full"
+        },
+        {
+          "$ref": "#/definitions/be294_full"
+        },
+        {
+          "$ref": "#/definitions/_4aae7_full"
+        },
+        {
+          "$ref": "#/definitions/_22ddc_full"
+        },
+        {
+          "$ref": "#/definitions/_375dd_full"
+        },
+        {
+          "$ref": "#/definitions/bdaa7_full"
+        },
+        {
+          "$ref": "#/definitions/e4b54_full"
+        },
+        {
+          "$ref": "#/definitions/dfa5a_local_active_model_variables"
+        },
+        {
+          "$ref": "#/definitions/dfa5a_local_inactive_model_variables"
+        },
+        {
+          "$ref": "#/definitions/bbc08_full"
+        },
+        {
+          "$ref": "#/definitions/_8984d_full"
+        },
+        {
+          "$ref": "#/definitions/a53a3_full"
+        },
+        {
+          "$ref": "#/definitions/d9f28_full"
+        },
+        {
+          "$ref": "#/definitions/_0a52d_full"
+        },
+        {
+          "$ref": "#/definitions/_8451c_full"
+        },
+        {
+          "$ref": "#/definitions/_1934a_full"
+        },
+        {
+          "$ref": "#/definitions/_23778_full"
+        },
+        {
+          "$ref": "#/definitions/_5f17a_full"
+        },
+        {
+          "$ref": "#/definitions/_9b94b_full"
+        },
+        {
+          "$ref": "#/definitions/aebb7_full"
+        },
+        {
+          "$ref": "#/definitions/_67ea2_full"
+        },
+        {
+          "$ref": "#/definitions/_170b6_full"
+        },
+        {
+          "$ref": "#/definitions/_8d971_full"
+        },
+        {
+          "$ref": "#/definitions/_00f15_full"
+        },
+        {
+          "$ref": "#/definitions/_6101e_full"
+        },
+        {
+          "$ref": "#/definitions/fe737_full"
+        },
+        {
+          "$ref": "#/definitions/_46542_full"
+        },
+        {
+          "$ref": "#/definitions/_077d5_full"
+        },
+        {
+          "$ref": "#/definitions/fe291_full"
+        },
+        {
+          "$ref": "#/definitions/fb03e_full"
+        },
+        {
+          "$ref": "#/definitions/_0fc9e_full"
+        },
+        {
+          "$ref": "#/definitions/_974c5_full"
+        },
+        {
+          "$ref": "#/definitions/d240d_full"
+        },
+        {
+          "$ref": "#/definitions/_26679_full"
+        },
+        {
+          "$ref": "#/definitions/f9fcb_full"
+        },
+        {
+          "$ref": "#/definitions/_8e790_full"
+        },
+        {
+          "$ref": "#/definitions/_90d4b_full"
+        },
+        {
+          "$ref": "#/definitions/_015cb_full"
+        },
+        {
+          "$ref": "#/definitions/_37850_local_active_model_variables"
+        },
+        {
+          "$ref": "#/definitions/_37850_local_inactive_model_variables"
+        },
+        {
+          "$ref": "#/definitions/f276a_full"
+        },
+        {
+          "$ref": "#/definitions/_37df6_full"
+        },
+        {
+          "$ref": "#/definitions/_31be0_full"
+        },
+        {
+          "$ref": "#/definitions/_05c88_full"
+        },
+        {
+          "$ref": "#/definitions/c55d3_full"
+        },
+        {
+          "$ref": "#/definitions/e94dc_full"
+        },
+        {
+          "$ref": "#/definitions/_21023_full"
+        },
+        {
+          "$ref": "#/definitions/_2ae5f_full"
+        },
+        {
+          "$ref": "#/definitions/f6782_full"
+        },
+        {
+          "$ref": "#/definitions/_796db_full"
+        },
+        {
+          "$ref": "#/definitions/_8ab30_full"
+        },
+        {
+          "$ref": "#/definitions/_3071b_full"
+        },
+        {
+          "$ref": "#/definitions/_13e53_full"
+        },
+        {
+          "$ref": "#/definitions/_01ff2_full"
+        },
+        {
+          "$ref": "#/definitions/fe7b6_full"
+        },
+        {
+          "$ref": "#/definitions/_828be_full"
+        },
+        {
+          "$ref": "#/definitions/d92db_full"
+        },
+        {
+          "$ref": "#/definitions/_9dce0_full"
+        },
+        {
+          "$ref": "#/definitions/_69b41_full"
+        },
+        {
+          "$ref": "#/definitions/bf025_full"
+        },
+        {
+          "$ref": "#/definitions/b8d33_full"
+        },
+        {
+          "$ref": "#/definitions/c4168_full"
+        },
+        {
+          "$ref": "#/definitions/_77df9_full"
+        },
+        {
+          "$ref": "#/definitions/_55701_full"
+        },
+        {
+          "$ref": "#/definitions/_3cca7_full"
+        },
+        {
+          "$ref": "#/definitions/a5fab_full"
+        },
+        {
+          "$ref": "#/definitions/_4909e_full"
+        },
+        {
+          "$ref": "#/definitions/d1a67_full"
+        },
+        {
+          "$ref": "#/definitions/_91f16_full"
+        },
+        {
+          "$ref": "#/definitions/ed3cd_full"
+        },
+        {
+          "$ref": "#/definitions/_883aa_full"
+        },
+        {
+          "$ref": "#/definitions/_51b90_full"
+        },
+        {
+          "$ref": "#/definitions/_497d3_full"
+        },
+        {
+          "$ref": "#/definitions/cd5c2_full"
+        },
+        {
+          "$ref": "#/definitions/_16f14_full"
+        },
+        {
+          "$ref": "#/definitions/_9acfe_full"
+        },
+        {
+          "$ref": "#/definitions/b2479_full"
+        },
+        {
+          "$ref": "#/definitions/_34322_full"
+        },
+        {
+          "$ref": "#/definitions/_86b88_full"
+        },
+        {
+          "$ref": "#/definitions/c706a_full"
+        },
+        {
+          "$ref": "#/definitions/c2452_full"
+        },
+        {
+          "$ref": "#/definitions/_00571_full"
+        },
+        {
+          "$ref": "#/definitions/_79d04_full"
+        },
+        {
+          "$ref": "#/definitions/b0b65_full"
+        },
+        {
+          "$ref": "#/definitions/_252f0_full"
+        },
+        {
+          "$ref": "#/definitions/d12ef_full"
+        },
+        {
+          "$ref": "#/definitions/_79a89_full"
+        },
+        {
+          "$ref": "#/definitions/b4889_full"
+        }
+      ]
+    }
+  },
+  "anyOf": [
+    {
+      "if": {
+        "type": "object",
+        "name": "b2d82_full",
+        "properties": {
+          "version": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/definitions/decf8_full"
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "name": "b2d82_full",
+        "properties": {
+          "version": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/definitions/_170b6_full"
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "name": "b2d82_full",
+        "properties": {
+          "version": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/definitions/_26679_full"
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "name": "b2d82_full",
+        "properties": {
+          "version": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/definitions/_91f16_full"
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "name": "b2d82_full",
+        "properties": {
+          "version": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/definitions/ed3cd_full"
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "name": "b2d82_full",
+        "properties": {
+          "version": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      },
+      "then": {
+        "$ref": "#/definitions/b4889_full"
       }
     }
-  }
+  ],
+  "$id": "https://json.schemastore.org/venvironment-schema.json",
+  "description": "venvironment schema",
+  "$root": "#/definitions/document",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureConditionalComposition",
+    "JSONStructureValidation"
+  ]
 }

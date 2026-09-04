@@ -1900,8 +1900,13 @@ class StructureToCSharp:
         # Generate interface and view class for each add-in
         view_classes = []
         for addin_name, addin_def in self.offers.items():
-            self.generate_addin_interface(addin_name, addin_def, namespace_pascal)
-            view_class_name = self.generate_addin_view_class(addin_name, addin_def, namespace_pascal)
+            resolved_addin = addin_def
+            if isinstance(addin_def, str):
+                resolved_addin = self.resolve_ref(addin_def, structure_schema)
+            elif isinstance(addin_def, dict) and '$ref' in addin_def:
+                resolved_addin = self.resolve_ref(addin_def['$ref'], structure_schema)
+            self.generate_addin_interface(addin_name, resolved_addin, namespace_pascal)
+            view_class_name = self.generate_addin_view_class(addin_name, resolved_addin, namespace_pascal)
             view_classes.append((addin_name, view_class_name))
         
         # Add Extensions dictionary and implicit operators to the base class

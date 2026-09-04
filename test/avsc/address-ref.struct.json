@@ -1,6 +1,9 @@
 {
     "$schema": "https://json-structure.org/meta/core/v0/#",
     "$id": "https://example.com/schemas/example/com/record",
+    "$uses": [
+        "JSONStructureValidation"
+    ],
     "name": "record",
     "$root": "#/definitions/example/com/record",
     "definitions": {

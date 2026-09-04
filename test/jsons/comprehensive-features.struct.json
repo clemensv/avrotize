@@ -84,7 +84,7 @@
   },
   "required": ["stringWithFormat", "constValue"],
   "$comment": "Comprehensive test covering multiple features",
-  "$uses": ["TestAddIn"],
+  "$uses": ["JSONStructureValidation"],
   "examples": [
     {
       "stringWithFormat": "test@example.com",

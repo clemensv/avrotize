@@ -34,7 +34,7 @@
       "description": "A UUID value"
     },
     "bytesField": {
-      "type": "bytes",
+      "type": "binary",
       "description": "Binary data"
     }
   },

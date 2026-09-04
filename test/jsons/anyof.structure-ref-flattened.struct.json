@@ -1,106 +1,125 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
+  "definitions": {
+    "example2_object": {
+      "type": "object",
+      "name": "example2_object",
+      "properties": {
+        "bar": {
+          "type": "double"
+        },
+        "foo": {
+          "type": "string"
+        }
+      }
+    },
+    "example3_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "name": "example3_array"
+    },
+    "example3_object": {
+      "type": "object",
+      "name": "example3_object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "example4_object": {
+      "type": "object",
+      "name": "example4_object",
+      "properties": {
+        "foo": {
+          "type": "string"
+        }
+      }
+    },
+    "example4_object2": {
+      "type": "object",
+      "name": "example4_object2",
+      "properties": {
+        "bar": {
+          "type": "double"
+        }
+      }
+    },
+    "example5_object": {
+      "type": "object",
+      "name": "example5_object",
+      "properties": {
+        "foo": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "foo"
+      ]
+    },
+    "example5_object2": {
+      "type": "object",
+      "name": "example5_object2",
+      "properties": {
+        "bar": {
+          "type": "boolean"
+        },
+        "foo": {
+          "type": "double"
+        }
+      },
+      "required": [
+        "foo",
+        "bar"
+      ]
+    }
+  },
   "type": "object",
+  "name": "document",
   "properties": {
     "example1": {
       "type": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "double"
-        }
+        "string",
+        "double"
       ]
     },
     "example2": {
       "type": [
+        "boolean",
         {
-          "type": "boolean"
-        },
-        {
-          "type": "object",
-          "name": "document",
-          "properties": {
-            "bar": {
-              "type": "double"
-            },
-            "foo": {
-              "type": "string"
-            }
-          }
+          "$ref": "#/definitions/example2_object"
         }
       ]
     },
     "example3": {
       "type": [
         {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "$ref": "#/definitions/example3_array"
         },
         {
-          "type": "object",
-          "name": "document",
-          "properties": {
-            "name": {
-              "type": "string"
-            }
-          }
+          "$ref": "#/definitions/example3_object"
         }
       ]
     },
     "example4": {
       "type": [
         {
-          "type": "object",
-          "name": "document",
-          "properties": {
-            "foo": {
-              "type": "string"
-            }
-          }
+          "$ref": "#/definitions/example4_object"
         },
         {
-          "type": "object",
-          "name": "document",
-          "properties": {
-            "bar": {
-              "type": "double"
-            }
-          }
+          "$ref": "#/definitions/example4_object2"
         }
       ]
     },
     "example5": {
       "type": [
         {
-          "type": "object",
-          "required": [
-            "foo"
-          ],
-          "name": "document",
-          "properties": {
-            "foo": {
-              "type": "string"
-            }
-          }
+          "$ref": "#/definitions/example5_object"
         },
         {
-          "type": "object",
-          "required": [
-            "foo",
-            "bar"
-          ],
-          "name": "document",
-          "properties": {
-            "bar": {
-              "type": "boolean"
-            },
-            "foo": {
-              "type": "double"
-            }
-          }
+          "$ref": "#/definitions/example5_object2"
         }
       ]
     }
@@ -115,6 +134,5 @@
   "$id": "https://example.com/example/com.schema.json",
   "$uses": [
     "JSONStructureValidation"
-  ],
-  "name": "document"
+  ]
 }

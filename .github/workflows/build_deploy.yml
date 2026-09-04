@@ -39,7 +39,7 @@ jobs:
           - name: "Format to Avro"
             pattern: "test/test_asn1toavro.py test/test_capnprototoavro.py test/test_cuetoavro.py test/test_flatbufferstoavro.py test/test_jsontoavro.py test/test_jstructtoavro.py test/test_jtdtoavro.py test/test_kstructtoavro.py test/test_kustotoavro.py test/test_parquettoavro.py test/test_prototoavro.py test/test_ramltoavro.py test/test_smithytoavro.py test/test_sqltoavro.py test/test_surrealtoavro.py test/test_thrifttoavro.py test/test_xsdtoavro.py test/test_thrift_typesystem.py test/test_jtd_typesystem.py test/test_capnproto_typesystem.py test/test_raml_typesystem.py test/test_smithy_typesystem.py test/test_cue_typesystem.py test/test_flatbuffers_typesystem.py test/test_surreal_typesystem.py test/test_parquet_typesystem.py"
           - name: "JSON Structure & Main"
-            pattern: "test/test_jsonstostructure.py test/test_main.py test/test_struct_to_schema_references.py test/test_structure_codegen_flags.py"
+            pattern: "test/test_jsonstostructure.py test/test_json_structure_corpus.py test/test_main.py test/test_struct_to_schema_references.py test/test_structure_codegen_flags.py"
           - name: "CDDL & OpenAPI"
             pattern: "test/test_cddltostructure.py test/test_structuretocddl.py test/test_openapitostructure.py"
           - name: "Validation & Inference"
@@ -71,6 +71,14 @@ jobs:
       uses: actions/setup-python@v7
       with:
         python-version: 3.10.12
+    - name: Set up Rust for JSON Structure validation
+      if: matrix.test-group.name == 'JSON Structure & Main'
+      uses: dtolnay/rust-toolchain@stable
+    - name: Install jstruct
+      if: matrix.test-group.name == 'JSON Structure & Main'
+      run: |
+        git clone --depth 1 --branch jstruct-v0.8.1 https://github.com/json-structure/sdk.git "${RUNNER_TEMP}/json-structure-sdk"
+        cargo install --path "${RUNNER_TEMP}/json-structure-sdk/rust" --features cli --bin jstruct --locked
     # we need to build the package for generating the _version.py file that isn't checked in
     - name: Install dependencies and build package
       run: |
