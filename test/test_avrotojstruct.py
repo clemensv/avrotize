@@ -25,6 +25,36 @@ except ImportError:
 class TestAvroToJsonStructure(unittest.TestCase):
     """Tests converting Avro schemas to JSON Structure (*.struct.json)"""
 
+    def _assert_refs_wrapped(self, node, parent_key=None, in_type_list=False, path="#") -> None:
+        """Assert every ``$ref`` is a JSON Structure type reference, i.e. it is the
+        value of a ``type`` keyword or a member of a ``type`` union array. A bare
+        ``$ref`` used directly as a property/items/values/choice value is a Core
+        spec violation (spec 3.3.6 / 3.7.1) that older avrotize builds emitted."""
+        if isinstance(node, dict):
+            if "$ref" in node and not (parent_key == "type" or in_type_list):
+                self.fail(
+                    f"Bare $ref not wrapped under `type` at {path}: {node!r}. "
+                    f"Expected {{'type': {{'$ref': ...}}}}."
+                )
+            for key, value in node.items():
+                if key == "type" and isinstance(value, list):
+                    for i, member in enumerate(value):
+                        self._assert_refs_wrapped(
+                            member, parent_key=None, in_type_list=True,
+                            path=f"{path}/type[{i}]",
+                        )
+                else:
+                    self._assert_refs_wrapped(
+                        value, parent_key=key, in_type_list=False,
+                        path=f"{path}/{key}",
+                    )
+        elif isinstance(node, list):
+            for i, member in enumerate(node):
+                self._assert_refs_wrapped(
+                    member, parent_key=parent_key, in_type_list=in_type_list,
+                    path=f"{path}[{i}]",
+                )
+
     def _validate_json(self, json_file_path: str) -> None:
         """Ensure generated file contains valid JSON and conforms to JSON Structure Core."""
         with open(json_file_path, "r", encoding="utf-8") as file:
@@ -34,6 +64,9 @@ class TestAvroToJsonStructure(unittest.TestCase):
             except json.JSONDecodeError as e:
                 self.fail(f"Invalid JSON in {json_file_path}: {e}")
                 return # Should not be reached if self.fail works as expected
+
+        # Structural guard: type references MUST be wrapped under `type`.
+        self._assert_refs_wrapped(doc)
 
         if VALIDATOR_AVAILABLE and JSONStructureSchemaCoreValidator is not None:
             validator = JSONStructureSchemaCoreValidator(allow_dollar=False, allow_import=True) # allow_import might be needed depending on test cases

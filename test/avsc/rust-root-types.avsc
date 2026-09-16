@@ -1,0 +1,38 @@
+[
+    {
+        "type": "record",
+        "name": "RootRecord",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            },
+            {
+                "name": "kind",
+                "type": "RootEnum"
+            },
+            {
+                "name": "nothing",
+                "type": [
+                    "null"
+                ]
+            },
+            {
+                "name": "choice",
+                "type": [
+                    "null",
+                    "string",
+                    "long"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "RootEnum",
+        "symbols": [
+            "FIRST",
+            "SECOND"
+        ]
+    }
+]

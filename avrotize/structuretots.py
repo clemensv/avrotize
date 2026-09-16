@@ -8,7 +8,7 @@ import random
 import re
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
@@ -31,10 +31,11 @@ def is_typescript_reserved_word(word: str) -> bool:
 class StructureToTypeScript:
     """ Converts JSON Structure schema to TypeScript classes """
 
-    def __init__(self, base_package: str = '', typedjson_annotation=False, avro_annotation=False) -> None:
+    def __init__(self, base_package: str = '', typedjson_annotation=False, avro_annotation=False, xml_annotation=False) -> None:
         self.base_package = base_package or ''
         self.typedjson_annotation = typedjson_annotation
         self.avro_annotation = avro_annotation
+        self.xml_annotation = xml_annotation
         self.output_dir = os.getcwd()
         self.schema_doc: JsonNode = None
         self.generated_types: Dict[str, str] = {}
@@ -110,6 +111,68 @@ class StructureToTypeScript:
             return name + "_"
         return name
 
+    @staticmethod
+    def xml_name(default_name: str, schema: Dict) -> str:
+        """Resolve an XML local name from an ``altnames.xml`` annotation."""
+        altnames = schema.get("altnames", {})
+        return str(altnames.get("xml", default_name)) if isinstance(altnames, dict) else default_name
+
+    @staticmethod
+    def xml_enum_values(schema: Dict) -> Dict[str, str]:
+        """Map generated enum values to their XML wire values."""
+        json_values = schema.get("altenums", {}).get("json", {}) if isinstance(schema.get("altenums"), dict) else {}
+        xml_values = schema.get("altenums", {}).get("xml", {}) if isinstance(schema.get("altenums"), dict) else {}
+        return {str(json_values.get(str(value), value)): str(xml_values.get(str(value), value)) for value in schema.get("enum", [])}
+
+    def xml_type_mapping(self, structure_type: JsonNode, parent_namespace: str) -> str:
+        """Render a typed XML value mapping for a JSON Structure property."""
+        if isinstance(structure_type, list):
+            non_null = [item for item in structure_type if item != "null"]
+            if len(non_null) == 1:
+                return self.xml_type_mapping(non_null[0], parent_namespace)
+            variants = ", ".join(self.xml_type_mapping(item, parent_namespace) for item in non_null)
+            return f"{{ kind: 'union', variants: [{variants}] }}"
+        if isinstance(structure_type, str):
+            if structure_type in ["boolean"]:
+                return "{ kind: 'boolean' }"
+            if structure_type in ["integer", "number", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float8", "float", "double", "binary32", "binary64"]:
+                return "{ kind: 'number' }"
+            if structure_type in ["int128", "uint128", "decimal", "string", "binary", "bytes", "duration", "uuid", "uri", "jsonpointer"]:
+                return "{ kind: 'string' }"
+            if structure_type in ["date", "time", "datetime", "timestamp"]:
+                return "{ kind: 'date' }"
+            return "{ kind: 'any' }"
+        if isinstance(structure_type, dict):
+            if "$ref" in structure_type:
+                ref_schema = self.resolve_ref(structure_type["$ref"])
+                if isinstance(ref_schema, dict) and "enum" in ref_schema:
+                    return f"{{ kind: 'enum', enumValues: {json.dumps(self.xml_enum_values(ref_schema))} }}"
+                ref_name = pascal(structure_type["$ref"].split("/")[-1])
+                return f"{{ kind: 'record', record: () => {ref_name}.XmlMapping }}"
+            if "enum" in structure_type:
+                return f"{{ kind: 'enum', enumValues: {json.dumps(self.xml_enum_values(structure_type))} }}"
+            schema_type = structure_type.get("type", "any")
+            if isinstance(schema_type, list):
+                return self.xml_type_mapping(schema_type, parent_namespace)
+            if schema_type == "object":
+                class_name = pascal(structure_type.get("name", "UnnamedClass"))
+                return f"{{ kind: 'record', record: () => {class_name}.XmlMapping }}"
+            if schema_type in ["array", "tuple"]:
+                items = structure_type.get("items", {"type": "any"})
+                if isinstance(items, list):
+                    variants = ", ".join(self.xml_type_mapping(item, parent_namespace) for item in items)
+                    return f"{{ kind: 'array', item: {{ kind: 'union', variants: [{variants}] }} }}"
+                return f"{{ kind: 'array', item: {self.xml_type_mapping(items, parent_namespace)} }}"
+            if schema_type == "set":
+                return f"{{ kind: 'set', item: {self.xml_type_mapping(structure_type.get('items', {'type': 'any'}), parent_namespace)} }}"
+            if schema_type == "map":
+                return f"{{ kind: 'map', value: {self.xml_type_mapping(structure_type.get('values', {'type': 'any'}), parent_namespace)} }}"
+            if schema_type == "choice":
+                variants = ", ".join(self.xml_type_mapping(item, parent_namespace) for item in structure_type.get("choices", {}).values())
+                return f"{{ kind: 'union', variants: [{variants}] }}"
+            return self.xml_type_mapping(schema_type, parent_namespace)
+        return "{ kind: 'any' }"
+
     def pascal_type_name(self, ref: str) -> str:
         """Converts a reference to a type name"""
         return '_'.join([pascal(part) for part in ref.split('.')[-1].split('_')])
@@ -158,6 +221,8 @@ class StructureToTypeScript:
 
         path = ref[2:].split('/')
         schema = context_schema if context_schema else self.schema_doc
+        if isinstance(schema, list) and len(schema) == 1:
+            schema = schema[0]
         for part in path:
             if not isinstance(schema, dict) or part not in schema:
                 return None
@@ -342,15 +407,31 @@ class StructureToTypeScript:
                         is_enum = True
                         break
             
+            # Get source type - handle nullable unions like ["int64", "null"]
+            if isinstance(prop_schema, dict):
+                raw_type = prop_schema.get('type', 'string')
+                if isinstance(raw_type, str):
+                    source_type = raw_type
+                elif isinstance(raw_type, list):
+                    non_null_types = [t for t in raw_type if t != 'null']
+                    source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
+                else:
+                    source_type = 'object'
+            else:
+                source_type = 'object'
             fields.append({
                 'name': self.safe_name(prop_name),
-                'original_name': prop_name,
+                'original_name': json_wire_name(prop_name, prop_schema),
                 'type': field_type,
                 'type_no_null': field_type_no_null,
+                'source_type': source_type,
                 'is_required': is_required,
                 'is_optional': is_optional,
                 'is_primitive': self.is_typescript_primitive(field_type_no_null.replace('[]', '')),
                 'is_enum': is_enum,
+                'xml_name': self.xml_name(prop_name, prop_schema) if isinstance(prop_schema, dict) else prop_name,
+                'xml_kind': 'attribute' if isinstance(prop_schema, dict) and prop_schema.get('xmlkind') == 'attribute' else 'element',
+                'xml_type_mapping': self.xml_type_mapping(prop_schema, schema_namespace),
                 'docstring': prop_schema.get('description', '') if isinstance(prop_schema, dict) else ''
             })
 
@@ -386,6 +467,10 @@ class StructureToTypeScript:
             required_fields=required_fields,
             imports=imports_with_paths,
             typedjson_annotation=self.typedjson_annotation,
+            xml_annotation=self.xml_annotation,
+            xml_root_name=self.xml_name(explicit_name if explicit_name else structure_schema.get('name', 'UnnamedClass'), structure_schema),
+            xml_namespace=structure_schema.get('xmlns'),
+            xml_runtime_import=('../' * len(namespace.split('.')) if namespace else './') + 'xml.js',
         )
 
         if write_file:
@@ -408,7 +493,8 @@ class StructureToTypeScript:
         if typescript_qualified_name in self.generated_types:
             return typescript_qualified_name
 
-        symbols = structure_schema.get('enum', [])
+        raw_symbols = structure_schema.get('enum', [])
+        symbols = [{'name': str(s), 'value': json_enum_wire_value(s, structure_schema)} for s in raw_symbols]
         
         enum_definition = process_template(
             "structuretots/enum_core.ts.jinja",
@@ -476,32 +562,92 @@ class StructureToTypeScript:
 
     def generate_tuple(self, structure_schema: Dict, parent_namespace: str, 
                       write_file: bool = True, explicit_name: str = '') -> str:
-        """ Generates a TypeScript tuple type from JSON Structure tuple type """
+        """Generates a named TypeScript class that serializes as a JSON array."""
         tuple_name = pascal(explicit_name if explicit_name else structure_schema.get('name', 'Tuple'))
         namespace = self.concat_namespace(self.base_package, structure_schema.get('namespace', parent_namespace)).lower()
         schema_namespace = structure_schema.get('namespace', parent_namespace)
-        typescript_qualified_name = self.typescript_fully_qualified_name_from_structure_type(parent_namespace, tuple_name)
+        typescript_qualified_name = self.typescript_fully_qualified_name_from_structure_type(schema_namespace, tuple_name)
         
         if typescript_qualified_name in self.generated_types:
             return typescript_qualified_name
 
         import_types: Set[str] = set()
-        tuple_items = structure_schema.get('items', [])
-        item_types = []
-        for idx, item in enumerate(tuple_items):
+        properties = structure_schema.get('properties', {})
+        tuple_order = structure_schema.get('tuple', [])
+        elements = []
+        for prop_name in tuple_order:
+            prop_schema = properties.get(prop_name, {'type': 'any'})
             item_type = self.convert_structure_type_to_typescript(
-                tuple_name, f'item{idx}', item, schema_namespace, import_types)
-            item_types.append(item_type)
+                tuple_name, prop_name, prop_schema, schema_namespace, import_types)
+            item_type_no_null = self.strip_nullable(item_type)
+            elements.append({
+                'name': self.safe_name(prop_name),
+                'type': item_type_no_null,
+                'test_value': self.generate_test_value({
+                    'type_no_null': item_type_no_null,
+                    'is_enum': any(
+                        import_type.endswith('.' + item_type_no_null)
+                        and self.generated_types.get(import_type) == 'enum'
+                        for import_type in import_types)
+                }),
+                'docstring': prop_schema.get('description', '') if isinstance(prop_schema, dict) else ''
+            })
 
-        # TypeScript tuples are just arrays with fixed length and types
-        tuple_type = f"[{', '.join(item_types)}]"
-        
-        # Generate type alias
-        tuple_definition = f"export type {tuple_name} = {tuple_type};\n"
+        imports = []
+        for import_type in import_types:
+            if import_type == typescript_qualified_name:
+                continue
+            import_type_parts = import_type.split('.')
+            import_type_name = pascal(import_type_parts[-1])
+            import_path = '/'.join(import_type_parts)
+            current_path = '/'.join(namespace.split('.'))
+            relative_import_path = os.path.relpath(import_path, current_path).replace(os.sep, '/')
+            if not relative_import_path.startswith('.'):
+                relative_import_path = f'./{relative_import_path}'
+            imports.append(f"import {{ {import_type_name} }} from '{relative_import_path}.js';")
+
+        tuple_type = f"[{', '.join(element['type'] for element in elements)}]"
+        constructor_parameters = ',\n        '.join(
+            f"public {element['name']}: {element['type']}" for element in elements)
+        array_values = ', '.join(f"this.{element['name']}" for element in elements)
+        parsed_values = ',\n            '.join(
+            f"value[{index}] as {element['type']}" for index, element in enumerate(elements))
+        test_values = ',\n            '.join(element['test_value'] for element in elements)
+        docstring = structure_schema.get('description', f'A {tuple_name} tuple.')
+        tuple_definition = '\n'.join(imports)
+        if imports:
+            tuple_definition += '\n'
+        tuple_definition += f"""/** {docstring} */
+export class {tuple_name} {{
+    constructor(
+        {constructor_parameters}
+    ) {{}}
+
+    public toJSON(): {tuple_type} {{
+        return [{array_values}];
+    }}
+
+    public static fromJSON(json: string): {tuple_name} {{
+        const value: unknown = JSON.parse(json);
+        if (!Array.isArray(value) || value.length !== {len(elements)}) {{
+            throw new Error('Expected a {tuple_name} JSON array with {len(elements)} elements');
+        }}
+        return new {tuple_name}(
+            {parsed_values}
+        );
+    }}
+
+    public static createInstance(): {tuple_name} {{
+        return new {tuple_name}(
+            {test_values}
+        );
+    }}
+}}
+"""
 
         if write_file:
             self.write_to_file(namespace, tuple_name, tuple_definition)
-        self.generated_types[typescript_qualified_name] = 'tuple'
+        self.generated_types[typescript_qualified_name] = 'class'
         return typescript_qualified_name
 
     def generate_test_value(self, field: Dict) -> str:
@@ -520,6 +666,13 @@ class StructureToTypeScript:
             'null': 'null'
         }
         
+        # Use the first variant to create a valid sample for union fields.
+        if ' | ' in field_type:
+            union_field = dict(field)
+            union_field['type_no_null'] = field_type.split(' | ', 1)[0].strip()
+            union_field['is_enum'] = False
+            return self.generate_test_value(union_field)
+
         # Handle arrays
         if field_type.endswith('[]'):
             inner_type = field_type[:-2]
@@ -704,12 +857,16 @@ class StructureToTypeScript:
         self.generate_package_json(package_name)
         self.generate_tsconfig()
         self.generate_gitignore()
+        if self.xml_annotation:
+            xml_runtime = process_template("structuretots/xml_runtime.ts.jinja")
+            with open(os.path.join(self.output_dir, 'src', 'xml.ts'), 'w', encoding='utf-8') as f:
+                f.write(xml_runtime)
         self.generate_index()
 
 
 def convert_structure_to_typescript(structure_schema_path: str, ts_file_path: str, 
                                    package_name: str = '', typedjson_annotation: bool = False, 
-                                   avro_annotation: bool = False) -> None:
+                                   avro_annotation: bool = False, xml_annotation: bool = False) -> None:
     """
     Converts a JSON Structure schema to TypeScript classes.
     
@@ -719,14 +876,15 @@ def convert_structure_to_typescript(structure_schema_path: str, ts_file_path: st
         package_name: Package name for the generated TypeScript project
         typedjson_annotation: Whether to include TypedJSON annotations
         avro_annotation: Whether to include Avro annotations
+        xml_annotation: Whether to generate XML mappings and serialization
     """
-    converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation)
+    converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation, xml_annotation)
     converter.convert(structure_schema_path, ts_file_path, package_name)
 
 
 def convert_structure_schema_to_typescript(structure_schema: JsonNode, output_dir: str, 
                                           package_name: str = '', typedjson_annotation: bool = False, 
-                                          avro_annotation: bool = False) -> None:
+                                          avro_annotation: bool = False, xml_annotation: bool = False) -> None:
     """
     Converts a JSON Structure schema to TypeScript classes.
     
@@ -736,6 +894,7 @@ def convert_structure_schema_to_typescript(structure_schema: JsonNode, output_di
         package_name: Package name for the generated TypeScript project
         typedjson_annotation: Whether to include TypedJSON annotations
         avro_annotation: Whether to include Avro annotations
+        xml_annotation: Whether to generate XML mappings and serialization
     """
-    converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation)
+    converter = StructureToTypeScript(package_name, typedjson_annotation, avro_annotation, xml_annotation)
     converter.convert_schema(structure_schema, output_dir, package_name)

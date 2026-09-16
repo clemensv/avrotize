@@ -3,9 +3,6 @@
   "definitions": {
     "Person": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "name": "Person",
       "properties": {
         "id": {
@@ -28,7 +25,10 @@
           ],
           "minimum": 0
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "Address": {
       "type": "object",
@@ -51,20 +51,20 @@
       "selector": "petType",
       "choices": {
         "dog": {
-          "$ref": "#/definitions/Dog"
+          "type": {
+            "$ref": "#/definitions/Dog"
+          }
         },
         "cat": {
-          "$ref": "#/definitions/Cat"
+          "type": {
+            "$ref": "#/definitions/Cat"
+          }
         }
       },
       "name": "Pet"
     },
     "Dog": {
       "type": "object",
-      "required": [
-        "petType",
-        "breed"
-      ],
       "name": "Dog",
       "properties": {
         "petType": {
@@ -77,13 +77,14 @@
         "barkVolume": {
           "type": "int32"
         }
-      }
+      },
+      "required": [
+        "petType",
+        "breed"
+      ]
     },
     "Cat": {
       "type": "object",
-      "required": [
-        "petType"
-      ],
       "name": "Cat",
       "properties": {
         "petType": {
@@ -96,7 +97,10 @@
         "isLazy": {
           "type": "boolean"
         }
-      }
+      },
+      "required": [
+        "petType"
+      ]
     },
     "Status": {
       "type": "string",
@@ -106,10 +110,34 @@
         "pending"
       ],
       "name": "Status"
+    },
+    "document": {
+      "name": "document",
+      "type": [
+        {
+          "$ref": "#/definitions/Person"
+        },
+        {
+          "$ref": "#/definitions/Address"
+        },
+        {
+          "$ref": "#/definitions/Pet"
+        },
+        {
+          "$ref": "#/definitions/Dog"
+        },
+        {
+          "$ref": "#/definitions/Cat"
+        },
+        {
+          "$ref": "#/definitions/Status"
+        }
+      ]
     }
   },
   "$id": "https://example.com/schemas/sample-openapi-3.1-api/1.0.0",
   "description": "A sample API demonstrating OpenAPI 3.1 features",
+  "$root": "#/definitions/document",
   "$uses": [
     "JSONStructureValidation"
   ]

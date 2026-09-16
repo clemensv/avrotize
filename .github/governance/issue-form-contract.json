@@ -1,0 +1,62 @@
+{
+  "schema_version": 2,
+  "description": "Checked-in contract mapping Avrotize Issue Forms to rendered headings and stable field IDs. Only the short problem/outcome fields are required at submission; technical details remain optional and can be requested later when needed.",
+  "surface_choices": [
+    "I'm not sure",
+    "Avrotize CLI",
+    "Structurize CLI",
+    "Python API",
+    "MCP server",
+    "VS Code extension",
+    "Generated project or code"
+  ],
+  "forms": [
+    {
+      "type": "bug",
+      "file": ".github/ISSUE_TEMPLATE/bug.yml",
+      "title_prefix": "[Bug]",
+      "headings": [
+        "What were you trying to do?",
+        "What happened?",
+        "Small example or steps (optional)",
+        "Where did this happen? (optional)",
+        "Command or Avrotize area (optional)",
+        "Version and environment (optional)",
+        "Anything else? (optional)"
+      ],
+      "field_ids": [
+        "problem",
+        "actual",
+        "reproducer",
+        "surface",
+        "command",
+        "environment",
+        "additional"
+      ],
+      "required_semantic_fields": [
+        "problem",
+        "actual"
+      ]
+    },
+    {
+      "type": "feature",
+      "file": ".github/ISSUE_TEMPLATE/feature.yml",
+      "title_prefix": "[Feature]",
+      "headings": [
+        "What would you like Avrotize to do?",
+        "Example or use case (optional)",
+        "Existing command or Avrotize area (optional)",
+        "Other details (optional)"
+      ],
+      "field_ids": [
+        "outcome",
+        "example",
+        "command",
+        "details"
+      ],
+      "required_semantic_fields": [
+        "outcome"
+      ]
+    }
+  ]
+}

@@ -5,15 +5,442 @@
 import json
 import os
 import re
-import random
+import hashlib
+from random import Random
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 
-from avrotize.common import pascal, process_template
+from avrotize.common import pascal, process_template, json_wire_name, json_enum_wire_value
 from avrotize.jstructtoavro import JsonStructureToAvro
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
 
 INDENT = '    '
+
+# Python types that need a dataclasses-json encoder/decoder pair.
+# Ordered most-specific first: datetime.datetime is a subclass of datetime.date,
+# so an isinstance chain must test datetime before date.
+JSON_CODEC_SCALARS = (
+    'datetime.datetime',
+    'datetime.date',
+    'datetime.time',
+    'datetime.timedelta',
+    'uuid.UUID',
+    'bytes',
+)
+STRICT_JSON_CODEC_SCALARS = frozenset(
+    ('datetime.timedelta', 'uuid.UUID', 'bytes'))
+
+# Marshmallow field expression per custom JSON scalar. List, set and string-keyed
+# map fields compose these scalar fields so schema() uses the same wire codec.
+#
+# These name generated subclasses rather than marshmallow's own fields, because
+# dataclasses_json.mm.schema() uses a supplied mm_field verbatim: it neither
+# assigns data_key nor applies the field's decoder. A plain fields.Date would
+# therefore lose the JSON field name and parse with marshmallow's own parser,
+# so schema() would disagree with the other four entry points.
+_MM_FIELDS = {
+    'datetime.datetime': '_IsoDateTimeField',
+    'datetime.date': '_IsoDateField',
+    'datetime.time': '_IsoTimeField',
+    'datetime.timedelta': '_DurationField',
+    'uuid.UUID': '_UuidField',
+    'bytes': '_Base64Field',
+}
+
+_JSON_PARSERS = {
+    'datetime.datetime': '_parse_iso_datetime',
+    'datetime.date': '_parse_iso_date',
+    'datetime.time': '_parse_iso_time',
+    'datetime.timedelta': '_parse_duration',
+    'uuid.UUID': '_parse_uuid',
+    'bytes': '_parse_base64',
+}
+
+# Each generated marshmallow field delegates to one of the JSON parsers, so
+# emitting the field also requires emitting its parser.
+_MM_FIELD_PARSERS = {
+    '_IsoDateField': '_parse_iso_date',
+    '_IsoDateTimeField': '_parse_iso_datetime',
+    '_IsoTimeField': '_parse_iso_time',
+    '_DurationField': '_parse_duration',
+    '_UuidField': '_parse_uuid',
+    '_Base64Field': '_parse_base64',
+}
+
+# Emitted in this order so a module's helper block is stable.
+JSON_PARSER_ORDER = (
+    '_parse_iso_date',
+    '_parse_iso_datetime',
+    '_parse_iso_time',
+    '_parse_duration',
+    '_parse_uuid',
+    '_parse_base64',
+)
+MM_FIELD_ORDER = (
+    '_IsoDateField',
+    '_IsoDateTimeField',
+    '_IsoTimeField',
+    '_DurationField',
+    '_UuidField',
+    '_Base64Field',
+    '_SetField',
+)
+
+_GENERIC_RE = re.compile(r'^typing\.(Optional|List|Set|Dict|Union|Tuple|FrozenSet)\[(.+)\]$')
+
+
+def split_type_args(arg_text: str) -> List[str]:
+    """ Splits the comma-separated arguments of a typing generic at bracket depth zero. """
+    args: List[str] = []
+    depth = 0
+    current = ''
+    for char in arg_text:
+        if char == '[':
+            depth += 1
+        elif char == ']':
+            depth -= 1
+        if char == ',' and depth == 0:
+            args.append(current.strip())
+            current = ''
+        else:
+            current += char
+    if current.strip():
+        args.append(current.strip())
+    return args
+
+
+def parse_generic_type(type_name: str) -> Optional[Tuple[str, List[str]]]:
+    """ Splits a typing generic into its origin and its arguments, or None if it is not generic. """
+    match = _GENERIC_RE.match(type_name)
+    if not match:
+        return None
+    origin, arg_text = match.groups()
+    return origin, split_type_args(arg_text)
+
+
+def type_contains_json_codec(type_name: str) -> bool:
+    """ Reports whether a Python type annotation contains a custom JSON scalar at any nesting depth. """
+    if type_name in JSON_CODEC_SCALARS:
+        return True
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return False
+    return any(type_contains_json_codec(arg) for arg in generic[1])
+
+
+NONE_TYPES = ('None', 'NoneType', 'type(None)')
+
+# Branch priorities. Lower is tested first, so datetime must precede date: a
+# datetime.datetime satisfies isinstance(v, datetime.date) as well.
+_PRIORITY_DATETIME = 0
+_PRIORITY_DATE_NARROWING = 1
+_PRIORITY_DATE = 2
+_PRIORITY_TIME = 3
+_PRIORITY_DURATION = 4
+_PRIORITY_UUID = 5
+_PRIORITY_BINARY = 6
+_PRIORITY_CONTAINER = 7
+
+
+def json_codec_scalars_in(type_name: str) -> Set[str]:
+    """ Collects the distinct custom JSON scalars a Python type annotation contains at any depth. """
+    if type_name in JSON_CODEC_SCALARS:
+        return {type_name}
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return set()
+    found: Set[str] = set()
+    for arg in generic[1]:
+        found |= json_codec_scalars_in(arg)
+    return found
+
+
+def union_is_ambiguous(args: List[str]) -> bool:
+    """ Reports whether a union mixes custom scalar arms in a way no undiscriminated codec can encode.
+
+    A union of two custom scalars (``Union[date, datetime]``) cannot be encoded
+    without losing the distinction, and a custom scalar beside an unencoded
+    arm (``Union[date, str]``) cannot be decoded without coercing values that
+    legitimately belong to the other arm. In both cases no codec is emitted, so
+    the pre-existing loud failure is preserved rather than replaced by silent
+    data loss.
+    """
+    arms = [arg for arg in args if arg not in NONE_TYPES]
+    scalars: Set[str] = set()
+    for arm in arms:
+        scalars |= json_codec_scalars_in(arm)
+    if len(scalars) > 1:
+        return True
+    return any(not type_contains_json_codec(arm) for arm in arms)
+
+
+def _codec_branches(type_name: str, var: str, depth: int, encode: bool,
+                    parsers: Set[str]) -> List[Tuple[int, str, str]]:
+    """ Builds the (priority, condition, value) branches of a custom JSON codec expression.
+
+    Every parser referenced by the emitted branches is recorded in ``parsers``
+    so the caller knows exactly which helper definitions the generated module
+    needs. Values whose type the branches do not recognize are left untouched;
+    strings that should use a custom wire format but cannot be parsed raise from
+    the parser.
+    """
+    if type_name == 'datetime.datetime':
+        if encode:
+            return [(_PRIORITY_DATETIME, f'isinstance({var}, datetime.datetime)', f'{var}.isoformat()')]
+        parsers.add('_parse_iso_datetime')
+        return [(_PRIORITY_DATETIME, f'isinstance({var}, str)', f'_parse_iso_datetime({var}, {{field_name}})')]
+    if type_name == 'datetime.date':
+        if encode:
+            # datetime.datetime is a subclass of datetime.date: narrow it to the
+            # date component so the emitted string is parseable by the decoder.
+            # This branch is deliberately ranked below the datetime branch above
+            # so it can never displace it when both appear in one expression.
+            return [(_PRIORITY_DATE_NARROWING, f'isinstance({var}, datetime.datetime)',
+                     f'{var}.date().isoformat()'),
+                    (_PRIORITY_DATE, f'isinstance({var}, datetime.date)', f'{var}.isoformat()')]
+        parsers.add('_parse_iso_date')
+        return [(_PRIORITY_DATE, f'isinstance({var}, str)', f'_parse_iso_date({var}, {{field_name}})')]
+    if type_name == 'datetime.time':
+        if encode:
+            return [(_PRIORITY_TIME, f'isinstance({var}, datetime.time)', f'{var}.isoformat()')]
+        parsers.add('_parse_iso_time')
+        return [(_PRIORITY_TIME, f'isinstance({var}, str)', f'_parse_iso_time({var}, {{field_name}})')]
+    if type_name == 'datetime.timedelta':
+        if encode:
+            return [(_PRIORITY_DURATION, f'isinstance({var}, datetime.timedelta)',
+                     f'_format_duration({var})')]
+        parsers.add('_parse_duration')
+        return [(_PRIORITY_DURATION, 'True',
+                 f'_parse_duration({var}, {{field_name}})')]
+    if type_name == 'uuid.UUID':
+        if encode:
+            return [(_PRIORITY_UUID, f'isinstance({var}, uuid.UUID)', f'str({var})')]
+        parsers.add('_parse_uuid')
+        return [(_PRIORITY_UUID, 'True',
+                 f'_parse_uuid({var}, {{field_name}})')]
+    if type_name == 'bytes':
+        if encode:
+            return [(_PRIORITY_BINARY, f'isinstance({var}, bytes)',
+                     f"base64.b64encode({var}).decode('ascii')")]
+        parsers.add('_parse_base64')
+        return [(_PRIORITY_BINARY, 'True',
+                 f'_parse_base64({var}, {{field_name}})')]
+
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return []
+    origin, args = generic
+
+    if origin in ('Optional', 'Union'):
+        if union_is_ambiguous(args):
+            return []
+        branches: List[Tuple[int, str, str]] = []
+        for arg in args:
+            branches.extend(_codec_branches(arg, var, depth, encode, parsers))
+        branches.sort(key=lambda branch: branch[0])
+        seen: Set[str] = set()
+        unique: List[Tuple[int, str, str]] = []
+        for branch in branches:
+            if branch[1] in seen:
+                continue
+            seen.add(branch[1])
+            unique.append(branch)
+        return unique
+
+    item = f'_item{depth}'
+    # Only homogeneous containers are handled. typing.Tuple is deliberately
+    # excluded because its arguments are positional, so a single element codec
+    # cannot describe it.
+    if origin in ('List', 'Set', 'FrozenSet'):
+        inner = args[0]
+        if not type_contains_json_codec(inner):
+            return []
+        inner_expr = build_codec_expression(inner, item, depth + 1, encode, parsers)
+        comprehension = f'[{inner_expr} for {item} in {var}]'
+        if not encode and origin == 'Set':
+            comprehension = f'set({comprehension})'
+        elif not encode and origin == 'FrozenSet':
+            comprehension = f'frozenset({comprehension})'
+        return [(_PRIORITY_CONTAINER, f'isinstance({var}, (list, tuple, set, frozenset))', comprehension)]
+    if origin == 'Dict':
+        value_type = args[-1]
+        if not type_contains_json_codec(value_type):
+            return []
+        key = f'_key{depth}'
+        inner_expr = build_codec_expression(value_type, item, depth + 1, encode, parsers)
+        return [(_PRIORITY_CONTAINER, f'isinstance({var}, dict)',
+                 f'{{{key}: {inner_expr} for {key}, {item} in {var}.items()}}')]
+    return []
+
+
+def build_codec_expression(type_name: str, var: str, depth: int, encode: bool,
+                           parsers: Set[str]) -> str:
+    """ Builds a custom JSON encode/decode expression over ``var``, or ``var`` itself when nothing applies. """
+    branches = _codec_branches(type_name, var, depth, encode, parsers)
+    expression = var
+    if not encode and (
+            json_codec_scalars_in(type_name) & STRICT_JSON_CODEC_SCALARS):
+        expected_container = decoded_container_kind(type_name)
+        if expected_container:
+            expression = (
+                f"_invalid_container({var}, {{field_name}}, "
+                f"'{expected_container}')"
+            )
+    for _priority, condition, value in reversed(branches):
+        expression = f'{value} if {condition} else {expression}'
+    if not encode and type_allows_none(type_name):
+        expression = f'None if {var} is None else {expression}'
+    return expression
+
+
+def type_allows_none(type_name: str) -> bool:
+    """ Reports whether this exact annotation node declares nullability. """
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return type_name in NONE_TYPES
+    origin, args = generic
+    return origin == 'Optional' or (
+        origin == 'Union' and any(arg in NONE_TYPES for arg in args))
+
+
+def decoded_container_kind(type_name: str) -> Optional[str]:
+    """ Returns the JSON container kind required by a decoded custom-scalar field. """
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return None
+    origin, args = generic
+    if origin == 'Optional':
+        return decoded_container_kind(args[0])
+    if origin in ('List', 'Set', 'FrozenSet'):
+        return 'array'
+    if origin == 'Dict':
+        return 'object'
+    return None
+
+
+def build_mm_field(type_name: str, mm_classes: Set[str],
+                   options: str = '') -> Optional[str]:
+    """ Builds the marshmallow field expression for a custom JSON type, or None when
+    marshmallow has no faithful equivalent (e.g. a union of several custom
+    scalar types).
+
+    ``options`` carries the keyword arguments for the outermost field only, so
+    ``data_key`` is not repeated on the element field of a list or map.
+    """
+    if type_name in _MM_FIELDS:
+        mm_class = _MM_FIELDS[type_name]
+        mm_classes.add(mm_class)
+        return f'{mm_class}({options})'
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return None
+    origin, args = generic
+    if origin == 'Optional':
+        optional_options = options
+        if 'allow_none=' not in optional_options:
+            optional_options += (
+                ', ' if optional_options else '') + 'allow_none=True'
+        return build_mm_field(args[0], mm_classes, optional_options)
+    if origin == 'List':
+        inner = build_mm_field(args[0], mm_classes)
+        return f'fields.List({inner}{", " + options if options else ""})' if inner else None
+    if origin == 'Set':
+        inner = build_mm_field(args[0], mm_classes)
+        if not inner:
+            return None
+        mm_classes.add('_SetField')
+        return f'_SetField({inner}{", " + options if options else ""})'
+    if origin == 'Dict' and len(args) == 2 and args[0] == 'str':
+        inner = build_mm_field(args[1], mm_classes)
+        if not inner:
+            return None
+        return (f'fields.Dict(keys=fields.Str(), values={inner}'
+                f'{", " + options if options else ""})')
+    return None
+
+
+def build_mm_options(type_name: str, json_name: str) -> str:
+    """ Builds the marshmallow keyword arguments that dataclasses_json would have
+    supplied itself.
+
+    ``dataclasses_json.mm.schema()`` only assigns ``data_key``, ``required`` and
+    ``allow_none`` on the branch it takes when no ``mm_field`` is configured, so
+    a field that supplies one has to carry them. ``data_key`` is the same value
+    passed to ``dataclasses_json.config(field_name=...)``, which is what
+    dataclasses_json would have computed from the configured letter case.
+    """
+    # Generated fields are kw_only and carry no default, so dataclasses_json
+    # would mark every one of them required.
+    options = [f'data_key={json_name!r}', 'required=True']
+    generic = parse_generic_type(type_name)
+    if generic and generic[0] == 'Optional':
+        options.append('allow_none=True')
+    return ', '.join(options)
+
+
+def build_container_rebuild(type_name: str) -> Optional[str]:
+    """ Builds an expression rebuilding a declared set container from a JSON list.
+
+    JSON has no set type, so a ``typing.Set`` field arrives as a list. The
+    dataclasses-json ``from_json`` path reconstructs the declared container, and
+    the generated ``from_serializer_dict`` has to do the same or the two paths
+    hand back different container types for the same payload.
+    """
+    generic = parse_generic_type(type_name)
+    if not generic:
+        return None
+    origin, args = generic
+    if origin == 'Optional':
+        inner = build_container_rebuild(args[0])
+        return f'None if v is None else {inner}' if inner else None
+    if origin in ('Set', 'FrozenSet'):
+        return f'{"set" if origin == "Set" else "frozenset"}(v)'
+    return None
+
+
+def build_json_codec(type_name: str, field_name: str) -> Optional[Dict[str, Optional[str]]]:
+    """ Builds the dataclasses-json encoder/decoder/mm_field triple for a custom JSON field type.
+
+    Returns None when the type contains no custom JSON scalar, or when it is a union
+    whose arms cannot be told apart on the wire. The encoder and decoder walk
+    nested ``Optional``/``Union``/``List``/``Set``/``Dict`` annotations, so
+    collections of custom scalars are serialized just like scalar values.
+    """
+    if not type_contains_json_codec(type_name):
+        return None
+    encode_parsers: Set[str] = set()
+    decode_parsers: Set[str] = set()
+    encoder = build_codec_expression(type_name, 'v', 0, True, encode_parsers)
+    decoder = build_codec_expression(type_name, 'v', 0, False, decode_parsers)
+    if encoder == 'v' and decoder == 'v':
+        return None
+
+    # The parsers name the field that rejected a value, so a malformed payload
+    # reports where it came from instead of surfacing a bare isoformat error.
+    decoder = decoder.replace('{field_name}', repr(field_name))
+
+    mm_classes: Set[str] = set()
+    mm_field = build_mm_field(type_name, mm_classes,
+                              build_mm_options(type_name, field_name))
+    if not mm_field:
+        mm_classes.clear()
+
+    # A generated marshmallow field parses with the module's own ISO helper, so
+    # its parser has to be emitted even when no decoder lambda referenced it.
+    parsers = set(decode_parsers)
+    for mm_class in mm_classes:
+        parser = _MM_FIELD_PARSERS.get(mm_class)
+        if parser:
+            parsers.add(parser)
+
+    return {
+        'encoder': f'lambda v: {encoder}',
+        'decoder': f'lambda v: {decoder}',
+        'mm_field': mm_field,
+        'mm_classes': sorted(mm_classes),
+        'parsers': sorted(parsers),
+    }
+
 
 # Python standard library modules that should not be shadowed by package names
 PYTHON_STDLIB_MODULES = {
@@ -70,10 +497,11 @@ def safe_package_name(name: str) -> str:
 class StructureToPython:
     """ Converts JSON Structure schema to Python classes """
 
-    def __init__(self, base_package: str = '', dataclasses_json_annotation=False, avro_annotation=False) -> None:
+    def __init__(self, base_package: str = '', dataclasses_json_annotation=False, avro_annotation=False, xml_annotation=False) -> None:
         self.base_package = base_package
         self.dataclasses_json_annotation = dataclasses_json_annotation
         self.avro_annotation = avro_annotation
+        self.xml_annotation = xml_annotation
         self.output_dir = os.getcwd()
         self.schema_doc: JsonNode = None
         self.generated_types: Dict[str, str] = {}
@@ -343,6 +771,22 @@ class StructureToPython:
             return self.generate_tuple(structure_schema, parent_namespace, write_file, explicit_name=explicit_name)
         return 'typing.Any'
 
+    def xml_namespace_for_type(self, structure_type: Any, default: str) -> str:
+        """Resolve the XML namespace of a field's object item type."""
+        if not isinstance(structure_type, dict):
+            return default
+        if '$ref' in structure_type:
+            resolved = self.resolve_ref(structure_type['$ref'], self.schema_doc if isinstance(self.schema_doc, dict) else None)
+            return resolved.get('xmlns', default) if isinstance(resolved, dict) else default
+        nested_type = structure_type.get('type')
+        if isinstance(nested_type, (dict, list)):
+            return self.xml_namespace_for_type(nested_type, default)
+        if nested_type == 'object':
+            return structure_type.get('xmlns', default)
+        if nested_type in ('array', 'set'):
+            return self.xml_namespace_for_type(structure_type.get('items'), default)
+        return default
+
     def generate_class(self, structure_schema: Dict, parent_namespace: str, 
                       write_file: bool, explicit_name: str = '') -> str:
         """ Generates a Python dataclass from JSON Structure object type """
@@ -382,22 +826,60 @@ class StructureToPython:
         for prop_name, prop_schema in properties.items():
             field_def = self.generate_field(prop_name, prop_schema, class_name, schema_namespace, 
                                            required_props, import_types)
+            field_def['xml_namespace'] = self.xml_namespace_for_type(
+                prop_schema, structure_schema.get('xmlns', ''))
             fields.append(field_def)
 
         # Get docstring
         doc = structure_schema.get('description', structure_schema.get('doc', class_name))
 
         # Generate field docstrings
-        field_docstrings = [{
-            'name': self.safe_name(field['name']),
-            'original_name': field.get('json_name') or field['name'],
-            'type': field['type'],
-            'is_primitive': field['is_primitive'],
-            'is_enum': field['is_enum'],
-            'docstring': self.generate_field_docstring(field, schema_namespace),
-            'test_value': self.generate_test_value(field),
-            'source_type': field.get('source_type', 'string'),
-        } for field in fields]
+        field_docstrings = []
+        for field in fields:
+            codec = build_json_codec(
+                field['type'], field.get('json_name') or field['name'])
+            field_docstrings.append({
+                'name': self.safe_name(field['name']),
+                'original_name': field.get('json_name') or field['name'],
+                'type': field['type'],
+                'is_primitive': field['is_primitive'],
+                'is_enum': field['is_enum'],
+                'docstring': self.generate_field_docstring(field, schema_namespace),
+                'test_value': self.generate_test_value(field),
+                'source_type': field.get('source_type', 'string'),
+                'json_encoder': codec['encoder'] if codec else None,
+                'json_decoder': codec['decoder'] if codec else None,
+                'mm_field': codec['mm_field'] if codec else None,
+                'mm_classes': codec['mm_classes'] if codec else [],
+                'json_parsers': codec['parsers'] if codec else [],
+                'reject_json_null': (
+                    bool(codec)
+                    and bool(json_codec_scalars_in(field['type'])
+                             & STRICT_JSON_CODEC_SCALARS)
+                    and not type_allows_none(field['type'])
+                ),
+                # A set arrives from JSON as a list. Temporal sets are rebuilt by
+                # their own decoder; every other set needs an explicit rebuild so
+                # from_serializer_dict agrees with the dataclasses-json path.
+                'container_rebuild': (None if self.dataclasses_json_annotation and codec
+                                      else build_container_rebuild(field['type'])),
+                'xml_name': field['xml_name'],
+                'xml_kind': field['xml_kind'],
+                'xml_namespace': field['xml_namespace'],
+                'xml_metadata': {
+                    'type': 'Attribute' if field['xml_kind'] == 'attribute' else 'Element',
+                    'name': field['xml_name'],
+                    **({'namespace': field['xml_namespace']}
+                       if field['xml_kind'] != 'attribute' and field['xml_namespace'] else {}),
+                },
+            })
+
+        # JSON parsing helpers required by the emitted decoders, in a stable order.
+        json_parsers = [parser for parser in JSON_PARSER_ORDER
+                        if any(parser in field['json_parsers'] for field in field_docstrings)]
+        # Marshmallow field subclasses required by the emitted mm_fields.
+        mm_classes = [mm_class for mm_class in MM_FIELD_ORDER
+                      if any(mm_class in field['mm_classes'] for field in field_docstrings)]
 
         # If avro_annotation is enabled, convert JSON Structure schema to Avro schema
         # This is embedded in the generated class for runtime Avro serialization
@@ -415,10 +897,25 @@ class StructureToPython:
             class_name=class_name,
             docstring=doc,
             fields=field_docstrings,
-            import_types=import_types,
+            json_parsers=json_parsers,
+            uses_iso_parser=any(parser.startswith('_parse_iso_') for parser in json_parsers),
+            uses_container_validator=any(
+                field['json_decoder']
+                and '_invalid_container' in field['json_decoder']
+                for field in field_docstrings),
+            needs_base64='_parse_base64' in json_parsers,
+            needs_decimal=('decimal.Decimal' in import_types
+                           or (self.dataclasses_json_annotation
+                               and '_parse_duration' in json_parsers)),
+            mm_classes=mm_classes,
+            import_types=sorted(import_types),
             base_package=self.base_package,
             dataclasses_json_annotation=self.dataclasses_json_annotation,
             avro_annotation=self.avro_annotation,
+            xml_annotation=self.xml_annotation,
+            xml_name=structure_schema.get('altnames', {}).get('xml', explicit_name or structure_schema.get('name', 'UnnamedClass')),
+            xml_namespace=structure_schema.get('xmlns', ''),
+            xml_runtime_module=(f'{self.base_package.lower()}.xml_runtime' if self.base_package else '_avrotize_xml_runtime'),
             avro_schema_json=avro_schema_json,
             is_abstract=is_abstract,
             base_class=base_class,
@@ -437,8 +934,9 @@ class StructureToPython:
         """ Generates a field for a Python dataclass """
         # Sanitize field name for Python identifier validity
         field_name = self.safe_identifier(prop_name, class_name)
-        # Track if we need a field_name annotation for JSON serialization
-        needs_field_name_annotation = field_name != prop_name
+        # Wire key honors JSON Structure altnames.json; annotation needed when it differs
+        wire_name = json_wire_name(prop_name, prop_schema)
+        needs_field_name_annotation = wire_name != field_name
 
         # Check if this is a const field
         if 'const' in prop_schema:
@@ -447,13 +945,15 @@ class StructureToPython:
                 class_name, field_name, prop_schema, parent_namespace, import_types)
             return {
                 'name': field_name,
-                'json_name': prop_name if needs_field_name_annotation else None,
+                'json_name': wire_name if needs_field_name_annotation else None,
                 'type': prop_type,
                 'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
                 'is_enum': False,
                 'is_const': True,
                 'const_value': prop_schema['const'],
-                'source_type': prop_schema.get('type', 'string')
+                'source_type': prop_schema.get('type', 'string'),
+                'xml_name': prop_schema.get('altnames', {}).get('xml', prop_name),
+                'xml_kind': prop_schema.get('xmlkind', 'element'),
             }
 
         # Determine if required
@@ -469,17 +969,27 @@ class StructureToPython:
         if not is_required and not prop_type.startswith('typing.Optional['):
             prop_type = f'typing.Optional[{prop_type}]'
 
-        # Get source type from structure schema
-        source_type = prop_schema.get('type', 'string') if isinstance(prop_schema.get('type'), str) else 'object'
+        # Get source type from structure schema - handle nullable unions like ["int64", "null"]
+        raw_type = prop_schema.get('type', 'string')
+        if isinstance(raw_type, str):
+            source_type = raw_type
+        elif isinstance(raw_type, list):
+            # Extract the non-null type from a nullable union
+            non_null_types = [t for t in raw_type if t != 'null']
+            source_type = non_null_types[0] if len(non_null_types) == 1 and isinstance(non_null_types[0], str) else 'object'
+        else:
+            source_type = 'object'
 
         return {
             'name': field_name,
-            'json_name': prop_name if needs_field_name_annotation else None,
+            'json_name': wire_name if needs_field_name_annotation else None,
             'type': prop_type,
             'is_primitive': self.is_python_primitive(prop_type) or self.is_python_typing_struct(prop_type),
             'is_enum': prop_type in self.generated_types and self.generated_types[prop_type] == 'enum',
             'is_const': False,
-            'source_type': source_type
+            'source_type': source_type,
+            'xml_name': prop_schema.get('altnames', {}).get('xml', prop_name),
+            'xml_kind': prop_schema.get('xmlkind', 'element'),
         }
 
     def generate_field_docstring(self, field: Dict, parent_namespace: str) -> str:
@@ -488,6 +998,81 @@ class StructureToPython:
         field_name = self.safe_name(field['name'])
         field_docstring = f"{field_name} ({field_type})"
         return field_docstring
+
+    # Mapping of special characters to descriptive names for enum member
+    # identifiers.  Applied *before* the catch-all regex so that symbols
+    # like "5+" and "5-" produce distinct identifiers instead of both
+    # collapsing to "5_".
+    _CHAR_NAME_MAP = {
+        '+': '_PLUS',
+        '-': '_MINUS',
+        '*': '_STAR',
+        '/': '_SLASH',
+        '&': '_AMP',
+        '|': '_PIPE',
+        '!': '_BANG',
+        '?': '_QMARK',
+        '#': '_HASH',
+        '%': '_PCT',
+        '@': '_AT',
+        '^': '_CARET',
+        '~': '_TILDE',
+        '<': '_LT',
+        '>': '_GT',
+        '=': '_EQ',
+        '.': '_DOT',
+        ',': '_COMMA',
+        ':': '_COLON',
+        ';': '_SEMI',
+        '(': '_LPAREN',
+        ')': '_RPAREN',
+        '[': '_LBRACK',
+        ']': '_RBRACK',
+        '{': '_LBRACE',
+        '}': '_RBRACE',
+    }
+
+    def _python_enum_member_name(self, value) -> str:
+        """Derives a valid Python identifier for an enum member from a JSON
+        Structure enum value.
+
+        Numeric values (including negative integers) are prefixed with
+        ``VALUE_`` (with negatives spelled ``VALUE_NEG_n``) so the generated
+        class body is valid Python.  String values are sanitized by
+        replacing known special characters with descriptive names (e.g.
+        ``+`` → ``_PLUS``, ``-`` → ``_MINUS``) and then replacing any
+        remaining non-identifier characters with underscores.  Values that
+        start with a digit are prefixed with ``VALUE_``.  Reserved words
+        get a trailing underscore.
+        """
+        if isinstance(value, bool):
+            return "TRUE_" if value else "FALSE_"
+        if isinstance(value, (int, float)):
+            if isinstance(value, float):
+                token = str(value).replace('.', '_').replace('-', 'NEG_')
+            elif value < 0:
+                token = f"NEG_{abs(value)}"
+            else:
+                token = str(value)
+            return f"VALUE_{token}"
+        text = str(value)
+        # Replace known special characters with descriptive names
+        parts: list[str] = []
+        for ch in text:
+            if ch in self._CHAR_NAME_MAP:
+                parts.append(self._CHAR_NAME_MAP[ch])
+            else:
+                parts.append(ch)
+        candidate = ''.join(parts)
+        # Replace any remaining invalid identifier characters
+        candidate = re.sub(r'[^0-9A-Za-z_]', '_', candidate)
+        # Collapse runs of underscores and strip leading/trailing underscores
+        candidate = re.sub(r'_+', '_', candidate).strip('_')
+        if not candidate or not (candidate[0].isalpha() or candidate[0] == '_'):
+            candidate = f"VALUE_{candidate}" if candidate else "VALUE_"
+        if is_python_reserved_word(candidate):
+            candidate = candidate + "_"
+        return candidate
 
     def generate_enum(self, structure_schema: Dict, field_name: str, parent_namespace: str, 
                      write_file: bool) -> str:
@@ -502,21 +1087,60 @@ class StructureToPython:
         if python_qualified_name in self.generated_types:
             return python_qualified_name
 
-        symbols = [symbol if not is_python_reserved_word(symbol) else symbol + "_" 
-                  for symbol in structure_schema.get('enum', [])]
+        raw_values = structure_schema.get('enum', [])
+        is_numeric = bool(raw_values) and all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in raw_values
+        )
+
+        # Build (member_name, repr) pairs. ``repr`` is rendered verbatim into the
+        # class body, so for numeric enums we emit the bare numeric literal and
+        # for string enums a quoted Python string literal.
+        # Names that collide with each other or with generated methods are
+        # disambiguated with numeric suffixes.
+        members: List[Tuple[str, str]] = []
+        symbols: List[str] = []
+        # Pre-seed with names that would clash with generated Enum methods or
+        # Python Enum internals.
+        used_names: set[str] = {'from_ordinal', 'to_ordinal', 'mro', '_ignore_',
+                                '_generate_next_value_', '_missing_', '_order_'}
+        for value in raw_values:
+            base_name = self._python_enum_member_name(value)
+            member_name = base_name
+            suffix = 2
+            while member_name in used_names:
+                member_name = f"{base_name}_{suffix}"
+                suffix += 1
+            used_names.add(member_name)
+            if is_numeric:
+                value_repr = repr(value)
+            else:
+                value_repr = repr(json_enum_wire_value(value, structure_schema))
+            members.append((member_name, value_repr))
+            symbols.append(member_name)
 
         doc = structure_schema.get('description', structure_schema.get('doc', f'A {class_name} enum.'))
+
+        xml_values = [
+            (member_name, repr(structure_schema.get('altenums', {}).get('xml', {}).get(str(raw_value), raw_value)))
+            for (member_name, _), raw_value in zip(members, raw_values)
+        ]
 
         enum_definition = process_template(
             "structuretopython/enum_core.jinja",
             class_name=class_name,
             docstring=doc,
+            members=members,
+            is_numeric=is_numeric,
+            # ``symbols`` kept for backward compatibility with any external use
             symbols=symbols,
+            xml_annotation=self.xml_annotation,
+            xml_name=structure_schema.get('altnames', {}).get('xml', structure_schema.get('name', field_name + 'Enum')),
+            xml_values=xml_values,
         )
 
         if write_file:
             self.write_to_file(package_name, class_name, enum_definition)
-            self.generate_test_enum(package_name, class_name, symbols)
+            self.generate_test_enum(package_name, class_name, members, is_numeric)
 
         self.generated_types[python_qualified_name] = 'enum'
         self.generated_enum_symbols[python_qualified_name] = symbols
@@ -606,7 +1230,7 @@ class StructureToPython:
             class_name=class_name,
             docstring=doc,
             values_type=values_type,
-            import_types=import_types,
+            import_types=sorted(import_types),
             base_package=self.base_package
         )
         
@@ -617,8 +1241,17 @@ class StructureToPython:
         return python_qualified_name
 
     def generate_test_value(self, field: Dict) -> Any:
-        """Generates a test value for a given field"""
+        """Generates a test value for a given field.
+
+        The value is drawn from a generator seeded with a stable hash of the field
+        name and type, so repeated generation of the same schema produces
+        byte-identical output regardless of interpreter hash randomization.
+        """
         field_type = field['type']
+        seed = int.from_bytes(
+            hashlib.sha256(f"{field.get('name', '')}:{field_type}".encode('utf-8')).digest()[:8],
+            'big')
+        random = Random(seed)
 
         def generate_value(field_type: str):
             test_values = {
@@ -659,9 +1292,13 @@ class StructureToPython:
                 field_type = resolve(field_type)
 
             if field_type.startswith('typing.List[') or field_type.startswith('typing.Set['):
+                is_set = field_type.startswith('typing.Set[')
                 field_type = resolve(field_type)
                 array_range = random.randint(1, 5)
-                return f"[{', '.join([generate_value(field_type) for _ in range(array_range)])}]"
+                items = f"[{', '.join([generate_value(field_type) for _ in range(array_range)])}]"
+                # A typing.Set field must be constructed as a set, or the value
+                # would not match the container the deserializers rebuild.
+                return f"set({items})" if is_set else items
             elif field_type.startswith('typing.Dict['):
                 field_type = resolve(field_type)
                 dict_range = random.randint(1, 5)
@@ -705,7 +1342,7 @@ class StructureToPython:
             class_name=class_name,
             test_class_name=test_class_name,
             fields=fields,
-            import_types=import_types,
+            import_types=sorted(import_types),
             avro_annotation=self.avro_annotation,
             dataclasses_json_annotation=self.dataclasses_json_annotation
         )
@@ -717,7 +1354,8 @@ class StructureToPython:
         with open(test_file_path, 'w', encoding='utf-8') as file:
             file.write(test_class_definition)
 
-    def generate_test_enum(self, package_name: str, class_name: str, symbols: List[str]) -> None:
+    def generate_test_enum(self, package_name: str, class_name: str,
+                           members: List[Tuple[str, str]], is_numeric: bool) -> None:
         """Generates a unit test class for a Python enum"""
         test_class_name = f"Test_{class_name}"
         # Use a simpler file naming scheme based on class name only
@@ -727,7 +1365,8 @@ class StructureToPython:
             package_name=package_name,
             class_name=class_name,
             test_class_name=test_class_name,
-            symbols=symbols
+            members=members,
+            is_numeric=is_numeric,
         )
         base_dir = os.path.join(self.output_dir, "tests")
         test_file_path = os.path.join(base_dir, f"{test_file_name}.py")
@@ -801,16 +1440,53 @@ class StructureToPython:
 
         write_init_files_recursive(organize_generated_types(), '')
 
+    def write_xml_runtime(self):
+        """Writes the shared xsdata XML runtime to the generated project."""
+        module_dir = os.path.join(self.output_dir, 'src')
+        if self.base_package:
+            module_dir = os.path.join(module_dir, *self.base_package.lower().split('.'))
+        os.makedirs(module_dir, exist_ok=True)
+        module_name = 'xml_runtime.py' if self.base_package else '_avrotize_xml_runtime.py'
+        with open(os.path.join(module_dir, module_name), 'w', encoding='utf-8') as file:
+            file.write(process_template('python_xml_runtime.jinja'))
+
     def write_pyproject_toml(self):
         """Writes pyproject.toml file to the output directory"""
         pyproject_content = process_template(
             "structuretopython/pyproject_toml.jinja",
             package_name=self.base_package.replace('_', '-'),
             dataclasses_json_annotation=self.dataclasses_json_annotation,
-            avro_annotation=self.avro_annotation
+            avro_annotation=self.avro_annotation,
+            xml_annotation=self.xml_annotation,
         )
         with open(os.path.join(self.output_dir, 'pyproject.toml'), 'w', encoding='utf-8') as file:
             file.write(pyproject_content)
+
+    def process_definitions(self, definitions: Dict, namespace_path: str) -> None:
+        """ Recursively walks the definitions tree and generates a Python type for each leaf.
+
+        Leaves are sub-schemas that carry an ``enum`` keyword or a ``type`` of
+        ``object``/``choice``/``map``. Other dict entries are treated as nested
+        namespace segments (matching the path-as-namespace convention used in
+        ``$root`` JSON pointers like ``#/definitions/de/wsv/pegelonline/Station``).
+        """
+        for name, definition in definitions.items():
+            if not isinstance(definition, dict):
+                continue
+            if 'enum' in definition:
+                self.generate_enum(definition, name, namespace_path, write_file=True)
+            elif definition.get('type') == 'object':
+                self.generate_class(definition, namespace_path, write_file=True, explicit_name=name)
+            elif definition.get('type') == 'choice':
+                self.generate_choice(definition, namespace_path, write_file=True, explicit_name=name)
+            elif definition.get('type') == 'map':
+                # generate_map_alias doesn't accept explicit_name; stamp the name on a copy.
+                map_schema = dict(definition)
+                map_schema.setdefault('name', name)
+                self.generate_map_alias(map_schema, namespace_path, write_file=True)
+            else:
+                new_namespace = f"{namespace_path}.{name}" if namespace_path else name
+                self.process_definitions(definition, new_namespace)
 
     def convert_schemas(self, structure_schemas: List, output_dir: str):
         """ Converts JSON Structure schemas to Python dataclasses"""
@@ -827,16 +1503,51 @@ class StructureToPython:
             if 'definitions' in structure_schema:
                 self.definitions = structure_schema['definitions']
 
+            handled = False
             if 'enum' in structure_schema:
-                self.generate_enum(structure_schema, structure_schema.get('name', 'Enum'), 
+                self.generate_enum(structure_schema, structure_schema.get('name', 'Enum'),
                                  structure_schema.get('namespace', ''), write_file=True)
+                handled = True
             elif structure_schema.get('type') == 'object':
                 self.generate_class(structure_schema, structure_schema.get('namespace', ''), write_file=True)
+                handled = True
             elif structure_schema.get('type') == 'choice':
                 self.generate_choice(structure_schema, structure_schema.get('namespace', ''), write_file=True)
+                handled = True
             elif structure_schema.get('type') == 'map':
                 self.generate_map_alias(structure_schema, structure_schema.get('namespace', ''), write_file=True)
+                handled = True
+            elif '$root' in structure_schema:
+                # $root + definitions wrapper: resolve the pointer, derive the namespace
+                # from the pointer path (segments between 'definitions' and the type name),
+                # and emit the targeted class explicitly. Sibling types in `definitions`
+                # are picked up below by process_definitions.
+                root_ref = structure_schema['$root']
+                root_schema = self.resolve_ref(root_ref, structure_schema)
+                if root_schema:
+                    ref_path = root_ref.split('/')
+                    type_name = ref_path[-1]
+                    ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else ''
+                    self.generate_class_or_choice(root_schema, ref_namespace, write_file=True, explicit_name=type_name)
+                    handled = True
 
+            # Recursively walk the definitions tree so every named type is emitted,
+            # regardless of whether the top-level schema also dispatched something.
+            if 'definitions' in structure_schema:
+                self.process_definitions(structure_schema['definitions'], '')
+                handled = True
+
+            if not handled:
+                schema_id = structure_schema.get('$id', '<no $id>')
+                schema_name = structure_schema.get('name', '<no name>')
+                print(
+                    f"Warning: structure schema (id={schema_id}, name={schema_name}) did not "
+                    "match any recognized top-level shape (enum, type=object/choice/map, "
+                    "$root, or definitions); no Python output generated for it."
+                )
+
+        if self.xml_annotation:
+            self.write_xml_runtime()
         self.write_init_files()
         self.write_pyproject_toml()
 
@@ -849,7 +1560,7 @@ class StructureToPython:
         return self.convert_schemas(schema, output_dir)
 
 
-def convert_structure_to_python(structure_schema_path, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False):
+def convert_structure_to_python(structure_schema_path, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False, xml_annotation=False):
     """Converts JSON Structure schema to Python dataclasses"""
     if not package_name:
         # Strip .json extension, then also strip .struct suffix if present (*.struct.json naming convention)
@@ -859,14 +1570,19 @@ def convert_structure_to_python(structure_schema_path, py_file_path, package_nam
         package_name = base_name.lower().replace('-', '_')
     package_name = safe_package_name(package_name)
 
-    structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
+    structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation, xml_annotation=xml_annotation)
     structure_to_python.convert(structure_schema_path, py_file_path)
 
 
-def convert_structure_schema_to_python(structure_schema, py_file_path, package_name='', dataclasses_json_annotation=False):
+def convert_structure_schema_to_python(structure_schema, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False, xml_annotation=False):
     """Converts JSON Structure schema to Python dataclasses"""
     package_name = safe_package_name(package_name) if package_name else package_name
-    structure_to_python = StructureToPython(package_name, dataclasses_json_annotation=dataclasses_json_annotation)
+    structure_to_python = StructureToPython(
+        package_name,
+        dataclasses_json_annotation=dataclasses_json_annotation,
+        avro_annotation=avro_annotation,
+        xml_annotation=xml_annotation,
+    )
     if isinstance(structure_schema, dict):
         structure_schema = [structure_schema]
     structure_to_python.convert_schemas(structure_schema, py_file_path)

@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/clemensv/avrotize/schemas/repro-evidence-record.schema.json",
+  "title": "Reproduction Preparation Evidence",
+  "description": "Revision-bound preparation evidence. Automated Avrotize execution is intentionally absent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_kind",
+    "issue_number",
+    "request",
+    "authorized_content",
+    "processor",
+    "readiness",
+    "execution",
+    "result",
+    "artifact",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "record_kind": { "const": "repro-preparation-evidence" },
+    "issue_number": { "type": "integer", "minimum": 1 },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "actor", "run_id", "run_attempt", "run_url", "authorization_digest"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "actor": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "run_attempt": { "type": "integer", "minimum": 1 },
+        "run_url": { "type": "string", "minLength": 1 },
+        "authorization_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "authorized_content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title_digest", "body_digest", "content_digest", "verification"],
+      "properties": {
+        "title_digest": { "$ref": "#/$defs/digest" },
+        "body_digest": { "$ref": "#/$defs/digest" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "matches",
+            "repository",
+            "issue_number",
+            "title_digest",
+            "body_digest",
+            "content_digest",
+            "authorized_title_digest",
+            "authorized_body_digest",
+            "authorized_content_digest"
+          ],
+          "properties": {
+            "matches": { "type": "boolean" },
+            "repository": { "type": "string" },
+            "issue_number": { "type": "integer", "minimum": 1 },
+            "title_digest": { "$ref": "#/$defs/digest" },
+            "body_digest": { "$ref": "#/$defs/digest" },
+            "content_digest": { "$ref": "#/$defs/digest" },
+            "authorized_title_digest": { "$ref": "#/$defs/digest" },
+            "authorized_body_digest": { "$ref": "#/$defs/digest" },
+            "authorized_content_digest": { "$ref": "#/$defs/digest" }
+          }
+        }
+      }
+    },
+    "processor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trusted_sha",
+        "default_branch",
+        "issue_form_contract_digest",
+        "command_registry_digest",
+        "capability_digest",
+        "surface_registry_digest",
+        "label_catalog_digest"
+      ],
+      "properties": {
+        "trusted_sha": { "type": "string", "minLength": 1 },
+        "default_branch": { "type": "string", "minLength": 1 },
+        "issue_form_contract_digest": { "$ref": "#/$defs/digest" },
+        "command_registry_digest": { "$ref": "#/$defs/digest" },
+        "capability_digest": { "$ref": "#/$defs/digest" },
+        "surface_registry_digest": { "$ref": "#/$defs/digest" },
+        "label_catalog_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "form_type",
+        "intake_status",
+        "missing_fields",
+        "surface",
+        "command",
+        "command_known"
+      ],
+      "properties": {
+        "form_type": { "type": "string" },
+        "intake_status": { "type": "string" },
+        "missing_fields": { "type": "array", "items": { "type": "string" } },
+        "surface": { "type": "string" },
+        "command": { "type": "string" },
+        "command_known": { "type": ["boolean", "null"] }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performed", "reason"],
+      "properties": {
+        "performed": { "const": false },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_code", "reason", "final_label"],
+      "properties": {
+        "status": { "enum": ["BLOCKED", "NEEDS_REVIEW"] },
+        "reason_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+        "reason": { "type": "string", "minLength": 1 },
+        "final_label": { "enum": ["repro-blocked", "repro-needs-review"] }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "retention_days"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "retention_days": { "type": "integer", "minimum": 30, "maximum": 90 }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorized", "statement"],
+      "properties": {
+        "authorized": { "const": false },
+        "statement": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

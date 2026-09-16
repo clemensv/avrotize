@@ -1,0 +1,19 @@
+{
+  "branch": "main",
+  "sha": [
+    {
+      "Exception": "System.Management.Automation.RemoteException: gh: Not Found (HTTP 404)",
+      "TargetObject": "gh: Not Found (HTTP 404)",
+      "CategoryInfo": "NotSpecified: (gh: Not Found (HTTP 404):String) [], RemoteException",
+      "FullyQualifiedErrorId": "NativeCommandError",
+      "ErrorDetails": null,
+      "InvocationInfo": "System.Management.Automation.InvocationInfo",
+      "ScriptStackTrace": "at <ScriptBlock>, <No file>: line 2",
+      "PipelineIterationInfo": "0 0",
+      "PSMessageDetails": null
+    },
+    "{\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest/repos/contents#get-repository-content\",\"status\":\"404\"}"
+  ],
+  "content": "bmFtZTogQWNjZXNzIGNvbnRyb2wgbGlzdApkZXNjcmlwdGlvbjogTGlzdCBvZiB1c2VycyBhbmQgdGVhbXMgYW5kIHRoZWlyIHBlcm1pc3Npb24gbGV2ZWxzCnJlc291cmNlOiByZXBvc2l0b3J5CndoZXJlOgpjb25maWd1cmF0aW9uOgogIG1hbmFnZUFjY2VzczoKICAgIC0gdGVhbTogRmFicmljVGVhbUZURVdXCiAgICAgIHJvbGU6IFdyaXRl",
+  "message": "Update ACL: grant Write access to Fabric Team FTE WW (issues + PRs)"
+}

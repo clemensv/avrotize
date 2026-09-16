@@ -1,0 +1,11 @@
+{
+  "action": "opened",
+  "repository": {"full_name": "clemensv/avrotize"},
+  "sender": {"login": "reporter"},
+  "issue": {
+    "number": 501,
+    "title": "[Feature] JSON Structure to GraphQL",
+    "html_url": "https://github.com/clemensv/avrotize/issues/501",
+    "body": "### What would you like Avrotize to do?\n\nConvert a JSON Structure definition into GraphQL SDL so I can use the same model with GraphQL tooling.\n\n### Example or use case (optional)\n\nA small record with an enum should become a GraphQL type and enum.\n\n### Existing command or Avrotize area (optional)\n\ns2graphql\n\n### Other details (optional)\n\nIt would be helpful if the result passed graphql-js schema validation."
+  }
+}

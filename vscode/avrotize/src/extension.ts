@@ -114,11 +114,13 @@ function collectPythonPathCandidates(): string[] {
 
     const userProfile = process.env.USERPROFILE || '';
     const localAppData = process.env.LOCALAPPDATA || path.join(userProfile, 'AppData', 'Local');
-    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
-    const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
-    const windowsDir = process.env.WINDIR || 'C:\\Windows';
+    const programFiles = process.env.ProgramFiles || '';
+    const programFilesX86 = process.env['ProgramFiles(x86)'] || '';
+    const windowsDir = process.env.WINDIR || '';
 
-    addCandidate(path.join(windowsDir, 'py.exe'));
+    if (windowsDir) {
+        addCandidate(path.join(windowsDir, 'py.exe'));
+    }
 
     const pythonRoots = [
         path.join(localAppData, 'Programs', 'Python'),

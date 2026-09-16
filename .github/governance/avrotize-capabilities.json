@@ -1,0 +1,127 @@
+{
+  "schema_version": 2,
+  "profile": "avrotize-capability-matrix",
+  "command_registry": "avrotize/commands.json",
+  "expected_command_count": 106,
+  "expected_groups": {
+    "1_Schemas": 57,
+    "2_ProgLanguages": 16,
+    "3_Datalake": 6,
+    "4_RTDB": 2,
+    "5_SQL": 7,
+    "6_Inference": 5,
+    "6_NoSQL": 8,
+    "7_Utility": 5
+  },
+  "command_group_areas": {
+    "schema-and-idl-transformations": [
+      "1_Schemas"
+    ],
+    "programming-language-model-generation": [
+      "2_ProgLanguages"
+    ],
+    "database-and-analytical-schemas": [
+      "3_Datalake",
+      "4_RTDB",
+      "5_SQL",
+      "6_NoSQL"
+    ],
+    "data-inference-and-validation": [
+      "6_Inference"
+    ]
+  },
+  "utility_command_areas": {
+    "a2md": "documentation-generation",
+    "mcp": "command-access",
+    "pcf": "schema-validation-and-fingerprints",
+    "s2md": "documentation-generation",
+    "validate-tmsl": "instance-validation"
+  },
+  "semantic_paths": [
+    {
+      "name": "Avrotize Schema",
+      "description": "Apache Avro-compatible pivot model and formal specification used by a2*, *2a, validation, canonical-form, and many database commands."
+    },
+    {
+      "name": "JSON Structure",
+      "description": "Richer schema model used by s2*, *2s, Structurize, direct code generation, and transformations that do not require Avrotize Schema."
+    },
+    {
+      "name": "Direct command behavior",
+      "description": "Command-specific paths such as live SQL discovery, sample-data inference, instance validation, or direct schema/model generation."
+    }
+  ],
+  "capability_change_record": [
+    "commands_and_python_entry_points",
+    "input_kind_dialect_and_version",
+    "semantic_path",
+    "output_schema_idl_database_artifact_or_generated_language",
+    "flags_options_and_defaults",
+    "generated_runtime_and_toolchain",
+    "positive_invalid_boundary_and_regression_fixtures",
+    "meaningful_round_trip_when_documented",
+    "python_cli_mcp_vscode_surfaces",
+    "package_specification_documentation_and_release_effects"
+  ],
+  "responsibility_domains": {
+    "avrotize-schema-and-json-structure-semantics": [
+      "specs/**",
+      "schemas/**",
+      "avrotize/avrotools.py",
+      "avrotize/avrovalidator.py",
+      "avrotize/avrotojstruct.py",
+      "avrotize/jstructtoavro.py",
+      "avrotize/validate.py"
+    ],
+    "schema-and-idl-transformations": [
+      "avrotize/*toavro.py",
+      "avrotize/*tostructure.py",
+      "avrotize/avroto*.py",
+      "avrotize/structureto*.py"
+    ],
+    "programming-language-model-generation": [
+      "avrotize/avroto{cpp,csharp,go,java,js,python,rust,ts}.py",
+      "avrotize/structureto{cpp,csharp,go,java,js,python,rust,ts}.py",
+      "avrotize/avroto{cpp,csharp,go,java,js,python,rust,ts}/**",
+      "avrotize/structureto{cpp,csharp,go,java,js,python,rust,ts}/**",
+      "avrotize/dependencies/**"
+    ],
+    "database-and-analytical-schemas": [
+      "avrotize/avrotodb.py",
+      "avrotize/structuretodb.py",
+      "avrotize/*to{kusto,sql,parquet,iceberg,tmsl}.py"
+    ],
+    "data-inference-and-validation": [
+      "avrotize/jsontoschema.py",
+      "avrotize/xmltoschema.py",
+      "avrotize/schema_inference.py",
+      "avrotize/choice_inference.py",
+      "avrotize/tmslvalidate.py",
+      "test/json/**"
+    ],
+    "command-access-and-distribution": [
+      "avrotize/commands.json",
+      "avrotize/avrotize.py",
+      "avrotize/mcp_server.py",
+      "server.json",
+      "mcp-server.json",
+      "vscode/avrotize/**",
+      "pyproject.toml",
+      "structurize/**",
+      ".github/workflows/**",
+      "CHANGELOG.md",
+      "README.md"
+    ]
+  },
+  "surfaces": {
+    "avrotize_package": "pyproject.toml",
+    "structurize_package": "structurize/pyproject.toml",
+    "command_catalog": "avrotize/commands.json",
+    "cli_dispatch": "avrotize/avrotize.py",
+    "mcp_server": "avrotize/mcp_server.py",
+    "mcp_registry": "server.json",
+    "vscode_extension": "vscode/avrotize/package.json",
+    "avrotize_schema_specification": "specs/avrotize-schema.md",
+    "changelog": "CHANGELOG.md"
+  }
+}

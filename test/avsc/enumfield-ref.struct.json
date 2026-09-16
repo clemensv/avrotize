@@ -21,7 +21,9 @@
                         "type": "object",
                         "properties": {
                             "enumField": {
-                                "$ref": "#/definitions/com/example/avro/MyEnum"
+                                "type": {
+                                    "$ref": "#/definitions/com/example/avro/MyEnum"
+                                }
                             }
                         },
                         "required": [

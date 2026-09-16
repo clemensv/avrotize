@@ -578,6 +578,90 @@ class SqlToAvro:
         cursor.close()
         return pk_columns
 
+    def fetch_foreign_keys(self, table_name: str, table_schema: str = 'public') -> List[Dict[str, Any]]:
+        """Fetches foreign key mappings for a table."""
+        cursor = self.connection.cursor()
+
+        if self.dialect == 'postgres':
+            query = """
+                SELECT
+                    tc.constraint_name,
+                    kcu.column_name,
+                    ccu.table_schema AS foreign_table_schema,
+                    ccu.table_name AS foreign_table_name,
+                    ccu.column_name AS foreign_column_name,
+                    kcu.ordinal_position
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage kcu
+                    ON tc.constraint_name = kcu.constraint_name
+                    AND tc.table_schema = kcu.table_schema
+                JOIN information_schema.constraint_column_usage ccu
+                    ON tc.constraint_name = ccu.constraint_name
+                    AND tc.table_schema = ccu.table_schema
+                WHERE tc.table_name = %s
+                  AND tc.table_schema = %s
+                  AND tc.constraint_type = 'FOREIGN KEY'
+                ORDER BY tc.constraint_name, kcu.ordinal_position
+            """
+            cursor.execute(query, (table_name, table_schema))
+        elif self.dialect == 'mysql':
+            query = """
+                SELECT
+                    constraint_name,
+                    column_name,
+                    referenced_table_schema,
+                    referenced_table_name,
+                    referenced_column_name,
+                    ordinal_position
+                FROM information_schema.key_column_usage
+                WHERE table_name = %s
+                  AND table_schema = %s
+                  AND referenced_table_name IS NOT NULL
+                ORDER BY constraint_name, ordinal_position
+            """
+            cursor.execute(query, (table_name, table_schema))
+        elif self.dialect == 'sqlserver':
+            query = """
+                SELECT
+                    fk.name AS constraint_name,
+                    cp.name AS column_name,
+                    sr.name AS foreign_table_schema,
+                    tr.name AS foreign_table_name,
+                    cr.name AS foreign_column_name,
+                    fkc.constraint_column_id AS ordinal_position
+                FROM sys.foreign_keys fk
+                INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+                INNER JOIN sys.tables tp ON fk.parent_object_id = tp.object_id
+                INNER JOIN sys.schemas sp ON tp.schema_id = sp.schema_id
+                INNER JOIN sys.columns cp ON fkc.parent_object_id = cp.object_id AND fkc.parent_column_id = cp.column_id
+                INNER JOIN sys.tables tr ON fk.referenced_object_id = tr.object_id
+                INNER JOIN sys.schemas sr ON tr.schema_id = sr.schema_id
+                INNER JOIN sys.columns cr ON fkc.referenced_object_id = cr.object_id AND fkc.referenced_column_id = cr.column_id
+                WHERE tp.name = %s AND sp.name = %s
+                ORDER BY fk.name, fkc.constraint_column_id
+            """
+            cursor.execute(query, (table_name, table_schema))
+        else:
+            cursor.close()
+            return []
+
+        grouped: Dict[str, Dict[str, Any]] = {}
+        for row in cursor.fetchall():
+            constraint_name = row[0]
+            if constraint_name not in grouped:
+                grouped[constraint_name] = {
+                    'constraint_name': constraint_name,
+                    'columns': [],
+                    'foreign_table_schema': row[2],
+                    'foreign_table_name': row[3],
+                    'foreign_columns': []
+                }
+            grouped[constraint_name]['columns'].append(row[1])
+            grouped[constraint_name]['foreign_columns'].append(row[4])
+
+        cursor.close()
+        return list(grouped.values())
+
     def fetch_table_comment(self, table_name: str, table_schema: str = 'public') -> str | None:
         """Fetches table comment/description."""
         cursor = self.connection.cursor()
@@ -809,6 +893,7 @@ class SqlToAvro:
         """Converts a SQL table to Avro schema."""
         columns = self.fetch_table_columns(table_name, table_schema)
         primary_keys = self.fetch_primary_keys(table_name, table_schema)
+        foreign_keys = self.fetch_foreign_keys(table_name, table_schema)
         table_comment = self.fetch_table_comment(table_name, table_schema)
 
         # Check for CloudEvents pattern
@@ -906,6 +991,19 @@ class SqlToAvro:
                 # Add primary keys as 'unique' annotation
                 if primary_keys:
                     schema["unique"] = [avro_name(pk) for pk in primary_keys]
+
+                # Add foreign keys as relationship metadata
+                if foreign_keys:
+                    schema["foreignKeys"] = [
+                        {
+                            "name": fk["constraint_name"],
+                            "columns": [avro_name(column_name) for column_name in fk["columns"]],
+                            "referencedTable": avro_name(str(fk["foreign_table_name"])),
+                            "referencedColumns": [avro_name(column_name) for column_name in fk["foreign_columns"]],
+                            "referencedTableSql": f"{fk['foreign_table_schema']}.{fk['foreign_table_name']}" if fk["foreign_table_schema"] != 'public' else str(fk["foreign_table_name"])
+                        }
+                        for fk in foreign_keys
+                    ]
 
                 self._apply_schema_attributes(schema, table_name, table_schema, type_value, type_namespace, table_comment)
                 schemas.append(schema)

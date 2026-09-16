@@ -1,4 +1,5 @@
 from unittest.mock import patch
+import importlib
 import unittest
 import os
 import shutil
@@ -65,6 +66,454 @@ class TestAvroToPython(unittest.TestCase):
         assert subprocess.check_call(
             ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
 
+    def test_dataclasses_json_logical_date_and_datetime_roundtrip(self):
+        """ Test date and timestamp logical types use JSON ISO encoders/decoders. """
+        import datetime
+        import importlib
+        import json
+
+        schema = {
+            "type": "record",
+            "name": "TemporalRecord",
+            "namespace": "example.logical",
+            "fields": [
+                {"name": "event_date", "type": {"type": "int", "logicalType": "date"}},
+                {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+            ],
+        }
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "issue-355-date-py-json")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+        convert_avro_schema_to_python(
+            schema, py_path, package_name="issue_355_date_json", dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        try:
+            module = importlib.import_module("issue_355_date_json.example.logical")
+            TemporalRecord = module.TemporalRecord
+            record = TemporalRecord(
+                event_date=datetime.date(2025, 1, 2),
+                updated_at=datetime.datetime(2025, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc),
+            )
+
+            json_text = record.to_json()
+            payload = json.loads(json_text)
+            assert payload["event_date"] == "2025-01-02"
+            assert payload["updated_at"] == "2025-01-02T03:04:05+00:00"
+
+            round_tripped = TemporalRecord.from_json(json_text)
+            assert round_tripped == record
+        finally:
+            sys.path.remove(generated_src)
+
+    def test_issue_399_json_dictionary_entry_points_use_temporal_decoders(self):
+        """JSON dictionaries must use the generated date/datetime decoders."""
+        import datetime
+        import json
+
+        schema = {
+            "type": "record",
+            "name": "TemporalPayload",
+            "namespace": "example.issue399",
+            "fields": [
+                {
+                    "name": "required_at",
+                    "type": {"type": "long", "logicalType": "timestamp-millis"},
+                },
+                {
+                    "name": "optional_at",
+                    "type": [
+                        "null",
+                        {"type": "long", "logicalType": "timestamp-micros"},
+                    ],
+                },
+                {
+                    "name": "event_date",
+                    "type": {"type": "int", "logicalType": "date"},
+                },
+            ],
+        }
+        py_path = tempfile.mkdtemp(prefix="avrotize-issue399-")
+        self.addCleanup(shutil.rmtree, py_path, True)
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+        convert_avro_schema_to_python(
+            schema, py_path, package_name="issue_399_temporal",
+            dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        self.addCleanup(sys.path.remove, generated_src)
+        module = importlib.import_module(
+            "issue_399_temporal.example.issue399.temporalpayload")
+        self.addCleanup(
+            lambda: [
+                sys.modules.pop(name, None)
+                for name in list(sys.modules)
+                if name == "issue_399_temporal"
+                or name.startswith("issue_399_temporal.")
+            ])
+        TemporalPayload = module.TemporalPayload
+
+        expected = TemporalPayload(
+            required_at=datetime.datetime(
+                2026, 7, 14, 17, 30, 34, tzinfo=datetime.timezone.utc),
+            optional_at=datetime.datetime(2026, 7, 14, 17, 31),
+            event_date=datetime.date(2026, 7, 14),
+        )
+        encoded = expected.to_byte_array("application/json")
+        decoded = json.loads(encoded)
+
+        entry_points = {
+            "from_data(bytes)": lambda data: TemporalPayload.from_data(
+                json.dumps(data).encode("utf-8"), "application/json"),
+            "from_data(dict)": lambda data: TemporalPayload.from_data(
+                data, "application/json"),
+            "from_serializer_dict": TemporalPayload.from_serializer_dict,
+        }
+        for label, load in entry_points.items():
+            with self.subTest(entry_point=label):
+                payload = dict(decoded)
+                restored = load(payload)
+                assert restored == expected
+                assert isinstance(restored.required_at, datetime.datetime)
+                assert isinstance(restored.optional_at, datetime.datetime)
+                assert isinstance(restored.event_date, datetime.date)
+                assert payload == decoded, \
+                    f"{label} must not mutate the caller's dictionary"
+
+        nullable = dict(decoded, optional_at=None)
+        for label, load in entry_points.items():
+            with self.subTest(entry_point=label, optional_at=None):
+                assert load(dict(nullable)).optional_at is None
+
+        malformed = dict(decoded, required_at="not-a-datetime")
+        for label, load in entry_points.items():
+            with self.subTest(entry_point=label, malformed=True):
+                with self.assertRaises(ValueError):
+                    load(dict(malformed))
+
+    def test_issue_399_json_dictionary_entry_points_preserve_field_names(self):
+        """Configured JSON names must survive decoder dispatch."""
+        import datetime
+        import json
+
+        schema = {
+            "type": "record",
+            "name": "RenamedTemporal",
+            "namespace": "example.issue399",
+            "fields": [
+                {
+                    "name": "class",
+                    "type": {"type": "long", "logicalType": "timestamp-millis"},
+                },
+                {"name": "label", "type": "string"},
+            ],
+        }
+        py_path = tempfile.mkdtemp(prefix="avrotize-issue399-name-")
+        self.addCleanup(shutil.rmtree, py_path, True)
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+        convert_avro_schema_to_python(
+            schema, py_path, package_name="issue_399_names",
+            dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        self.addCleanup(sys.path.remove, generated_src)
+        module = importlib.import_module(
+            "issue_399_names.example.issue399.renamedtemporal")
+        self.addCleanup(
+            lambda: [
+                sys.modules.pop(name, None)
+                for name in list(sys.modules)
+                if name == "issue_399_names"
+                or name.startswith("issue_399_names.")
+            ])
+        RenamedTemporal = module.RenamedTemporal
+
+        value = datetime.datetime(
+            2026, 7, 14, 17, 30, 34,
+            tzinfo=datetime.timezone(datetime.timedelta(hours=8)))
+        payload = {"class": value.isoformat(), "label": "station"}
+        encoded = json.dumps(payload).encode("utf-8")
+
+        from_bytes = RenamedTemporal.from_data(encoded, "application/json")
+        from_dict = RenamedTemporal.from_data(dict(payload), "application/json")
+        from_serializer = RenamedTemporal.from_serializer_dict(dict(payload))
+
+        for restored in (from_bytes, from_dict, from_serializer):
+            assert restored.class_ == value
+            assert restored.label == "station"
+            assert json.loads(restored.to_byte_array("application/json")) == payload
+
+    def test_issue_466_date_json_entry_points_narrow_datetime_subclass(self):
+        """A datetime value in an Avro date field must use the date wire format."""
+        import datetime
+        import gzip
+        import json
+        from marshmallow import ValidationError
+
+        avro_path = os.path.join(
+            os.getcwd(), "test", "avsc", "issue-466-date.avsc")
+        py_path = tempfile.mkdtemp(prefix="avrotize-issue466-")
+        self.addCleanup(shutil.rmtree, py_path, True)
+
+        convert_avro_to_python(
+            avro_path, py_path, package_name="issue_466_date",
+            dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        self.addCleanup(sys.path.remove, generated_src)
+        module = importlib.import_module(
+            "issue_466_date.example.issue466.datepayload")
+        self.addCleanup(
+            lambda: [
+                sys.modules.pop(name, None)
+                for name in list(sys.modules)
+                if name == "issue_466_date"
+                or name.startswith("issue_466_date.")
+            ])
+        DatePayload = module.DatePayload
+
+        updated_at = datetime.datetime(
+            2026, 8, 27, 12, 34, 56, tzinfo=datetime.timezone.utc)
+        expected_payload = {
+            "class": "2026-08-27",
+            "updated_at": "2026-08-27T12:34:56+00:00",
+        }
+        schema_payload = {
+            "class_": expected_payload["class"],
+            "updated_at": expected_payload["updated_at"],
+        }
+
+        for date_value in (
+                datetime.date(2026, 8, 27),
+                datetime.datetime(2026, 8, 27, 23, 59, 58)):
+            with self.subTest(date_value_type=type(date_value).__name__):
+                record = DatePayload(class_=date_value, updated_at=updated_at)
+                json_bytes = record.to_byte_array("application/json")
+                compressed = record.to_byte_array("application/json+gzip")
+
+                producers = {
+                    "to_dict": (record.to_dict(), expected_payload),
+                    "to_json": (
+                        json.loads(record.to_json()), expected_payload),
+                    "schema.dump": (
+                        DatePayload.schema().dump(record), schema_payload),
+                    "schema.dumps": (
+                        json.loads(DatePayload.schema().dumps(record)),
+                        schema_payload),
+                    "to_byte_array": (
+                        json.loads(json_bytes), expected_payload),
+                    "to_byte_array+gzip": (
+                        json.loads(gzip.decompress(compressed)),
+                        expected_payload),
+                }
+                for label, (payload, expected) in producers.items():
+                    with self.subTest(producer=label):
+                        assert payload == expected
+
+                consumers = {
+                    "from_dict": lambda: DatePayload.from_dict(
+                        dict(expected_payload)),
+                    "from_json": lambda: DatePayload.from_json(
+                        json.dumps(expected_payload)),
+                    "schema.load": lambda: DatePayload.schema().load(
+                        dict(schema_payload)),
+                    "schema.loads": lambda: DatePayload.schema().loads(
+                        json.dumps(schema_payload)),
+                    "from_data(str)": lambda: DatePayload.from_data(
+                        json.dumps(expected_payload), "application/json"),
+                    "from_data(bytes)": lambda: DatePayload.from_data(
+                        json_bytes, "application/json"),
+                    "from_data(dict)": lambda: DatePayload.from_data(
+                        dict(expected_payload), "application/json"),
+                    "from_data+gzip": lambda: DatePayload.from_data(
+                        compressed, "application/json+gzip"),
+                    "from_serializer_dict": lambda:
+                        DatePayload.from_serializer_dict(
+                            dict(expected_payload)),
+                }
+                for label, load in consumers.items():
+                    with self.subTest(consumer=label):
+                        restored = load()
+                        assert restored.class_ == datetime.date(2026, 8, 27)
+                        assert type(restored.class_) is datetime.date
+                        assert restored.updated_at == updated_at
+                        assert type(restored.updated_at) is datetime.datetime
+
+        malformed = {
+            "class": "not-a-date",
+            "updated_at": expected_payload["updated_at"],
+        }
+        malformed_schema = {
+            "class_": malformed["class"],
+            "updated_at": malformed["updated_at"],
+        }
+        malformed_compressed = gzip.compress(
+            json.dumps(malformed).encode("utf-8"))
+        malformed_consumers = {
+            "from_dict": lambda: DatePayload.from_dict(dict(malformed)),
+            "from_json": lambda: DatePayload.from_json(json.dumps(malformed)),
+            "schema.load": lambda: DatePayload.schema().load(
+                dict(malformed_schema)),
+            "schema.loads": lambda: DatePayload.schema().loads(
+                json.dumps(malformed_schema)),
+            "from_data(str)": lambda: DatePayload.from_data(
+                json.dumps(malformed), "application/json"),
+            "from_data(bytes)": lambda: DatePayload.from_data(
+                json.dumps(malformed).encode("utf-8"), "application/json"),
+            "from_data(dict)": lambda: DatePayload.from_data(
+                dict(malformed), "application/json"),
+            "from_data+gzip": lambda: DatePayload.from_data(
+                malformed_compressed, "application/json+gzip"),
+            "from_serializer_dict": lambda: DatePayload.from_serializer_dict(
+                dict(malformed)),
+        }
+        for label, load in malformed_consumers.items():
+            with self.subTest(consumer=label, malformed=True):
+                with self.assertRaises((ValueError, ValidationError)):
+                    load()
+
+    def test_issue_402_to_byte_array_application_json_returns_bytes(self):
+        """ Issue #402: to_byte_array('application/json') must return bytes, not str.
+
+        The dataclasses-json branch previously returned the str from to_json()
+        directly for plain 'application/json' (the encode-to-bytes step only ran
+        for the '+gzip' path), violating the '-> bytes' contract and breaking
+        from_data round-tripping and gzip. """
+        import importlib
+        schema = {
+            "type": "record",
+            "name": "Issue402Record",
+            "namespace": "example.issue402",
+            "fields": [
+                {"name": "tenantid", "type": "string"},
+                {"name": "count", "type": "int"},
+            ],
+        }
+        py_path = os.path.join(tempfile.gettempdir(), "avrotize", "issue-402-py-json")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+        convert_avro_schema_to_python(
+            schema, py_path, package_name="issue_402_json", dataclasses_json_annotation=True)
+
+        generated_src = os.path.join(py_path, "src")
+        sys.path.insert(0, generated_src)
+        try:
+            module = importlib.import_module("issue_402_json.example.issue402")
+            Issue402Record = module.Issue402Record
+            record = Issue402Record(tenantid="acme", count=7)
+
+            payload = record.to_byte_array("application/json")
+            assert isinstance(payload, bytes), f"expected bytes, got {type(payload).__name__}"
+
+            round_tripped = Issue402Record.from_data(payload, "application/json")
+            assert round_tripped == record
+        finally:
+            sys.path.remove(generated_src)
+
+    def test_xml_annotation_round_trip_with_schema_metadata(self):
+        """Generated Avro classes honor XML names, namespaces, kinds, and gzip."""
+        import gzip
+        import xml.etree.ElementTree as ET
+        from avrotize.avrotopython import convert_avro_schema_to_python
+
+        schema = {
+            "type": "record",
+            "name": "Order",
+            "namespace": "example.xml",
+            "xmlns": "urn:avrotize:test",
+            "altnames": {"xml": "purchase-order"},
+            "fields": [
+                {"name": "id", "type": "string", "xmlkind": "attribute",
+                 "altnames": {"xml": "order-id"}},
+                {"name": "note", "type": ["null", "string"], "default": None,
+                 "altnames": {"xml": "comment"}},
+                {"name": "status", "type": {"type": "enum", "name": "Status",
+                 "altnames": {"xml": "order-status"}, "symbols": ["NEW", "DONE"],
+                 "altenums": {"xml": {"NEW": "new-order"}}}},
+                {"name": "tags", "type": {"type": "array", "items": "string"}},
+                {"name": "choice", "type": ["int", "string"]},
+                {"name": "properties", "type": {"type": "map", "values": "int"}},
+                {"name": "child", "type": {"type": "record", "name": "Child",
+                 "xmlns": "urn:avrotize:child",
+                 "fields": [{"name": "value", "type": "int"}]}},
+            ],
+        }
+        output_dir = os.path.join(tempfile.gettempdir(), "avrotize", "issue-408-a2py-xml")
+        shutil.rmtree(output_dir, ignore_errors=True)
+        convert_avro_schema_to_python(
+            schema, output_dir, package_name="issue_408_a2py", xml_annotation=True,
+            dataclasses_json_annotation=True, avro_annotation=True)
+
+        generated_src = os.path.join(output_dir, "src")
+        for root, _dirs, files in os.walk(generated_src):
+            for filename in files:
+                if filename.endswith(".py"):
+                    generated_file = os.path.join(root, filename)
+                    with open(generated_file, encoding="utf-8") as source:
+                        compile(source.read(), generated_file, "exec")
+
+        sys.path.insert(0, generated_src)
+        try:
+            Order = importlib.import_module("issue_408_a2py.example.xml.order").Order
+            Child = importlib.import_module("issue_408_a2py.example.xml.child").Child
+            Status = importlib.import_module("issue_408_a2py.example.xml.status").Status
+            value = Order(id="A-1", note=None, status=Status.NEW, tags=["red", "blue"],
+                          choice="selected", properties={"priority": 3}, child=Child(value=7))
+
+            payload = value.to_byte_array("application/xml")
+            root = ET.fromstring(payload)
+            assert root.tag == "{urn:avrotize:test}purchase-order"
+            assert root.attrib == {"order-id": "A-1"}
+            assert root.find("{urn:avrotize:test}comment") is None
+            assert [node.text for node in root.findall("{urn:avrotize:test}tags")] == ["red", "blue"]
+            assert root.find("{urn:avrotize:test}choice").text == "selected"
+            assert root.find("{urn:avrotize:test}status").text == "new-order"
+            map_item = root.find("{urn:avrotize:test}properties/{urn:avrotize:test}item")
+            assert map_item.attrib == {"key": "priority"} and map_item.text == "3"
+            assert root.find("{urn:avrotize:child}child/{urn:avrotize:child}value").text == "7"
+            assert Status.__xml_name__ == "order-status"
+            id_metadata = Order.__dataclass_fields__["id"].metadata
+            assert id_metadata["name"] == "order-id"
+            assert id_metadata["type"] == "Attribute"
+            order_source = os.path.join(generated_src, "issue_408_a2py", "example", "xml", "order.py")
+            with open(order_source, encoding="utf-8") as source:
+                generated_code = source.read()
+            assert "XMLFields" not in generated_code
+            assert "_to_xml_element" not in generated_code
+            assert "from issue_408_a2py.xml_runtime import parse_xml, serialize_xml" in generated_code
+            runtime_path = os.path.join(generated_src, "issue_408_a2py", "xml_runtime.py")
+            assert os.path.exists(runtime_path)
+            with open(runtime_path, encoding="utf-8") as runtime:
+                runtime_code = runtime.read()
+            assert "XmlParser" in runtime_code and "XmlSerializer" in runtime_code
+            assert "xml.etree" not in runtime_code
+            with open(os.path.join(output_dir, "pyproject.toml"), encoding="utf-8") as project:
+                assert 'xsdata = "^26.2"' in project.read()
+            assert Order.from_data(payload, "application/xml") == value
+            assert Order.from_data(value.to_byte_array("application/json"), "application/json") == value
+            assert Order.from_data(value.to_byte_array("avro/binary"), "avro/binary") == value
+
+            compressed = value.to_byte_array("text/xml+gzip")
+            assert gzip.decompress(compressed).startswith(b"<?xml")
+            assert Order.from_data(compressed, "text/xml+gzip") == value
+        finally:
+            sys.path.remove(generated_src)
+            for module_name in list(sys.modules):
+                if module_name == "issue_408_a2py" or module_name.startswith("issue_408_a2py."):
+                    sys.modules.pop(module_name, None)
+
     def test_convert_address_avsc_to_python_avro(self):
         """ Test converting an address.avsc file to Python with avro annotation """
         cwd = os.getcwd()
@@ -124,7 +573,43 @@ class TestAvroToPython(unittest.TestCase):
         new_env['PYTHONPATH'] = py_path
         assert subprocess.check_call(
             ['python', '-m', 'pytest'], cwd=py_path, env=new_env, stdout=sys.stdout, stderr=sys.stderr, shell=True) == 0
-        
+
+    def test_enum_symbols_that_are_not_python_identifiers_are_importable(self):
+        """ Test Avro enum symbols are valid Python member names while preserving values """
+        schema = {
+            "type": "enum",
+            "name": "StatusEnum",
+            "namespace": "example.issue354",
+            "symbols": ["0", "1", "3D", "VALUE_3D", "in-progress", "class"]
+        }
+        py_path = os.path.join(os.getcwd(), "test", "output", "issue354-enum-symbols-py")
+        if os.path.exists(py_path):
+            shutil.rmtree(py_path, ignore_errors=True)
+        os.makedirs(py_path, exist_ok=True)
+
+        try:
+            from avrotize.avrotopython import convert_avro_schema_to_python
+            convert_avro_schema_to_python(schema, py_path, package_name="issue354")
+
+            enum_file = os.path.join(py_path, "src", "issue354", "example", "issue354", "statusenum.py")
+            with open(enum_file, "r", encoding="utf-8") as file:
+                enum_source = file.read()
+            compile(enum_source, enum_file, "exec")
+
+            sys.path.insert(0, os.path.join(py_path, "src"))
+            try:
+                module = importlib.import_module("issue354.example.issue354.statusenum")
+                StatusEnum = module.StatusEnum
+                assert [member.value for member in StatusEnum] == schema["symbols"]
+            finally:
+                sys.path.remove(os.path.join(py_path, "src"))
+                sys.modules.pop("issue354", None)
+                sys.modules.pop("issue354.example", None)
+                sys.modules.pop("issue354.example.issue354", None)
+                sys.modules.pop("issue354.example.issue354.statusenum", None)
+        finally:
+            shutil.rmtree(py_path, ignore_errors=True)
+
     def test_convert_feeditem_avsc_to_python(self):
         """ Test converting a enumfield-ordinal.avsc file to Python """
         cwd = os.getcwd()
@@ -426,6 +911,7 @@ except Exception as e:
         # Add test directory to Python path
         new_env = os.environ.copy()
         new_env['PYTHONPATH'] = os.path.join(py_path, 'src')
+        new_env['PYTHONIOENCODING'] = 'utf-8'
         
         # Create test script
         test_script = os.path.join(py_path, "test_compression.py")

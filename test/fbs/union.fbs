@@ -1,0 +1,6 @@
+namespace Example.Union;
+table Sword { sharp:bool = true; }
+table Spell { cost:int = 1; }
+union Item { Sword, Spell }
+table Holder { item:Item; }
+root_type Holder;

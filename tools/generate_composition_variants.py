@@ -37,7 +37,6 @@ sys.path.insert(0, str(current_dir))
 # Try multiple potential locations for the validator
 validator_paths = [
     Path(__file__).parent / "primer-and-samples" / "samples" / "py",
-    Path(r"C:\git\json-structure\primer-and-samples\samples\py"),
     Path.home() / "json-structure" / "primer-and-samples" / "samples" / "py"
 ]
 

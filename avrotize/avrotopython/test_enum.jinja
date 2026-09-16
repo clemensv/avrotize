@@ -19,5 +19,4 @@ class {{ test_class_name }}(unittest.TestCase):
         """
         Create instance of {{ class_name }}
         """
-        return "{{ symbols[0] }}"
-
+        return {{ symbols[0].value_literal }}

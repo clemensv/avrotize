@@ -1,0 +1,23 @@
+{
+  "definitions": {
+    "Address": {
+      "properties": {
+        "street": {"type": "string"}
+      },
+      "optionalProperties": {
+        "zip": {"type": "uint32"}
+      }
+    }
+  },
+  "properties": {
+    "id": {"type": "string"},
+    "created": {"type": "timestamp"},
+    "address": {"ref": "Address"},
+    "scores": {"elements": {"type": "float64"}},
+    "labels": {"values": {"type": "string"}}
+  },
+  "optionalProperties": {
+    "nickname": {"type": "string"}
+  },
+  "additionalProperties": true
+}

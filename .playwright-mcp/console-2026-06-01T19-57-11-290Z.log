@@ -1,0 +1,16 @@
+[     297ms] [LOG] [MSAL] ensureMsalInitialized: starting initialization... @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[     297ms] [LOG] [MSAL] Creating new PublicClientApplication instance @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[     300ms] [LOG] [MSAL] initialize() resolved successfully @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[     301ms] [LOG] [MSAL] Initialization complete @ https://eng.ms/static/js/meActions.Cn7JkZ-5.js:13
+[     827ms] [LOG] [PERF] loadContent START: overview/questions at 819.8000000119209 @ :2
+[     827ms] [LOG] [PERF] Cache miss for: overview/questions @ :2
+[     827ms] [LOG] [PERF] Starting dynamic import at 820.5 @ :2
+[    1163ms] [LOG] [PERF] Import completed in 335.70 ms @ :2
+[    1163ms] [LOG] [DEBUG] Loaded content for: overview/questions html length: 1411 @ :2
+[    1165ms] [LOG] [DEBUG] Sanitized before cache, html length: 1409 @ :2
+[    1165ms] [LOG] [PERF] loadContent COMPLETE: overview/questions total time: 338.50 ms @ :2
+[    1168ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 1409 @ :2
+[    1188ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 1409 @ :2
+[    1197ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 1409 @ :2
+[    1398ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.eng.ms/api/v1.0/MarkdownManagement/canedit:0
+[    1402ms] [LOG] [DEBUG] renderContent called, content exists: true html length: 1409 @ :2

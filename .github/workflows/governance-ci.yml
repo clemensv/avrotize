@@ -1,0 +1,62 @@
+name: Governance CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/**"
+      - "GOVERNANCE.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "SUPPORT.md"
+      - "tools/governance_*.py"
+      - "tools/validate_governance.py"
+      - "test/test_governance*.py"
+      - "test/fixtures/governance/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governance-ci-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: true
+
+jobs:
+  governance-quality:
+    name: Exact-head governance quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact pull-request head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact pull-request head
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${EXPECTED_HEAD}"
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install hash-pinned governance test dependency
+        run: >-
+          python -m pip install
+          --only-binary=:all:
+          --require-hashes
+          --no-deps
+          --requirement .github/governance/requirements-ci.txt
+
+      - name: Run strict governance validator
+        run: python tools/validate_governance.py --strict
+
+      - name: Run every governance test module
+        run: python -m unittest discover -s test -p "test_governance*.py" -v

@@ -1,0 +1,503 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/clemensv/avrotize/schemas/dependabot-intake-record.schema.json",
+  "title": "Dependabot Intake Record",
+  "description": "Deterministic intake normalization record for Dependabot pull requests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_kind",
+    "pr_number",
+    "event_identity",
+    "classification",
+    "normalized_facts",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Record schema version."
+    },
+    "record_kind": {
+      "enum": [
+        "dependabot-intake"
+      ],
+      "description": "Discriminator for record type."
+    },
+    "pr_number": {
+      "type": "integer",
+      "description": "Top-level PR number fallback."
+    },
+    "event_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pr_number",
+        "event_type",
+        "head_sha",
+        "base_sha",
+        "author",
+        "sender",
+        "processor_sha",
+        "identity_checks",
+        "observed_head_before",
+        "observed_head_after",
+        "head_verified_before",
+        "head_verified_after",
+        "files_digest",
+        "config_digest",
+        "capability_digest",
+        "source_digest"
+      ],
+      "properties": {
+        "pr_number": {
+          "type": "integer"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "event_type": {
+          "enum": [
+            "opened",
+            "reopened",
+            "synchronize",
+            "ready_for_review",
+            "workflow_dispatch"
+          ]
+        },
+        "head_sha": {
+          "type": "string"
+        },
+        "base_sha": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "sender": {
+          "type": "string"
+        },
+        "identity_checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "author_is_dependabot_bot",
+            "sender_is_dependabot_bot",
+            "head_ref_prefix",
+            "title_matches_pattern",
+            "configured_title_prefix"
+          ],
+          "properties": {
+            "author_is_dependabot_bot": {
+              "type": "boolean"
+            },
+            "sender_is_dependabot_bot": {
+              "type": "boolean"
+            },
+            "head_ref_prefix": {
+              "type": "boolean"
+            },
+            "title_matches_pattern": {
+              "type": "boolean"
+            },
+            "configured_title_prefix": {
+              "type": "string"
+            }
+          }
+        },
+        "processor_sha": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_head_before": {
+          "type": "string"
+        },
+        "observed_head_after": {
+          "type": "string"
+        },
+        "head_verified_before": {
+          "type": "boolean"
+        },
+        "head_verified_after": {
+          "type": "boolean"
+        },
+        "files_digest": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "config_digest": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "capability_digest": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "source_digest": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64
+        },
+        "head_ref": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "is_dependabot"
+      ],
+      "properties": {
+        "is_dependabot": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "incomplete",
+            "ignored",
+            "superseded"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "unauthorized",
+            "head-changed-during-retrieval"
+          ]
+        },
+        "missing_info": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "normalized_facts": {
+      "type": "object",
+      "properties": {
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "old_version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "new_version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ecosystem": {
+                "type": "string"
+              },
+              "directory": {
+                "type": "string"
+              },
+              "update_type": {
+                "enum": [
+                  "major",
+                  "minor",
+                  "patch",
+                  "unknown"
+                ]
+              },
+              "dependency_type": {
+                "enum": [
+                  "direct",
+                  "transitive",
+                  "indeterminate"
+                ]
+              }
+            }
+          }
+        },
+        "config_entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ecosystem": {
+                "type": "string"
+              },
+              "directory": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "config_entry": {
+          "type": "object",
+          "properties": {
+            "ecosystem": {
+              "type": "string"
+            },
+            "directory": {
+              "type": "string"
+            }
+          }
+        },
+        "ecosystems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ecosystem",
+              "directory",
+              "manifests_changed",
+              "lockfiles_changed",
+              "other_files",
+              "domains",
+              "exposure_categories",
+              "required_validation_scope"
+            ],
+            "properties": {
+              "ecosystem": {
+                "type": "string"
+              },
+              "directory": {
+                "type": "string"
+              },
+              "manifests_changed": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "lockfiles_changed": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "other_files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "domains": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "exposure_categories": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "required_validation_scope": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "multi_ecosystem": {
+          "type": "boolean"
+        },
+        "unmatched_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "manifests_changed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lockfiles_changed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "other_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "file_metadata": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "filename": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "previous_filename": {
+                "type": ["string", "null"]
+              },
+              "sha": {
+                "type": "string"
+              },
+              "additions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deletions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "changes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exposure": {
+          "type": "object",
+          "properties": {
+            "categories": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "generated_output_implications": {
+              "type": "boolean"
+            },
+            "toolchain_implications": {
+              "type": "boolean"
+            }
+          }
+        },
+        "major_version_risk": {
+          "type": "boolean"
+        },
+        "unknown_version_risk": {
+          "type": "boolean"
+        },
+        "review_required": {
+          "type": "boolean"
+        },
+        "safe_merge_inferred": {
+          "const": false
+        },
+        "exploitability_inferred": {
+          "const": false
+        },
+        "required_validation_scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorized",
+        "statement"
+      ],
+      "properties": {
+        "authorized": {
+          "const": false
+        },
+        "statement": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "oneOf": [
+        {
+          "properties": {
+            "classification": {
+              "type": "object",
+              "properties": {
+                "status": { "const": "complete" },
+                "is_dependabot": { "const": true }
+              },
+              "required": ["status", "is_dependabot"]
+            },
+            "normalized_facts": {
+              "type": "object",
+              "properties": {
+                "dependencies": { "type": "array", "minItems": 1 },
+                "config_entries": { "type": "array", "minItems": 1 },
+                "ecosystems": { "type": "array", "minItems": 1 },
+                "required_validation_scope": { "type": "array", "minItems": 1 },
+                "safe_merge_inferred": { "const": false },
+                "exploitability_inferred": { "const": false }
+              },
+              "required": [
+                "dependencies",
+                "config_entries",
+                "ecosystems",
+                "required_validation_scope",
+                "safe_merge_inferred",
+                "exploitability_inferred"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "classification": {
+              "type": "object",
+              "properties": {
+                "status": { "const": "incomplete" },
+                "is_dependabot": { "const": true },
+                "missing_info": { "type": "array", "minItems": 1 }
+              },
+              "required": ["status", "is_dependabot", "missing_info"]
+            }
+          }
+        },
+        {
+          "properties": {
+            "classification": {
+              "type": "object",
+              "properties": {
+                "status": { "enum": ["ignored", "superseded"] }
+              },
+              "required": ["status"]
+            },
+            "normalized_facts": {
+              "type": "object",
+              "additionalProperties": false
+            }
+          }
+        }
+  ]
+}

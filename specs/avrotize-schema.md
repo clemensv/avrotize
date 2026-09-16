@@ -52,6 +52,7 @@ Avro](https://avro.apache.org/docs/1.11.1/specification/) schema model.
       - [3.8.8. local-timestamp-millis](#388-local-timestamp-millis)
       - [3.8.9. local-timestamp-micros](#389-local-timestamp-micros)
       - [3.8.10. duration](#3810-duration)
+      - [3.8.11. RFC 3339 string temporal types](#3811-rfc-3339-string-temporal-types)
     - [3.9. `record` Type](#39-record-type)
       - [3.9.1. `record` field Declarations](#391-record-field-declarations)
       - [3.10. `enum` Type](#310-enum-type)
@@ -535,8 +536,19 @@ Applications that do not recognize the logical type MUST ignore the `logicalType
 attribute and treat the schema as if the logical type were not present.
 
 The following logical types are well-known and defined in this document. Avrotize
-Schema extends the Avro logical type set with RFC 3339 date and time annotations
-for `string` types.
+Schema extends the Avro logical type set with an `rfc3339-*` family of logical
+types that annotate the `string` primitive type with RFC 3339 textual date and
+time values (see [3.8.11](#3811-rfc-3339-string-temporal-types)). Because the
+`rfc3339-*` names are not reserved Avro logical types, schemas that use them
+remain valid *standard* Avro: a strict Avro parser that does not recognize the
+logical type ignores it and treats the value as a plain `string`.
+
+> Note: Earlier versions of Avrotize emitted the reserved Avro logical-type names
+> (`timestamp-millis`, `date`, `time-millis`, `duration`, ...) directly on a
+> `string` base. That pairing is invalid under the Avro logical-type rules and is
+> rejected by strict validators. Avrotize now emits the `rfc3339-*` names instead;
+> the legacy `string` + reserved-name form is still accepted on input for
+> backward compatibility.
 
 #### 3.8.1. decimal
 
@@ -607,10 +619,11 @@ Example:
 }
 ```
 
-In Avrotize Schema, the `date` logical type MAY additionally annotate the
-`string` primitive type. In this case, the string value is an [RFC
+In Avrotize Schema, the `rfc3339-date` logical type annotates the `string`
+primitive type. In this case, the string value is an [RFC
 3339](https://tools.ietf.org/html/rfc3339) "full-date" string, i.e. a date
-without a time component.
+without a time component. See
+[3.8.11](#3811-rfc-3339-string-temporal-types).
 
 #### 3.8.4. time-millis
 
@@ -629,10 +642,11 @@ Example:
 }
 ```
 
-In Avrotize Schema, the `time-millis` logical type can also annotate the
+In Avrotize Schema, the `rfc3339-time-millis` logical type annotates the
 `string` primitive type. In this case, the string value is an [RFC
 3339](https://tools.ietf.org/html/rfc3339) "partial-time" string, i.e. a time
-of day with millisecond precision.
+of day with millisecond precision. See
+[3.8.11](#3811-rfc-3339-string-temporal-types).
 
 #### 3.8.5. time-micros
 
@@ -651,10 +665,11 @@ Example:
 }
 ```
 
-In Avrotize Schema, the `time-micros` logical type MAY also annotate the
+In Avrotize Schema, the `rfc3339-time-micros` logical type annotates the
 `string` primitive type. In this case, the string value is an [RFC
 3339](https://tools.ietf.org/html/rfc3339) "partial-time" string, i.e. a time of
-day with microsecond precision.
+day with microsecond precision. See
+[3.8.11](#3811-rfc-3339-string-temporal-types).
 
 #### 3.8.6. timestamp-millis
 
@@ -674,10 +689,11 @@ Example:
 }
 ```
 
-In Avrotize Schema, the `timestamp-millis` logical type MAY also annotate the
+In Avrotize Schema, the `rfc3339-timestamp-millis` logical type annotates the
 `string` primitive type. In this case, the string value is an [RFC
 3339](https://tools.ietf.org/html/rfc3339) "date-time" string, i.e. a date and
-time with millisecond precision.
+time with millisecond precision. See
+[3.8.11](#3811-rfc-3339-string-temporal-types).
 
 #### 3.8.7. timestamp-micros
 
@@ -697,10 +713,11 @@ Example:
 }
 ```
 
-In Avrotize Schema, the `timestamp-micros` logical type MAY also annotate the
+In Avrotize Schema, the `rfc3339-timestamp-micros` logical type annotates the
 `string` primitive type. In this case, the string value is an [RFC
 3339](https://tools.ietf.org/html/rfc3339) "date-time" string, i.e. a date and
-time with microsecond precision.
+time with microsecond precision. See
+[3.8.11](#3811-rfc-3339-string-temporal-types).
 
 #### 3.8.8. local-timestamp-millis
 
@@ -720,10 +737,11 @@ Example:
 }
 ```
 
-In Avrotize Schema, the `local-timestamp-millis` logical type MAY also annotate
+In Avrotize Schema, the `rfc3339-local-timestamp-millis` logical type annotates
 the `string` primitive type. In this case, the string value is an [RFC
 3339](https://tools.ietf.org/html/rfc3339) "date-time" string, i.e. a date and
-time with millisecond precision, whereby the offset is ignored.
+time with millisecond precision, whereby the offset is ignored. See
+[3.8.11](#3811-rfc-3339-string-temporal-types).
 
 #### 3.8.9. local-timestamp-micros
 
@@ -743,10 +761,11 @@ Example:
 }
 ```
 
-In Avrotize Schema, the `local-timestamp-micros` logical type MAY also annotate
+In Avrotize Schema, the `rfc3339-local-timestamp-micros` logical type annotates
 the `string` primitive type. In this case, the string value is an [RFC
 3339](https://tools.ietf.org/html/rfc3339) "date-time" string, i.e. a date and
-time with microsecond precision, whereby the offset is ignored.
+time with microsecond precision, whereby the offset is ignored. See
+[3.8.11](#3811-rfc-3339-string-temporal-types).
 
 #### 3.8.10. duration
 
@@ -773,9 +792,46 @@ Example:
 }
 ```
 
-In Avrotize Schema, the `duration` logical type MAY also annotate the `string`
+In Avrotize Schema, the `rfc3339-duration` logical type annotates the `string`
 primitive type. In this case, the string value is an [RFC
-3339](https://tools.ietf.org/html/rfc3339) "duration" string (Appendix A).
+3339](https://tools.ietf.org/html/rfc3339) "duration" string (Appendix A). See
+[3.8.11](#3811-rfc-3339-string-temporal-types).
+
+#### 3.8.11. RFC 3339 string temporal types
+
+Avrotize Schema defines an `rfc3339-*` family of logical types that annotate the
+`string` primitive type with [RFC 3339](https://tools.ietf.org/html/rfc3339)
+textual date and time values. These are the canonical string-based temporal
+encodings emitted by Avrotize converters — for example, by `s2a` (JSON Structure
+to Avrotize) when converting the JSON Structure native temporal types `date`,
+`time`, `datetime`, `timestamp`, and `duration`.
+
+Because the `rfc3339-*` names are not reserved Avro logical types, a schema that
+uses them is valid *standard* Avro: an implementation that does not recognize the
+logical type MUST ignore it and treat the value as a plain `string` (see
+[3.8](#38-logical-types)). This avoids the invalid pairing of a reserved numeric
+logical type (such as `timestamp-millis`, which requires a `long` base) with a
+`string` base.
+
+| Logical type                     | String value (RFC 3339)               |
+| -------------------------------- | ------------------------------------- |
+| `rfc3339-date`                   | "full-date" (e.g. `2024-06-03`)       |
+| `rfc3339-time-millis`            | "partial-time", millisecond precision |
+| `rfc3339-time-micros`            | "partial-time", microsecond precision |
+| `rfc3339-timestamp-millis`       | "date-time", millisecond precision    |
+| `rfc3339-timestamp-micros`       | "date-time", microsecond precision    |
+| `rfc3339-local-timestamp-millis` | "date-time" (offset ignored), millis  |
+| `rfc3339-local-timestamp-micros` | "date-time" (offset ignored), micros  |
+| `rfc3339-duration`               | "duration" (Appendix A, e.g. `P1Y2M`) |
+
+Example:
+
+```json
+{
+  "type": "string",
+  "logicalType": "rfc3339-timestamp-millis"
+}
+```
 
 ### 3.9. `record` Type
 

@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/clemensv/avrotize/schemas/repro-authorization-record.schema.json",
+  "title": "Reproduction Authorization Record",
+  "description": "Deterministic record of whether an actor may request guarded bug reproduction. Produced before any checkout, install, or issue content processing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_kind",
+    "decision",
+    "actor_authorized",
+    "reason_code",
+    "reason",
+    "request",
+    "permission",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "record_kind": {
+      "const": "repro-authorization"
+    },
+    "decision": {
+      "enum": [
+        "ALLOW",
+        "DENY",
+        "ERROR"
+      ]
+    },
+    "actor_authorized": {
+      "type": "boolean"
+    },
+    "reason_code": {
+      "enum": [
+        "AUTHORIZED",
+        "EVENT_NOT_ELIGIBLE",
+        "ACTION_NOT_ELIGIBLE",
+        "LABEL_NOT_ELIGIBLE",
+        "ACTOR_MISSING",
+        "ACTOR_AMBIGUOUS",
+        "RERUN_ACTOR_MISMATCH",
+        "TRIGGERING_ACTOR_MISSING",
+        "ISSUE_NUMBER_INVALID",
+        "PERMISSION_RESPONSE_MISSING",
+        "PERMISSION_API_ERROR",
+        "PERMISSION_RESPONSE_MALFORMED",
+        "PERMISSION_NOT_A_COLLABORATOR",
+        "PERMISSION_INSUFFICIENT"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "event_name",
+        "action",
+        "label_name",
+        "actor",
+        "sender_login",
+        "workflow_actor",
+        "triggering_actor",
+        "run_attempt",
+        "run_id",
+        "issue_number"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string"
+        },
+        "event_name": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "label_name": {
+          "type": "string"
+        },
+        "actor": {
+          "type": "string"
+        },
+        "sender_login": {
+          "type": "string"
+        },
+        "workflow_actor": {
+          "type": "string"
+        },
+        "triggering_actor": {
+          "type": "string"
+        },
+        "run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "issue_number": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "permission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluated",
+        "http_status",
+        "level",
+        "allowed_levels"
+      ],
+      "properties": {
+        "evaluated": {
+          "type": "boolean"
+        },
+        "http_status": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 599
+        },
+        "level": {
+          "type": "string"
+        },
+        "allowed_levels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorized",
+        "statement"
+      ],
+      "properties": {
+        "authorized": {
+          "const": false
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

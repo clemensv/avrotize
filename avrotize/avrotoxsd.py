@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
 
-from avrotize.common import is_generic_avro_type
+from avrotize.common import is_generic_avro_type, is_any_value_type
 
 class AvroToXSD:
     def __init__(self, target_namespace: str = ''):
@@ -83,6 +83,8 @@ class AvroToXSD:
         if isinstance(avro_type, dict) and 'logicalType' in avro_type and 'type' in avro_type: 
             return avro_type['type'] in {'int', 'long', 'float', 'double', 'bytes', 'string'}
         elif isinstance(avro_type, str):
+            if is_any_value_type(avro_type):
+                return True
             return avro_type in {'null', 'boolean', 'int', 'long', 'float', 'double', 'bytes', 'string'}
         else:
             return False

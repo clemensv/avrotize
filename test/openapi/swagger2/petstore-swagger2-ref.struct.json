@@ -30,10 +30,6 @@
     },
     "Pet": {
       "type": "object",
-      "required": [
-        "name",
-        "photoUrls"
-      ],
       "name": "Pet",
       "properties": {
         "id": {
@@ -69,7 +65,11 @@
             "sold"
           ]
         }
-      }
+      },
+      "required": [
+        "name",
+        "photoUrls"
+      ]
     },
     "Tag": {
       "type": "object",
@@ -141,10 +141,34 @@
           "type": "int32"
         }
       }
+    },
+    "document": {
+      "name": "document",
+      "type": [
+        {
+          "$ref": "#/definitions/ApiResponse"
+        },
+        {
+          "$ref": "#/definitions/Category"
+        },
+        {
+          "$ref": "#/definitions/Pet"
+        },
+        {
+          "$ref": "#/definitions/Tag"
+        },
+        {
+          "$ref": "#/definitions/Order"
+        },
+        {
+          "$ref": "#/definitions/User"
+        }
+      ]
     }
   },
   "$id": "https://example.com/schemas/swagger-petstore/1.0.7",
   "description": "This is a sample server Petstore server.  You can find out more about Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net, #swagger](http://swagger.io/irc/).  For this sample, you can use the api key `special-key` to test the authorization filters.",
+  "$root": "#/definitions/document",
   "$uses": [
     "JSONStructureValidation"
   ]

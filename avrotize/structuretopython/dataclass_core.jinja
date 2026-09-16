@@ -3,13 +3,16 @@
 # pylint: disable=too-many-lines, too-many-locals, too-many-branches, too-many-statements, too-many-arguments, line-too-long, wildcard-import
 from __future__ import annotations
 
-{%- if avro_annotation or dataclasses_json_annotation %}
+{%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 import io
 import gzip
 {%- endif %}
 import enum
 import typing
 import dataclasses
+{%- if dataclasses_json_annotation and needs_base64 %}
+import base64
+{%- endif %}
 from dataclasses import dataclass
 {%- if is_abstract %}
 from abc import ABC
@@ -17,13 +20,13 @@ from abc import ABC
 {%- if dataclasses_json_annotation %}
 import dataclasses_json
 from dataclasses_json import Undefined, dataclass_json
-{%- for field in fields if field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
+{%- for field in fields if field.mm_field %}
 {%- if loop.first %}
-from marshmallow import fields
+from marshmallow import fields, ValidationError
 {%- endif %}
 {%- endfor %}
 {%- endif %}
-{%- if avro_annotation or dataclasses_json_annotation %}
+{%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 import json
 {%- endif %}
 {%- if avro_annotation %}
@@ -38,18 +41,376 @@ from {{ '.'.join(import_type.split('.')[:-1]) | lower }} import {{ import_type.s
 import datetime
 {%- endif %}
 {%- endfor %}
-{%- for import_type in import_types if import_type == 'decimal.Decimal' %}
-{%- if loop.first %}
+{%- if needs_decimal %}
 import decimal
 {%- endif %}
-{%- endfor %}
 {%- for import_type in import_types if import_type == 'uuid.UUID' %}
 {%- if loop.first %}
 import uuid
 {%- endif %}
 {%- endfor %}
 
+{% if xml_annotation %}
+from {{ xml_runtime_module }} import parse_xml, serialize_xml
+{% endif %}
+{% if dataclasses_json_annotation and json_parsers %}
+
+{% if uses_iso_parser %}
+def _normalize_iso_string(value: str) -> str:
+    """ Normalizes an RFC 3339 string into a form datetime.fromisoformat accepts.
+
+    A trailing 'Z' is rewritten to '+00:00' and fractional seconds are padded or
+    truncated to exactly microsecond precision, because fromisoformat only
+    accepts the 'Z' designator and arbitrary fraction lengths from Python 3.11
+    onwards, and this package supports Python 3.10.
+
+    A non-string value raises ValueError so that callers report it the same way
+    they report a malformed string, rather than leaking an AttributeError.
+    """
+    if not isinstance(value, str):
+        raise ValueError(f'expected an ISO 8601 string, got {type(value).__name__}')
+    text = value[:-1] + '+00:00' if value.endswith(('Z', 'z')) else value
+    dot = text.find('.')
+    if dot != -1:
+        end = dot + 1
+        while end < len(text) and text[end].isdigit():
+            end += 1
+        digits = text[dot + 1:end]
+        if digits and len(digits) != 6:
+            text = text[:dot + 1] + digits[:6].ljust(6, '0') + text[end:]
+    return text
+
+{% endif %}
+{% for parser in json_parsers %}
+{%- if parser == '_parse_iso_date' %}
+def _parse_iso_date(value: str, field_name: str) -> datetime.date:
+    """ Parses an ISO 8601 date string, raising ValueError if it is malformed. """
+    try:
+        return datetime.date.fromisoformat(_normalize_iso_string(value))
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid ISO 8601 date for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_iso_datetime' %}
+def _parse_iso_datetime(value: str, field_name: str) -> datetime.datetime:
+    """ Parses an ISO 8601 / RFC 3339 datetime string, raising ValueError if it is malformed. """
+    try:
+        return datetime.datetime.fromisoformat(_normalize_iso_string(value))
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid ISO 8601 datetime for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_iso_time' %}
+def _parse_iso_time(value: str, field_name: str) -> datetime.time:
+    """ Parses an ISO 8601 time string, raising ValueError if it is malformed. """
+    try:
+        return datetime.time.fromisoformat(_normalize_iso_string(value))
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid ISO 8601 time for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_duration' %}
+def _format_duration(value: datetime.timedelta) -> str:
+    """ Formats a timedelta as exact decimal total seconds. """
+    total_microseconds = (
+        (value.days * 86400 + value.seconds) * 1000000
+        + value.microseconds
+    )
+    sign = '-' if total_microseconds < 0 else ''
+    whole_seconds, microseconds = divmod(abs(total_microseconds), 1000000)
+    if microseconds:
+        fraction = f'{microseconds:06d}'.rstrip('0')
+        return f'{sign}{whole_seconds}.{fraction}'
+    return f'{sign}{whole_seconds}.0'
+
+
+_DURATION_MIN_MICROSECONDS = -999999999 * 86400 * 1000000
+_DURATION_MAX_MICROSECONDS = (
+    (999999999 * 86400 + 86399) * 1000000 + 999999
+)
+_DURATION_MAX_MICROSECOND_DIGITS = max(
+    len(str(abs(_DURATION_MIN_MICROSECONDS))),
+    len(str(_DURATION_MAX_MICROSECONDS)),
+)
+_DURATION_MAX_ABS_EXPONENT = _DURATION_MAX_MICROSECOND_DIGITS + 6 - 1
+# Allow a sign, leading zero before a decimal point, decimal point, exponent
+# marker/sign, and the largest useful exponent around a bounded coefficient.
+_DURATION_MAX_LITERAL_LENGTH = (
+    _DURATION_MAX_MICROSECOND_DIGITS
+    + len(str(_DURATION_MAX_ABS_EXPONENT))
+    + 5
+)
+_DURATION_SIZE_ERROR = 'duration literal exceeds supported timedelta size'
+
+
+def _parse_duration(value: typing.Any, field_name: str) -> datetime.timedelta:
+    """ Parses exact decimal total seconds, raising ValueError if invalid. """
+    if isinstance(value, datetime.timedelta):
+        return value
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Invalid decimal duration for field '{field_name}': "
+            f"expected a string or datetime.timedelta, got {type(value).__name__}")
+    try:
+        if len(value) > _DURATION_MAX_LITERAL_LENGTH:
+            raise ValueError(_DURATION_SIZE_ERROR)
+        seconds = decimal.Decimal(value)
+        if not seconds.is_finite():
+            raise decimal.InvalidOperation
+        sign, digits, exponent = seconds.as_tuple()
+        if not any(digits):
+            return datetime.timedelta(0)
+        scaled_exponent = exponent + 6
+        microsecond_digit_count = len(digits) + scaled_exponent
+        if microsecond_digit_count > _DURATION_MAX_MICROSECOND_DIGITS:
+            raise ValueError(_DURATION_SIZE_ERROR)
+        if scaled_exponent < 0:
+            fractional_digits = -scaled_exponent
+            if fractional_digits >= len(digits):
+                raise decimal.InvalidOperation
+            split = len(digits) - fractional_digits
+            if any(digits[split:]):
+                raise decimal.InvalidOperation
+            integer_digits = digits[:split]
+        else:
+            integer_digits = digits + (0,) * scaled_exponent
+        total_microseconds = 0
+        for digit in integer_digits:
+            total_microseconds = total_microseconds * 10 + digit
+        if sign:
+            total_microseconds = -total_microseconds
+        if not (
+                _DURATION_MIN_MICROSECONDS
+                <= total_microseconds
+                <= _DURATION_MAX_MICROSECONDS):
+            raise decimal.InvalidOperation
+        return datetime.timedelta(microseconds=int(total_microseconds))
+    except (decimal.InvalidOperation, ValueError, OverflowError) as error:
+        raise ValueError(
+            f"Invalid decimal duration for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_uuid' %}
+def _parse_uuid(value: typing.Any, field_name: str) -> uuid.UUID:
+    """ Parses a canonical UUID string, raising ValueError if invalid. """
+    if isinstance(value, uuid.UUID):
+        return value
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Invalid UUID for field '{field_name}': "
+            f"expected a canonical string or uuid.UUID, got {type(value).__name__}")
+    try:
+        parsed = uuid.UUID(value)
+        if value != str(parsed):
+            raise ValueError('UUID is not in canonical hyphenated form')
+        return parsed
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid UUID for field '{field_name}': {value!r}") from error
+
+{% elif parser == '_parse_base64' %}
+def _parse_base64(value: typing.Any, field_name: str) -> bytes:
+    """ Parses canonical RFC 4648 base64, raising ValueError if invalid. """
+    if isinstance(value, bytes):
+        return value
+    if not isinstance(value, str):
+        raise ValueError(
+            f"Invalid RFC 4648 base64 for field '{field_name}': "
+            f"expected a canonical string or bytes, got {type(value).__name__}")
+    try:
+        decoded = base64.b64decode(value, validate=True)
+        if value != base64.b64encode(decoded).decode('ascii'):
+            raise ValueError('base64 is not in canonical RFC 4648 form')
+        return decoded
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            f"Invalid RFC 4648 base64 for field '{field_name}': {value!r}") from error
+
+{% endif %}
+{%- endfor %}
+{% if uses_container_validator %}
+def _invalid_container(value: typing.Any, field_name: str, expected: str):
+    """ Raises a field-specific error for an invalid decoded container shape. """
+    raise ValueError(
+        f"Invalid container for field '{field_name}': "
+        f"expected a JSON {expected}, got {type(value).__name__}")
+
+
+{% endif %}
+{% if mm_classes %}
+{% for mm_class in mm_classes %}
+{%- if mm_class == '_IsoDateField' %}
+class _IsoDateField(fields.Date):
+    """ A marshmallow date field that shares the module's ISO date parser.
+
+    dataclasses_json uses a configured mm_field verbatim, so without this the
+    schema() path would parse with marshmallow's own parser and disagree with
+    to_json/from_json about which strings are valid and what they mean.
+    """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, datetime.datetime):
+            return value.date().isoformat()
+        if isinstance(value, datetime.date):
+            return value.isoformat()
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_iso_date(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_IsoDateTimeField' %}
+class _IsoDateTimeField(fields.DateTime):
+    """ A marshmallow datetime field that shares the module's ISO datetime parser. """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        # datetime.date is accepted as well because marshmallow's own
+        # DateTime(format='iso') serialized anything with an isoformat().
+        if isinstance(value, (datetime.datetime, datetime.date)):
+            return value.isoformat()
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_iso_datetime(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_IsoTimeField' %}
+class _IsoTimeField(fields.Time):
+    """ A marshmallow time field that shares the module's ISO time parser.
+
+    marshmallow's own time parser silently discards a UTC offset, so delegating
+    here is what keeps schema().loads from losing the offset that from_json
+    preserves.
+    """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, datetime.time):
+            return value.isoformat()
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_iso_time(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_DurationField' %}
+class _DurationField(fields.String):
+    """ A marshmallow field for decimal total-seconds duration strings. """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, datetime.timedelta):
+            return _format_duration(value)
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_duration(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_UuidField' %}
+class _UuidField(fields.String):
+    """ A marshmallow field for canonical hyphenated UUID strings. """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_uuid(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_Base64Field' %}
+class _Base64Field(fields.String):
+    """ A marshmallow field for strict RFC 4648 base64 strings. """
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            return base64.b64encode(value).decode('ascii')
+        return value
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        try:
+            return _parse_base64(value, self.data_key or attr or 'value')
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
+
+{% elif mm_class == '_SetField' %}
+class _SetField(fields.List):
+    """ A marshmallow list field that restores the declared Python set type. """
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        return set(super()._deserialize(value, attr, data, **kwargs))
+
+{% endif %}
+{%- endfor %}
+{% endif %}
+{% endif %}
+
 {% if dataclasses_json_annotation %}
+{%- for field in fields if field.reject_json_null %}
+{%- if loop.first %}
+def _reject_nonnullable_json_nulls(cls):
+    """ Makes dataclasses-json reject null before it skips custom decoders. """
+    original_from_dict = cls.from_dict.__func__
+
+    @classmethod
+    def from_dict(inner_cls, data, *, infer_missing=False):
+        if isinstance(data, dict):
+        {%- for required_field in fields if required_field.reject_json_null %}
+            if data.get('{{ required_field.original_name }}', ...) is None:
+                raise ValueError(
+                    "Invalid null for field '{{ required_field.original_name }}'")
+        {%- endfor %}
+        return original_from_dict(
+            inner_cls, data, infer_missing=infer_missing)
+
+    cls.from_dict = from_dict
+    return cls
+
+
+{%- endif %}
+{%- endfor %}
+{% endif %}
+{% if dataclasses_json_annotation %}
+{%- for field in fields if field.reject_json_null %}
+{%- if loop.first %}
+@_reject_nonnullable_json_nulls
+{%- endif %}
+{%- endfor %}
 @dataclass_json(undefined=Undefined.EXCLUDE)
 {%- endif %}
 @dataclass
@@ -63,15 +424,22 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         {%- endfor -%}
     {% endif %}
     """
+    {% if xml_annotation %}
+    class Meta:
+        name = {{ xml_name | tojson }}
+        namespace = {{ xml_namespace | tojson }}
+    {% endif %}
     {% if avro_annotation %}
     AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.parse(
         "{{ avro_schema_json }}"
     )
     {% endif %}
     {% for field in fields %}
-    {%- set isdate = field.type == "datetime.datetime" or field.type == "typing.Optional[datetime.datetime]" %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdate -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- endif -%}){%- endif %})
+    {%- set is_int_as_string = field.source_type in ['int64', 'uint64', 'int128', 'uint128'] %}
+    {%- set is_decimal_as_string = field.source_type == 'decimal' %}
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if field.json_encoder -%}, encoder={{ field.json_encoder }}, decoder={{ field.json_decoder }}{% if field.mm_field %}, mm_field={{ field.mm_field }}{% endif %}{%- elif is_int_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: int(v) if isinstance(v, str) else v{%- elif is_decimal_as_string -%}, encoder=lambda v: str(v) if v is not None else None, decoder=lambda v: decimal.Decimal(v) if isinstance(v, str) else v{%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
     {%- endfor %}
+
 
     @classmethod
     def from_serializer_dict(cls, data: dict) -> '{{ class_name }}':
@@ -84,10 +452,24 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         Returns:
             The dataclass representation of the dataclass.
         """
+        data = dict(data)
         {%- for field in fields %}
         {%- if field.name != field.original_name %}
         if '{{ field.original_name }}' in data:
             data['{{ field.name }}'] = data.pop('{{ field.original_name }}')
+        {%- endif %}
+        {%- if field.source_type in ['int64', 'uint64', 'int128', 'uint128'] %}
+        if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
+            data['{{ field.name }}'] = int(data['{{ field.name }}'])
+        {%- elif field.source_type == 'decimal' %}
+        if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
+            data['{{ field.name }}'] = decimal.Decimal(data['{{ field.name }}'])
+        {%- elif dataclasses_json_annotation and field.json_decoder %}
+        if '{{ field.name }}' in data:
+            data['{{ field.name }}'] = ({{ field.json_decoder }})(data['{{ field.name }}'])
+        {%- elif field.container_rebuild %}
+        if '{{ field.name }}' in data:
+            data['{{ field.name }}'] = (lambda v: {{ field.container_rebuild }})(data['{{ field.name }}'])
         {%- endif %}
         {%- endfor %}
         return cls(**data)
@@ -155,6 +537,11 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         """
         asdict_result = dataclasses.asdict(self, dict_factory=self._dict_resolver)
         {%- for field in fields %}
+        {%- set field_key = field.original_name if field.name != field.original_name and field.original_name+'_' != field.name else field.name %}
+        {%- if field.source_type in ['int64', 'uint64', 'int128', 'uint128', 'decimal'] %}
+        if '{{ field_key }}' in asdict_result and asdict_result['{{ field_key }}'] is not None:
+            asdict_result['{{ field_key }}'] = str(asdict_result['{{ field_key }}'])
+        {%- endif %}
         {%- if field.name != field.original_name and field.original_name+'_' != field.name %}
         if '{{ field.name }}' in asdict_result:
             asdict_result['{{ field.original_name }}'] = asdict_result.pop('{{ field.name }}')
@@ -220,7 +607,7 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
         
         return converted
     {%- endif %}
-    {%- if avro_annotation or dataclasses_json_annotation %}
+    {%- if avro_annotation or dataclasses_json_annotation or xml_annotation %}
 
     def to_byte_array(self, content_type_string: str) -> bytes:
         """
@@ -231,6 +618,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
                 Supported content types:
                     {%- if dataclasses_json_annotation %}
                     'application/json': Encodes the data to JSON format.
+                    {%- endif %}
+                    {%- if xml_annotation %}
+                    'application/xml' / 'text/xml': Encodes the data to XML format.
                     {%- endif %}
                     {%- if avro_annotation %}
                     'avro/binary': Encodes the data to Avro binary format.
@@ -262,6 +652,13 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
             #pylint: disable=no-member
             result = self.to_json()
             #pylint: enable=no-member
+            if isinstance(result, str):
+                result = result.encode('utf-8')
+        {%- endif %}
+
+        {%- if xml_annotation %}
+        if base_content_type in ['application/xml', 'text/xml']:
+            result = serialize_xml(self)
         {%- endif %}
 
         if result is not None and content_type.endswith('+gzip'):
@@ -289,6 +686,9 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
                 Supported content types:
                     {%- if dataclasses_json_annotation %}
                     'application/json': Attempts to decode the data from JSON encoded format.
+                    {%- endif %}
+                    {%- if xml_annotation %}
+                    'application/xml' / 'text/xml': Attempts to decode the data from XML format.
                     {%- endif %}
                     {%- if avro_annotation %}
                     'avro/binary': Attempts to decode the data from Avro binary format.
@@ -346,6 +746,15 @@ class {{ class_name }}{% if base_class or is_abstract %}({% if base_class %}{{ b
             else:
                 raise NotImplementedError('Data is not of a supported type for JSON deserialization')
         {%- endif %}
+        {%- if xml_annotation %}
+        if base_content_type in ['application/xml', 'text/xml']:
+            if isinstance(data, io.BytesIO):
+                data = data.getvalue()
+            if isinstance(data, (bytes, str)):
+                return parse_xml(data, cls)
+            raise NotImplementedError('Data is not of a supported type for XML deserialization')
+        {%- endif %}
+
         raise NotImplementedError(f'Unsupported media type {content_type}')
     {%- endif %}
 

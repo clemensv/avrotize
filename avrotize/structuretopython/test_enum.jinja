@@ -16,19 +16,19 @@ class {{ test_class_name }}(unittest.TestCase):
         """
         Setup test
         """
-        self.instance = {{ class_name }}.{{ symbols[0] }}
+        self.instance = {{ class_name }}.{{ members[0][0] }}
 
     @staticmethod
     def create_instance():
         """
         Create instance of {{ class_name }}
         """
-        return {{ class_name }}.{{ symbols[0] }}
+        return {{ class_name }}.{{ members[0][0] }}
 
     def test_enum_values(self):
         """
         Test that all enum values are defined
         """
-        {%- for symbol in symbols %}
-        self.assertEqual({{ class_name }}.{{ symbol }}.value, "{{ symbol }}")
+        {%- for member_name, value_repr in members %}
+        self.assertEqual({{ class_name }}.{{ member_name }}.value, {{ value_repr }})
         {%- endfor %}

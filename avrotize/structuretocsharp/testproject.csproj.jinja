@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        {%- if target_framework and ';' in target_framework %}
+        <TargetFrameworks>{{ target_framework }}</TargetFrameworks>
+        {%- elif target_framework %}
+        <TargetFramework>{{ target_framework }}</TargetFramework>
+        {%- else %}
         <TargetFramework>net10.0</TargetFramework>
+        {%- endif %}
         <Nullable>enable</Nullable>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <OutputType>Exe</OutputType>

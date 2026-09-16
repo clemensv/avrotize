@@ -1,0 +1,13 @@
+[
+  {
+    "type": "record",
+    "name": "Telemetry",
+    "namespace": "example.avro",
+    "fields": [
+      {"name": "id", "type": "string"},
+      {"name": "value", "type": ["null", "double"], "default": null},
+      {"name": "samples", "type": {"type": "array", "items": "long"}},
+      {"name": "state", "type": {"type": "enum", "name": "State", "symbols": ["ok", "bad"]}}
+    ]
+  }
+]

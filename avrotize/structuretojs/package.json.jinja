@@ -1,5 +1,5 @@
 {
-  "name": "{{ package_name }}",
+  "name": {{ package_name|tojson }},
   "version": "1.0.0",
   "description": "Generated JavaScript classes from JSON Structure schema",
   "main": "src/index.js",
@@ -8,5 +8,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC"{% if xml_annotation %},
+  "dependencies": {
+    "fast-xml-parser": "^5.2.5"
+  }{% endif %}
 }

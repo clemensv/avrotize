@@ -22,6 +22,11 @@ try:
 except ValueError:
     JACKSON_ANNOTATIONS_VERSION = '2.18.2'  # Fallback
 
+try:
+    JAKARTA_XML_BIND_VERSION = get_dependency_version('java', 'jdk21', 'jakarta.xml.bind:jakarta.xml.bind-api')
+except ValueError:
+    JAKARTA_XML_BIND_VERSION = '4.0.4'  # Fallback
+
 JDK_VERSION = '21'
 
 # C# dependencies  

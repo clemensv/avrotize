@@ -1,0 +1,18 @@
+name: Question or something else
+description: Ask for help or share something that does not fit the other forms.
+title: "[Question] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        It is okay if you are not sure how to classify this. Share what you know,
+        and a maintainer can help route it. Do not include credentials,
+        proprietary schemas, personal data, or other sensitive content.
+  - type: textarea
+    id: message
+    attributes:
+      label: What would you like help with or tell us?
+      description: A short description is enough.
+    validations:
+      required: true

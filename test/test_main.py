@@ -37,6 +37,14 @@ def get_struct():
     """Provides the JSON Structure input file path."""
     return os.path.join(os.path.dirname(__file__), 'jsons', 'address-ref.struct.json')
 
+def get_struct_basic_types():
+    """Provides a basic JSON Structure input file path."""
+    return os.path.join(os.path.dirname(__file__), 'struct', 'basic-types.struct.json')
+
+def get_tmsl():
+    """Provides a TMSL file path for validation command tests."""
+    return os.path.join(tempfile.gettempdir(), 'output.tmsl.json')
+
 class TestMain(unittest.TestCase):
 
     @patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(command=None))
@@ -111,6 +119,25 @@ class TestMain(unittest.TestCase):
         """Test main function with a2ib command."""
         main()
         assert os.path.exists(tempfile.gettempdir() + '/output.iceberg')  # Add assertion for file existence
+
+    @patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(command='a2tsml', input=get_avsc(), out=tempfile.gettempdir() + '/output.tmsl.json', record_type='Northwind.Order', database_name='Northwind', compatibility_level=1605, emit_cloudevents_columns=True))
+    def test_main_a2tsml_command(self, mock_parse_args):
+        """Test main function with a2tsml command."""
+        main()
+        assert os.path.exists(tempfile.gettempdir() + '/output.tmsl.json')  # Add assertion for file existence
+
+    @patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(command='validate-tmsl', input=get_tmsl(), quiet=True))
+    def test_main_validate_tmsl_command(self, mock_parse_args):
+        """Test main function with validate-tmsl command."""
+        with open(get_tmsl(), 'w', encoding='utf-8') as f:
+            f.write('{"createOrReplace":{"object":{"database":"db"},"database":{"name":"db","compatibilityLevel":1605,"model":{"culture":"en-US","tables":[{"name":"t","columns":[{"name":"c","dataType":"string","sourceColumn":"c"}]}]}}}}')
+        main()
+
+    @patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(command='s2tsml', input=get_struct_basic_types(), out=tempfile.gettempdir() + '/output-struct.tmsl.json', record_type=None, database_name='BasicTypes', compatibility_level=1605, emit_cloudevents_columns=False))
+    def test_main_s2tsml_command(self, mock_parse_args):
+        """Test main function with s2tsml command."""
+        main()
+        assert os.path.exists(tempfile.gettempdir() + '/output-struct.tmsl.json')  # Add assertion for file existence
 
     @patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(command='pq2a', input=get_parquet(), out=tempfile.gettempdir() + '/output.avsc', namespace='com.example'))
     def test_main_pq2a_command(self, mock_parse_args):

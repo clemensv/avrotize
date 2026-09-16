@@ -19,6 +19,67 @@ from avrotize.structuretogo import convert_structure_to_go
 class TestStructureToGo(unittest.TestCase):
     """Test cases for JSON Structure to Go conversion."""
 
+    def test_issue_401_gofmt_clean_and_valid_package(self):
+        """ Issue #401 (parity): s2go must emit gofmt-clean Go with a valid
+        package identifier. The canonical `.struct.json` extension previously
+        produced a package name containing a dot (e.g. `foo.struct`), which is
+        invalid Go and un-parseable by gofmt. Also checks space-separated struct
+        tags. """
+        import re
+        from avrotize.structuretogo import convert_structure_schema_to_go
+
+        schema = {
+            "type": "object",
+            "name": "Issue401Struct",
+            "namespace": "example.iss401",
+            "properties": {
+                "tenantid": {"type": "string"},
+                "deviceid": {"type": "string"},
+                "brightness": {"type": "int32"},
+            },
+            "required": ["tenantid", "deviceid", "brightness"],
+        }
+        go_path = os.path.join(tempfile.gettempdir(), "avrotize", "issue-401-s2go")
+        if os.path.exists(go_path):
+            shutil.rmtree(go_path, ignore_errors=True)
+        os.makedirs(go_path, exist_ok=True)
+
+        # Emulate the canonical dotted extension via a dotted package name.
+        convert_structure_schema_to_go(
+            schema, go_path, package_name="brightness_events.struct",
+            json_annotation=True, avro_annotation=True)
+
+        go_files = []
+        for root, _dirs, files in os.walk(go_path):
+            for f in files:
+                if f.endswith(".go"):
+                    go_files.append(os.path.join(root, f))
+        assert go_files, "no .go files generated"
+
+        struct_file = None
+        for gf in go_files:
+            with open(gf, "r", encoding="utf-8") as fh:
+                content = fh.read()
+            for line in content.splitlines():
+                if line.startswith("package "):
+                    pkg = line[len("package "):].strip()
+                    assert re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", pkg), \
+                        f"invalid Go package name {pkg!r} in {gf}"
+            if 'avro:"' in content:
+                struct_file = content
+
+        assert struct_file is not None, "expected a struct file with avro tags"
+        assert '"avro:' not in struct_file, \
+            'struct tags are glued without a space (json:"x"avro:"x")'
+        assert ' avro:"' in struct_file, "expected space-separated struct tags"
+
+        gofmt = shutil.which("gofmt")
+        if gofmt:
+            result = subprocess.run(
+                [gofmt, "-l", go_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            unformatted = result.stdout.decode().strip()
+            assert unformatted == "", f"gofmt reports unformatted files:\n{unformatted}"
+
     def run_convert_structure_to_go(
         self,
         struct_name,
@@ -127,16 +188,22 @@ class TestStructureToGo(unittest.TestCase):
             print(f"\n{'='*60}")
             print(f"Testing: {struct_name}")
             print('='*60)
-            
+
+            # Mirror the emitter's package-name sanitization (dots from the
+            # .struct.json extension and hyphens become underscores) so the
+            # expected package directory matches the generated one.
+            import re
+            pkg_name = re.sub(r'[^a-zA-Z0-9_]+', '_', struct_name).strip('_').lower()
+
             try:
                 go_path = self.run_convert_structure_to_go(
                     struct_name,
                     json_annotation=True,
-                    package_name=struct_name.lower().replace('-', '_')
+                    package_name=pkg_name
                 )
                 
                 # Verify the generated Go file exists
-                pkg_dir = os.path.join(go_path, "pkg", struct_name.lower().replace('-', '_'))
+                pkg_dir = os.path.join(go_path, "pkg", pkg_name)
                 assert os.path.exists(pkg_dir), f"Package directory not found: {pkg_dir}"
                 
                 # Check that at least one struct or enum file was generated

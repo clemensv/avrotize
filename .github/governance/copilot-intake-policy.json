@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "cli": {
+    "package": "@github/copilot",
+    "version": "1.0.80",
+    "integrity": "sha512-6tf93ZF56KOiTTAjK/UhLZkl1W543IzaTQly288kockJZFswpRTnQEI00Yvacpb39DTvTYu3/ha9SeKpo/pgZQ==",
+    "lockfile": ".github/governance/copilot-cli/package-lock.json",
+    "lockfile_sha256": "de84c84867979cd1fa4590030b6f03e81ff5e4d42ba10a9cca6482313245d55a",
+    "install_scripts": false
+  },
+  "request": {
+    "model": "claude-haiku-4.5",
+    "max_ai_credits": 30,
+    "timeout_seconds": 120,
+    "max_input_characters": 65536,
+    "max_output_bytes": 32768,
+    "minimum_confidence": 0.55,
+    "prompt_version": "issue-semantic-assistance-v1",
+    "prompt_template": ".github/governance/prompts/issue-semantic-assistance-v1.txt",
+    "output_schema": ".github/governance/schemas/issue-semantic-assistance.schema.json"
+  },
+  "tool_boundary": {
+    "available_tools": [],
+    "denied_tools": [
+      "shell",
+      "write",
+      "read",
+      "url",
+      "memory"
+    ],
+    "builtin_mcp": false,
+    "custom_instructions": false,
+    "remote_export": false
+  },
+  "artifact": {
+    "retention_days": 30,
+    "raw_title": false,
+    "raw_body": false,
+    "raw_model_response": false
+  }
+}

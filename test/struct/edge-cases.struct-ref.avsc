@@ -60,8 +60,14 @@
         "int",
         "double",
         "boolean",
-        "array",
-        "object",
+        {
+          "type": "array",
+          "items": "string"
+        },
+        {
+          "type": "map",
+          "values": "string"
+        },
         "null"
       ],
       "default": null
@@ -70,7 +76,52 @@
       "name": "deeplyNested",
       "type": [
         "null",
-        "object"
+        {
+          "type": "record",
+          "name": "DeeplyNestedType",
+          "fields": [
+            {
+              "name": "level1",
+              "type": {
+                "type": "record",
+                "name": "Level1Type",
+                "fields": [
+                  {
+                    "name": "level2",
+                    "type": {
+                      "type": "record",
+                      "name": "Level2Type",
+                      "fields": [
+                        {
+                          "name": "level3",
+                          "type": {
+                            "type": "record",
+                            "name": "Level3Type",
+                            "fields": [
+                              {
+                                "name": "level4",
+                                "type": {
+                                  "type": "record",
+                                  "name": "Level4Type",
+                                  "fields": [
+                                    {
+                                      "name": "value",
+                                      "type": "string"
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
       ],
       "default": null
     }

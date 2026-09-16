@@ -1,0 +1,40 @@
+name: Feature or transformation request
+description: Suggest an outcome, use case, transformation, or usability improvement.
+title: "[Feature] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea. Describe the result you want in your own
+        words. You do not need to design the command, analyze compatibility, or
+        propose an implementation.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would you like Avrotize to do?
+      description: Describe the desired outcome or use case and why it would help.
+      placeholder: I would like to turn a JSON Structure definition into...
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example or use case (optional)
+      description: A short input/output example or usage scenario can help, but it is fine to leave this blank.
+    validations:
+      required: false
+  - type: input
+    id: command
+    attributes:
+      label: Existing command or Avrotize area (optional)
+      description: If this extends something that already exists, name it here.
+    validations:
+      required: false
+  - type: textarea
+    id: details
+    attributes:
+      label: Other details (optional)
+      description: Add constraints, alternatives, validation needs, or implementation ideas only if you already have them.
+    validations:
+      required: false

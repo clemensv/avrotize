@@ -1,0 +1,72 @@
+name: Bug report
+description: Tell us about something that did not work as expected.
+title: "[Bug] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking a moment to report this. Share what you know; it is
+        okay if you do not have a small reproducer or know the exact command
+        name yet. A maintainer can ask for one specific detail later if needed.
+
+        Do not include credentials, proprietary schemas, personal data, or
+        other sensitive content.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What were you trying to do?
+      description: A sentence or two about the goal is enough.
+      placeholder: I was converting an Avro schema to Python classes...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened?
+      description: Describe the unexpected result. Paste the relevant error text if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Small example or steps (optional)
+      description: If available, share a short command, API call, input, or sequence of steps. It is fine to leave this blank.
+    validations:
+      required: false
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did this happen? (optional)
+      options:
+        - I'm not sure
+        - Avrotize CLI
+        - Structurize CLI
+        - Python API
+        - MCP server
+        - VS Code extension
+        - Generated project or code
+    validations:
+      required: false
+  - type: input
+    id: command
+    attributes:
+      label: Command or Avrotize area (optional)
+      description: Add the command, Python function, MCP tool, VS Code action, or generated target if you know it.
+      placeholder: avrotize a2p
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Version and environment (optional)
+      description: Add the Avrotize version, operating system, or relevant toolchain only if it may help reproduce the problem.
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else? (optional)
+      description: Screenshots, links, or other context are welcome.
+    validations:
+      required: false

@@ -1,0 +1,9 @@
+{
+    "type": "enum",
+    "name": "Status",
+    "namespace": "issue406.enum_only",
+    "symbols": [
+        "READY",
+        "ACTIVE"
+    ]
+}

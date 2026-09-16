@@ -1,0 +1,17 @@
+namespace Example.Game;
+
+enum Color : byte { Red = 1, Green = 2, Blue = 4 }
+struct Vec3 { x:float = 0.0; y:float = 0.0; z:float = 0.0; }
+table Weapon { name:string (required); damage:int = 10; }
+table Monster {
+  id:ulong (required);
+  name:string (required);
+  hp:short = 100;
+  mana:ushort;
+  alive:bool = true;
+  color:Color = Blue;
+  pos:Vec3 (required);
+  inventory:[ubyte];
+  weapons:[Weapon];
+}
+root_type Monster;

@@ -331,6 +331,69 @@ class JsonToStructureConverter:
             
         return None
 
+    _STRING_FAMILY = {'string', 'uuid', 'date', 'time', 'datetime', 'duration', 'bytes'}
+    _NUMBER_FAMILY = {'int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32',
+                      'uint64', 'int128', 'uint128', 'float', 'double', 'decimal',
+                      'number', 'integer'}
+
+    def _json_value_category(self, value: Any) -> Optional[str]:
+        """Classify a Python-decoded JSON value into a JSON Structure type family."""
+        if value is None:
+            return 'null'
+        if isinstance(value, bool):
+            return 'boolean'
+        if isinstance(value, (int, float)):
+            return 'number'
+        if isinstance(value, str):
+            return 'string'
+        return None
+
+    def _type_category(self, structure_type: str) -> Optional[str]:
+        """Map a scalar JSON Structure type name to its value family."""
+        if structure_type in self._STRING_FAMILY:
+            return 'string'
+        if structure_type in self._NUMBER_FAMILY:
+            return 'number'
+        if structure_type in ('boolean', 'null'):
+            return structure_type
+        return None
+
+    def _enum_type_for(self, structure_type: Any, enum_values: list) -> Any:
+        """Return the JSON Structure ``type`` that admits every enum value.
+
+        JSON Schema permits heterogeneous ``enum`` lists (e.g. a ``null`` or
+        boolean member alongside strings). JSON Structure requires the declared
+        type to admit each enum value, so widen a single scalar type to a
+        type-union covering the JSON families actually present. The declared type
+        is always preserved as a union member so string-family refinements such as
+        ``uuid`` are never lost, and ``null`` is floated to the front by
+        convention. If a value's family already matches the declared type (or the
+        declared type is not a recognised scalar), no widening occurs.
+        """
+        if not isinstance(structure_type, str):
+            return structure_type
+        base_cat = self._type_category(structure_type)
+        if base_cat is None:
+            return structure_type
+        canonical = {'null': 'null', 'boolean': 'boolean', 'string': 'string', 'number': 'int64'}
+        extras: list = []
+        for value in enum_values:
+            cat = self._json_value_category(value)
+            if cat is None or cat == base_cat:
+                continue
+            member = canonical[cat]
+            if member not in extras:
+                extras.append(member)
+        if not extras:
+            return structure_type
+        ordered: list = []
+        if 'null' in extras:
+            ordered.append('null')
+            extras = [e for e in extras if e != 'null']
+        ordered.append(structure_type)
+        ordered.extend(extras)
+        return ordered
+
     def json_schema_primitive_to_structure_type(self, json_primitive: Optional[str | list], format: Optional[str], enum: Optional[list], record_name: str, field_name: str, namespace: str, dependencies: list, schema: dict) -> str | dict[str, Any] | list:
         """
         Convert a JSON Schema primitive type to JSON Structure primitive type.
@@ -348,10 +411,11 @@ class JsonToStructureConverter:
         
         if isinstance(json_primitive, list):
             if enum:
-                # Handle enum with multiple types (convert to string enum)
+                # Heterogeneous enum: widen the type to admit every value's family.
+                enum_values = list(enum)
                 return {
-                    'type': 'string',
-                    'enum': list(enum)
+                    'type': self._enum_type_for('string', enum_values),
+                    'enum': enum_values
                 }
             else:
                 # Handle union types
@@ -419,7 +483,10 @@ class JsonToStructureConverter:
             
             # Handle enums
             if enum is not None:
-                result['enum'] = list(enum)
+                enum_values = list(enum)
+                # Widen the declared type so every enum value's family is admitted.
+                result['type'] = self._enum_type_for(structure_type, enum_values)
+                result['enum'] = enum_values
                 
             # Add constraints for string types
             if structure_type == 'string' and isinstance(schema, dict):
@@ -578,6 +645,28 @@ class JsonToStructureConverter:
         # propertyNames and keyNames and adds JSONStructureValidation to $uses
         pass
 
+    def _reconcile_required(self, required: list, emitted_properties: dict) -> list:
+        """Reconcile a JSON Schema ``required`` list with the emitted JSON Structure
+        property keys.
+
+        Property names that are not valid identifiers are normalised (the original
+        wire name is preserved via ``altnames``); the corresponding ``required``
+        entries must reference the same normalised identifier. Entries that do not
+        correspond to any emitted property - e.g. a source schema that lists a
+        required property it never defines under ``properties`` - are dropped so the
+        result validates against the JSON Structure Core metaschema.
+        """
+        if not required:
+            return []
+        reconciled: list = []
+        seen: set = set()
+        for name in required:
+            key = name if self.is_valid_identifier(name) else self.normalize_identifier(name)
+            if key in emitted_properties and key not in seen:
+                reconciled.append(key)
+                seen.add(key)
+        return reconciled
+
     def create_structure_object(self, properties: dict, required: list, record_name: str, namespace: str, dependencies: list, json_schema: dict, base_uri: str, structure_schema: dict, record_stack: list, recursion_depth: int = 1, original_schema: dict | None = None) -> dict:
         """
         Create a JSON Structure object type from properties.
@@ -601,9 +690,8 @@ class JsonToStructureConverter:
             'type': 'object'
         }
         
-        # Add required field if it's not empty
-        if required:
-            structure_obj['required'] = required
+        # 'required' is reconciled against the emitted property keys after the
+        # property loop below (names may be normalised; dangling entries dropped).
             
         # Add name if provided
         if record_name:
@@ -633,7 +721,14 @@ class JsonToStructureConverter:
                 new_entry['altnames'] = {'json': prop_name}
                 structure_obj['properties'][normalized_name] = new_entry
             else:
-                structure_obj['properties'][prop_name] = self._ensure_schema_object(prop_type, structure_schema, prop_name)        # Handle patternProperties and additionalProperties
+                structure_obj['properties'][prop_name] = self._ensure_schema_object(prop_type, structure_schema, prop_name)
+
+        # Reconcile required names against the (possibly normalised) property keys.
+        reconciled_required = self._reconcile_required(required, structure_obj.get('properties', {}))
+        if reconciled_required:
+            structure_obj['required'] = reconciled_required
+
+        # Handle patternProperties and additionalProperties
         has_additional_schema = False
         if original_schema:
             # Check for patternProperties that coexist with properties/additionalProperties
@@ -804,7 +899,7 @@ class JsonToStructureConverter:
                         choice_key = ref[14:]  # Remove '#/definitions/' prefix
                     else:
                         choice_key = f"option_{i}"
-                choice_obj['choices'][choice_key] = {'$ref': ref}
+                choice_obj['choices'][choice_key] = self._ensure_schema_object({'$ref': ref}, structure_schema, choice_key)
             else:
                 # Convert option to structure type
                 choice_key = f"option_{i}"
@@ -837,7 +932,8 @@ class JsonToStructureConverter:
             values_schema, record_name, 'value', namespace, dependencies,
             json_schema, base_uri, structure_schema, record_stack, recursion_depth + 1
         )
-        # Always wrap as schema object        values_type = self._ensure_schema_object(values_type, structure_schema, 'value')
+        # Always wrap as schema object
+        values_type = self._ensure_schema_object(values_type, structure_schema, 'value')
         return {
             'type': 'map',
             'values': values_type
@@ -992,8 +1088,12 @@ class JsonToStructureConverter:
         }
         
         if required:
-            result['required'] = required
-            
+            # Reconcile: drop required entries that reference no emitted property
+            # so the result validates against the JSON Structure Core metaschema.
+            reconciled = [n for n in required if n in structure_properties]
+            if reconciled:
+                result['required'] = reconciled
+
         return result
 
     def add_alternate_names(self, structure: dict, original_name: str) -> dict:
@@ -1915,6 +2015,48 @@ class JsonToStructureConverter:
                         'discriminator' in def_schema):
                         def_schema['abstract'] = True
     
+    def _ensure_root_type(self, structure_schema: dict, json_schema: Any = None) -> None:
+        """Ensure a definitions-only document nominates a root type.
+
+        A document whose only meaningful content is a library of reusable named
+        types (e.g. an OpenAPI ``components/schemas`` bundle) has no single root
+        instance type, yet the JSON Structure Core metaschema still requires the
+        root to carry ``type``, ``$root`` or composition keywords. Following the
+        spec's ``$root`` idiom (and the "Prohibition of Top-Level Unions" rule),
+        point ``$root`` at:
+          * the referenced type when the source root is a bare ``$ref``; else
+          * the single definition when there is exactly one; else
+          * a synthetic type-union over every top-level definition, so that no
+            type is arbitrarily privileged.
+        """
+        if not isinstance(structure_schema, dict):
+            return
+        if 'type' in structure_schema or '$root' in structure_schema:
+            return
+        definitions = structure_schema.get('definitions')
+        if not isinstance(definitions, dict) or not definitions:
+            return
+        # Prefer an explicit root $ref (the source root is a reference to one type).
+        if (isinstance(json_schema, dict) and isinstance(json_schema.get('$ref'), str)
+                and json_schema['$ref'].startswith('#/')):
+            target = avro_name(json_schema['$ref'].split('/')[-1])
+            if target in definitions:
+                structure_schema['$root'] = f"#/definitions/{target}"
+                return
+        def_names = list(definitions.keys())
+        if len(def_names) == 1:
+            structure_schema['$root'] = f"#/definitions/{def_names[0]}"
+            return
+        # Synthesize a type-union root over all top-level definitions.
+        root_name = avro_name(self.root_class_name)
+        while root_name in definitions:
+            root_name = f"{root_name}_root"
+        definitions[root_name] = {
+            'name': root_name,
+            'type': [{'$ref': f"#/definitions/{name}"} for name in def_names]
+        }
+        structure_schema['$root'] = f"#/definitions/{root_name}"
+
     def jsons_to_structure(self, json_schema: Union[dict, list], namespace: str, base_uri: str) -> dict:
         """
         Convert a JSON Schema to JSON Structure format.
@@ -2045,6 +2187,9 @@ class JsonToStructureConverter:
             # Generate default $id for non-dict schemas
             structure_schema['$id'] = f"https://example.com/{namespace.replace('.', '/')}.schema.json"
         
+        # Nominate a root type for definitions-only documents (type libraries).
+        self._ensure_root_type(structure_schema, json_schema)
+
         # Mark abstract types
         self._mark_abstract_types(structure_schema)
         
@@ -2201,6 +2346,18 @@ class JsonToStructureConverter:
           # Handle additionalProperties  
         if 'additionalProperties' in structure_type and isinstance(structure_type['additionalProperties'], dict):
             structure_type['additionalProperties'] = self._validate_and_fix_json_structure_type(structure_type['additionalProperties'])
+
+        # Ensure choice branches are schema objects with wrapped refs
+        if structure_type.get('type') == 'choice' and isinstance(structure_type.get('choices'), dict):
+            fixed_choices = {}
+            for choice_key, choice_val in structure_type['choices'].items():
+                if isinstance(choice_val, dict) and '$ref' in choice_val and 'type' not in choice_val:
+                    choice_val = {'type': {'$ref': choice_val['$ref']}}
+                fixed_choices[choice_key] = (
+                    self._validate_and_fix_json_structure_type(choice_val)
+                    if isinstance(choice_val, dict) else choice_val
+                )
+            structure_type['choices'] = fixed_choices
         
         # Handle definitions
         if 'definitions' in structure_type and isinstance(structure_type['definitions'], dict):

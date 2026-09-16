@@ -199,6 +199,19 @@ class StructureToGraphQLConverter:
         # Handle type keyword
         struct_type = schema.get('type')
         
+        # A property whose ``type`` value is itself a schema object — the JSON Structure
+        # Core canonical form for references, e.g. ``{"type": {"$ref": ...}}`` — or a union
+        # array that contains such objects. Recurse so referenced named types are discovered
+        # as dependencies BEFORE their referrer (preserving declaration order).
+        if isinstance(struct_type, dict):
+            self.extract_named_types_from_structure(struct_type, parent_namespace)
+            return
+        if isinstance(struct_type, list):
+            for member in struct_type:
+                if isinstance(member, dict):
+                    self.extract_named_types_from_structure(member, parent_namespace)
+            return
+        
         if struct_type == 'object':
             # Process nested properties FIRST to ensure dependencies come before this type
             if 'properties' in schema and isinstance(schema['properties'], dict):
@@ -403,6 +416,11 @@ class StructureToGraphQLConverter:
             
             # Handle type unions (e.g., ["string", "null"])
             if isinstance(struct_type, list):
+                return self.get_graphql_type(struct_type)
+            
+            # Handle a type reference (or nested type object) that is the value of
+            # ``type`` — the JSON Structure Core canonical form ``{"type": {"$ref": ...}}``.
+            if isinstance(struct_type, dict):
                 return self.get_graphql_type(struct_type)
             
             if struct_type == 'array':

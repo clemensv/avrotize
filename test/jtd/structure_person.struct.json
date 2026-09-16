@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "name": "StructurePerson",
+  "properties": {
+    "id": {"type": "string"},
+    "age": {"type": "int32"}
+  },
+  "required": ["id"]
+}

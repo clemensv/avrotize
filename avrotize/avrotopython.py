@@ -8,7 +8,7 @@ import os
 import re
 import random
 from typing import Dict, List, Set, Tuple, Union, Any
-from avrotize.common import fullname, get_typing_args_from_string, is_generic_avro_type, pascal, process_template, build_flat_type_dict, inline_avro_references, is_type_with_alternate, strip_alternate_type
+from avrotize.common import fullname, get_typing_args_from_string, is_generic_avro_type, is_any_value_type, pascal, process_template, build_flat_type_dict, inline_avro_references, is_type_with_alternate, strip_alternate_type
 
 INDENT = '    '
 
@@ -67,10 +67,11 @@ def safe_package_name(name: str) -> str:
 class AvroToPython:
     """Converts Avro schema to Python data classes"""
 
-    def __init__(self, base_package: str = '', dataclasses_json_annotation=False, avro_annotation=False) -> None:
+    def __init__(self, base_package: str = '', dataclasses_json_annotation=False, avro_annotation=False, xml_annotation=False) -> None:
         self.base_package = base_package
         self.dataclasses_json_annotation = dataclasses_json_annotation
         self.avro_annotation = avro_annotation
+        self.xml_annotation = xml_annotation
         self.output_dir = os.getcwd()
         self.main_schema = None
         self.type_dict = None
@@ -89,6 +90,38 @@ class AvroToPython:
         if is_python_reserved_word(name):
             return name + "_"
         return name
+
+    def safe_enum_symbols(self, symbols: List[str]) -> List[Dict[str, str]]:
+        """Converts Avro enum symbols to collision-safe Python enum members."""
+        enum_symbols = []
+        used_names = set()
+
+        for symbol in symbols:
+            if symbol.isidentifier() and not is_python_reserved_word(symbol):
+                member_name = symbol
+            else:
+                member_name = re.sub(r'[^0-9A-Za-z_]', '_', symbol).strip('_').upper()
+                if not member_name:
+                    member_name = "VALUE"
+                if member_name[0].isdigit():
+                    member_name = f"VALUE_{member_name}"
+                if is_python_reserved_word(symbol) or is_python_reserved_word(member_name.lower()) or is_python_reserved_word(member_name):
+                    member_name = f"{member_name}_"
+
+            base_member_name = member_name
+            suffix = 2
+            while member_name in used_names or not member_name.isidentifier() or is_python_reserved_word(member_name):
+                member_name = f"{base_member_name}_{suffix}"
+                suffix += 1
+
+            used_names.add(member_name)
+            enum_symbols.append({
+                'name': member_name,
+                'value': symbol,
+                'value_literal': repr(symbol)
+            })
+
+        return enum_symbols
 
     def pascal_type_name(self, ref: str) -> str:
         """Converts a reference to a type name"""
@@ -144,6 +177,9 @@ class AvroToPython:
             'string': 'str',
         }
         if is_generic_avro_type(avro_type):
+            return True, 'typing.Any'
+        # Handle AnyValue (extensible any type) regardless of namespace qualification
+        if isinstance(avro_type, str) and is_any_value_type(avro_type):
             return True, 'typing.Any'
         mapped = mapping.get(avro_type, None)
         if mapped:
@@ -264,6 +300,18 @@ class AvroToPython:
                     f"self.{field['name']} = {self.init_field_value(field['type'], field['name'], field['is_enum'], 'value_'+field['name'], enum_types)}")
         return '\n'.join(init_statements)
 
+    def xml_namespace_for_type(self, avro_type: Any, default: str) -> str:
+        """Resolve the XML namespace of a field's record item type."""
+        if isinstance(avro_type, list):
+            candidates = [item for item in avro_type if item != 'null']
+            return self.xml_namespace_for_type(candidates[0], default) if len(candidates) == 1 else default
+        if isinstance(avro_type, dict):
+            if avro_type.get('type') == 'record':
+                return avro_type.get('xmlns', default)
+            if avro_type.get('type') == 'array':
+                return self.xml_namespace_for_type(avro_type.get('items'), default)
+        return default
+
     def generate_class(self, avro_schema: Dict, parent_package: str, write_file: bool) -> str:
         """
         Generates a Python data class from an Avro record schema
@@ -286,7 +334,10 @@ class AvroToPython:
 
         fields = [{
             'definition': self.generate_field(field, avro_schema.get('namespace', parent_package), import_types),
-            'docstring': self.generate_field_docstring(field, avro_schema.get('namespace', parent_package))
+            'docstring': self.generate_field_docstring(field, avro_schema.get('namespace', parent_package)),
+            'xml_name': field.get('altnames', {}).get('xml', field['name']),
+            'xml_kind': field.get('xmlkind', 'element'),
+            'xml_namespace': self.xml_namespace_for_type(field['type'], avro_schema.get('xmlns', '')),
         } for field in avro_schema.get('fields', [])]
         fields = [{
             'name': self.safe_name(field['definition']['name']),
@@ -296,6 +347,15 @@ class AvroToPython:
             'is_enum': field['definition']['is_enum'],
             'docstring': field['docstring'],
             'test_value': self.generate_test_value(field),
+            'xml_name': field['xml_name'],
+            'xml_kind': field['xml_kind'],
+            'xml_namespace': field['xml_namespace'],
+            'xml_metadata': {
+                'type': 'Attribute' if field['xml_kind'] == 'attribute' else 'Element',
+                'name': field['xml_name'],
+                **({'namespace': field['xml_namespace']}
+                   if field['xml_kind'] != 'attribute' and field['xml_namespace'] else {}),
+            },
         } for field in fields]
 
         # we are including a copy of the avro schema of this type. Since that may
@@ -318,6 +378,10 @@ class AvroToPython:
             base_package=self.base_package,
             avro_annotation=self.avro_annotation,
             dataclasses_json_annotation=self.dataclasses_json_annotation,
+            xml_annotation=self.xml_annotation,
+            xml_name=avro_schema.get('altnames', {}).get('xml', avro_schema['name']),
+            xml_namespace=avro_schema.get('xmlns', ''),
+            xml_runtime_module=(f'{self.base_package.lower()}.xml_runtime' if self.base_package else '_avrotize_xml_runtime'),
             avro_schema_json=avro_schema_json,
             init_fields=self.init_fields(fields, enum_types),
         )
@@ -347,9 +411,17 @@ class AvroToPython:
         if python_qualified_name in self.generated_types:
             return python_qualified_name
 
-        symbols = [symbol if not is_python_reserved_word(
-            symbol) else symbol + "_" for symbol in avro_schema.get('symbols', [])]
-        ordinals =  avro_schema.get('ordinals', {})
+        symbols = self.safe_enum_symbols(avro_schema.get('symbols', []))
+        symbol_names_by_value = {symbol['value']: symbol['name'] for symbol in symbols}
+        ordinals = {
+            symbol_names_by_value[symbol]: ordinal
+            for symbol, ordinal in avro_schema.get('ordinals', {}).items()
+        }
+
+        xml_values = [
+            {**symbol, 'xml_value_literal': repr(avro_schema.get('altenums', {}).get('xml', {}).get(symbol['value'], symbol['value']))}
+            for symbol in symbols
+        ]
 
         enum_definition = process_template(
             "avrotopython/enum_core.jinja",
@@ -357,7 +429,10 @@ class AvroToPython:
             docstring=avro_schema.get('doc', '').strip(
             ) if 'doc' in avro_schema else f'A {class_name} enum.',
             symbols=symbols,
-            ordinals=ordinals
+            ordinals=ordinals,
+            xml_annotation=self.xml_annotation,
+            xml_name=avro_schema.get('altnames', {}).get('xml', avro_schema['name']),
+            xml_values=xml_values,
         )
 
         if write_file:
@@ -614,11 +689,22 @@ class AvroToPython:
         # main function
         write_init_files_recursive(organize_generated_types(), '')
 
+    def write_xml_runtime(self):
+        """Writes the shared xsdata XML runtime to the generated project."""
+        module_dir = os.path.join(self.output_dir, 'src')
+        if self.base_package:
+            module_dir = os.path.join(module_dir, *self.base_package.lower().split('.'))
+        os.makedirs(module_dir, exist_ok=True)
+        module_name = 'xml_runtime.py' if self.base_package else '_avrotize_xml_runtime.py'
+        with open(os.path.join(module_dir, module_name), 'w', encoding='utf-8') as file:
+            file.write(process_template('python_xml_runtime.jinja'))
+
     def write_pyproject_toml(self):
         """Writes pyproject.toml file to the output directory"""
         pyproject_content = process_template(
             "avrotopython/pyproject_toml.jinja",
-            package_name=self.base_package.replace('_', '-')
+            package_name=self.base_package.replace('_', '-'),
+            xml_annotation=self.xml_annotation,
         )
         with open(os.path.join(self.output_dir, 'pyproject.toml'), 'w', encoding='utf-8') as file:
             file.write(pyproject_content)
@@ -636,6 +722,8 @@ class AvroToPython:
                     avro_schema, self.base_package, write_file=True)
             elif avro_schema['type'] == 'record':
                 self.generate_class(avro_schema, self.base_package, write_file=True)
+        if self.xml_annotation:
+            self.write_xml_runtime()
         self.write_init_files()
         self.write_pyproject_toml()
 
@@ -648,7 +736,7 @@ class AvroToPython:
         return self.convert_schemas(schema, output_dir)
 
 
-def convert_avro_to_python(avro_schema_path, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False):
+def convert_avro_to_python(avro_schema_path, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False, xml_annotation=False):
     """Converts Avro schema to Python data classes"""
     if not package_name:
         package_name = os.path.splitext(os.path.basename(avro_schema_path))[
@@ -656,15 +744,15 @@ def convert_avro_to_python(avro_schema_path, py_file_path, package_name='', data
     package_name = safe_package_name(package_name)
 
     avro_to_python = AvroToPython(
-        package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
+        package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation, xml_annotation=xml_annotation)
     avro_to_python.convert(avro_schema_path, py_file_path)
 
 
-def convert_avro_schema_to_python(avro_schema, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False):
+def convert_avro_schema_to_python(avro_schema, py_file_path, package_name='', dataclasses_json_annotation=False, avro_annotation=False, xml_annotation=False):
     """Converts Avro schema to Python data classes"""
     package_name = safe_package_name(package_name) if package_name else package_name
     avro_to_python = AvroToPython(
-        package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation)
+        package_name, dataclasses_json_annotation=dataclasses_json_annotation, avro_annotation=avro_annotation, xml_annotation=xml_annotation)
     if isinstance(avro_schema, dict):
         avro_schema = [avro_schema]
     avro_to_python.convert_schemas(avro_schema, py_file_path)

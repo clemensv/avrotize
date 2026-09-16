@@ -1,0 +1,147 @@
+package {{ base_package }}
+
+import (
+    "encoding/xml"
+    "fmt"
+    "io"
+    "sort"
+    "strings"
+)
+
+const (
+    maxXMLBytes = 1 << 20
+    maxXMLDepth = 100
+)
+
+type xmlFieldRule struct {
+    Attribute bool
+    Required  bool
+    Repeated  bool
+    Ambiguous bool
+}
+
+func readXMLBytes(reader io.Reader) ([]byte, error) {
+    data, err := io.ReadAll(io.LimitReader(reader, maxXMLBytes+1))
+    if err != nil { return nil, err }
+    if len(data) > maxXMLBytes { return nil, fmt.Errorf("XML payload exceeds %d bytes", maxXMLBytes) }
+    return data, nil
+}
+
+func xmlInputBytes(data interface{}) ([]byte, error) {
+    switch value := data.(type) {
+    case []byte:
+        if len(value) > maxXMLBytes { return nil, fmt.Errorf("XML payload exceeds %d bytes", maxXMLBytes) }
+        return value, nil
+    case string:
+        if len(value) > maxXMLBytes { return nil, fmt.Errorf("XML payload exceeds %d bytes", maxXMLBytes) }
+        return []byte(value), nil
+    case io.Reader:
+        return readXMLBytes(value)
+    default:
+        return nil, fmt.Errorf("unsupported data type for XML: %T", data)
+    }
+}
+
+func secureXMLUnmarshal(data interface{}, destination interface{}, root xml.Name, rules map[string]xmlFieldRule) error {
+    raw, err := xmlInputBytes(data)
+    if err != nil { return err }
+
+    decoder := xml.NewDecoder(strings.NewReader(string(raw)))
+    counts := make(map[string]int, len(rules))
+    depth := 0
+    rootSeen := false
+    for {
+        token, tokenErr := decoder.Token()
+        if tokenErr == io.EOF { break }
+        if tokenErr != nil { return fmt.Errorf("invalid XML: %w", tokenErr) }
+        switch value := token.(type) {
+        case xml.Directive:
+            return fmt.Errorf("XML directives and DOCTYPE declarations are not allowed")
+        case xml.ProcInst:
+            if value.Target != "xml" || rootSeen { return fmt.Errorf("XML processing instructions are not allowed") }
+        case xml.StartElement:
+            if depth == 0 {
+                if rootSeen { return fmt.Errorf("XML contains multiple root elements") }
+                rootSeen = true
+                if value.Name != root {
+                    return fmt.Errorf("unexpected XML root namespace=%q local=%q; expected namespace=%q local=%q", value.Name.Space, value.Name.Local, root.Space, root.Local)
+                }
+                for _, attr := range value.Attr {
+                    if attr.Name.Local == "xmlns" || attr.Name.Space == "xmlns" || attr.Name.Space == "http://www.w3.org/2000/xmlns/" { continue }
+                    if attr.Name.Space != "" { return fmt.Errorf("unexpected namespace %q for XML attribute %s", attr.Name.Space, attr.Name.Local) }
+                    key := "@" + attr.Name.Local
+                    rule, ok := rules[key]
+                    if !ok || !rule.Attribute { return fmt.Errorf("unknown XML attribute: %s", attr.Name.Local) }
+                    counts[key]++
+                    if counts[key] > 1 { return fmt.Errorf("duplicate XML attribute: %s", attr.Name.Local) }
+                }
+            } else if depth == 1 {
+                if value.Name.Space != root.Space {
+                    return fmt.Errorf("unexpected namespace %q for XML element %s", value.Name.Space, value.Name.Local)
+                }
+                rule, ok := rules[value.Name.Local]
+                if !ok || rule.Attribute { return fmt.Errorf("unknown XML element: %s", value.Name.Local) }
+                if rule.Ambiguous { return fmt.Errorf("XML field %s has an ambiguous interface union", value.Name.Local) }
+                counts[value.Name.Local]++
+                if !rule.Repeated && counts[value.Name.Local] > 1 { return fmt.Errorf("duplicate XML element: %s", value.Name.Local) }
+            }
+            depth++
+            if depth > maxXMLDepth { return fmt.Errorf("XML nesting exceeds %d elements", maxXMLDepth) }
+        case xml.EndElement:
+            depth--
+            if depth < 0 { return fmt.Errorf("invalid XML nesting") }
+        case xml.CharData:
+            if depth == 0 && strings.TrimSpace(string(value)) != "" { return fmt.Errorf("non-whitespace data outside XML root") }
+        }
+    }
+    if !rootSeen || depth != 0 { return fmt.Errorf("XML document is incomplete") }
+    for key, rule := range rules {
+        if rule.Required && counts[key] == 0 {
+            return fmt.Errorf("required XML field is missing: %s", strings.TrimPrefix(key, "@"))
+        }
+    }
+    if err := xml.Unmarshal(raw, destination); err != nil { return fmt.Errorf("invalid XML value: %w", err) }
+    return nil
+}
+
+// XMLMap provides deterministic XML encoding for Go maps. Entries are encoded
+// as <entry key="..."></entry> children of the field element.
+type XMLMap[T any] map[string]T
+
+func (m XMLMap[T]) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+    if err := e.EncodeToken(start); err != nil { return err }
+    keys := make([]string, 0, len(m))
+    for key := range m { keys = append(keys, key) }
+    sort.Strings(keys)
+    for _, key := range keys {
+        entry := xml.StartElement{Name: xml.Name{Local: "entry"}, Attr: []xml.Attr{xml.Attr{Name: xml.Name{Local: "key"}, Value: key}}}
+        if err := e.EncodeElement(m[key], entry); err != nil { return err }
+    }
+    return e.EncodeToken(start.End())
+}
+
+func (m *XMLMap[T]) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+    if *m == nil { *m = make(XMLMap[T]) }
+    for {
+        token, err := d.Token()
+        if err != nil { return err }
+        switch element := token.(type) {
+        case xml.StartElement:
+            if element.Name.Local != "entry" { return fmt.Errorf("unexpected XML map element: %s", element.Name.Local) }
+            key := ""
+            foundKey := false
+            for _, attr := range element.Attr {
+                if attr.Name.Local != "key" { return fmt.Errorf("unexpected XML map attribute: %s", attr.Name.Local) }
+                if foundKey { return fmt.Errorf("duplicate XML map key attribute") }
+                key, foundKey = attr.Value, true
+            }
+            if !foundKey { return fmt.Errorf("XML map entry is missing key attribute") }
+            if _, exists := (*m)[key]; exists { return fmt.Errorf("duplicate XML map entry: %s", key) }
+            var value T
+            if err := d.DecodeElement(&value, &element); err != nil { return err }
+            (*m)[key] = value
+        case xml.EndElement:
+            if element.Name == start.Name { return nil }
+        }
+    }
+}

@@ -207,4 +207,27 @@ public class {{ test_class_name }} {
         assertEquals(instance, newInstance);
     }
     {%- endif %}
+    {%- if xml_annotation %}
+    /**
+     * Testing XML serializer
+     */
+    @Test
+    public void test_ToByteArray_FromData_Xml() throws Exception {
+        String mediaType = "application/xml";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+
+    /**
+     * Testing XML serializer with gzip compression
+     */
+    @Test
+    public void test_ToByteArray_FromData_Xml_Gzip() throws Exception {
+        String mediaType = "text/xml+gzip";
+        byte[] bytes = instance.toByteArray(mediaType);
+        {{ class_name }} newInstance = {{ class_name }}.fromData(bytes, mediaType);
+        assertEquals(instance, newInstance);
+    }
+    {%- endif %}
 }

@@ -1,0 +1,80 @@
+{
+  "schema_version": 2,
+  "policy_id": "avrotize-external-delivery-supervisor-v2",
+  "repository": "clemensv/avrotize",
+  "mode": "external-host-admin-operations",
+  "policy_path": ".github/governance/external-supervisor-policy.json",
+  "kickoff_prompt": {
+    "path": ".github/governance/prompts/external-supervisor-kickoff-v2.txt",
+    "sha256": "1f1ebc0647146998757aa4631c8830bac508c3955c099fe6f3f9471ac5ab2df8"
+  },
+  "host_operational_authority": {
+    "enabled": true,
+    "trust_boundaries": [
+      "trusted-copilot-session-host",
+      "github"
+    ],
+    "repository": "clemensv/avrotize",
+    "required_repository_permission": "admin",
+    "fresh_identity_verification": true,
+    "routine_actions": [
+      "issue-labels",
+      "issue-comments",
+      "issue-assignments",
+      "deterministic-lifecycle-reconciliation",
+      "bounded-coordination-and-dispatch"
+    ],
+    "owner_only_actions": [
+      "set-backlog-rank",
+      "set-priority",
+      "authorize-ready",
+      "change-acceptance-manifest",
+      "grant-wip-exception",
+      "classify-compatibility",
+      "approve-compatibility-exception",
+      "approve-risk-exception",
+      "approve-emergency-exception",
+      "merge",
+      "tag-release",
+      "publish-release",
+      "amend-governance-policy",
+      "change-authority-or-delegation"
+    ],
+    "supervisor_prohibited_actions": [
+      "set-backlog-rank",
+      "set-priority",
+      "authorize-ready",
+      "change-acceptance-manifest",
+      "grant-wip-exception",
+      "classify-compatibility",
+      "approve-compatibility-exception",
+      "approve-risk-exception",
+      "approve-emergency-exception",
+      "approve-pull-request",
+      "merge",
+      "tag-release",
+      "publish-release",
+      "amend-governance-policy",
+      "change-authority-or-delegation"
+    ],
+    "mutation_rules": {
+      "fresh_github_read_before_mutation": true,
+      "idempotent_operations": true,
+      "use_native_compare_and_swap_when_available": true,
+      "reread_and_reconcile_when_compare_and_swap_is_unavailable": true,
+      "only_retry_safe_operations": true,
+      "comments_require_stable_operation_marker": true,
+      "manual_confirmation_cannot_replace_comment_marker": true,
+      "github_live_state_and_audit_history_are_authoritative": true
+    },
+    "credential_rules": {
+      "use_authenticated_host_tooling_directly": true,
+      "never_pass_credentials_to_children": true,
+      "never_pass_credentials_to_repository_scripts": true
+    },
+    "host_responsibilities": [
+      "app-native-session-inventory",
+      "owner-instruction-provenance"
+    ]
+  }
+}

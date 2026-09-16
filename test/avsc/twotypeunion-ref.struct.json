@@ -76,10 +76,14 @@
                                 "type": "choice",
                                 "choices": {
                                     "RecordType1": {
-                                        "$ref": "#/definitions/com/example/avro/RecordType1"
+                                        "type": {
+                                            "$ref": "#/definitions/com/example/avro/RecordType1"
+                                        }
                                     },
                                     "RecordType2": {
-                                        "$ref": "#/definitions/com/example/avro/RecordType2"
+                                        "type": {
+                                            "$ref": "#/definitions/com/example/avro/RecordType2"
+                                        }
                                     }
                                 }
                             }

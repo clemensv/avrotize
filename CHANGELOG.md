@@ -1,6 +1,547 @@
-# Changelog
-
 All notable changes to Avrotize are documented in this file.
+
+## [3.9.1] - 2026-08-26
+
+### Added
+
+- Adopted repository-specific capability governance based on Avrotize's actual
+  command families, shared Avrotize Schema and JSON Structure semantics,
+  generated language targets, data-platform schemas, inference/validation,
+  access surfaces, and distribution artifacts. The model uses continuous ranked
+  flow, durable responsibility domains, structured contributor intake,
+  exact-head evidence, platform-reported AIC telemetry, empirical GitHub Actions
+  accounting, and deterministic advisory validation. Enforcement is
+  intentionally deferred until existing repository state can satisfy the new
+  checks reliably.
+- Revision-bound intake automation (`tools/governance_intake.py`) preserving
+  deterministic issue identity and registry hints while adding one bounded,
+  zero-tool Copilot semantic-assistance pass over structured or free-form issue
+  text. Strict JSON Schema validation, authority exclusions, registry
+  cross-checking, a fully integrity-locked CLI dependency graph, visibly
+  untrusted suggestion rendering, and quiet human-review fallbacks keep
+  suggestions read-only and non-authoritative.
+- Issue intake workflow (`.github/workflows/issue-intake.yml`) for future issue
+  events. It resolves and verifies an exact trusted processor SHA, records
+  processor, contract, registry, prompt, policy, and output-schema digests, and
+  uses only `contents: read` plus `copilot-requests: write`. No issue mutation
+  permission is granted.
+- Dependabot intake workflow (`.github/workflows/dependabot-intake.yml`) for
+  future `pull_request_target` events. It verifies author and sender identity,
+  binds REST file metadata to the event head before and after retrieval, and
+  never checks out or runs the PR head.
+- Checked-in issue form contract (`.github/governance/issue-form-contract.json`)
+  mapping form types, headings, field IDs, and required semantic fields.
+- JSON Schema definitions for issue and Dependabot intake records under
+  `.github/governance/schemas/`.
+- Validator checks for issue form contract consistency and intake workflow
+  safety (no write permissions, no merge commands).
+- Comprehensive unit tests for intake normalization covering structured,
+  incomplete, free-form, edited, fenced, and Unicode issues; prompt injection,
+  non-JSON/schema/authority output, timeout, AIC guardrail, low-confidence, and
+  unknown-command fallbacks; Dependabot major/multi-ecosystem/non-Dependabot;
+  config mapping; and the authority=false invariant.
+- Guarded reproduction preparation (`.github/workflows/repro-bug.yml`,
+  `tools/governance_repro.py`): a maintainer-requested, revision-bound evidence
+  path for owner-controlled manual reproduction. Ordered `authorize` →
+  `mark-in-progress` → `prepare` → `publish-final` jobs hold least-privilege
+  permissions. No dependency installation, Avrotize execution, reporter fixture
+  materialization, or generated-code execution occurs.
+- Deterministic authorization helper (`tools/governance_authorize.py`) that
+  decides ALLOW/DENY/ERROR from event, action, exact label, actor identity,
+  re-run actor agreement, and the collaborator permission API response before
+  checkout or issue-content processing. Permission API failures fail closed.
+  The immutable snapshot uses repository, issue number, title, body, and
+  cryptographic digests rather than aggregate `issue.updated_at`.
+- Governed reproduction label catalog
+  (`.github/governance/repro-label-catalog.json`) for owner provisioning. No
+  write-capable manual-dispatch reconciliation workflow is included.
+- Standard-library deep JSON Schema subset validator
+  (`tools/governance_schema.py`) used to structurally validate every governance
+  record before it is written, plus schemas for preparation evidence,
+  authorization decisions, and the label catalog.
+- Lightweight contributor forms using progressive disclosure: Bug reports
+  require only the reporter's goal and what happened; feature requests require
+  only the desired outcome or use case; and a one-question fallback accepts
+  anything else. Commands, examples, versions, environments, compatibility
+  notes, and implementation ideas are optional and can be requested later.
+- Static workflow validation covering action version pinning, per-job
+  permissions and timeouts, trusted refs, `persist-credentials`, artifact
+  retention, revision identity, suppressed-failure detection, issue-content
+  interpolation, preparation-only behavior, and contract/workflow parity.
+- Hard-failing exact-head governance CI
+  (`.github/workflows/governance-ci.yml`) running the strict validator and every
+  governance test module on pull-request heads.
+- Source-neutral external Copilot delivery-supervisor contracts for an
+  owner-launched project session. Strict owner delegation, exact policy and
+  prompt digests, ordered READY selection, per-domain WIP, session/receipt
+  binding, exact-head evidence, crash recovery, budgets, immutable audit
+  records, and owner-only merge/release boundaries are validated
+  deterministically without adding a privileged workflow.
+
+### Changed
+
+- Generated JavaScript and TypeScript projects now pin `avro-js` to `1.12.1`,
+  the latest release whose published package declares its required
+  `underscore` runtime dependency. This avoids the broken `1.12.2` package
+  metadata while preserving fresh-install runtime behavior.
+- Rewrote contribution, support, security, issue chooser, pull request, intake
+  summary, reproduction feedback, and label descriptions as welcoming,
+  plain-language participation surfaces. Support is explicitly best-effort and
+  provides no response, review, acceptance, triage, resolution, fix, release,
+  compatibility, availability, maintenance, continued-support, or outcome
+  assurance.
+
+- Removed the former Dependabot auto-merge workflow. Dependabot PRs are intake
+  requiring explicit owner review and never automatic merge candidates.
+- Issue Form headings are now opportunistic deterministic hints rather than a
+  conformance gate. Free-form, API-created, edited, partial, and supplemental
+  issue text remains first-class input for maintainer review.
+- Dependabot intake classifies each matched ecosystem's files with that
+  ecosystem's own manifest and lockfile rules instead of applying one primary
+  ecosystem to every changed file, and records unmatched files explicitly.
+  Dependabot config and capability profile read failures now fail closed.
+- Governance workflows declare per-job permissions and timeouts.
+
+### Fixed
+
+- Guarded reproduction authorization now evaluates the collaborator API's
+  granular `role_name` field. The legacy `permission` field reports maintainers
+  as `write`, so the previous check could never match `maintain` and was
+  admin-only in practice; `permission` is now trusted only for an exact `admin`
+  match, so a plain write collaborator still cannot request preparation.
+- Governance validation no longer raises `TypeError` when
+  `expected_groups` is not an object. It reported the finding and then fell
+  through to iterate the malformed value, which failed the observe job that is
+  required to be non-blocking.
+- Reporter-derived fragments (rejected tokens, unexpected headings, surface
+  errors, produced paths) are collapsed, escaped, and truncated before entering
+  a Markdown step summary, so a reporter cannot forge summary structure.
+- `governance-observe.yml` pins Python with `actions/setup-python` instead of
+  relying on the runner default, and triggers on `main` as well as `master`,
+  matching the other workflows.
+- `governance-observe.yml` no longer passes `--expected-sha`: the job checks out
+  the event SHA, so asserting `HEAD` against that same SHA could not fail. The
+  CLI option remains for verifying a separately claimed revision.
+
+## [3.9.0] - 2026-07-22
+
+### Added
+
+- **XML serialization for every non-C# language emitter** (#407–#413): the Avro and
+  JSON Structure converters for Python, Java, JavaScript, TypeScript, Go, and Rust now
+  emit XML-capable models. The generated mappings honor record `xmlns`, field
+  `xmlkind` (`element` or `attribute`), alternate XML names, enum symbols, nested
+  records, optional values, collections, maps, and unions.
+- **`--xml-annotation` for all twelve affected commands**: `a2py`/`s2py`,
+  `a2java`/`s2java`, `a2js`/`s2js`, `a2ts`/`s2ts`, `a2go`/`s2go`, and
+  `a2rust`/`s2rust` can opt into XML generation. The matching Python API parameter is
+  `xml_annotation=True`; C# retains its existing `system_xml_annotation` option.
+- Generated content-type dispatch now supports `application/xml` and `text/xml`,
+  including their `+gzip` variants, alongside the existing JSON and Avro formats.
+  Each target uses its ecosystem's native or idiomatic XML stack: xsdata for Python,
+  JAXB/Jackson XML for Java, fast-xml-parser for JavaScript and TypeScript,
+  `encoding/xml` for Go, and quick-xml/Serde for Rust.
+
+### Security
+
+- Generated XML readers now reject malformed and truncated documents, DTD/entity
+  declarations, namespace mismatches, unknown or duplicate singleton fields, invalid
+  scalar and enum values, ambiguous unions, malformed maps, corrupt gzip streams, and
+  excessive input size or nesting. The language-specific adversarial suites exercise
+  both Avro and JSON Structure output and include XXE, entity-expansion, decompression,
+  and parser-limit cases.
+
+### Changed
+
+- Java projects generate one shared, cached `AvrotizeXmlSupport` mapper instead of
+  constructing an XML mapper for each class or operation.
+- Python XML binding uses xsdata field metadata and one shared parser/serializer
+  runtime, removing the generated per-class ElementTree walkers.
+
+### Dependencies
+
+- Updated `click` to >=8.4.2, `geomet` to >=1.1.0, `isodate` to >=0.7.2,
+  `jinja2` to >=3.1.6, and `pyodbc` to >=5.3.0.
+- Updated the GitHub Actions Python setup action.
+
+## [3.8.0] - 2026-07-16
+
+### Added
+
+- **`a2asn` — convert Avrotize Schema to ASN.1**: a new converter that emits an X.680
+  ASN.1 module directly from an Avro/Avrotize schema. Records map to `SEQUENCE`, enums to
+  `ENUMERATED`, arrays to `SEQUENCE OF`, maps to `SEQUENCE OF SEQUENCE { key UTF8String,
+  value ... }`, and `fixed` to `OCTET STRING (SIZE(n))`. Nullable unions (`["null", T]`)
+  become `OPTIONAL` members and multi-branch unions become an ASN.1 `CHOICE`. Avro logical
+  types map to ASN.1 useful types (`date` → `DATE`, `time-*` → `TIME-OF-DAY`, `timestamp-*`
+  → `DATE-TIME`). This closes the ASN.1 round-trip gap: the repository previously offered
+  only `asn2a` (ASN.1 → Avro) with no reverse path.
+- **`s2asn` — convert JSON Structure Schema to ASN.1**: a new converter that maps the
+  JSON Structure type system **directly** to ASN.1 (it does not route through Avrotize
+  Schema), preserving the richer JSON Structure semantics. Sized integers map to `INTEGER`
+  with faithful range constraints (`int8` → `INTEGER (-128..127)`, `uint32` → `INTEGER
+  (0..4294967295)`, …); `object`/`array`/`set`/`map`/`tuple`/`choice` map to `SEQUENCE`/
+  `SEQUENCE OF`/`SET OF`/key-value `SEQUENCE OF`/positional `SEQUENCE`/`CHOICE`. String
+  `enum`/`const` values become an `ENUMERATED` preserving the symbol labels and ordinals;
+  integer `enum`/`const` values become an `INTEGER (v1 | v2 | ...)` value constraint. The
+  converter resolves canonical `{"type": {"$ref": ...}}` references, bare `{"$ref": ...}`
+  references, and nested definition namespaces, and merges `$extends` base properties into
+  the derived `SEQUENCE`.
+- Both converters accept an optional `--module` flag to override the ASN.1 module name
+  (otherwise derived from the output file name), and both emit `DEFINITIONS AUTOMATIC TAGS`
+  modules that are validated by round-tripping through the `asn1tools` compiler.
+- **`a2cs` / `s2cs` — `--target-framework` for generated C# projects** (#403): the C#
+  converters now accept `--target-framework` (Python `target_framework=`) to set the
+  `<TargetFramework>` written into the generated `.csproj`. A `;`-separated value (e.g.
+  `net8.0;net10.0`) emits `<TargetFrameworks>` for multi-targeting. When omitted, the
+  generated projects continue to target `net10.0` as before.
+
+### Fixed
+
+- **Go emitter now produces `gofmt`-clean, idiomatic Go** (#401): `a2go`/`s2go` previously
+  emitted space-indented code, unsorted imports, unaligned struct/`const` blocks, missing
+  blank lines, no trailing newline, and — most notably — struct tags glued together without
+  a separating space (`` `json:"x"avro:"x"` ``), which `gofmt` cannot repair because it lives
+  inside a raw string literal. The tag spacing is now fixed in the templates (`` `json:"x"
+  avro:"x"` ``) and every emitted file is run through `gofmt` as a final step (best-effort;
+  skipped cleanly when the Go toolchain is absent). The Go package name derived from the
+  input file name is also sanitized to a valid identifier, so the canonical `.struct.json`
+  extension no longer yields an un-compilable `package foo.struct` clause.
+- **Python `to_byte_array("application/json")` returns `bytes`** (#402): the dataclasses-json
+  serialization path returned the `str` from `to_json()` for plain `application/json`
+  (encoding to `bytes` only happened on the `+gzip` branch), violating the method's `-> bytes`
+  contract and breaking `from_data` round-tripping and gzip. `a2py` and `s2py` now encode the
+  JSON payload to UTF-8 `bytes` in the `application/json` branch.
+
+## [3.7.4] - 2026-07-09
+
+### Fixed
+
+- **JSON Schema / OpenAPI to JSON Structure now wrap map-value references**: `j2s`
+  (and `oas2s`, which reuses the same converter) emitted a bare `{"$ref": "..."}` for
+  map values derived from `additionalProperties`, e.g. `{"type": "map", "values":
+  {"$ref": "..."}}`. The JSON Structure Core specification only permits a bare `$ref`
+  as a member of a `type` union array; a map value reference must be wrapped as
+  `{"type": {"$ref": "..."}}`. The map builder now routes the value through the shared
+  schema-object normaliser, so map-value references are emitted in the wrapped form and
+  the output validates strictly against the JSON Structure Core metaschema. Property and
+  array-item references were already wrapped correctly and are unaffected. A systematic
+  audit of every `*2s` converter confirmed this was the only remaining bare-reference
+  path (all IDL/schema converters that route through `a2s` were already fixed in 3.7.3).
+- **JSON Schema / OpenAPI to JSON Structure now widen heterogeneous `enum` types**:
+  a JSON Schema `enum` may legitimately mix value families (for example a boolean
+  `false` or a `null` alongside strings). The converter previously emitted the enum
+  under a single scalar type such as `{"type": "string", "enum": [false, "a", "b"]}`,
+  which the JSON Structure Core validator rejects because `false` is not a valid
+  `string`. The declared type is now widened to a type-union that admits every enum
+  value's family (for example `{"type": ["string", "boolean"], ...}` or
+  `{"type": ["null", "string"], ...}`), while a homogeneous enum keeps its scalar type
+  and refined string-family types such as `uuid` are preserved.
+- **JSON Schema / OpenAPI to JSON Structure now reconcile `required` with emitted
+  properties**: a `required` entry could name a property whose key was normalised to a
+  valid identifier (with the original preserved via `altnames`), or a property the
+  source never defined. Either produced a `required` list referencing non-existent
+  property keys, which the validator rejects. `required` is now normalised to match the
+  emitted property identifiers and filtered to keys that are actually present.
+- **JSON Schema / OpenAPI to JSON Structure now nominate a root for type libraries**:
+  a document whose only content is a bundle of reusable named types (for example an
+  OpenAPI `components/schemas` section with no single primary schema) previously emitted
+  a `definitions`-only document with no root type, which the validator rejects with
+  `SCHEMA_ROOT_MISSING_TYPE`. Following the JSON Structure Core `$root` idiom, the
+  converter now nominates a `$root`: the referenced type when the source root is a bare
+  `$ref`, the single definition when there is exactly one, otherwise a synthetic
+  type-union over every top-level definition so that no type is arbitrarily privileged.
+- **JSON Schema / OpenAPI to JSON Structure now wrap choice-branch references**: a
+  discriminated union with an explicit discriminator mapping emitted each branch as a
+  bare `{"$ref": "..."}` under the `choice` type's `choices`, which the validator
+  rejects. Choice branch references are now wrapped as `{"type": {"$ref": "..."}}`.
+
+  Together these fixes make the `oas2s` output for large real-world specifications
+  (such as the GitHub OpenAPI description) validate cleanly against the official
+  JSON Structure Core metaschema.
+
+## [3.7.3] - 2026-07-09
+
+### Fixed
+
+- **Avro to JSON Structure now emits spec-compliant type references**: `a2s` — and
+  therefore every `<fmt>2s` converter that routes through it (Thrift, Cap'n Proto,
+  FlatBuffers, CUE, Smithy, RAML, JTD) — previously emitted bare `{"$ref": "..."}`
+  objects as property values, array `items`, and map `values`. The JSON Structure
+  Core specification only permits a bare `$ref` as a member of a `type` union array;
+  in every other position a reference must be wrapped as `{"type": {"$ref": "..."}}`
+  (nullable references as `{"type": ["null", {"$ref": "..."}]}`). The emitter now
+  produces the wrapped form, so its output validates strictly against the JSON
+  Structure Core metaschema. The 14 `*-ref.struct.json` reference fixtures were
+  regenerated accordingly.
+- **Redundant `default: null` is no longer emitted for optional properties**: in JSON
+  Structure, optionality is expressed by omission from `required`, so an additional
+  `default: null` was redundant and interfered with round-tripping (it caused the
+  CUE and Smithy generators to treat some optional fields as required). `a2s` now
+  omits it.
+- **Structure to GraphQL resolves wrapped type references**: `s2graphql` only handled
+  the pre-3.7.3 bare-`$ref` shape and raised `TypeError: unhashable type: 'dict'`
+  when a property's `type` was a wrapped reference. It now unwraps
+  `{"type": {"$ref": ...}}` (and union arrays containing references) in both type
+  resolution and named-type discovery, so referenced records/enums are emitted ahead
+  of their referrers as intended.
+
+## [3.7.2] - 2026-07-09
+
+### Fixed
+
+- **RAML to Avro now emits topologically-ordered types when no namespace is
+  supplied**: `raml2a` (and the RAML gallery examples) previously relied on
+  pre-populated dependency metadata that was only present on the namespaced
+  path, so converting a multi-type RAML library without `--namespace` could emit
+  a record before the enum or array-element record it references, producing Avro
+  that `fastavro` rejected with `UnknownType`. The converter now re-derives
+  dependencies from the references that actually appear in each type (via the
+  shared `sort_and_inline_dependencies` resolver introduced in 3.7.1), so output
+  is valid regardless of namespace.
+
+## [3.7.1] - 2026-07-09
+
+### Fixed
+
+- **Circular and mutually-recursive type definitions now emit valid Avro across the
+  v3.7.0 format converters**: the Cap'n Proto, CUE, FlatBuffers, JTD, and Smithy
+  converters previously emitted top-level Avro named types in an order that
+  referenced a type before it was defined, causing `fastavro` to reject the output
+  for mutually-recursive schemas. A new shared `sort_and_inline_dependencies`
+  resolver re-derives each type's dependencies from the references that actually
+  appear in its fields and reorders/inlines them to break cycles. The C# generator
+  (`a2cs`/`s2cs`) now emits concrete recursive types (e.g. `Node?`, `List<Node>`)
+  instead of `object`.
+- **Distinct source names that collapse to the same identifier after sanitization
+  are now disambiguated** (extends the #382/#383/#385 sanitization fix to all
+  v3.7.0 formats): field names, enum symbols, and type names such as `a-b` and
+  `a_b` (both of which sanitize to `a_b`) are now suffixed (`a_b`, `a_b_1`) via a
+  shared `unique_name` helper in the Cap'n Proto, CUE, FlatBuffers, RAML, Smithy,
+  SurrealDB, and C# (`a2cs`/`s2cs`, including `--openapi-generator-compat`)
+  conversions, instead of producing duplicate/ambiguous identifiers or invalid Avro.
+- **Non-ASCII (Unicode) identifiers and string literals are preserved or cleanly
+  sanitized**: the Thrift, Smithy, and FlatBuffers parsers no longer corrupt UTF-8
+  string literals and defaults (e.g. `café ❤`) via `unicode_escape` decoding; JTD
+  non-ASCII property names now round-trip through `altnames`; SurrealDB
+  backtick-quoted non-ASCII table/field names parse correctly; the FlatBuffers
+  tokenizer accepts non-ASCII identifiers; and the C# openapi-compat path handles
+  all-non-ASCII field names without crashing.
+
+### Added
+
+- **Comprehensive type-system range and adversarial test suites** for all ten
+  schema formats introduced in v3.7.0 (Thrift, JTD, Cap'n Proto, RAML, Smithy,
+  CUE, FlatBuffers, SurrealDB, Parquet, and C# openapi-compat). Each suite pins the
+  full bidirectional primitive, container, enum, union, and recursion type mapping
+  and adds adversarial coverage — malformed input, empty documents, deep and mutual
+  recursion, name-collision/reserved handling, Unicode, and lossy round-trip
+  fidelity — adding roughly 225 tests that surface and lock down converter
+  edge-case behavior.
+
+## [3.7.0] - 2026-07-08
+
+### Added
+
+- **RAML 1.0 Data Types support** ([#261](https://github.com/clemensv/avrotize/issues/261)): Added `raml2a`, `a2raml`, `raml2s`, and `s2raml` converters for RAML Data Types via Avrotize Schema and JSON Structure. Phase 1 intentionally excludes full RAML API resource/method conversion, traits, resourceTypes, security schemes, annotations, and external `!include` expansion.
+- **Cap'n Proto schema support** ([#257](https://github.com/clemensv/avrotize/issues/257)): Added `capnp2a`, `a2capnp`, `capnp2s`, and `s2capnp` conversions with documented primitive, union, group, ordinal, file id, import, and skipped-declaration mapping limitations.
+- **Smithy IDL data-shape conversion** ([#259](https://github.com/clemensv/avrotize/issues/259)): Added `smithy2a`, `a2smithy`, `smithy2s`, and `s2smithy` commands for Smithy 2.0 IDL data shapes, including structures, unions, enums/intEnums, lists, maps, scalars, documentation/default/required traits, and JSON Structure bridging through Avrotize Schema. Service, operation, resource, and protocol modeling are explicitly out of phase-1 scope and are skipped gracefully.
+- **Apache Thrift IDL conversion support** ([#255](https://github.com/clemensv/avrotize/issues/255)): Added Thrift IDL to/from Avrotize Schema and JSON Structure bridge commands (`thrift2a`, `a2thrift`, `thrift2s`, `s2thrift`) with documented mapping limitations for services, constants, includes, unions, sets, and non-string map keys.
+- **`s2pq` — JSON Structure to Parquet schema conversion** (issue #48): converts a
+  JSON Structure schema to an empty Parquet file whose footer carries the derived
+  schema (mirrors the existing `a2pq` and `s2ib` converters). Supports
+  `--record-type`, `--emit-cloudevents-columns`, and `--format parquet|schema`.
+  JSON Structure primitive, temporal, numeric (`decimal` precision/scale),
+  collection (`array`/`set`/`map`/`tuple`), `object` (incl. `$extends`), and
+  `choice` types are mapped to PyArrow types; property-less objects become
+  `map<string, string>`; required properties become non-nullable columns.
+- **JSON Type Definition (JTD, RFC 8927) support** ([#260](https://github.com/clemensv/avrotize/issues/260)): Added `jtd2a`, `a2jtd`, `jtd2s`, and `s2jtd` commands for converting JTD to/from Avrotize Schema and JSON Structure. The implementation supports JTD type, enum, elements, values, properties/optionalProperties, discriminator/mapping, definitions/ref, and nullable forms, with documented Avro mapping limitations.
+- **SurrealDB schema conversion** ([#270](https://github.com/clemensv/avrotize/issues/270)): Added `surreal2a` and `a2surreal` converters for SurrealQL `DEFINE TABLE` / `DEFINE FIELD` schemas, including nested dotted fields, arrays, sets, nullable `option<T>` fields, and Avro logical types for datetime, decimal, and UUID values.
+- **CUE schema subset support** ([#258](https://github.com/clemensv/avrotize/issues/258)): Added `cue2a`, `a2cue`, `cue2s`, and `s2cue` converters for a documented practical CUE schema/type-definition subset, including Avro and JSON Structure bridge conversions.
+- **FlatBuffers schema support** ([#256](https://github.com/clemensv/avrotize/issues/256)): Added `fbs2a`, `a2fbs`, `fbs2s`, and `s2fbs` conversions for FlatBuffers `.fbs` schemas, including namespace, table, struct, enum, union, vector, root type, required-field, and default-value handling. Documented mapping limitations for fixed-layout structs, enum integer values, unsigned 64-bit integers, `[ubyte]` vectors, and unsupported Avro/JSON Structure metadata.
+- **C# `--openapi-generator-compat` output mode** ([#152](https://github.com/clemensv/avrotize/issues/152)): `a2cs` and `s2cs` can now emit OpenAPI Generator-compatible C# models with `Option<T>` optional properties and matching `System.Text.Json` converters.
+
+## [3.6.1] - 2026-07-08
+
+### Fixed
+
+- **`s2a` now sanitizes non-identifier property and enum names (issues #382,
+  #383, #385)**: JSON Structure permits property keys and enum values that are
+  not valid Avro names (e.g. `dr-type`, `kar.id`, `1`, `N/A`, `KAR-MQTT`).
+  Previously `s2a` emitted these verbatim, producing schemas that violate the
+  Avro name grammar `[A-Za-z_][A-Za-z0-9_]*` — enum symbols were rejected even by
+  the reference `avro.schema.parse`, and hyphenated field names are rejected by
+  strict consumers (Java, Confluent Schema Registry). Property keys are now
+  sanitized to valid Avro field names with the original key preserved as an Avro
+  `aliases` entry; enum values are sanitized to valid symbols with collisions
+  resolved by numeric suffix and the original wire values preserved in the enum
+  `doc`. Tagged-union discriminator enums are sanitized the same way.
+- **`s2k` now quotes non-identifier column names and JSONPaths (issue #382)**:
+  Kusto column definitions and ingestion-mapping JSONPaths for non-identifier
+  property keys are now bracket/quote-escaped (`['dr-type']`, `$['dr-type']`)
+  instead of the previously invalid bare forms (`[dr-type]`, `$.dr-type`). Plain
+  identifier columns are unchanged.
+
+## [3.6.0] - 2026-06-29
+
+### Added
+
+- **JSON Structure `altnames`/`altenums` wire serialization (issue #384)**: the
+  direct structure-to-language generators (Python, C#, Java, TypeScript, Go,
+  Rust, C++) now honor the `JSONStructureAlternateNames` extension on the JSON
+  wire. A spec-valid identifier property carrying `altnames: {"json": "wire-key"}`
+  keeps the identifier as the language member name while serializing/deserializing
+  the alternate `json` key (e.g. member `dr_type` ↔ wire `dr-type`). Renames apply
+  recursively to nested objects, array items, and map values. Enums honor
+  `altenums: {"json": {...}}`, mapping each member to its wire value with identity
+  fallback for unmapped symbols (C++ emits `NLOHMANN_JSON_SERIALIZE_ENUM`). A
+  rename is emitted only when the wire name differs from the identifier. Other
+  purposes (`description`, `lang:*`, custom) never affect the wire.
+
+## [3.5.12] - 2026-06-19
+
+### Fixed
+
+- **Kusto docstring escaping (issue #317)**: `a2k` and `s2k` now emit table
+  and column docstrings as single-encoded KQL string literals, avoiding invalid
+  double-escaped quote sequences in generated `.kql`.
+- **`s2a` temporal types now emit valid standard Avro (#335)**: JSON Structure
+  temporal types (`date`, `time`, `datetime`, `timestamp`, `duration`) previously
+  mapped to a `string` base annotated with a reserved Avro logical type (e.g.
+  `{"type":"string","logicalType":"timestamp-millis"}`), which is invalid Avro
+  and is rejected by strict validators (e.g. Microsoft Fabric EventSchemaSet).
+  They now use a new `rfc3339-*` logical-type family (e.g.
+  `{"type":"string","logicalType":"rfc3339-timestamp-millis"}`). Because
+  `rfc3339-*` names are not reserved Avro logical types, the output is valid
+  standard Avro while the RFC 3339 textual value is preserved. `avrotojstruct`,
+  `avrotojsons`, and the Avrotize validator recognize the new names (the legacy
+  `string` + reserved-name form is still accepted on input). See
+  `specs/avrotize-schema.md` §3.8.11.
+- **s2a inline `object` produced invalid Avro / lost nested data (issue #336)**:
+  A JSON Structure property typed as `{"type": "object"}` previously emitted the
+  bare literal `"object"`, which is not a valid Avro type (parsers reject it,
+  Microsoft Fabric `EventSchemaSet` validation fails). Objects *with* `properties`
+  additionally lost their entire nested shape. Inline objects now convert
+  correctly:
+  - open / property-less object -> `{"type": "map", "values": "string"}`
+    (honoring `additionalProperties` value type when present);
+  - object with `properties` -> a nested Avro `record` (shape preserved, with
+    unique record names derived from the enclosing property);
+  - bare `"object"`/`"array"` union members map to their valid open Avro forms.
+- **j2a dropped JSON Schema `format` logical types (issue #337)**: Converting a
+  JSON Schema / OpenAPI field with `"format": "date-time"` produced a bare Avro
+  `int` (32-bit — silent millisecond-timestamp overflow) and discarded the
+  logical type. The post-processing step that inlines basic types now preserves
+  logical-type annotations, so:
+  - `date-time` -> `{"type": "long", "logicalType": "timestamp-millis"}`
+  - `date` -> `{"type": "int", "logicalType": "date"}`
+  - `time` -> `{"type": "int", "logicalType": "time-millis"}`
+  - `uuid` -> `{"type": "string", "logicalType": "uuid"}`
+  These are retained for required, optional (nullable), array-item, and nested
+  field positions.
+- **a2ts inline-enum test imports point to a non-existent path (issue #338)**:
+  When a record has an inline enum field, j2a correctly scopes the enum into a
+  `<Record>_types` sub-namespace, but the generated Jest test file imported the
+  enum from a flattened path (e.g. `../src/ns/Type.js`) that does not exist and
+  fails to compile. The TypeScript generator now records each class's
+  fully-qualified import names and the test generator reuses them, so test
+  imports resolve to the real source file. Added j2a regression tests asserting
+  inline enums on same-named properties across sibling schemas produce distinct
+  enums with their own symbols, and an a2ts test asserting every generated test
+  import resolves to an existing file.
+- **Avro to TypeScript contextual field names (issue #339)**: `a2ts` now preserves
+  TypeScript contextual keywords such as `type`, `namespace`, `module`, and
+  `readonly` when they are used as Avro field names instead of renaming them
+  with a trailing underscore.
+- **Avro to Python enum symbols (issue #354)**: `a2p` now sanitizes enum member
+  names that are numeric, digit-prefixed, hyphenated, reserved words, or otherwise
+  invalid Python identifiers while preserving the original Avro symbol strings as
+  enum values.
+- **Avro to Python dataclasses JSON date encoding (issue #355)**:
+  `datetime.date` fields generated from Avro `date` logical types now use ISO
+  `dataclasses-json` encoder/decoder wiring and a Marshmallow `fields.Date`,
+  matching existing `datetime.datetime` timestamp handling.## [3.5.9] - 2026-06-04
+### Changed
+
+- **Extensible `AnyValue` record for the Avro "any" type**: The generic type
+  (`generic_type()`) is now modeled as a union of all Avro primitives plus an
+  empty record `avrotize.AnyValue` and recursive `array`/`map` types.  The
+  `AnyValue` record can be extended via standard Avro schema evolution (adding
+  fields with defaults), giving consumers a structured upgrade path instead of
+  the previous brute-force 2-level nested primitives union.  All code
+  generators (Java, C#, C++, Go, TypeScript, JavaScript, Python, Rust, Proto,
+  JSON Schema, XSD, JSON Structure) map `AnyValue` to the language-native "any"
+  type.
+- **Union ordering for serialization correctness**: `AnyValue` name references
+  are placed after `array`/`map` types in inner unions so that serializers
+  (fastavro) resolve dict values to map before the empty record.
+- **Backward compatibility**: `is_generic_avro_type()` detects both the new
+  AnyValue-based format and the legacy 2-level nested primitives union.
+
+### Fixed
+
+- **int64/uint64/int128/uint128/decimal JSON string serialization (issue #346)**:
+  All language code generators now serialize these types as JSON strings (not
+  numbers) per the JSON Structure Core spec, since IEEE-754 doubles cannot
+  represent the full 64-bit+ integer range without precision loss.
+  - Python: `encoder`/`decoder` in `dataclasses_json.config`; `to_serializer_dict`/`from_serializer_dict` string conversion
+  - Java: `@JsonFormat(shape = JsonFormat.Shape.STRING)` annotation
+  - Go: `json:",string"` struct tag
+  - Rust: Custom `serde` `string_as_number`/`option_string_as_number` modules
+  - TypeScript: Custom `serializer`/`deserializer` in `@jsonMember` decorator
+  - C++: Custom `to_json`/`from_json` friend functions with `std::to_string`
+  - C#: Already handled via `JsonStructureConverters`
+- **Rust code generator**: `serde_json` is now always included in `Cargo.toml`
+  dependencies (required for `serde_json::Value` used by `AnyValue`).
+- **Java code generator**: Skip generating per-type `Object` constructor in
+  union classes to avoid a duplicate-constructor compilation error when
+  `AnyValue` is a union member.
+- **gzip compression test**: Set `PYTHONIOENCODING=utf-8` in subprocess
+  environment to handle Unicode characters on Windows cp1252 consoles.
+- **MCP CLI test**: Updated prompt format for `get_conversion` tool to match
+  current Copilot CLI conventions.
+
+## [3.5.7] - 2026-05-23
+
+### Added
+
+- **TMSL (Tabular Model Scripting Language) support** ([#254](https://github.com/clemensv/avrotize/pull/254)): New `a2tsml` and `s2tsml` converters that emit Microsoft Analysis Services TMSL scripts from Avrotize and JSON Structure schemas. New `validate-tmsl` command performs local structural validation against the documented TMSL object model — no Analysis Services instance required.
+- **SQL primary-key / foreign-key metadata round-trip**: `sql2a` now captures foreign-key relationships from the source database and emits them as Avro `unique` and `foreignKeys` annotations. These flow through `a2s` / `s2a` and into `a2tsml` as TMSL `isKey` markers and `relationships` entries, preserving the relational model end-to-end.
+- **Structure to Avro: PK/FK propagation** in `jstructtoavro` so the metadata survives a Structure→Avro→TMSL round-trip.
+- **Avro to JSON Structure: PK/FK annotations** — `avrotojstruct` now emits `x-avrotize-unique` and `x-avrotize-foreignKeys` on record schemas when the source Avro carries `unique` / `foreignKeys` metadata.
+
+## [3.5.6] - 2026-05-22
+
+### Fixed
+
+- **Structure to Python: integer enum members produced invalid Python** ([#315](https://github.com/clemensv/avrotize/issues/315)): Integer-valued JSON Structure enums (e.g. `"enum": [0, 1, 2]`) previously generated a class body with bare numeric literals like `0 = '0'` — a `SyntaxError` on import. `StructureToPython.generate_enum` now detects all-numeric enums and emits an `IntEnum` with member names prefixed `VALUE_<n>` (or `VALUE_NEG_<n>` for negatives), assigning the original integer literal as the value. String enum members whose values aren't valid identifiers (digit-prefixed, hyphenated, etc.) are also sanitized with the `VALUE_` prefix. Mirrors the `Value{value}` pattern already used by the C# converter.
+
+## [3.5.5] - 2026-05-22
+
+### Fixed
+
+- **Structure to Python: `$root` + `definitions` wrapper silently dropped** ([#314](https://github.com/clemensv/avrotize/issues/314)): `convert_structure_schema_to_python` previously produced only `pyproject.toml` (no `src/` tree) for the canonical JSON Structure shape where the actual type lives at a JSON pointer like `#/definitions/de/wsv/pegelonline/Station`. The converter now resolves `$root` pointers, derives the namespace from the pointer path, and recursively walks the `definitions` tree so every named type is emitted. A defensive warning is logged when a top-level schema matches none of the recognized shapes, so future silent drops are visible.
+
+## [3.5.4] - 2026-05-20
+
+### Changed
+
+- **Kusto to JSON Structure xRegistry output**: When `--emit-xregistry` is set, `k2j` now emits a proper xRegistry document with both `schemagroups` (versioned schemas) and `messagegroups`. CloudEvents-style tables (those with a `type` column whose docstring lists allowed values) get a `CloudEvents/1.0` envelope with required `id`/`source`/`time` and a fixed `type`; non-CloudEvents tables get a plain message group keyed by schema id. Inferrer `root` artifacts are dropped before attributes are applied.
+
+### Dependencies
+
+- Bumped 20 dependencies via Dependabot across Python (`avro`, `fastavro`, `confluent-kafka`, `mypy`, `pylint`, `jsonschema`, `xmlschema`, `pyiceberg`, `oracledb`, `azure-kusto-data`), Maven (`jackson-bom`, `jackson-core`, `jackson-databind`), NuGet (`System.Text.Json`, `System.Memory.Data`, `NUnit`, `Microsoft.NET.Test.Sdk`, `Dahomey.Cbor`), and GitHub Actions (`s4u/setup-maven-action`, `pypa/gh-action-pypi-publish`).
+
+## [3.5.3] - 2026-05-19
+
+### Added
+
+- **`a2k` and `s2k`: `--qualified-table-names` option**: Generates Kusto table names using the entity's fully qualified namespace (e.g. `['com.example.Order']`). Table references, materialized views, and update-policy targets are bracket-quoted; mapping names use the dotted string as-is.
+- **`a2k` and `s2k`: `--namespace` option**: Sets or overrides the namespace used for table-name qualification. For JSON Structure inputs, namespaces are derived from the `definitions/<seg>/<seg>/<type>` path when not explicitly provided.
+
+### Notes
+
+- Default output (without `--qualified-table-names`) is byte-identical to prior versions; reference-file tests are preserved.
 
 ## [3.5.2] - 2026-04-08
 
