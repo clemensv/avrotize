@@ -1,12 +1,24 @@
 name: Upload Python Package and VS Code Extension 
 
+# Disabled in the Klok fork (klok-opensource/klok-avrotize).
+# Klok does not publish the avrotize PyPI package or the VS Code extension. This fork is
+# installed from source into the klok-build-runner image, so upstream's 14-way publish
+# matrix and its marketplace/PyPI deploy jobs are not checks on our copy -- they only
+# blocked Klok pull requests. The Java and XSD paths Klok does use are covered by
+# klok-verify.yml instead.
+# The original trigger is kept below, commented out, so that an upstream sync merge
+# still shows a conflict here if upstream changes it. See KLOK.md.
+#
+# on:
+#   push:
+#     branches: [ master ]
+#     tags:
+#       - 'v*'
+#   pull_request:
+#     branches: [ master ]
+
 on:
-  push:
-    branches: [ master ]
-    tags:
-      - 'v*'
-  pull_request:
-    branches: [ master ]
+  workflow_dispatch:
 
 permissions:
   contents: read

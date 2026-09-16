@@ -1,10 +1,18 @@
 name: Governance observe
 
+# Disabled in the Klok fork (klok-opensource/klok-avrotize).
+# Upstream's project governance process does not apply to this fork.
+# The original trigger is kept below, commented out, so that an upstream sync merge
+# still shows a conflict here if upstream changes it. See KLOK.md.
+#
+# on:
+#   pull_request:
+#     branches: [ master, main ]
+#   push:
+#     branches: [ master, main ]
+#   workflow_dispatch:
+
 on:
-  pull_request:
-    branches: [ master, main ]
-  push:
-    branches: [ master, main ]
   workflow_dispatch:
 
 permissions:

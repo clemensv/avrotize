@@ -1,8 +1,17 @@
 name: Guarded bug reproduction preparation
 
+# Disabled in the Klok fork (klok-opensource/klok-avrotize).
+# Upstream's Copilot-driven bug reproduction. It needs Copilot credits and upstream's
+# labels, neither of which exist here.
+# The original trigger is kept below, commented out, so that an upstream sync merge
+# still shows a conflict here if upstream changes it. See KLOK.md.
+#
+# on:
+#   issues:
+#     types: [labeled]
+
 on:
-  issues:
-    types: [labeled]
+  workflow_dispatch:
 
 permissions: {}
 

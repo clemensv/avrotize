@@ -1,17 +1,25 @@
 name: Governance CI
 
+# Disabled in the Klok fork (klok-opensource/klok-avrotize).
+# Upstream's project governance process does not apply to this fork.
+# The original trigger is kept below, commented out, so that an upstream sync merge
+# still shows a conflict here if upstream changes it. See KLOK.md.
+#
+# on:
+#   pull_request:
+#     paths:
+#       - ".github/**"
+#       - "GOVERNANCE.md"
+#       - "CONTRIBUTING.md"
+#       - "SECURITY.md"
+#       - "SUPPORT.md"
+#       - "tools/governance_*.py"
+#       - "tools/validate_governance.py"
+#       - "test/test_governance*.py"
+#       - "test/fixtures/governance/**"
+
 on:
-  pull_request:
-    paths:
-      - ".github/**"
-      - "GOVERNANCE.md"
-      - "CONTRIBUTING.md"
-      - "SECURITY.md"
-      - "SUPPORT.md"
-      - "tools/governance_*.py"
-      - "tools/validate_governance.py"
-      - "test/test_governance*.py"
-      - "test/fixtures/governance/**"
+  workflow_dispatch:
 
 permissions:
   contents: read

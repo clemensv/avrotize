@@ -1,8 +1,17 @@
 name: Validate MCP server.json
 
+# Disabled in the Klok fork (klok-opensource/klok-avrotize).
+# Klok does not publish avrotize to the MCP registry, and this job downloads mcp-publisher
+# from the internet on every pull request.
+# The original trigger is kept below, commented out, so that an upstream sync merge
+# still shows a conflict here if upstream changes it. See KLOK.md.
+#
+# on:
+#   pull_request:
+#     branches: [ master ]
+#   workflow_dispatch:
+
 on:
-  pull_request:
-    branches: [ master ]
   workflow_dispatch:
 
 permissions:

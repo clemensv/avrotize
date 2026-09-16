@@ -1,8 +1,17 @@
 name: Dependabot intake
 
+# Disabled in the Klok fork (klok-opensource/klok-avrotize).
+# Upstream's Dependabot triage automation. Dependency bumps for this fork come from
+# upstream through a sync merge, not from Dependabot pull requests here.
+# The original trigger is kept below, commented out, so that an upstream sync merge
+# still shows a conflict here if upstream changes it. See KLOK.md.
+#
+# on:
+#   pull_request_target:
+#     types: [opened, reopened, synchronize, ready_for_review]
+
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
 
 permissions: {}
 

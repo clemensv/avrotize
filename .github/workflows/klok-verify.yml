@@ -1,0 +1,97 @@
+# The check that matters for the Klok fork.
+#
+# Klok consumes avrotize through three subcommands only -- x2a, j2a and a2java -- called from
+# build-template-datamodel.yml in klok/environment/build-ci-templates. This workflow verifies
+# exactly those paths, plus the Klok-specific behaviour that a2java emits a Klok Gradle project.
+# Upstream's own publish matrix is disabled here; see KLOK.md.
+
+name: Klok verify
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generators:
+    name: Java and XSD generators
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Install avrotize and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest fastavro xmlschema avro
+
+      - name: XSD to Avro
+        run: python -m pytest test/test_xsdtoavro.py -v
+
+      - name: Avro to Java
+        run: python -m pytest test/test_avrotojava.py -v
+
+  klok_datamodel:
+    name: Klok datamodel generation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Install avrotize
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      # Reproduces build-template-datamodel.yml: one XSD in, one Avro schema out, then a Java
+      # project out. The Klok delta in avrotize/avrotojava.py must survive every upstream sync,
+      # so the generated Gradle files are asserted rather than assumed.
+      - name: Generate a datamodel project the way Klok CI does
+        env:
+          KLOK_PROJECT_VISIBILITY: PUBLIC
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          avrotize x2a test/xsd/crmdata.xsd --out out/crmdata.avsc
+          avrotize a2java out/crmdata.avsc --out out/crmdata-java --package dev.klok.datamodel.verify
+
+      - name: Assert the Klok Gradle project is emitted
+        run: |
+          set -euo pipefail
+          cd out/crmdata-java
+          test -s build.gradle
+          test -s settings.gradle
+          test -s gradle/klok-libs.versions.toml
+          grep -q 'projectType = ProjectType.DATAMODEL' build.gradle
+          grep -q 'KLOK_PROJECT_VISIBILITY' build.gradle
+          grep -q 'klokLibs' settings.gradle
+          test "$(find src/main/java -name '*.java' | wc -l)" -gt 0
+          echo "Klok Gradle project generated as expected"
