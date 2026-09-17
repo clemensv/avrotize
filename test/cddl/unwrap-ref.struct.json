@@ -20,7 +20,8 @@
       "description": "CDDL schema demonstrating the unwrap operator (~) Based on RFC 8610 Section 3.7 Base group that will be unwrapped",
       "altnames": {
         "cddl": "base-header"
-      }
+      },
+      "abstract": true
     },
     "extended_header": {
       "type": "object",
@@ -61,7 +62,8 @@
         "y"
       ],
       "name": "coordinates",
-      "description": "Another example: base coordinates"
+      "description": "Another example: base coordinates",
+      "abstract": true
     },
     "point_3d": {
       "type": "object",
@@ -178,7 +180,8 @@
       "description": "Unwrap with optional fields",
       "altnames": {
         "cddl": "optional-fields"
-      }
+      },
+      "abstract": true
     },
     "config_with_optional": {
       "type": "object",

@@ -11,7 +11,7 @@ Complex test scenario combining multiple JSON Structure features
 **Properties:**
 - **metadata** (required): `object`
 - **data** (required): [Choice](#choice)
-- **signature**: `bytes`
+- **signature**: `binary`
   - Description: Digital signature
 ## Enumerations
 

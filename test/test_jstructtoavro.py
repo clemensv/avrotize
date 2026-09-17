@@ -1299,6 +1299,36 @@ class TestNameSanitization(unittest.TestCase):
         self.assertEqual(field['name'], 'status')
         self.assertNotIn('aliases', field)
 
+    def test_definition_avro_altname_restores_name_and_references(self):
+        structure = {
+            "$schema": "https://json-structure.org/meta/extended/v0/#",
+            "$uses": ["JSONStructureAlternateNames"],
+            "$root": "#/definitions/example/Container",
+            "definitions": {
+                "example": {
+                    "type_": {
+                        "name": "type_",
+                        "type": "string",
+                        "enum": ["one"],
+                        "altnames": {"avro": "type"},
+                    },
+                    "Container": {
+                        "type": "object",
+                        "properties": {
+                            "value": {"$ref": "#/definitions/example/type_"}
+                        },
+                        "required": ["value"],
+                    },
+                }
+            },
+        }
+
+        result = self.converter.convert(structure)
+        schemas = {schema["name"]: schema for schema in result}
+        self.assertIn("type", schemas)
+        self.assertNotIn("type_", schemas)
+        self.assertEqual(schemas["Container"]["fields"][0]["type"], "example.type")
+
     def _root_enum(self, values, default=None):
         schema = {
             "$schema": "https://json-structure.org/meta/extended/v0/#",

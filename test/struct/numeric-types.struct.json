@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example.com/schemas/numeric-types",
+  "$uses": ["JSONStructureValidation"],
   "type": "object",
   "name": "NumericTypes",
   "description": "Test schema for numeric types with precision and scale",
@@ -32,11 +33,11 @@
       "maximum": 99999999.99
     },
     "float32Field": {
-      "type": "float32",
+      "type": "float",
       "description": "32-bit floating point"
     },
     "float64Field": {
-      "type": "float64",
+      "type": "double",
       "description": "64-bit floating point"
     }
   },

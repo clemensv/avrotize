@@ -13,7 +13,7 @@ Test schema for temporal types
   - Description: A time field
 - **datetimeField** (required): `datetime`
   - Description: A datetime field
-- **timestampField**: `timestamp`
+- **timestampField**: `datetime`
   - Description: A timestamp field
 - **durationField**: `duration`
   - Description: A duration field

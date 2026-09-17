@@ -1,29 +1,5 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
-  "type": "object",
-  "properties": {
-    "def1": {
-      "type": {
-        "$ref": "#/definitions/Definition1"
-      }
-    },
-    "def2": {
-      "type": {
-        "$ref": "#/definitions/Definition2"
-      }
-    },
-    "def3": {
-      "type": {
-        "$ref": "#/definitions/Definition3"
-      }
-    },
-    "def4": {
-      "type": {
-        "$ref": "#/definitions/Definition4"
-      }
-    }
-  },
-  "$id": "https://example.com/example/com.schema.json",
   "definitions": {
     "Definition1": {
       "type": "object",
@@ -62,9 +38,7 @@
             {
               "$ref": "#/definitions/Definition3"
             },
-            {
-              "type": "string"
-            }
+            "string"
           ]
         }
       }
@@ -98,5 +72,29 @@
       }
     }
   },
-  "name": "document"
+  "type": "object",
+  "name": "document",
+  "properties": {
+    "def1": {
+      "type": {
+        "$ref": "#/definitions/Definition1"
+      }
+    },
+    "def2": {
+      "type": {
+        "$ref": "#/definitions/Definition2"
+      }
+    },
+    "def3": {
+      "type": {
+        "$ref": "#/definitions/Definition3"
+      }
+    },
+    "def4": {
+      "type": {
+        "$ref": "#/definitions/Definition4"
+      }
+    }
+  },
+  "$id": "https://example.com/example/com.schema.json"
 }

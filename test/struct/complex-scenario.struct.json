@@ -45,7 +45,7 @@
               "scale": 6,
               "unit": "m/s²"
             },
-            "timestamp": { "type": "timestamp" },
+            "timestamp": { "type": "datetime" },
             "device": {
               "type": "object",
               "properties": {
@@ -95,7 +95,7 @@
       }
     },
     "signature": {
-      "type": "bytes",
+      "type": "binary",
       "description": "Digital signature"
     }
   },

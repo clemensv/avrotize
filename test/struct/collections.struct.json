@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
   "$id": "https://example.com/schemas/collections",
+  "$uses": ["JSONStructureValidation"],
   "type": "object",
   "name": "Collections",
   "description": "Test schema for collection types",

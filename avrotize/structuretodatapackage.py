@@ -313,15 +313,6 @@ class StructureToDataPackageConverter:
                 else:
                     resource["description"] = f"Offers: {', '.join(offers.keys()) if isinstance(offers, dict) else str(offers)}"
             
-            # Handle $uses (add-in system)
-            if "$uses" in schema:
-                uses = schema["$uses"]
-                uses_str = ', '.join(uses) if isinstance(uses, list) else str(uses)
-                if "description" in resource:
-                    resource["description"] += f" (Uses add-ins: {uses_str})"
-                else:
-                    resource["description"] = f"Uses add-ins: {uses_str}"
-            
             # Handle deprecated at schema level
             if schema.get("deprecated", False):
                 if "description" in resource:

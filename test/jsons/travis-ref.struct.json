@@ -1,156 +1,5 @@
 {
   "$schema": "https://json-structure.org/meta/extended/v0/#",
-  "type": "object",
-  "description": "JSON schema for Travis CI configuration files",
-  "properties": {
-    "import": {
-      "type": "set",
-      "items": {
-        "type": {
-          "$ref": "#/definitions/import"
-        }
-      }
-    },
-    "jobs": {
-      "type": "object",
-      "properties": {
-        "allow_failures": {
-          "type": "array",
-          "items": {
-            "type": {
-              "$ref": "#/definitions/job"
-            }
-          }
-        },
-        "exclude": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "stage": {
-                "type": "string"
-              }
-            },
-            "$extends": "#/definitions/jobBase",
-            "name": "document"
-          }
-        },
-        "fast_finish": {
-          "type": "boolean"
-        },
-        "include": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "stage": {
-                "type": "string"
-              }
-            },
-            "$extends": "#/definitions/jobBase",
-            "name": "document"
-          }
-        }
-      },
-      "name": "document"
-    },
-    "matrix": {
-      "type": "object",
-      "properties": {
-        "allow_failures": {
-          "type": "array",
-          "items": {
-            "type": {
-              "$ref": "#/definitions/job"
-            }
-          }
-        },
-        "exclude": {
-          "type": "array",
-          "items": {
-            "type": {
-              "$ref": "#/definitions/job"
-            }
-          }
-        },
-        "fast_finish": {
-          "type": "boolean"
-        },
-        "include": {
-          "type": "array",
-          "items": {
-            "type": {
-              "$ref": "#/definitions/job"
-            }
-          }
-        }
-      },
-      "name": "document"
-    },
-    "notifications": {
-      "type": "object",
-      "properties": {
-        "campfire": {
-          "type": {
-            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-          }
-        },
-        "email": {
-          "type": {
-            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-          }
-        },
-        "flowdock": {
-          "type": {
-            "$ref": "#/definitions/possiblySecretString"
-          }
-        },
-        "hipchat": {
-          "type": {
-            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-          }
-        },
-        "irc": {
-          "type": {
-            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-          }
-        },
-        "pushover": {
-          "type": {
-            "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings"
-          }
-        },
-        "slack": {
-          "type": {
-            "$ref": "#/definitions/slackRoom"
-          }
-        },
-        "webhooks": {
-          "type": {
-            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
-          }
-        }
-      },
-      "name": "document"
-    },
-    "stages": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "version": {
-      "type": "string",
-      "pattern": "^(~>|>|>=|=|<=|<) (\\d+(?:\\.\\d+)?(?:\\.\\d+)?)$"
-    }
-  },
-  "$extends": "#/definitions/jobBase",
-  "$id": "https://json.schemastore.org/travis.json",
-  "$uses": [
-    "JSONStructureAlternateNames",
-    "JSONStructureConditionalComposition",
-    "JSONStructureValidation"
-  ],
   "definitions": {
     "nonEmptyString": {
       "type": "string",
@@ -241,26 +90,30 @@
       ],
       "name": "notificationFrequency"
     },
+    "step_string": {
+      "type": "string",
+      "enum": [
+        "skip",
+        "ignore"
+      ],
+      "name": "step_string"
+    },
+    "step_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "name": "step_array"
+    },
     "step": {
       "type": [
+        "boolean",
         {
-          "type": "boolean"
+          "$ref": "#/definitions/step_string"
         },
+        "string",
         {
-          "type": "string",
-          "enum": [
-            "skip",
-            "ignore"
-          ]
-        },
-        {
-          "type": "string"
-        },
-        {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "$ref": "#/definitions/step_array"
         }
       ],
       "name": "step"
@@ -350,6 +203,18 @@
       "type": "string",
       "pattern": "[^=]+=.*",
       "name": "envVar"
+    },
+    "firefox_string": {
+      "type": "string",
+      "enum": [
+        "latest",
+        "latest-esr",
+        "latest-beta",
+        "latest-dev",
+        "latest-nightly",
+        "latest-unsigned"
+      ],
+      "name": "firefox_string"
     },
     "job": {
       "type": "object",
@@ -732,7 +597,10 @@
           ]
         },
         "sudo": {
-          "type": "string",
+          "type": [
+            "string",
+            "boolean"
+          ],
           "enum": [
             true,
             false,
@@ -756,9 +624,6 @@
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": [
-                      "sourceline"
-                    ],
                     "name": "job",
                     "properties": {
                       "sourceline": {
@@ -767,7 +632,10 @@
                       "key_url": {
                         "type": "string"
                       }
-                    }
+                    },
+                    "required": [
+                      "sourceline"
+                    ]
                   }
                 },
                 "packages": {
@@ -790,7 +658,10 @@
               }
             },
             "artifacts": {
-              "type": "string",
+              "type": [
+                "string",
+                "boolean"
+              ],
               "enum": [
                 true
               ]
@@ -798,15 +669,7 @@
             "firefox": {
               "type": [
                 {
-                  "type": "string",
-                  "enum": [
-                    "latest",
-                    "latest-esr",
-                    "latest-beta",
-                    "latest-dev",
-                    "latest-nightly",
-                    "latest-unsigned"
-                  ]
+                  "$ref": "#/definitions/firefox_string"
                 },
                 {
                   "$ref": "#/definitions/nonEmptyString"
@@ -861,9 +724,6 @@
               "properties": {
                 "project": {
                   "type": "object",
-                  "required": [
-                    "name"
-                  ],
                   "name": "job",
                   "properties": {
                     "name": {
@@ -875,7 +735,10 @@
                     "description": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "name"
+                  ]
                 },
                 "notification_email": {
                   "type": "string"
@@ -980,7 +843,10 @@
           }
         },
         "cache": {
-          "type": "string",
+          "type": [
+            "string",
+            "boolean"
+          ],
           "enum": [
             false
           ]
@@ -1151,41 +1017,56 @@
       "additionalProperties": true,
       "properties": {}
     },
+    "import_object": {
+      "type": "object",
+      "name": "import_object",
+      "properties": {
+        "source": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "merge",
+            "deep_merge",
+            "deep_merge_append",
+            "deep_merge_prepend"
+          ]
+        },
+        "if": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyString"
+          }
+        }
+      },
+      "required": [
+        "source"
+      ]
+    },
     "import": {
       "type": [
         {
-          "type": "object",
-          "required": [
-            "source"
-          ],
-          "name": "import",
-          "properties": {
-            "source": {
-              "type": {
-                "$ref": "#/definitions/nonEmptyString"
-              }
-            },
-            "mode": {
-              "type": "string",
-              "enum": [
-                "merge",
-                "deep_merge",
-                "deep_merge_append",
-                "deep_merge_prepend"
-              ]
-            },
-            "if": {
-              "type": {
-                "$ref": "#/definitions/nonEmptyString"
-              }
-            }
-          }
+          "$ref": "#/definitions/import_object"
         },
         {
           "$ref": "#/definitions/nonEmptyString"
         }
       ],
       "name": "import"
+    },
+    "firefox_string2": {
+      "type": "string",
+      "enum": [
+        "latest",
+        "latest-esr",
+        "latest-beta",
+        "latest-dev",
+        "latest-nightly",
+        "latest-unsigned"
+      ],
+      "name": "firefox_string2"
     },
     "jobBase": {
       "type": "object",
@@ -1568,7 +1449,10 @@
           ]
         },
         "sudo": {
-          "type": "string",
+          "type": [
+            "string",
+            "boolean"
+          ],
           "enum": [
             true,
             false,
@@ -1592,9 +1476,6 @@
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": [
-                      "sourceline"
-                    ],
                     "name": "jobBase",
                     "properties": {
                       "sourceline": {
@@ -1603,7 +1484,10 @@
                       "key_url": {
                         "type": "string"
                       }
-                    }
+                    },
+                    "required": [
+                      "sourceline"
+                    ]
                   }
                 },
                 "packages": {
@@ -1626,7 +1510,10 @@
               }
             },
             "artifacts": {
-              "type": "string",
+              "type": [
+                "string",
+                "boolean"
+              ],
               "enum": [
                 true
               ]
@@ -1634,15 +1521,7 @@
             "firefox": {
               "type": [
                 {
-                  "type": "string",
-                  "enum": [
-                    "latest",
-                    "latest-esr",
-                    "latest-beta",
-                    "latest-dev",
-                    "latest-nightly",
-                    "latest-unsigned"
-                  ]
+                  "$ref": "#/definitions/firefox_string2"
                 },
                 {
                   "$ref": "#/definitions/nonEmptyString"
@@ -1697,9 +1576,6 @@
               "properties": {
                 "project": {
                   "type": "object",
-                  "required": [
-                    "name"
-                  ],
                   "name": "jobBase",
                   "properties": {
                     "name": {
@@ -1711,7 +1587,10 @@
                     "description": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "name"
+                  ]
                 },
                 "notification_email": {
                   "type": "string"
@@ -1816,7 +1695,10 @@
           }
         },
         "cache": {
-          "type": "string",
+          "type": [
+            "string",
+            "boolean"
+          ],
           "enum": [
             false
           ]
@@ -1940,5 +1822,156 @@
       "abstract": true
     }
   },
-  "name": "document"
+  "type": "object",
+  "name": "document",
+  "$extends": "#/definitions/jobBase",
+  "properties": {
+    "notifications": {
+      "type": "object",
+      "name": "document",
+      "properties": {
+        "webhooks": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "slack": {
+          "type": {
+            "$ref": "#/definitions/slackRoom"
+          }
+        },
+        "email": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "irc": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "pushover": {
+          "type": {
+            "$ref": "#/definitions/nonEmptyStringOrArrayOfNonEmptyStrings"
+          }
+        },
+        "campfire": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        },
+        "flowdock": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretString"
+          }
+        },
+        "hipchat": {
+          "type": {
+            "$ref": "#/definitions/possiblySecretStringOrPossiblySecretStringTypeArrayUnique"
+          }
+        }
+      }
+    },
+    "matrix": {
+      "type": "object",
+      "name": "document",
+      "properties": {
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "allow_failures": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "fast_finish": {
+          "type": "boolean"
+        }
+      }
+    },
+    "jobs": {
+      "type": "object",
+      "name": "document",
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "document",
+            "$extends": "#/definitions/jobBase",
+            "properties": {
+              "stage": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "name": "document",
+            "$extends": "#/definitions/jobBase",
+            "properties": {
+              "stage": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "allow_failures": {
+          "type": "array",
+          "items": {
+            "type": {
+              "$ref": "#/definitions/job"
+            }
+          }
+        },
+        "fast_finish": {
+          "type": "boolean"
+        }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(~>|>|>=|=|<=|<) (\\d+(?:\\.\\d+)?(?:\\.\\d+)?)$"
+    },
+    "import": {
+      "type": "set",
+      "items": {
+        "type": {
+          "$ref": "#/definitions/import"
+        }
+      }
+    }
+  },
+  "$id": "https://json.schemastore.org/travis.json",
+  "description": "JSON schema for Travis CI configuration files",
+  "$uses": [
+    "JSONStructureAlternateNames",
+    "JSONStructureConditionalComposition",
+    "JSONStructureValidation"
+  ]
 }

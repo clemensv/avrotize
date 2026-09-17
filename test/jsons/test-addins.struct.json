@@ -18,8 +18,14 @@
   },
   "required": ["id", "name"],
   "$offers": {
+    "AuditInfo": "#/definitions/AuditInfo",
+    "PricingInfo": "#/definitions/PricingInfo"
+  },
+  "definitions": {
     "AuditInfo": {
       "type": "object",
+      "name": "AuditInfo",
+      "abstract": true,
       "description": "Audit information for tracking changes",
       "properties": {
         "createdBy": {
@@ -37,6 +43,8 @@
     },
     "PricingInfo": {
       "type": "object",
+      "name": "PricingInfo",
+      "abstract": true,
       "description": "Pricing information",
       "properties": {
         "price": {

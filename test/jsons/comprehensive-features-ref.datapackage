@@ -103,7 +103,7 @@
         ]
       },
       "title": "Comprehensive Feature Test Schema",
-      "description": "Schema covering all JSON Structure Core features (Uses add-ins: TestAddIn)",
+      "description": "Schema covering all JSON Structure Core features",
       "profile": "data-resource"
     }
   ],

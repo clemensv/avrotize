@@ -1,11 +1,13 @@
 # numeric-types.struct
 Test schema for numeric types with precision and scale
 **Schema ID:** `https://example.com/schemas/numeric-types`
+**Uses Extensions:** JSONStructureValidation
 ## Objects
 
 ### NumericTypes
 
 Test schema for numeric types with precision and scale
+**Uses Extensions:** JSONStructureValidation
 **Properties:**
 - **int8Field** (required): `int8`
   - Constraints: minimum: -128, maximum: 127
@@ -17,7 +19,7 @@ Test schema for numeric types with precision and scale
   - Constraints: minimum: 0
 - **decimalField** (required): `decimal`
   - Constraints: minimum: 0, maximum: 99999999.99, precision: 10, scale: 2
-- **float32Field**: `float32`
+- **float32Field**: `float`
   - Description: 32-bit floating point
-- **float64Field**: `float64`
+- **float64Field**: `double`
   - Description: 64-bit floating point

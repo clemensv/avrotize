@@ -13,6 +13,7 @@ class AvroToJsonStructure:
     def __init__(self, avro_encoding: bool = False) -> None:
         self.known_types: set[str] = set()
         self.reference_stack: set[str] = set()
+        self.definition_paths: dict[str, str] = {}
         self.avro_encoding: bool = avro_encoding
 
     # ------------------------------------------------------------------ TOP-LEVEL
@@ -38,10 +39,29 @@ class AvroToJsonStructure:
                     "definitions": {},
                 }
 
-            # TEMPORARY: process only first element
             first = avro_schema[0]
             if isinstance(first, dict):
-                return self.convert(first, namespace)
+                self.known_types.clear()
+                self.reference_stack.clear()
+                self._prepare_definition_paths(avro_schema, namespace)
+
+                current_namespace, name = self.resolve_full_name(
+                    first.get("name", f"AnonymousType_{uuid.uuid4().hex}"),
+                    first.get("namespace", namespace),
+                )
+                fqn = self.get_fqn(current_namespace, name)
+                doc: Dict[str, Any] = {
+                    "$schema": "https://json-structure.org/meta/core/v0/#",
+                    "$id": f"https://example.com/schemas/{fqn}",
+                    "name": name,
+                    "type": "null",
+                    "definitions": {},
+                }
+                for schema in avro_schema:
+                    if isinstance(schema, dict):
+                        self.register_definition(schema, namespace, doc["definitions"])
+                self._apply_extensions(doc)
+                return doc
 
             # First element non-dict → return stub
             bad_name = f"invalid_list_root_{uuid.uuid4().hex[:8]}"
@@ -56,10 +76,11 @@ class AvroToJsonStructure:
         # Reset caches for each top-level conversion
         self.known_types.clear()
         self.reference_stack.clear()
+        self._prepare_definition_paths(avro_schema, namespace)
 
-        current_namespace = avro_schema.get("namespace", namespace)
-        name = self.clean_name(
-            avro_schema.get("name", f"AnonymousType_{uuid.uuid4().hex}")
+        current_namespace, name = self.resolve_full_name(
+            avro_schema.get("name", f"AnonymousType_{uuid.uuid4().hex}"),
+            avro_schema.get("namespace", namespace),
         )
         fqn = self.get_fqn(current_namespace, name)
 
@@ -73,7 +94,25 @@ class AvroToJsonStructure:
 
         # Build definitions – do NOT skip root
         self.register_definition(avro_schema, current_namespace, doc["definitions"])
+        self._apply_extensions(doc)
         return doc
+
+    def _apply_extensions(self, doc: Dict[str, Any]) -> None:
+        uses = set(doc.get("$uses", []))
+        if self._contains_key(doc, "default"):
+            uses.add("JSONStructureValidation")
+        if self._contains_key(doc, "altnames"):
+            uses.add("JSONStructureAlternateNames")
+        if uses:
+            doc["$schema"] = "https://json-structure.org/meta/extended/v0/#"
+            doc["$uses"] = sorted(uses)
+
+    def _contains_key(self, value: Any, key: str) -> bool:
+        if isinstance(value, dict):
+            return key in value or any(self._contains_key(item, key) for item in value.values())
+        if isinstance(value, list):
+            return any(self._contains_key(item, key) for item in value)
+        return False
 
     # ------------------------------------------------------------------ REGISTRATION
 
@@ -88,9 +127,9 @@ class AvroToJsonStructure:
         Ensure `avro_schema` has an entry in `definitions`.
         """
 
-        current_namespace = avro_schema.get("namespace", namespace)
-        name = self.clean_name(
-            avro_schema.get("name", f"AnonymousType_{uuid.uuid4().hex}")
+        current_namespace, name = self.resolve_full_name(
+            avro_schema.get("name", f"AnonymousType_{uuid.uuid4().hex}"),
+            avro_schema.get("namespace", namespace),
         )
         fqn = self.get_fqn(current_namespace, name)
 
@@ -113,8 +152,10 @@ class AvroToJsonStructure:
 
         avro_type = avro_schema.get("type")
         # Use the schema's own namespace if provided, otherwise fall back to the passed 'namespace'
-        current_schema_namespace = avro_schema.get("namespace", namespace)
-        name = self.clean_name(avro_schema.get("name", f"AnonymousType_{uuid.uuid4().hex}"))
+        current_schema_namespace, name = self.resolve_full_name(
+            avro_schema.get("name", f"AnonymousType_{uuid.uuid4().hex}"),
+            avro_schema.get("namespace", namespace),
+        )
         fqn = self.get_fqn(current_schema_namespace, name)
 
         if fqn in self.reference_stack:
@@ -202,6 +243,10 @@ class AvroToJsonStructure:
         # If a definition was constructed, add it to the definitions map with proper nesting.
         if type_definition_content is not None:
             parts = fqn.split('/')
+            definition_name = parts[-1]
+            if definition_name != name:
+                type_definition_content["name"] = definition_name
+                type_definition_content.setdefault("altnames", {})["avro"] = name
             current_level_dict = definitions
             for i, part_name in enumerate(parts):
                 if i == len(parts) - 1: # Last part is the type name itself
@@ -232,7 +277,10 @@ class AvroToJsonStructure:
                 return {"type": self.get_primitive_types()[avro_type_schema]}
             # Named type reference
             if "." in avro_type_schema:
-                ref_fqn = avro_type_schema.replace(".", "/")
+                ref_namespace, ref_name = self.resolve_full_name(
+                    avro_type_schema, context_namespace
+                )
+                ref_fqn = self.get_fqn(ref_namespace, ref_name)
             else:
                 ref_fqn = self.get_fqn(context_namespace, self.clean_name(avro_type_schema))
             # JSON Structure Core requires a type reference to be the value of the
@@ -268,8 +316,10 @@ class AvroToJsonStructure:
             if category in ("record", "enum", "fixed"):
                 # Ensure definition exists then reference it
                 self.register_definition(avro_type_schema, inline_ns, definitions)
-                ref_name = self.clean_name(avro_type_schema["name"])
-                ref_fqn = self.get_fqn(inline_ns, ref_name)
+                ref_namespace, ref_name = self.resolve_full_name(
+                    avro_type_schema["name"], inline_ns
+                )
+                ref_fqn = self.get_fqn(ref_namespace, ref_name)
                 # Wrap the reference under ``type`` (see note above) so the emitted
                 # property/items/values/choice node is a valid JSON Structure schema.
                 return {"type": {"$ref": f"#/definitions/{ref_fqn}"}}
@@ -350,10 +400,68 @@ class AvroToJsonStructure:
     def clean_name(self, name: str) -> str:
         return name.replace(".", "_")
 
-    def get_fqn(self, namespace: str | None, name: str) -> str:
+    def resolve_full_name(self, name: str, namespace: str | None) -> tuple[str | None, str]:
+        if "." in name:
+            namespace, name = name.rsplit(".", 1)
+        return namespace, self.clean_name(name)
+
+    def _prepare_definition_paths(
+        self, avro_schema: Any, namespace: str | None = None
+    ) -> None:
+        full_names: set[str] = set()
+
+        def collect(node: Any, current_namespace: str | None) -> None:
+            if isinstance(node, list):
+                for item in node:
+                    collect(item, current_namespace)
+                return
+            if not isinstance(node, dict):
+                return
+
+            category = node.get("type")
+            inline_namespace = node.get("namespace", current_namespace)
+            if category in ("record", "enum", "fixed") and node.get("name"):
+                type_namespace, type_name = self.resolve_full_name(
+                    node["name"], inline_namespace
+                )
+                raw_fqn = self.get_raw_fqn(type_namespace, type_name)
+                full_names.add(raw_fqn)
+                if category == "record":
+                    for field in node.get("fields", []):
+                        collect(field.get("type"), type_namespace)
+                return
+
+            if isinstance(category, (dict, list)):
+                collect(category, inline_namespace)
+            elif category == "array":
+                collect(node.get("items"), inline_namespace)
+            elif category == "map":
+                collect(node.get("values"), inline_namespace)
+
+        collect(avro_schema, namespace)
+        reserved_names = {"type", "definitions"}
+        self.definition_paths.clear()
+        for full_name in full_names:
+            parts = full_name.split("/")
+            encoded_parts = []
+            for index, part in enumerate(parts):
+                prefix = "/".join(parts[: index + 1])
+                if index < len(parts) - 1 and prefix in full_names:
+                    part += "_"
+                elif index == len(parts) - 1 and part in reserved_names:
+                    part += "_"
+                encoded_parts.append(part)
+            self.definition_paths[full_name] = "/".join(encoded_parts)
+
+    @staticmethod
+    def get_raw_fqn(namespace: str | None, name: str) -> str:
         if namespace:
             return f"{namespace.replace('.', '/')}/{name}"
         return name
+
+    def get_fqn(self, namespace: str | None, name: str) -> str:
+        raw_fqn = self.get_raw_fqn(namespace, name)
+        return self.definition_paths.get(raw_fqn, raw_fqn)
 
     @staticmethod
     def get_primitive_types() -> Dict[str, str]:

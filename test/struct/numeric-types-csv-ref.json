@@ -36,13 +36,13 @@
     },
     {
       "name": "float32Field",
-      "type": "string",
+      "type": "number",
       "description": "32-bit floating point",
       "nullable": true
     },
     {
       "name": "float64Field",
-      "type": "string",
+      "type": "number",
       "description": "64-bit floating point",
       "nullable": true
     }

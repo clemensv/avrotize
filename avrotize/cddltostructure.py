@@ -368,6 +368,25 @@ class CddlToStructureConverter:
         if uses:
             structure_schema['$uses'] = uses
 
+        # JSON Structure inheritance targets must be abstract objects.
+        extends_targets = set()
+        def collect_extends(node: Any) -> None:
+            if isinstance(node, dict):
+                extends = node.get('$extends')
+                if isinstance(extends, str) and extends.startswith('#/definitions/'):
+                    extends_targets.add(extends.removeprefix('#/definitions/'))
+                for value in node.values():
+                    collect_extends(value)
+            elif isinstance(node, list):
+                for value in node:
+                    collect_extends(value)
+        collect_extends(structure_schema)
+        for target_name in extends_targets:
+            target = structure_schema.get('definitions', {}).get(target_name)
+            if isinstance(target, dict) and target.get('type') == 'object':
+                target['abstract'] = True
+                target.pop('additionalProperties', None)
+
         return structure_schema
 
     def _get_rule_name(self, rule: Rule) -> Optional[str]:
@@ -1684,8 +1703,9 @@ class CddlToStructureConverter:
 
         type_name = base_type.get('type', 'any')
 
-        # Determine if this is a string or array type
-        is_string_type = type_name in ('string', 'binary')
+        # Determine if this is a string, binary, or array type
+        is_string_type = type_name == 'string'
+        is_binary_type = type_name == 'binary'
         is_array_type = type_name == 'array'
 
         if isinstance(constraint, dict):
@@ -1698,6 +1718,9 @@ class CddlToStructureConverter:
                     base_type['minLength'] = min_val
                 if max_val is not None:
                     base_type['maxLength'] = max_val
+            elif is_binary_type:
+                if min_val is not None and min_val == max_val:
+                    base_type['byteLength'] = min_val
             elif is_array_type:
                 if min_val is not None:
                     base_type['minItems'] = min_val
@@ -1715,6 +1738,8 @@ class CddlToStructureConverter:
             if is_string_type:
                 base_type['minLength'] = constraint
                 base_type['maxLength'] = constraint
+            elif is_binary_type:
+                base_type['byteLength'] = constraint
             elif is_array_type:
                 base_type['minItems'] = constraint
                 base_type['maxItems'] = constraint

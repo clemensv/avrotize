@@ -61,7 +61,8 @@
           }
         }
       },
-      "name": "Pet"
+      "name": "Pet",
+      "$extends": "#/definitions/PetBase"
     },
     "Dog": {
       "type": "object",
@@ -81,7 +82,8 @@
       "required": [
         "petType",
         "breed"
-      ]
+      ],
+      "$extends": "#/definitions/PetBase"
     },
     "Cat": {
       "type": "object",
@@ -100,7 +102,8 @@
       },
       "required": [
         "petType"
-      ]
+      ],
+      "$extends": "#/definitions/PetBase"
     },
     "Status": {
       "type": "string",
@@ -132,6 +135,19 @@
         {
           "$ref": "#/definitions/Status"
         }
+      ]
+    },
+    "PetBase": {
+      "type": "object",
+      "name": "PetBase",
+      "abstract": true,
+      "properties": {
+        "petType": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "petType"
       ]
     }
   },

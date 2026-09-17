@@ -1,5 +1,5 @@
 {
-    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$schema": "https://json-structure.org/meta/extended/v0/#",
     "$id": "https://example.com/schemas/example/com/record",
     "name": "record",
     "$root": "#/definitions/example/com/record",
@@ -54,5 +54,8 @@
                 }
             }
         }
-    }
+    },
+    "$uses": [
+        "JSONStructureValidation"
+    ]
 }

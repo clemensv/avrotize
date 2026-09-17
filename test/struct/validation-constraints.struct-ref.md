@@ -1,11 +1,13 @@
 # validation-constraints.struct
 Test schema for validation constraints
 **Schema ID:** `https://example.com/schemas/validation-constraints`
+**Uses Extensions:** JSONStructureValidation
 ## Objects
 
 ### ValidationConstraints
 
 Test schema for validation constraints
+**Uses Extensions:** JSONStructureValidation
 **Properties:**
 - **constrainedString** (required): `string`
   - Constraints: minLength: 5, maxLength: 50, pattern: `^[A-Z][a-zA-Z0-9]*$`

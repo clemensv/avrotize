@@ -18,7 +18,7 @@
       "description": "A datetime field"
     },
     "timestampField": {
-      "type": "timestamp",
+      "type": "datetime",
       "description": "A timestamp field"
     },
     "durationField": {

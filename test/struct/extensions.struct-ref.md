@@ -1,13 +1,13 @@
 # extensions.struct
 Test schema for JSON Structure extensions
 **Schema ID:** `https://example.com/schemas/extensions`
-**Uses Extensions:** JSONStructureAlternateNames, JSONStructureUnits
+**Uses Extensions:** JSONStructureAlternateNames, JSONStructureUnits, JSONStructureValidation
 ## Objects
 
 ### ExtensionsExample
 
 Test schema for JSON Structure extensions
-**Uses Extensions:** JSONStructureAlternateNames, JSONStructureUnits
+**Uses Extensions:** JSONStructureAlternateNames, JSONStructureUnits, JSONStructureValidation
 **Properties:**
 - **productName** (required): `string`
   - Description: Product name with alternate names

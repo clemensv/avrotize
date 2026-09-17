@@ -1,5 +1,5 @@
 {
-    "$schema": "https://json-structure.org/meta/core/v0/#",
+    "$schema": "https://json-structure.org/meta/extended/v0/#",
     "$id": "https://example.com/schemas/Address",
     "name": "Address",
     "$root": "#/definitions/Address",
@@ -50,5 +50,8 @@
             ],
             "description": "An address similar to http://microformats.org/wiki/h-card"
         }
-    }
+    },
+    "$uses": [
+        "JSONStructureValidation"
+    ]
 }
