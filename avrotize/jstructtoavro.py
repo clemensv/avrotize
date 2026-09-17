@@ -20,6 +20,7 @@ class JsonStructureToAvro:
         """Initialize the converter."""
         self.structure_doc: Optional[Dict[str, Any]] = None
         self.converted_types: Dict[str, Dict[str, Any]] = {}
+        self.definition_avro_names: Dict[str, str] = {}
         self._anon_object_counter: int = 0
         self._generated_record_names: set = set()
         
@@ -35,6 +36,7 @@ class JsonStructureToAvro:
         """
         self.structure_doc = structure_schema
         self.converted_types.clear()
+        self.definition_avro_names.clear()
         self._anon_object_counter = 0
         self._generated_record_names = set()
         
@@ -50,7 +52,9 @@ class JsonStructureToAvro:
             # Also convert any definitions that might be referenced
             definitions = structure_schema.get('definitions', {})
             if definitions:
-                for def_path, def_schema in self._flatten_definitions(definitions).items():
+                flattened_definitions = self._flatten_definitions(definitions)
+                self._prepare_definition_avro_names(flattened_definitions)
+                for def_path, def_schema in flattened_definitions.items():
                     self._convert_definition(def_path, def_schema)
             
             root_schema = self._convert_type_from_schema(structure_schema, namespace, name)
@@ -76,7 +80,9 @@ class JsonStructureToAvro:
             raise ValueError("JSON Structure document with $root must have definitions")
         
         # Convert all definitions first
-        for def_path, def_schema in self._flatten_definitions(definitions).items():
+        flattened_definitions = self._flatten_definitions(definitions)
+        self._prepare_definition_avro_names(flattened_definitions)
+        for def_path, def_schema in flattened_definitions.items():
             self._convert_definition(def_path, def_schema)
         
         # Get the root schema
@@ -121,6 +127,13 @@ class JsonStructureToAvro:
                     flattened.update(self._flatten_definitions(value, path))
             
         return flattened
+
+    def _prepare_definition_avro_names(self, definitions: Dict[str, Dict[str, Any]]) -> None:
+        """Map JSON Structure definition paths to their original Avro full names."""
+        for def_path, def_schema in definitions.items():
+            parts = def_path.split('/')
+            parts[-1] = def_schema.get('altnames', {}).get('avro', parts[-1])
+            self.definition_avro_names[def_path] = '.'.join(parts)
     
     def _resolve_base_schema(self, ref: str) -> Optional[Dict[str, Any]]:
         """
@@ -283,10 +296,10 @@ class JsonStructureToAvro:
         if '/' in def_path:
             parts = def_path.split('/')
             namespace = '.'.join(parts[:-1])
-            name = parts[-1]
+            name = def_schema.get('altnames', {}).get('avro', parts[-1])
         else:
             namespace = None
-            name = def_path
+            name = def_schema.get('altnames', {}).get('avro', def_path)
         
         avro_schema = self._convert_type_from_schema(merged_schema, namespace, name)
         self.converted_types[def_path] = avro_schema
@@ -792,7 +805,7 @@ class JsonStructureToAvro:
             if ref.startswith('#/definitions/'):
                 ref_path = ref.replace('#/definitions/', '')
                 # Convert path format back to Avro namespace.name format
-                return ref_path.replace('/', '.')
+                return self.definition_avro_names.get(ref_path, ref_path.replace('/', '.'))
             raise ValueError(f"Unsupported reference format: {ref}")
         
         # Handle inline types

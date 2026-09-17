@@ -117,6 +117,11 @@ class TestAvroToJsonStructure(unittest.TestCase):
 
     def test_address(self):
         self._convert_and_validate("address.avsc", "address.struct.json")
+        structure_path = path.join(tempfile.gettempdir(), "avrotize", "address.struct.json")
+        with open(structure_path, "r", encoding="utf-8") as structure_file:
+            structure = json.load(structure_file)
+        self.assertEqual(structure["$schema"], "https://json-structure.org/meta/extended/v0/#")
+        self.assertEqual(structure["$uses"], ["JSONStructureValidation"])
 
     def test_complexunion(self):
         self._convert_and_validate("complexunion.avsc", "complexunion.struct.json")
@@ -135,6 +140,69 @@ class TestAvroToJsonStructure(unittest.TestCase):
 
     def test_northwind(self):
         self._convert_and_validate("northwind.avsc", "northwind.struct.json")
+        avro_path = path.join(getcwd(), "test", "avsc", "northwind.avsc")
+        structure_path = path.join(tempfile.gettempdir(), "avrotize", "northwind.struct.json")
+        with open(avro_path, "r", encoding="utf-8") as avro_file:
+            source_types = {schema["name"] for schema in json.load(avro_file)}
+        with open(structure_path, "r", encoding="utf-8") as structure_file:
+            structure = json.load(structure_file)
+
+        self.assertEqual(structure.get("type"), "null")
+        self.assertNotIn("$root", structure)
+        self.assertEqual(structure["$schema"], "https://json-structure.org/meta/core/v0/#")
+        self.assertNotIn("$uses", structure)
+        self.assertEqual(set(structure["definitions"]["Northwind"]), source_types)
+
+    def test_dotted_names_preserve_reference_resolution(self):
+        self._convert_and_validate("rust-named-reference-resolution.avsc")
+        structure_path = path.join(
+            tempfile.gettempdir(), "avrotize", "rust-named-reference-resolution.struct.json"
+        )
+        with open(structure_path, "r", encoding="utf-8") as structure_file:
+            structure = json.load(structure_file)
+
+        self.assertIn("Item", structure["definitions"]["Left"])
+        holder = structure["definitions"]["Right"]["Holder"]
+        self.assertEqual(holder["properties"]["local"]["type"]["$ref"], "#/definitions/Right/Item")
+        self.assertEqual(holder["properties"]["foreign"]["type"]["$ref"], "#/definitions/Left/Item")
+
+    def test_reserved_definition_name_uses_avro_altname(self):
+        source_path = path.join(getcwd(), "test", "jsons", "discriminated-union-simple-ref.avsc")
+        structure_path = path.join(tempfile.gettempdir(), "avrotize", "reserved-name.struct.json")
+        convert_avro_to_json_structure(source_path, structure_path)
+        with open(structure_path, "r", encoding="utf-8") as structure_file:
+            structure = json.load(structure_file)
+
+        self.assertEqual(structure["$schema"], "https://json-structure.org/meta/extended/v0/#")
+        self.assertEqual(
+            structure["$uses"],
+            ["JSONStructureAlternateNames", "JSONStructureValidation"],
+        )
+        escaped = structure["definitions"]["com"]["test"]["example"]["Shape_types"]["type_"]
+        self.assertEqual(escaped["name"], "type_")
+        self.assertEqual(escaped["altnames"], {"avro": "type"})
+        triangle = structure["definitions"]["com"]["test"]["example"]["Shape_types"]["Triangle"]
+        self.assertEqual(
+            triangle["properties"]["type"]["type"]["$ref"],
+            "#/definitions/com/test/example/Shape_types/type_",
+        )
+
+    def test_named_type_namespace_collision_preserves_nested_definition(self):
+        source_path = path.join(
+            getcwd(), "test", "db", "postgres-test_postgres_heterogeneous_json-ref.avsc"
+        )
+        structure_path = path.join(tempfile.gettempdir(), "avrotize", "nested-name.struct.json")
+        convert_avro_to_json_structure(source_path, structure_path)
+        with open(structure_path, "r", encoding="utf-8") as structure_file:
+            structure = json.load(structure_file)
+
+        mixed = structure["definitions"]["com"]["example"]["mixed"]
+        self.assertIn("child", mixed["mixed_json_"]["dataTypes"])
+        child_ref = mixed["mixed_jsonTypes"]["data"]["properties"]["child"]["type"]["$ref"]
+        self.assertEqual(
+            child_ref,
+            "#/definitions/com/example/mixed/mixed_json_/dataTypes/child",
+        )
 
     def test_primitiveunion(self):
         self._convert_and_validate("primitiveunion.avsc", "primitiveunion.struct.json")
