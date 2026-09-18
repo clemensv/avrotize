@@ -1,0 +1,42 @@
+[
+    {
+        "type": "record",
+        "name": "A",
+        "namespace": "issue484.optional_record_union",
+        "fields": [
+            {
+                "name": "x",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "B",
+        "namespace": "issue484.optional_record_union",
+        "fields": [
+            {
+                "name": "x",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Holder",
+        "namespace": "issue484.optional_record_union",
+        "fields": [
+            {
+                "name": "choice",
+                "type": [
+                    "A",
+                    "B"
+                ]
+            }
+        ]
+    }
+]
