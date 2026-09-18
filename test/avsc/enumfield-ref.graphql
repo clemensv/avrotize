@@ -8,3 +8,6 @@ enum MyEnum {
 type MyRecord {
   enumField: MyEnum!
 }
+type MyRecord2 {
+  enumField: MyEnum!
+}

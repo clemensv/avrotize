@@ -1,6 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/schemas/collections",
+  "x-uses": [
+    "JSONStructureValidation"
+  ],
   "title": "Collections",
   "description": "Test schema for collection types",
   "type": "object",

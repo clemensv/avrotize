@@ -2,7 +2,9 @@ scalar Binary
 scalar Date
 scalar DateTime
 scalar Decimal
+scalar Duration
 scalar JSON
+scalar Time
 scalar URI
 scalar UUID
 
@@ -39,11 +41,11 @@ type ExtendedPrimitives {
   """Date"""
   dateField: Date!
   """Time"""
-  timeField: String
+  timeField: Time
   """DateTime"""
   datetimeField: DateTime
   """Duration"""
-  durationField: String
+  durationField: Duration
   """UUID"""
   uuidField: UUID!
   """URI"""

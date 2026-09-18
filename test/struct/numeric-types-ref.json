@@ -1,6 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/schemas/numeric-types",
+  "x-uses": [
+    "JSONStructureValidation"
+  ],
   "title": "NumericTypes",
   "description": "Test schema for numeric types with precision and scale",
   "type": "object",
