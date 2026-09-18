@@ -3,7 +3,8 @@
   "$id": "https://example.com/schemas/extensions",
   "x-uses": [
     "JSONStructureAlternateNames",
-    "JSONStructureUnits"
+    "JSONStructureUnits",
+    "JSONStructureValidation"
   ],
   "title": "ExtensionsExample",
   "description": "Test schema for JSON Structure extensions",

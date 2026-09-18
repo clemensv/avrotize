@@ -61,7 +61,8 @@
                   "x-unit": "m/s\u00b2"
                 },
                 "timestamp": {
-                  "type": "number"
+                  "type": "string",
+                  "format": "date-time"
                 },
                 "device": {
                   "type": "object",
@@ -170,7 +171,7 @@
     },
     "signature": {
       "type": "string",
-      "format": "byte"
+      "contentEncoding": "base64"
     }
   },
   "required": [
