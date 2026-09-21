@@ -1,6 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/schemas/nested-objects",
+  "x-uses": [
+    "JSONStructureValidation"
+  ],
   "title": "NestedObjects",
   "description": "Test schema for nested object structures",
   "type": "object",

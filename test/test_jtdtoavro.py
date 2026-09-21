@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
+from avro.schema import parse as parse_apache_avro_schema
 from fastavro import parse_schema
 
 from avrotize.avrotojtd import AvroToJtdConverter, convert_avro_to_jtd
@@ -155,6 +156,29 @@ class TestJtdConverters(unittest.TestCase):
         child_type = next(field for field in avro[0]["fields"] if field["name"] == "child")["type"]
         self.assertEqual(child_type, ["null", "example.Node"])
 
+    def test_definition_named_enum_does_not_rewrite_schema_kind_tokens(self) -> None:
+        schema = {
+            "definitions": {
+                "enum": {"enum": ["reserved"]},
+                "status": {"enum": ["active"]},
+                "holder": {
+                    "properties": {
+                        "status": {"ref": "status"},
+                        "reserved": {"ref": "enum"},
+                    },
+                },
+            },
+            "ref": "holder",
+        }
+
+        converted = self._convert_dict(schema)
+
+        parse_schema(converted)
+        parse_apache_avro_schema(json.dumps(converted))
+        by_name = {item["name"]: item for item in converted if isinstance(item, dict)}
+        self.assertEqual(by_name["status"]["type"], "enum")
+        self.assertEqual(by_name["enum"]["type"], "enum")
+
     def test_nested_fixture_generates_valid_avro(self) -> None:
         out = self.generated / "person.avsc"
         convert_jtd_to_avro(str(self.fixtures / "person.jtd.json"), str(out), namespace="example")
@@ -163,6 +187,25 @@ class TestJtdConverters(unittest.TestCase):
         root = next(item for item in avro if isinstance(item, dict) and item.get("jtdAdditionalProperties"))
         self.assertEqual(root["type"], "record")
         self.assertTrue(root["jtdAdditionalProperties"])
+
+    def test_direct_and_bridge_preserve_distinct_jtd_filename_root_naming(self) -> None:
+        source_path = self.generated / "schema.jtd.json"
+        avro_path = self.generated / "schema.avsc"
+        structure_path = self.generated / "schema.struct.json"
+        source_path.write_text(json.dumps({
+            "properties": {"value": {"type": "string"}},
+        }), encoding="utf-8")
+
+        convert_jtd_to_avro(str(source_path), str(avro_path), namespace="example")
+        direct_avro = json.loads(avro_path.read_text(encoding="utf-8"))
+        parse_schema(direct_avro)
+        parse_apache_avro_schema(json.dumps(direct_avro))
+        self.assertEqual(direct_avro["name"], "schema_jtd")
+
+        convert_jtd_to_structure(str(source_path), str(structure_path), namespace="example")
+        structure = json.loads(structure_path.read_text(encoding="utf-8"))
+        self.assertEqual(structure["name"], "schema")
+        self.assertEqual(structure["$root"], "#/definitions/example/schema")
 
     def test_round_trip_preserves_core_record_semantics(self) -> None:
         avro_path = self.generated / "roundtrip.avsc"
@@ -183,7 +226,224 @@ class TestJtdConverters(unittest.TestCase):
         structure = json.loads(out.read_text(encoding="utf-8"))
         self.assertIn("$schema", structure)
         self.assertIn("definitions", structure)
-        self.assertIn("$root", structure)
+        self.assertEqual(structure["$root"], "#/definitions/example/person")
+        self.assertNotIn("type", structure)
+
+    def test_jtd_to_structure_bridge_preserves_inline_roots(self) -> None:
+        cases = [
+            ({"type": "string"}, "string"),
+            ({"elements": {"type": "int32"}}, "array"),
+            ({"values": {"type": "boolean"}}, "map"),
+        ]
+        for source, expected_type in cases:
+            with self.subTest(expected_type=expected_type):
+                source_path = self.generated / f"{expected_type}.jtd.json"
+                out = self.generated / f"{expected_type}.struct.json"
+                source_path.write_text(json.dumps(source), encoding="utf-8")
+
+                convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+                structure = json.loads(out.read_text(encoding="utf-8"))
+                root = structure["definitions"]["example"][expected_type]
+                self.assertEqual(root["type"], expected_type)
+
+    def test_jtd_to_structure_bridge_preserves_nullable_root(self) -> None:
+        source_path = self.generated / "nullable.jtd.json"
+        out = self.generated / "nullable.struct.json"
+        source_path.write_text(json.dumps({"type": "string", "nullable": True}), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        root = structure["definitions"]["example"]["nullable"]
+        self.assertEqual(root["type"], [{"$ref": "#/definitions/example/nullableValue"}, "null"])
+
+    def test_jtd_to_structure_bridge_preserves_nullable_record_root(self) -> None:
+        source_path = self.generated / "nullable-record.jtd.json"
+        out = self.generated / "nullable-record.struct.json"
+        source_path.write_text(json.dumps({"properties": {"id": {"type": "string"}}, "nullable": True}), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        value = structure["definitions"]["example"]["nullable_recordValue"]
+        self.assertIn("id", value["properties"])
+
+    def test_jtd_to_structure_bridge_unwraps_referenced_primitive(self) -> None:
+        source_path = self.generated / "alias.jtd.json"
+        out = self.generated / "alias.struct.json"
+        source_path.write_text(json.dumps({"definitions": {"identifier": {"type": "string"}}, "ref": "identifier"}), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        root = structure["definitions"]["example"]["alias"]
+        self.assertEqual(root["type"], "string")
+
+    def test_jtd_to_structure_bridge_unwraps_chained_nullable_alias(self) -> None:
+        source_path = self.generated / "chain.jtd.json"
+        out = self.generated / "chain.struct.json"
+        source_path.write_text(json.dumps({
+            "definitions": {
+                "text": {"type": "string", "nullable": True},
+                "alias": {"ref": "text"},
+            },
+            "ref": "alias",
+        }), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        root = structure["definitions"]["example"]["chain"]
+        self.assertIn("null", root["type"])
+
+    def test_jtd_to_structure_bridge_retargets_nullable_recursive_root(self) -> None:
+        source_path = self.generated / "node.jtd.json"
+        out = self.generated / "node.struct.json"
+        source_path.write_text(json.dumps({
+            "definitions": {
+                "node": {
+                    "properties": {"value": {"type": "string"}},
+                    "optionalProperties": {"next": {"ref": "node"}},
+                },
+            },
+            "ref": "node",
+            "nullable": True,
+        }), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        value = structure["definitions"]["example"]["nodeValue"]
+        self.assertEqual(
+            value["properties"]["next"]["type"]["$ref"],
+            "#/definitions/example/nodeValue",
+        )
+        self.assertNotIn("next", value["required"])
+
+    def test_jtd_to_structure_bridge_retargets_nullable_mutual_cycle(self) -> None:
+        source_path = self.generated / "a.jtd.json"
+        out = self.generated / "mutual-cycle.struct.json"
+        source_path.write_text(json.dumps({
+            "definitions": {
+                "a": {"optionalProperties": {"b": {"ref": "b"}}},
+                "b": {"optionalProperties": {"a": {"ref": "a"}}},
+            },
+            "ref": "a",
+            "nullable": True,
+        }), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        definitions = structure["definitions"]["example"]
+        self.assertEqual(structure["$root"], "#/definitions/example/a")
+        self.assertEqual(
+            definitions["a"]["type"],
+            [{"$ref": "#/definitions/example/aValue"}, "null"],
+        )
+        self.assertEqual(
+            definitions["aValue"]["properties"]["b"]["type"]["$ref"],
+            "#/definitions/example/b",
+        )
+        self.assertEqual(
+            definitions["b"]["properties"]["a"]["type"]["$ref"],
+            "#/definitions/example/aValue",
+        )
+        try:
+            from json_structure import SchemaValidator
+        except ImportError:
+            self.skipTest("json-structure SDK not installed")
+        self.assertEqual(SchemaValidator().validate(structure), [])
+
+    def test_jtd_to_structure_bridge_avoids_synthetic_value_collision(self) -> None:
+        source_path = self.generated / "node.jtd.json"
+        out = self.generated / "node-collision.struct.json"
+        source_path.write_text(json.dumps({
+            "definitions": {
+                "nodeValue": {"properties": {"marker": {"type": "int32"}}},
+                "node": {
+                    "properties": {"helper": {"ref": "nodeValue"}},
+                    "optionalProperties": {"next": {"ref": "node"}},
+                },
+            },
+            "ref": "node",
+            "nullable": True,
+        }), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        definitions = structure["definitions"]["example"]
+        self.assertIn("marker", definitions["nodeValue"]["properties"])
+        self.assertEqual(definitions["node"]["type"][0]["$ref"], "#/definitions/example/nodeValue2")
+        self.assertEqual(
+            definitions["nodeValue2"]["properties"]["helper"]["type"]["$ref"],
+            "#/definitions/example/nodeValue",
+        )
+        self.assertEqual(
+            definitions["nodeValue2"]["properties"]["next"]["type"]["$ref"],
+            "#/definitions/example/nodeValue2",
+        )
+
+    def test_jtd_root_name_is_sanitized(self) -> None:
+        source_path = self.generated / "123-bad.name.jtd.json"
+        out = self.generated / "named.struct.json"
+        source_path.write_text(json.dumps({"type": "string"}), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(structure["name"], "_123_bad_name")
+
+    def test_jtd_to_structure_uses_sanitized_namespace_for_synthetic_root(self) -> None:
+        source_path = self.generated / "namespace-root.jtd.json"
+        out = self.generated / "namespace-root.struct.json"
+        source_path.write_text(json.dumps({"type": "string"}), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="bad-name.space segment")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        root_path = "bad_name/space_segment/namespace_root"
+        self.assertEqual(structure["$root"], f"#/definitions/{root_path}")
+        self.assertEqual(structure["$id"], f"https://example.com/schemas/{root_path}")
+        self.assertIn("namespace_root", structure["definitions"]["bad_name"]["space_segment"])
+
+    def test_jtd_to_structure_bridge_escapes_reserved_root_name(self) -> None:
+        source_path = self.generated / "type.jtd.json"
+        out = self.generated / "type.struct.json"
+        source_path.write_text(json.dumps({"type": "string"}), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(structure["$root"], "#/definitions/example/type_")
+        self.assertIn("type_", structure["definitions"]["example"])
+
+    def test_jtd_to_structure_bridge_avoids_dependency_root_collision(self) -> None:
+        source_path = self.generated / "item.jtd.json"
+        out = self.generated / "item.struct.json"
+        source_path.write_text(json.dumps({
+            "definitions": {"item": {"properties": {"value": {"type": "string"}}}},
+            "elements": {"ref": "item"},
+        }), encoding="utf-8")
+
+        convert_jtd_to_structure(str(source_path), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(structure["$root"], "#/definitions/example/itemRoot")
+        self.assertIn("item", structure["definitions"]["example"])
+        self.assertIn("itemRoot", structure["definitions"]["example"])
+
+    def test_jtd_to_structure_bridge_preserves_discriminator_root(self) -> None:
+        out = self.generated / "vehicle.struct.json"
+
+        convert_jtd_to_structure(str(self.fixtures / "vehicle.jtd.json"), str(out), namespace="example")
+
+        structure = json.loads(out.read_text(encoding="utf-8"))
+        root = structure["definitions"]["example"]["vehicle"]
+        self.assertEqual(root["type"], "choice")
+        self.assertEqual(len(root["choices"]), 2)
 
     def test_structure_to_jtd_bridge_writes_jtd(self) -> None:
         out = self.generated / "structure-person.jtd.json"

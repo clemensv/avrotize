@@ -1,6 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/schemas/validation-constraints",
+  "x-uses": [
+    "JSONStructureValidation"
+  ],
   "title": "ValidationConstraints",
   "description": "Test schema for validation constraints",
   "type": "object",

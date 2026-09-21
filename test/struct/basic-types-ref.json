@@ -34,7 +34,7 @@
     },
     "bytesField": {
       "type": "string",
-      "format": "byte"
+      "contentEncoding": "base64"
     }
   },
   "required": [

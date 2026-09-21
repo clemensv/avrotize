@@ -5,7 +5,9 @@ Module to convert JSON Structure schema to GraphQL schema.
 
 import json
 import os
+import re
 from typing import Dict, List, Optional, Set
+from urllib.parse import unquote, urldefrag, urljoin, urlparse
 
 from avrotize.common import get_longest_namespace_prefix
 
@@ -16,6 +18,9 @@ class StructureToGraphQLConverter:
     """
     Class to convert JSON Structure schema to GraphQL schema.
     """
+
+    BUILTIN_SCALARS = {'Boolean', 'Float', 'ID', 'Int', 'String'}
+    CUSTOM_SCALARS = {'Binary', 'Date', 'DateTime', 'Decimal', 'Duration', 'JSON', 'Time', 'URI', 'UUID'}
 
     def __init__(self, structure_schema_path, graphql_schema_path):
         """
@@ -30,10 +35,17 @@ class StructureToGraphQLConverter:
         self.record_names = {}  # qualified_name -> simple_name
         self.enums = {}  # qualified_name -> schema
         self.enum_names = {}  # qualified_name -> simple_name
-        self.scalars = {}
+        self.scalars: Set[str] = set()
         self.schema_doc: JsonNode = None
         self.definitions: Dict = {}
         self.schema_registry: Dict[str, Dict] = {}
+        self.schema_context: Dict[int, Dict] = {}
+        self.schema_base_uri: Dict[int, str] = {}
+        self.schema_names: Dict[int, str] = {}
+        self.type_qualified_names: Dict[str, str] = {}
+        self.type_document_ids: Dict[str, str] = {}
+        self.extracting_schema_ids: Set[int] = set()
+        self.extracted_schema_ids: Set[int] = set()
         self.longest_namespace_prefix = ""
         self.type_order = []  # Track order of type definitions for dependency ordering
 
@@ -56,7 +68,7 @@ class StructureToGraphQLConverter:
         # Register all schemas with $id
         for schema in structure_schemas:
             if isinstance(schema, dict):
-                self.register_schema_ids(schema)
+                self.register_schema_ids(schema, context_schema=schema)
 
         # Extract named types from all schemas
         for schema in structure_schemas:
@@ -68,15 +80,17 @@ class StructureToGraphQLConverter:
                     root_ref = schema['$root']
                     root_schema = self.resolve_ref(root_ref, schema)
                     if root_schema:
-                        ref_path = root_ref.split('/')
-                        ref_namespace = '.'.join(ref_path[2:-1]) if len(ref_path) > 3 else ''
-                        self.extract_named_types_from_structure(root_schema, ref_namespace)
-                
+                        ref_path = self.reference_pointer_parts(root_ref, schema, root_schema)
+                        ref_namespace = self.referenced_schema_namespace(root_schema, ref_path, '')
+                        ref_name = ref_path[-1] if ref_path else str(root_schema.get('name', ''))
+                        self.extract_named_types_from_structure(root_schema, ref_namespace, explicit_name=ref_name)
+
                 # Process definitions
                 if 'definitions' in schema:
                     self.definitions = schema['definitions']
                     self.process_definitions(self.definitions, '')
 
+        self.assign_graphql_type_names()
         graphql_content = self.generate_graphql()
 
         with open(self.graphql_schema_path, "w", encoding="utf-8") as file:
@@ -84,47 +98,103 @@ class StructureToGraphQLConverter:
             if not graphql_content.endswith('\n'):
                 file.write('\n')
 
-    def register_schema_ids(self, schema: Dict, base_uri: str = '') -> None:
+    def register_schema_ids(self, schema: Dict, base_uri: str = '', context_schema: Optional[Dict] = None) -> None:
         """Recursively registers schemas with $id keywords"""
         if not isinstance(schema, dict):
             return
+        context_schema = context_schema if context_schema is not None else schema
+        self.schema_context[id(schema)] = context_schema
 
         if '$id' in schema:
             schema_id = schema['$id']
             if base_uri and not schema_id.startswith(('http://', 'https://', 'urn:')):
-                from urllib.parse import urljoin
                 schema_id = urljoin(base_uri, schema_id)
             self.schema_registry[schema_id] = schema
+            document_uri, fragment = urldefrag(schema_id)
+            if not fragment:
+                self.schema_registry[document_uri] = schema
             base_uri = schema_id
+        self.schema_base_uri[id(schema)] = base_uri
 
-        if 'definitions' in schema:
-            for def_name, def_schema in schema['definitions'].items():
-                if isinstance(def_schema, dict):
-                    self.register_schema_ids(def_schema, base_uri)
-
-        if 'properties' in schema:
-            for prop_name, prop_schema in schema['properties'].items():
-                if isinstance(prop_schema, dict):
-                    self.register_schema_ids(prop_schema, base_uri)
-
-        for key in ['items', 'values', 'additionalProperties']:
-            if key in schema and isinstance(schema[key], dict):
-                self.register_schema_ids(schema[key], base_uri)
+        for value in schema.values():
+            if isinstance(value, dict):
+                self.register_schema_ids(value, base_uri, context_schema)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        self.register_schema_ids(item, base_uri, context_schema)
 
     def resolve_ref(self, ref: str, context_schema: Optional[Dict] = None) -> Optional[Dict]:
         """Resolves a $ref to the actual schema definition"""
-        if not ref.startswith('#/'):
-            if ref in self.schema_registry:
-                return self.schema_registry[ref]
-            return None
+        target = self._resolve_ref_once(ref, context_schema)
+        followed: set[int] = set()
+        while isinstance(target, dict) and '$root' in target and id(target) not in followed:
+            followed.add(id(target))
+            target = self._resolve_ref_once(str(target['$root']), target)
+        return target if isinstance(target, dict) else None
 
-        path = ref[2:].split('/')
-        schema = context_schema if context_schema else self.schema_doc
-        for part in path:
-            if not isinstance(schema, dict) or part not in schema:
-                return None
-            schema = schema[part]
-        return schema
+    def _resolve_ref_once(self, ref: str, context_schema: Optional[Dict]) -> Optional[Dict]:
+        context = context_schema if isinstance(context_schema, dict) else None
+        owner = self.schema_context.get(id(context), context) if context is not None else None
+        base_uri = self.schema_base_uri.get(id(context), '') if context is not None else ''
+        if not base_uri and owner is not None:
+            base_uri = self.schema_base_uri.get(id(owner), '')
+        absolute_ref = urljoin(base_uri, ref)
+        document_uri, fragment = urldefrag(absolute_ref)
+
+        if document_uri:
+            target: object = self.schema_registry.get(document_uri)
+            if target is None:
+                target = self.schema_registry.get(absolute_ref)
+        else:
+            target = owner if owner is not None else self.schema_doc
+
+        candidates = target if isinstance(target, list) else [target]
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                continue
+            resolved: object = candidate
+            if fragment:
+                for part in self._pointer_parts(fragment):
+                    if not isinstance(resolved, dict) or part not in resolved:
+                        break
+                    resolved = resolved[part]
+                else:
+                    return resolved if isinstance(resolved, dict) else None
+            else:
+                return candidate
+        return None
+
+    @staticmethod
+    def _pointer_parts(fragment: str) -> list[str]:
+        if not fragment.startswith('/'):
+            return []
+        return [
+            unquote(part).replace('~1', '/').replace('~0', '~')
+            for part in fragment[1:].split('/')
+        ]
+
+    def reference_pointer_parts(self, ref: str, context_schema: Dict, resolved_schema: Dict) -> list[str]:
+        base_uri = self.schema_base_uri.get(id(context_schema), '')
+        _, fragment = urldefrag(urljoin(base_uri, ref))
+        parts = self._pointer_parts(fragment)
+        if parts:
+            return parts
+        owner = self.schema_context.get(id(resolved_schema))
+        if isinstance(owner, dict) and '$root' in owner and owner is not context_schema:
+            return self.reference_pointer_parts(str(owner['$root']), owner, resolved_schema)
+        return []
+
+    def referenced_schema_namespace(self, schema: Dict, ref_path: list[str], fallback: str) -> str:
+        """Return the namespace owned by a resolved reference target."""
+        if 'namespace' in schema:
+            return str(schema.get('namespace') or '')
+        if ref_path[:1] == ['definitions'] and len(ref_path) > 2:
+            return '.'.join(ref_path[1:-1])
+        owner = self.schema_context.get(id(schema))
+        if isinstance(owner, dict) and 'namespace' in owner:
+            return str(owner.get('namespace') or '')
+        return fallback
 
     def process_definitions(self, definitions: Dict, namespace_path: str) -> None:
         """Processes the definitions section recursively"""
@@ -155,15 +225,107 @@ class StructureToGraphQLConverter:
         name = str(schema.get('name', 'UnnamedType'))
         namespace = str(schema.get('namespace', parent_namespace))
         if namespace:
-            return f"{namespace}_{name}".replace('.', '_')
+            return f"{namespace}.{name}"
         return name
 
-    def extract_named_types_from_structure(self, schema: Dict, parent_namespace: str, explicit_name: str = ''):
-        """
-        Extract all named types (objects, enums) from a JSON Structure schema.
-        """
-        if not isinstance(schema, dict):
-            return
+    def schema_document_id(self, schema: Dict) -> str:
+        """Return the owning document URI for a schema node, without a fragment."""
+        base_uri = self.schema_base_uri.get(id(schema), '')
+        if not base_uri:
+            owner = self.schema_context.get(id(schema))
+            if isinstance(owner, dict):
+                base_uri = self.schema_base_uri.get(id(owner), '')
+        document_uri, _ = urldefrag(base_uri)
+        return document_uri
+
+    def canonical_type_key(self, schema: Dict, qualified_name: str) -> str:
+        """Keep document ownership in the private identity used by extracted types."""
+        document_id = self.schema_document_id(schema)
+        return f"{document_id}#{qualified_name}" if document_id else qualified_name
+
+    @staticmethod
+    def document_qualifier(document_id: str) -> str:
+        """Derive a deterministic, readable collision qualifier from a document URI."""
+        parsed = urlparse(document_id)
+        path_name = unquote(parsed.path.rstrip('/').rsplit('/', 1)[-1])
+        qualifier = os.path.splitext(path_name)[0] if path_name else parsed.netloc
+        return qualifier or parsed.path or 'Document'
+
+    @staticmethod
+    def sanitize_graphql_name(name: str, fallback: str = 'UnnamedType') -> str:
+        """Return a valid GraphQL name without changing internal schema identity."""
+        sanitized = re.sub(r'[^A-Za-z0-9_]', '_', str(name)) or fallback
+        if not sanitized[0].isalpha() and sanitized[0] != '_':
+            sanitized = f'_{sanitized}'
+        if sanitized.startswith('__'):
+            sanitized = f'Type{sanitized}'
+        return sanitized
+
+    def assign_graphql_type_names(self) -> None:
+        """Assign simple names where unique and namespace-qualified names on collisions."""
+        entries = [
+            ('record', type_key, name, schema)
+            for type_key, schema in self.records.items()
+            for name in [self.record_names[type_key]]
+        ]
+        entries.extend(
+            ('enum', type_key, name, schema)
+            for type_key, schema in self.enums.items()
+            for name in [self.enum_names[type_key]]
+        )
+        by_simple_name: Dict[str, list[tuple[str, str, str, Dict]]] = {}
+        for entry in entries:
+            by_simple_name.setdefault(entry[2], []).append(entry)
+
+        qualified_counts: Dict[str, int] = {}
+        for _, type_key, _, _ in entries:
+            qualified = self.type_qualified_names[type_key]
+            qualified_counts[qualified] = qualified_counts.get(qualified, 0) + 1
+
+        assigned: Dict[tuple[str, str], str] = {}
+        used_names: Set[str] = self.BUILTIN_SCALARS | self.CUSTOM_SCALARS | self.scalars
+
+        def reserve_name(name: str) -> str:
+            base = self.sanitize_graphql_name(name)
+            candidate = base
+            index = 2
+            while candidate in used_names:
+                candidate = f"{base}_{index}"
+                index += 1
+            used_names.add(candidate)
+            return candidate
+
+        for simple_name in sorted(by_simple_name):
+            group = by_simple_name[simple_name]
+            if len(group) == 1:
+                kind, type_key, _, _ = group[0]
+                assigned[(kind, type_key)] = reserve_name(simple_name)
+
+        for simple_name in sorted(by_simple_name):
+            group = by_simple_name[simple_name]
+            if len(group) == 1:
+                continue
+            for kind, type_key, _, _ in sorted(
+                group,
+                key=lambda entry: (
+                    self.type_qualified_names[entry[1]],
+                    self.type_document_ids[entry[1]],
+                    entry[0],
+                ),
+            ):
+                qualified = self.type_qualified_names[type_key]
+                document_id = self.type_document_ids[type_key]
+                if qualified_counts[qualified] > 1 and document_id:
+                    qualified = f"{self.document_qualifier(document_id)}.{qualified}"
+                assigned[(kind, type_key)] = reserve_name(qualified)
+
+        for kind, type_key, _, schema in entries:
+            graphql_name = assigned[(kind, type_key)]
+            if kind == 'record':
+                self.record_names[type_key] = graphql_name
+            else:
+                self.enum_names[type_key] = graphql_name
+            self.schema_names[id(schema)] = graphql_name
 
     def extract_named_types_from_structure(self, schema: Dict, parent_namespace: str, explicit_name: str = ''):
         """
@@ -171,17 +333,26 @@ class StructureToGraphQLConverter:
         """
         if not isinstance(schema, dict):
             return
+        schema_id = id(schema)
+        if schema_id in self.extracting_schema_ids:
+            return
+        self.extracting_schema_ids.add(schema_id)
+        try:
+            self._extract_named_types_from_structure(schema, parent_namespace, explicit_name)
+        finally:
+            self.extracting_schema_ids.remove(schema_id)
+
+    def _extract_named_types_from_structure(self, schema: Dict, parent_namespace: str, explicit_name: str = ''):
+        """Extract named types after guarding against active recursive references."""
 
         # Handle $ref FIRST before anything else
         if '$ref' in schema:
-            # Use self.schema_doc as context for resolving refs
-            context = self.schema_doc[0] if isinstance(self.schema_doc, list) and len(self.schema_doc) > 0 else self.schema_doc
-            ref_schema = self.resolve_ref(schema['$ref'], context)
+            ref_schema = self.resolve_ref(schema['$ref'], schema)
             if ref_schema:
-                # Extract type name from $ref path for explicit naming
-                ref_path = schema['$ref'].split('/')
-                ref_name = ref_path[-1]
-                self.extract_named_types_from_structure(ref_schema, parent_namespace, explicit_name=ref_name)
+                ref_path = self.reference_pointer_parts(schema['$ref'], schema, ref_schema)
+                ref_namespace = self.referenced_schema_namespace(ref_schema, ref_path, parent_namespace)
+                ref_name = ref_path[-1] if ref_path else self.schema_names.get(id(ref_schema), str(ref_schema.get('name', '')))
+                self.extract_named_types_from_structure(ref_schema, ref_namespace, explicit_name=ref_name)
             return
 
         # Use explicit name if provided, otherwise get from schema
@@ -189,11 +360,18 @@ class StructureToGraphQLConverter:
         
         # Handle enum keyword
         if 'enum' in schema:
+            if id(schema) in self.extracted_schema_ids:
+                return
+            self.schema_names[id(schema)] = name
             qualified = self.qualified_name({**schema, 'name': name, 'namespace': parent_namespace}, parent_namespace)
-            if qualified not in self.enums:
-                self.enums[qualified] = schema
-                self.enum_names[qualified] = name
-                self.type_order.append(('enum', qualified))
+            type_key = self.canonical_type_key(schema, qualified)
+            if type_key not in self.enums:
+                self.enums[type_key] = schema
+                self.enum_names[type_key] = name
+                self.type_qualified_names[type_key] = qualified
+                self.type_document_ids[type_key] = self.schema_document_id(schema)
+                self.type_order.append(('enum', type_key))
+            self.extracted_schema_ids.add(id(schema))
             return
 
         # Handle type keyword
@@ -213,6 +391,9 @@ class StructureToGraphQLConverter:
             return
         
         if struct_type == 'object':
+            if id(schema) in self.extracted_schema_ids:
+                return
+            self.schema_names[id(schema)] = name
             # Process nested properties FIRST to ensure dependencies come before this type
             if 'properties' in schema and isinstance(schema['properties'], dict):
                 for prop_name, prop_schema in schema['properties'].items():
@@ -222,10 +403,14 @@ class StructureToGraphQLConverter:
             # NOW add this type after all dependencies have been processed
             if name:
                 qualified = self.qualified_name({**schema, 'name': name, 'namespace': parent_namespace}, parent_namespace)
-                if qualified not in self.records:
-                    self.records[qualified] = schema
-                    self.record_names[qualified] = name
-                    self.type_order.append(('record', qualified))
+                type_key = self.canonical_type_key(schema, qualified)
+                if type_key not in self.records:
+                    self.records[type_key] = schema
+                    self.record_names[type_key] = name
+                    self.type_qualified_names[type_key] = qualified
+                    self.type_document_ids[type_key] = self.schema_document_id(schema)
+                    self.type_order.append(('record', type_key))
+                self.extracted_schema_ids.add(id(schema))
         
         elif struct_type == 'array' and 'items' in schema:
             if isinstance(schema['items'], dict):
@@ -245,9 +430,12 @@ class StructureToGraphQLConverter:
             for choice_name, choice_schema in choices.items():
                 if isinstance(choice_schema, dict):
                     if '$ref' in choice_schema:
-                        ref_schema = self.resolve_ref(choice_schema['$ref'], schema)
+                        ref_schema = self.resolve_ref(choice_schema['$ref'], choice_schema)
                         if ref_schema:
-                            self.extract_named_types_from_structure(ref_schema, parent_namespace)
+                            ref_path = self.reference_pointer_parts(choice_schema['$ref'], choice_schema, ref_schema)
+                            ref_namespace = self.referenced_schema_namespace(ref_schema, ref_path, parent_namespace)
+                            ref_name = ref_path[-1] if ref_path else str(ref_schema.get('name', ''))
+                            self.extract_named_types_from_structure(ref_schema, ref_namespace, explicit_name=ref_name)
                     else:
                         self.extract_named_types_from_structure(choice_schema, parent_namespace)
 
@@ -257,46 +445,16 @@ class StructureToGraphQLConverter:
 
         :return: GraphQL content as a string.
         """
-        graphql = []
-
-        # Generate scalars for custom types
-        custom_scalars = set()
-        
-        # Add commonly used custom scalars
-        if any('date' in str(record).lower() or 'datetime' in str(record).lower() or 'timestamp' in str(record).lower() 
-               for record in self.records.values()):
-            custom_scalars.add('scalar Date')
-            custom_scalars.add('scalar DateTime')
-        
-        if any('uuid' in str(record).lower() for record in self.records.values()):
-            custom_scalars.add('scalar UUID')
-        
-        if any('uri' in str(record).lower() or 'url' in str(record).lower() for record in self.records.values()):
-            custom_scalars.add('scalar URI')
-        
-        if any('decimal' in str(record).lower() for record in self.records.values()):
-            custom_scalars.add('scalar Decimal')
-        
-        if any('binary' in str(record).lower() or 'bytes' in str(record).lower() for record in self.records.values()):
-            custom_scalars.add('scalar Binary')
-        
-        # Add JSON scalar for map types
-        custom_scalars.add('scalar JSON')
-        
-        for scalar in sorted(custom_scalars):
-            graphql.append(scalar)
-        
-        if custom_scalars:
-            graphql.append('')  # Empty line after scalars
-
-        # Generate types in dependency order
+        self.scalars = {'JSON'}
+        definitions = []
         for type_kind, qualified_name in self.type_order:
             if type_kind == 'enum' and qualified_name in self.enums:
-                graphql.append(self.generate_graphql_enum(self.enums[qualified_name]))
+                definitions.append(self.generate_graphql_enum({**self.enums[qualified_name], 'name': self.enum_names[qualified_name]}))
             elif type_kind == 'record' and qualified_name in self.records:
-                graphql.append(self.generate_graphql_record(self.records[qualified_name]))
+                definitions.append(self.generate_graphql_record({**self.records[qualified_name], 'name': self.record_names[qualified_name]}))
 
-        return "\n".join(graphql)
+        scalar_definitions = [f"scalar {scalar}" for scalar in sorted(self.scalars)]
+        return "\n".join([*scalar_definitions, '', *definitions])
 
     def generate_graphql_record(self, record):
         """
@@ -391,14 +549,14 @@ class StructureToGraphQLConverter:
         if isinstance(structure_type, dict):
             # Handle $ref
             if '$ref' in structure_type:
-                # Use self.schema_doc as context for resolving refs
-                context = self.schema_doc[0] if isinstance(self.schema_doc, list) and len(self.schema_doc) > 0 else self.schema_doc
-                ref_schema = self.resolve_ref(structure_type['$ref'], context)
+                ref_schema = self.resolve_ref(structure_type['$ref'], structure_type)
                 if ref_schema:
-                    # First try to get the name from the schema
-                    ref_name = ref_schema.get('name')
-                    if ref_name:
-                        return ref_name
+                    ref_path = self.reference_pointer_parts(structure_type['$ref'], structure_type, ref_schema)
+                    ref_name = self.schema_names.get(id(ref_schema), ref_path[-1] if ref_path else ref_schema.get('name'))
+                    ref_type = ref_schema.get('type')
+                    if ref_type == 'object' or 'enum' in ref_schema:
+                        return ref_name or structure_type['$ref'].split('/')[-1]
+                    return self.get_graphql_type(ref_schema)
                     # Try to extract name from $ref path
                     ref_path = structure_type['$ref'].split('/')
                     # The last element is the type name
@@ -413,6 +571,39 @@ class StructureToGraphQLConverter:
             
             # Handle type keyword
             struct_type = structure_type.get('type')
+
+            logical_type = structure_type.get('logicalType')
+            logical_type_mapping = {
+                'date': 'date',
+                'rfc3339-date': 'date',
+                'time': 'time',
+                'timeMillis': 'time',
+                'timeMicros': 'time',
+                'time-millis': 'time',
+                'time-micros': 'time',
+                'rfc3339-time-millis': 'time',
+                'rfc3339-time-micros': 'time',
+                'datetime': 'datetime',
+                'timestamp': 'timestamp',
+                'timestampMillis': 'timestamp',
+                'timestampMicros': 'timestamp',
+                'timestamp-millis': 'timestamp',
+                'timestamp-micros': 'timestamp',
+                'localTimestampMillis': 'datetime',
+                'localTimestampMicros': 'datetime',
+                'local-timestamp-millis': 'datetime',
+                'local-timestamp-micros': 'datetime',
+                'rfc3339-timestamp-millis': 'datetime',
+                'rfc3339-timestamp-micros': 'datetime',
+                'rfc3339-local-timestamp-millis': 'datetime',
+                'rfc3339-local-timestamp-micros': 'datetime',
+                'duration': 'duration',
+                'rfc3339-duration': 'duration',
+                'decimal': 'decimal',
+                'uuid': 'uuid',
+            }
+            if logical_type in logical_type_mapping:
+                return self.get_graphql_primitive_type(logical_type_mapping[logical_type])
             
             # Handle type unions (e.g., ["string", "null"])
             if isinstance(struct_type, list):
@@ -494,10 +685,10 @@ class StructureToGraphQLConverter:
             
             # Date/time types
             "date": "Date",
-            "time": "String",
+            "time": "Time",
             "datetime": "DateTime",
             "timestamp": "DateTime",
-            "duration": "String",
+            "duration": "Duration",
             
             # Other special types
             "uuid": "UUID",
@@ -506,7 +697,10 @@ class StructureToGraphQLConverter:
             "any": "JSON"
         }
         
-        return type_mapping.get(structure_type, 'String')
+        graphql_type = type_mapping.get(structure_type, 'String')
+        if graphql_type in self.CUSTOM_SCALARS:
+            self.scalars.add(graphql_type)
+        return graphql_type
 
 
 def convert_structure_to_graphql(structure_schema_path, graphql_schema_path):

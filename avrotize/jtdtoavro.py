@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import copy
 from typing import Any
 
 from avrotize.common import avro_name, avro_name_with_altname, avro_namespace
-from avrotize.dependency_resolver import sort_and_inline_dependencies
 
 AvroSchema = dict[str, Any] | list[Any] | str
 JtdSchema = dict[str, Any]
@@ -15,6 +15,9 @@ JtdSchema = dict[str, Any]
 
 class JtdToAvroConverter:
     """Convert JSON Type Definition schemas to Avrotize/Avro schemas."""
+
+    AVRO_PRIMITIVES = {"null", "boolean", "int", "long", "float", "double", "bytes", "string"}
+    AVRO_SCHEMA_KINDS = {"record", "enum", "array", "map", "fixed", "error"}
 
     TYPE_MAPPING: dict[str, AvroSchema] = {
         "boolean": {"type": "boolean", "jtdType": "boolean"},
@@ -38,6 +41,7 @@ class JtdToAvroConverter:
         self.generated: dict[str, dict[str, Any]] = {}
         self.in_progress: set[str] = set()
         self.output: list[dict[str, Any]] = []
+        self.root_type: AvroSchema | None = None
 
     def convert(self, jtd_schema: JtdSchema, root_name: str = "Root") -> AvroSchema | list[AvroSchema]:
         """Convert a JTD schema dictionary to an Avro schema."""
@@ -52,24 +56,39 @@ class JtdToAvroConverter:
             if root_ref in self.generated:
                 self.generated[root_ref]["jtdRoot"] = True
             if root_schema.get("nullable"):
-                return [*self.output, "null", root_type]
-            return sort_and_inline_dependencies(self.output) if self.output else root_type
+                self.root_type = self._nullable(root_type)
+                return [*self._finalize_named_types(self.output), "null", root_type]
+            self.root_type = root_type
+            return self._finalize_named_types(self.output) if self.output else root_type
 
         converted = self._convert_schema(root_schema, self._unique_type_name(root_name))
+        self.root_type = copy.deepcopy(converted)
         if self.output:
             if isinstance(converted, dict) and converted.get("type") in {"record", "enum"}:
                 if converted not in self.output:
                     self.output.append(converted)
-                return sort_and_inline_dependencies(self.output)
-            return [*self.output, converted]
+                return self._finalize_named_types(self.output)
+            root_members = converted if isinstance(converted, list) else [converted]
+            for member in root_members:
+                if isinstance(member, dict) and member.get("type") not in {"record", "enum"}:
+                    member["jtdRoot"] = True
+            named_members = [
+                member for member in root_members
+                if isinstance(member, dict) and member.get("type") in {"record", "enum", "fixed", "error"}
+            ]
+            sorted_named = self._finalize_named_types([*self.output, *named_members])
+            other_members = [member for member in root_members if member not in named_members]
+            return [*sorted_named, *other_members]
         if isinstance(converted, list):
-            return sort_and_inline_dependencies(converted)
+            return self._finalize_named_types(converted)
         return converted
 
     def _unique_type_name(self, name: str) -> str:
         candidate = avro_name(str(name).split("/")[-1].split(".")[-1] or "Type")
         if candidate == "_":
             candidate = "Type"
+        if candidate in self.AVRO_PRIMITIVES:
+            candidate = f"{candidate}Type"
         used = set(self.ref_names.values())
         if candidate not in used:
             return candidate
@@ -80,6 +99,152 @@ class JtdToAvroConverter:
 
     def _full_name(self, name: str) -> str:
         return f"{self.namespace}.{name}" if self.namespace else name
+
+    @staticmethod
+    def _named_type_key(schema: dict[str, Any]) -> str:
+        namespace = schema.get("namespace")
+        return f"{namespace}.{schema['name']}" if namespace else schema["name"]
+
+    def _finalize_named_types(self, schemas: list[AvroSchema]) -> list[AvroSchema]:
+        named = [
+            schema for schema in schemas
+            if isinstance(schema, dict) and "name" in schema and schema.get("type") in {"record", "enum", "fixed", "error"}
+        ]
+        if len(named) < 2:
+            return schemas
+
+        by_key = {self._named_type_key(schema): schema for schema in named}
+        simple_keys: dict[str, str] = {}
+        ambiguous_names: set[str] = set()
+        for key, schema in by_key.items():
+            name = schema["name"]
+            if name in simple_keys and simple_keys[name] != key:
+                ambiguous_names.add(name)
+            else:
+                simple_keys[name] = key
+        for name in ambiguous_names:
+            simple_keys.pop(name, None)
+
+        def resolve_key(reference: str, namespace: str | None = None) -> str | None:
+            if reference in by_key:
+                return reference
+            if namespace and f"{namespace}.{reference}" in by_key:
+                return f"{namespace}.{reference}"
+            return simple_keys.get(reference)
+
+        def collect_references(node: AvroSchema, namespace: str | None) -> set[str]:
+            if isinstance(node, str):
+                key = resolve_key(node, namespace)
+                return {key} if key else set()
+            if isinstance(node, list):
+                references: set[str] = set()
+                for member in node:
+                    references.update(collect_references(member, namespace))
+                return references
+            if not isinstance(node, dict):
+                return set()
+            schema_type = node.get("type")
+            if schema_type in {"record", "error"}:
+                record_namespace = node.get("namespace", namespace)
+                references: set[str] = set()
+                for field in node.get("fields", []):
+                    references.update(collect_references(field.get("type", "string"), record_namespace))
+                return references
+            if schema_type == "array":
+                return collect_references(node.get("items", "string"), namespace)
+            if schema_type == "map":
+                return collect_references(node.get("values", "string"), namespace)
+            if isinstance(schema_type, (dict, list)):
+                return collect_references(schema_type, namespace)
+            if isinstance(schema_type, str) and schema_type not in self.AVRO_SCHEMA_KINDS:
+                return collect_references(schema_type, namespace)
+            return set()
+
+        graph = {
+            key: collect_references(schema, schema.get("namespace"))
+            for key, schema in by_key.items()
+        }
+
+        def reachable(start: str, target: str) -> bool:
+            pending = list(graph.get(start, set()))
+            visited: set[str] = set()
+            while pending:
+                current = pending.pop()
+                if current == target:
+                    return True
+                if current not in visited:
+                    visited.add(current)
+                    pending.extend(graph.get(current, set()))
+            return False
+
+        ordered_keys: list[str] = []
+        seen_components: set[frozenset[str]] = set()
+        for schema in named:
+            key = self._named_type_key(schema)
+            component = frozenset(
+                candidate for candidate in by_key
+                if reachable(key, candidate) and reachable(candidate, key)
+            )
+            if len(component) > 1:
+                if component in seen_components:
+                    continue
+                seen_components.add(component)
+                root = next(
+                    (candidate for candidate in component if by_key[candidate].get("jtdRoot")),
+                    key,
+                )
+                ordered_keys.append(root)
+                ordered_keys.extend(
+                    candidate for candidate in by_key
+                    if candidate in component and candidate != root
+                )
+            elif key not in ordered_keys:
+                ordered_keys.append(key)
+
+        declared: set[str] = set()
+        active: set[str] = set()
+
+        def materialize_type(node: AvroSchema, namespace: str | None) -> AvroSchema:
+            if isinstance(node, str):
+                key = resolve_key(node, namespace)
+                if key and key not in declared and key not in active:
+                    return materialize_named(key)
+                return node
+            if isinstance(node, list):
+                return [materialize_type(member, namespace) for member in node]
+            if not isinstance(node, dict):
+                return node
+
+            materialized = copy.deepcopy(node)
+            schema_type = materialized.get("type")
+            if schema_type in {"record", "error"}:
+                record_namespace = materialized.get("namespace", namespace)
+                for field in materialized.get("fields", []):
+                    field["type"] = materialize_type(field.get("type", "string"), record_namespace)
+            elif schema_type == "array":
+                materialized["items"] = materialize_type(materialized.get("items", "string"), namespace)
+            elif schema_type == "map":
+                materialized["values"] = materialize_type(materialized.get("values", "string"), namespace)
+            elif isinstance(schema_type, (dict, list)):
+                materialized["type"] = materialize_type(schema_type, namespace)
+            elif isinstance(schema_type, str) and schema_type not in self.AVRO_SCHEMA_KINDS:
+                materialized["type"] = materialize_type(schema_type, namespace)
+            return materialized
+
+        def materialize_named(key: str) -> dict[str, Any]:
+            active.add(key)
+            schema = by_key[key]
+            materialized = materialize_type(schema, schema.get("namespace"))
+            active.remove(key)
+            declared.add(key)
+            return materialized  # type: ignore[return-value]
+
+        finalized: list[AvroSchema] = []
+        for key in ordered_keys:
+            if key not in declared:
+                finalized.append(materialize_named(key))
+        finalized.extend(schema for schema in schemas if schema not in named)
+        return finalized
 
     def _convert_ref(self, ref_name: str) -> str:
         if ref_name not in self.definitions:
@@ -217,16 +382,38 @@ class JtdToAvroConverter:
 
     @staticmethod
     def _nullable(avro_type: AvroSchema) -> list[AvroSchema]:
-        if isinstance(avro_type, list) and "null" in avro_type:
-            return avro_type
+        if isinstance(avro_type, list):
+            if "null" in avro_type:
+                return avro_type
+            return ["null", *avro_type]
         return ["null", avro_type]
+
+
+def _jtd_root_name(jtd_file_path: str, strip_jtd_suffix: bool) -> str:
+    file_name = os.path.basename(jtd_file_path)
+    if strip_jtd_suffix and file_name.lower().endswith(".jtd.json"):
+        file_name = file_name[:-9]
+    else:
+        file_name = os.path.splitext(file_name)[0]
+    name = avro_name(file_name or "Root")
+    return "Root" if name == "_" else name
+
+
+def jtd_root_name(jtd_file_path: str) -> str:
+    """Derive the legacy direct-converter root name from the final file suffix."""
+    return _jtd_root_name(jtd_file_path, strip_jtd_suffix=False)
+
+
+def jtd_structure_root_name(jtd_file_path: str) -> str:
+    """Derive a stable bridge root name while treating .jtd.json as one suffix."""
+    return _jtd_root_name(jtd_file_path, strip_jtd_suffix=True)
 
 
 def convert_jtd_to_avro(jtd_file_path: str, avro_schema_path: str, namespace: str | None = None) -> None:
     """Convert a JSON Type Definition file to an Avrotize Schema file."""
     with open(jtd_file_path, "r", encoding="utf-8") as jtd_file:
         jtd_schema = json.load(jtd_file)
-    root_name = os.path.splitext(os.path.basename(jtd_file_path))[0] or "Root"
+    root_name = jtd_root_name(jtd_file_path)
     converter = JtdToAvroConverter(namespace=namespace)
     avro_schema = converter.convert(jtd_schema, root_name=root_name)
     with open(avro_schema_path, "w", encoding="utf-8") as avro_file:

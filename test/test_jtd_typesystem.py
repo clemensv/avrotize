@@ -236,7 +236,7 @@ class JtdTypeSystemTests(unittest.TestCase):
         }
         avro = self.jtd_to_avro(jtd)
         self.assertIsInstance(avro, list)
-        self.assertEqual([branch["name"] for branch in avro], ["jtdCar", "jtdBoat_Type"])
+        self.assertEqual([branch["name"] for branch in avro], ["schema_jtdCar", "schema_jtdBoat_Type"])
         by_tag = {branch["jtdMappingKey"]: branch for branch in avro}
         self.assertEqual(set(by_tag), {"car", "boat-type"})
         self.assertEqual(by_tag["car"]["jtdDiscriminator"], "kind")
@@ -247,6 +247,42 @@ class JtdTypeSystemTests(unittest.TestCase):
         self.assertEqual(by_tag["boat-type"]["fields"][0]["type"]["jtdEnumSymbols"], {"boat_type": "boat-type"})
         self.assertEqual(by_tag["boat-type"]["fields"][1]["type"], {"type": "float", "jtdType": "float32"})
         self.assertEqual(self.avro_to_jtd(avro), jtd)
+
+    def test_discriminator_root_with_helper_definition_round_trips(self) -> None:
+        source = {
+            "definitions": {"helper": {"properties": {"value": {"type": "string"}}}},
+            "discriminator": "kind",
+            "mapping": {"withHelper": {"properties": {"helper": {"ref": "helper"}}}},
+        }
+
+        avro = self.jtd_to_avro(source)
+        round_tripped = self.avro_to_jtd(avro)
+
+        self.assertFalse(round_tripped.get("nullable", False))
+        self.assertEqual(round_tripped["discriminator"], "kind")
+        self.assertIn("withHelper", round_tripped["mapping"])
+        self.assertEqual(
+            round_tripped["definitions"][f"{NS}.helper"],
+            {"properties": {"value": {"type": "string"}}},
+        )
+
+    def test_nullable_discriminator_root_with_helper_definition_round_trips(self) -> None:
+        source = {
+            "definitions": {"helper": {"properties": {"value": {"type": "string"}}}},
+            "discriminator": "kind",
+            "mapping": {"withHelper": {"properties": {"helper": {"ref": "helper"}}}},
+            "nullable": True,
+        }
+
+        avro = self.jtd_to_avro(source)
+        round_tripped = self.avro_to_jtd(avro)
+
+        self.assertTrue(round_tripped["nullable"])
+        self.assertEqual(round_tripped["discriminator"], "kind")
+        self.assertEqual(
+            round_tripped["definitions"][f"{NS}.helper"],
+            {"properties": {"value": {"type": "string"}}},
+        )
 
     def test_ref_definitions_named_types_and_self_recursion(self) -> None:
         jtd = {
@@ -279,6 +315,254 @@ class JtdTypeSystemTests(unittest.TestCase):
             },
         )
 
+    def test_inline_recursive_record_inherits_namespace_and_uses_definition(self) -> None:
+        avro = {
+            "type": "record",
+            "name": "Envelope",
+            "namespace": "example.inline",
+            "fields": [
+                {
+                    "name": "node",
+                    "type": {
+                        "type": "record",
+                        "name": "Node",
+                        "fields": [
+                            {"name": "value", "type": "string"},
+                            {"name": "next", "type": ["null", "Node"], "default": None},
+                        ],
+                    },
+                },
+            ],
+        }
+
+        jtd = self.avro_to_jtd(avro)
+
+        self.assertEqual(jtd["ref"], "example.inline.Envelope")
+        self.assertEqual(
+            jtd["definitions"]["example.inline.Envelope"]["properties"]["node"],
+            {"ref": "example.inline.Node"},
+        )
+        self.assertEqual(
+            jtd["definitions"]["example.inline.Node"],
+            {
+                "properties": {"value": {"type": "string"}},
+                "optionalProperties": {"next": {"ref": "example.inline.Node"}},
+            },
+        )
+
+    def test_unqualified_reference_prefers_containing_namespace(self) -> None:
+        avro = [
+            {
+                "type": "record",
+                "name": "Shared",
+                "namespace": "alpha",
+                "fields": [{"name": "alphaValue", "type": "string"}],
+            },
+            {
+                "type": "record",
+                "name": "Shared",
+                "namespace": "beta",
+                "fields": [{"name": "betaValue", "type": "string"}],
+            },
+            {
+                "type": "record",
+                "name": "Envelope",
+                "namespace": "alpha",
+                "jtdRoot": True,
+                "fields": [
+                    {"name": "local", "type": "Shared"},
+                    {"name": "remote", "type": "beta.Shared"},
+                ],
+            },
+        ]
+
+        jtd = self.avro_to_jtd(avro)
+
+        envelope = jtd["definitions"]["alpha.Envelope"]
+        self.assertEqual(envelope["properties"]["local"], {"ref": "alpha.Shared"})
+        self.assertEqual(envelope["properties"]["remote"], {"ref": "beta.Shared"})
+        self.assertIn("alpha.Shared", jtd["definitions"])
+        self.assertIn("beta.Shared", jtd["definitions"])
+
+    def test_inline_named_enum_is_canonicalized_for_later_references(self) -> None:
+        avro = {
+            "type": "record",
+            "name": "Envelope",
+            "namespace": "example.inline",
+            "fields": [
+                {
+                    "name": "current",
+                    "type": {"type": "enum", "name": "Status", "symbols": ["OPEN", "CLOSED"]},
+                },
+                {"name": "previous", "type": "Status"},
+            ],
+        }
+
+        jtd = self.avro_to_jtd(avro)
+
+        envelope = jtd["definitions"]["example.inline.Envelope"]
+        self.assertEqual(envelope["properties"]["current"], {"ref": "example.inline.Status"})
+        self.assertEqual(envelope["properties"]["previous"], {"ref": "example.inline.Status"})
+        self.assertEqual(jtd["definitions"]["example.inline.Status"], {"enum": ["OPEN", "CLOSED"]})
+
+    def test_dependency_backed_array_root_round_trips(self) -> None:
+        source = {
+            "definitions": {"person": {"properties": {"name": {"type": "string"}}}},
+            "elements": {"ref": "person"},
+        }
+
+        round_tripped = self.avro_to_jtd(self.jtd_to_avro(source))
+
+        self.assertFalse(round_tripped.get("nullable", False))
+        self.assertEqual(round_tripped["elements"], {"ref": f"{NS}.person"})
+        self.assertEqual(
+            round_tripped["definitions"][f"{NS}.person"],
+            {"properties": {"name": {"type": "string"}}},
+        )
+
+    def test_nullable_dependency_backed_array_root_round_trips(self) -> None:
+        source = {
+            "definitions": {"person": {"properties": {"name": {"type": "string"}}}},
+            "elements": {"ref": "person"},
+            "nullable": True,
+        }
+
+        round_tripped = self.avro_to_jtd(self.jtd_to_avro(source))
+
+        self.assertTrue(round_tripped["nullable"])
+        self.assertEqual(round_tripped["elements"], {"ref": f"{NS}.person"})
+
+    def test_nullable_recursive_root_ref_round_trips(self) -> None:
+        source = {
+            "definitions": {
+                "node": {
+                    "properties": {"value": {"type": "string"}},
+                    "optionalProperties": {"next": {"ref": "node"}},
+                },
+            },
+            "ref": "node",
+            "nullable": True,
+        }
+
+        round_tripped = self.avro_to_jtd(self.jtd_to_avro(source))
+
+        self.assertEqual(round_tripped["ref"], f"{NS}.node")
+        self.assertTrue(round_tripped["nullable"])
+        self.assertEqual(
+            round_tripped["definitions"][f"{NS}.node"]["optionalProperties"]["next"],
+            {"ref": f"{NS}.node"},
+        )
+
+    def test_mixed_avro_union_is_not_mistaken_for_dependency_bundle(self) -> None:
+        avro = [
+            {"type": "record", "name": "A", "fields": []},
+            "string",
+        ]
+
+        jtd = AvroToJtdConverter().convert(avro)
+
+        self.assertEqual(
+            jtd,
+            {"metadata": {"avrotize-union": [{}, {"type": "string"}]}},
+        )
+
+    def test_discriminator_subset_keeps_genuine_mixed_union_branches(self) -> None:
+        helper = {
+            "type": "record",
+            "name": "Helper",
+            "fields": [{"name": "value", "type": "string"}],
+        }
+        tagged = [
+            {
+                "type": "record",
+                "name": "Car",
+                "jtdDiscriminator": "kind",
+                "jtdMappingKey": "car",
+                "fields": [
+                    {"name": "kind", "type": {"type": "enum", "name": "CarKind", "symbols": ["car"]}, "default": "car"},
+                    {"name": "helper", "type": "Helper"},
+                ],
+            },
+            {
+                "type": "record",
+                "name": "Boat",
+                "jtdDiscriminator": "kind",
+                "jtdMappingKey": "boat",
+                "fields": [
+                    {"name": "kind", "type": {"type": "enum", "name": "BoatKind", "symbols": ["boat"]}, "default": "boat"},
+                ],
+            },
+        ]
+
+        jtd = AvroToJtdConverter().convert([helper, "null", *tagged, "string"])
+
+        union = jtd["metadata"]["avrotize-union"]
+        self.assertEqual(union[0]["discriminator"], "kind")
+        self.assertEqual(set(union[0]["mapping"]), {"car", "boat"})
+        self.assertEqual(union[1], {"type": "string"})
+        self.assertTrue(jtd["nullable"])
+        self.assertEqual(jtd["definitions"]["Helper"], {"properties": {"value": {"type": "string"}}})
+
+    def test_wrapped_primitive_definition_round_trips_as_primitive(self) -> None:
+        source = {
+            "definitions": {"alias": {"type": "string"}},
+            "ref": "alias",
+        }
+
+        round_tripped = self.avro_to_jtd(self.jtd_to_avro(source))
+
+        self.assertEqual(round_tripped["definitions"][f"{NS}.alias"], {"type": "string"})
+        self.assertEqual(round_tripped["ref"], f"{NS}.alias")
+
+    def test_cyclic_wrapped_aliases_terminate(self) -> None:
+        avro = [
+            {
+                "type": "record",
+                "name": "a",
+                "fields": [{"name": "value", "type": "b"}],
+                "jtdWrappedDefinition": True,
+                "jtdRoot": True,
+            },
+            {
+                "type": "record",
+                "name": "b",
+                "fields": [{"name": "value", "type": "a"}],
+                "jtdWrappedDefinition": True,
+            },
+        ]
+
+        jtd = AvroToJtdConverter().convert(avro)
+
+        self.assertEqual(jtd["ref"], "a")
+        self.assertEqual(jtd["definitions"]["a"], {"ref": "b"})
+        self.assertEqual(jtd["definitions"]["b"], {"ref": "a"})
+
+    def test_repeated_references_to_inlined_cyclic_type_round_trip_as_refs(self) -> None:
+        source = {
+            "definitions": {
+                "a": {"properties": {"b": {"ref": "b"}}},
+                "b": {"properties": {"a": {"ref": "a"}}},
+            },
+            "properties": {
+                "left": {"ref": "a"},
+                "right": {"ref": "a"},
+            },
+        }
+
+        round_tripped = self.avro_to_jtd(self.jtd_to_avro(source))
+        root = self.root_jtd(round_tripped)
+
+        self.assertEqual(root["properties"]["left"], {"ref": f"{NS}.a"})
+        self.assertEqual(root["properties"]["right"], {"ref": f"{NS}.a"})
+        self.assertEqual(
+            round_tripped["definitions"][f"{NS}.a"]["properties"]["b"],
+            {"ref": f"{NS}.b"},
+        )
+        self.assertEqual(
+            round_tripped["definitions"][f"{NS}.b"]["properties"]["a"],
+            {"ref": f"{NS}.a"},
+        )
+
     def test_mutually_recursive_definitions_generate_parseable_avro(self) -> None:
         jtd = {
             "definitions": {
@@ -289,6 +573,49 @@ class JtdTypeSystemTests(unittest.TestCase):
         }
         avro = JtdToAvroConverter(namespace=NS).convert(jtd, root_name="Root")
         self.assert_valid_avro(avro)
+
+    def test_nullable_mutually_recursive_definitions_generate_parseable_avro(self) -> None:
+        jtd = {
+            "definitions": {
+                "a": {"optionalProperties": {"b": {"ref": "b"}}},
+                "b": {"optionalProperties": {"a": {"ref": "a"}}},
+            },
+            "ref": "a",
+            "nullable": True,
+        }
+
+        avro = JtdToAvroConverter(namespace=NS).convert(jtd, root_name="Root")
+
+        self.assert_valid_avro(avro)
+
+    def test_namespace_less_mutually_recursive_definitions_generate_parseable_avro(self) -> None:
+        jtd = {
+            "definitions": {
+                "a": {"optionalProperties": {"b": {"ref": "b"}}},
+                "b": {"optionalProperties": {"a": {"ref": "a"}}},
+            },
+            "ref": "a",
+        }
+
+        avro = JtdToAvroConverter().convert(jtd, root_name="Root")
+
+        self.assert_valid_avro(avro)
+
+    def test_definition_name_colliding_with_avro_primitive_is_renamed(self) -> None:
+        jtd = {
+            "definitions": {
+                "string": {"properties": {"value": {"type": "string"}}},
+                "holder": {"properties": {"child": {"ref": "string"}}},
+            },
+            "ref": "holder",
+        }
+
+        avro = JtdToAvroConverter().convert(jtd, root_name="Root")
+
+        self.assert_valid_avro(avro)
+        by_name = {schema["name"]: schema for schema in avro if isinstance(schema, dict)}
+        self.assertIn("stringType", by_name)
+        self.assertEqual(self.fields(by_name["holder"])["child"]["type"], "stringType")
 
     # -- round-trip fidelity and lossy behavior --------------------------------
 
@@ -356,7 +683,7 @@ class JtdTypeSystemTests(unittest.TestCase):
     def test_jtd_structure_jtd_round_trip_pins_timestamp_loss(self) -> None:
         source = {"properties": {"when": {"type": "timestamp"}, "id": {"type": "string"}}}
         structure = self.jtd_to_structure(source)
-        jtd = self.root_jtd(self.structure_to_jtd(structure, record_type="jtd"))
+        jtd = self.root_jtd(self.structure_to_jtd(structure, record_type="schema"))
         self.assertEqual(jtd["properties"], {"when": {"type": "string"}, "id": {"type": "string"}})
 
     # -- adversarial / error paths -------------------------------------------

@@ -1,4 +1,5 @@
 scalar Binary
+scalar Date
 scalar JSON
 
 """
@@ -13,4 +14,214 @@ type Category {
   Description: String
   """A picture of the category."""
   Picture: Binary
+}
+"""
+A customer of the company.
+"""
+type Customer {
+  """The unique identifier for the customer."""
+  CustomerID: String!
+  """The name of the company."""
+  CompanyName: String!
+  """The name of the contact person."""
+  ContactName: String
+  """The title of the contact person."""
+  ContactTitle: String
+  """The address of the customer."""
+  Address: String
+  """The city where the customer is located."""
+  City: String
+  """The region where the customer is located."""
+  Region: String
+  """The postal code of the customer."""
+  PostalCode: String
+  """The country where the customer is located."""
+  Country: String
+  """The phone number of the customer."""
+  Phone: String
+  """The fax number of the customer."""
+  Fax: String
+}
+"""
+An employee of the company.
+"""
+type Employee {
+  """The unique identifier for the employee."""
+  EmployeeID: Int!
+  """The last name of the employee."""
+  LastName: String!
+  """The first name of the employee."""
+  FirstName: String!
+  """The title of the employee."""
+  Title: String
+  """The courtesy title of the employee."""
+  TitleOfCourtesy: String
+  """The birth date of the employee."""
+  BirthDate: Date
+  """The hire date of the employee."""
+  HireDate: Date
+  """The address of the employee."""
+  Address: String
+  """The city where the employee is located."""
+  City: String
+  """The region where the employee is located."""
+  Region: String
+  """The postal code of the employee."""
+  PostalCode: String
+  """The country where the employee is located."""
+  Country: String
+  """The home phone number of the employee."""
+  HomePhone: String
+  """The extension number of the employee."""
+  Extension: String
+  """A photo of the employee."""
+  Photo: Binary
+  """Notes about the employee."""
+  Notes: String
+  """The ID of the employee's manager."""
+  ReportsTo: Int
+  """The path to the employee's photo."""
+  PhotoPath: String
+}
+"""
+An order placed by a customer.
+"""
+type Order {
+  """The unique identifier for the order."""
+  OrderID: Int!
+  """The ID of the customer who placed the order."""
+  CustomerID: String
+  """The ID of the employee who handled the order."""
+  EmployeeID: Int
+  """The date the order was placed."""
+  OrderDate: Date
+  """The date the order is required by."""
+  RequiredDate: Date
+  """The date the order was shipped."""
+  ShippedDate: Date
+  """The ID of the shipper."""
+  ShipVia: Int
+  """The freight charges for the order."""
+  Freight: Float
+  """The name of the recipient."""
+  ShipName: String
+  """The address where the order is to be shipped."""
+  ShipAddress: String
+  """The city where the order is to be shipped."""
+  ShipCity: String
+  """The region where the order is to be shipped."""
+  ShipRegion: String
+  """The postal code where the order is to be shipped."""
+  ShipPostalCode: String
+  """The country where the order is to be shipped."""
+  ShipCountry: String
+}
+"""
+Details of a product included in an order.
+"""
+type OrderDetail {
+  """The ID of the order."""
+  OrderID: Int!
+  """The ID of the product."""
+  ProductID: Int!
+  """The price per unit of the product."""
+  UnitPrice: Float!
+  """The quantity of the product ordered."""
+  Quantity: Int!
+  """The discount applied to the product."""
+  Discount: Float!
+}
+"""
+A product available for sale.
+"""
+type Product {
+  """The unique identifier for the product."""
+  ProductID: Int!
+  """The name of the product."""
+  ProductName: String!
+  """The ID of the supplier of the product."""
+  SupplierID: Int
+  """The ID of the category the product belongs to."""
+  CategoryID: Int
+  """The quantity of the product per unit."""
+  QuantityPerUnit: String
+  """The price per unit of the product."""
+  UnitPrice: Float
+  """The number of units in stock."""
+  UnitsInStock: Int
+  """The number of units on order."""
+  UnitsOnOrder: Int
+  """The reorder level for the product."""
+  ReorderLevel: Int
+  """Whether the product is discontinued."""
+  Discontinued: Boolean!
+}
+"""
+A shipper responsible for delivering orders.
+"""
+type Shipper {
+  """The unique identifier for the shipper."""
+  ShipperID: Int!
+  """The name of the shipping company."""
+  CompanyName: String!
+  """The phone number of the shipper."""
+  Phone: String
+}
+"""
+A supplier of products.
+"""
+type Supplier {
+  """The unique identifier for the supplier."""
+  SupplierID: Int!
+  """The name of the supplier's company."""
+  CompanyName: String!
+  """The name of the contact person at the supplier."""
+  ContactName: String
+  """The title of the contact person at the supplier."""
+  ContactTitle: String
+  """The address of the supplier."""
+  Address: String
+  """The city where the supplier is located."""
+  City: String
+  """The region where the supplier is located."""
+  Region: String
+  """The postal code of the supplier."""
+  PostalCode: String
+  """The country where the supplier is located."""
+  Country: String
+  """The phone number of the supplier."""
+  Phone: String
+  """The fax number of the supplier."""
+  Fax: String
+  """The homepage of the supplier."""
+  HomePage: String
+}
+"""
+A region where the company operates.
+"""
+type Region {
+  """The unique identifier for the region."""
+  RegionID: Int!
+  """A description of the region."""
+  RegionDescription: String!
+}
+"""
+A territory within a region.
+"""
+type Territory {
+  """The unique identifier for the territory."""
+  TerritoryID: String!
+  """A description of the territory."""
+  TerritoryDescription: String!
+  """The ID of the region the territory belongs to."""
+  RegionID: Int!
+}
+"""
+An association between an employee and a territory.
+"""
+type EmployeeTerritory {
+  """The ID of the employee."""
+  EmployeeID: Int!
+  """The ID of the territory."""
+  TerritoryID: String!
 }
