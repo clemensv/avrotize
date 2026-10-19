@@ -3,7 +3,7 @@
 
 # Runtime dependencies
 avro>=1.12.2
-fastavro>=1.12.2
+fastavro>=1.13.1
 confluent-kafka>=2.16.0
 dataclasses-json>=0.6.7
 
