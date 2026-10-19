@@ -77,7 +77,7 @@ dev = [
     "oracledb>=3.4.2",
     "cassandra-driver>=3.29.1",
     "sqlalchemy>=2.0.52",
-    "graphql-core>=3.2.0"
+    "graphql-core>=3.2.12"
 ]
 
 [project.scripts]
