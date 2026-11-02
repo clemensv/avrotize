@@ -8,6 +8,6 @@ confluent-kafka>=2.16.0
 dataclasses-json>=0.6.7
 
 # Development dependencies
-pytest>=9.1.1
+pytest>=9.2.0
 mypy>=2.4.0
 pylint>=4.1.3
