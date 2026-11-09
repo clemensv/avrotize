@@ -62,7 +62,18 @@ packages = ["avrotize"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-avrotize = ["commands.json", "**/*.json", "**/*.lark"]
+avrotize = [
+    "commands.json",
+    "**/*.json",
+    "**/*.lark",
+    "**/*.jinja",
+    "**/*.avsc",
+    "dependencies/cs/*/dependencies.csproj",
+    "dependencies/java/*/pom.xml",
+    "dependencies/python/*/requirements.txt",
+    "dependencies/go/*/go.mod",
+    "dependencies/rust/*/Cargo.toml"
+]
 
 [tool.setuptools_scm]
 root = ".."

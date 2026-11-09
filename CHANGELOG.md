@@ -17,8 +17,15 @@ All notable changes to Avrotize are documented in this file.
 - Updated central Python, Java, and .NET code-generation dependencies and
   publication actions from reviewed Dependabot updates.
 - Generated .NET test projects now use NUnit 5.
-- CI now selects the Python 3.10 series instead of the obsolete 3.10.12 build.
-  Extension publication uses Node.js 22 to match the updated VSCE requirement.
+- Full development and CI tests now use Python 3.11 because patched dnspython
+  releases require it. The published package retains Python 3.10 support, with
+  separate runtime installation checks.
+- Extension publication uses Node.js 22 to match the updated VSCE requirement.
+
+### Fixed
+
+- Included code-generation templates and all central dependency manifests in
+  the Structurize distribution.
 
 ## [3.9.1] - 2026-08-26
 
