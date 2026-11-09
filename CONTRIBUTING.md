@@ -40,6 +40,11 @@ input or Avrotize commands.
 
 ## Checking a change
 
+The full development requirements and CI test suite require Python 3.11 or
+later because the patched dnspython release no longer supports Python 3.10.
+The published package still supports Python 3.10; the runtime installation
+matrix checks that separately.
+
 Run the smallest existing test that covers your change. If you are unsure which
 test applies, say what you tried in the pull request and ask for guidance. Common
 starting points are:

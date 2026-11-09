@@ -24,7 +24,7 @@ dependencies = [
     "jsonpointer>=3.1.1",
     "jsonpath-ng>=1.8.0",
     "jsoncomparison>=1.1.0",
-    "requests>=2.32.3",
+    "requests>=2.33.0",
     "azure-kusto-data>=6.0.3",
     "azure-identity>=1.25.3",
     "datapackage>=1.15.4",
@@ -38,7 +38,7 @@ dependencies = [
 ]
 [project.optional-dependencies]
 mcp = [
-    "mcp>=1.26.0"
+    "mcp>=1.30.0"
 ]
 postgres = [
     "psycopg2-binary>=2.9.12"
@@ -59,11 +59,11 @@ all-sql = [
     "oracledb>=3.4.2"
 ]
 dev = [
-    "pytest>=8.3.2",
+    "pytest>=9.0.3",
     "fastavro>=1.12.2",
     "xmlschema>=4.3.2",
     "xmlunittest>=1.0.1",
-    "pylint>=4.0.7",
+    "pylint>=4.0.9",
     "dataclasses_json>=0.6.7",
     "dataclasses>=0.8",
     "pydantic>=2.13.5",
