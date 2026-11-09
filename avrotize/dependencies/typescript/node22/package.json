@@ -7,6 +7,10 @@
     "avsc": "^5.7.7",
     "kafkajs": "^2.2.4"
   },
+  "overrides": {
+    "glob": "^14.0.3",
+    "minimatch": "^11.0.4"
+  },
   "devDependencies": {
     "@types/node": "^26.0.0",
     "typescript": "^7.0.2",
