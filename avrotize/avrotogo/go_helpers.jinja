@@ -3,7 +3,18 @@ package {{ base_package }}
 import (
     "math/rand"
     "time"
+    {%- if avro_annotation %}
+    "github.com/iskorotkov/avro/v2"
+    {%- endif %}
 )
+
+{%- if avro_annotation %}
+// Bound collection allocations before decoding untrusted Avro block counts.
+var avroCodec = avro.Config{
+    MaxSliceAllocSize: 1 << 20,
+    MaxMapAllocSize: 1 << 20,
+}.Freeze()
+{% endif %}
 
 func init() {
     rand.Seed(time.Now().UnixNano())

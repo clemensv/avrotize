@@ -18,7 +18,7 @@ import (
     "strings"
     {%- endif %}
     {%- if avro_annotation %}
-    "github.com/hamba/avro/v2"
+    "github.com/iskorotkov/avro/v2"
     {%- endif %}
     {%- for ref_pkg in referenced_packages %}
     "{{ ref_pkg }}"
@@ -64,7 +64,7 @@ func (s *{{ struct_name }}) ToByteArray(contentType string) ([]byte, error) {
     {%- endif %}
     {%- if avro_annotation %}
     case "avro/binary", "application/vnd.apache.avro+avro":
-        result, err = avro.Marshal({{ struct_name }}Schema, s)
+        result, err = avroCodec.Marshal({{ struct_name }}Schema, s)
     {%- endif %}
     default:
         return nil, fmt.Errorf("unsupported media type: %s", mediaType)
@@ -146,13 +146,13 @@ func {{ struct_name }}FromData(data interface{}, contentType string) (*{{ struct
     case "avro/binary", "application/vnd.apache.avro+avro":
         switch v := data.(type) {
         case []byte:
-            err = avro.Unmarshal({{ struct_name }}Schema, v, &s)
+            err = avroCodec.Unmarshal({{ struct_name }}Schema, v, &s)
         case io.Reader:
             rawData, readErr := io.ReadAll(v)
             if readErr != nil {
                 return nil, readErr
             }
-            err = avro.Unmarshal({{ struct_name }}Schema, rawData, &s)
+            err = avroCodec.Unmarshal({{ struct_name }}Schema, rawData, &s)
         default:
             return nil, fmt.Errorf("unsupported data type for Avro: %T", data)
         }
