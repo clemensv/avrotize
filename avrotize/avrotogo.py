@@ -352,7 +352,7 @@ class AvroToGo:
             if "strings." in field_type:
                 imports.add("strings")
             if "avro." in field_type:
-                imports.add("github.com/hamba/avro/v2")
+                imports.add("github.com/iskorotkov/avro/v2")
         return imports
 
     def random_value(self, go_type: str) -> str:
@@ -405,6 +405,7 @@ class AvroToGo:
             'structs': self.structs,
             'enums': self.enums,
             'base_package': self.base_package,
+            'avro_annotation': self.avro_annotation,
         }
         for struct in context['structs']:
             for field in struct['fields']:
@@ -463,10 +464,10 @@ class AvroToGo:
         """Writes the go.mod file for the Go project"""
         go_mod_content = ""
         go_mod_content += "module " + self.package_site + "/" + self.package_username + "/" + self.base_package + "\n\n"
-        go_mod_content += "go 1.21\n\n"
+        go_mod_content += "go " + ("1.24.13" if self.avro_annotation else "1.21") + "\n\n"
         if self.avro_annotation:
             go_mod_content += "require (\n"
-            go_mod_content += "    github.com/hamba/avro/v2 v2.27.0\n"
+            go_mod_content += "    github.com/iskorotkov/avro/v2 v2.33.0\n"
             go_mod_content += ")\n"
         
         go_mod_path = os.path.join(self.output_dir, "go.mod")

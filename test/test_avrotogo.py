@@ -13,11 +13,77 @@ project_root = os.path.dirname(os.path.dirname(current_script_path))
 sys.path.append(project_root)
 
 
-from avrotize.avrotogo import convert_avro_to_go
+from avrotize.avrotogo import convert_avro_to_go, convert_avro_schema_to_go
 from avrotize.jsonstoavro import convert_jsons_to_avro
 
 
 class TestAvroToGo(unittest.TestCase):
+
+    @unittest.skipUnless(shutil.which("go"), "Go toolchain required")
+    def test_avro_collection_limits_and_roundtrips(self):
+        schemas = [
+            {"type": "record", "name": "MapRecord", "fields": [
+                {"name": "items", "type": {"type": "map", "values": ["null", "long"]}}]},
+            {"type": "record", "name": "ArrayRecord", "fields": [
+                {"name": "items", "type": {"type": "array", "items": "long"}}]},
+        ]
+        with tempfile.TemporaryDirectory() as output:
+            convert_avro_schema_to_go(
+                schemas, output, package_name="bounded", avro_annotation=True)
+            with open(os.path.join(output, "pkg", "bounded", "limits_test.go"),
+                      "w", encoding="utf-8") as test_file:
+                test_file.write(r'''package bounded
+
+import (
+    "bytes"
+    "encoding/binary"
+    "reflect"
+    "strings"
+    "testing"
+)
+
+func TestCollectionLimits(t *testing.T) {
+    for _, count := range []int64{1<<21, 1<<62} {
+        data := binary.AppendVarint(nil, count)
+        for _, input := range []interface{}{data, bytes.NewReader(data)} {
+            if _, err := MapRecordFromData(input, "avro/binary"); err == nil ||
+                !strings.Contains(err.Error(), "MaxMapAllocSize") {
+                t.Fatalf("map count %d: expected allocation limit, got %v", count, err)
+            }
+        }
+        if _, err := ArrayRecordFromData(data, "avro/binary"); err == nil {
+            t.Fatalf("array count %d accepted", count)
+        }
+    }
+    // A small truncated block must also terminate instead of spinning.
+    for _, data := range [][]byte{{2}, {1, 0}} {
+        MapRecordFromData(data, "avro/binary")
+        ArrayRecordFromData(data, "avro/binary")
+    }
+}
+
+func TestCollectionRoundtrips(t *testing.T) {
+    wantMap := MapRecord{Items: map[string]*int64{"one": Opt(int64(1)), "two": Opt(int64(2))}}
+    data, err := wantMap.ToByteArray("avro/binary")
+    if err != nil { t.Fatal(err) }
+    gotMap, err := MapRecordFromData(data, "avro/binary")
+    if err != nil || !reflect.DeepEqual(&wantMap, gotMap) {
+        t.Fatalf("map roundtrip: %v, %v", gotMap, err)
+    }
+    wantArray := ArrayRecord{Items: []int64{1, 2, 3}}
+    data, err = wantArray.ToByteArray("avro/binary")
+    if err != nil { t.Fatal(err) }
+    gotArray, err := ArrayRecordFromData(bytes.NewReader(data), "avro/binary")
+    if err != nil || !reflect.DeepEqual(&wantArray, gotArray) {
+        t.Fatalf("array roundtrip: %v, %v", gotArray, err)
+    }
+}
+''')
+            for command in (["go", "mod", "tidy"],
+                            ["go", "test", "-timeout=30s", "./..."]):
+                result = subprocess.run(
+                    command, cwd=output, capture_output=True, text=True, timeout=180)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
     def verify_go_output(self, go_path, package_name: str):
