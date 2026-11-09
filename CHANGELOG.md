@@ -11,6 +11,8 @@ All notable changes to Avrotize are documented in this file.
   Added patched transitive dependency overrides for diff, glob, minimatch, and
   serialize-javascript.
 - Updated the older .NET 9 dependency manifest to MessagePack 3.1.12.
+- Updated Java test fixtures to JUnit 4.13.2 and added patched glob/minimatch
+  overrides to the central TypeScript dependency manifest.
 
 ### Changed
 
