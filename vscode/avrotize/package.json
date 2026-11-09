@@ -508,16 +508,22 @@
         "@types/mocha": "^10.0.6",
         "@types/node": "22.5.5",
         "@types/vscode": "^1.89.0",
-        "@typescript-eslint/eslint-plugin": "8.6.0",
-        "@typescript-eslint/parser": "8.6.0",
-        "@vscode/test-cli": "0.0.10",
-        "@vscode/test-electron": "2.4.1",
-        "@vscode/vsce": "3.1.0",
-        "esbuild": "0.24.0",
+        "@typescript-eslint/eslint-plugin": "8.72.1",
+        "@typescript-eslint/parser": "8.72.1",
+        "@vscode/test-cli": "0.0.15",
+        "@vscode/test-electron": "3.1.0",
+        "@vscode/vsce": "4.1.0",
+        "esbuild": "0.28.2",
         "esbuild-plugin-copy": "^2.1.1",
         "eslint": "9.8.0",
         "npm-run-all": "^4.1.5",
         "typescript": "5.6.2"
+    },
+    "overrides": {
+        "diff": "^8.0.3",
+        "glob": "^14.0.3",
+        "minimatch": "^11.0.4",
+        "serialize-javascript": "^7.1.4"
     },
     "dependencies": {
         "avrotize": "file:"

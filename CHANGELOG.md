@@ -1,5 +1,25 @@
 All notable changes to Avrotize are documented in this file.
 
+## [3.9.4] - 2026-11-09
+
+### Security
+
+- Raised vulnerable Python dependency minimums in the package metadata and
+  development requirements, including Requests, MCP, Jinja2, PyArrow,
+  cryptography, PyJWT, urllib3, and PyMongo.
+- Updated the VS Code extension's build, lint, test, and publication dependencies.
+  Added patched transitive dependency overrides for diff, glob, minimatch, and
+  serialize-javascript.
+- Updated the older .NET 9 dependency manifest to MessagePack 3.1.12.
+
+### Changed
+
+- Updated central Python, Java, and .NET code-generation dependencies and
+  publication actions from reviewed Dependabot updates.
+- Generated .NET test projects now use NUnit 5.
+- CI now selects the Python 3.10 series instead of the obsolete 3.10.12 build.
+  Extension publication uses Node.js 22 to match the updated VSCE requirement.
+
 ## [3.9.1] - 2026-08-26
 
 ### Added

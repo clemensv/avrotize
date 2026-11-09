@@ -70,7 +70,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v7
       with:
-        python-version: 3.10.12
+        python-version: '3.10'
     - name: Set up Rust for JSON Structure validation
       if: matrix.test-group.name == 'JSON Structure & Main'
       uses: dtolnay/rust-toolchain@stable
@@ -144,7 +144,7 @@ jobs:
     - name: Install Node and NPM
       uses: actions/setup-node@v7
       with:
-        node-version: '20'
+        node-version: '22'
     - name: Set up dependencies for VS Code Extension
       run: |
         cd ${{ github.workspace }}/vscode/avrotize
