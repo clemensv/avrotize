@@ -3,6 +3,8 @@
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -662,6 +664,119 @@ class TestJsonStructureToAvro(unittest.TestCase):
         self.assertEqual(logical_of(fields['datetimeField']), ('string', 'rfc3339-timestamp-millis'))
         self.assertEqual(logical_of(fields['timestampField']), ('string', 'rfc3339-timestamp-millis'))
         self.assertEqual(logical_of(fields['durationField']), ('string', 'rfc3339-duration'))
+
+    def test_no_custom_logical_types_preserves_temporal_strings(self):
+        from fastavro import schemaless_reader, schemaless_writer
+
+        temporal_types = {
+            'date': ('rfc3339-date', '2026-11-17'),
+            'time': ('rfc3339-time-millis', '10:00:00.123456'),
+            'datetime': ('rfc3339-timestamp-millis', '2026-11-17T10:00:00+01:00'),
+            'timestamp': ('rfc3339-timestamp-millis', '2026-11-17T09:00:00Z'),
+            'duration': ('rfc3339-duration', 'P1DT2H'),
+        }
+        structure = {
+            'name': 'Temporal',
+            'type': 'object',
+            'properties': {name: {'type': name} for name in temporal_types},
+            'required': list(temporal_types),
+        }
+        result = JsonStructureToAvro(no_custom_logical_types=True).convert(structure)
+        fields = {field['name']: field for field in result['fields']}
+        for name, (logical_type, _) in temporal_types.items():
+            with self.subTest(temporal_type=name):
+                self.assertEqual(fields[name]['type'], {
+                    'type': 'string',
+                    'x-original-logical-type': logical_type,
+                })
+
+        payload = {name: value for name, (_, value) in temporal_types.items()}
+        for timestamp in (
+            '2026-11-17T10:00:00+01:00',
+            '2026-11-17T10:00:00.123456+01:00',
+            '2026-11-17T09:00:00.500Z',
+        ):
+            with self.subTest(timestamp=timestamp):
+                record = {**payload, 'datetime': timestamp}
+                buffer = io.BytesIO()
+                schemaless_writer(buffer, result, record)
+                buffer.seek(0)
+                self.assertEqual(schemaless_reader(buffer, result), record)
+
+    def test_no_custom_logical_types_handles_nested_annotations(self):
+        structure = {
+            '$root': '#/definitions/Reading',
+            'definitions': {
+                'Reading': {
+                    'type': 'object',
+                    'properties': {
+                        'details': {
+                            'type': 'object',
+                            'properties': {
+                                'dates': {
+                                    'type': 'map',
+                                    'values': {'type': 'string', 'logicalType': 'date'},
+                                },
+                                'timestamps': {
+                                    'type': 'array',
+                                    'items': {'type': 'int64', 'logicalType': 'timestampMicros'},
+                                },
+                                'optional': {'type': ['null', 'datetime']},
+                                'id': {'type': 'string', 'logicalType': 'uuid'},
+                            },
+                            'required': ['dates', 'timestamps', 'id'],
+                        },
+                    },
+                    'required': ['details'],
+                },
+            },
+        }
+        result = JsonStructureToAvro(no_custom_logical_types=True).convert(structure)
+        details = result['fields'][0]['type']
+        fields = {field['name']: field for field in details['fields']}
+        self.assertEqual(fields['dates']['type']['values'], {
+            'type': 'string', 'x-original-logical-type': 'rfc3339-date',
+        })
+        self.assertEqual(fields['timestamps']['type']['items'], {
+            'type': 'string', 'x-original-logical-type': 'rfc3339-timestamp-micros',
+        })
+        self.assertEqual(fields['optional']['type'], [
+            'null', {'type': 'string', 'x-original-logical-type': 'rfc3339-timestamp-millis'},
+        ])
+        self.assertIsNone(fields['optional']['default'])
+        self.assertEqual(fields['id']['type'], {'type': 'string', 'logicalType': 'uuid'})
+
+    def test_no_custom_logical_types_file_api_and_cli(self):
+        structure = {
+            'name': 'Reading',
+            'type': 'object',
+            'properties': {'timestamp': {'type': 'datetime'}},
+            'required': ['timestamp'],
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            structure_file = os.path.join(tmpdir, 'reading.struct.json')
+            avro_file = os.path.join(tmpdir, 'reading.avsc')
+            with open(structure_file, 'w', encoding='utf-8') as stream:
+                json.dump(structure, stream)
+
+            for entry_point in ('api', 'cli'):
+                with self.subTest(entry_point=entry_point):
+                    if entry_point == 'api':
+                        convert_json_structure_to_avro(
+                            structure_file, avro_file, no_custom_logical_types=True)
+                    else:
+                        completed = subprocess.run(
+                            [sys.executable, '-m', 'avrotize', 's2a', structure_file,
+                             '--out', avro_file, '--no-custom-logical-types'],
+                            capture_output=True, text=True, check=False,
+                        )
+                        self.assertEqual(completed.returncode, 0, completed.stderr)
+                    with open(avro_file, 'r', encoding='utf-8') as stream:
+                        result = json.load(stream)
+                    self.assertEqual(result['fields'][0]['type'], {
+                        'type': 'string',
+                        'x-original-logical-type': 'rfc3339-timestamp-millis',
+                    })
 
     def test_temporal_output_has_no_reserved_logical_on_string(self):
         """Regression for #335: never emit a reserved Avro logical type on string."""
