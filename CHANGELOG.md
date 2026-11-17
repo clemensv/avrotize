@@ -2,6 +2,8 @@ All notable changes to Avrotize are documented in this file.
 
 ## [Unreleased]
 
+## [3.9.6] - 2026-11-17
+
 ### Added
 
 - `s2a --no-custom-logical-types` moves custom `rfc3339-*` annotations from
