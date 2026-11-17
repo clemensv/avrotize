@@ -4894,7 +4894,8 @@
       "name": "avrotize.jstructtoavro.convert_json_structure_to_avro",
       "args": {
         "structure_file": "input_file_path",
-        "avro_file": "output_file_path"
+        "avro_file": "output_file_path",
+        "no_custom_logical_types": "args.no_custom_logical_types"
       }
     },
     "extensions": [
@@ -4913,6 +4914,13 @@
         "name": "--out",
         "type": "str",
         "help": "Path to the Avrotize schema file",
+        "required": false
+      },
+      {
+        "name": "--no-custom-logical-types",
+        "type": "bool",
+        "help": "Move custom logicalType annotations to x-original-logical-type without changing base types",
+        "default": false,
         "required": false
       }
     ],

@@ -4,6 +4,7 @@ This article explains the handling of JSON Structure in Avrotize in more detail.
 
 - [JSON Structure Handling in Avrotize](#json-structure-handling-in-avrotize)
   - [Conversion from JSON Structure into Avro Schema](#conversion-from-json-structure-into-avro-schema)
+    - [Opting out of custom logical types](#opting-out-of-custom-logical-types)
     - [Supported JSON Structure elements](#supported-json-structure-elements)
       - [Primitive Types](#primitive-types)
       - [Logical Types and Temporal Types](#logical-types-and-temporal-types)
@@ -39,6 +40,47 @@ modeling.
 The conversion produces Avrotize Schema format, which is a superset of Apache
 Avro Schema with extensions for string-based logical types (RFC 3339 format) and
 additional metadata.
+
+### Opting out of custom logical types
+
+Avro readers must ignore unrecognized `logicalType` values and use the underlying
+type. For readers that reject these custom annotations, use:
+
+```powershell
+avrotize s2a reading.struct.json --out reading.avsc --no-custom-logical-types
+```
+
+This option moves Avrotize's custom `rfc3339-*` logical-type names to
+`x-original-logical-type`. Date, time, datetime, timestamp, and duration fields
+keep their `string` base types. Values are not converted to integer dates or
+epoch timestamps; offsets and fractional seconds remain unchanged.
+
+For example, a datetime field's type becomes:
+
+```json
+{
+  "type": "string",
+  "x-original-logical-type": "rfc3339-timestamp-millis"
+}
+```
+
+The default output is unchanged. Standard logical-type names such as `uuid`
+remain in `logicalType`. The moved annotation does not enforce temporal
+validation; validate payloads against the original JSON Structure contract when
+that validation is required.
+
+The file API accepts the same option:
+
+```python
+from avrotize.jstructtoavro import convert_json_structure_to_avro
+
+convert_json_structure_to_avro(
+    "reading.struct.json", "reading.avsc", no_custom_logical_types=True
+)
+```
+
+For in-memory conversion, use
+`JsonStructureToAvro(no_custom_logical_types=True).convert(schema)`.
 
 ### Supported JSON Structure elements
 
@@ -78,11 +120,11 @@ logical types** following RFC 3339 format specifications:
 
 | JSON Structure Type | Avrotize Schema Type | Format |
 | ------------------- | -------------------- | ------ |
-| `date` | `{"type": "string", "logicalType": "date"}` | RFC 3339 full-date |
-| `time` | `{"type": "string", "logicalType": "time-millis"}` | RFC 3339 partial-time |
-| `datetime` | `{"type": "string", "logicalType": "timestamp-millis"}` | RFC 3339 date-time |
-| `timestamp` | `{"type": "string", "logicalType": "timestamp-millis"}` | RFC 3339 date-time |
-| `duration` | `{"type": "string", "logicalType": "duration"}` | RFC 3339 duration |
+| `date` | `{"type": "string", "logicalType": "rfc3339-date"}` | RFC 3339 full-date |
+| `time` | `{"type": "string", "logicalType": "rfc3339-time-millis"}` | RFC 3339 partial-time |
+| `datetime` | `{"type": "string", "logicalType": "rfc3339-timestamp-millis"}` | RFC 3339 date-time |
+| `timestamp` | `{"type": "string", "logicalType": "rfc3339-timestamp-millis"}` | RFC 3339 date-time |
+| `duration` | `{"type": "string", "logicalType": "rfc3339-duration"}` | RFC 3339 duration |
 | `uuid` | `{"type": "string", "logicalType": "uuid"}` | UUID format |
 | `decimal` | `{"type": "string", "logicalType": "decimal"}` | Decimal string |
 
@@ -125,7 +167,7 @@ logical types** following RFC 3339 format specifications:
       "name": "eventDate",
       "type": {
         "type": "string",
-        "logicalType": "date"
+        "logicalType": "rfc3339-date"
       }
     },
     {
@@ -134,7 +176,7 @@ logical types** following RFC 3339 format specifications:
         "null",
         {
           "type": "string",
-          "logicalType": "time-millis"
+          "logicalType": "rfc3339-time-millis"
         }
       ],
       "default": null
@@ -145,7 +187,7 @@ logical types** following RFC 3339 format specifications:
         "null",
         {
           "type": "string",
-          "logicalType": "timestamp-millis"
+          "logicalType": "rfc3339-timestamp-millis"
         }
       ],
       "default": null
@@ -156,7 +198,7 @@ logical types** following RFC 3339 format specifications:
         "null",
         {
           "type": "string",
-          "logicalType": "duration"
+          "logicalType": "rfc3339-duration"
         }
       ],
       "default": null

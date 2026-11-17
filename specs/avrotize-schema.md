@@ -813,6 +813,12 @@ logical type MUST ignore it and treat the value as a plain `string` (see
 logical type (such as `timestamp-millis`, which requires a `long` base) with a
 `string` base.
 
+For readers that reject unrecognized logical types,
+[`s2a --no-custom-logical-types`](../jsonstructure.md#opting-out-of-custom-logical-types)
+moves these custom names to `x-original-logical-type`. The base type stays
+`string`; no date or time value is converted to an integer. This compatibility
+option leaves the default output and standard logical-type names unchanged.
+
 | Logical type                     | String value (RFC 3339)               |
 | -------------------------------- | ------------------------------------- |
 | `rfc3339-date`                   | "full-date" (e.g. `2024-06-03`)       |

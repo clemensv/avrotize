@@ -16,8 +16,9 @@ class JsonStructureToAvro:
     Convert JSON Structure documents to Avro schema format.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, no_custom_logical_types: bool = False) -> None:
         """Initialize the converter."""
+        self.no_custom_logical_types = no_custom_logical_types
         self.structure_doc: Optional[Dict[str, Any]] = None
         self.converted_types: Dict[str, Dict[str, Any]] = {}
         self.definition_avro_names: Dict[str, str] = {}
@@ -894,6 +895,12 @@ class JsonStructureToAvro:
         
         raise ValueError(f"Cannot convert type schema: {schema}")
     
+    def _apply_custom_logical_type_option(self, schema: Dict[str, str]) -> Dict[str, str]:
+        """Retain disabled custom logical types as non-logical annotations."""
+        if self.no_custom_logical_types and schema['logicalType'].startswith('rfc3339-'):
+            schema['x-original-logical-type'] = schema.pop('logicalType')
+        return schema
+
     def _map_primitive_type(self, struct_type: str) -> Union[str, Dict[str, Any]]:
         """Map JSON Structure primitive type to Avro primitive type.
         
@@ -957,7 +964,7 @@ class JsonStructureToAvro:
         
         # Check in order: temporal, special, simple
         if struct_type in temporal_type_mapping:
-            return temporal_type_mapping[struct_type]
+            return self._apply_custom_logical_type_option(temporal_type_mapping[struct_type])
         if struct_type in special_type_mapping:
             return special_type_mapping[struct_type]
         if struct_type in simple_type_mapping:
@@ -1000,7 +1007,7 @@ class JsonStructureToAvro:
         }
         
         if logical_type in logical_mapping:
-            return logical_mapping[logical_type]
+            return self._apply_custom_logical_type_option(logical_mapping[logical_type])
         
         # Fallback to base type
         if base_type:
@@ -1014,7 +1021,8 @@ class JsonStructureToAvro:
 
 def convert_json_structure_to_avro(
     structure_file: str,
-    avro_file: str
+    avro_file: str,
+    no_custom_logical_types: bool = False
 ) -> None:
     """
     Convert a JSON Structure file to Avro schema file.
@@ -1022,8 +1030,10 @@ def convert_json_structure_to_avro(
     Args:
         structure_file: Path to input JSON Structure file
         avro_file: Path to output Avro schema file
+        no_custom_logical_types: Move custom logicalType values to
+            x-original-logical-type without changing their base types
     """
-    converter = JsonStructureToAvro()
+    converter = JsonStructureToAvro(no_custom_logical_types=no_custom_logical_types)
     
     with open(structure_file, 'r', encoding='utf-8') as f:
         structure_schema = json.load(f)

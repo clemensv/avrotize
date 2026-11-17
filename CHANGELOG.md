@@ -1,5 +1,15 @@
 All notable changes to Avrotize are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `s2a --no-custom-logical-types` moves custom `rfc3339-*` annotations from
+  `logicalType` to `x-original-logical-type` for readers that reject unknown
+  logical types. Date/time base types remain strings; defaults and standard
+  logical-type names are unchanged. The Python converter and file API expose
+  the same opt-out.
+
 ## [3.9.4] - 2026-11-09
 
 ### Security

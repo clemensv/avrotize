@@ -57,7 +57,7 @@ Avrotize provides several commands for converting schema formats via Avrotize Sc
 
 Converting to Avrotize Schema:
 
-- [`avrotize s2a`](jsonstructure.md#conversion-from-json-structure-into-avro-schema) - Convert JSON Structure to Avrotize Schema.
+- [`avrotize s2a`](jsonstructure.md#conversion-from-json-structure-into-avro-schema) - Convert JSON Structure to Avrotize Schema. Use [`--no-custom-logical-types`](jsonstructure.md#opting-out-of-custom-logical-types) for readers that reject custom logical types; date/time base types remain strings.
 - [`avrotize j2a`](#convert-json-schema-to-avrotize-schema) - Convert JSON schema to Avrotize Schema.
 - [`avrotize p2a`](#convert-proto-schema-to-avrotize-schema) - Convert Protobuf (2 or 3) schema to Avrotize Schema.
 - [`avrotize x2a`](#convert-xml-schema-xsd-to-avrotize-schema) - Convert XML schema to Avrotize Schema.
